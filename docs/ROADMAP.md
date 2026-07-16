@@ -31,13 +31,16 @@ document is the phase execution checklist.
 - Goal: settle the exact standard-library Python API, immutable record fields,
   validation policy, entity IDs, target encodings, and deterministic JSON
   contract before production implementation.
-- Outputs: accepted `DATA_CONTRACT.md`, Phase 1 schema ADRs, and synchronized
-  roadmap/status documentation.
-- Tests: documentation consistency and canonical example JSON parsing only.
+- Outputs: reviewed and accepted `DATA_CONTRACT.md`, Phase 1 schema ADRs, and
+  synchronized roadmap/status documentation, including alternative annotation
+  views, unknown target confidence, and extensible adapter diagnostics.
+- Tests: canonical example JSON/contract checks plus the existing repository
+  test and compile checks; no new tests.
 - Non-goals: production modules, unit tests, adapters, MIDI parsing, graph
   construction, dependencies, and legacy changes.
-- Acceptance: the Phase 1B implementation can proceed without inventing fields
-  or compatibility behavior.
+- Acceptance: the Phase 1B implementation can proceed without inventing fields,
+  annotation-view behavior, confidence semantics, diagnostics, or compatibility
+  behavior.
 
 ### Phase 1B — Schema implementation and tests
 

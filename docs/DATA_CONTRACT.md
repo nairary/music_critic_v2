@@ -99,6 +99,17 @@ Split: TypeAlias = str | None
 SourceFormat: TypeAlias = Literal[
     "midi", "musicxml", "json", "jsonl", "tsv", "synthetic", "other"
 ]
+KeySignatureMode: TypeAlias = Literal[
+    "major",
+    "minor",
+    "dorian",
+    "phrygian",
+    "lydian",
+    "mixolydian",
+    "locrian",
+    "other",
+    "unknown",
+]
 AnnotationLayer: TypeAlias = Literal["observation", "target_alignment"]
 AlignmentType: TypeAlias = Literal[
     "piece",
@@ -133,6 +144,7 @@ ProvenanceKind: TypeAlias = Literal[
 ]
 IssueSeverity: TypeAlias = Literal["error", "warning"]
 QualitySeverity: TypeAlias = Literal["info", "warning"]
+QualityFlagCode: TypeAlias = str
 ```
 
 Open identifiers such as `task`, `annotation_type`, and provenance `source`
@@ -235,7 +247,7 @@ The required/optional split is:
 | `MeterEvent` | all except `provenance_id` | `provenance_id` |
 | `KeySignatureEvent` | all except `raw_value`, `provenance_id` | `raw_value`, `provenance_id` |
 | `AnnotationSpan` | `annotation_id`, `annotation_type`, `layer`, `start_qn`, `end_qn` | `track_id`, `value`, `provenance_id` |
-| `TargetArray` | every top-level field; entry nullability is controlled by `mask` | `class_labels` may be null by value type; aligned entries may be null only as specified below |
+| `TargetArray` | every top-level field except `annotation_view_id`; entry nullability is controlled by `mask` | `annotation_view_id` may be null; `class_labels` may be null by value type; aligned entries may be null only as specified below |
 | `ProvenanceRecord` | `provenance_id`, `kind`, `source`, `parents`, `details` | `record_id`, `uri`, `version`, `checksum_sha256`, `created_at` |
 | `QualityFlag` | all except `provenance_id` | `provenance_id` |
 | `CanonicalPiece` | every top-level field key | `split`, `source_path`, `source_resolution` may be null |
@@ -327,6 +339,13 @@ percussion note numbers. `velocity`, when available, is in `[0, 127]`.
 `spelling_step` is one of `A` through `G` when available. `spelling_alter` is an
 integer semitone alteration and is meaningful only when spelling is available.
 `staff` and `voice` are non-negative source identifiers when available.
+
+Schema `2.0.0` supports integer-semitone pitch spelling alterations only.
+Quarter-tone and other microtonal spelling alterations are outside this
+contract. An adapter encountering unsupported source notation must preserve the
+original representation in provenance details, emit an appropriate namespaced
+quality flag, and leave `spelling_alter=None`; it must not silently round the
+alteration.
 
 Theory fields such as scale degree, chord membership, Roman numeral, local key,
 non-chord-tone class, or voice function are forbidden.
@@ -429,15 +448,19 @@ class KeySignatureEvent:
     key_signature_event_id: str
     onset_qn: RationalTime
     fifths: int
-    mode: Literal["major", "minor", "unknown"]
+    mode: KeySignatureMode
     raw_value: str | None
     provenance_id: str | None
 ```
 
 `fifths` is in `[-7, 7]`. A key signature is optional observable notation or
 MIDI metadata, not a local-key analysis and not guaranteed to describe sounding
-tonality. Local key remains a target. Pieces without an observed key signature
-use an empty `key_signature_events` tuple.
+tonality. Local key remains a target. Observed modal source information is
+preserved using the declared mode values. Unsupported or source-specific modes
+use `"other"` while retaining the original notation in `raw_value`;
+`"unknown"` means that a key-signature event was observed but its mode was not
+available. Pieces without an observed key signature use an empty
+`key_signature_events` tuple.
 
 ### `AnnotationSpan`
 
@@ -481,7 +504,9 @@ other theory labels are stored in targets, never in `AnnotationSpan.value`.
 ```python
 @dataclass(frozen=True, slots=True)
 class TargetArray:
+    target_id: str
     task: str
+    annotation_view_id: str | None
     alignment_type: AlignmentType
     entity_ids: tuple[str, ...]
     value_type: TargetValueType
@@ -507,12 +532,18 @@ provenance
 For each position:
 
 - `mask=false` means unavailable and requires `value=null`,
-  `confidence=null`, and `source=null`;
+  `confidence=null`, `source=null`, and `provenance=null`;
 - `mask=true` means an observed target and requires a non-null value,
-  confidence in `[0, 1]`, a non-null source, and a valid provenance reference;
+  a non-null source, and a valid provenance reference;
+- for `mask=true`, confidence may be null when the source supplied no numeric
+  confidence estimate; otherwise it must be finite and in `[0, 1]`;
 - a masked value never means the negative class;
 - an actual negative label, such as `no_cadence`, is valid only when explicitly
   stored with `mask=true`.
+
+For an available target, `confidence=null` means only that numeric confidence
+is unknown. It does not mean that the target is missing, that confidence is
+zero, or that confidence is one.
 
 Target encodings are:
 
@@ -539,8 +570,19 @@ than JSON booleans. This prevents confusion between target values and masks.
 | `beat_boundary` | `beat:*`; the boundary is that beat's `start_qn` |
 | `annotation_span` | `span:*` with `layer="target_alignment"` |
 
+`target_id` is a globally unique `target:*` entity ID.
+`annotation_view_id` is an open non-empty stable string or `None`; `None` means
+that the dataset supplies one default annotation view.
+
 `entity_ids` may select a subset of the aligned collection, but may not contain
-duplicates. A piece contains at most one `TargetArray` for a given `task`.
+duplicates within one target array. Multiple target arrays may share a task
+only when their `annotation_view_id` values differ. Uniqueness is enforced on
+`(task, annotation_view_id)`. The same aligned entity ID may appear in
+different annotation views.
+
+Alternative valid analyses remain separate target arrays. They must not be
+collapsed into a `distribution` target unless the source explicitly supplies a
+probability distribution.
 
 ### `ProvenanceRecord`
 
@@ -570,20 +612,6 @@ field reason; they must not be used to hide theory labels from `TargetArray`.
 ### `QualityFlag`
 
 ```python
-QualityFlagCode: TypeAlias = Literal[
-    "DEFAULT_TEMPO_INSERTED",
-    "DEFAULT_METER_INSERTED",
-    "SOURCE_RESOLUTION_UNAVAILABLE",
-    "TIMING_QUANTIZED",
-    "TIMING_ALIGNMENT_UNCERTAIN",
-    "INCOMPLETE_FINAL_BAR",
-    "EMPTY_TRACK",
-    "POSSIBLE_DUPLICATE_NOTE",
-    "OPTIONAL_METADATA_UNAVAILABLE",
-    "SYNTHETIC_SOURCE",
-]
-
-
 @dataclass(frozen=True, slots=True)
 class QualityFlag:
     code: QualityFlagCode
@@ -595,6 +623,27 @@ class QualityFlag:
 
 Quality flags are persisted source/conversion facts. They are not validation
 errors and their severity is only `info` or `warning`.
+
+`QualityFlag.code` is an open, stable, lowercase dotted identifier matching:
+
+```text
+^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$
+```
+
+It therefore contains at least two non-empty lowercase ASCII namespace
+components. Examples:
+
+```text
+canonical.default_tempo_inserted
+canonical.default_meter_inserted
+adapter.midi.mixed_percussion_track_split
+adapter.pop909.alignment_uncertain
+adapter.pdmx.unsupported_event_dropped
+```
+
+Adapters may define new stable codes without changing the schema version.
+Invalid syntax is a validation error. `ValidationCode` remains a closed
+`Literal` because validation behavior is part of the strict schema contract.
 
 ### `CanonicalPiece`
 
@@ -672,7 +721,8 @@ ValidationCode: TypeAlias = Literal[
     "BEAT_INVALID",
     "BEAT_GRID_INVALID",
     "ANNOTATION_INVALID",
-    "TARGET_TASK_DUPLICATE",
+    "TARGET_VIEW_INVALID",
+    "TARGET_VIEW_DUPLICATE",
     "TARGET_LENGTH_MISMATCH",
     "TARGET_ENTITY_DUPLICATE",
     "TARGET_ALIGNMENT_INVALID",
@@ -682,6 +732,7 @@ ValidationCode: TypeAlias = Literal[
     "TARGET_CONFIDENCE_INVALID",
     "TARGET_SOURCE_INVALID",
     "TARGET_PROVENANCE_INVALID",
+    "QUALITY_FLAG_CODE_INVALID",
     "PROVENANCE_DETAIL_INVALID",
     "PROVENANCE_MISSING",
     "PROVENANCE_PARENT_INVALID",
@@ -752,6 +803,7 @@ The complete Phase 1 prefixes are:
 | meter event | `meter:` |
 | key-signature event | `keysig:` |
 | annotation span | `span:` |
+| target array | `target:` |
 | provenance record | `prov:` |
 
 The local portion matches:
@@ -788,7 +840,7 @@ Sort keys are:
 | meter events | `(onset_qn, meter_event_id)` |
 | key-signature events | `(onset_qn, key_signature_event_id)` |
 | annotations | `(start_qn, end_qn, annotation_id)` |
-| targets | `(task,)` |
+| targets | `(task, annotation_view_id is not None, annotation_view_id or "", target_id)`; null views sort first |
 | provenance | topological parent-before-child order, with `provenance_id` breaking ties |
 | quality flags | `(code, entity_ids, message)` |
 
@@ -879,6 +931,31 @@ Provenance preserves source identity, conversion version, checksums when
 available, target origin, confidence context, and explicit defaults. Confidence
 does not replace provenance, and provenance does not replace target masks.
 
+### Trailing-silence content boundary
+
+The sounding/observation content end used by `PIECE_TRAILING_SILENCE` is the
+latest of:
+
+- the offset of every positive-duration note, including percussion notes and
+  positive-duration grace notes;
+- the `end_qn` of every positive-duration
+  `AnnotationSpan(layer="observation")`.
+
+Zero-duration grace notes and point annotations do not extend this boundary.
+Bars, beats, tempo events, meter events, key-signature events, targets, and
+`target_alignment` spans are structural or supervisory and do not count as
+sounding/observation content.
+
+When no qualifying content exists, the content end is `0/1`. Therefore:
+
+- an empty or structural-only piece with positive `duration_qn` emits both
+  `EMPTY_PIECE` and `PIECE_TRAILING_SILENCE`;
+- an empty or structural-only piece with zero duration emits `EMPTY_PIECE` but
+  not `PIECE_TRAILING_SILENCE`;
+- a piece containing only zero-duration grace notes or point annotations follows
+  the same rule;
+- percussion notes count exactly like pitched notes.
+
 ## 8. Validation policy
 
 ### Errors
@@ -895,7 +972,7 @@ These codes always have `severity="error"`:
 | `RATIONAL_NOT_NORMALIZED` | a JSON rational is reducible, has a negative denominator, or encodes zero with a denominator other than one |
 | `ENTITY_ID_INVALID` | an entity ID does not match the required lexical form |
 | `ENTITY_ID_PREFIX_INVALID` | an entity field or target alignment uses the wrong type prefix |
-| `ENTITY_ID_DUPLICATE` | two piece entities share an ID |
+| `ENTITY_ID_DUPLICATE` | two piece entities, including target arrays, share an ID |
 | `ENTITY_REFERENCE_INVALID` | a non-target reference points to no entity of the required type |
 | `COLLECTION_ORDER_INVALID` | a collection differs from its canonical order |
 | `VALUE_NOT_FINITE` | any schema float is NaN or positive/negative infinity |
@@ -922,16 +999,18 @@ These codes always have `severity="error"`:
 | `BEAT_INVALID` | beat duration/index/position/downbeat state is internally inconsistent or lies outside its referenced bar |
 | `BEAT_GRID_INVALID` | for non-empty bars, beats do not form the effective denominator-unit grid over each actual bar extent |
 | `ANNOTATION_INVALID` | span ordering, layer/value constraint, type prefix, track reference, or piece bounds are invalid |
-| `TARGET_TASK_DUPLICATE` | two target arrays share a task |
+| `TARGET_VIEW_INVALID` | `annotation_view_id` is non-null but empty, or `task` is empty |
+| `TARGET_VIEW_DUPLICATE` | two target arrays share the same `(task, annotation_view_id)` pair |
 | `TARGET_LENGTH_MISMATCH` | aligned target fields have different lengths |
 | `TARGET_ENTITY_DUPLICATE` | one target array repeats an entity ID |
 | `TARGET_ALIGNMENT_INVALID` | alignment type and entity prefix/count rules disagree |
 | `TARGET_ENTITY_INVALID` | a target entity does not exist in the containing piece |
 | `TARGET_VALUE_INVALID` | value type, class vocabulary, scalar, multi-label, or distribution rules fail |
 | `TARGET_MASK_INVALID` | a masked entry is non-null or an available entry is null |
-| `TARGET_CONFIDENCE_INVALID` | available confidence is absent/outside `[0,1]`, or unavailable confidence is non-null |
+| `TARGET_CONFIDENCE_INVALID` | non-null available confidence is non-finite/outside `[0,1]`, or unavailable confidence is non-null |
 | `TARGET_SOURCE_INVALID` | available source is absent/unsupported, or unavailable source is non-null |
 | `TARGET_PROVENANCE_INVALID` | available provenance is absent/dangling, or unavailable provenance is non-null |
+| `QUALITY_FLAG_CODE_INVALID` | a quality flag code does not match the lowercase dotted namespace syntax |
 | `PROVENANCE_DETAIL_INVALID` | detail keys are empty, duplicate, unsorted, or values are not finite JSON scalars |
 | `PROVENANCE_MISSING` | the piece has no provenance records |
 | `PROVENANCE_PARENT_INVALID` | a parent is missing, duplicated, self-referential, or not earlier in canonical topological order |
@@ -949,10 +1028,10 @@ These codes always have `severity="warning"`:
 | `INCOMPLETE_FINAL_BAR` | the final bar is shortened, incomplete, and not a pickup |
 | `OVERLAPPING_SAME_PITCH_NOTES` | positive-duration notes of the same pitch overlap on one track |
 | `MID_BAR_TEMPO_CHANGE` | a tempo event occurs strictly inside a bar |
-| `LOW_CONFIDENCE_TARGET` | an available target entry has confidence below `0.5` |
+| `LOW_CONFIDENCE_TARGET` | an available target entry has non-null confidence below `0.5` |
 | `UNREFERENCED_PROVENANCE` | a provenance record is neither referenced by a record/target/flag nor the parent of another record |
 | `EMPTY_OBSERVATION` | an observation annotation has the available value `""` |
-| `PIECE_TRAILING_SILENCE` | piece duration exceeds every note offset, bar/beat end, event onset, and annotation end |
+| `PIECE_TRAILING_SILENCE` | piece duration is greater than the sounding/observation content end defined above |
 
 The following are explicitly valid and do not themselves cause warnings:
 
@@ -962,6 +1041,7 @@ The following are explicitly valid and do not themselves cause warnings:
 - simultaneous notes or different-pitch overlaps;
 - empty target arrays whose aligned length is zero;
 - `mask=false` entries with null values;
+- available target entries with `confidence=null`;
 - a key signature that is absent or differs from a target local key;
 - percussion notes outside common General MIDI drum mappings.
 
@@ -1024,8 +1104,10 @@ byte-identical output for the same valid immutable piece and the same `indent`.
 This synthetic piece has a one-quarter-note pickup in 4/4, a pitched track, a
 percussion track, a sustained note crossing the pickup boundary, explicit tempo
 and meter, bars and beats, unavailable optional metadata, track roles only in a
-target, and a partially masked chord-quality target. No raw track or note field
-contains theory.
+target, a partially masked chord-quality target, and an available theory label
+whose numeric confidence is unknown. Its last sounding note ends at `4/1` while
+the piece ends at `5/1`, so the revised trailing-silence rule is reachable. No
+raw track or note field contains theory.
 
 ```json
 {
@@ -1340,7 +1422,7 @@ contains theory.
   ],
   "quality_flags": [
     {
-      "code": "SYNTHETIC_SOURCE",
+      "code": "canonical.synthetic_source",
       "entity_ids": ["piece:synthetic-two-track"],
       "message": "This piece is a deterministic documentation fixture.",
       "provenance_id": "prov:source",
@@ -1355,8 +1437,9 @@ contains theory.
   "targets": [
     {
       "alignment_type": "beat",
+      "annotation_view_id": null,
       "class_labels": ["major", "minor", "dominant_seventh", "no_chord"],
-      "confidence": [0.95, 0.95, null, 0.8, null],
+      "confidence": [null, 0.95, null, 0.8, null],
       "entity_ids": [
         "beat:000",
         "beat:001",
@@ -1373,12 +1456,14 @@ contains theory.
         null
       ],
       "source": ["human", "human", null, "human", null],
+      "target_id": "target:theory-chord-quality-default",
       "task": "theory.chord_quality",
       "value_type": "categorical",
       "values": ["major", "major", null, "dominant_seventh", null]
     },
     {
       "alignment_type": "track",
+      "annotation_view_id": null,
       "class_labels": [
         "melody",
         "secondary_melody",
@@ -1393,6 +1478,7 @@ contains theory.
       "mask": [true, true],
       "provenance": ["prov:theory", "prov:theory"],
       "source": ["synthetic", "synthetic"],
+      "target_id": "target:track-role-default",
       "task": "track.role",
       "value_type": "categorical",
       "values": ["melody", "drums"]
@@ -1441,8 +1527,14 @@ Phase 1B must implement this API without inventing fields and add tests for:
 - ID syntax, uniqueness, ordering, and references;
 - pickup bars, denominator-unit beats, meter/tempo changes, cross-bar notes,
   overlaps, percussion splitting assumptions, and grace notes;
-- all target value types, masks, aligned lengths, confidence, source, and
-  provenance;
+- target IDs, default and alternative annotation views, view uniqueness, and
+  separation of alternative analyses;
+- all target value types, masks, aligned lengths, known/unknown confidence,
+  source, and provenance;
+- modal key-signature observations;
+- namespaced quality-flag validation;
+- reachable sounding/observation-based trailing-silence warnings;
+- unsupported microtonal spelling preservation without silent rounding;
 - deterministic serialization bytes;
 - error/warning classification and exception report retention.
 

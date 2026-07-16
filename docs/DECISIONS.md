@@ -146,3 +146,67 @@ This log is append-only.
 - Consequences: Warnings never invalidate a piece, persisted `QualityFlag`
   records are distinct from computed validation issues, and callers can report
   all failures in one pass.
+
+## 2026-07-16 — ADR-015: Targets preserve alternative annotation views
+
+- Status: Accepted
+- Context: Dilemmadata and other corpora may provide multiple legitimate
+  analyses of the same entities. One target array per task cannot represent
+  this disagreement without discarding information.
+- Decision: Every `TargetArray` has a globally unique `target_id` and an
+  optional stable `annotation_view_id`. Target uniqueness is enforced on
+  `(task, annotation_view_id)`, while the same aligned entity may appear in
+  different views.
+- Consequences: Alternative analyses remain separate records and remain grouped
+  with the same piece/source group. They are not converted into probability
+  distributions unless the source explicitly supplies a distribution.
+
+## 2026-07-16 — ADR-016: Available target confidence may be unknown
+
+- Status: Accepted
+- Context: Many human and dataset labels are available without a calibrated
+  numeric confidence estimate.
+- Decision: For `mask=true`, value, source, and provenance are required while
+  confidence may be null. Non-null confidence must be finite and in `[0,1]`.
+  For `mask=false`, value, confidence, source, and provenance are all null.
+- Consequences: Null confidence means unknown numeric confidence only; it is
+  neither missing supervision nor an implicit value of zero or one.
+  `LOW_CONFIDENCE_TARGET` applies only to non-null confidence below `0.5`.
+
+## 2026-07-16 — ADR-017: Observable modes and adapter diagnostics remain extensible
+
+- Status: Accepted
+- Context: Restricting key-signature mode to major/minor discards source
+  observations, while a closed quality-flag vocabulary would require a schema
+  migration for routine adapter diagnostics.
+- Decision: Key-signature mode includes the common diatonic modes plus `other`
+  and `unknown`, with source-specific notation retained in `raw_value`.
+  `QualityFlag.code` is an open stable lowercase dotted identifier validated by
+  syntax; `ValidationCode` remains closed.
+- Consequences: Modal key-signature metadata remains observable rather than
+  becoming a local-key label. Adapters may add namespaced diagnostics without
+  changing schema version `2.0.0`.
+
+## 2026-07-16 — ADR-018: Schema 2.0.0 limits spelling alterations to semitones
+
+- Status: Accepted
+- Context: The integer `spelling_alter` field cannot represent quarter-tone or
+  other microtonal notation faithfully.
+- Decision: Keep `spelling_alter: int | None` for schema `2.0.0`. Unsupported
+  microtonal source notation is preserved in provenance, accompanied by a
+  namespaced quality flag, and is never silently rounded.
+- Consequences: Microtonal spelling is an explicit accepted limitation requiring
+  a future versioned extension if first-class support is needed.
+
+## 2026-07-16 — ADR-019: Trailing silence excludes structural coverage
+
+- Status: Accepted
+- Context: Bars and beats normally cover the full piece duration, making a
+  structural-end definition of trailing silence unreachable.
+- Decision: `PIECE_TRAILING_SILENCE` compares piece duration with the latest end
+  of positive-duration notes or observation annotations. Structural events,
+  target-alignment spans, point annotations, and zero-duration grace notes do
+  not extend sounding/observation content.
+- Consequences: The warning is exact and reachable. Percussion counts as
+  sounding content; structural-only positive-duration pieces emit both empty
+  piece and trailing-silence warnings.
