@@ -1,76 +1,81 @@
 # Music Critic V2 Status
 
-## Bootstrap
+## Current phase
 
 - Date: 2026-07-16
-- Current phase: Phase 0 — clean repository bootstrap and legacy audit
-- State: completed
-- Legacy path: `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic`
+- Current phase: Phase 1A — canonical schema API and JSON contract
+- State: completed; current handoff task
+- Previous phase: Phase 0 — clean repository bootstrap and legacy audit,
+  completed
+- Next phase: Phase 1B — implement the accepted schema, validation, and
+  serialization API with tests
+
+## Phase 1A results
+
+- Fixed `SCHEMA_VERSION` as `2.0.0`.
+- Finalized the exact future public API for:
+  - `music_critic.data.timing`;
+  - `music_critic.data.schema`;
+  - `music_critic.data.validation`;
+  - `music_critic.data.serialization`.
+- Defined complete fields for rational timing, pieces, metadata, tracks, notes,
+  bars, beats, tempo, meter, key signatures, annotations, targets, provenance,
+  quality flags, validation issues/reports, and validation exceptions.
+- Accepted frozen dataclasses with tuple collections and no non-standard
+  dependency.
+- Accepted stable prefixed string entity IDs and canonical collection ordering.
+- Defined pickup, tempo/meter change, cross-bar note, overlap, grace-note, and
+  percussion semantics.
+- Defined explicit unavailable-versus-empty behavior.
+- Defined categorical, scalar, multi-label, and distribution target encodings,
+  including masks, confidence, per-entry source, and provenance.
+- Defined strict unknown-field rejection, exact-version compatibility, and
+  deterministic field-by-field JSON serialization.
+- Defined validation error and warning codes and their severity boundary.
+- Added a complete synthetic two-track canonical JSON example with tempo,
+  meter, pickup bars and beats, pitched and percussion notes, an unavailable
+  optional field, target-only track roles, a partially masked theory target,
+  and provenance.
+
+## Files changed in Phase 1A
+
+- `docs/DATA_CONTRACT.md`
+- `docs/DECISIONS.md`
+- `docs/ROADMAP.md`
+- `docs/STATUS.md`
+
+No production Python files, tests, dependency declarations, generated data, or
+legacy files were changed.
+
+## Verification
+
+- All authoritative repository documents were read before editing.
+- The legacy checkout was not inspected because no V1 behavior was needed to
+  settle the V2 contract.
+- Documentation-only scope was confirmed by the Git diff.
+- The embedded canonical JSON example parsed successfully with the Python
+  standard library.
+- Structural checks for required JSON keys, normalized rationals, entity
+  references/order, aligned target lengths, and mask/null semantics passed.
+- `git diff --check` passed.
+- No implementation tests are added or required for this design-only phase.
+
+## Phase 0 retained status
+
+- Legacy path:
+  `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic`
 - Legacy commit: `2d8281f31cc9ad9c8fecaf332da0c61e0e949415`
 - Legacy branch: `sections`
-- Legacy initial state: dirty; exact porcelain entries are stored in
+- Legacy initial state: dirty; exact porcelain entries remain stored in
   `legacy_snapshot.json`.
+- Phase 0 verification result: `7 passed in 0.03s`; compile and legacy snapshot
+  checks passed.
 
-## Files created
+## Blockers and remaining ambiguities
 
-- root project policy and configuration;
-- minimal `music_critic` package scaffold;
-- authoritative implementation-plan copy with provenance;
-- architecture, data-contract, roadmap, decisions, and legacy migration audit;
-- deterministic legacy snapshot and read-only verification script;
-- import and repository-contract tests.
+None for Phase 1B implementation. Future schema changes must be handled through
+an explicit schema version and ADR rather than reinterpretation of `2.0.0`.
 
-No `LICENSE` was copied because no clear license file was found in the legacy
-repository.
-
-## Commands executed
-
-```text
-git rev-parse --show-toplevel
-git rev-parse HEAD
-git branch --show-current
-git status --porcelain=v1
-git remote -v
-python --version
-git init /home/str/music-critic-v2
-git branch -M main
-PYTHONPATH=src python -c "import music_critic; print(music_critic.__version__)"
-python -m pytest -q
-python -m compileall src
-make check
-make legacy-check
-python scripts/check_legacy_unchanged.py
-```
-
-## Verification results
-
-- Direct import with system Python: passed, version `0.1.0`.
-- Initial system `python -m pytest -q`: could not start because the system
-  interpreter has no pytest installation.
-- `python -m pytest -q` in the existing Python environment containing pytest:
-  `7 passed in 0.03s`.
-- `python -m compileall src`: passed.
-- `make check`: passed; `7 passed in 0.03s`, then compileall passed.
-- `make legacy-check`: passed; legacy HEAD and all 15 porcelain status entries
-  matched the snapshot.
-- Implementation-plan body comparison against the legacy source: identical.
-
-GNU Make was absent from the host. Debian GNU Make 4.4.1 was downloaded and
-temporarily extracted inside this repository only for verification, then
-removed. It was not installed globally and is not part of the repository.
-
-## Blockers
-
-None for Phase 0. Repository licensing remains an organizational question for
-future publication or distribution. Developers must install the `dev` extra or
-otherwise provide pytest before running the test target.
-
-## Next recommended task
-
-Phase 1A — propose the exact canonical schema API and JSON contract without
-editing production code.
-
-## Legacy safety
-
-Final verification found the same legacy commit and exact pre-existing dirty
-state captured at the start. No legacy files were modified by the bootstrap.
+Repository licensing remains an organizational question for future publication
+or distribution. Developers still need the `dev` extra or another pytest
+installation to run test targets.
