@@ -419,7 +419,15 @@ def _expect_float_number(
     number = _expect_number(ctx, value, path)
     if number is _INVALID:
         return _INVALID
-    return float(number)
+    try:
+        return float(number)
+    except OverflowError:
+        ctx.add(
+            "VALUE_NOT_FINITE",
+            "integer is outside the finite float range",
+            path,
+        )
+        return _INVALID
 
 
 def _expect_optional_float(

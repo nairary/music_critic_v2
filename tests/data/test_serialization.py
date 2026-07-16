@@ -440,6 +440,66 @@ def test_invalid_utf8_propagates_unicode_decode_error() -> None:
         loads_piece(b"\xff")
 
 
+@pytest.mark.parametrize("sign", [1, -1])
+@pytest.mark.parametrize(
+    ("location", "path"),
+    [
+        ("note_seconds", "/notes/0/source_onset_seconds"),
+        ("beat_strength", "/beats/0/strength"),
+        ("target_confidence", "/targets/0/confidence/0"),
+        ("distribution_value", "/targets/0/values/0/0"),
+    ],
+)
+def test_huge_integer_float_fields_report_value_not_finite_without_mutation(
+    fixture_dict: JsonObject,
+    location: str,
+    path: str,
+    sign: int,
+) -> None:
+    huge_integer = sign * 10**10000
+    if location == "note_seconds":
+        fixture_dict["notes"][0]["source_onset_seconds"] = huge_integer
+    elif location == "beat_strength":
+        fixture_dict["beats"][0]["strength"] = huge_integer
+    elif location == "target_confidence":
+        fixture_dict["targets"][0]["confidence"][0] = huge_integer
+    else:
+        target = fixture_dict["targets"][0]
+        target["value_type"] = "distribution"
+        target["class_labels"] = ["major", "minor"]
+        target["values"] = [
+            [0.5, 0.5],
+            [0.5, 0.5],
+            None,
+            [0.5, 0.5],
+            None,
+        ]
+        target["values"][0][0] = huge_integer
+
+    before = deepcopy(fixture_dict)
+    error = _decode_error(fixture_dict)
+
+    _assert_issue(error, "VALUE_NOT_FINITE", path)
+    assert fixture_dict == before
+
+
+def test_json_numeric_exponent_infinity_reaches_semantic_validation(
+    fixture_text: str,
+) -> None:
+    payload = fixture_text.replace(
+        '"source_onset_seconds": null',
+        '"source_onset_seconds": 1e9999',
+        1,
+    )
+    with pytest.raises(CanonicalValidationError) as caught:
+        loads_piece(payload)
+    _assert_issue(
+        caught.value,
+        "VALUE_NOT_FINITE",
+        "/notes/0/source_onset_seconds",
+    )
+
+
 @pytest.mark.parametrize(
     ("mutation", "code", "path"),
     [
@@ -466,7 +526,7 @@ def test_invalid_modal_string_reaches_validator(valid_piece: CanonicalPiece) -> 
     mapping = piece_to_dict(valid_piece)
     mapping["key_signature_events"] = [
         {
-            "key_signature_event_id": "key:000",
+            "key_signature_event_id": "keysig:000",
             "onset_qn": {"num": 0, "den": 1},
             "fifths": 0,
             "mode": "aeolian",
@@ -485,7 +545,7 @@ def test_modal_runtime_type_is_decoder_error(valid_piece: CanonicalPiece) -> Non
     mapping = piece_to_dict(valid_piece)
     mapping["key_signature_events"] = [
         {
-            "key_signature_event_id": "key:000",
+            "key_signature_event_id": "keysig:000",
             "onset_qn": {"num": 0, "den": 1},
             "fifths": 0,
             "mode": 7,

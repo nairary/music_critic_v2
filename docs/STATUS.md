@@ -10,6 +10,29 @@
 - Next action: final Phase 1 review
 - Phase 2 remains pending
 
+## Phase 1B.3 float-decoding review fix
+
+- Final review confirmed that `_expect_float_number` allowed `OverflowError` to
+  escape when a direct caller-owned mapping supplied an integer too large for
+  Python float conversion, such as `10**10000`.
+- Float-valued decoding now catches only that conversion overflow, emits
+  `VALUE_NOT_FINITE` at the exact RFC 6901 field path, returns no placeholder
+  value, and lets `piece_from_dict` raise `CanonicalValidationError` with the
+  deterministic report. Values are never clamped or replaced with a finite
+  boundary value.
+- Added positive and negative huge-integer regressions for note source seconds,
+  beat strength, target confidence, and distribution probabilities. Every case
+  verifies the exact issue path and that the caller-owned mapping is unchanged.
+- Added JSON exponent coverage showing that `1e9999` decoded as a float infinity
+  continues through the existing semantic validation path and produces
+  `VALUE_NOT_FINITE`.
+- Corrected the key-signature IDs in the modal semantic-handoff tests from the
+  unrelated `key:` prefix to the accepted `keysig:` prefix, isolating mode
+  string and runtime-type behavior.
+- Changed only `src/music_critic/data/serialization.py`,
+  `tests/data/test_serialization.py`, and this status file. `docs/ROADMAP.md`
+  already had the required Phase 1B.3 pending-review state and did not change.
+
 ## Phase 1B.3 results
 
 - Added the standard-library-only canonical serialization API:
@@ -84,15 +107,15 @@ That interpreter is only the environment used for checks and is not a V2
 runtime dependency.
 
 - `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic/.venv/bin/python -m pytest tests/data/test_timing.py -q`:
-  `28 passed in 0.03s`.
+  `28 passed in 0.02s`.
 - `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic/.venv/bin/python -m pytest tests/data/test_schema.py -q`:
-  `13 passed in 0.08s`.
+  `13 passed in 0.10s`.
 - `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic/.venv/bin/python -m pytest tests/data/test_validation.py -q`:
-  `110 passed in 0.27s`.
+  `110 passed in 0.21s`.
 - `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic/.venv/bin/python -m pytest tests/data/test_serialization.py -q`:
-  `85 passed in 0.17s`.
+  `94 passed in 0.22s`.
 - `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic/.venv/bin/python -m pytest -q`:
-  `243 passed in 0.42s`.
+  `252 passed in 0.43s`.
 - `python -m compileall src`: passed.
 - The explicit `PYTHONPATH=src` import-isolation check passed with
   `standard-library import contract passed`.
