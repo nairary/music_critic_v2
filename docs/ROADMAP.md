@@ -17,7 +17,7 @@ document is the phase execution checklist.
 
 ## Phase 1 — Canonical data schema and serialization
 
-- Status: In progress
+- Status: Completed
 - Goal: implement exact typed canonical data, validation, and JSON round trips.
 - Dependencies: Phase 0 data-contract decisions.
 - Outputs: rational timing, schema types, validation reports, serialization.
@@ -46,7 +46,7 @@ document is the phase execution checklist.
 
 ### Phase 1B — Schema implementation and tests
 
-- Status: In progress
+- Status: Completed
 - Goal: implement the accepted Phase 1A API and validation/serialization
   behavior.
 - Outputs: `music_critic.data.timing`, `schema`, `validation`, and
@@ -87,7 +87,7 @@ document is the phase execution checklist.
 
 #### Phase 1B.3 — Canonical serialization
 
-- Status: Current implementation task — completed, pending final review
+- Status: Completed
 - Goal: implement strict field-by-field canonical JSON encoding and decoding.
 - Outputs: `music_critic.data.serialization`.
 - Tests: malformed data, exact-version behavior, deterministic bytes, and
@@ -97,6 +97,7 @@ document is the phase execution checklist.
 ## Phase 2 — Generic MIDI and HookTheory adapters
 
 - Status: Pending
+- Sequence: next phase after the completed canonical data layer.
 - Goal: map unlabeled MIDI and HookTheory into the same canonical schema.
 - Dependencies: Phase 1.
 - Outputs: adapter interface, generic MIDI adapter, HookTheory adapter.
