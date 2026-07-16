@@ -81,6 +81,9 @@ document is the phase execution checklist.
 - Tests: complete semantic, reference, timing, target, provenance, error, and
   warning behavior from the accepted contract.
 - Non-goals: serialization and dataset adapters.
+- Review closure: canonical note/provenance ordering, exact issue
+  deduplication, and scalable same-pitch overlap detection are covered by
+  regression tests.
 
 #### Phase 1B.3 — Canonical serialization
 

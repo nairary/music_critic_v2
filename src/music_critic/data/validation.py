@@ -205,6 +205,8 @@ _QUALITY_SEVERITIES = {"info", "warning"}
 class _Context:
     piece: CanonicalPiece
     issues: list[ValidationIssue]
+    issue_set: set[ValidationIssue]
+    record_cache: dict[tuple[str, type[Any]], list[tuple[int, Any]]]
     entity_paths: dict[str, str]
     entity_prefixes: dict[str, str]
     track_by_id: dict[str, CanonicalTrack]
@@ -223,15 +225,16 @@ class _Context:
         *,
         severity: IssueSeverity = "error",
     ) -> None:
-        self.issues.append(
-            ValidationIssue(
-                code=code,
-                severity=severity,
-                message=message,
-                path=path,
-                entity_id=entity_id,
-            )
+        issue = ValidationIssue(
+            code=code,
+            severity=severity,
+            message=message,
+            path=path,
+            entity_id=entity_id,
         )
+        if issue not in self.issue_set:
+            self.issue_set.add(issue)
+            self.issues.append(issue)
 
 
 def _entity_id(record: object, attribute: str) -> str | None:
@@ -514,7 +517,15 @@ def _check_any_entity_reference(
 
 
 def _records(ctx: _Context, name: str, expected_type: type[Any]) -> list[tuple[int, Any]]:
-    return _typed_records(ctx, getattr(ctx.piece, name, ()), expected_type, f"/{name}")
+    key = (name, expected_type)
+    if key not in ctx.record_cache:
+        ctx.record_cache[key] = _typed_records(
+            ctx,
+            getattr(ctx.piece, name, ()),
+            expected_type,
+            f"/{name}",
+        )
+    return ctx.record_cache[key]
 
 
 def _validate_ids(ctx: _Context) -> None:
@@ -2095,12 +2106,28 @@ def _validate_piece_bounds(ctx: _Context) -> None:
             )
 
 
-def _safe_track_order(ctx: _Context) -> dict[str, int]:
-    return {
-        track.track_id: position
-        for position, (_, track) in enumerate(_records(ctx, "tracks", CanonicalTrack))
+def _canonical_track_order(ctx: _Context) -> dict[str, int]:
+    sortable_tracks = [
+        track
+        for _, track in _records(ctx, "tracks", CanonicalTrack)
         if isinstance(track.track_id, str)
-    }
+        and (track.source_track_index is None or _is_int(track.source_track_index))
+    ]
+    sorted_tracks = sorted(
+        sortable_tracks,
+        key=lambda track: (
+            track.source_track_index is None,
+            track.source_track_index
+            if track.source_track_index is not None
+            else 0,
+            track.track_id,
+        ),
+    )
+    order: dict[str, int] = {}
+    for track in sorted_tracks:
+        if track.track_id not in order:
+            order[track.track_id] = len(order)
+    return order
 
 
 def _check_sorted(
@@ -2148,7 +2175,7 @@ def _validate_collection_order(ctx: _Context) -> None:
                 for track in tracks
             ],
         )
-    track_order = _safe_track_order(ctx)
+    track_order = _canonical_track_order(ctx)
     notes = [record for _, record in _records(ctx, "notes", CanonicalNote)]
     if all(
         isinstance(note.onset_qn, RationalTime)
@@ -2248,16 +2275,17 @@ def _validate_collection_order(ctx: _Context) -> None:
         emitted: set[str] = set()
         expected_ids: list[str] = []
         while remaining:
-            ready = sorted(
+            ready = [
                 identifier
                 for identifier in remaining
                 if all(parent in emitted or parent not in by_id for parent in by_id[identifier].parents)
-            )
+            ]
             if not ready:
                 break
-            expected_ids.extend(ready)
-            emitted.update(ready)
-            remaining.difference_update(ready)
+            identifier = min(ready)
+            expected_ids.append(identifier)
+            emitted.add(identifier)
+            remaining.remove(identifier)
         actual_ids = [record.provenance_id for record in provenance]
         if not remaining and actual_ids != expected_ids:
             ctx.add(
@@ -2325,22 +2353,36 @@ def _collect_warnings(ctx: _Context) -> None:
         and isinstance(note.track_id, str)
         and _is_int(note.pitch)
     ]
-    for left_position, (left_index, left) in enumerate(positive_notes):
-        left_end = left.onset_qn + left.duration_qn
-        for right_index, right in positive_notes[left_position + 1 :]:
-            if (
-                left.track_id == right.track_id
-                and left.pitch == right.pitch
-                and right.onset_qn < left_end
-                and left.onset_qn < right.onset_qn + right.duration_qn
-            ):
+    overlap_groups: dict[
+        tuple[str, int],
+        list[tuple[int, CanonicalNote, RationalTime]],
+    ] = {}
+    for note_index, note in positive_notes:
+        overlap_groups.setdefault((note.track_id, note.pitch), []).append(
+            (note_index, note, note.onset_qn + note.duration_qn)
+        )
+    for group in overlap_groups.values():
+        ordered_group = sorted(
+            group,
+            key=lambda item: (
+                item[1].onset_qn,
+                item[2],
+                _entity_id(item[1], "note_id") or "",
+                item[0],
+            ),
+        )
+        latest_end: RationalTime | None = None
+        for note_index, note, note_end in ordered_group:
+            if latest_end is not None and note.onset_qn < latest_end:
                 ctx.add(
                     "OVERLAPPING_SAME_PITCH_NOTES",
                     "positive-duration notes of the same pitch overlap on one track",
-                    f"/notes/{right_index}",
-                    _entity_id(right, "note_id"),
+                    f"/notes/{note_index}",
+                    _entity_id(note, "note_id"),
                     severity="warning",
                 )
+            if latest_end is None or note_end > latest_end:
+                latest_end = note_end
     for event_index, event in _records(ctx, "tempo_events", TempoEvent):
         if not isinstance(event.onset_qn, RationalTime):
             continue
@@ -2452,6 +2494,8 @@ def validate_piece(piece: CanonicalPiece) -> ValidationReport:
     ctx = _Context(
         piece=piece,
         issues=[],
+        issue_set=set(),
+        record_cache={},
         entity_paths={},
         entity_prefixes={},
         track_by_id={},

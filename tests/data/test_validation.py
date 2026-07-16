@@ -141,6 +141,56 @@ def _replace_provenance(
     return replace(piece, provenance=tuple(provenance))
 
 
+def _overlap_warnings(piece: CanonicalPiece) -> tuple[ValidationIssue, ...]:
+    return tuple(
+        issue
+        for issue in validate_piece(piece).issues
+        if issue.code == "OVERLAPPING_SAME_PITCH_NOTES"
+    )
+
+
+def _pitched_note(
+    template: CanonicalNote,
+    *,
+    note_id: str,
+    onset: RationalTime,
+    duration: RationalTime,
+    pitch: int = 60,
+) -> CanonicalNote:
+    return replace(
+        template,
+        note_id=note_id,
+        track_id="track:melody",
+        pitch=pitch,
+        onset_qn=onset,
+        duration_qn=duration,
+        is_percussion=False,
+        is_grace=duration == RationalTime(0),
+        source_onset_ticks=None,
+        source_duration_ticks=None,
+        source_onset_seconds=None,
+        source_duration_seconds=None,
+    )
+
+
+def _provenance_record(
+    provenance_id: str,
+    parents: tuple[str, ...] = (),
+) -> ProvenanceRecord:
+    return ProvenanceRecord(
+        provenance_id=provenance_id,
+        kind="derivation",
+        source="ordering_fixture",
+        record_id=None,
+        uri=None,
+        version=None,
+        checksum_sha256=None,
+        created_at=None,
+        parents=parents,
+        details=(),
+    )
+
+
 def _targets_for_beats(
     targets: tuple[TargetArray, ...], beats: tuple[CanonicalBeat, ...]
 ) -> tuple[TargetArray, ...]:
@@ -462,6 +512,45 @@ def test_entity_ids_references_and_order(
     _assert_code(variant(valid_piece), code)  # type: ignore[operator]
 
 
+def test_note_order_uses_canonical_track_order_independent_of_track_tuple(
+    valid_piece: CanonicalPiece,
+) -> None:
+    piece = replace(
+        valid_piece,
+        tracks=tuple(reversed(valid_piece.tracks)),
+        notes=tuple(reversed(valid_piece.notes)),
+    )
+    order_paths = {
+        issue.path
+        for issue in validate_piece(piece).issues
+        if issue.code == "COLLECTION_ORDER_INVALID"
+    }
+    assert {"/tracks", "/notes"} <= order_paths
+
+
+def test_canonical_note_order_is_not_rejected_when_tracks_are_unsorted(
+    valid_piece: CanonicalPiece,
+) -> None:
+    piece = replace(valid_piece, tracks=tuple(reversed(valid_piece.tracks)))
+    order_paths = {
+        issue.path
+        for issue in validate_piece(piece).issues
+        if issue.code == "COLLECTION_ORDER_INVALID"
+    }
+    assert "/tracks" in order_paths
+    assert "/notes" not in order_paths
+
+
+def test_canonical_track_and_note_order_remains_clean(
+    valid_piece: CanonicalPiece,
+) -> None:
+    assert not {
+        issue.path
+        for issue in validate_piece(valid_piece).issues
+        if issue.code == "COLLECTION_ORDER_INVALID"
+    }
+
+
 @pytest.mark.parametrize(
     "variant",
     [
@@ -581,6 +670,194 @@ def test_positive_grace_crossing_and_different_pitch_overlap_are_valid(
     report = validate_piece(piece)
     assert report.is_valid
     assert "OVERLAPPING_SAME_PITCH_NOTES" not in {issue.code for issue in report.issues}
+
+
+def test_touching_half_open_intervals_do_not_overlap(
+    valid_piece: CanonicalPiece,
+) -> None:
+    notes = (
+        _pitched_note(
+            valid_piece.notes[0],
+            note_id="note:touch-000",
+            onset=RationalTime(0),
+            duration=RationalTime(1),
+        ),
+        _pitched_note(
+            valid_piece.notes[0],
+            note_id="note:touch-001",
+            onset=RationalTime(1),
+            duration=RationalTime(1),
+        ),
+    )
+    assert _overlap_warnings(replace(valid_piece, notes=notes)) == ()
+
+
+def test_simple_and_nested_same_pitch_overlaps_warn_once_per_later_note(
+    valid_piece: CanonicalPiece,
+) -> None:
+    notes = (
+        _pitched_note(
+            valid_piece.notes[0],
+            note_id="note:nested-000",
+            onset=RationalTime(0),
+            duration=RationalTime(4),
+        ),
+        _pitched_note(
+            valid_piece.notes[0],
+            note_id="note:nested-001",
+            onset=RationalTime(1),
+            duration=RationalTime(1),
+        ),
+        _pitched_note(
+            valid_piece.notes[0],
+            note_id="note:nested-002",
+            onset=RationalTime(2),
+            duration=RationalTime(1),
+        ),
+    )
+    warnings = _overlap_warnings(replace(valid_piece, notes=notes))
+    assert [warning.path for warning in warnings] == ["/notes/1", "/notes/2"]
+
+
+def test_overlap_chain_is_detected_without_duplicate_warnings(
+    valid_piece: CanonicalPiece,
+) -> None:
+    notes = tuple(
+        _pitched_note(
+            valid_piece.notes[0],
+            note_id=f"note:chain-{index:03d}",
+            onset=RationalTime(index),
+            duration=RationalTime(2),
+        )
+        for index in range(3)
+    )
+    warnings = _overlap_warnings(replace(valid_piece, notes=notes))
+    assert [warning.path for warning in warnings] == ["/notes/1", "/notes/2"]
+    assert len(warnings) == len(set(warnings))
+
+
+def test_overlap_groups_separate_tracks_and_pitches(
+    valid_piece: CanonicalPiece,
+) -> None:
+    melody = _pitched_note(
+        valid_piece.notes[0],
+        note_id="note:melody-overlap-group",
+        onset=RationalTime(0),
+        duration=RationalTime(2),
+        pitch=60,
+    )
+    drums = replace(
+        valid_piece.notes[1],
+        note_id="note:drums-overlap-group",
+        pitch=60,
+        onset_qn=RationalTime(1),
+        duration_qn=RationalTime(1),
+        source_onset_ticks=None,
+        source_duration_ticks=None,
+        source_onset_seconds=None,
+        source_duration_seconds=None,
+    )
+    other_pitch = _pitched_note(
+        valid_piece.notes[0],
+        note_id="note:other-pitch-group",
+        onset=RationalTime(1),
+        duration=RationalTime(1),
+        pitch=61,
+    )
+    piece = replace(valid_piece, notes=(melody, other_pitch, drums))
+    assert _overlap_warnings(piece) == ()
+
+
+def test_percussion_same_pitch_overlap_uses_the_same_sweep(
+    valid_piece: CanonicalPiece,
+) -> None:
+    first = replace(
+        valid_piece.notes[1],
+        note_id="note:drums-sweep-000",
+        onset_qn=RationalTime(0),
+        duration_qn=RationalTime(2),
+        source_onset_ticks=None,
+        source_duration_ticks=None,
+        source_onset_seconds=None,
+        source_duration_seconds=None,
+    )
+    second = replace(
+        first,
+        note_id="note:drums-sweep-001",
+        onset_qn=RationalTime(1),
+        duration_qn=RationalTime(1),
+    )
+    warnings = _overlap_warnings(replace(valid_piece, notes=(first, second)))
+    assert [warning.path for warning in warnings] == ["/notes/1"]
+
+
+def test_zero_duration_grace_notes_do_not_participate_in_overlap_sweep(
+    valid_piece: CanonicalPiece,
+) -> None:
+    sounding = _pitched_note(
+        valid_piece.notes[0],
+        note_id="note:sounding",
+        onset=RationalTime(0),
+        duration=RationalTime(2),
+    )
+    grace = _pitched_note(
+        valid_piece.notes[0],
+        note_id="note:grace-overlap",
+        onset=RationalTime(1),
+        duration=RationalTime(0),
+    )
+    assert _overlap_warnings(replace(valid_piece, notes=(sounding, grace))) == ()
+
+
+def test_unsorted_notes_still_receive_correct_overlap_warning(
+    valid_piece: CanonicalPiece,
+) -> None:
+    later = _pitched_note(
+        valid_piece.notes[0],
+        note_id="note:unsorted-later",
+        onset=RationalTime(1),
+        duration=RationalTime(1),
+    )
+    earlier = _pitched_note(
+        valid_piece.notes[0],
+        note_id="note:unsorted-earlier",
+        onset=RationalTime(0),
+        duration=RationalTime(2),
+    )
+    report = validate_piece(replace(valid_piece, notes=(later, earlier)))
+    overlap_paths = [
+        issue.path
+        for issue in report.issues
+        if issue.code == "OVERLAPPING_SAME_PITCH_NOTES"
+    ]
+    assert overlap_paths == ["/notes/0"]
+    assert any(
+        issue.code == "COLLECTION_ORDER_INVALID" and issue.path == "/notes"
+        for issue in report.issues
+    )
+
+
+def test_large_overlap_group_has_linear_warning_count(
+    valid_piece: CanonicalPiece,
+) -> None:
+    count = 2_000
+    notes = tuple(
+        _pitched_note(
+            valid_piece.notes[0],
+            note_id=f"note:large-{index:04d}",
+            onset=RationalTime(index),
+            duration=RationalTime(2),
+        )
+        for index in range(count)
+    )
+    piece = replace(
+        valid_piece,
+        duration_qn=RationalTime(count + 1),
+        notes=notes,
+    )
+    warnings = _overlap_warnings(piece)
+    assert len(warnings) == count - 1
+    assert len({warning.path for warning in warnings}) == count - 1
 
 
 @pytest.mark.parametrize(
@@ -1030,6 +1307,69 @@ def test_provenance_errors(
     _assert_code(variant(valid_piece), code)  # type: ignore[operator]
 
 
+def test_provenance_order_uses_smallest_ready_id_one_at_a_time(
+    valid_piece: CanonicalPiece,
+) -> None:
+    canonical = (
+        _provenance_record("prov:a"),
+        _provenance_record("prov:b", ("prov:a",)),
+        _provenance_record("prov:z"),
+    )
+    report = validate_piece(replace(valid_piece, provenance=canonical))
+    assert not any(
+        issue.code == "COLLECTION_ORDER_INVALID" and issue.path == "/provenance"
+        for issue in report.issues
+    )
+
+    layered = (canonical[0], canonical[2], canonical[1])
+    report = validate_piece(replace(valid_piece, provenance=layered))
+    assert any(
+        issue.code == "COLLECTION_ORDER_INVALID" and issue.path == "/provenance"
+        for issue in report.issues
+    )
+    assert not any(
+        issue.code == "PROVENANCE_PARENT_INVALID" for issue in report.issues
+    )
+
+
+def test_independent_provenance_roots_are_lexicographic(
+    valid_piece: CanonicalPiece,
+) -> None:
+    canonical = tuple(
+        _provenance_record(provenance_id)
+        for provenance_id in ("prov:a", "prov:m", "prov:z")
+    )
+    report = validate_piece(replace(valid_piece, provenance=canonical))
+    assert not any(
+        issue.code == "COLLECTION_ORDER_INVALID" and issue.path == "/provenance"
+        for issue in report.issues
+    )
+    reversed_report = validate_piece(
+        replace(valid_piece, provenance=tuple(reversed(canonical)))
+    )
+    assert any(
+        issue.code == "COLLECTION_ORDER_INVALID" and issue.path == "/provenance"
+        for issue in reversed_report.issues
+    )
+
+
+def test_valid_branching_provenance_dag_is_accepted(
+    valid_piece: CanonicalPiece,
+) -> None:
+    provenance = (
+        _provenance_record("prov:a"),
+        _provenance_record("prov:b", ("prov:a",)),
+        _provenance_record("prov:c", ("prov:a",)),
+        _provenance_record("prov:d", ("prov:b", "prov:c")),
+    )
+    report = validate_piece(replace(valid_piece, provenance=provenance))
+    assert not any(
+        issue.code in {"COLLECTION_ORDER_INVALID", "PROVENANCE_CYCLE"}
+        and issue.path == "/provenance"
+        for issue in report.issues
+    )
+
+
 @pytest.mark.parametrize(
     "provenance",
     [
@@ -1270,3 +1610,41 @@ def test_programmatic_malformed_collections_do_not_crash(
     report = validate_piece(malformed)
     assert report.issues
     assert "FIELD_VALUE_INVALID" in {issue.code for issue in report.issues}
+    assert len(report.issues) == len(set(report.issues))
+    assert report.issues == tuple(
+        sorted(
+            report.issues,
+            key=lambda issue: (
+                issue.path,
+                issue.severity,
+                issue.code,
+                issue.entity_id or "",
+                issue.message,
+            ),
+        )
+    )
+    assert report == validate_piece(malformed)
+
+
+def test_issue_deduplication_preserves_distinct_diagnostics(
+    valid_piece: CanonicalPiece,
+) -> None:
+    malformed = replace(
+        valid_piece,
+        notes=[],  # type: ignore[arg-type]
+        bars=(replace(valid_piece.bars[0], duration_qn=RationalTime(-1)),),
+    )
+    report = validate_piece(malformed)
+    assert len(report.issues) == len(set(report.issues))
+    notes_issues = [issue for issue in report.issues if issue.path == "/notes"]
+    assert {issue.code for issue in notes_issues} >= {
+        "FIELD_VALUE_INVALID",
+        "EMPTY_PIECE",
+    }
+    duration_issues = [
+        issue for issue in report.issues if issue.path == "/bars/0/duration_qn"
+    ]
+    assert {issue.code for issue in duration_issues} >= {
+        "DURATION_NEGATIVE",
+        "BAR_INVALID",
+    }

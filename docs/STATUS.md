@@ -2,7 +2,7 @@
 
 ## Current phase
 
-- Date: 2026-07-16
+- Date: 2026-07-17
 - Current phase: Phase 1B — schema implementation and tests
 - Completed task: Phase 1B.2 — canonical validation
 - State: Phase 1B remains in progress
@@ -53,6 +53,36 @@
   subprocess working directory and added the explicit `TargetValue` alias
   assertion.
 
+## Phase 1B.2 review fixes
+
+- Corrected note collection ordering to derive track ranks from the documented
+  canonical track sort key, independently of the current track tuple order.
+  Track and note ordering errors are now reported independently.
+- Corrected provenance ordering to select the lexicographically smallest
+  currently ready provenance ID one node at a time. This implements the
+  accepted parent-before-child ordering with `provenance_id` tie-breaking
+  without breadth-first layer bias.
+- Added cached typed views for top-level collections and exact
+  `ValidationIssue` deduplication. Distinct codes, messages, severities, paths,
+  or entity IDs remain separate diagnostics.
+- Replaced quadratic all-pairs same-pitch overlap checks with grouping by
+  `(track_id, pitch)`, deterministic interval sorting, and a linear scan per
+  group after sorting. At most one overlap warning is emitted per later
+  overlapping note.
+- Added regressions for unsorted tracks/notes, provenance tie-breaking,
+  malformed collection diagnostics, touching/nested/chained/cross-track/
+  cross-pitch/grace-note overlaps, unsorted note input, percussion, and a
+  2,000-note overlap group with bounded warning output.
+
+## Phase 1B.2 review-fix files changed
+
+- `src/music_critic/data/validation.py`
+- `tests/data/test_validation.py`
+- `docs/ROADMAP.md`
+- `docs/STATUS.md`
+
+No accepted public validation semantics or schema fields changed.
+
 ## Phase 1B.2 files created or changed
 
 - `src/music_critic/data/validation.py`
@@ -78,11 +108,11 @@ Music Critic V2 project requirement.
 - `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic/.venv/bin/python -m pytest tests/data/test_timing.py -q`:
   `28 passed in 0.02s`.
 - `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic/.venv/bin/python -m pytest tests/data/test_schema.py -q`:
-  `13 passed in 0.06s`.
+  `13 passed in 0.09s`.
 - `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic/.venv/bin/python -m pytest tests/data/test_validation.py -q`:
-  `95 passed in 0.12s`.
+  `110 passed in 0.18s`.
 - `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic/.venv/bin/python -m pytest -q`:
-  `143 passed in 0.22s`.
+  `158 passed in 0.29s`.
 - `python -m compileall src`: passed.
 - The explicit `PYTHONPATH=src` import-isolation command passed with:
   `standard-library import contract passed`.
@@ -103,7 +133,7 @@ Every other `ValidationCode` has executable `validate_piece` coverage.
 - Validation uses only the Python standard library.
 - No external dependency or dependency declaration changed.
 - No `serialization.py` was created and serialization implementation did not
-  start.
+  start; Phase 1B.3 remains pending.
 - No adapter, MIDI, graph, dataset, model, training, evaluation, or inference
   code was added.
 - No accepted schema field or timing behavior changed.
