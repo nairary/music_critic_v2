@@ -31,6 +31,14 @@ from music_critic.data.schema import (
     TempoEvent,
 )
 from music_critic.data.timing import RationalTime
+from music_critic.data.validation import (
+    CanonicalValidationError,
+    ValidationCode,
+    ValidationIssue,
+    ValidationReport,
+    validate_or_raise,
+    validate_piece,
+)
 
 __all__ = [
     "SCHEMA_VERSION",
@@ -42,6 +50,7 @@ __all__ = [
     "CanonicalNote",
     "CanonicalPiece",
     "CanonicalTrack",
+    "CanonicalValidationError",
     "IssueSeverity",
     "JsonScalar",
     "KeySignatureEvent",
@@ -62,4 +71,9 @@ __all__ = [
     "TargetValue",
     "TargetValueType",
     "TempoEvent",
+    "ValidationCode",
+    "ValidationIssue",
+    "ValidationReport",
+    "validate_or_raise",
+    "validate_piece",
 ]

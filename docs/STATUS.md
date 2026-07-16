@@ -4,87 +4,130 @@
 
 - Date: 2026-07-16
 - Current phase: Phase 1B — schema implementation and tests
-- Completed task: Phase 1B.1 — canonical timing and schema types
+- Completed task: Phase 1B.2 — canonical validation
 - State: Phase 1B remains in progress
-- Previous task: Phase 1A — canonical schema API and JSON contract, completed
-- Next task: Phase 1B.2 — canonical validation
+- Previous task: Phase 1B.1 — canonical timing and schema types, completed
+- Next task: Phase 1B.3 — canonical serialization
 
-## Phase 1B.1 results
+## Phase 1B.2 results
 
-- Implemented `RationalTime` as a frozen, slotted, normalized exact rational
-  value type in quarter-note units.
-- Implemented all accepted Phase 1 schema aliases and the exact canonical
-  dataclasses with contract field names, order, and annotations.
-- Kept schema records validation-free so invalid programmatic records remain
-  constructible for the future one-pass validator.
-- Added explicit stable exports from `music_critic.data` without wildcard
-  imports or unfinished APIs.
-- Extracted the complete canonical JSON example into the normative test fixture.
-- Added timing tests for construction, normalization, ordering, arithmetic,
-  unsupported operands, exact `Fraction` conversion, large integers,
-  immutability, and slots.
-- Added schema tests for aliases, exact field names/types/order, frozen slotted
-  records, tuple collections, unavailable-versus-empty values, invalid object
-  construction, public exports, target views/masks, raw/theory separation,
-  fixture/document equality, and lightweight imports.
+- Implemented the complete standard-library validation API:
+  `ValidationCode`, `ValidationIssue`, `ValidationReport`,
+  `CanonicalValidationError`, `validate_piece`, and `validate_or_raise`.
+- Validation collects all detectable issues, preserves deterministic RFC 6901
+  paths and issue ordering, never mutates or repairs the input, and raises only
+  when errors exist.
+- Implemented schema-version, open-string, enum, finite-value, exact timing,
+  duration, source-index, MIDI range, spelling, and piece-bound checks.
+- Implemented lexical entity IDs, exact prefixes, global uniqueness, raw
+  references, target references, provenance references, and quality-flag
+  references without relying on collection indices.
+- Implemented canonical collection-order checks for tracks, notes, bars, beats,
+  events, annotations, targets, provenance, and quality flags.
+- Implemented tempo and meter maps, required initial events, duplicate-onset
+  checks, meter-at-bar-start checks, and the mid-bar tempo warning.
+- Implemented complete bar, pickup, incomplete-final-bar, metric-offset,
+  nominal-meter-duration, contiguous-coverage, beat-containment, denominator
+  unit grid, pickup downbeat, and compound-meter behavior.
+- Implemented note, percussion, grace-note, cross-boundary, and same-pitch
+  overlap behavior.
+- Implemented observation and target-alignment annotation rules.
+- Implemented categorical, scalar, multi-label, and distribution targets,
+  aligned lengths, masks, unknown available confidence, source/provenance
+  requirements, entity alignment, alternative annotation views, and explicit
+  negative labels.
+- Implemented provenance presence, parent validity, parent-before-child order,
+  iterative cycle detection, detail-key/value rules, timestamps, checksums, and
+  unreferenced-record diagnostics.
+- Implemented quality-flag syntax, severity, message, entity, and provenance
+  validation.
+- Implemented and tested all documented warnings:
+  `EMPTY_PIECE`, `EMPTY_TRACK`, `SOURCE_RESOLUTION_UNAVAILABLE`,
+  `INCOMPLETE_FINAL_BAR`, `OVERLAPPING_SAME_PITCH_NOTES`,
+  `MID_BAR_TEMPO_CHANGE`, `LOW_CONFIDENCE_TARGET`,
+  `UNREFERENCED_PROVENANCE`, `EMPTY_OBSERVATION`, and
+  `PIECE_TRAILING_SILENCE`.
+- Added a clean two-track dataclass fixture with pitched and percussion notes,
+  complete bars/beats, provenance, targets, and an alternative annotation view.
+- Fixed the Phase 1B.1 test portability gap by replacing the hard-coded
+  subprocess working directory and added the explicit `TargetValue` alias
+  assertion.
 
-## Files created or changed
+## Phase 1B.2 files created or changed
 
+- `src/music_critic/data/validation.py`
 - `src/music_critic/data/__init__.py`
-- `src/music_critic/data/timing.py`
-- `src/music_critic/data/schema.py`
-- `tests/data/test_timing.py`
+- `tests/data/conftest.py`
+- `tests/data/test_validation.py`
 - `tests/data/test_schema.py`
-- `tests/fixtures/data/canonical_piece_v2.json`
 - `docs/ROADMAP.md`
 - `docs/STATUS.md`
 
-`docs/DECISIONS.md` was not changed because Phase 1B.1 implemented the accepted
-contract without exposing a new architectural decision.
+`src/music_critic/data/schema.py`, `src/music_critic/data/timing.py`, and
+`docs/DECISIONS.md` were not changed. No new architectural decision was
+required.
 
-## Verification
+## Phase 1B.2 verification
 
-The system `/usr/bin/python -m pytest ...` commands could not start because the
-system interpreter has no pytest module. The required pytest checks were
-therefore run with the existing pytest-capable interpreter:
-
-`/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic/.venv/bin/python`
+The system `/usr/bin/python` does not have pytest installed. Pytest commands
+were run with the existing pytest-capable interpreter
+`/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic/.venv/bin/python`.
+That interpreter is only the environment used for these checks and is not a
+Music Critic V2 project requirement.
 
 - `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic/.venv/bin/python -m pytest tests/data/test_timing.py -q`:
-  `28 passed in 0.03s`.
+  `28 passed in 0.02s`.
 - `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic/.venv/bin/python -m pytest tests/data/test_schema.py -q`:
-  `13 passed in 0.07s`.
+  `13 passed in 0.06s`.
+- `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic/.venv/bin/python -m pytest tests/data/test_validation.py -q`:
+  `95 passed in 0.12s`.
 - `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic/.venv/bin/python -m pytest -q`:
-  `48 passed in 0.10s`.
-- `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic/.venv/bin/python -m compileall src`:
-  passed.
-- `git diff --check`: passed.
+  `143 passed in 0.22s`.
+- `python -m compileall src`: passed.
 - The explicit `PYTHONPATH=src` import-isolation command passed with:
   `standard-library import contract passed`.
-- The fixture/document consistency test passed; the parsed fixture is identical
-  to the complete JSON example in `docs/DATA_CONTRACT.md`.
-- The supplementary `python scripts/check_legacy_unchanged.py` check reports
-  that the current legacy worktree differs from the Phase 0 captured snapshot.
-  The legacy porcelain status was already in that state before Phase 1B.1 and
-  remained unchanged by this task.
 
-## Scope and compatibility audit
+The following codes are deliberately declared for Phase 1B.3 serialization and
+are not emitted by `validate_piece`:
 
-- The implementation uses only the Python standard library.
-- No dependency declaration changed.
-- No `validation.py` or `serialization.py` was created.
-- No adapter, MIDI, graph, dataset, model, training, or inference code was
-  added.
-- No legacy file was inspected for implementation logic, reused, or modified.
-- Raw notes, tracks, and metadata contain no theory or semantic-role fields.
-- Missing target labels remain represented by masks and null aligned values.
-- The existing repository-wide heavy-import restriction remains unchanged. It
-  must be narrowed before Phase 2 or model phases introduce legitimate optional
-  imports, but not during Phase 1B.1.
+- `JSON_UNKNOWN_FIELD`
+- `JSON_MISSING_FIELD`
+- `JSON_TYPE_INVALID`
+- `RATIONAL_INVALID`
+- `RATIONAL_NOT_NORMALIZED`
 
-## Blockers and remaining ambiguities
+Every other `ValidationCode` has executable `validate_piece` coverage.
 
-No Phase 1B.2 implementation blocker. Validation must implement the already
-accepted contract without moving validation behavior into schema dataclass
-constructors. The Phase 0 legacy snapshot should be reviewed separately because
-its verifier no longer matches the legacy worktree's pre-existing status.
+## Phase 1B.2 scope and compatibility audit
+
+- Validation uses only the Python standard library.
+- No external dependency or dependency declaration changed.
+- No `serialization.py` was created and serialization implementation did not
+  start.
+- No adapter, MIDI, graph, dataset, model, training, evaluation, or inference
+  code was added.
+- No accepted schema field or timing behavior changed.
+- No legacy file was modified or used as a runtime dependency.
+- The repository-wide heavy-import restriction remains unchanged.
+
+## Completed Phase 1B.1 history
+
+- Implemented `RationalTime` as a frozen, slotted, normalized exact rational
+  value type in quarter-note units.
+- Implemented all accepted Phase 1 schema aliases and exact frozen, slotted
+  canonical dataclasses without constructor validation.
+- Added explicit stable `music_critic.data` exports.
+- Extracted the complete three-target canonical JSON fixture and kept it equal
+  to the accepted `DATA_CONTRACT.md` example.
+- Added timing and schema tests covering exact arithmetic, types, field order,
+  immutability, raw/theory separation, target views/masks, and lightweight
+  imports.
+- Phase 1B.1 completed in commit `0ca7b95` with no dependency, legacy,
+  validation, serialization, adapter, or graph changes.
+
+## Blockers and remaining risks
+
+No Phase 1B.3 implementation blocker is known. Phase 1B.3 must preserve the
+validator's distinction between programmatic semantic errors and JSON decoding
+shape/type errors, and must continue to reject unknown fields and unsupported
+schema versions without mutating input data.

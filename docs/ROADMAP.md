@@ -59,7 +59,7 @@ document is the phase execution checklist.
 
 #### Phase 1B.1 — Canonical timing and schema types
 
-- Status: Current task — completed
+- Status: Completed
 - Goal: implement exact rational timing, immutable canonical schema records,
   explicit public exports, and the normative synthetic fixture.
 - Outputs: `music_critic.data.timing`, `music_critic.data.schema`, stable
@@ -74,7 +74,7 @@ document is the phase execution checklist.
 
 #### Phase 1B.2 — Canonical validation
 
-- Status: Pending
+- Status: Current task — completed
 - Goal: implement structured validation reports, deterministic issue ordering,
   and raising validation.
 - Outputs: `music_critic.data.validation`.

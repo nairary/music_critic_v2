@@ -313,6 +313,9 @@ def test_public_schema_aliases_match_contract() -> None:
         "derived",
         "synthetic",
     )
+    assert data.TargetValue == (
+        str | int | float | tuple[str, ...] | tuple[float, ...]
+    )
     assert get_args(data.ProvenanceKind) == (
         "source",
         "conversion",
@@ -519,6 +522,7 @@ def test_public_api_is_explicit_and_excludes_unfinished_modules() -> None:
         "CanonicalNote",
         "CanonicalPiece",
         "CanonicalTrack",
+        "CanonicalValidationError",
         "IssueSeverity",
         "JsonScalar",
         "KeySignatureEvent",
@@ -539,13 +543,17 @@ def test_public_api_is_explicit_and_excludes_unfinished_modules() -> None:
         "TargetValue",
         "TargetValueType",
         "TempoEvent",
+        "ValidationCode",
+        "ValidationIssue",
+        "ValidationReport",
+        "validate_or_raise",
+        "validate_piece",
     }
     assert set(data.__all__) == expected
-    assert not hasattr(data, "validate_piece")
     assert not hasattr(data, "piece_to_dict")
 
 
-def test_importing_data_package_is_standard_library_only() -> None:
+def test_importing_data_package_is_standard_library_only(tmp_path: Path) -> None:
     code = """
 import json
 import sys
@@ -571,7 +579,7 @@ raise SystemExit(1 if loaded else 0)
     env["PYTHONPATH"] = str(REPO_ROOT / "src")
     result = subprocess.run(
         [sys.executable, "-c", code],
-        cwd="/tmp",
+        cwd=tmp_path,
         env=env,
         check=False,
         capture_output=True,
