@@ -1,0 +1,431 @@
+{
+  "annotations": [
+    {
+      "annotation_id": "span:lyric-000",
+      "annotation_type": "text.lyric",
+      "end_qn": {"den": 1, "num": 1},
+      "layer": "observation",
+      "provenance_id": "prov:source",
+      "start_qn": {"den": 1, "num": 0},
+      "track_id": "track:melody",
+      "value": "la"
+    }
+  ],
+  "bars": [
+    {
+      "bar_id": "bar:000",
+      "display_number": "0",
+      "duration_qn": {"den": 1, "num": 1},
+      "index": 0,
+      "is_incomplete": true,
+      "is_pickup": true,
+      "meter_event_id": "meter:000",
+      "metric_offset_qn": {"den": 1, "num": 3},
+      "provenance_id": "prov:conversion",
+      "start_qn": {"den": 1, "num": 0}
+    },
+    {
+      "bar_id": "bar:001",
+      "display_number": "1",
+      "duration_qn": {"den": 1, "num": 4},
+      "index": 1,
+      "is_incomplete": false,
+      "is_pickup": false,
+      "meter_event_id": "meter:000",
+      "metric_offset_qn": {"den": 1, "num": 0},
+      "provenance_id": "prov:conversion",
+      "start_qn": {"den": 1, "num": 1}
+    }
+  ],
+  "beats": [
+    {
+      "bar_id": "bar:000",
+      "beat_id": "beat:000",
+      "duration_qn": {"den": 1, "num": 1},
+      "index_in_bar": 3,
+      "is_downbeat": false,
+      "meter_event_id": "meter:000",
+      "position_in_bar_qn": {"den": 1, "num": 3},
+      "provenance_id": "prov:conversion",
+      "start_qn": {"den": 1, "num": 0},
+      "strength": 0.5
+    },
+    {
+      "bar_id": "bar:001",
+      "beat_id": "beat:001",
+      "duration_qn": {"den": 1, "num": 1},
+      "index_in_bar": 0,
+      "is_downbeat": true,
+      "meter_event_id": "meter:000",
+      "position_in_bar_qn": {"den": 1, "num": 0},
+      "provenance_id": "prov:conversion",
+      "start_qn": {"den": 1, "num": 1},
+      "strength": 1.0
+    },
+    {
+      "bar_id": "bar:001",
+      "beat_id": "beat:002",
+      "duration_qn": {"den": 1, "num": 1},
+      "index_in_bar": 1,
+      "is_downbeat": false,
+      "meter_event_id": "meter:000",
+      "position_in_bar_qn": {"den": 1, "num": 1},
+      "provenance_id": "prov:conversion",
+      "start_qn": {"den": 1, "num": 2},
+      "strength": 0.5
+    },
+    {
+      "bar_id": "bar:001",
+      "beat_id": "beat:003",
+      "duration_qn": {"den": 1, "num": 1},
+      "index_in_bar": 2,
+      "is_downbeat": false,
+      "meter_event_id": "meter:000",
+      "position_in_bar_qn": {"den": 1, "num": 2},
+      "provenance_id": "prov:conversion",
+      "start_qn": {"den": 1, "num": 3},
+      "strength": 0.75
+    },
+    {
+      "bar_id": "bar:001",
+      "beat_id": "beat:004",
+      "duration_qn": {"den": 1, "num": 1},
+      "index_in_bar": 3,
+      "is_downbeat": false,
+      "meter_event_id": "meter:000",
+      "position_in_bar_qn": {"den": 1, "num": 3},
+      "provenance_id": "prov:conversion",
+      "start_qn": {"den": 1, "num": 4},
+      "strength": 0.5
+    }
+  ],
+  "dataset_name": "synthetic",
+  "duration_qn": {"den": 1, "num": 5},
+  "key_signature_events": [],
+  "metadata": {
+    "collection": "",
+    "copyright": null,
+    "creators": ["Music Critic V2"],
+    "genres": [],
+    "language": null,
+    "movement_number": null,
+    "movement_title": null,
+    "source_format": "synthetic",
+    "title": null
+  },
+  "meter_events": [
+    {
+      "denominator": 4,
+      "meter_event_id": "meter:000",
+      "numerator": 4,
+      "onset_qn": {"den": 1, "num": 0},
+      "provenance_id": "prov:source"
+    }
+  ],
+  "notes": [
+    {
+      "articulations": [],
+      "channel": 0,
+      "duration_qn": {"den": 1, "num": 2},
+      "dynamic": null,
+      "is_grace": false,
+      "is_percussion": false,
+      "note_id": "note:melody-000",
+      "onset_qn": {"den": 1, "num": 0},
+      "pitch": 67,
+      "program": 0,
+      "provenance_id": "prov:source",
+      "source_duration_seconds": null,
+      "source_duration_ticks": 960,
+      "source_onset_seconds": null,
+      "source_onset_ticks": 0,
+      "spelling_alter": null,
+      "spelling_step": null,
+      "staff": null,
+      "track_id": "track:melody",
+      "velocity": 88,
+      "voice": null
+    },
+    {
+      "articulations": [],
+      "channel": 0,
+      "duration_qn": {"den": 1, "num": 1},
+      "dynamic": null,
+      "is_grace": false,
+      "is_percussion": false,
+      "note_id": "note:melody-001",
+      "onset_qn": {"den": 1, "num": 1},
+      "pitch": 72,
+      "program": 0,
+      "provenance_id": "prov:source",
+      "source_duration_seconds": null,
+      "source_duration_ticks": 480,
+      "source_onset_seconds": null,
+      "source_onset_ticks": 480,
+      "spelling_alter": null,
+      "spelling_step": null,
+      "staff": null,
+      "track_id": "track:melody",
+      "velocity": 92,
+      "voice": null
+    },
+    {
+      "articulations": [],
+      "channel": 9,
+      "duration_qn": {"den": 1, "num": 1},
+      "dynamic": null,
+      "is_grace": false,
+      "is_percussion": true,
+      "note_id": "note:drums-000",
+      "onset_qn": {"den": 1, "num": 1},
+      "pitch": 36,
+      "program": null,
+      "provenance_id": "prov:source",
+      "source_duration_seconds": null,
+      "source_duration_ticks": 480,
+      "source_onset_seconds": null,
+      "source_onset_ticks": 480,
+      "spelling_alter": null,
+      "spelling_step": null,
+      "staff": null,
+      "track_id": "track:drums",
+      "velocity": 100,
+      "voice": null
+    },
+    {
+      "articulations": [],
+      "channel": 0,
+      "duration_qn": {"den": 1, "num": 0},
+      "dynamic": null,
+      "is_grace": true,
+      "is_percussion": false,
+      "note_id": "note:melody-002",
+      "onset_qn": {"den": 1, "num": 2},
+      "pitch": 74,
+      "program": 0,
+      "provenance_id": "prov:source",
+      "source_duration_seconds": null,
+      "source_duration_ticks": 0,
+      "source_onset_seconds": null,
+      "source_onset_ticks": 960,
+      "spelling_alter": null,
+      "spelling_step": null,
+      "staff": null,
+      "track_id": "track:melody",
+      "velocity": 76,
+      "voice": null
+    },
+    {
+      "articulations": [],
+      "channel": 0,
+      "duration_qn": {"den": 1, "num": 2},
+      "dynamic": null,
+      "is_grace": false,
+      "is_percussion": false,
+      "note_id": "note:melody-003",
+      "onset_qn": {"den": 1, "num": 2},
+      "pitch": 76,
+      "program": 0,
+      "provenance_id": "prov:source",
+      "source_duration_seconds": null,
+      "source_duration_ticks": 960,
+      "source_onset_seconds": null,
+      "source_onset_ticks": 960,
+      "spelling_alter": null,
+      "spelling_step": null,
+      "staff": null,
+      "track_id": "track:melody",
+      "velocity": 90,
+      "voice": null
+    },
+    {
+      "articulations": [],
+      "channel": 9,
+      "duration_qn": {"den": 2, "num": 1},
+      "dynamic": null,
+      "is_grace": false,
+      "is_percussion": true,
+      "note_id": "note:drums-001",
+      "onset_qn": {"den": 1, "num": 3},
+      "pitch": 38,
+      "program": null,
+      "provenance_id": "prov:source",
+      "source_duration_seconds": null,
+      "source_duration_ticks": 240,
+      "source_onset_seconds": null,
+      "source_onset_ticks": 1440,
+      "spelling_alter": null,
+      "spelling_step": null,
+      "staff": null,
+      "track_id": "track:drums",
+      "velocity": 96,
+      "voice": null
+    }
+  ],
+  "piece_id": "piece:synthetic-two-track",
+  "provenance": [
+    {
+      "checksum_sha256": null,
+      "created_at": "2026-07-16T00:00:00+03:00",
+      "details": {
+        "description": "hand-authored Phase 1A contract fixture",
+        "resolution": 480
+      },
+      "kind": "synthetic",
+      "parents": [],
+      "provenance_id": "prov:source",
+      "record_id": "synthetic-two-track",
+      "source": "music_critic_v2",
+      "uri": null,
+      "version": "2.0.0"
+    },
+    {
+      "checksum_sha256": null,
+      "created_at": "2026-07-16T00:00:00+03:00",
+      "details": {
+        "method": "exact rational construction"
+      },
+      "kind": "conversion",
+      "parents": ["prov:source"],
+      "provenance_id": "prov:conversion",
+      "record_id": null,
+      "source": "synthetic_adapter",
+      "uri": null,
+      "version": "1"
+    },
+    {
+      "checksum_sha256": null,
+      "created_at": "2026-07-16T00:00:00+03:00",
+      "details": {
+        "annotator": "contract example"
+      },
+      "kind": "annotation",
+      "parents": ["prov:source"],
+      "provenance_id": "prov:theory",
+      "record_id": null,
+      "source": "human",
+      "uri": null,
+      "version": null
+    }
+  ],
+  "quality_flags": [
+    {
+      "code": "canonical.synthetic_source",
+      "entity_ids": ["piece:synthetic-two-track"],
+      "message": "This piece is a deterministic documentation fixture.",
+      "provenance_id": "prov:source",
+      "severity": "info"
+    }
+  ],
+  "schema_version": "2.0.0",
+  "source_group_id": "synthetic-two-track",
+  "source_path": null,
+  "source_resolution": 480,
+  "split": null,
+  "targets": [
+    {
+      "alignment_type": "beat",
+      "annotation_view_id": null,
+      "class_labels": ["major", "minor", "dominant_seventh", "no_chord"],
+      "confidence": [null, 0.95, null, 0.8, null],
+      "entity_ids": [
+        "beat:000",
+        "beat:001",
+        "beat:002",
+        "beat:003",
+        "beat:004"
+      ],
+      "mask": [true, true, false, true, false],
+      "provenance": [
+        "prov:theory",
+        "prov:theory",
+        null,
+        "prov:theory",
+        null
+      ],
+      "source": ["human", "human", null, "human", null],
+      "target_id": "target:theory-chord-quality-default",
+      "task": "theory.chord_quality",
+      "value_type": "categorical",
+      "values": ["major", "major", null, "dominant_seventh", null]
+    },
+    {
+      "alignment_type": "beat",
+      "annotation_view_id": "analysis.alternative",
+      "class_labels": ["major", "minor", "dominant_seventh", "no_chord"],
+      "confidence": [0.9, 0.85, 0.7, 0.75, null],
+      "entity_ids": [
+        "beat:000",
+        "beat:001",
+        "beat:002",
+        "beat:003",
+        "beat:004"
+      ],
+      "mask": [true, true, true, true, false],
+      "provenance": [
+        "prov:theory",
+        "prov:theory",
+        "prov:theory",
+        "prov:theory",
+        null
+      ],
+      "source": ["human", "human", "human", "human", null],
+      "target_id": "target:theory-chord-quality-alternative",
+      "task": "theory.chord_quality",
+      "value_type": "categorical",
+      "values": ["major", "minor", "major", "dominant_seventh", null]
+    },
+    {
+      "alignment_type": "track",
+      "annotation_view_id": null,
+      "class_labels": [
+        "melody",
+        "secondary_melody",
+        "bass",
+        "accompaniment",
+        "drums",
+        "texture",
+        "other"
+      ],
+      "confidence": [1.0, 1.0],
+      "entity_ids": ["track:melody", "track:drums"],
+      "mask": [true, true],
+      "provenance": ["prov:theory", "prov:theory"],
+      "source": ["synthetic", "synthetic"],
+      "target_id": "target:track-role-default",
+      "task": "track.role",
+      "value_type": "categorical",
+      "values": ["melody", "drums"]
+    }
+  ],
+  "tempo_events": [
+    {
+      "microseconds_per_quarter": 500000,
+      "onset_qn": {"den": 1, "num": 0},
+      "provenance_id": "prov:source",
+      "tempo_event_id": "tempo:000"
+    }
+  ],
+  "tracks": [
+    {
+      "channel": 0,
+      "instrument_name": "Acoustic Grand Piano",
+      "is_percussion": false,
+      "name": "",
+      "program": 0,
+      "provenance_id": "prov:source",
+      "source_track_index": 0,
+      "track_id": "track:melody"
+    },
+    {
+      "channel": 9,
+      "instrument_name": null,
+      "is_percussion": true,
+      "name": null,
+      "program": null,
+      "provenance_id": "prov:source",
+      "source_track_index": 1,
+      "track_id": "track:drums"
+    }
+  ]
+}

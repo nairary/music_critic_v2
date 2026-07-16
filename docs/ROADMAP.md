@@ -27,7 +27,7 @@ document is the phase execution checklist.
 
 ### Phase 1A — Canonical schema API and JSON contract
 
-- Status: Current task — completed
+- Status: Completed
 - Goal: settle the exact standard-library Python API, immutable record fields,
   validation policy, entity IDs, target encodings, and deterministic JSON
   contract before production implementation.
@@ -46,7 +46,7 @@ document is the phase execution checklist.
 
 ### Phase 1B — Schema implementation and tests
 
-- Status: Pending
+- Status: In progress
 - Goal: implement the accepted Phase 1A API and validation/serialization
   behavior.
 - Outputs: `music_critic.data.timing`, `schema`, `validation`, and
@@ -56,6 +56,40 @@ document is the phase execution checklist.
 - Non-goals: MIDI parsing and graph construction.
 - Acceptance: the documented synthetic two-track piece validates and
   round-trips exactly.
+
+#### Phase 1B.1 — Canonical timing and schema types
+
+- Status: Current task — completed
+- Goal: implement exact rational timing, immutable canonical schema records,
+  explicit public exports, and the normative synthetic fixture.
+- Outputs: `music_critic.data.timing`, `music_critic.data.schema`, stable
+  `music_critic.data` exports, and the canonical fixture.
+- Tests: rational normalization/arithmetic/type behavior, schema
+  fields/types/immutability, fixture/document consistency, target views/masks,
+  raw/theory separation, and lightweight imports.
+- Non-goals: validation, serialization, adapters, graphs, datasets, models,
+  training, and inference.
+- Acceptance: exact timing and schema APIs are implemented with standard-library
+  imports only, and the fixture remains identical to the accepted contract.
+
+#### Phase 1B.2 — Canonical validation
+
+- Status: Pending
+- Goal: implement structured validation reports, deterministic issue ordering,
+  and raising validation.
+- Outputs: `music_critic.data.validation`.
+- Tests: complete semantic, reference, timing, target, provenance, error, and
+  warning behavior from the accepted contract.
+- Non-goals: serialization and dataset adapters.
+
+#### Phase 1B.3 — Canonical serialization
+
+- Status: Pending
+- Goal: implement strict field-by-field canonical JSON encoding and decoding.
+- Outputs: `music_critic.data.serialization`.
+- Tests: malformed data, exact-version behavior, deterministic bytes, and
+  canonical round trips.
+- Non-goals: MIDI parsing and graph construction.
 
 ## Phase 2 — Generic MIDI and HookTheory adapters
 
