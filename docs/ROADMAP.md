@@ -5,7 +5,7 @@ document is the phase execution checklist.
 
 ## Phase 0 — Clean repository bootstrap and legacy audit
 
-- Status: In progress
+- Status: Completed
 - Goal: establish an independent, documented, tested repository.
 - Dependencies: read-only V1 checkout and source implementation plan.
 - Outputs: package scaffold, audit, architecture/data-contract proposals,
@@ -17,12 +17,45 @@ document is the phase execution checklist.
 
 ## Phase 1 — Canonical data schema and serialization
 
+- Status: In progress
 - Goal: implement exact typed canonical data, validation, and JSON round trips.
 - Dependencies: Phase 0 data-contract decisions.
 - Outputs: rational timing, schema types, validation reports, serialization.
 - Tests: timing, malformed data, target alignment/masks, versioned round trips.
 - Non-goals: MIDI parsing and graph construction.
 - Acceptance: a synthetic two-track piece validates and round-trips exactly.
+
+### Phase 1A — Canonical schema API and JSON contract
+
+- Status: Current task — completed
+- Goal: settle the exact standard-library Python API, immutable record fields,
+  validation policy, entity IDs, target encodings, and deterministic JSON
+  contract before production implementation.
+- Outputs: reviewed and accepted `DATA_CONTRACT.md`, Phase 1 schema ADRs, and
+  synchronized roadmap/status documentation, including alternative annotation
+  views, unknown target confidence, extensible adapter diagnostics, and complete
+  semantic-value validation coverage.
+- Tests: canonical example JSON/contract checks plus the existing repository
+  test and compile checks; no new tests.
+- Non-goals: production modules, unit tests, adapters, MIDI parsing, graph
+  construction, dependencies, and legacy changes.
+- Acceptance: the Phase 1B implementation can proceed without inventing fields,
+  annotation-view lexical behavior, semantic validation codes, confidence
+  semantics, diagnostics, or compatibility behavior; the normative fixture
+  contains three targets including two analyses of one theory task.
+
+### Phase 1B — Schema implementation and tests
+
+- Status: Pending
+- Goal: implement the accepted Phase 1A API and validation/serialization
+  behavior.
+- Outputs: `music_critic.data.timing`, `schema`, `validation`, and
+  `serialization`.
+- Tests: rational timing, malformed data, target alignment/masks, versioned and
+  deterministic round trips.
+- Non-goals: MIDI parsing and graph construction.
+- Acceptance: the documented synthetic two-track piece validates and
+  round-trips exactly.
 
 ## Phase 2 — Generic MIDI and HookTheory adapters
 
