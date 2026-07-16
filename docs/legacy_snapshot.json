@@ -1,0 +1,37 @@
+{
+  "captured_at_utc": "2026-07-16T18:11:29Z",
+  "dependency_versions": {
+    "hydra-core": "1.3.2",
+    "mido": "1.3.3",
+    "numpy": "2.4.3",
+    "partitura": "1.8.0",
+    "pretty_midi": "0.2.10",
+    "pytest": "9.0.3",
+    "torch": "2.10.0",
+    "torch-geometric": "2.7.0"
+  },
+  "head_commit": "2d8281f31cc9ad9c8fecaf332da0c61e0e949415",
+  "branch": "sections",
+  "legacy_path": "/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic",
+  "python_version": "Python 3.13.5",
+  "remote_urls": [
+    "git@github.com:nairary/Fine-tune-text2midi-llm-with-gnn-theory-critic.git"
+  ],
+  "status_porcelain_before": [
+    " D docs/FIELDS_DECODE.txt",
+    " D docs/hooktheory_processed.txt",
+    " D docs/hooktheory_selected_field_types_documentation.txt",
+    " M docs/music_critic_v2/DATA_CONTRACT.md",
+    " D docs/original_songs_timeline.txt",
+    " M hk_data_pipeline.ipynb",
+    "?? docs/music_critic_v1/",
+    "?? docs/music_critic_v2/DECISIONS.md",
+    "?? eda_hooktheory_first6.ipynb",
+    "?? final_observer_critic_runtime.tar.gz",
+    "?? scripts/create_first6_eda_notebook.py",
+    "?? scripts/rebuild_observer_targets_with_intermediates.sh",
+    "?? scripts/run_teacher_local_theory_corr32_no_mlm.sh",
+    "?? scripts/run_teacher_local_theory_mlm20_corr70.sh",
+    "?? scripts/summarize_experiments.py"
+  ]
+}

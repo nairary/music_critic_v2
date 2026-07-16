@@ -1,0 +1,151 @@
+# Music Critic V2 Engineering Roadmap
+
+The scientific detail in `IMPLEMENTATION_PLAN.md` remains authoritative. This
+document is the phase execution checklist.
+
+## Phase 0 — Clean repository bootstrap and legacy audit
+
+- Status: In progress
+- Goal: establish an independent, documented, tested repository.
+- Dependencies: read-only V1 checkout and source implementation plan.
+- Outputs: package scaffold, audit, architecture/data-contract proposals,
+  snapshot verifier, and repository-contract tests.
+- Tests: imports, repository contract, compile, legacy unchanged check.
+- Non-goals: schema, adapters, graphs, models, training, inference.
+- Acceptance: all bootstrap checks pass and V1 state matches the captured
+  snapshot.
+
+## Phase 1 — Canonical data schema and serialization
+
+- Goal: implement exact typed canonical data, validation, and JSON round trips.
+- Dependencies: Phase 0 data-contract decisions.
+- Outputs: rational timing, schema types, validation reports, serialization.
+- Tests: timing, malformed data, target alignment/masks, versioned round trips.
+- Non-goals: MIDI parsing and graph construction.
+- Acceptance: a synthetic two-track piece validates and round-trips exactly.
+
+## Phase 2 — Generic MIDI and HookTheory adapters
+
+- Goal: map unlabeled MIDI and HookTheory into the same canonical schema.
+- Dependencies: Phase 1.
+- Outputs: adapter interface, generic MIDI adapter, HookTheory adapter.
+- Tests: missing tempo/meter, type-0/type-1 MIDI, annotation masking.
+- Non-goals: graph neural networks.
+- Acceptance: labels can be hidden and raw canonical inputs remain valid.
+
+## Phase 3 — Raw graph builder
+
+- Goal: construct inference-safe heterogeneous graphs.
+- Dependencies: Phases 1–2.
+- Outputs: `song/track/bar/beat/onset/note` graph and versioned metadata.
+- Tests: edge validity, temporal order, sustained activity, no target leakage.
+- Non-goals: learned encoders.
+- Acceptance: equivalent raw schemas produce consistent graph structure.
+
+## Phase 4 — POP909 adapter
+
+- Goal: validate track-aware canonical and graph paths on multitrack pop data.
+- Dependencies: Phases 1–3.
+- Outputs: POP909 parsing, alignment diagnostics, role targets, manifests.
+- Tests: tempo/annotation alignment and version grouping.
+- Non-goals: large-scale training.
+- Acceptance: leakage-safe POP909 graphs pass validation.
+
+## Phase 5 — Multi-source dataset and collator
+
+- Goal: batch heterogeneous task availability across datasets.
+- Dependencies: adapter and graph phases.
+- Outputs: datasets, samplers, collator, task routing.
+- Tests: masks, empty tasks, dataset balancing, deterministic sampling.
+- Non-goals: advanced SSL.
+- Acceptance: one mixed batch routes only available targets.
+
+## Phase 6 — Baseline local GNN, hierarchy, and bar Transformer
+
+- Goal: implement the minimum hybrid encoder.
+- Dependencies: Phase 5.
+- Outputs: feature encoder, local GNN, pooling, bar Transformer, fusion.
+- Tests: shapes, empty node types, checkpoint round trip, one-batch overfit.
+- Non-goals: GraphMAE2/Hi-GMAE/UGMAE extensions.
+- Acceptance: a small raw graph batch trains end to end.
+
+## Phase 7 — GraphMAE2-style SSL
+
+- Goal: add masked observable-feature representation learning.
+- Dependencies: Phase 6.
+- Outputs: masking views, remasked decoder, latent prediction losses.
+- Tests: no masked-value leakage, deterministic views, stop-gradient behavior.
+- Non-goals: quality scoring.
+- Acceptance: tiny reconstruction overfit and stable held-out metrics.
+
+## Phase 8 — Hi-GMAE-style hierarchical masking
+
+- Goal: mask coherent descendants and learn multi-level representations.
+- Dependencies: Phase 7.
+- Outputs: hierarchy-aware masks and multi-level objectives.
+- Tests: descendant masks, non-degenerate views, level-specific losses.
+- Non-goals: theory corpus integration.
+- Acceptance: hierarchical masking works on variable graph sizes.
+
+## Phase 9 — Dilemmadata adapter and theory supervision
+
+- Goal: add local key, harmony, cadence, phrase, and note-theory targets.
+- Dependencies: canonical/graph/model foundations.
+- Outputs: adapter, annotation views, theory heads and masked losses.
+- Tests: alternative-analysis grouping, span compression, no-label loss zero.
+- Non-goals: preference critic.
+- Acceptance: theory heads overfit a tiny masked batch without raw leakage.
+
+## Phase 10 — PDMX adapter and large-scale SSL cache
+
+- Goal: support scalable public-domain score pretraining.
+- Dependencies: SSL and canonical cache contracts.
+- Outputs: PDMX adapter, filters, windowed/versioned cache.
+- Tests: timing conversion, invalid-score filtering, cache compatibility.
+- Non-goals: using ratings as absolute quality labels.
+- Acceptance: a small licensed subset preprocesses reproducibly.
+
+## Phase 11 — UGMAE-inspired adaptive and structural objectives
+
+- Goal: add adaptive masking and optional structure consistency.
+- Dependencies: stable SSL baseline.
+- Outputs: adaptive policies and structural/consistency losses.
+- Tests: probability bounds, deterministic evaluation, ablation toggles.
+- Non-goals: preference deployment.
+- Acceptance: objectives train without collapsing mandatory graph structure.
+
+## Phase 12 — Preference critic and real generator outputs
+
+- Goal: learn aspect and pairwise preference scores from real candidates.
+- Dependencies: trained shared encoder and grouped preference data.
+- Outputs: aspect heads, preference head, calibrated pairwise losses.
+- Tests: pair-swap invariance, group-aware sampling, one-batch ranking overfit.
+- Non-goals: universal genre-independent MOS.
+- Acceptance: held-out prompt-group ranking beats defined baselines.
+
+## Phase 13 — Audio-aesthetic teacher labels and MIDI surrogate
+
+- Goal: approximate renderer-based aesthetic signals without mandatory rendering.
+- Dependencies: preference critic and controlled renderer provenance.
+- Outputs: teacher-label pipeline and symbolic surrogate head.
+- Tests: provenance, cache identity, teacher/student agreement.
+- Non-goals: treating audio aesthetics as music theory.
+- Acceptance: surrogate evaluation is reported separately and reproducibly.
+
+## Phase 14 — Raw-MIDI inference and GRPO integration
+
+- Goal: expose deployable scoring and reward APIs.
+- Dependencies: validated critic checkpoint.
+- Outputs: MIDI inference CLI/API, structured output, policy integration hooks.
+- Tests: unlabeled type-0/type-1 MIDI, missing metadata, batch ranking.
+- Non-goals: changing model training objectives silently.
+- Acceptance: inference requires no gold theory or semantic segmentation.
+
+## Phase 15 — Ablations, calibration, and human evaluation
+
+- Goal: support defensible research conclusions and deployment thresholds.
+- Dependencies: all claimed components.
+- Outputs: architecture/data ablations, calibration, robustness, human studies.
+- Tests: reproducible evaluation manifests and leakage audits.
+- Non-goals: adding unablated features.
+- Acceptance: every major claim has an ablation and uncertainty report.

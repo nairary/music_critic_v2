@@ -1,0 +1,44 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Data and generated artifacts
+/data/
+/datasets/
+/outputs/
+/checkpoints/
+/caches/
+/cache/
+/wandb/
+/mlruns/
+/.mlflow/
+*.pt
+*.pth
+*.ckpt
+*.wav
+*.flac
+*.mp3
+*.mid
+*.midi
+
+# Tiny test fixtures may be committed deliberately.
+!tests/fixtures/**/*.mid
+!tests/fixtures/**/*.midi
+!tests/fixtures/**/*.json
+!tests/fixtures/**/*.jsonl
+!tests/fixtures/**/*.tsv
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
