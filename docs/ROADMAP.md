@@ -33,14 +33,16 @@ document is the phase execution checklist.
   contract before production implementation.
 - Outputs: reviewed and accepted `DATA_CONTRACT.md`, Phase 1 schema ADRs, and
   synchronized roadmap/status documentation, including alternative annotation
-  views, unknown target confidence, and extensible adapter diagnostics.
+  views, unknown target confidence, extensible adapter diagnostics, and complete
+  semantic-value validation coverage.
 - Tests: canonical example JSON/contract checks plus the existing repository
   test and compile checks; no new tests.
 - Non-goals: production modules, unit tests, adapters, MIDI parsing, graph
   construction, dependencies, and legacy changes.
 - Acceptance: the Phase 1B implementation can proceed without inventing fields,
-  annotation-view behavior, confidence semantics, diagnostics, or compatibility
-  behavior.
+  annotation-view lexical behavior, semantic validation codes, confidence
+  semantics, diagnostics, or compatibility behavior; the normative fixture
+  contains three targets including two analyses of one theory task.
 
 ### Phase 1B — Schema implementation and tests
 

@@ -210,3 +210,23 @@ This log is append-only.
 - Consequences: The warning is exact and reachable. Percussion counts as
   sounding content; structural-only positive-duration pieces emit both empty
   piece and trailing-silence warnings.
+
+## 2026-07-16 — ADR-020: Semantic values and annotation views validate deterministically
+
+- Status: Accepted
+- Context: JSON runtime-type failures and correctly typed but semantically
+  invalid values need distinct diagnostics. Annotation views also require
+  deterministic lexical rules, and the canonical fixture should exercise
+  multiple valid analyses directly.
+- Decision: Reserve `JSON_TYPE_INVALID` for JSON values whose runtime type cannot
+  satisfy the declared schema type. Use `FIELD_VALUE_INVALID` as the fallback
+  error for declared semantic constraints without a more specific code,
+  including key-signature, spelling, provenance timestamp/checksum, open-string,
+  and programmatic enum/Literal violations. Non-null `annotation_view_id` values
+  must be non-empty, already trimmed, free of ASCII control characters, and are
+  compared case-sensitively; view-specific violations use
+  `TARGET_VIEW_INVALID`.
+- Consequences: `validate_piece` checks programmatically constructed records as
+  strictly as decoded records. The canonical example contains default and
+  alternative chord-quality views plus the track-role target, providing the
+  normative three-target round-trip fixture for Phase 1B.

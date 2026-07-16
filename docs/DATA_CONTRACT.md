@@ -147,9 +147,19 @@ QualitySeverity: TypeAlias = Literal["info", "warning"]
 QualityFlagCode: TypeAlias = str
 ```
 
-Open identifiers such as `task`, `annotation_type`, and provenance `source`
-must be non-empty stable strings. Task identifiers should be dotted namespaces,
-for example `theory.chord_quality` or `track.role`.
+Open stable identifiers include `dataset_name`, `source_group_id`, `task`,
+`annotation_type`, and provenance `source`. Unless a more specific syntax is
+declared, each must:
+
+- be a string;
+- be non-empty after `strip()`;
+- already equal its stripped form;
+- contain no ASCII control character in `U+0000..U+001F` or `U+007F`;
+- be compared case-sensitively.
+
+Task identifiers should be dotted namespaces, for example
+`theory.chord_quality` or `track.role`. Entity IDs and quality-flag codes use
+their own stricter syntax.
 
 ### `music_critic.data.validation`
 
@@ -165,7 +175,9 @@ def validate_or_raise(piece: CanonicalPiece) -> None: ...
 `validate_piece` never raises for a well-formed Python `CanonicalPiece`; it
 returns all detected validation issues. `validate_or_raise` raises
 `CanonicalValidationError` containing that same report when at least one error
-exists. Warnings do not cause an exception.
+exists. Warnings do not cause an exception. Validation applies the complete
+semantic-value rules to programmatically constructed dataclasses as well as
+records produced by JSON decoding.
 
 ### `music_critic.data.serialization`
 
@@ -345,7 +357,7 @@ Quarter-tone and other microtonal spelling alterations are outside this
 contract. An adapter encountering unsupported source notation must preserve the
 original representation in provenance details, emit an appropriate namespaced
 quality flag, and leave `spelling_alter=None`; it must not silently round the
-alteration.
+alteration. `spelling_alter` must be `None` when `spelling_step` is `None`.
 
 Theory fields such as scale degree, chord membership, Roman numeral, local key,
 non-chord-tone class, or voice function are forbidden.
@@ -459,7 +471,8 @@ tonality. Local key remains a target. Observed modal source information is
 preserved using the declared mode values. Unsupported or source-specific modes
 use `"other"` while retaining the original notation in `raw_value`;
 `"unknown"` means that a key-signature event was observed but its mode was not
-available. Pieces without an observed key signature use an empty
+available. When `mode="other"`, `raw_value` must be non-null and non-empty after
+stripping. Pieces without an observed key signature use an empty
 `key_signature_events` tuple.
 
 ### `AnnotationSpan`
@@ -571,8 +584,34 @@ than JSON booleans. This prevents confusion between target values and masks.
 | `annotation_span` | `span:*` with `layer="target_alignment"` |
 
 `target_id` is a globally unique `target:*` entity ID.
-`annotation_view_id` is an open non-empty stable string or `None`; `None` means
-that the dataset supplies one default annotation view.
+`annotation_view_id` is an open stable identifier, not an entity ID, and does
+not require an entity prefix. `None` means that the dataset supplies one default
+annotation view. A non-null value:
+
+- must be a string;
+- must be non-empty after `strip()`;
+- must already equal its stripped form;
+- must contain no ASCII control character in `U+0000..U+001F` or `U+007F`;
+- is case-sensitive.
+
+Valid examples:
+
+```text
+dcml
+augmentednet
+analysis.primary
+analysis.alternative
+annotator.alice
+```
+
+Invalid examples:
+
+```text
+""
+"   "
+" analysis.primary "
+"analysis\nprimary"
+```
 
 `entity_ids` may select a subset of the aligned collection, but may not contain
 duplicates within one target array. Multiple target arrays may share a task
@@ -602,7 +641,10 @@ class ProvenanceRecord:
 ```
 
 `source` identifies the dataset, person, tool, or conversion stage.
-`created_at`, when present, is an RFC 3339 timestamp with an explicit offset.
+It follows the open stable-identifier rules above.
+`created_at`, when present, is an RFC 3339 timestamp in the profile
+`YYYY-MM-DDTHH:MM:SS[.fraction](Z|±HH:MM)`, with a valid calendar date/time,
+seconds in `[00,59]`, and an explicit offset.
 `checksum_sha256`, when present, is 64 lowercase hexadecimal characters.
 `parents` reference earlier `prov:*` records and must form an acyclic graph.
 `details` keys are non-empty, unique, and lexicographically sorted. Details are
@@ -690,6 +732,7 @@ ValidationCode: TypeAlias = Literal[
     "JSON_UNKNOWN_FIELD",
     "JSON_MISSING_FIELD",
     "JSON_TYPE_INVALID",
+    "FIELD_VALUE_INVALID",
     "RATIONAL_INVALID",
     "RATIONAL_NOT_NORMALIZED",
     "ENTITY_ID_INVALID",
@@ -967,7 +1010,8 @@ These codes always have `severity="error"`:
 | `SCHEMA_VERSION_UNSUPPORTED` | `schema_version` is not exactly `2.0.0` |
 | `JSON_UNKNOWN_FIELD` | any decoded object contains an undeclared key |
 | `JSON_MISSING_FIELD` | any declared serialized field key is absent |
-| `JSON_TYPE_INVALID` | a JSON value cannot satisfy its declared field type; JSON booleans do not count as integers |
+| `JSON_TYPE_INVALID` | during JSON decoding, a value's runtime type cannot satisfy its declared schema type; JSON booleans do not count as integers |
+| `FIELD_VALUE_INVALID` | a value has an admissible runtime type but violates a declared semantic constraint for which no more specific validation code exists |
 | `RATIONAL_INVALID` | rational keys/types are wrong, denominator is non-positive, or construction otherwise fails |
 | `RATIONAL_NOT_NORMALIZED` | a JSON rational is reducible, has a negative denominator, or encodes zero with a denominator other than one |
 | `ENTITY_ID_INVALID` | an entity ID does not match the required lexical form |
@@ -999,7 +1043,7 @@ These codes always have `severity="error"`:
 | `BEAT_INVALID` | beat duration/index/position/downbeat state is internally inconsistent or lies outside its referenced bar |
 | `BEAT_GRID_INVALID` | for non-empty bars, beats do not form the effective denominator-unit grid over each actual bar extent |
 | `ANNOTATION_INVALID` | span ordering, layer/value constraint, type prefix, track reference, or piece bounds are invalid |
-| `TARGET_VIEW_INVALID` | `annotation_view_id` is non-null but empty, or `task` is empty |
+| `TARGET_VIEW_INVALID` | a programmatic non-null `annotation_view_id` is not a string, or a string view is empty after trimming, untrimmed, or contains an ASCII control character |
 | `TARGET_VIEW_DUPLICATE` | two target arrays share the same `(task, annotation_view_id)` pair |
 | `TARGET_LENGTH_MISMATCH` | aligned target fields have different lengths |
 | `TARGET_ENTITY_DUPLICATE` | one target array repeats an entity ID |
@@ -1015,6 +1059,33 @@ These codes always have `severity="error"`:
 | `PROVENANCE_MISSING` | the piece has no provenance records |
 | `PROVENANCE_PARENT_INVALID` | a parent is missing, duplicated, self-referential, or not earlier in canonical topological order |
 | `PROVENANCE_CYCLE` | provenance parent links contain a cycle |
+
+`FIELD_VALUE_INVALID` is the fallback for semantic-value constraints, not a
+replacement for specific codes such as `TEMPO_INVALID`, `METER_INVALID`,
+`TARGET_VALUE_INVALID`, `QUALITY_FLAG_CODE_INVALID`, or `ENTITY_ID_INVALID`.
+It includes at least:
+
+- `KeySignatureEvent.fifths` outside `[-7,7]`;
+- a `KeySignatureEvent.mode` outside `KeySignatureMode`;
+- `mode="other"` with `raw_value` absent or empty after stripping;
+- `CanonicalNote.spelling_step` outside `A` through `G`;
+- non-null `spelling_alter` when `spelling_step` is null;
+- unsupported microtonal spelling placed directly into `spelling_alter` or
+  silently rounded there instead of being preserved in provenance;
+- an open stable identifier that is empty/whitespace-only, untrimmed, or
+  contains an ASCII control character, except where a more specific code such
+  as `TARGET_VIEW_INVALID` applies;
+- an invalid RFC 3339 `ProvenanceRecord.created_at`;
+- a `checksum_sha256` that is not exactly 64 lowercase hexadecimal characters;
+- an empty or otherwise invalid `ProvenanceRecord.source`;
+- an unsupported enum or `Literal` value in a programmatically constructed
+  canonical record when no more specific validation code applies.
+
+A decoded JSON value with the wrong runtime type uses `JSON_TYPE_INVALID`
+instead. For example, a numeric `KeySignatureEvent.mode` fails JSON type
+validation, while the string `"aeolian"` fails semantic field-value validation.
+Likewise, a non-string JSON `annotation_view_id` uses `JSON_TYPE_INVALID`;
+programmatic or lexical view violations use `TARGET_VIEW_INVALID`.
 
 ### Warnings
 
@@ -1107,7 +1178,9 @@ and meter, bars and beats, unavailable optional metadata, track roles only in a
 target, a partially masked chord-quality target, and an available theory label
 whose numeric confidence is unknown. Its last sounding note ends at `4/1` while
 the piece ends at `5/1`, so the revised trailing-silence rule is reachable. No
-raw track or note field contains theory.
+raw track or note field contains theory. The example contains two separate valid
+analyses for `theory.chord_quality`: the default view and
+`analysis.alternative`.
 
 ```json
 {
@@ -1462,6 +1535,32 @@ raw track or note field contains theory.
       "values": ["major", "major", null, "dominant_seventh", null]
     },
     {
+      "alignment_type": "beat",
+      "annotation_view_id": "analysis.alternative",
+      "class_labels": ["major", "minor", "dominant_seventh", "no_chord"],
+      "confidence": [0.9, 0.85, 0.7, 0.75, null],
+      "entity_ids": [
+        "beat:000",
+        "beat:001",
+        "beat:002",
+        "beat:003",
+        "beat:004"
+      ],
+      "mask": [true, true, true, true, false],
+      "provenance": [
+        "prov:theory",
+        "prov:theory",
+        "prov:theory",
+        "prov:theory",
+        null
+      ],
+      "source": ["human", "human", "human", "human", null],
+      "target_id": "target:theory-chord-quality-alternative",
+      "task": "theory.chord_quality",
+      "value_type": "categorical",
+      "values": ["major", "minor", "major", "dominant_seventh", null]
+    },
+    {
       "alignment_type": "track",
       "annotation_view_id": null,
       "class_labels": [
@@ -1522,16 +1621,24 @@ raw track or note field contains theory.
 Phase 1B must implement this API without inventing fields and add tests for:
 
 - normalized rational construction, arithmetic, ordering, and JSON;
-- exact synthetic example validation and round trip;
+- exact round trip of the revised three-target synthetic example;
 - malformed JSON, unknown fields, missing fields, and version mismatch;
+- `FIELD_VALUE_INVALID` for programmatically constructed records and the
+  distinction from `JSON_TYPE_INVALID`;
 - ID syntax, uniqueness, ordering, and references;
 - pickup bars, denominator-unit beats, meter/tempo changes, cross-bar notes,
   overlaps, percussion splitting assumptions, and grace notes;
 - target IDs, default and alternative annotation views, view uniqueness, and
   separation of alternative analyses;
+- two target arrays sharing a task with different views, rejection of duplicate
+  `(task, annotation_view_id)`, and whitespace-only/untrimmed/control-character
+  view IDs;
 - all target value types, masks, aligned lengths, known/unknown confidence,
   source, and provenance;
 - modal key-signature observations;
+- invalid key-signature fifths and `"other"` mode without `raw_value`;
+- invalid pitch-spelling fields and unsupported microtonal spelling placement;
+- invalid provenance RFC 3339 timestamps and SHA-256 checksums;
 - namespaced quality-flag validation;
 - reachable sounding/observation-based trailing-silence warnings;
 - unsupported microtonal spelling preservation without silent rounding;

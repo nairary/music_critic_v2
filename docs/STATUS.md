@@ -41,6 +41,11 @@
   strings while keeping validation codes closed.
 - Recorded the schema `2.0.0` integer-semitone spelling limitation and required
   provenance/quality-flag preservation for unsupported microtonal notation.
+- Added `FIELD_VALUE_INVALID` for correctly typed values that violate semantic
+  constraints without a more specific code, distinct from JSON runtime-type
+  failures.
+- Formalized trimmed, control-character-free, case-sensitive
+  `annotation_view_id` values.
 - Defined strict unknown-field rejection, exact-version compatibility, and
   deterministic field-by-field JSON serialization.
 - Defined validation error and warning codes and their severity boundary.
@@ -48,7 +53,8 @@
   meter, pickup bars and beats, pitched and percussion notes, an unavailable
   optional field, target-only track roles, a partially masked theory target, an
   available target with unknown confidence, namespaced quality flags, and
-  provenance.
+  provenance. The fixture now contains three target arrays, including default
+  and alternative analyses of `theory.chord_quality`.
 
 ## Review findings addressed
 
@@ -61,6 +67,12 @@
 - Modal key-signature observations are preserved.
 - Adapter diagnostics no longer require routine schema migrations.
 - Unsupported microtonal spelling cannot be silently rounded.
+- Semantic constraints for key signatures, spelling, provenance timestamps and
+  checksums, open identifiers, and programmatic enum/Literal values have an
+  explicit validation-code path.
+- `annotation_view_id` rejects empty, whitespace-only, untrimmed, control
+  character, and programmatically non-string values.
+- The normative fixture directly demonstrates two valid views of the same task.
 
 ## Files changed in Phase 1A
 
@@ -78,18 +90,18 @@ legacy files were changed.
 - The legacy checkout was not inspected because no V1 behavior was needed to
   settle the V2 contract.
 - Documentation-only scope was confirmed by the Git diff.
-- Revised canonical JSON verification passed: 52 normalized rational checks,
-  two target arrays, aligned lengths, required target IDs/views, unique
-  `(task, annotation_view_id)` pairs, unknown available confidence, masked null
-  semantics, namespaced quality flags, references, and reachable trailing
-  silence all passed.
+- Final standard-library JSON verification passed: exactly three target arrays,
+  two `theory.chord_quality` views (`None` and `analysis.alternative`), unique
+  target IDs/view pairs, canonical target ordering, aligned field lengths,
+  masked null semantics, unknown available confidence, normalized rationals,
+  resolved entity/provenance references, and namespaced quality flags.
 - `git diff --check`: passed.
 - System `/usr/bin/python -m pytest -q`: could not start because that
   interpreter has no pytest module.
 - `python -m pytest -q` using the existing pytest-capable environment:
-  `7 passed in 0.03s`.
+  `7 passed in 0.02s`.
 - `python -m compileall src`: passed.
-- No new tests or dependencies were added.
+- No production code, tests, dependencies, or legacy files were changed.
 
 ## Phase 0 retained status
 
