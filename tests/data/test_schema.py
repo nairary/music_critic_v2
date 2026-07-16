@@ -524,6 +524,7 @@ def test_public_api_is_explicit_and_excludes_unfinished_modules() -> None:
         "CanonicalTrack",
         "CanonicalValidationError",
         "IssueSeverity",
+        "JsonObject",
         "JsonScalar",
         "KeySignatureEvent",
         "KeySignatureMode",
@@ -546,11 +547,16 @@ def test_public_api_is_explicit_and_excludes_unfinished_modules() -> None:
         "ValidationCode",
         "ValidationIssue",
         "ValidationReport",
+        "dump_piece",
+        "dumps_piece",
+        "load_piece",
+        "loads_piece",
+        "piece_from_dict",
+        "piece_to_dict",
         "validate_or_raise",
         "validate_piece",
     }
     assert set(data.__all__) == expected
-    assert not hasattr(data, "piece_to_dict")
 
 
 def test_importing_data_package_is_standard_library_only(tmp_path: Path) -> None:

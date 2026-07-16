@@ -1,4 +1,4 @@
-"""Stable Phase 1B.1 canonical symbolic-data API."""
+"""Stable canonical symbolic-data API."""
 
 from music_critic.data.schema import (
     SCHEMA_VERSION,
@@ -30,6 +30,15 @@ from music_critic.data.schema import (
     TargetValueType,
     TempoEvent,
 )
+from music_critic.data.serialization import (
+    JsonObject,
+    dump_piece,
+    dumps_piece,
+    load_piece,
+    loads_piece,
+    piece_from_dict,
+    piece_to_dict,
+)
 from music_critic.data.timing import RationalTime
 from music_critic.data.validation import (
     CanonicalValidationError,
@@ -52,6 +61,7 @@ __all__ = [
     "CanonicalTrack",
     "CanonicalValidationError",
     "IssueSeverity",
+    "JsonObject",
     "JsonScalar",
     "KeySignatureEvent",
     "KeySignatureMode",
@@ -74,6 +84,12 @@ __all__ = [
     "ValidationCode",
     "ValidationIssue",
     "ValidationReport",
+    "dump_piece",
+    "dumps_piece",
+    "load_piece",
+    "loads_piece",
+    "piece_from_dict",
+    "piece_to_dict",
     "validate_or_raise",
     "validate_piece",
 ]

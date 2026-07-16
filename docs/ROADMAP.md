@@ -74,7 +74,7 @@ document is the phase execution checklist.
 
 #### Phase 1B.2 — Canonical validation
 
-- Status: Current task — completed
+- Status: Completed
 - Goal: implement structured validation reports, deterministic issue ordering,
   and raising validation.
 - Outputs: `music_critic.data.validation`.
@@ -87,7 +87,7 @@ document is the phase execution checklist.
 
 #### Phase 1B.3 — Canonical serialization
 
-- Status: Pending
+- Status: Current implementation task — completed, pending final review
 - Goal: implement strict field-by-field canonical JSON encoding and decoding.
 - Outputs: `music_critic.data.serialization`.
 - Tests: malformed data, exact-version behavior, deterministic bytes, and
@@ -96,6 +96,7 @@ document is the phase execution checklist.
 
 ## Phase 2 — Generic MIDI and HookTheory adapters
 
+- Status: Pending
 - Goal: map unlabeled MIDI and HookTheory into the same canonical schema.
 - Dependencies: Phase 1.
 - Outputs: adapter interface, generic MIDI adapter, HookTheory adapter.
