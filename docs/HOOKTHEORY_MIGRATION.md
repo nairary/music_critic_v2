@@ -1,8 +1,9 @@
 # HookTheory Adapter Migration Contract
 
-Status: **ACCEPTED — Phase 2B.0 completed**. Accepted Phase 2B.0 implementation:
-`9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`. Phase 2B.1 may implement this
-contract while remaining in review until separately accepted.
+Status: **ACCEPTED**. Phase 2B.0 and Phase 2B.1 are completed. Accepted Phase
+2B.0 implementation: `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`.
+Accepted Phase 2B.1 implementation:
+`3898b168063094b87e5ca5d88aae0317c1562c3f`.
 
 The real-data inventory, runtime domains, hashes, join statistics, leakage
 findings, and bounded golden evidence are recorded in
@@ -80,6 +81,19 @@ raw beat 1 = canonical qn 0
 qn_per_raw_beat = 1 when beatUnit=1
 qn_per_raw_beat = 1/2 when beatUnit=3
 ```
+
+The compound result follows Sheet Sage's three coordinate levels. In
+`LeadSheet.from_theorytab()`, one raw TheoryTab beat becomes four tertiary
+subdivision units. A simple primary pulse contains `2 * 2 = 4` tertiary units,
+so one raw beat is one primary quarter-note pulse. A compound primary pulse
+contains `3 * 4 = 12` tertiary units, so one raw beat is `4/12` of a dotted
+quarter pulse: one eighth note, or one-half qn.
+
+Simplified HookTheory melody `onset`/`offset`, meter `beat`, and alignment beat
+coordinates remain zero-based source-beat coordinates. They support the
+raw-to-simplified identity check `raw beat - 1 == simplified beat`, but they do
+not become canonical qn merely because one was subtracted. Canonical qn still
+requires the active meter conversion above.
 
 The conversion must use exact decimal/rational parsing. It must not round
 through binary floating point or use epsilon comparisons. Melody, chord, key,
@@ -259,8 +273,8 @@ Phase 2B.1 may now implement it on its dedicated branch.
 
 ## Phase 2B.1 production implementation
 
-Status: **In review**. The implementation is intentionally not marked Accepted
-or Completed.
+Status: **Accepted and Completed**. Accepted implementation:
+`3898b168063094b87e5ca5d88aae0317c1562c3f`.
 
 `music_critic.adapters.hooktheory` exposes `HookTheoryAdapterConfig`,
 `HookTheoryAdapterError`, `convert_hooktheory_record`, and

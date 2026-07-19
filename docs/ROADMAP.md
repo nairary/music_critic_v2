@@ -97,7 +97,8 @@ document is the phase execution checklist.
 ## Phase 2 — Generic MIDI and HookTheory adapters
 
 - Status: In progress
-- Sequence: Phase 2A.1 and Phase 2B.0 are completed; Phase 2B.1 is in review.
+- Sequence: Phase 2A.1, Phase 2B.0, and Phase 2B.1 are completed; Phase 2B.2 is
+  the remaining Phase 2 diagnostic-infrastructure task.
 - Goal: map unlabeled MIDI and HookTheory into the same canonical schema.
 - Dependencies: Phase 1.
 - Outputs: adapter interface, generic MIDI adapter, HookTheory adapter.
@@ -141,7 +142,9 @@ document is the phase execution checklist.
 
 ### Phase 2B.1 — HookTheory adapter
 
-- Status: In review
+- Status: Accepted and Completed
+- Accepted implementation:
+  `3898b168063094b87e5ca5d88aae0317c1562c3f`
 - Dependencies: Phase 2B.0.
 - Goal: implement the accepted HookTheory migration contract without exposing
   theory labels as raw inference inputs.
@@ -153,12 +156,23 @@ document is the phase execution checklist.
   canonical pieces; the three missing-payload records are counted and skipped.
   Remediation maps compound raw beats to half-qn, integrates crossing durations,
   uses compound felt-pulse tempo, reconstructs scale-aware MIDI-60 pitch, and
-  rejects mismatched structure rows. Phase 2B.1 remains In review.
+  rejects mismatched structure rows.
 - Non-goals: MIDI rendering, chord-note synthesis, section alignment, deferred
   chord-field interpretation, graphs, datasets, models, or training.
 
-The graph phase, model phases, and training phases remain pending. Phase 2B.1
-must remain in review until its implementation is separately accepted.
+### Phase 2B.2 — Canonical MIDI renderer
+
+- Status: Pending
+- Dependencies: accepted Phase 2A.1 and Phase 2B.1 adapters.
+- Goal: render any valid `CanonicalPiece` to diagnostic standard MIDI while
+  preserving representable rational timing, canonical tempo, canonical meter,
+  melody notes, optional canonical-beat clicks, and optional target markers.
+- Outputs: a generic exporter API, HookTheory rendering CLI, semantic MIDI
+  round trips, and a separate audit-only simplified/alignment comparison.
+- Non-goals: chord voicing, audio synthesis, graph/model/training work, and
+  treating renderer output as independent source truth.
+
+The graph phase, model phases, and training phases remain pending.
 
 ## Phase 3 — Raw graph builder
 

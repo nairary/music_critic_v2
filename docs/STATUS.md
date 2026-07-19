@@ -2,7 +2,7 @@
 
 ## Current phase
 
-- Date: 2026-07-19
+- Date: 2026-07-20
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -18,7 +18,10 @@
 - Phase 2B.0: Accepted and Completed
 - Accepted Phase 2B.0 implementation SHA:
   `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`
-- Current task: Phase 2B.1 production HookTheory adapter — in review
+- Phase 2B.1: Accepted and Completed
+- Accepted Phase 2B.1 implementation SHA:
+  `3898b168063094b87e5ca5d88aae0317c1562c3f`
+- Current task: Phase 2B.1 closure and merge
 
 ## Phase 2 migration status
 
@@ -30,11 +33,10 @@
   provenance method `hooktheory_scale_degree_to_midi_upstream`. MIDI 72 is
   legacy compatibility history only.
 - Applied harmony is deferred from the first HookTheory adapter.
-- The Phase 2B.1 HookTheory adapter is implemented and **In review**. It is not
-  Accepted or Completed.
+- The Phase 2B.1 HookTheory adapter is **Accepted and Completed** at
+  `3898b168063094b87e5ca5d88aae0317c1562c3f`.
 - Phase 2B.0 is **Accepted and Completed** at implementation SHA
-  `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`. Phase 2B.1 is implemented on its
-  dedicated branch and remains in review until separately accepted.
+  `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`.
 - No graph, dataset, model, SSL, training, preference, quality, inference, or
   GRPO work has started.
 
@@ -97,13 +99,18 @@
   1,611 bars, and 13,272 beats. Compound tempo hypothesis C has 0.39% median
   error across 72 eligible user-alignment intervals, versus 50.04% for A and
   200.07% for B.
+- Closure regressions confirm one complete 12/8 bar is 6 qn with 12 half-qn
+  canonical beats, one complete 6/8 bar is 3 qn with six beats, compound 12/8
+  at 120 BPM renders 6 qn in 1,999,998 microseconds after required integer
+  tempo rounding, and simple 4/4 at 120 BPM renders 4 qn in 2,000,000
+  microseconds. Production code was unchanged by closure.
 
 ## Phase 2B.1 verification
 
 All Python commands used the project-local Python 3.13.5 interpreter.
 
 - HookTheory parser unit tests: `10 passed`.
-- HookTheory adapter unit tests: `49 passed`.
+- HookTheory adapter unit tests after closure regressions: `53 passed`.
 - HookTheory validation regression tests: `112 passed`.
 - HookTheory semantic-audit and golden-fixture audit tests: `10 passed`.
 - Opt-in real golden adapter integration: `1 passed` (all 19 manifest cases;
@@ -112,25 +119,30 @@ All Python commands used the project-local Python 3.13.5 interpreter.
 - Data-layer tests: `247 passed`.
 - MIDI adapter tests: `62 passed, 2 skipped`; the skips are gated real-corpus
   integrations.
-- Full default repository suite: `393 passed, 6 skipped`; all skips are
-  explicitly gated real-corpus integrations. The final full suite with both
-  HookTheory corpus integrations enabled: `395 passed, 4 skipped in 131.29s`.
+- Full default repository suite after closure regressions: `397 passed, 6
+  skipped`; all skips are explicitly gated real-corpus integrations. The final
+  full suite with both HookTheory corpus integrations enabled: `399 passed, 4
+  skipped in 131.13s`.
 - Full target-visible corpus smoke: 26,175 valid pieces, zero unexpected
   failures, `32/32` serialization round trips, and `32/32` target-hiding
   comparisons.
 - Full target-hidden corpus smoke: 26,175 valid pieces, zero unexpected
   failures, zero annotations, and zero targets.
 - `python -m compileall src scripts tests`: passed.
-- `git diff --check`: passed.
+- `git show --check --oneline
+  3898b168063094b87e5ca5d88aae0317c1562c3f`: passed and printed
+  `3898b16 Remediate HookTheory timing and pitch semantics`.
+- `git diff --check
+  47812f6cea2d8183b3543798ba1a252bb1380f85..HEAD`: passed with no output.
 - Production dependency/import scan: passed; the HookTheory production adapter
   imports only the standard library, its private production JSON reader, and
   `music_critic.data`.
 - Added-line and new-file forbidden absolute-path scan: passed.
-- Legacy unchanged check: failed because the read-only legacy checkout differs
-  from `docs/legacy_snapshot.json` (including additional staged legacy-doc and
-  experiment artifacts). Phase 2B.1 did not modify the legacy repository; the
-  external drift is intentionally left untouched and must be reconciled by its
-  owner before this check can pass.
+- Legacy unchanged check: remains intentionally failing under the explicit
+  resolution-C waiver in `docs/LEGACY_DRIFT_REPORT.md`. The report records all
+  staged added, removed/renamed, and modified paths with recorded/current Git
+  blob hashes. Phase 2B.1 did not modify the external checkout or refresh the
+  snapshot.
 
 ## Phase 2B.0 HookTheory audit result
 

@@ -487,6 +487,83 @@ def test_compound_tempo_is_felt_pulse_and_same_onset_uses_new_meter() -> None:
 
 
 @pytest.mark.parametrize(
+    ("numerator", "end_beat", "expected_duration", "expected_beats"),
+    [
+        (12, 13, RationalTime(6), 12),
+        (6, 7, RationalTime(3), 6),
+    ],
+)
+def test_complete_compound_bar_uses_eighth_note_source_beats(
+    numerator: int,
+    end_beat: int,
+    expected_duration: RationalTime,
+    expected_beats: int,
+) -> None:
+    piece = convert(
+        raw_record(
+            end_beat=end_beat,
+            meters=[{"beat": 1, "numBeats": numerator, "beatUnit": 3}],
+            notes=[],
+        )
+    )
+    assert piece.duration_qn == expected_duration
+    assert len(piece.bars) == 1
+    assert piece.bars[0].duration_qn == expected_duration
+    assert len(piece.beats) == expected_beats
+    assert all(beat.duration_qn == RationalTime(1, 2) for beat in piece.beats)
+    assert not validate_piece(piece).errors
+
+
+@pytest.mark.parametrize(
+    (
+        "meter",
+        "end_beat",
+        "expected_duration",
+        "expected_us_per_qn",
+        "expected_elapsed_us",
+    ),
+    [
+        (
+            {"beat": 1, "numBeats": 12, "beatUnit": 3},
+            13,
+            RationalTime(6),
+            333_333,
+            1_999_998,
+        ),
+        (
+            {"beat": 1, "numBeats": 4, "beatUnit": 1},
+            5,
+            RationalTime(4),
+            500_000,
+            2_000_000,
+        ),
+    ],
+)
+def test_compound_and_simple_tempo_controls_reconstruct_two_seconds(
+    meter: dict,
+    end_beat: int,
+    expected_duration: RationalTime,
+    expected_us_per_qn: int,
+    expected_elapsed_us: int,
+) -> None:
+    piece = convert(
+        raw_record(
+            end_beat=end_beat,
+            meters=[meter],
+            tempos=[{"beat": 1, "bpm": 120}],
+            notes=[],
+        )
+    )
+    assert piece.duration_qn == expected_duration
+    assert piece.tempo_events[0].microseconds_per_quarter == expected_us_per_qn
+    elapsed_us = (
+        piece.duration_qn.to_fraction()
+        * piece.tempo_events[0].microseconds_per_quarter
+    )
+    assert elapsed_us == expected_elapsed_us
+
+
+@pytest.mark.parametrize(
     ("scale", "degree", "expected"),
     [
         ("major", "3", 64),

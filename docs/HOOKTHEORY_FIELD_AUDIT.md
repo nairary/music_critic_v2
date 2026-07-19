@@ -1,9 +1,10 @@
 # HookTheory Field and Legacy-Behavior Audit
 
-Status: **Phase 2B.0 accepted and completed**. Accepted implementation:
-`9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`. This audit is the accepted
-executable-specification evidence for the Phase 2B.1 adapter; it is not an
-adapter implementation.
+Status: **Phase 2B.0 and Phase 2B.1 accepted and completed**. Accepted Phase
+2B.0 implementation: `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`.
+Accepted Phase 2B.1 implementation:
+`3898b168063094b87e5ca5d88aae0317c1562c3f`. This audit remains executable
+evidence rather than a production adapter implementation.
 
 ## Audit basis
 
@@ -153,6 +154,14 @@ raw beat 1 -> qn 0
 beatUnit=1 -> 1 qn per raw beat
 beatUnit=3 -> 1/2 qn per raw beat
 ```
+
+The `beatUnit=3` factor is derived rather than inferred from the simplified
+numeric coordinate. Sheet Sage first maps one raw beat to four tertiary units.
+Simple primary pulses contain four tertiary units (`2 * 2`), while compound
+primary pulses contain twelve (`3 * 4`). Thus one compound raw beat is `4/12`
+of a dotted-quarter primary pulse: one eighth note, or one-half qn. Simplified
+melody onset/offset, meter beat, and alignment beat fields remain source-beat
+coordinates; `raw beat - 1` is only the raw-to-simplified coordinate identity.
 
 The audit parses JSON floating-point lexemes directly with `Decimal`, then
 constructs `Fraction(str(decimal))`; it never round-trips through binary float

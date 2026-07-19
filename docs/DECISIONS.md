@@ -249,8 +249,8 @@ This log is append-only.
 
 ## 2026-07-19 — ADR-022: HookTheory timing, tempo, and pitch use upstream metric semantics
 
-- Status: Accepted for the Phase 2B.1 implementation; the phase itself remains
-  In review.
+- Status: Accepted; Phase 2B.1 is Accepted and Completed at implementation
+  `3898b168063094b87e5ca5d88aae0317c1562c3f`.
 - Context: The first adapter implementation treated every TheoryTab beat as one
   quarter note, every BPM as quarter-note BPM, and melody octave zero as MIDI
   72. Structural validation did not establish those musical meanings.
@@ -286,3 +286,22 @@ This log is append-only.
   notes rather than assuming major, and production provenance names the
   upstream scale-degree method. No schema-version change or runtime Sheet Sage
   dependency is introduced.
+
+## 2026-07-20 — ADR-023: Close Phase 2B.1 with explicit legacy-drift waiver
+
+- Status: Accepted.
+- Context: Final compound-meter controls confirm the production mapping without
+  changing production code. The external read-only legacy checkout retains the
+  pinned HEAD but its staged worktree no longer matches the status captured in
+  `docs/legacy_snapshot.json`.
+- Decision: Accept and complete Phase 2B.1 at implementation
+  `3898b168063094b87e5ca5d88aae0317c1562c3f`. Preserve the timing derivation as
+  raw beat -> four tertiary units -> primary meter pulse -> canonical qn.
+  Apply closure resolution C to legacy drift: keep the failing check visible,
+  publish bounded recorded/current blob evidence in
+  `docs/LEGACY_DRIFT_REPORT.md`, and neither refresh the snapshot nor modify the
+  external checkout without owner classification.
+- Consequences: `raw beat - 1` remains a valid raw-to-simplified source-beat
+  comparison, not a universal qn conversion. Phase 2B.1 can merge while the
+  external waiver remains explicit; a future owner action must choose snapshot
+  refresh or manual legacy restoration.
