@@ -9,7 +9,7 @@
 - Phase 1B.2: Completed
 - Phase 1B.3: Completed
 - Phase 1 merge SHA: `37edf76889730980aa6ce9e9ec981e362c3480a9`
-- Current branch: `phase/2a-generic-midi-adapter-mvp`
+- Current branch: `phase/2b0-hooktheory-golden-fixtures`
 - Current phase: Phase 2 — generic MIDI and HookTheory adapters
 - Phase 2 state: In progress
 - Phase 2A.1: Accepted and Completed
@@ -26,10 +26,52 @@
   `hooktheory_sd_octave_to_midi_v1`.
 - Applied harmony is deferred from the first HookTheory adapter.
 - The HookTheory adapter has not been implemented.
-- Phase 2B.0 legacy audit/golden fixtures is the next task; Phase 2B.1 adapter
-  implementation remains pending.
+- Phase 2B.0 legacy audit/golden fixtures is implemented on the current review
+  branch; Phase 2B.1 adapter implementation remains pending.
 - No graph, dataset, model, SSL, training, preference, quality, inference, or
   GRPO work has started.
+
+## Phase 2B.0 HookTheory audit result
+
+- `scripts/audit_hooktheory_legacy.py` is a deterministic, read-only,
+  standard-library audit CLI for complete JSON objects, legacy top-level
+  fragments, and JSONL. It inventories and hashes sources, profiles bounded
+  field evidence, finds fixture candidates, measures source/output coverage,
+  audits structure joins, and reports `ori_uid` leakage.
+- The raw merged source has 26,178 records: train 21,233, val 2,184, and test
+  2,761. Three train records have no `json` payload. Existing processed and
+  canonical full outputs each contain the remaining 26,175 records.
+- Primary hashes: raw merged
+  `8ab601050d0b8c8752c3b6bf190d63edefa5fce07735ce823bca6a3922dff833`,
+  processed full
+  `18421660eada680a223666f8e9af6b193900d91292b2ea7148e5c0687d2d42fe`,
+  and canonical full
+  `2b78e7d90bd81bd6a9d9ce946bc1ebff259d6967dcda1ad7b139bfbc5a5d8dc8`.
+  The complete source/processed hash inventory is in
+  `docs/HOOKTHEORY_FIELD_AUDIT.md` and the fixture manifest.
+- Structure joins by normalized split plus `audio_path` stem match all 11,515
+  structure rows: train 9,498, val 927, and test 1,090. Symbolic-only counts are
+  train 11,735, val 1,257, and test 1,671; there are no structure-only or
+  duplicate structure IDs and no missing structure `ori_uid` values.
+- There are 2,714 original-song groups with multiple clips. Twenty-three
+  `ori_uid` values cross split boundaries and are explicit leakage findings
+  that must be resolved before training.
+- Thirteen bounded cases cover major/minor/modal examples, integer and
+  fractional timing, first-beat conversion, rests and derived pitches,
+  multiple key/tempo/meter regions, root-zero rest and malformed non-rest zero,
+  chord types/inversions/decorations, borrowed null/empty/mode/list/unknown
+  forms, applied raw evidence, matched and unmatched symbolic structure,
+  shared `ori_uid`, and a missing payload.
+- Not observed and not fabricated: raw root `8`, stringified borrowed lists,
+  unexpected borrowed runtime types, derived out-of-range pitch, non-null
+  pedal, exact duplicate regions, duplicate structure IDs, structure-only rows,
+  or missing structure `ori_uid`.
+- Unresolved: `beatUnit` denominator semantics, `alternate`, `pedal`, applied
+  harmony, and audio-seconds-to-symbolic alignment. Structure timestamps remain
+  audio seconds with `section_alignment_status=unresolved_audio_seconds`.
+- The production HookTheory adapter has not started. No public API, dependency,
+  canonical conversion entry point, graph, dataset, model, SSL, training,
+  preference, evaluation, inference, or GRPO work was added.
 
 ## Phase 2A.1 generic MIDI result
 

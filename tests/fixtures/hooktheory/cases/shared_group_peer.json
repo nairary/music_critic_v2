@@ -1,0 +1,23 @@
+{
+  "case_id": "shared_group_peer",
+  "coverage_tags": ["ordinary_major", "first_beat", "derived_pitch", "shared_ori_uid", "structure_matched"],
+  "source_reference": {"dataset_relative_path": "data/HookTheory/Hooktheory_Raw.json/4_merged.json", "split": "train", "clip_id": "BAaoGDaRmeQ", "ori_uid": "-A74dEskT6s", "source_record_locator": "top_level_object:BAaoGDaRmeQ"},
+  "raw_excerpt": {
+    "regions": {"keys": [{"beat": 1, "scale": "major", "tonic": "B"}], "tempos": [{"beat": 1, "bpm": 143, "swingFactor": 0, "swingBeat": 0.5}], "meters": [{"beat": 1, "numBeats": 4, "beatUnit": 1}]},
+    "notes": [{"index": 0, "value": {"sd": "1", "octave": 0, "beat": 1, "duration": 0.5, "isRest": false, "recordingEndBeat": null}}],
+    "chords": [{"index": 0, "value": {"root": 6, "beat": 1, "duration": 4, "type": 5, "inversion": 0, "applied": 0, "adds": [], "omits": [], "alterations": [], "suspensions": [], "pedal": null, "alternate": "", "borrowed": null, "isRest": false, "recordingEndBeat": null}}]
+  },
+  "structure_excerpt": {"clip_id": "BAaoGDaRmeQ", "ori_uid": "-A74dEskT6s", "split": "train", "labels": ["solo"], "duration": 31.67, "segment_start": 205.0634765625, "segment_end": 236.7333984375},
+  "legacy_selected_expected": {"exists": true, "meta_excerpt": {"split": "train", "ori_uid": "-A74dEskT6s"}, "melody_events": [{"index": 0, "value": {"beat": 1, "duration": 0.5, "sd": "1", "octave": 0, "is_rest": false}}], "chord_events": [{"index": 0, "value": {"beat": 1, "duration": 4, "root": 6, "type": 5, "is_rest": false}}]},
+  "legacy_canonical_expected": {"exists": true, "meta_excerpt": {"split": "train", "ori_uid": "-A74dEskT6s"}, "chord_events": [{"index": 0, "value": {"root": 5, "type": 5, "is_rest": false}}]},
+  "expected_v2_contract": {
+    "timing": [{"raw_beat_decimal": "1", "canonical_onset_qn": "0/1", "raw_duration_decimal": "0.5", "canonical_duration_qn": "1/2"}],
+    "melody": [{"raw_sd": "1", "octave": 0, "tonic_pc": 11, "sd_chromatic_offset": 0, "is_rest": false, "derived_pitch": 83, "pitch_source": "derived", "provenance_method": "hooktheory_sd_octave_to_midi_v1"}],
+    "chords": [{"raw_root": 6, "is_rest": false, "canonical_functional_degree": 5, "special": null, "raw_applied": 0, "applied_target": null}],
+    "source_group_id": "-A74dEskT6s",
+    "structure": {"coordinate_unit": "audio_seconds", "section_alignment_status": "unresolved_audio_seconds", "target_array_expected": false, "annotation_span_expected": false},
+    "unavailable_target": {"mask": false, "value": null, "source": null, "confidence": null, "provenance": null}
+  },
+  "expected_diagnostics": [],
+  "evidence": {"source_record_sha256": "6cefcc2c64747e6927fb215f3e6419a801b400a257ec1283745b51800f78ecdd", "status": "confirmed_real_data"}
+}

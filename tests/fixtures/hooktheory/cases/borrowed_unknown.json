@@ -1,0 +1,23 @@
+{
+  "case_id": "borrowed_unknown",
+  "coverage_tags": ["ordinary_major", "borrowed_unknown", "extended_chord", "chord_decorations", "structure_unmatched_symbolic"],
+  "source_reference": {"dataset_relative_path": "data/HookTheory/Hooktheory_Raw.json/4_merged.json", "split": "train", "clip_id": "QLgnM-GPm-V", "ori_uid": null, "source_record_locator": "top_level_object:QLgnM-GPm-V"},
+  "raw_excerpt": {
+    "regions": {"keys": [{"beat": 1, "scale": "major", "tonic": "Eb"}], "tempos": [{"beat": 1, "bpm": 143, "swingFactor": 0, "swingBeat": 0.5}], "meters": [{"beat": 1, "numBeats": 6, "beatUnit": 1}]},
+    "notes": [],
+    "chords": [{"index": 5, "value": {"root": 3, "beat": 16, "duration": 1.5, "type": 13, "inversion": 0, "applied": 0, "adds": [], "omits": [], "alterations": ["b5"], "suspensions": [], "pedal": null, "alternate": "", "borrowed": "super:2", "isRest": false, "recordingEndBeat": null}}]
+  },
+  "structure_excerpt": null,
+  "legacy_selected_expected": {"exists": true, "meta_excerpt": {"ori_uid": null}, "melody_events": [], "chord_events": [{"index": 5, "value": {"beat": 16, "duration": 1.5, "root": 3, "type": 13, "alterations": ["b5"], "borrowed": "super:2"}}]},
+  "legacy_canonical_expected": {"exists": true, "meta_excerpt": {"ori_uid": null}, "chord_events": [{"index": 5, "value": {"root": 2, "type": 13, "alterations": ["b5"], "borrowed_kind": "unknown", "borrowed_mode_name": "super:2", "borrowed_pcset": []}}]},
+  "expected_v2_contract": {
+    "timing": [{"raw_beat_decimal": "16", "canonical_onset_qn": "15/1", "raw_duration_decimal": "1.5", "canonical_duration_qn": "3/2"}],
+    "melody": [],
+    "chords": [{"raw_root": 3, "is_rest": false, "canonical_functional_degree": 2, "special": null, "raw_applied": 0, "applied_target": null, "borrowed_interpretation": {"kind": "unknown", "mode_name": null, "pitch_classes": [], "raw_value": "super:2", "status": "unresolved"}}],
+    "source_group_id": null,
+    "structure": {"coordinate_unit": "audio_seconds", "section_alignment_status": "unresolved_audio_seconds", "target_array_expected": false, "annotation_span_expected": false},
+    "unavailable_target": {"mask": false, "value": null, "source": null, "confidence": null, "provenance": null}
+  },
+  "expected_diagnostics": ["hooktheory.borrowed_unknown_string", "hooktheory.structure_unmatched_symbolic_clip"],
+  "evidence": {"source_record_sha256": "787b7a61f536c858faadc984ee05f79d9cd0bbc22e71afd69325621f836083c2", "status": "confirmed_real_data"}
+}

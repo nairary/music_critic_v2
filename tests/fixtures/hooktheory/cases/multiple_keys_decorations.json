@@ -1,0 +1,28 @@
+{
+  "case_id": "multiple_keys_decorations",
+  "coverage_tags": ["minor_modal", "multiple_keys", "fractional_timing", "derived_pitch", "chord_decorations", "borrowed_empty", "structure_unmatched_symbolic"],
+  "source_reference": {"dataset_relative_path": "data/HookTheory/Hooktheory_Raw.json/4_merged.json", "split": "train", "clip_id": "ANmplRlZmyM", "ori_uid": null, "source_record_locator": "top_level_object:ANmplRlZmyM"},
+  "raw_excerpt": {
+    "regions": {"keys": [{"beat": 1, "scale": "dorian", "tonic": "Bb"}, {"beat": 17, "scale": "dorian", "tonic": "G#"}, {"beat": 25, "scale": "major", "tonic": "F#"}, {"beat": 37, "scale": "major", "tonic": "Bb"}], "tempos": [{"beat": 1, "bpm": 79, "swingFactor": 0, "swingBeat": 0.5}], "meters": [{"beat": 1, "numBeats": 4, "beatUnit": 1}]},
+    "notes": [{"index": 2, "value": {"sd": "#1", "octave": 0, "beat": 10.25, "duration": 0.5, "isRest": false, "recordingEndBeat": null}}],
+    "chords": [
+      {"index": 0, "value": {"root": 1, "beat": 1, "duration": 0.25, "type": 7, "inversion": 0, "applied": 0, "adds": [4], "omits": [], "alterations": [], "suspensions": [], "pedal": null, "alternate": "", "borrowed": "", "isRest": false, "recordingEndBeat": null}},
+      {"index": 6, "value": {"root": 4, "beat": 2.75, "duration": 0.75, "type": 7, "inversion": 0, "applied": 0, "adds": [], "omits": [5], "alterations": [], "suspensions": [], "pedal": null, "alternate": "", "borrowed": "", "isRest": false, "recordingEndBeat": null}},
+      {"index": 77, "value": {"root": 5, "beat": 37, "duration": 0.25, "type": 7, "inversion": 0, "applied": 0, "adds": [], "omits": [], "alterations": ["#5"], "suspensions": [], "pedal": null, "alternate": "", "borrowed": "major", "isRest": false, "recordingEndBeat": null}}
+    ]
+  },
+  "structure_excerpt": null,
+  "legacy_selected_expected": {"exists": true, "meta_excerpt": {"split": "train", "ori_uid": null, "keys": [{"beat": 1, "tonic": "Bb", "scale": "dorian"}, {"beat": 17, "tonic": "G#", "scale": "dorian"}, {"beat": 25, "tonic": "F#", "scale": "major"}, {"beat": 37, "tonic": "Bb", "scale": "major"}]}, "melody_events": [{"index": 2, "value": {"beat": 10.25, "duration": 0.5, "sd": "#1", "octave": 0, "is_rest": false}}], "chord_events": [{"index": 0, "value": {"root": 1, "adds": [4], "borrowed": ""}}, {"index": 6, "value": {"root": 4, "omits": [5]}}, {"index": 77, "value": {"root": 5, "alterations": ["#5"], "borrowed": "major"}}]},
+  "legacy_canonical_expected": {"exists": true, "meta_excerpt": {"keys": [{"beat": 1, "tonic_symbol": "Bb", "tonic_pc": 10, "scale": "dorian"}, {"beat": 17, "tonic_symbol": "G#", "tonic_pc": 8, "scale": "dorian"}, {"beat": 25, "tonic_symbol": "F#", "tonic_pc": 6, "scale": "major"}, {"beat": 37, "tonic_symbol": "Bb", "tonic_pc": 10, "scale": "major"}]}, "chord_events": [{"index": 0, "value": {"root": 0, "adds": [4], "borrowed_kind": "none"}}, {"index": 6, "value": {"root": 3, "omits": [5]}}, {"index": 77, "value": {"root": 4, "alterations": ["#5"], "borrowed_kind": "mode_name", "borrowed_mode_name": "major"}}]},
+  "expected_v2_contract": {
+    "timing": [{"raw_beat_decimal": "10.25", "canonical_onset_qn": "37/4", "raw_duration_decimal": "0.5", "canonical_duration_qn": "1/2"}],
+    "melody": [{"raw_sd": "#1", "octave": 0, "tonic_pc": 10, "sd_chromatic_offset": 1, "is_rest": false, "derived_pitch": 83, "pitch_source": "derived", "provenance_method": "hooktheory_sd_octave_to_midi_v1"}],
+    "chords": [{"raw_root": 1, "is_rest": false, "canonical_functional_degree": 0, "special": null, "raw_applied": 0, "applied_target": null}, {"raw_root": 4, "is_rest": false, "canonical_functional_degree": 3, "special": null, "raw_applied": 0, "applied_target": null}, {"raw_root": 5, "is_rest": false, "canonical_functional_degree": 4, "special": null, "raw_applied": 0, "applied_target": null}],
+    "regions": {"key_onsets_qn": ["0/1", "16/1", "24/1", "36/1"]},
+    "source_group_id": null,
+    "structure": {"coordinate_unit": "audio_seconds", "section_alignment_status": "unresolved_audio_seconds", "target_array_expected": false, "annotation_span_expected": false},
+    "unavailable_target": {"mask": false, "value": null, "source": null, "confidence": null, "provenance": null}
+  },
+  "expected_diagnostics": ["hooktheory.structure_unmatched_symbolic_clip"],
+  "evidence": {"source_record_sha256": "962b1492d28272eef385b1d478b5502879b6d162beee1b1e8b1557a1182d118b", "status": "confirmed_real_data"}
+}

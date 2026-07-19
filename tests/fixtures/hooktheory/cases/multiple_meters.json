@@ -1,0 +1,24 @@
+{
+  "case_id": "multiple_meters",
+  "coverage_tags": ["ordinary_major", "multiple_meters", "derived_pitch", "structure_unmatched_symbolic"],
+  "source_reference": {"dataset_relative_path": "data/HookTheory/Hooktheory_Raw.json/4_merged.json", "split": "train", "clip_id": "ANmpnPWnxyM", "ori_uid": null, "source_record_locator": "top_level_object:ANmpnPWnxyM"},
+  "raw_excerpt": {
+    "regions": {"keys": [{"beat": 1, "scale": "major", "tonic": "Eb"}], "tempos": [{"beat": 1, "bpm": 183, "swingFactor": 0, "swingBeat": 0.5}], "meters": [{"beat": 1, "numBeats": 3, "beatUnit": 1}, {"beat": 49, "numBeats": 4, "beatUnit": 1}, {"beat": 53, "numBeats": 3, "beatUnit": 1}]},
+    "notes": [{"index": 0, "value": {"sd": "5", "octave": 1, "beat": 3, "duration": 1, "isRest": false, "recordingEndBeat": null}}],
+    "chords": []
+  },
+  "structure_excerpt": null,
+  "legacy_selected_expected": {"exists": true, "meta_excerpt": {"meters": [{"beat": 1, "num_beats": 3, "beat_unit": 1}, {"beat": 49, "num_beats": 4, "beat_unit": 1}, {"beat": 53, "num_beats": 3, "beat_unit": 1}]}, "melody_events": [{"index": 0, "value": {"beat": 3, "duration": 1, "sd": "5", "octave": 1, "is_rest": false}}], "chord_events": []},
+  "legacy_canonical_expected": {"exists": true, "meta_excerpt": {"meters": [{"beat": 1, "num_beats": 3, "beat_unit": 1, "meter_token": "3/1"}, {"beat": 49, "num_beats": 4, "beat_unit": 1, "meter_token": "4/1"}, {"beat": 53, "num_beats": 3, "beat_unit": 1, "meter_token": "3/1"}]}, "chord_events": []},
+  "expected_v2_contract": {
+    "timing": [{"raw_beat_decimal": "3", "canonical_onset_qn": "2/1", "raw_duration_decimal": "1", "canonical_duration_qn": "1/1"}],
+    "melody": [{"raw_sd": "5", "octave": 1, "tonic_pc": 3, "sd_chromatic_offset": 7, "is_rest": false, "derived_pitch": 94, "pitch_source": "derived", "provenance_method": "hooktheory_sd_octave_to_midi_v1"}],
+    "chords": [],
+    "regions": {"meter_onsets_qn": ["0/1", "48/1", "52/1"], "beat_unit_interpretation": "unresolved"},
+    "source_group_id": null,
+    "structure": {"coordinate_unit": "audio_seconds", "section_alignment_status": "unresolved_audio_seconds", "target_array_expected": false, "annotation_span_expected": false},
+    "unavailable_target": {"mask": false, "value": null, "source": null, "confidence": null, "provenance": null}
+  },
+  "expected_diagnostics": ["hooktheory.structure_unmatched_symbolic_clip", "hooktheory.beat_unit_unresolved"],
+  "evidence": {"source_record_sha256": "c250937151ab2d3083202304ee1be2a43ca5e5dd22d2d5de79ad22f14ad3b7cb", "status": "confirmed_real_data"}
+}

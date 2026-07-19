@@ -126,8 +126,14 @@ document is the phase execution checklist.
 - Sequence: next implementation slice after Phase 2A.1 closure.
 - Goal: verify the documented migration contract against bounded real examples
   and lock golden fixtures before production conversion code is written.
-- Outputs: source examples, exact expected canonical mappings, and diagnostic
-  expectations.
+- Outputs: a deterministic read-only legacy/data audit CLI; an evidence-backed
+  field audit with source hashes, joins, domains, grouping, and leakage; 13
+  bounded real-data golden cases; dataset-independent contract tests; and an
+  opt-in verifier against raw, processed, canonical, and structure sources.
+- Acceptance: exact 1-based timing, derived pitch, roots, chord decorations,
+  borrowed variants, multiple regions, structure seconds, `ori_uid` grouping,
+  missing/malformed evidence, and not-observed categories are executable and
+  traceable without production conversion code.
 - Non-goals: a production HookTheory adapter.
 
 ### Phase 2B.1 — HookTheory adapter

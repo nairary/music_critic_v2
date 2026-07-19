@@ -1,0 +1,24 @@
+{
+  "case_id": "root_zero_non_rest",
+  "coverage_tags": ["minor_modal", "multiple_keys", "fractional_timing", "root_zero_non_rest", "chord_decorations", "structure_unmatched_symbolic"],
+  "source_reference": {"dataset_relative_path": "data/HookTheory/Hooktheory_Raw.json/4_merged.json", "split": "train", "clip_id": "ZwxKvGPPged", "ori_uid": null, "source_record_locator": "top_level_object:ZwxKvGPPged"},
+  "raw_excerpt": {
+    "regions": {"keys": [{"beat": 1, "scale": "minor", "tonic": "E"}, {"beat": 33, "scale": "minor", "tonic": "D"}, {"beat": 61, "scale": "minor", "tonic": "C"}, {"beat": 77, "scale": "minor", "tonic": "D"}, {"beat": 113, "scale": "minor", "tonic": "E"}], "tempos": [{"beat": 1, "bpm": 148, "swingFactor": 0, "swingBeat": 0.5}], "meters": [{"beat": 1, "numBeats": 4, "beatUnit": 1}]},
+    "notes": [],
+    "chords": [{"index": 19, "value": {"root": 0, "beat": 72.5, "duration": 2.5, "type": 5, "inversion": 0, "applied": 0, "adds": [], "omits": [], "alterations": [], "suspensions": [4], "pedal": null, "alternate": "", "borrowed": "", "isRest": false, "recordingEndBeat": null}}]
+  },
+  "structure_excerpt": null,
+  "legacy_selected_expected": {"exists": true, "meta_excerpt": {"split": "train", "ori_uid": null}, "melody_events": [], "chord_events": [{"index": 19, "value": {"beat": 72.5, "duration": 2.5, "root": 0, "type": 5, "suspensions": [4], "is_rest": false}}]},
+  "legacy_canonical_expected": {"exists": true, "meta_excerpt": {"split": "train", "ori_uid": null}, "chord_events": [{"index": 19, "value": {"root": null, "type": 5, "suspensions": [4], "is_rest": false}}]},
+  "expected_v2_contract": {
+    "timing": [{"raw_beat_decimal": "72.5", "canonical_onset_qn": "143/2", "raw_duration_decimal": "2.5", "canonical_duration_qn": "5/2"}],
+    "melody": [],
+    "chords": [{"raw_root": 0, "is_rest": false, "canonical_functional_degree": null, "special": "invalid_non_rest_zero", "raw_applied": 0, "applied_target": null}],
+    "regions": {"key_onsets_qn": ["0/1", "32/1", "60/1", "76/1", "112/1"]},
+    "source_group_id": null,
+    "structure": {"coordinate_unit": "audio_seconds", "section_alignment_status": "unresolved_audio_seconds", "target_array_expected": false, "annotation_span_expected": false},
+    "unavailable_target": {"mask": false, "value": null, "source": null, "confidence": null, "provenance": null}
+  },
+  "expected_diagnostics": ["hooktheory.chord_root_zero_non_rest", "hooktheory.structure_unmatched_symbolic_clip"],
+  "evidence": {"source_record_sha256": "239bdc4a594d4881711927bba1b1796523cf6d34403111f368a1fff88e3b3156", "status": "confirmed_real_data"}
+}
