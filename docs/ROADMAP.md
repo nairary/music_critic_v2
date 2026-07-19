@@ -97,7 +97,7 @@ document is the phase execution checklist.
 ## Phase 2 — Generic MIDI and HookTheory adapters
 
 - Status: In progress
-- Sequence: Phase 2A.1 is completed; Phase 2B.0 is the current next slice.
+- Sequence: Phase 2A.1 is completed; Phase 2B.0 remediation is in review.
 - Goal: map unlabeled MIDI and HookTheory into the same canonical schema.
 - Dependencies: Phase 1.
 - Outputs: adapter interface, generic MIDI adapter, HookTheory adapter.
@@ -122,14 +122,15 @@ document is the phase execution checklist.
 
 ### Phase 2B.0 — HookTheory legacy audit and golden fixtures
 
-- Status: Current
-- Sequence: next implementation slice after Phase 2A.1 closure.
+- Status: In review
+- Sequence: current review gate after Phase 2A.1 closure.
 - Goal: verify the documented migration contract against bounded real examples
   and lock golden fixtures before production conversion code is written.
 - Outputs: a deterministic read-only legacy/data audit CLI; an evidence-backed
-  field audit with source hashes, joins, domains, grouping, and leakage; 13
-  bounded real-data golden cases; dataset-independent contract tests; and an
-  opt-in verifier against raw, processed, canonical, and structure sources.
+  field audit with source hashes, evidence hierarchy, joins, domains, grouping,
+  simplified-schema crosswalk, and leakage; 19 bounded real-data golden cases;
+  dataset-independent contract tests; and an opt-in verifier against raw,
+  simplified, processed, canonical, and structure sources.
 - Acceptance: exact 1-based timing, derived pitch, roots, chord decorations,
   borrowed variants, multiple regions, structure seconds, `ori_uid` grouping,
   missing/malformed evidence, and not-observed categories are executable and
@@ -138,7 +139,7 @@ document is the phase execution checklist.
 
 ### Phase 2B.1 — HookTheory adapter
 
-- Status: Pending
+- Status: Pending/blocked on Phase 2B.0 acceptance
 - Dependencies: Phase 2B.0.
 - Goal: implement the accepted HookTheory migration contract without exposing
   theory labels as raw inference inputs.

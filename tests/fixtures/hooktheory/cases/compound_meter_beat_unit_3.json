@@ -1,0 +1,24 @@
+{
+  "case_id": "compound_meter_beat_unit_3",
+  "coverage_tags": ["beat_unit_3", "compound_meter_grouping", "fractional_timing", "derived_pitch", "structure_unmatched_symbolic"],
+  "source_reference": {"dataset_relative_path": "data/HookTheory/Hooktheory_Raw.json/4_merged.json", "split": "train", "clip_id": "nJmBkqpEgAV", "ori_uid": null, "source_record_locator": "top_level_object:nJmBkqpEgAV"},
+  "raw_excerpt": {
+    "regions": {"meters": [{"beat": 1, "numBeats": 12, "beatUnit": 3}]},
+    "notes": [{"index": 0, "value": {"sd": "1", "octave": -1, "beat": 1, "duration": 5.5, "isRest": false, "recordingEndBeat": null}}],
+    "chords": [{"index": 0, "value": {"root": 1, "beat": 1, "duration": 6, "type": 5, "inversion": 0, "applied": 0, "adds": [], "omits": [], "alterations": [], "suspensions": [], "pedal": null, "alternate": "", "borrowed": null, "isRest": false, "recordingEndBeat": null}}]
+  },
+  "structure_excerpt": null,
+  "legacy_selected_expected": {"exists": true, "meta_excerpt": {"split": "train", "ori_uid": null}, "melody_events": [], "chord_events": []},
+  "legacy_canonical_expected": {"exists": true, "meta_excerpt": {"split": "train", "ori_uid": null}, "chord_events": []},
+  "expected_v2_contract": {
+    "timing": [{"raw_beat_decimal": "1", "canonical_onset_qn": "0/1", "raw_duration_decimal": "5.5", "canonical_duration_qn": "11/2"}],
+    "melody": [{"raw_sd": "1", "octave": -1, "tonic_pc": 7, "sd_chromatic_offset": 0, "is_rest": false, "derived_pitch": 67, "pitch_source": "derived", "provenance_method": "hooktheory_sd_octave_to_midi_v1"}],
+    "chords": [{"raw_root": 1, "is_rest": false, "canonical_functional_degree": 0, "special": null, "raw_applied": 0, "applied_target": null}],
+    "meter": [{"raw_num_beats": 12, "raw_beat_unit": 3, "felt_group_size_source_beats": 3, "canonical_numerator": null, "canonical_denominator": null, "status": "unresolved"}],
+    "source_group_id": null,
+    "structure": {"coordinate_unit": "audio_seconds", "section_alignment_status": "unresolved_audio_seconds", "target_array_expected": false, "annotation_span_expected": false},
+    "unavailable_target": {"mask": false, "value": null, "source": null, "confidence": null, "provenance": null}
+  },
+  "expected_diagnostics": ["hooktheory.meter_fraction_unresolved", "hooktheory.structure_unmatched_symbolic_clip"],
+  "evidence": {"source_record_sha256": "f1b69b9a64cc08825318acad7226cb26f1fe4be3fc01bcf1bce081eedb519cd6", "status": "confirmed_real_data", "upstream_simplified_excerpt": {"split": "TRAIN", "hooktheory_id": "nJmBkqpEgAV", "alignment_available": true, "annotations": {"meters": [{"beat": 0, "beats_per_bar": 12, "beat_unit": 8}]}}}
+}

@@ -1,8 +1,9 @@
 # HookTheory Phase 2B.0 golden fixtures
 
-These are bounded excerpts from local real data. They specify audited legacy
-selection/canonicalization and the future V2 contract without implementing an
-adapter. Dataset paths are repository-relative; source record hashes use
+These 19 cases are bounded excerpts from local real data. They specify audited
+raw evidence, selected upstream simplified-schema crosswalks, legacy
+selection/canonicalization, and the proposed V2 contract without implementing
+an adapter. Dataset paths are repository-relative; source record hashes use
 deterministic sorted compact JSON bytes.
 
 Static tests require no local corpus. Set
@@ -15,4 +16,6 @@ schema. In particular, encoded theory IDs are never V2 raw features. Structure
 timestamps are audio seconds and have unresolved symbolic alignment.
 
 Categories absent from the audited corpus are listed in the manifest rather
-than fabricated.
+than fabricated. In particular, root 8 to bVII and the MIDI-72 pitch anchor are
+explicit Music Critic V1 compatibility behaviors, not corpus observations or
+upstream Sheet Sage invariants. There is no real root-8 fixture.

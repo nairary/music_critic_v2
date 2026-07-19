@@ -139,3 +139,21 @@ def test_committed_sources_and_excerpts_match_local_artifacts() -> None:
     for case in cases:
         clip_id = case["source_reference"]["clip_id"]
         verify_legacy_excerpt(case["legacy_canonical_expected"], canonical.get(clip_id))
+
+    simplified_cases = [
+        case for case in cases if "upstream_simplified_excerpt" in case["evidence"]
+    ]
+    simplified_wanted = {
+        case["source_reference"]["clip_id"] for case in simplified_cases
+    }
+    simplified = select_records(
+        REPO_ROOT / "data/HookTheory/Hooktheory.json", simplified_wanted
+    )
+    for case in simplified_cases:
+        clip_id = case["source_reference"]["clip_id"]
+        actual = simplified[clip_id]
+        expected = case["evidence"]["upstream_simplified_excerpt"]
+        assert actual["split"] == expected["split"]
+        assert actual["hooktheory"]["id"] == expected["hooktheory_id"] == clip_id
+        assert isinstance(actual.get("alignment"), dict) is expected["alignment_available"]
+        assert_mapping_subset(expected["annotations"], actual["annotations"])

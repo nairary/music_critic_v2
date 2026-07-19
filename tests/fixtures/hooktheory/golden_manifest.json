@@ -13,8 +13,27 @@
     "borrowed_unknown",
     "shared_group_applied",
     "shared_group_peer",
-    "missing_payload"
+    "missing_payload",
+    "compound_meter_beat_unit_3",
+    "num_beats_8",
+    "negative_root_rest",
+    "null_note_fields",
+    "alternate_underscore",
+    "double_flat_bb1"
   ],
+  "evidence_hierarchy": [
+    "observed m-a-p corpus",
+    "upstream Sheet Sage TheoryTab implementation",
+    "Music Critic V1 compatibility behavior",
+    "inferred/project decision",
+    "unresolved"
+  ],
+  "evidence_classifications": {
+    "midi_anchor_72": {"classification": "Music Critic V1 absolute-octave compatibility convention", "corpus_status": "raw inputs observed separately", "upstream_status": "not an upstream TheoryTab invariant"},
+    "root_8_bvii": {"classification": "Music Critic V1 synthetic compatibility behavior", "corpus_status": "not_observed", "upstream_status": "rejected for sounding chords"},
+    "alternate_underscore": {"classification": "observed m-a-p corpus anomaly", "semantic_status": "unresolved"},
+    "beat_unit_3": {"classification": "observed m-a-p corpus plus upstream grouping behavior", "group_size_source_beats": 3, "canonical_meter_fraction": "unresolved"}
+  },
   "fixture_schema_version": "hooktheory_golden_v1",
   "legacy_commit": "2d8281f31cc9ad9c8fecaf332da0c61e0e949415",
   "not_observed_categories": [
@@ -45,13 +64,19 @@
     "data/HookTheory/HookTheoryStructure.test.jsonl": "481347a5b6c042d112c526706cf6647d593ef0b18e9ac5d705e7cdcf937210bc",
     "data/HookTheory/HookTheoryStructure.train.jsonl": "d14e246d03dd4f092ef40c8b53570dab7d52a374f5047481ce7ccff30dc5e33e",
     "data/HookTheory/HookTheoryStructure.val.jsonl": "003e29d0140696182d824e18b0a6fc2301f9ef63b5929e2dea8f8843949d564f",
+    "data/HookTheory/Hooktheory.json": "5e7457df5640170337c6e320d32fe90d6355b5ab96f15dbd3567180a05be9c08",
     "data/HookTheory/Hooktheory_Raw.json/4_merged.json": "8ab601050d0b8c8752c3b6bf190d63edefa5fce07735ce823bca6a3922dff833"
+  },
+  "upstream_sheetsage": {
+    "repository": "https://github.com/chrisdonahue/sheetsage",
+    "commit": "bbdd7b7b6a5fb845828f82790acdceb03a197779",
+    "inspected_files": ["sheetsage/theory/theorytab.py", "sheetsage/theory/theorytab_test.py", "sheetsage/theory/lead_sheet.py", "sheetsage/theory/internal.py"]
   },
   "unresolved_findings": [
     "alternate semantics",
     "applied harmony semantics",
     "audio-seconds to symbolic alignment",
-    "beatUnit to canonical meter denominator",
+    "raw meter grouping to exact V2 numerator and denominator",
     "pedal semantics"
   ]
 }

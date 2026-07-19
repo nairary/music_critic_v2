@@ -1,18 +1,27 @@
 # HookTheory Adapter Migration Contract
 
-Status: **ACCEPTED FOR FUTURE PHASE 2B IMPLEMENTATION**.
+Status: **PROPOSED — Phase 2B.0 in review**. Phase 2B.1 remains pending and
+blocked on acceptance of this contract.
 
 The real-data inventory, runtime domains, hashes, join statistics, leakage
 findings, and bounded golden evidence are recorded in
 [`HOOKTHEORY_FIELD_AUDIT.md`](HOOKTHEORY_FIELD_AUDIT.md). That Phase 2B.0 audit
 is the evidence source when it is more specific than this migration summary.
 
-This document records the migration contract reverse-engineered from the legacy
-HookTheory pipeline at commit
-`2d8281f31cc9ad9c8fecaf332da0c61e0e949415`. The legacy source is the primary
-executable specification because the selected source format has no complete
-official field contract. Phase 2A.1 documents these rules but does not implement
-a HookTheory adapter.
+This proposed contract separates three evidence sources: observed m-a-p
+artifacts; upstream Sheet Sage TheoryTab at commit
+`bbdd7b7b6a5fb845828f82790acdceb03a197779`; and the legacy Music Critic pipeline
+at commit `2d8281f31cc9ad9c8fecaf332da0c61e0e949415` where explicit V1
+compatibility is intended. Inferred/project decisions and unresolved items are
+labeled separately. No HookTheory adapter is implemented here.
+
+## Evidence hierarchy
+
+Claims are classified as observed corpus, upstream Sheet Sage, Music Critic V1
+compatibility, inferred/project decision, or unresolved. The pinned upstream
+files inspected are `sheetsage/theory/theorytab.py`, `theorytab_test.py`,
+`lead_sheet.py`, and `internal.py`. A V1 behavior is never presented as a corpus
+observation or upstream invariant.
 
 ## Audited legacy sources
 
@@ -46,6 +55,18 @@ split using the stem of `audio_path` as the symbolic clip identifier.
 must remain in one train, validation, or test partition. A missing `ori_uid`
 must be diagnosed and must not be replaced with a value that could allow clips
 from one original song to leak across splits.
+
+The split unit is atomic: all clips with one non-null `ori_uid` move together
+or are excluded together. A policy must never select individual clips from a
+cross-split group. Null-`ori_uid` clips remain individually identified; the
+adapter must not fabricate group identity.
+
+`data/HookTheory/Hooktheory.json` is a crosswalk source, classified as the
+upstream Sheet Sage simplified alternate schema. Its alignment metadata and
+absolute meter/key/melody/harmony representations may corroborate or diagnose
+the raw TheoryTab record, but they do not silently replace raw fields. The
+audit found 26,175 matches, three raw-only missing-payload records, no
+simplified-only records, and no split or nested-identifier mismatches.
 
 ## Coordinate systems
 
@@ -93,10 +114,10 @@ midi_pitch =
     + scale_degree_chromatic_offset
 ```
 
-The anchor `72` is part of the accepted migration rule. The future adapter must
-not invent another octave anchor without a concrete real-data counterexample
-and a recorded decision. The reconstructed MIDI pitch is derived, not directly
-observed, and its provenance method must be exactly:
+The anchor `72` is the **Music Critic V1 absolute-octave compatibility
+convention**, not an observed source field or upstream Sheet Sage invariant.
+The raw `sd`, `octave`, and active key regions are independently evidenced. The
+reconstructed MIDI pitch is derived, and its provenance method remains exactly:
 
 ```text
 hooktheory_sd_octave_to_midi_v1
@@ -113,12 +134,12 @@ not raw V2 features and not authoritative source values.
 
 ## Chord normalization
 
-Raw roots have these accepted semantics:
+Raw roots have this proposed normalization:
 
 | Raw value | Canonical interpretation |
 |---|---|
 | `1..7` | functional degrees `0..6` |
-| `8` | special `bVII` representation |
+| `8` | synthetic V1 compatibility mapping to `bVII`; not observed in corpus |
 | `0` | rest/empty marker; never tonic |
 
 The raw root must also respect `isRest`; a rest chord has no functional root.
@@ -129,20 +150,22 @@ The future adapter must preserve inversion, adds, omits, alterations,
 suspensions, borrowed information, and the raw `alternate` value. It must keep
 raw values even when normalization fails.
 
-`borrowed` is heterogeneous. Confirmed forms include:
+`borrowed` is heterogeneous. Observed corpus forms include:
 
 - `null` or an empty string;
 - a mode-name string;
 - a pitch-class list;
-- a stringified list;
 - an unknown value.
 
-Unknown forms produce diagnostics; they must not be silently coerced into a
-known mode.
+Stringified lists are supported by V1 compatibility logic but were not observed
+in the audited corpus; unexpected runtime types were also not observed. Unknown
+forms produce diagnostics and must not be silently coerced into a known mode.
 
 ## Applied harmony decision
 
-Applied harmony is explicitly deferred from the first HookTheory adapter:
+Applied harmony is partially available upstream: Sheet Sage can reinterpret a
+chord relative to an applied target. It is nevertheless explicitly deferred
+from the first HookTheory adapter:
 
 - it is not implemented;
 - it does not participate in melody-pitch reconstruction;
@@ -170,12 +193,12 @@ ordinary MIDI-observable evidence.
 ## Unresolved issues
 
 The Phase 2B.0 audit confirms that `beatUnit` has observed values `1` and `3`,
-but does not establish their meter-denominator semantics. It also confirms that
+and upstream establishes that `3` groups three source beats into one felt beat.
+The exact V2 numerator/denominator mapping remains unresolved. It also confirms that
 `alternate` is either empty or `_`, and that every audited `pedal` is null.
 The following remain open for adapter implementation:
 
-- exact HookTheory `beatUnit` semantics;
-- mapping from `beatUnit` to canonical meter denominator;
+- mapping raw meter grouping to exact V2 numerator and denominator;
 - `alternate` semantics;
 - `pedal` semantics;
 - reliable alignment from audio-section seconds to symbolic clip beats.
@@ -184,16 +207,17 @@ Real-data categories not observed in the audited source are raw root `8`, a
 stringified borrowed pitch-class list, an unexpected borrowed runtime type, a
 derived out-of-range melody pitch, non-null `pedal`, exact duplicate regions,
 duplicate structure clip IDs, unmatched structure rows, and missing structure
-`ori_uid`. The legacy rule for raw root `8` remains accepted as bVII, but has no
-real-data golden case and must not be represented as though one was observed.
+`ori_uid`. The legacy root-8-to-bVII rule remains only synthetic compatibility
+behavior, has no real-data golden case, and must not be represented as observed
+or upstream-supported.
 
 Unresolved fields must remain raw and diagnostic. They must not be guessed
 silently.
 
 ## Phase 2B implementation gate
 
-Before adapter implementation begins, Phase 2B.0 must establish bounded real
-examples and golden fixtures covering coordinate origin, pitch reconstruction,
-root `0` and `8`, borrowed variants, multiple regions, split/group identity,
-and malformed values. Phase 2A.1 does not satisfy that gate and contains no
-HookTheory production code.
+Phase 2B.0 now establishes bounded real examples for every observed category
+listed in the field audit; root `8` is covered only by a synthetic compatibility
+unit test and an explicit corpus-wide zero count. Adapter implementation must
+not begin until review accepts this proposed contract. Phase 2B.1 is therefore
+pending/blocked and contains no HookTheory production code.

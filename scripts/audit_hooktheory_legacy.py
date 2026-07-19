@@ -12,12 +12,30 @@ import hashlib
 import json
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from decimal import Decimal
+from fractions import Fraction
 from pathlib import Path
 from typing import Any, Iterator
 
 
-REPORT_SCHEMA_VERSION = "hooktheory_legacy_audit_v1"
+REPORT_SCHEMA_VERSION = "hooktheory_legacy_audit_v2"
 BOUNDED_EXAMPLES = 12
+SHEETSAGE_COMMIT = "bbdd7b7b6a5fb845828f82790acdceb03a197779"
+SD_TO_CHROMATIC = {
+    "1": 0, "b1": 11, "#1": 1,
+    "2": 2, "b2": 1, "#2": 3,
+    "3": 4, "b3": 3, "#3": 5,
+    "4": 5, "b4": 4, "#4": 6,
+    "5": 7, "b5": 6, "#5": 8,
+    "6": 9, "b6": 8, "#6": 10,
+    "7": 11, "b7": 10, "#7": 0,
+    "bb1": 10,
+}
+TONIC_TO_PC = {
+    "C": 0, "B#": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3,
+    "E": 4, "Fb": 4, "E#": 5, "F": 5, "F#": 6, "Gb": 6, "G": 7,
+    "G#": 8, "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11, "Cb": 11,
+}
 RAW_FIELDS = (
     "beat",
     "duration",
@@ -82,7 +100,7 @@ def json_type(value: Any) -> str:
         return "boolean"
     if isinstance(value, int):
         return "integer"
-    if isinstance(value, float):
+    if isinstance(value, (float, Decimal)):
         return "number"
     if isinstance(value, str):
         return "string"
@@ -94,6 +112,8 @@ def json_type(value: Any) -> str:
 
 
 def bounded_value(value: Any) -> Any:
+    if isinstance(value, Decimal):
+        return str(value)
     if isinstance(value, dict):
         return {str(key): bounded_value(value[key]) for key in sorted(value)[:12]}
     if isinstance(value, list):
@@ -143,13 +163,19 @@ class FieldProfile:
 class IncrementalJSON:
     """Small incremental JSON value reader for very large top-level objects."""
 
-    def __init__(self, path: Path, chunk_size: int = 1024 * 1024) -> None:
+    def __init__(
+        self,
+        path: Path,
+        chunk_size: int = 1024 * 1024,
+        *,
+        parse_decimal: bool = False,
+    ) -> None:
         self.handle = path.open("r", encoding="utf-8")
         self.chunk_size = chunk_size
         self.buffer = ""
         self.position = 0
         self.eof = False
-        self.decoder = json.JSONDecoder()
+        self.decoder = json.JSONDecoder(parse_float=Decimal) if parse_decimal else json.JSONDecoder()
 
     def close(self) -> None:
         self.handle.close()
@@ -199,10 +225,12 @@ class IncrementalJSON:
                 return value
 
 
-def iter_top_level_object(path: Path) -> Iterator[tuple[str, Any]]:
+def iter_top_level_object(
+    path: Path, *, parse_decimal: bool = False
+) -> Iterator[tuple[str, Any]]:
     """Yield a JSON object or the legacy object-fragment form entry by entry."""
 
-    stream = IncrementalJSON(path)
+    stream = IncrementalJSON(path, parse_decimal=parse_decimal)
     try:
         has_braces = stream.peek() == "{"
         if has_braces:
@@ -231,12 +259,14 @@ def iter_top_level_object(path: Path) -> Iterator[tuple[str, Any]]:
         stream.close()
 
 
-def iter_jsonl(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
+def iter_jsonl(
+    path: Path, *, parse_decimal: bool = False
+) -> Iterator[tuple[int, dict[str, Any]]]:
     with path.open("r", encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, 1):
             if not line.strip():
                 continue
-            row = json.loads(line)
+            row = json.loads(line, parse_float=Decimal) if parse_decimal else json.loads(line)
             if not isinstance(row, dict):
                 raise ValueError(f"{path}:{line_number}: row is not an object")
             yield line_number, row
@@ -361,9 +391,83 @@ def add_candidate(candidates: defaultdict[str, set[str]], tag: str, clip_id: str
     candidates[tag].add(clip_id)
 
 
+def audited_finding(count: int, examples: list[Any]) -> dict[str, Any]:
+    """Classify a corpus check only after the audit has actually executed it."""
+
+    return {
+        "audited": True,
+        "count": count,
+        "corpus_status": "observed" if count else "not_observed",
+        "examples": examples[:BOUNDED_EXAMPLES],
+    }
+
+
+def exact_duplicate_regions(regions: Any) -> tuple[int, list[dict[str, Any]]]:
+    """Return repeated occurrences and bounded values for an exact region list."""
+
+    if not isinstance(regions, list):
+        return 0, []
+    values = Counter(stable_value_key(item) for item in regions)
+    duplicates = [
+        {"value": json.loads(value), "occurrences": count}
+        for value, count in sorted(values.items()) if count > 1
+    ]
+    return sum(item["occurrences"] - 1 for item in duplicates), duplicates
+
+
+def decimal_fraction(value: int | Decimal) -> Fraction:
+    """Convert an integer or a JSON Decimal lexeme to an exact fraction."""
+
+    return Fraction(str(value))
+
+
+def active_key_for_beat(keys: Any, beat: int | Decimal) -> dict[str, Any] | None:
+    applicable: list[tuple[Fraction, dict[str, Any]]] = []
+    if not isinstance(keys, list):
+        return None
+    event_beat = decimal_fraction(beat)
+    for key in keys:
+        if not isinstance(key, dict) or not isinstance(key.get("beat"), (int, Decimal)):
+            continue
+        key_beat = decimal_fraction(key["beat"])
+        if key_beat <= event_beat:
+            applicable.append((key_beat, key))
+    return max(applicable, key=lambda item: item[0])[1] if applicable else None
+
+
+def derive_v1_compatibility_pitch(note: Any, keys: Any) -> tuple[str, int | None]:
+    """Audit the V1 MIDI-72 compatibility convention, not upstream semantics."""
+
+    if not isinstance(note, dict):
+        return "missing_inputs", None
+    if note.get("isRest") is True:
+        return "rest", None
+    sd = note.get("sd")
+    octave = note.get("octave")
+    if sd not in SD_TO_CHROMATIC or not isinstance(octave, int):
+        return "missing_inputs", None
+    beat = note.get("beat")
+    if not isinstance(beat, (int, Decimal)):
+        return "unresolved_active_key", None
+    key = active_key_for_beat(keys, beat)
+    tonic = key.get("tonic") if isinstance(key, dict) else None
+    if tonic not in TONIC_TO_PC:
+        return "unresolved_active_key", None
+    pitch = 72 + 12 * octave + TONIC_TO_PC[tonic] + SD_TO_CHROMATIC[sd]
+    if not 0 <= pitch <= 127:
+        return "out_of_range", pitch
+    return "success", pitch
+
+
 def inspect_event_fields(
     profiles: dict[str, FieldProfile],
     candidates: defaultdict[str, set[str]],
+    finding_counts: Counter[str],
+    finding_examples: defaultdict[str, list[dict[str, Any]]],
+    meter_combinations: Counter[tuple[Any, Any]],
+    derived_pitch: Counter[str],
+    derived_examples: defaultdict[str, list[dict[str, Any]]],
+    timing_lexemes: Counter[str],
     clip_id: str,
     payload: dict[str, Any],
 ) -> None:
@@ -375,16 +479,35 @@ def inspect_event_fields(
             continue
         for name in ("beat", "duration", "sd", "octave", "isRest"):
             profiles[name].observe(clip_id=clip_id, value=event.get(name), present=name in event)
-        if isinstance(event.get("beat"), float) or isinstance(event.get("duration"), float):
+        for name in ("beat", "duration"):
+            if isinstance(event.get(name), Decimal):
+                timing_lexemes[str(event[name])] += 1
+        if isinstance(event.get("beat"), Decimal) or isinstance(event.get("duration"), Decimal):
             add_candidate(candidates, "fractional_timing", clip_id)
         if event.get("beat") is None:
             add_candidate(candidates, "missing_beat", clip_id)
+            finding_counts["null_note_beat"] += 1
+            finding_examples["null_note_beat"].append({"clip_id": clip_id, "event": bounded_value(event)})
         if event.get("octave") is None:
             add_candidate(candidates, "missing_octave", clip_id)
+            finding_counts["null_note_octave"] += 1
+            finding_examples["null_note_octave"].append({"clip_id": clip_id, "event": bounded_value(event)})
         if isinstance(event.get("sd"), str) and event["sd"].startswith(("b", "#")):
             add_candidate(candidates, "accidental_scale_degree", clip_id)
+        if event.get("sd") == "bb1":
+            add_candidate(candidates, "double_flat_scale_degree_bb1", clip_id)
+            finding_counts["double_flat_scale_degree_bb1"] += 1
+            finding_examples["double_flat_scale_degree_bb1"].append(
+                {"clip_id": clip_id, "event": bounded_value(event)}
+            )
         if event.get("isRest") is True:
             add_candidate(candidates, "melody_rest", clip_id)
+        status, pitch = derive_v1_compatibility_pitch(event, payload.get("keys"))
+        derived_pitch[status] += 1
+        if len(derived_examples[status]) < BOUNDED_EXAMPLES:
+            derived_examples[status].append(
+                {"clip_id": clip_id, "event": bounded_value(event), "derived_pitch": pitch}
+            )
     for event in chords:
         if not isinstance(event, dict):
             continue
@@ -400,6 +523,16 @@ def inspect_event_fields(
             add_candidate(candidates, "root_zero_non_rest", clip_id)
         if root == 8:
             add_candidate(candidates, "root_eight_bvii", clip_id)
+            finding_counts["raw_root_8"] += 1
+            finding_examples["raw_root_8"].append(
+                {"clip_id": clip_id, "raw_root": root, "event": bounded_value(event)}
+            )
+        if isinstance(root, int) and root < 0:
+            add_candidate(candidates, "negative_root", clip_id)
+            finding_counts["negative_root"] += 1
+            finding_examples["negative_root"].append(
+                {"clip_id": clip_id, "raw_root": root, "event": bounded_value(event)}
+            )
         if isinstance(root, int) and root not in range(0, 9):
             add_candidate(candidates, "out_of_domain_root", clip_id)
         if event.get("type") in {9, 11, 13}:
@@ -414,11 +547,49 @@ def inspect_event_fields(
             if event.get(name):
                 add_candidate(candidates, f"nonempty_{name}", clip_id)
         add_candidate(candidates, classify_borrowed(event.get("borrowed")), clip_id)
+        borrowed_class = classify_borrowed(event.get("borrowed"))
+        if borrowed_class == "borrowed_stringified_list":
+            finding_counts["borrowed_stringified_list"] += 1
+            finding_examples["borrowed_stringified_list"].append(
+                {"clip_id": clip_id, "value": bounded_value(event.get("borrowed"))}
+            )
+        elif borrowed_class == "borrowed_unexpected_type":
+            finding_counts["borrowed_unexpected_type"] += 1
+            finding_examples["borrowed_unexpected_type"].append(
+                {"clip_id": clip_id, "value": bounded_value(event.get("borrowed"))}
+            )
+        if event.get("alternate") == "_":
+            add_candidate(candidates, "alternate_underscore", clip_id)
+            finding_counts["alternate_underscore"] += 1
+            finding_examples["alternate_underscore"].append(
+                {"clip_id": clip_id, "event": bounded_value(event)}
+            )
+        if event.get("pedal") is not None:
+            add_candidate(candidates, "non_null_pedal", clip_id)
+            finding_counts["non_null_pedal"] += 1
+            finding_examples["non_null_pedal"].append(
+                {"clip_id": clip_id, "event": bounded_value(event)}
+            )
+        for name in ("beat", "duration"):
+            if isinstance(event.get(name), Decimal):
+                timing_lexemes[str(event[name])] += 1
     for event in meters:
         if not isinstance(event, dict):
             continue
         for name in ("beat", "beatUnit", "numBeats"):
             profiles[name].observe(clip_id=clip_id, value=event.get(name), present=name in event)
+        combination = (event.get("numBeats"), event.get("beatUnit"))
+        meter_combinations[combination] += 1
+        if event.get("beatUnit") == 3:
+            add_candidate(candidates, "beat_unit_3", clip_id)
+            finding_counts["beat_unit_3"] += 1
+            finding_examples["beat_unit_3"].append({"clip_id": clip_id, "event": bounded_value(event)})
+        if event.get("numBeats") == 8:
+            add_candidate(candidates, "num_beats_8", clip_id)
+            finding_counts["num_beats_8"] += 1
+            finding_examples["num_beats_8"].append({"clip_id": clip_id, "event": bounded_value(event)})
+        if isinstance(event.get("beat"), Decimal):
+            timing_lexemes[str(event["beat"])] += 1
 
 
 def audit_raw(raw_path: Path, candidate_limit: int) -> tuple[dict[str, Any], dict[str, str], dict[str, list[str]]]:
@@ -427,10 +598,18 @@ def audit_raw(raw_path: Path, candidate_limit: int) -> tuple[dict[str, Any], dic
     split_counts: Counter[str] = Counter()
     list_counts: Counter[str] = Counter()
     candidates: defaultdict[str, set[str]] = defaultdict(set)
+    finding_counts: Counter[str] = Counter()
+    finding_examples: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
+    meter_combinations: Counter[tuple[Any, Any]] = Counter()
+    derived_pitch: Counter[str] = Counter()
+    derived_examples: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
+    timing_lexemes: Counter[str] = Counter()
+    duplicate_counts: Counter[str] = Counter()
+    duplicate_examples: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
     clip_splits: dict[str, str] = {}
     missing_json = 0
     unexpected_json = 0
-    for top_key, record in iter_top_level_object(raw_path):
+    for top_key, record in iter_top_level_object(raw_path, parse_decimal=True):
         if not isinstance(record, dict):
             unexpected_json += 1
             add_candidate(candidates, "unexpected_record_type", top_key)
@@ -458,6 +637,16 @@ def audit_raw(raw_path: Path, candidate_limit: int) -> tuple[dict[str, Any], dic
                 region_profiles[plural].observe(
                     clip_id=clip_id, value=value, present=plural in payload
                 )
+            if plural in {"keys", "tempos", "meters"}:
+                count, examples = exact_duplicate_regions(value)
+                duplicate_counts[plural] += count
+                for example in examples:
+                    if len(duplicate_examples[plural]) < BOUNDED_EXAMPLES:
+                        duplicate_examples[plural].append({"clip_id": clip_id, **example})
+                if plural in {"keys", "tempos"} and isinstance(value, list):
+                    for region in value:
+                        if isinstance(region, dict) and isinstance(region.get("beat"), Decimal):
+                            timing_lexemes[str(region["beat"])] += 1
         keys = payload.get("keys") if isinstance(payload.get("keys"), list) else []
         scales = [item.get("scale") for item in keys if isinstance(item, dict)]
         if "major" in scales:
@@ -470,7 +659,11 @@ def audit_raw(raw_path: Path, candidate_limit: int) -> tuple[dict[str, Any], dic
             add_candidate(candidates, "multiple_tempo_regions", clip_id)
         if isinstance(payload.get("meters"), list) and len(payload["meters"]) > 1:
             add_candidate(candidates, "multiple_meter_regions", clip_id)
-        inspect_event_fields(profiles, candidates, clip_id, payload)
+        inspect_event_fields(
+            profiles, candidates, finding_counts, finding_examples,
+            meter_combinations, derived_pitch, derived_examples, timing_lexemes,
+            clip_id, payload,
+        )
     bounded_candidates = {
         tag: sorted(ids)[:candidate_limit] for tag, ids in sorted(candidates.items())
     }
@@ -483,6 +676,43 @@ def audit_raw(raw_path: Path, candidate_limit: int) -> tuple[dict[str, Any], dic
             "field_profiles": {name: profiles[name].to_dict() for name in RAW_FIELDS},
             "region_profiles": {
                 name: region_profiles[name].to_dict() for name in region_profiles
+            },
+            "exact_duplicate_regions": {
+                name: audited_finding(duplicate_counts[name], duplicate_examples[name])
+                for name in ("keys", "tempos", "meters")
+            },
+            "meter_combinations": [
+                {"numBeats": combination[0], "beatUnit": combination[1], "count": count}
+                for combination, count in sorted(
+                    meter_combinations.items(), key=lambda item: (str(item[0][0]), str(item[0][1]))
+                )
+            ],
+            "derived_pitch_v1_compatibility": {
+                "classification": "Music Critic V1 absolute-octave compatibility convention",
+                "formula": "72 + 12 * octave + active_tonic_pc + sd_chromatic_offset",
+                "counts": {name: derived_pitch[name] for name in (
+                    "success", "missing_inputs", "out_of_range", "unresolved_active_key", "rest"
+                )},
+                "examples": {name: derived_examples[name] for name in (
+                    "success", "missing_inputs", "out_of_range", "unresolved_active_key"
+                )},
+            },
+            "exact_timing": {
+                "method": "JSON floating-point lexemes parsed directly as Decimal, then Fraction(str(decimal)); no binary float equality",
+                "distinct_decimal_lexemes": len(timing_lexemes),
+                "lexemes": [
+                    {"lexeme": lexeme, "count": count}
+                    for lexeme, count in sorted(timing_lexemes.items(), key=lambda item: (Decimal(item[0]), item[0]))[:BOUNDED_EXAMPLES]
+                ],
+            },
+            "audited_findings": {
+                name: audited_finding(finding_counts[name], finding_examples[name])
+                for name in (
+                    "negative_root", "null_note_beat", "null_note_octave",
+                    "alternate_underscore", "non_null_pedal", "raw_root_8",
+                    "double_flat_scale_degree_bb1", "beat_unit_3", "num_beats_8",
+                    "borrowed_stringified_list", "borrowed_unexpected_type",
+                )
             },
         },
         clip_splits,
@@ -500,6 +730,97 @@ def load_object_ids(path: Path) -> tuple[set[str], Counter[str]]:
             split = normalize_split(meta.get("split")) if isinstance(meta, dict) else None
             splits[split or "unknown"] += 1
     return ids, splits
+
+
+def audit_upstream_simplified(
+    path: Path, raw_splits: dict[str, str]
+) -> dict[str, Any]:
+    """Crosswalk the raw dump with Sheet Sage's simplified alternate schema."""
+
+    simplified_ids: set[str] = set()
+    split_counts: Counter[str] = Counter()
+    availability: Counter[str] = Counter()
+    annotation_counts: Counter[str] = Counter()
+    mismatches: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
+    mismatch_counts: Counter[str] = Counter()
+    selected_matches: list[dict[str, Any]] = []
+    for clip_id, record in iter_top_level_object(path):
+        simplified_ids.add(clip_id)
+        if not isinstance(record, dict):
+            mismatch_counts["unexpected_record_type"] += 1
+            mismatches["unexpected_record_type"].append({"clip_id": clip_id})
+            continue
+        split = normalize_split(record.get("split")) or "unknown"
+        split_counts[split] += 1
+        raw_split = raw_splits.get(clip_id)
+        if raw_split is not None and raw_split != split:
+            mismatch_counts["split"] += 1
+            mismatches["split"].append(
+                {"clip_id": clip_id, "raw": raw_split, "simplified": split}
+            )
+        hooktheory = record.get("hooktheory")
+        nested_id = hooktheory.get("id") if isinstance(hooktheory, dict) else None
+        if nested_id != clip_id:
+            mismatch_counts["nested_identifier"] += 1
+            mismatches["nested_identifier"].append(
+                {"clip_id": clip_id, "hooktheory.id": nested_id}
+            )
+        for name in ("alignment", "youtube", "hooktheory", "annotations"):
+            if record.get(name) is not None:
+                availability[name] += 1
+        alignment = record.get("alignment")
+        if isinstance(alignment, dict):
+            for name in ("user", "refined"):
+                if isinstance(alignment.get(name), dict):
+                    availability[f"alignment.{name}"] += 1
+        annotations = record.get("annotations")
+        if isinstance(annotations, dict):
+            for name in ("num_beats", "meters", "keys", "melody", "harmony"):
+                value = annotations.get(name)
+                if value is not None:
+                    annotation_counts[f"{name}.present"] += 1
+                if isinstance(value, list):
+                    annotation_counts[f"{name}.events"] += len(value)
+        else:
+            mismatch_counts["annotations_type"] += 1
+            mismatches["annotations_type"].append(
+                {"clip_id": clip_id, "runtime_type": json_type(annotations)}
+            )
+        if raw_split is not None and len(selected_matches) < BOUNDED_EXAMPLES:
+            selected_matches.append({
+                "clip_id": clip_id,
+                "split": split,
+                "alignment_available": isinstance(alignment, dict),
+                "annotation_fields": sorted(annotations) if isinstance(annotations, dict) else [],
+            })
+    raw_ids = set(raw_splits)
+    matched = raw_ids & simplified_ids
+    return {
+        "source": "data/HookTheory/Hooktheory.json",
+        "classification": "upstream Sheet Sage simplified alternate schema",
+        "matched_identifiers": len(matched),
+        "raw_only_identifiers": len(raw_ids - simplified_ids),
+        "simplified_only_identifiers": len(simplified_ids - raw_ids),
+        "raw_only_examples": sorted(raw_ids - simplified_ids)[:BOUNDED_EXAMPLES],
+        "simplified_only_examples": sorted(simplified_ids - raw_ids)[:BOUNDED_EXAMPLES],
+        "simplified_counts_by_split": dict(sorted(split_counts.items())),
+        "availability_counts": dict(sorted(availability.items())),
+        "annotation_counts": dict(sorted(annotation_counts.items())),
+        "mismatch_counts": dict(sorted(mismatch_counts.items())),
+        "mismatch_examples": {
+            name: values[:BOUNDED_EXAMPLES] for name, values in sorted(mismatches.items())
+        },
+        "selected_match_examples": selected_matches,
+        "field_crosswalk": {
+            "identifier": "raw top-level key/hash <-> simplified top-level key/hooktheory.id",
+            "split": "raw split <-> simplified split (case-normalized; valid normalized to val)",
+            "alignment_metadata": "simplified alignment.{user,refined}.{beats,times}; absent from raw TheoryTab JSON",
+            "meter": "raw meters.{beat,numBeats,beatUnit} <-> simplified annotations.meters.{beat,beats_per_bar,beat_unit}",
+            "key": "raw keys.{beat,tonic,scale} <-> simplified annotations.keys.{beat,tonic_pitch_class,scale_degree_intervals}",
+            "melody": "raw notes.{beat,duration,sd,octave,isRest} <-> simplified annotations.melody.{onset,offset,octave,pitch_class}",
+            "harmony": "raw chords functional/decorative fields <-> simplified annotations.harmony absolute root pitch class, root-position intervals, inversion",
+        },
+    }
 
 
 def audit_structures(hooktheory_root: Path, symbolic_splits: dict[str, str]) -> tuple[dict[str, Any], dict[str, list[str]]]:
@@ -639,8 +960,12 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         if not root.is_dir():
             raise FileNotFoundError(f"{label} root is not a directory: {root}")
     raw_path = find_raw_source(hooktheory_root)
+    simplified_path = hooktheory_root / "Hooktheory.json"
+    if not simplified_path.is_file():
+        raise FileNotFoundError(f"simplified HookTheory source is missing: {simplified_path}")
     inventory = discover_inventory(hooktheory_root, htcanon_root, raw_path)
     raw_audit, raw_splits, raw_candidates = audit_raw(raw_path, args.candidate_limit)
+    simplified_crosswalk = audit_upstream_simplified(simplified_path, raw_splits)
     processed_path = htcanon_root / "HK_processed/hooktheory_processed.json"
     canonical_path = htcanon_root / "HK_processed/canonical_full/hooktheory_canonical.json"
     processed_ids, processed_splits = load_object_ids(processed_path)
@@ -656,6 +981,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "source_inventory": inventory,
         "legacy_source_inventory": legacy_inventory(legacy_root),
         "raw_audit": raw_audit,
+        "simplified_schema_crosswalk": simplified_crosswalk,
         "processed_outputs": {
             "processed_record_count": len(processed_ids),
             "processed_counts_by_split": dict(sorted(processed_splits.items())),
@@ -676,14 +1002,46 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "structure_audit": structure_audit,
         "golden_candidate_clip_ids": raw_candidates,
         "structure_candidates": structure_candidates,
-        "confirmed_contract": {
-            "symbolic_onset": "Fraction(raw_decimal_string) - 1",
-            "derived_pitch_formula": "72 + 12 * octave + tonic_pc + sd_chromatic_offset",
-            "derived_pitch_provenance": "hooktheory_sd_octave_to_midi_v1",
-            "root_mapping": {"1..7": "0..6", "8": "bVII", "0": "rest_or_empty_never_tonic"},
+        "evidence_hierarchy": [
+            "observed m-a-p corpus",
+            "upstream Sheet Sage TheoryTab implementation",
+            "Music Critic V1 compatibility behavior",
+            "inferred/project decision",
+            "unresolved",
+        ],
+        "upstream_sheetsage": {
+            "repository": "https://github.com/chrisdonahue/sheetsage",
+            "commit": SHEETSAGE_COMMIT,
+            "inspected_files": [
+                "sheetsage/theory/theorytab.py",
+                "sheetsage/theory/theorytab_test.py",
+                "sheetsage/theory/lead_sheet.py",
+                "sheetsage/theory/internal.py",
+            ],
+        },
+        "classified_contract": {
+            "symbolic_onset": {
+                "classification": "upstream Sheet Sage TheoryTab implementation",
+                "behavior": "Fraction(raw Decimal lexeme) - 1",
+            },
+            "derived_pitch": {
+                "classification": "Music Critic V1 compatibility behavior",
+                "behavior": "72 + 12 * octave + active_tonic_pc + sd_chromatic_offset",
+                "provenance": "hooktheory_sd_octave_to_midi_v1",
+            },
+            "root_mapping": {
+                "observed_corpus": {"0": "rest_or_empty", "1..7": "functional roots"},
+                "upstream": "sounding roots 1..7; root 8 rejected",
+                "v1_compatibility": {"8": "synthetic bVII compatibility behavior"},
+            },
+            "meter": {
+                "observed_corpus": "beatUnit values 1 and 3",
+                "upstream": "beatUnit=3 groups three source beats into one felt beat",
+                "v2_exact_meter_fraction": "unresolved",
+            },
             "structure_join": "normalized_split + audio_path_stem",
             "section_alignment_status": "unresolved_audio_seconds",
-            "applied_harmony": "raw_evidence_only_deferred",
+            "applied_harmony": "partially available upstream; intentionally deferred from MVP",
         },
     }
     return report

@@ -1,7 +1,8 @@
 # HookTheory Field and Legacy-Behavior Audit
 
-Status: **Phase 2B.0 evidence report**. This audit is an executable-specification
-gate for a future adapter; it is not an adapter implementation.
+Status: **Phase 2B.0 in review**. This audit is an executable-specification gate
+for a future adapter; it is not an adapter implementation or an accepted
+migration contract.
 
 ## Audit basis
 
@@ -29,6 +30,27 @@ The legacy files inspected were:
 The documentation files are under `docs/music_critic_v1/` because of
 pre-existing changes in the legacy worktree. Nothing in that checkout was
 modified.
+
+### Evidence hierarchy
+
+Every claim uses one of these classifications, in descending authority for the
+claim it can actually support:
+
+1. **Observed m-a-p corpus**: values and counts from the corpus-wide audit over
+   the hashed local artifacts.
+2. **Upstream Sheet Sage TheoryTab**: executable source and tests from
+   `https://github.com/chrisdonahue/sheetsage` pinned at commit
+   `bbdd7b7b6a5fb845828f82790acdceb03a197779`.
+3. **Music Critic V1 compatibility**: behavior in the pinned read-only V1
+   checkout, retained only when compatibility is explicit.
+4. **Inferred/project decision**: a V2 policy chosen from evidence but not a
+   source fact.
+5. **Unresolved**: evidence is insufficient to choose V2 semantics.
+
+The pinned upstream files inspected were `sheetsage/theory/theorytab.py`,
+`theorytab_test.py`, `lead_sheet.py`, and `internal.py`. The temporary upstream
+checkout is not a V2 runtime dependency. Corpus observations and V1
+compatibility behavior are never relabeled as upstream semantics.
 
 ## Discovered source inventory
 
@@ -99,16 +121,38 @@ values, 20 negative roots, and three missing `json` payloads are deterministic
 malformed-value candidates. `alternate="_"` occurs 14 times. No directly
 observed MIDI pitch exists in this raw schema.
 
-## Confirmed executable behavior
+The corpus-wide `(numBeats, beatUnit)` counts are:
 
-Symbolic HookTheory beats are 1-based. V2 conversion must use the raw numeric
-lexeme as an exact decimal/rational input and calculate:
+| Combination | Count | Combination | Count |
+|---|---:|---|---:|
+| `(2, 1)` | 215 | `(3, 1)` | 1,233 |
+| `(3, 3)` | 11 | `(4, 1)` | 24,152 |
+| `(5, 1)` | 133 | `(6, 1)` | 1,340 |
+| `(6, 3)` | 51 | `(8, 1)` | 1 |
+| `(9, 1)` | 22 | `(9, 3)` | 7 |
+| `(12, 1)` | 10 | `(12, 3)` | 42 |
+
+Upstream Sheet Sage restricts `beatUnit` to `{1, 3}` and implements
+`beatUnit=3` by grouping three source beats into one felt beat. That grouping
+is upstream evidence. The exact V2 meter numerator and denominator for every
+raw pair remain unresolved; fixtures preserve the raw pair and expose null
+canonical numerator/denominator instead of guessing.
+
+## Classified executable behavior
+
+Upstream Sheet Sage subtracts one from TheoryTab beats when constructing a lead
+sheet. V2 must likewise use the raw numeric lexeme as exact decimal/rational
+input and calculate:
 
 ```text
 canonical_onset_qn = Fraction(raw_beat_decimal_string) - 1
 ```
 
-The exact legacy scale-degree offsets are `1:0`, `b1:11`, `#1:1`, `2:2`,
+The audit parses JSON floating-point lexemes directly with `Decimal`, then
+constructs `Fraction(str(decimal))`; it never round-trips through binary float
+or relies on float equality.
+
+The exact Music Critic V1 compatibility scale-degree offsets are `1:0`, `b1:11`, `#1:1`, `2:2`,
 `b2:1`, `#2:3`, `3:4`, `b3:3`, `#3:5`, `4:5`, `b4:4`, `#4:6`, `5:7`,
 `b5:6`, `#5:8`, `6:9`, `b6:8`, `#6:10`, `7:11`, `b7:10`, `#7:0`, and
 `bb1:10`. A non-rest pitch is derived as:
@@ -117,25 +161,68 @@ The exact legacy scale-degree offsets are `1:0`, `b1:11`, `#1:1`, `2:2`,
 72 + 12 * octave + tonic_pitch_class + scale_degree_chromatic_offset
 ```
 
-Its provenance method is `hooktheory_sd_octave_to_midi_v1`. Applied harmony is
-ignored. Missing inputs or a result outside MIDI `0..127` diagnose and omit the
-note; clamping is forbidden. The current corpus has no derived out-of-range
-example, so that guard remains a contract-level not-observed category.
+The formula and MIDI-72 anchor are the **Music Critic V1 absolute-octave
+compatibility convention**. They are neither a raw corpus field nor an upstream
+Sheet Sage invariant. Upstream separately evidences `sd`, `octave`, active-key,
+and accidental behavior, but its `TheorytabNote` conversion does not establish
+a MIDI-72 anchor. Provenance remains exactly
+`hooktheory_sd_octave_to_midi_v1`.
 
-Raw chord roots `1..7` map to functional values `0..6`; raw `0` is rest/empty
-and never tonic. The legacy code defines raw `8` as special bVII, but the audited
-raw corpus contains no root `8`, so no real-data bVII fixture can be fabricated.
-Negative roots are diagnosed and normalize to unavailable.
+The corpus-wide compatibility derivation produced 1,228,046 successes, 110,283
+rests, eight missing-input cases, nine unresolved-active-key cases, and zero
+out-of-range results. Missing inputs, unresolved keys, or values outside MIDI
+`0..127` diagnose and omit the note; clamping is forbidden.
+
+Observed raw chord roots `1..7` map to functional values `0..6`; raw `0` is
+rest/empty and never tonic. Upstream permits sounding roots only in `1..7` and
+rejects root `8`. V1's root `8` to bVII mapping is therefore only **synthetic
+Music Critic V1 compatibility behavior**. The corpus-wide check found zero
+root-8 occurrences, and no real-data root-8 fixture exists. Negative roots are
+diagnosed and normalize to unavailable.
 
 Borrowed null/empty normalize to `none`; known modes normalize to `mode_name`
 with their template; arrays normalize modulo 12, sorted and unique as `pcset`;
 unknown strings remain `unknown` and diagnose. No stringified list or
 non-string/non-array unexpected type occurs in this corpus.
 
+`applied` is partially executable upstream: Sheet Sage can reinterpret a chord
+relative to its applied target. V2 intentionally defers that feature from the
+MVP because its canonical/provenance contract is not accepted. This is a
+project deferral, not a claim that upstream behavior is absent.
+
+`alternate="_"` is an observed anomaly (14 chord events) with unresolved
+meaning; upstream requires an empty alternate and does not validate `_`. Every
+one of 449,072 audited chord pedals is null. Non-null pedal semantics remain
+unresolved, and no such corpus case was observed.
+
 Legacy region normalization sorts by beat and removes exact consecutive
 duplicates using the complete region key. No exact duplicate region was found
 in the audited raw corpus. Multiple valid regions are common and must all be
 preserved; they cannot be reduced to `main_key`, `main_bpm`, or `main_meter`.
+
+## Upstream simplified-schema crosswalk
+
+`data/HookTheory/Hooktheory.json` is the upstream Sheet Sage simplified
+alternate schema, not another raw TheoryTab dump. Its 26,175 identifiers all
+match raw records. The three raw-only identifiers are `ANmpR_LbxyM`,
+`WeglknrLmrY`, and `nLgaejbdgYp`; there are no simplified-only identifiers,
+split mismatches, or nested `hooktheory.id` mismatches.
+
+All 26,175 simplified records contain alignment metadata and annotations;
+22,217 contain user alignment and 17,980 contain refined alignment. The
+crosswalk verifies identity/split and these alternate representations:
+
+- raw meter beat/count/unit versus simplified beat/beats-per-bar/beat-unit;
+- raw tonic/scale versus tonic pitch class/scale-degree intervals;
+- raw melody degree/duration versus onset/offset/octave/pitch class;
+- raw functional/decorative harmony versus onset/offset/root pitch class,
+  root-position intervals, and inversion;
+- simplified user/refined beat-time alignment arrays, absent from raw
+  TheoryTab JSON.
+
+The report retains bounded mismatch examples. Integration tests verify selected
+real matches across raw, simplified, processed, canonical, and structure
+artifacts.
 
 ## Structure join, grouping, and leakage
 
@@ -155,7 +242,10 @@ invented for the 14,663 symbolic-only clips.
 The audit found 23 `ori_uid` values spanning more than one split: 16 span
 train/val, six span train/test, and `IxszlJppRQI` spans all three. This is an
 explicit leakage finding. A future adapter or dataset split policy must group
-by `ori_uid` and resolve these conflicts before training.
+by `ori_uid` atomically and resolve these conflicts before training. All clips
+sharing a non-null `ori_uid` form one indivisible split unit: move or exclude
+the whole group, never distribute its clips across partitions. Null `ori_uid`
+clips remain individually identified and never receive an invented group ID.
 
 Structure `segment_start`, `segment_end`, and `duration` are audio seconds. They
 remain raw evidence with
@@ -165,18 +255,21 @@ a section `TargetArray` nor a symbolic `AnnotationSpan` from them.
 ## Golden evidence and limitations
 
 The selected fixture IDs are listed in
-`tests/fixtures/hooktheory/golden_manifest.json`. Together they cover integer
+`tests/fixtures/hooktheory/golden_manifest.json`. The 19 bounded cases cover integer
 and fractional timing, rests and derived pitches, major/minor/modal keys,
 multiple key/tempo/meter regions, roots and malformed root zero, chord types and
 decorations, borrowed variants, matched and unmatched symbolic structure,
-shared `ori_uid`, applied raw evidence, and a missing payload.
+shared `ori_uid`, applied raw evidence, a missing payload, `beatUnit=3`,
+`numBeats=8`, negative roots, null note beats/octaves, alternate `_`, and
+double-flat `bb1`.
 
 Not observed and therefore not fabricated: raw root `8`, borrowed stringified
 list, unexpected borrowed runtime type, a derived out-of-range pitch, a
 non-null pedal, an exact duplicate region, a duplicate structure clip ID, an
 unmatched structure row, or a missing structure `ori_uid`.
 
-This audit establishes field behavior, traceability, joins, and bounded
-examples. It does not establish the semantics of `beatUnit`, `alternate`,
-`pedal`, applied harmony, or audio-to-symbolic section alignment, and it does
-not construct a `CanonicalPiece`.
+This audit establishes field behavior, traceability, joins, upstream grouping,
+and bounded examples. Exact V2 meter fractions, alternate/pedal semantics,
+applied-harmony MVP conversion, and audio-to-symbolic section alignment remain
+unresolved or intentionally deferred. It does not construct a
+`CanonicalPiece`.

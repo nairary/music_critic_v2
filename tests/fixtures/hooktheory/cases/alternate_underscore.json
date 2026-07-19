@@ -1,0 +1,23 @@
+{
+  "case_id": "alternate_underscore",
+  "coverage_tags": ["alternate_underscore", "alternate_unresolved", "applied_deferred", "structure_unmatched_symbolic"],
+  "source_reference": {"dataset_relative_path": "data/HookTheory/Hooktheory_Raw.json/4_merged.json", "split": "train", "clip_id": "yZOxVKOModq", "ori_uid": null, "source_record_locator": "top_level_object:yZOxVKOModq"},
+  "raw_excerpt": {
+    "regions": {"meters": [{"beat": 1, "numBeats": 4, "beatUnit": 1}]},
+    "notes": [],
+    "chords": [{"index": 1, "value": {"root": 5, "beat": 3, "duration": 2, "type": 5, "inversion": 0, "applied": 5, "adds": [], "omits": [], "alterations": [], "suspensions": [], "pedal": null, "alternate": "_", "borrowed": null, "isRest": false, "recordingEndBeat": null}}]
+  },
+  "structure_excerpt": null,
+  "legacy_selected_expected": {"exists": true, "meta_excerpt": {"split": "train", "ori_uid": null}, "melody_events": [], "chord_events": []},
+  "legacy_canonical_expected": {"exists": true, "meta_excerpt": {"split": "train", "ori_uid": null}, "chord_events": []},
+  "expected_v2_contract": {
+    "timing": [{"raw_beat_decimal": "3", "canonical_onset_qn": "2/1", "raw_duration_decimal": "2", "canonical_duration_qn": "2/1"}],
+    "melody": [],
+    "chords": [{"raw_root": 5, "is_rest": false, "canonical_functional_degree": 4, "special": null, "raw_applied": 5, "applied_target": null}],
+    "source_group_id": null,
+    "structure": {"coordinate_unit": "audio_seconds", "section_alignment_status": "unresolved_audio_seconds", "target_array_expected": false, "annotation_span_expected": false},
+    "unavailable_target": {"mask": false, "value": null, "source": null, "confidence": null, "provenance": null}
+  },
+  "expected_diagnostics": ["hooktheory.alternate_underscore_unresolved", "hooktheory.applied_deferred", "hooktheory.structure_unmatched_symbolic_clip"],
+  "evidence": {"source_record_sha256": "5a3a36dd37904417923e2a3853699652448afd65f547ff188251b09a740c8011", "status": "confirmed_real_data", "upstream_simplified_excerpt": {"split": "TRAIN", "hooktheory_id": "yZOxVKOModq", "alignment_available": true, "annotations": {"meters": [{"beat": 0, "beats_per_bar": 4, "beat_unit": 4}], "harmony": null}}}
+}

@@ -12,12 +12,16 @@ FIXTURE_ROOT = REPO_ROOT / "tests/fixtures/hooktheory"
 CASE_ROOT = FIXTURE_ROOT / "cases"
 SUPPORTED_SCHEMA = "hooktheory_golden_v1"
 VALID_TAGS = {
+    "alternate_underscore",
+    "alternate_unresolved",
     "applied_deferred",
+    "beat_unit_3",
     "borrowed_empty",
     "borrowed_mode",
     "borrowed_pcset",
     "borrowed_unknown",
     "chord_decorations",
+    "compound_meter_grouping",
     "derived_pitch",
     "extended_chord",
     "first_beat",
@@ -25,17 +29,25 @@ VALID_TAGS = {
     "inversion",
     "melody_rest",
     "minor_modal",
+    "missing_pitch_input",
     "missing_payload",
     "multiple_keys",
     "multiple_meters",
     "multiple_tempos",
+    "negative_root",
+    "null_note_beat",
+    "null_note_octave",
+    "num_beats_8",
     "ordinary_major",
     "root_zero_non_rest",
     "root_zero_rest",
+    "root_anomaly",
     "seventh_chord",
     "shared_ori_uid",
     "structure_matched",
     "structure_unmatched_symbolic",
+    "double_flat_bb1",
+    "unresolved_meter",
 }
 REQUIRED_OBSERVED_TAGS = VALID_TAGS - {"borrowed_empty"}
 FORBIDDEN_RAW_FEATURES = {"sd_id", "root_id", "type_id", "inversion_id", "applied_id"}
@@ -85,7 +97,7 @@ def test_manifest_and_case_file_bijection() -> None:
     manifest = load_manifest()
     assert manifest["fixture_schema_version"] == SUPPORTED_SCHEMA
     assert manifest["legacy_commit"] == "2d8281f31cc9ad9c8fecaf332da0c61e0e949415"
-    assert len(manifest["cases"]) >= 12
+    assert len(manifest["cases"]) >= 19
     assert len(manifest["cases"]) == len(set(manifest["cases"]))
     actual = {path.stem for path in CASE_ROOT.glob("*.json")}
     assert set(manifest["cases"]) == actual
@@ -117,6 +129,11 @@ def test_case_shape_ids_tags_and_coverage() -> None:
     assert REQUIRED_OBSERVED_TAGS <= observed_tags
     assert "raw_root_8_bvii" in manifest["not_observed_categories"]
     assert "borrowed_stringified_pitch_class_list" in manifest["not_observed_categories"]
+    classifications = manifest["evidence_classifications"]
+    assert classifications["root_8_bvii"]["corpus_status"] == "not_observed"
+    assert classifications["root_8_bvii"]["classification"] == "Music Critic V1 synthetic compatibility behavior"
+    assert classifications["midi_anchor_72"]["classification"] == "Music Critic V1 absolute-octave compatibility convention"
+    assert manifest["upstream_sheetsage"]["commit"] == "bbdd7b7b6a5fb845828f82790acdceb03a197779"
 
 
 def test_no_absolute_paths_or_encoded_ids_as_v2_raw_features() -> None:
@@ -177,6 +194,7 @@ def test_root_mapping_zero_eight_and_applied_policy() -> None:
         "5": 4, "6": 5, "7": 6, "8": "bVII",
     }
     saw_zero = False
+    saw_negative = False
     for case in load_cases():
         for chord in case["expected_v2_contract"]["chords"]:
             raw = chord["raw_root"]
@@ -186,8 +204,44 @@ def test_root_mapping_zero_eight_and_applied_policy() -> None:
                 assert chord["canonical_functional_degree"] is None
             elif 1 <= raw <= 7:
                 assert chord["canonical_functional_degree"] == raw - 1
+            elif raw < 0:
+                saw_negative = True
+                assert chord["canonical_functional_degree"] is None
+                assert chord["is_rest"] is True
     assert saw_zero
+    assert saw_negative
     assert mapping["8"] == "bVII"
+    assert all(
+        event["value"].get("root") != 8
+        for case in load_cases()
+        for event in case["raw_excerpt"].get("chords", [])
+    )
+
+
+def test_observed_meter_and_anomaly_cases_are_real_and_mask_safe() -> None:
+    by_tag = {
+        tag: case
+        for case in load_cases()
+        for tag in case["coverage_tags"]
+    }
+    compound = by_tag["beat_unit_3"]["expected_v2_contract"]["meter"][0]
+    assert compound == {
+        "raw_num_beats": 12,
+        "raw_beat_unit": 3,
+        "felt_group_size_source_beats": 3,
+        "canonical_numerator": None,
+        "canonical_denominator": None,
+        "status": "unresolved",
+    }
+    assert by_tag["num_beats_8"]["expected_v2_contract"]["meter"][0]["raw_num_beats"] == 8
+    assert by_tag["alternate_underscore"]["raw_excerpt"]["chords"][0]["value"]["alternate"] == "_"
+    null_case = by_tag["null_note_beat"]
+    assert null_case["raw_excerpt"]["notes"][0]["value"]["beat"] is None
+    assert null_case["raw_excerpt"]["notes"][1]["value"]["octave"] is None
+    assert null_case["expected_v2_contract"]["melody"] == []
+    bb1 = by_tag["double_flat_bb1"]
+    assert bb1["raw_excerpt"]["notes"][0]["value"]["sd"] == "bb1"
+    assert bb1["expected_v2_contract"]["melody"][0]["provenance_method"] == "hooktheory_sd_octave_to_midi_v1"
 
 
 def test_structure_seconds_grouping_masks_and_diagnostics() -> None:
