@@ -275,6 +275,8 @@ Phase 2B.1 may now implement it on its dedicated branch.
 
 Status: **Accepted and Completed**. Accepted implementation:
 `3898b168063094b87e5ca5d88aae0317c1562c3f`.
+Closure: `6111d3d062e02897e3f8ebdca7e4388f80ef434e`; merged to `main` by
+`b1df77737f641b705e3c48724b2741c7a022a2e4`.
 
 `music_critic.adapters.hooktheory` exposes `HookTheoryAdapterConfig`,
 `HookTheoryAdapterError`, `convert_hooktheory_record`, and

@@ -21,7 +21,11 @@
 - Phase 2B.1: Accepted and Completed
 - Accepted Phase 2B.1 implementation SHA:
   `3898b168063094b87e5ca5d88aae0317c1562c3f`
-- Current task: Phase 2B.1 closure and merge
+- Phase 2B.1 closure SHA:
+  `6111d3d062e02897e3f8ebdca7e4388f80ef434e`
+- Phase 2B.1 merge SHA:
+  `b1df77737f641b705e3c48724b2741c7a022a2e4`
+- Current task: create Phase 2B.2 canonical MIDI renderer branch
 
 ## Phase 2 migration status
 
@@ -134,6 +138,12 @@ All Python commands used the project-local Python 3.13.5 interpreter.
   `3898b16 Remediate HookTheory timing and pitch semantics`.
 - `git diff --check
   47812f6cea2d8183b3543798ba1a252bb1380f85..HEAD`: passed with no output.
+- Closure commit verification `git show --check --oneline HEAD` passed on the
+  phase branch and printed `6111d3d Close Phase 2B.1 HookTheory adapter`;
+  `git diff --check main..HEAD` passed with no output. After merging,
+  `git show --check --oneline HEAD` printed
+  `b1df777 merge: complete Phase 2B.1 HookTheory adapter`, and the base-to-main
+  diff check again passed with no output.
 - Production dependency/import scan: passed; the HookTheory production adapter
   imports only the standard library, its private production JSON reader, and
   `music_critic.data`.

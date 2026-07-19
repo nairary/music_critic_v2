@@ -145,6 +145,8 @@ document is the phase execution checklist.
 - Status: Accepted and Completed
 - Accepted implementation:
   `3898b168063094b87e5ca5d88aae0317c1562c3f`
+- Closure: `6111d3d062e02897e3f8ebdca7e4388f80ef434e`
+- Merged to `main`: `b1df77737f641b705e3c48724b2741c7a022a2e4`
 - Dependencies: Phase 2B.0.
 - Goal: implement the accepted HookTheory migration contract without exposing
   theory labels as raw inference inputs.
