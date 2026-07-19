@@ -9,7 +9,7 @@
 - Phase 1B.2: Completed
 - Phase 1B.3: Completed
 - Phase 1 merge SHA: `37edf76889730980aa6ce9e9ec981e362c3480a9`
-- Current branch: `phase/2b0-hooktheory-golden-fixtures`
+- Current branch: `phase/2b1-hooktheory-adapter`
 - Current phase: Phase 2 — generic MIDI and HookTheory adapters
 - Phase 2 state: In progress
 - Phase 2A.1: Accepted and Completed
@@ -18,7 +18,7 @@
 - Phase 2B.0: Accepted and Completed
 - Accepted Phase 2B.0 implementation SHA:
   `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`
-- Current task: Phase 2B.0 documentation closure before Phase 2B.1
+- Current task: Phase 2B.1 production HookTheory adapter — in review
 
 ## Phase 2 migration status
 
@@ -29,12 +29,82 @@
   anchored at MIDI 72, with algorithmic provenance method
   `hooktheory_sd_octave_to_midi_v1`.
 - Applied harmony is deferred from the first HookTheory adapter.
-- The HookTheory adapter has not been implemented.
+- The Phase 2B.1 HookTheory adapter is implemented and **In review**. It is not
+  Accepted or Completed.
 - Phase 2B.0 is **Accepted and Completed** at implementation SHA
   `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`. Phase 2B.1 is ready to begin on
-  its dedicated branch and will remain in review until separately accepted.
+  its dedicated branch. Phase 2B.1 now remains in review until separately
+  accepted.
 - No graph, dataset, model, SSL, training, preference, quality, inference, or
   GRPO work has started.
+
+## Phase 2B.1 production HookTheory adapter result
+
+- Public API from `music_critic.adapters`: `HookTheoryAdapterConfig`,
+  `HookTheoryAdapterError`, `convert_hooktheory_record`, and
+  `load_hooktheory_piece`.
+- Production input is only
+  `data/HookTheory/Hooktheory_Raw.json/4_merged.json`, with optional
+  `HookTheoryStructure.<split>.jsonl` group metadata. The adapter does not read
+  the simplified crosswalk, HTCanon, Sheet Sage, or the legacy repository.
+- The incremental production parser supports complete top-level objects and
+  legacy fragments, preserves decimal lexemes, detects duplicate requested
+  IDs, and has bounded memory use.
+- Melody timing uses exact `Fraction(str(value))` arithmetic and 1-based onset
+  conversion. Sounding pitch uses the explicitly classified Music Critic V1
+  compatibility method `hooktheory_sd_octave_to_midi_v1`; rests and malformed
+  notes do not create canonical notes.
+- Tempo uses exact BPM arithmetic with deterministic nearest-integer half-up
+  rounding. Meter uses numerator `numBeats` and denominator 4/8 for raw
+  `beatUnit` 1/3. Bars and denominator-unit beats preserve exact meter changes
+  and incomplete boundaries without padding the piece duration.
+- Local keys and chord spans are target-alignment annotations only. The 12
+  target tasks are melody scale degree; local-key tonic and mode; and chord
+  presence, root degree, extent, inversion, adds, omits, alterations,
+  suspensions, and borrowed value. Applied, alternate, pedal, and section
+  semantics remain deferred.
+- `include_targets=False` removes annotations, targets, and annotation-only
+  provenance without changing identity, grouping, split, duration, tracks,
+  notes, tempo, meter, bars, beats, diagnostics, or their IDs/timing.
+- Full-corpus smoke: 26,178 raw records, three missing payloads, 26,175 usable
+  records attempted, 26,175 valid pieces, and zero unexpected failures.
+  Totals are 1,228,022 notes, 304,230 bars, 1,242,480 beats, 26,315 tempo
+  events, 27,171 meter events, 476,347 target-alignment spans, and 314,100
+  target arrays. All 32 deterministic spread samples passed serialization and
+  target-visible/hidden comparisons. A second full-corpus hidden-target pass
+  produced the same raw-content and quality-flag totals with zero annotations,
+  zero targets, and zero unexpected failures.
+- Quality-flag totals: alternate unresolved 14; applied deferred 19,540;
+  borrowed unknown string 1,340; non-rest root zero 6; invalid chord timing 4;
+  default tempo 3; `bb1` compatibility 2; duration extended 23; negative rest
+  root anomaly 20; invalid note duration 296; invalid note timing 23;
+  structure alignment unresolved 11,515; unmatched structure 14,660; and
+  invalid tempo 3.
+- All 19 Phase 2B.0 golden cases pass against the raw production source: 18
+  usable cases convert and the missing-payload case raises the required adapter
+  error.
+
+## Phase 2B.1 verification
+
+All Python commands used the project-local Python 3.13.5 interpreter.
+
+- HookTheory parser and adapter unit tests: `28 passed`.
+- Opt-in real golden adapter integration: `1 passed`.
+- Data-layer tests: `245 passed`.
+- MIDI adapter tests: `62 passed, 2 skipped`; the skips are gated real-corpus
+  integrations.
+- Full suite with real HookTheory integration enabled: `360 passed, 4 skipped`.
+- Full target-visible corpus smoke: 26,175 valid pieces, zero unexpected
+  failures, `32/32` serialization round trips, and `32/32` target-hiding
+  comparisons.
+- Full target-hidden corpus smoke: 26,175 valid pieces, zero unexpected
+  failures, zero annotations, and zero targets.
+- `python -m compileall src scripts tests`: passed.
+- `git diff --check`: passed.
+- Production dependency/import scan: passed; the HookTheory production adapter
+  imports only the standard library, its private production JSON reader, and
+  `music_critic.data`.
+- Added-line and new-file forbidden absolute-path scan: passed.
 
 ## Phase 2B.0 HookTheory audit result
 
@@ -92,9 +162,10 @@
   unresolved or intentionally deferred: `alternate`, non-null `pedal`, applied
   harmony, and audio-seconds-to-symbolic alignment. Structure timestamps remain
   audio seconds with `section_alignment_status=unresolved_audio_seconds`.
-- The production HookTheory adapter has not started. No public API, dependency,
-  canonical conversion entry point, graph, dataset, model, SSL, training,
-  preference, evaluation, inference, or GRPO work was added.
+- Phase 2B.0 intentionally added no production adapter or canonical conversion
+  entry point. Its evidence gate preceded the Phase 2B.1 implementation above;
+  it also added no graph, dataset, model, SSL, training, preference, evaluation,
+  inference, or GRPO work.
 
 ## Phase 2B.0 remediation verification
 

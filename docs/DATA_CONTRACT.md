@@ -396,6 +396,9 @@ is_incomplete     = true
 The first full bar then starts at `1/1` with index `1`. Canonical time never
 uses negative pickup coordinates. A shortened final bar has
 `is_incomplete=true`, `is_pickup=false`, and normally a zero metric offset.
+A source meter change before nominal bar completion likewise ends the preceding
+bar with `is_incomplete=true` and zero metric offset; its exact end must equal
+the next `MeterEvent.onset_qn`.
 
 ### `CanonicalBeat`
 
@@ -508,9 +511,12 @@ Prefixes `theory.`, `harmony.`, `key.`, `cadence.`, `phrase.`, `section.`, and
 `role.` are forbidden for observation spans.
 
 `layer="target_alignment"` creates a stable span entity to which a
-`TargetArray` may align; its `annotation_type` is the target task namespace and
-its `value` must be `None`. Harmony, tonal region, phrase, cadence, section, and
-other theory labels are stored in targets, never in `AnnotationSpan.value`.
+`TargetArray` may align; its `annotation_type` is the target task or a shared
+target-family namespace and its `value` must be `None`. For a shared family,
+each aligned task extends the annotation type with a dotted suffix, such as
+span type `theory.chord` with task `theory.chord.root_degree`. Harmony, tonal
+region, phrase, cadence, section, and other theory labels are stored in targets,
+never in `AnnotationSpan.value`.
 
 ### `TargetArray`
 
@@ -917,7 +923,10 @@ silently assumes a default.
 
 Tempo changes may occur mid-bar and are valid; validation emits
 `MID_BAR_TEMPO_CHANGE` as a warning because downstream renderers must handle the
-piecewise map carefully. Meter changes must occur at a canonical bar start.
+piecewise map carefully. Meter changes must occur at a canonical bar start. If
+an exact source meter change precedes nominal bar completion, the adapter ends
+the previous bar as incomplete at that onset, making the preserved event the
+start of the next canonical bar.
 
 Bars and beats reference the effective `meter_event_id`. A pickup is represented
 by actual duration plus `metric_offset_qn`, not negative time or a synthetic
@@ -1047,7 +1056,7 @@ These codes always have `severity="error"`:
 | `TARGET_VIEW_DUPLICATE` | two target arrays share the same `(task, annotation_view_id)` pair |
 | `TARGET_LENGTH_MISMATCH` | aligned target fields have different lengths |
 | `TARGET_ENTITY_DUPLICATE` | one target array repeats an entity ID |
-| `TARGET_ALIGNMENT_INVALID` | alignment type and entity prefix/count rules disagree |
+| `TARGET_ALIGNMENT_INVALID` | alignment type and entity prefix/count rules disagree, or an annotation-span task is outside its exact/shared dotted task namespace |
 | `TARGET_ENTITY_INVALID` | a target entity does not exist in the containing piece |
 | `TARGET_VALUE_INVALID` | value type, class vocabulary, scalar, multi-label, or distribution rules fail |
 | `TARGET_MASK_INVALID` | a masked entry is non-null or an available entry is null |

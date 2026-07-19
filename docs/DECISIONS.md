@@ -230,3 +230,19 @@ This log is append-only.
   strictly as decoded records. The canonical example contains default and
   alternative chord-quality views plus the track-role target, providing the
   normative three-target round-trip fixture for Phase 1B.
+
+## 2026-07-19 — ADR-021: Target families share alignment spans; meter changes may end bars
+
+- Status: Accepted
+- Context: HookTheory local-key and chord entities each align several target
+  tasks to one source span. Exact source meter changes can also occur before a
+  nominal bar completes, while the canonical piece must preserve the event and
+  still validate without moving or padding it.
+- Decision: An annotation-span target task may equal its target-alignment
+  annotation type or extend it with a dotted subtask suffix. A shortened
+  non-pickup bar is valid when it ends exactly at the next meter-event onset;
+  piece duration itself is also a valid terminal meter boundary.
+- Consequences: Related theory targets share stable source-span IDs without
+  duplicating annotations. Exact mid-bar meter changes create diagnosed
+  incomplete bars while preserving contiguous bar/beat coverage and schema
+  version `2.0.0`.

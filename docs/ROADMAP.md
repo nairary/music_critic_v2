@@ -97,7 +97,7 @@ document is the phase execution checklist.
 ## Phase 2 — Generic MIDI and HookTheory adapters
 
 - Status: In progress
-- Sequence: Phase 2A.1 and Phase 2B.0 are completed; Phase 2B.1 is next.
+- Sequence: Phase 2A.1 and Phase 2B.0 are completed; Phase 2B.1 is in review.
 - Goal: map unlabeled MIDI and HookTheory into the same canonical schema.
 - Dependencies: Phase 1.
 - Outputs: adapter interface, generic MIDI adapter, HookTheory adapter.
@@ -141,13 +141,20 @@ document is the phase execution checklist.
 
 ### Phase 2B.1 — HookTheory adapter
 
-- Status: Ready for implementation
+- Status: In review
 - Dependencies: Phase 2B.0.
 - Goal: implement the accepted HookTheory migration contract without exposing
   theory labels as raw inference inputs.
+- Outputs: production record converter and incremental loader, exact melody and
+  metric conversion, 12 target tasks, complete target hiding, bounded-memory
+  JSON parsing, golden integration tests, and a read-only corpus smoke CLI.
+- Corpus result: all 26,175 usable raw records convert to validator-clean
+  canonical pieces; the three missing-payload records are counted and skipped.
+- Non-goals: MIDI rendering, chord-note synthesis, section alignment, deferred
+  chord-field interpretation, graphs, datasets, models, or training.
 
-The graph phase, model phases, and training phases remain pending. HookTheory
-adapter implementation is the next Phase 2 task.
+The graph phase, model phases, and training phases remain pending. Phase 2B.1
+must remain in review until its implementation is separately accepted.
 
 ## Phase 3 — Raw graph builder
 

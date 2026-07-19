@@ -91,7 +91,7 @@ procedure. Raw coordinates and structured alignment diagnostics must be
 preserved.
 
 Multiple key, tempo, and meter regions are meaningful and must not be collapsed
-to the first region. The future adapter must preserve all valid regions in
+to the first region. The production adapter preserves all valid regions in
 canonical order.
 
 ## Meter mapping
@@ -169,7 +169,7 @@ The raw root must also respect `isRest`; a rest chord has no functional root.
 Chord type values are `5`, `7`, `9`, `11`, and `13`, representing tertian
 extent in the legacy format.
 
-The future adapter must preserve inversion, adds, omits, alterations,
+The production adapter preserves inversion, adds, omits, alterations,
 suspensions, borrowed information, and the raw `alternate` value. It must keep
 raw values even when normalization fails.
 
@@ -209,9 +209,9 @@ values, conversion methods, derived-value status, confidence, and structured
 diagnostics must be preserved.
 
 Legacy `sd_id`, `root_id`, `type_id`, `inversion_id`, `applied_id`, borrowed
-IDs, and similar encoded IDs are not raw V2 features. The future adapter starts
-from pre-encoding values whenever possible and must not expose those IDs as
-ordinary MIDI-observable evidence.
+IDs, and similar encoded IDs are not raw V2 features. The production adapter
+starts from pre-encoding values and does not expose those IDs as ordinary
+MIDI-observable evidence.
 
 ## Unresolved issues
 
@@ -241,3 +241,42 @@ Phase 2B.0 establishes bounded real examples for every observed category listed
 in the field audit; root `8` is covered only by a synthetic compatibility unit
 test and an explicit corpus-wide zero count. Review accepted this contract and
 Phase 2B.1 may now implement it on its dedicated branch.
+
+## Phase 2B.1 production implementation
+
+Status: **In review**. The implementation is intentionally not marked Accepted
+or Completed.
+
+`music_critic.adapters.hooktheory` exposes `HookTheoryAdapterConfig`,
+`HookTheoryAdapterError`, `convert_hooktheory_record`, and
+`load_hooktheory_piece`. It consumes only the raw merged m-a-p record plus an
+optional structure row. Production conversion does not read Hooktheory.json,
+HTCanon, Sheet Sage, or legacy modules.
+
+Exact raw timing, the accepted MIDI-72 compatibility pitch derivation, exact
+BPM conversion, accepted meter mapping, metric grids, grouping, provenance,
+and diagnostics are canonical raw content. Theory annotations remain confined
+to these target tasks:
+
+- `theory.melody.scale_degree`;
+- `theory.local_key.tonic_pc`;
+- `theory.local_key.mode`;
+- `theory.chord.presence`;
+- `theory.chord.root_degree`;
+- `theory.chord.extent`;
+- `theory.chord.inversion`;
+- `theory.chord.adds`;
+- `theory.chord.omits`;
+- `theory.chord.alterations`;
+- `theory.chord.suspensions`;
+- `theory.chord.borrowed`.
+
+Target hiding returns identical non-target canonical content and diagnostics,
+with empty annotations and targets and no annotation-only provenance. Structure
+seconds remain unaligned and create no section spans or targets. Applied,
+alternate, and pedal values remain diagnostic-only.
+
+The read-only corpus smoke converted all 26,175 usable records into valid
+canonical pieces with zero unexpected failures; it skipped exactly the three
+known missing-payload records. A 32-clip deterministic spread passed exact JSON
+round trips and target-visible/hidden equivalence.

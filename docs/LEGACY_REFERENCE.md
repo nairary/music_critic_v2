@@ -159,3 +159,14 @@ Upstream Sheet Sage at commit
 1-based beat conversion, beat-unit grouping, raw TheoryTab validation, and
 partially available applied-chord behavior. Applied harmony remains
 intentionally deferred from the V2 MVP.
+
+## Phase 2B.1 production adaptation
+
+The production adapter retains only the explicitly accepted V1 compatibility
+pitch table and MIDI-72 formula, labeled through provenance method
+`hooktheory_sd_octave_to_midi_v1`. It reimplements parsing, exact timing,
+targets, masks, metric construction, validation, and provenance inside V2.
+
+Rejected at runtime: legacy imports, HTCanon input, encoded theory IDs, legacy
+meter tokens, chord-note rendering, applied-harmony reinterpretation, and any
+requirement for gold structure or theory targets at inference.
