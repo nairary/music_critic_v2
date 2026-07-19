@@ -25,16 +25,16 @@
 - The HookTheory migration contract in `docs/HOOKTHEORY_MIGRATION.md` is
   **Accepted**. Evidence is classified as observed corpus,
   upstream Sheet Sage, V1 compatibility, project decision, or unresolved.
-- HookTheory melody pitch uses the V1 absolute-octave compatibility convention
-  anchored at MIDI 72, with algorithmic provenance method
-  `hooktheory_sd_octave_to_midi_v1`.
+- HookTheory remediation uses piecewise meter-aware qn timing, compound
+  felt-pulse tempo, active-scale pitch, and the upstream MIDI-60 anchor with
+  provenance method `hooktheory_scale_degree_to_midi_upstream`. MIDI 72 is
+  legacy compatibility history only.
 - Applied harmony is deferred from the first HookTheory adapter.
 - The Phase 2B.1 HookTheory adapter is implemented and **In review**. It is not
   Accepted or Completed.
 - Phase 2B.0 is **Accepted and Completed** at implementation SHA
-  `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`. Phase 2B.1 is ready to begin on
-  its dedicated branch. Phase 2B.1 now remains in review until separately
-  accepted.
+  `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`. Phase 2B.1 is implemented on its
+  dedicated branch and remains in review until separately accepted.
 - No graph, dataset, model, SSL, training, preference, quality, inference, or
   GRPO work has started.
 
@@ -50,14 +50,16 @@
 - The incremental production parser supports complete top-level objects and
   legacy fragments, preserves decimal lexemes, detects duplicate requested
   IDs, and has bounded memory use.
-- Melody timing uses exact `Fraction(str(value))` arithmetic and 1-based onset
-  conversion. Sounding pitch uses the explicitly classified Music Critic V1
-  compatibility method `hooktheory_sd_octave_to_midi_v1`; rests and malformed
-  notes do not create canonical notes.
-- Tempo uses exact BPM arithmetic with deterministic nearest-integer half-up
-  rounding. Meter uses numerator `numBeats` and denominator 4/8 for raw
-  `beatUnit` 1/3. Bars and denominator-unit beats preserve exact meter changes
-  and incomplete boundaries without padding the piece duration.
+- Melody and chord timing use exact `Fraction(str(value))` arithmetic and a
+  piecewise timeline: one qn per `beatUnit=1` raw beat and one-half qn per
+  `beatUnit=3` raw beat, including spans crossing changes and `endBeat`.
+  Sounding pitch uses active scale steps, true accidentals, and MIDI 60 for
+  relative octave zero; rests and malformed/unresolved notes create no note.
+- Tempo uses exact quarter-pulse BPM in simple meter and three-eighth
+  felt-pulse BPM in compound meter, with final half-up rounding. Bars and
+  denominator-unit beats preserve exact meter changes and incomplete
+  boundaries without padding duration. Structure metadata must match clip stem
+  and split before `ori_uid` may affect grouping.
 - Local keys and chord spans are target-alignment annotations only. The 12
   target tasks are melody scale degree; local-key tonic and mode; and chord
   presence, root degree, extent, inversion, adds, omits, alterations,
@@ -68,32 +70,51 @@
   notes, tempo, meter, bars, beats, diagnostics, or their IDs/timing.
 - Full-corpus smoke: 26,178 raw records, three missing payloads, 26,175 usable
   records attempted, 26,175 valid pieces, and zero unexpected failures.
-  Totals are 1,228,022 notes, 304,230 bars, 1,242,480 beats, 26,315 tempo
+  Remediated totals are 1,228,022 notes, 302,619 bars, 1,229,208 beats, 26,315 tempo
   events, 27,171 meter events, 476,347 target-alignment spans, and 314,100
   target arrays. All 32 deterministic spread samples passed serialization and
   target-visible/hidden comparisons. A second full-corpus hidden-target pass
   produced the same raw-content and quality-flag totals with zero annotations,
   zero targets, and zero unexpected failures.
+- Old to remediated metric totals: notes 1,228,022 -> 1,228,022 (0);
+  bars 304,230 -> 302,619 (-1,611); beats 1,242,480 -> 1,229,208
+  (-13,272); tempo events 26,315 -> 26,315 (0); meter events 27,171 ->
+  27,171 (0). Visible annotations and target arrays remain 476,347 and
+  314,100; hidden mode remains zero for both.
 - Quality-flag totals: alternate unresolved 14; applied deferred 19,540;
-  borrowed unknown string 1,340; non-rest root zero 6; invalid chord timing 4;
-  default tempo 3; `bb1` compatibility 2; duration extended 23; negative rest
+  borrowed unknown string 1; non-rest root zero 6; invalid chord timing 4;
+  default tempo 3; duration extended 23; negative rest
   root anomaly 20; invalid note duration 296; invalid note timing 23;
   structure alignment unresolved 11,515; unmatched structure 14,660; and
   invalid tempo 3.
 - All 19 Phase 2B.0 golden cases pass against the raw production source: 18
   usable cases convert and the missing-payload case raises the required adapter
   error.
+- Semantic audit: 27,216/27,216 paired meter regions match; 1,211,093 melody
+  pairs have zero pitch-class and zero relative-octave mismatches. Candidate
+  pitch conversion changes 1,227,982 of 1,228,022 production sounding-note
+  pitches. Candidate timing changes 6,443 note and 2,009 chord intervals,
+  1,611 bars, and 13,272 beats. Compound tempo hypothesis C has 0.39% median
+  error across 72 eligible user-alignment intervals, versus 50.04% for A and
+  200.07% for B.
 
 ## Phase 2B.1 verification
 
 All Python commands used the project-local Python 3.13.5 interpreter.
 
-- HookTheory parser and adapter unit tests: `28 passed`.
-- Opt-in real golden adapter integration: `1 passed`.
-- Data-layer tests: `245 passed`.
+- HookTheory parser unit tests: `10 passed`.
+- HookTheory adapter unit tests: `49 passed`.
+- HookTheory validation regression tests: `112 passed`.
+- HookTheory semantic-audit and golden-fixture audit tests: `10 passed`.
+- Opt-in real golden adapter integration: `1 passed` (all 19 manifest cases;
+  18 conversions and one required missing-payload error).
+- Opt-in corpus semantic crosswalk integration: `1 passed in 121.24s`.
+- Data-layer tests: `247 passed`.
 - MIDI adapter tests: `62 passed, 2 skipped`; the skips are gated real-corpus
   integrations.
-- Full suite with real HookTheory integration enabled: `360 passed, 4 skipped`.
+- Full default repository suite: `393 passed, 6 skipped`; all skips are
+  explicitly gated real-corpus integrations. The final full suite with both
+  HookTheory corpus integrations enabled: `395 passed, 4 skipped in 131.29s`.
 - Full target-visible corpus smoke: 26,175 valid pieces, zero unexpected
   failures, `32/32` serialization round trips, and `32/32` target-hiding
   comparisons.
@@ -105,6 +126,11 @@ All Python commands used the project-local Python 3.13.5 interpreter.
   imports only the standard library, its private production JSON reader, and
   `music_critic.data`.
 - Added-line and new-file forbidden absolute-path scan: passed.
+- Legacy unchanged check: failed because the read-only legacy checkout differs
+  from `docs/legacy_snapshot.json` (including additional staged legacy-doc and
+  experiment artifacts). Phase 2B.1 did not modify the legacy repository; the
+  external drift is intentionally left untouched and must be reconciled by its
+  owner before this check can pass.
 
 ## Phase 2B.0 HookTheory audit result
 

@@ -912,6 +912,31 @@ that key signature is a theory label.
 Piece time begins at `0/1` at the first represented musical instant, including
 the beginning of a pickup. All onsets, starts, and event times are non-negative.
 One quarter note is `1/1`; an eighth note is `1/2`; a triplet eighth is `1/3`.
+
+HookTheory TheoryTab coordinates require a meter-aware source conversion before
+they satisfy this canonical unit. Raw beat 1 is qn 0. A raw beat contributes
+one qn while `beatUnit=1` is active and one-half qn while `beatUnit=3` is
+active. Meter changes are integrated piecewise, so both ends of notes, chords,
+key spans, tempo/meter onsets, and `endBeat` pass through the same timeline.
+The canonical meter remains `numBeats/4` or `numBeats/8`; for example, 12/8
+contains twelve half-qn canonical beat records, not four felt-pulse records.
+
+HookTheory BPM denotes a quarter-note pulse in simple meter and a three-eighth
+felt pulse in compound denominator-8 meter. Exact conversion is
+`60_000_000/bpm` or `40_000_000/bpm`, respectively, with half-up rounding only
+at the final integer. A simultaneous meter and tempo event uses the new meter.
+
+HookTheory sounding pitch is derived from the exact active key at the note's
+raw onset. Supported scale steps are local immutable upstream tables for major,
+minor, all seven diatonic modes, harmonic minor, and phrygian dominant;
+accidentals are applied afterward. Relative octave zero anchors at MIDI 60.
+Unsupported/malformed active keys or out-of-range results omit the dependent
+note with diagnostics; values are never clamped and major is never assumed.
+
+An optional HookTheoryStructure row is trusted only after
+`Path(audio_path).stem == clip_id` and any split-like field agrees with the
+symbolic split. An identity or split mismatch is a conversion error and cannot
+influence `source_group_id`.
 Float equality is never part of canonical timing.
 
 At least one tempo event and one meter event must exist at `0/1`. When source

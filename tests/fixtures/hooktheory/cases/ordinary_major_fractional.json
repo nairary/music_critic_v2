@@ -34,12 +34,12 @@
   },
   "expected_v2_contract": {
     "timing": [{"raw_beat_decimal": "1", "canonical_onset_qn": "0/1", "raw_duration_decimal": "2", "canonical_duration_qn": "2/1"}, {"raw_beat_decimal": "4.5", "canonical_onset_qn": "7/2", "raw_duration_decimal": "1.5", "canonical_duration_qn": "3/2"}],
-    "melody": [{"raw_sd": "1", "octave": 0, "tonic_pc": 2, "sd_chromatic_offset": 0, "is_rest": true, "derived_pitch": null, "pitch_source": "derived", "provenance_method": "hooktheory_sd_octave_to_midi_v1"}, {"raw_sd": "3", "octave": 0, "tonic_pc": 2, "sd_chromatic_offset": 4, "is_rest": false, "derived_pitch": 78, "pitch_source": "derived", "provenance_method": "hooktheory_sd_octave_to_midi_v1"}],
+    "melody": [{"raw_sd": "1", "octave": 0, "tonic_pc": 2, "active_scale_degree_offset": 0, "accidental_offset": 0, "is_rest": true, "derived_pitch": null, "pitch_source": "derived", "provenance_method": "hooktheory_scale_degree_to_midi_upstream"}, {"raw_sd": "3", "octave": 0, "tonic_pc": 2, "active_scale_degree_offset": 4, "accidental_offset": 0, "is_rest": false, "derived_pitch": 66, "pitch_source": "derived", "provenance_method": "hooktheory_scale_degree_to_midi_upstream"}],
     "chords": [{"raw_root": 4, "is_rest": false, "canonical_functional_degree": 3, "special": null, "raw_applied": 0, "applied_target": null}],
     "source_group_id": "X1Fqn9du7xo",
     "structure": {"coordinate_unit": "audio_seconds", "section_alignment_status": "unresolved_audio_seconds", "target_array_expected": false, "annotation_span_expected": false},
     "unavailable_target": {"mask": false, "value": null, "source": null, "confidence": null, "provenance": null}
   },
   "expected_diagnostics": [],
-  "evidence": {"source_record_sha256": "d1048ab66d4caac0be22e7f2983c3c09f6192eb59e72afa91786bb44204bf472", "status": "confirmed_real_data"}
+  "evidence": {"source_record_sha256": "d1048ab66d4caac0be22e7f2983c3c09f6192eb59e72afa91786bb44204bf472", "status": "confirmed_real_data", "remediation_note": {"previous_expectation": 78, "new_expectation": 66, "reason": "replace the legacy MIDI-72 anchor for the sounding excerpt; rests remain silent", "evidence_source": "pinned Sheet Sage and corpus melody crosswalk", "classification": "upstream_semantics"}}
 }

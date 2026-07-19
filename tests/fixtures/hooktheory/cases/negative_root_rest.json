@@ -12,7 +12,7 @@
   "legacy_canonical_expected": {"exists": true, "meta_excerpt": {"split": "train", "ori_uid": null}, "chord_events": []},
   "expected_v2_contract": {
     "timing": [{"raw_beat_decimal": "129", "canonical_onset_qn": "128/1", "raw_duration_decimal": "0.5", "canonical_duration_qn": "1/2"}],
-    "melody": [{"raw_sd": "1", "octave": 0, "tonic_pc": 3, "sd_chromatic_offset": 0, "is_rest": true, "derived_pitch": null, "pitch_source": "derived", "provenance_method": "hooktheory_sd_octave_to_midi_v1"}],
+    "melody": [{"raw_sd": "1", "octave": 0, "tonic_pc": 3, "active_scale_degree_offset": 0, "accidental_offset": 0, "is_rest": true, "derived_pitch": null, "pitch_source": "derived", "provenance_method": "hooktheory_scale_degree_to_midi_upstream"}],
     "chords": [{"raw_root": -2, "is_rest": true, "canonical_functional_degree": null, "special": null, "raw_applied": 0, "applied_target": null}],
     "source_group_id": null,
     "structure": {"coordinate_unit": "audio_seconds", "section_alignment_status": "unresolved_audio_seconds", "target_array_expected": false, "annotation_span_expected": false},

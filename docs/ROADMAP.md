@@ -147,9 +147,13 @@ document is the phase execution checklist.
   theory labels as raw inference inputs.
 - Outputs: production record converter and incremental loader, exact melody and
   metric conversion, 12 target tasks, complete target hiding, bounded-memory
-  JSON parsing, golden integration tests, and a read-only corpus smoke CLI.
+  JSON parsing, golden integration tests, a read-only corpus smoke CLI, and a
+  deterministic raw/simplified semantic audit.
 - Corpus result: all 26,175 usable raw records convert to validator-clean
   canonical pieces; the three missing-payload records are counted and skipped.
+  Remediation maps compound raw beats to half-qn, integrates crossing durations,
+  uses compound felt-pulse tempo, reconstructs scale-aware MIDI-60 pitch, and
+  rejects mismatched structure rows. Phase 2B.1 remains In review.
 - Non-goals: MIDI rendering, chord-note synthesis, section alignment, deferred
   chord-field interpretation, graphs, datasets, models, or training.
 

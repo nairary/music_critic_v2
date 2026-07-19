@@ -63,20 +63,22 @@ cross-split group. Null-`ori_uid` clips remain individually identified; the
 adapter must not fabricate group identity.
 
 `data/HookTheory/Hooktheory.json` is a crosswalk source, classified as the
-upstream Sheet Sage simplified alternate schema. Its meter representation is
-semantically crosswalked against the raw TheoryTab record; its alignment,
-key, melody, and harmony representations are inventoried for availability and
-shape only and do not silently replace raw fields. The audit found 26,175
+upstream Sheet Sage simplified alternate schema. Its meter and melody
+representations are semantically crosswalked against the raw TheoryTab record;
+key and harmony remain inventoried for availability and shape only. None of
+these fields silently replaces raw data. The audit found 26,175
 matches, three raw-only missing-payload records, no simplified-only records,
 and no split or nested-identifier mismatches.
 
 ## Coordinate systems
 
-HookTheory symbolic beat coordinates are 1-based. For every symbolic event, V2
-onset is computed exactly as:
+HookTheory symbolic beat coordinates are 1-based source coordinates. They are
+converted exactly through a piecewise meter timeline:
 
 ```text
-canonical_onset_qn = exact(raw_beat) - 1
+raw beat 1 = canonical qn 0
+qn_per_raw_beat = 1 when beatUnit=1
+qn_per_raw_beat = 1/2 when beatUnit=3
 ```
 
 The conversion must use exact decimal/rational parsing. It must not round
@@ -90,7 +92,8 @@ without a separately specified and tested audio-to-symbolic alignment
 procedure. Raw coordinates and structured alignment diagnostics must be
 preserved.
 
-Multiple key, tempo, and meter regions are meaningful and must not be collapsed
+Both ends of every duration and `endBeat` use the same piecewise mapping;
+durations cannot be scaled only by the meter at onset. Multiple key, tempo, and meter regions are meaningful and must not be collapsed
 to the first region. The production adapter preserves all valid regions in
 canonical order.
 
@@ -115,6 +118,18 @@ denominator = 4 if raw beatUnit == 1 else 8
 The adapter must still preserve and diagnose invalid or unsupported raw meter
 values rather than applying this expression blindly outside the audited domain.
 
+## Tempo mapping
+
+Three formulas were audited: quarter-note BPM (`60_000_000/bpm`), raw-beat BPM
+(`60_000_000/(bpm*qn_per_raw_beat)`), and compound felt-pulse BPM
+(`40_000_000/bpm`). They coincide in simple meter. No refined compound-meter
+interval exists; across 72 eligible user-alignment intervals the respective
+median absolute relative errors are 50.04%, 200.07%, and 0.39%. Pinned Sheet
+Sage also defines compound primary pulses as groups of three source beats.
+Production therefore uses quarter-note BPM for `beatUnit=1` and felt-pulse BPM
+for `beatUnit=3`, classified as upstream semantics with corpus alignment
+support. A tempo at the exact onset of a meter change uses the new meter.
+
 ## Melody records and derived pitch
 
 Selected melody-note records contain:
@@ -126,24 +141,24 @@ Selected melody-note records contain:
 - `isRest` (normalized by the legacy pipeline to `is_rest`).
 
 This representation contains no directly observed absolute MIDI pitch. A
-non-rest pitch is reconstructed algorithmically from the active tonic and the
-legacy scale-degree chromatic table:
+non-rest pitch is reconstructed from the exact active key using pinned Sheet
+Sage scale intervals and accidentals:
 
 ```text
 midi_pitch =
-    72
+    60
     + 12 * hooktheory_octave
     + tonic_pitch_class
-    + scale_degree_chromatic_offset
+    + active_scale_degree_offset
+    + accidental_offset
 ```
 
-The anchor `72` is the **Music Critic V1 absolute-octave compatibility
-convention**, not an observed source field or upstream Sheet Sage invariant.
-The raw `sd`, `octave`, and active key regions are independently evidenced. The
-reconstructed MIDI pitch is derived, and its provenance method remains exactly:
+The MIDI-60 anchor is upstream semantics from Sheet Sage
+`Note.as_midi_pitch()` with default `octave_0=4`. MIDI 72 remains only a
+documented V1 compatibility convention. The production provenance method is:
 
 ```text
-hooktheory_sd_octave_to_midi_v1
+hooktheory_scale_degree_to_midi_upstream
 ```
 
 Applied harmony does not participate in this reconstruction. If required
@@ -253,9 +268,11 @@ or Completed.
 optional structure row. Production conversion does not read Hooktheory.json,
 HTCanon, Sheet Sage, or legacy modules.
 
-Exact raw timing, the accepted MIDI-72 compatibility pitch derivation, exact
-BPM conversion, accepted meter mapping, metric grids, grouping, provenance,
-and diagnostics are canonical raw content. Theory annotations remain confined
+Exact piecewise raw timing, scale-aware MIDI-60 pitch, simple-quarter versus
+compound-felt-pulse BPM conversion, accepted meter mapping, metric grids,
+grouping, provenance, and diagnostics are canonical raw content. A supplied
+structure row is validated by clip stem and compatible split before it may
+affect grouping. Theory annotations remain confined
 to these target tasks:
 
 - `theory.melody.scale_degree`;

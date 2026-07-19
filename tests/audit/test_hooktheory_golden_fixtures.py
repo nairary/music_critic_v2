@@ -134,7 +134,8 @@ def test_case_shape_ids_tags_and_coverage() -> None:
     classifications = manifest["evidence_classifications"]
     assert classifications["root_8_bvii"]["corpus_status"] == "not_observed"
     assert classifications["root_8_bvii"]["classification"] == "Music Critic V1 synthetic compatibility behavior"
-    assert classifications["midi_anchor_72"]["classification"] == "Music Critic V1 absolute-octave compatibility convention"
+    assert classifications["midi_anchor_60"]["classification"] == "upstream_semantics"
+    assert classifications["midi_anchor_72"]["classification"] == "legacy_compatibility"
     assert manifest["upstream_sheetsage"]["commit"] == "bbdd7b7b6a5fb845828f82790acdceb03a197779"
 
 
@@ -173,10 +174,17 @@ def test_derived_pitch_formula_rest_and_range_guard_contract() -> None:
     for case in load_cases():
         for melody in case["expected_v2_contract"]["melody"]:
             assert melody["raw_sd"] in SD_TO_CHROMATIC
-            assert melody["sd_chromatic_offset"] == SD_TO_CHROMATIC[melody["raw_sd"]]
+            assert isinstance(melody["active_scale_degree_offset"], int)
+            assert isinstance(melody["accidental_offset"], int)
             assert melody["pitch_source"] == "derived"
-            assert melody["provenance_method"] == "hooktheory_sd_octave_to_midi_v1"
-            expected = 72 + 12 * melody["octave"] + melody["tonic_pc"] + melody["sd_chromatic_offset"]
+            assert melody["provenance_method"] == "hooktheory_scale_degree_to_midi_upstream"
+            expected = (
+                60
+                + 12 * melody["octave"]
+                + melody["tonic_pc"]
+                + melody["active_scale_degree_offset"]
+                + melody["accidental_offset"]
+            )
             if melody["is_rest"]:
                 saw_rest = True
                 assert melody["derived_pitch"] is None
@@ -184,7 +192,7 @@ def test_derived_pitch_formula_rest_and_range_guard_contract() -> None:
                 assert 0 <= expected <= 127
                 assert melody["derived_pitch"] == expected
     assert saw_rest
-    out_of_range = 72 + 12 * 4 + 11 + SD_TO_CHROMATIC["#6"]
+    out_of_range = 60 + 12 * 4 + 11 + 10
     assert out_of_range > 127
     assert "derived_pitch_out_of_range" in load_manifest()["not_observed_categories"]
 
@@ -251,7 +259,7 @@ def test_observed_meter_and_anomaly_cases_are_real_and_mask_safe() -> None:
     assert null_case["expected_v2_contract"]["melody"] == []
     bb1 = by_tag["double_flat_bb1"]
     assert bb1["raw_excerpt"]["notes"][0]["value"]["sd"] == "bb1"
-    assert bb1["expected_v2_contract"]["melody"][0]["provenance_method"] == "hooktheory_sd_octave_to_midi_v1"
+    assert bb1["expected_v2_contract"]["melody"][0]["provenance_method"] == "hooktheory_scale_degree_to_midi_upstream"
 
 
 def test_structure_seconds_grouping_masks_and_diagnostics() -> None:

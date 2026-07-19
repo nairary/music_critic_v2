@@ -9,6 +9,7 @@ from fractions import Fraction
 import os
 from os import PathLike
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from music_critic.adapters._json_stream import (
@@ -49,31 +50,25 @@ _DEFAULT_TEMPO = 500_000
 _DEFAULT_METER = (4, 4)
 _MAX_METRIC_RECORDS = 1_000_000
 
-_SCALE_DEGREE_OFFSETS = {
-    "1": 0,
-    "b1": 11,
-    "#1": 1,
-    "2": 2,
-    "b2": 1,
-    "#2": 3,
-    "3": 4,
-    "b3": 3,
-    "#3": 5,
-    "4": 5,
-    "b4": 4,
-    "#4": 6,
-    "5": 7,
-    "b5": 6,
-    "#5": 8,
-    "6": 9,
-    "b6": 8,
-    "#6": 10,
-    "7": 11,
-    "b7": 10,
-    "#7": 0,
-    "bb1": 10,
-}
-_SCALE_DEGREE_LABELS = tuple(_SCALE_DEGREE_OFFSETS)
+_SCALE_STEPS = MappingProxyType(
+    {
+        "major": (2, 2, 1, 2, 2, 2),
+        "dorian": (2, 1, 2, 2, 2, 1),
+        "phrygian": (1, 2, 2, 2, 1, 2),
+        "lydian": (2, 2, 2, 1, 2, 2),
+        "mixolydian": (2, 2, 1, 2, 2, 1),
+        "minor": (2, 1, 2, 2, 1, 2),
+        "locrian": (1, 2, 2, 1, 2, 2),
+        "harmonic minor": (2, 1, 2, 2, 1, 3),
+        "phrygian dominant": (1, 3, 1, 2, 1, 2),
+    }
+)
+_ACCIDENTAL_OFFSETS = MappingProxyType({"bb": -2, "b": -1, "": 0, "#": 1, "##": 2})
+_SCALE_DEGREE_LABELS = tuple(
+    f"{accidental}{degree}"
+    for degree in range(1, 8)
+    for accidental in ("", "b", "#", "bb", "##")
+)
 _TONIC_LABELS = tuple(str(value) for value in range(12))
 _ROOT_LABELS = tuple(str(value) for value in range(7)) + ("bVII",)
 _EXTENT_LABELS = ("5", "7", "9", "11", "13")
@@ -84,17 +79,7 @@ _DECORATION_LABELS = {
     "alterations": ("b5", "#5", "b9", "#9", "#11", "b13"),
     "suspensions": ("2", "4"),
 }
-_KNOWN_MODES = {
-    "major",
-    "minor",
-    "dorian",
-    "phrygian",
-    "lydian",
-    "mixolydian",
-    "locrian",
-    "harmonic minor",
-    "melodic minor",
-}
+_KNOWN_MODES = frozenset(_SCALE_STEPS)
 _NATURAL_TONICS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 
 
@@ -125,9 +110,67 @@ class HookTheoryAdapterError(Exception):
 @dataclass(frozen=True, slots=True)
 class _KeyRegion:
     source_index: int
+    raw_onset: Fraction
     onset: RationalTime
     tonic_pc: int | None
     mode: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class _RawMeterRegion:
+    source_index: int
+    raw_onset: Fraction
+    numerator: int
+    denominator: int
+    qn_per_raw_beat: Fraction
+
+
+@dataclass(frozen=True, slots=True)
+class _MappedMeterRegion:
+    raw: _RawMeterRegion
+    canonical_onset: Fraction
+
+
+@dataclass(frozen=True, slots=True)
+class _HookTheoryTimeline:
+    regions: tuple[_MappedMeterRegion, ...]
+
+    def raw_beat_to_fraction(self, raw_beat: Fraction) -> Fraction:
+        active = self.regions[0]
+        for region in self.regions[1:]:
+            if region.raw.raw_onset > raw_beat:
+                break
+            active = region
+        return active.canonical_onset + (
+            raw_beat - active.raw.raw_onset
+        ) * active.raw.qn_per_raw_beat
+
+    def raw_beat_to_qn(self, raw_beat: Fraction) -> RationalTime:
+        return RationalTime.from_fraction(self.raw_beat_to_fraction(raw_beat))
+
+    def raw_interval_to_qn(
+        self, raw_onset: Fraction, raw_duration: Fraction
+    ) -> tuple[RationalTime, RationalTime]:
+        onset = self.raw_beat_to_fraction(raw_onset)
+        end = self.raw_beat_to_fraction(raw_onset + raw_duration)
+        return RationalTime.from_fraction(onset), RationalTime.from_fraction(end - onset)
+
+    def active(self, raw_beat: Fraction) -> _RawMeterRegion:
+        active = self.regions[0].raw
+        for region in self.regions[1:]:
+            if region.raw.raw_onset > raw_beat:
+                break
+            active = region.raw
+        return active
+
+
+@dataclass(frozen=True, slots=True)
+class _ValidatedStructureMatch:
+    clip_id: str
+    ori_uid: str | None
+    audio_path: str
+    split: str | None
+    row: Mapping[str, Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,14 +215,6 @@ def _fraction(value: Any) -> Fraction:
         raise ValueError("invalid exact HookTheory number") from exc
 
 
-def _time(value: Any) -> RationalTime:
-    return RationalTime.from_fraction(_fraction(value))
-
-
-def _onset(value: Any) -> RationalTime:
-    return RationalTime.from_fraction(_fraction(value) - 1)
-
-
 def _normalize_split(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
@@ -209,8 +244,40 @@ def _tonic_pc(value: Any) -> int | None:
 def _normalized_mode(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
-    normalized = " ".join(value.strip().lower().replace("_", " ").split())
+    expanded: list[str] = []
+    for index, character in enumerate(value.strip().replace("_", " ")):
+        if index and character.isupper() and expanded and expanded[-1] != " ":
+            expanded.append(" ")
+        expanded.append(character.lower())
+    normalized = " ".join("".join(expanded).split())
     return normalized or None
+
+
+def _scale_degree_relative(
+    scale_degree: Any,
+    octave: Any,
+    tonic: int,
+    mode: str,
+) -> int | None:
+    if (
+        not isinstance(scale_degree, str)
+        or not scale_degree
+        or scale_degree[-1] not in "1234567"
+        or scale_degree[:-1] not in _ACCIDENTAL_OFFSETS
+        or isinstance(octave, bool)
+        or not isinstance(octave, int)
+    ):
+        return None
+    steps = _SCALE_STEPS.get(mode)
+    if steps is None:
+        return None
+    degree = int(scale_degree[-1]) - 1
+    return (
+        12 * octave
+        + tonic
+        + sum(steps[:degree])
+        + _ACCIDENTAL_OFFSETS[scale_degree[:-1]]
+    )
 
 
 def _round_half_up(value: Fraction) -> int:
@@ -218,11 +285,12 @@ def _round_half_up(value: Fraction) -> int:
     return quotient + (1 if remainder * 2 >= value.denominator else 0)
 
 
-def _tempo_value(bpm: Any) -> int:
+def _tempo_value(bpm: Any, meter: _RawMeterRegion) -> int:
     exact_bpm = _fraction(bpm)
     if exact_bpm <= 0:
         raise ValueError("BPM must be positive")
-    return _round_half_up(Fraction(60_000_000, 1) / exact_bpm)
+    numerator = 40_000_000 if meter.denominator == 8 else 60_000_000
+    return _round_half_up(Fraction(numerator, 1) / exact_bpm)
 
 
 def _source_path_valid(source_path: str | None) -> bool:
@@ -238,7 +306,7 @@ def _source_path_valid(source_path: str | None) -> bool:
 
 
 def _select_tempos(
-    payload: Mapping[str, Any], piece_id: str
+    payload: Mapping[str, Any], timeline: _HookTheoryTimeline, piece_id: str
 ) -> tuple[tuple[TempoEvent, ...], list[QualityFlag], bool]:
     flags: list[QualityFlag] = []
     candidates: list[tuple[RationalTime, int, int]] = []
@@ -248,10 +316,11 @@ def _select_tempos(
             try:
                 if not isinstance(raw, Mapping):
                     raise ValueError("tempo region must be an object")
-                onset = _onset(raw.get("beat"))
-                value = _tempo_value(raw.get("bpm"))
-                if onset < RationalTime(0):
+                raw_onset = _fraction(raw.get("beat"))
+                if raw_onset < 1:
                     raise ValueError("tempo onset must be non-negative")
+                onset = timeline.raw_beat_to_qn(raw_onset)
+                value = _tempo_value(raw.get("bpm"), timeline.active(raw_onset))
             except (TypeError, ValueError):
                 flags.append(
                     _flag(
@@ -313,16 +382,16 @@ def _select_tempos(
 
 def _select_meters(
     payload: Mapping[str, Any], piece_id: str
-) -> tuple[tuple[MeterEvent, ...], list[QualityFlag], bool]:
+) -> tuple[_HookTheoryTimeline, tuple[MeterEvent, ...], list[QualityFlag], bool]:
     flags: list[QualityFlag] = []
-    candidates: list[tuple[RationalTime, int, tuple[int, int]]] = []
+    candidates: list[_RawMeterRegion] = []
     raw_meters = payload.get("meters")
     if isinstance(raw_meters, Sequence) and not isinstance(raw_meters, (str, bytes)):
         for source_index, raw in enumerate(raw_meters):
             try:
                 if not isinstance(raw, Mapping):
                     raise ValueError("meter region must be an object")
-                onset = _onset(raw.get("beat"))
+                raw_onset = _fraction(raw.get("beat"))
                 numerator = raw.get("numBeats")
                 beat_unit = raw.get("beatUnit")
                 if (
@@ -331,10 +400,10 @@ def _select_meters(
                     or numerator <= 0
                     or beat_unit not in {1, 3}
                     or isinstance(beat_unit, bool)
-                    or onset < RationalTime(0)
+                    or raw_onset < 1
                 ):
                     raise ValueError("unsupported meter")
-                value = numerator, 4 if beat_unit == 1 else 8
+                denominator = 4 if beat_unit == 1 else 8
             except (TypeError, ValueError):
                 flags.append(
                     _flag(
@@ -344,7 +413,15 @@ def _select_meters(
                     )
                 )
                 continue
-            candidates.append((onset, source_index, value))
+            candidates.append(
+                _RawMeterRegion(
+                    source_index=source_index,
+                    raw_onset=raw_onset,
+                    numerator=numerator,
+                    denominator=denominator,
+                    qn_per_raw_beat=Fraction(4, denominator),
+                )
+            )
     elif raw_meters is not None:
         flags.append(
             _flag(
@@ -354,26 +431,34 @@ def _select_meters(
             )
         )
 
-    selected: list[tuple[RationalTime, int, tuple[int, int]]] = []
-    for candidate in sorted(candidates):
-        onset, source_index, value = candidate
-        if selected and selected[-1][0] == onset:
-            if selected[-1][2] != value:
+    selected: list[_RawMeterRegion] = []
+    for candidate in sorted(candidates, key=lambda value: (value.raw_onset, value.source_index)):
+        if selected and selected[-1].raw_onset == candidate.raw_onset:
+            if (selected[-1].numerator, selected[-1].denominator) != (
+                candidate.numerator,
+                candidate.denominator,
+            ):
                 flags.append(
                     _flag(
                         "hooktheory.meter_conflict",
-                        f"Conflicting meter at {onset.num}/{onset.den}; kept first source value.",
+                        f"Conflicting meter at raw beat {candidate.raw_onset}; kept first source value.",
                         piece_id,
                     )
                 )
             continue
-        if selected and selected[-1][2] == value:
+        if selected and (selected[-1].numerator, selected[-1].denominator) == (
+            candidate.numerator,
+            candidate.denominator,
+        ):
             continue
-        selected.append((onset, source_index, value))
+        selected.append(candidate)
 
-    defaulted = not selected or selected[0][0] != RationalTime(0)
+    defaulted = not selected or selected[0].raw_onset != 1
     if defaulted:
-        selected.insert(0, (RationalTime(0), -1, _DEFAULT_METER))
+        selected.insert(
+            0,
+            _RawMeterRegion(-1, Fraction(1), 4, 4, Fraction(1)),
+        )
         flags.append(
             _flag(
                 "hooktheory.default_meter",
@@ -382,21 +467,35 @@ def _select_meters(
                 provenance_id="prov:default-meter",
             )
         )
+    mapped: list[_MappedMeterRegion] = [
+        _MappedMeterRegion(selected[0], Fraction(0))
+    ]
+    for region in selected[1:]:
+        previous = mapped[-1]
+        mapped.append(
+            _MappedMeterRegion(
+                region,
+                previous.canonical_onset
+                + (region.raw_onset - previous.raw.raw_onset)
+                * previous.raw.qn_per_raw_beat,
+            )
+        )
+    timeline = _HookTheoryTimeline(tuple(mapped))
     events = tuple(
         MeterEvent(
             meter_event_id=f"meter:{index:04d}",
-            onset_qn=onset,
-            numerator=value[0],
-            denominator=value[1],
-            provenance_id="prov:default-meter" if source_index < 0 else "prov:source",
+            onset_qn=RationalTime.from_fraction(region.canonical_onset),
+            numerator=region.raw.numerator,
+            denominator=region.raw.denominator,
+            provenance_id="prov:default-meter" if region.raw.source_index < 0 else "prov:source",
         )
-        for index, (onset, source_index, value) in enumerate(selected)
+        for index, region in enumerate(mapped)
     )
-    return events, flags, defaulted
+    return timeline, events, flags, defaulted
 
 
 def _key_regions(
-    payload: Mapping[str, Any], piece_id: str
+    payload: Mapping[str, Any], timeline: _HookTheoryTimeline, piece_id: str
 ) -> tuple[list[_KeyRegion], list[QualityFlag]]:
     regions: list[_KeyRegion] = []
     flags: list[QualityFlag] = []
@@ -418,9 +517,10 @@ def _key_regions(
             )
             continue
         try:
-            onset = _onset(raw.get("beat"))
-            if onset < RationalTime(0):
+            raw_onset = _fraction(raw.get("beat"))
+            if raw_onset < 1:
                 raise ValueError
+            onset = timeline.raw_beat_to_qn(raw_onset)
         except (TypeError, ValueError):
             flags.append(
                 _flag(
@@ -440,31 +540,56 @@ def _key_regions(
                     piece_id,
                 )
             )
-        if mode is None:
+        if mode is None or mode not in _SCALE_STEPS:
             flags.append(
                 _flag(
                     "hooktheory.key_mode_invalid",
-                    f"Key region {source_index} has an unavailable mode.",
+                    f"Key region {source_index} has an unavailable or unsupported mode.",
                     piece_id,
                 )
             )
-        regions.append(_KeyRegion(source_index, onset, tonic, mode))
-    regions.sort(key=lambda value: (value.onset, value.source_index))
-    return regions, flags
+        regions.append(_KeyRegion(source_index, raw_onset, onset, tonic, mode))
+    selected: list[_KeyRegion] = []
+    for region in sorted(regions, key=lambda value: (value.raw_onset, value.source_index)):
+        if selected and selected[-1].raw_onset == region.raw_onset:
+            previous_valid = (
+                selected[-1].tonic_pc is not None
+                and selected[-1].mode in _SCALE_STEPS
+            )
+            current_valid = region.tonic_pc is not None and region.mode in _SCALE_STEPS
+            if not previous_valid and current_valid:
+                selected[-1] = region
+            elif previous_valid and current_valid and (
+                selected[-1].tonic_pc,
+                selected[-1].mode,
+            ) != (region.tonic_pc, region.mode):
+                flags.append(
+                    _flag(
+                        "hooktheory.key_conflict",
+                        f"Conflicting key at raw beat {region.raw_onset}; kept first source value.",
+                        piece_id,
+                    )
+                )
+            continue
+        selected.append(region)
+    return selected, flags
 
 
-def _active_tonic(keys: Sequence[_KeyRegion], onset: RationalTime) -> int | None:
+def _active_key(keys: Sequence[_KeyRegion], raw_onset: Fraction) -> _KeyRegion | None:
     active: _KeyRegion | None = None
     for key in keys:
-        if key.onset > onset:
+        if key.raw_onset > raw_onset:
             break
-        if active is None or key.onset > active.onset:
+        if active is None or key.raw_onset > active.raw_onset:
             active = key
-    return None if active is None else active.tonic_pc
+    return active
 
 
 def _make_notes(
-    payload: Mapping[str, Any], keys: Sequence[_KeyRegion], piece_id: str
+    payload: Mapping[str, Any],
+    keys: Sequence[_KeyRegion],
+    timeline: _HookTheoryTimeline,
+    piece_id: str,
 ) -> tuple[list[_MelodyValue], list[QualityFlag], RationalTime]:
     values: list[_MelodyValue] = []
     flags: list[QualityFlag] = []
@@ -487,10 +612,11 @@ def _make_notes(
             )
             continue
         try:
-            onset = _onset(raw.get("beat"))
-            duration = _time(raw.get("duration"))
-            if onset < RationalTime(0):
+            raw_onset = _fraction(raw.get("beat"))
+            raw_duration = _fraction(raw.get("duration"))
+            if raw_onset < 1:
                 raise ValueError
+            onset, duration = timeline.raw_interval_to_qn(raw_onset, raw_duration)
         except (TypeError, ValueError):
             flags.append(
                 _flag(
@@ -523,7 +649,7 @@ def _make_notes(
             )
             continue
         scale_degree = raw.get("sd")
-        if not isinstance(scale_degree, str) or scale_degree not in _SCALE_DEGREE_OFFSETS:
+        if not isinstance(scale_degree, str) or scale_degree not in _SCALE_DEGREE_LABELS:
             flags.append(
                 _flag(
                     "hooktheory.scale_degree_unsupported",
@@ -532,16 +658,12 @@ def _make_notes(
                 )
             )
             continue
-        if scale_degree == "bb1":
-            flags.append(
-                _flag(
-                    "hooktheory.double_flat_v1_compatibility",
-                    f"Used accepted bb1 compatibility mapping at source index {source_index}.",
-                    piece_id,
-                )
-            )
-        tonic = _active_tonic(keys, onset)
-        if tonic is None:
+        active_key = _active_key(keys, raw_onset)
+        if (
+            active_key is None
+            or active_key.tonic_pc is None
+            or active_key.mode not in _SCALE_STEPS
+        ):
             flags.append(
                 _flag(
                     "hooktheory.pitch_active_key_unresolved",
@@ -550,7 +672,22 @@ def _make_notes(
                 )
             )
             continue
-        pitch = 72 + 12 * octave + tonic + _SCALE_DEGREE_OFFSETS[scale_degree]
+        relative = _scale_degree_relative(
+            scale_degree,
+            octave,
+            active_key.tonic_pc,
+            active_key.mode,
+        )
+        if relative is None:
+            flags.append(
+                _flag(
+                    "hooktheory.pitch_active_key_unresolved",
+                    f"Omitted note with unresolved scale semantics at source index {source_index}.",
+                    piece_id,
+                )
+            )
+            continue
+        pitch = 60 + relative
         if not 0 <= pitch <= 127:
             flags.append(
                 _flag(
@@ -597,7 +734,7 @@ def _make_notes(
 
 
 def _chord_regions(
-    payload: Mapping[str, Any], piece_id: str
+    payload: Mapping[str, Any], timeline: _HookTheoryTimeline, piece_id: str
 ) -> tuple[list[_ChordRegion], list[QualityFlag], RationalTime]:
     regions: list[_ChordRegion] = []
     flags: list[QualityFlag] = []
@@ -620,10 +757,11 @@ def _chord_regions(
             )
             continue
         try:
-            onset = _onset(raw.get("beat"))
-            duration = _time(raw.get("duration"))
-            if onset < RationalTime(0) or duration <= RationalTime(0):
+            raw_onset = _fraction(raw.get("beat"))
+            raw_duration = _fraction(raw.get("duration"))
+            if raw_onset < 1 or raw_duration <= 0:
                 raise ValueError
+            onset, duration = timeline.raw_interval_to_qn(raw_onset, raw_duration)
         except (TypeError, ValueError):
             flags.append(
                 _flag(
@@ -665,13 +803,17 @@ def _chord_regions(
 
 
 def _raw_duration(
-    payload: Mapping[str, Any], content_end: RationalTime, piece_id: str
+    payload: Mapping[str, Any],
+    timeline: _HookTheoryTimeline,
+    content_end: RationalTime,
+    piece_id: str,
 ) -> tuple[RationalTime, list[QualityFlag]]:
     flags: list[QualityFlag] = []
     try:
-        duration = _onset(payload.get("endBeat"))
-        if duration < RationalTime(0):
+        raw_end = _fraction(payload.get("endBeat"))
+        if raw_end < 1:
             raise ValueError
+        duration = timeline.raw_beat_to_qn(raw_end)
     except (TypeError, ValueError):
         duration = content_end
         flags.append(
@@ -1058,7 +1200,7 @@ def _provenance(
     clip_id: str,
     source_path: str | None,
     *,
-    structure_row: Mapping[str, Any] | None,
+    structure_match: _ValidatedStructureMatch | None,
     default_tempo: bool,
     default_meter: bool,
     include_targets: bool,
@@ -1078,7 +1220,7 @@ def _provenance(
         )
     ]
     conversion_parents = ["prov:source"]
-    if structure_row is not None:
+    if structure_match is not None:
         records.append(
             ProvenanceRecord(
                 provenance_id="prov:structure",
@@ -1092,7 +1234,7 @@ def _provenance(
                 parents=(),
                 details=(
                     ("coordinate_unit", "audio_seconds"),
-                    ("ori_uid_available", bool(structure_row.get("ori_uid"))),
+                    ("ori_uid_available", bool(structure_match.ori_uid)),
                 ),
             )
         )
@@ -1111,8 +1253,9 @@ def _provenance(
             details=(
                 ("bpm_rounding", "nearest_integer_half_up"),
                 ("meter_mapping", "numBeats;beatUnit1=4;beatUnit3=8"),
-                ("onset", "Fraction(str(beat))-1"),
+                ("onset", "piecewise_raw_beat_to_qn;beatUnit1=1;beatUnit3=1/2"),
                 ("source_order", "raw_event_index"),
+                ("tempo", "quarter_bpm_simple;felt_pulse_bpm_compound"),
             ),
         )
     )
@@ -1165,7 +1308,7 @@ def _provenance(
         ProvenanceRecord(
             provenance_id="prov:pitch",
             kind="derivation",
-            source="hooktheory_sd_octave_to_midi_v1",
+            source="hooktheory_scale_degree_to_midi_upstream",
             record_id=None,
             uri=None,
             version="1",
@@ -1173,8 +1316,8 @@ def _provenance(
             created_at=None,
             parents=("prov:conversion",),
             details=(
-                ("classification", "Music Critic V1 compatibility convention"),
-                ("formula", "72+12*octave+tonic_pc+scale_degree_offset"),
+                ("classification", "upstream_semantics"),
+                ("formula", "60+12*octave+tonic_pc+active_scale_offset+accidental"),
             ),
         )
     )
@@ -1197,10 +1340,50 @@ def _provenance(
     return tuple(ordered)
 
 
-def _structure_flags(
-    structure_row: Mapping[str, Any] | None, piece_id: str
-) -> tuple[str, list[QualityFlag]]:
+def _validate_structure_match(
+    structure_row: Mapping[str, Any] | None,
+    clip_id: str,
+    symbolic_split: str | None,
+) -> _ValidatedStructureMatch | None:
     if structure_row is None:
+        return None
+    if not isinstance(structure_row, Mapping):
+        raise HookTheoryAdapterError(
+            "structure row belongs to another clip: row is not a mapping",
+            clip_id=clip_id,
+        )
+    audio_path = structure_row.get("audio_path")
+    if not isinstance(audio_path, str) or not audio_path or Path(audio_path).stem != clip_id:
+        raise HookTheoryAdapterError(
+            "structure row belongs to another clip: audio_path stem does not match clip_id",
+            clip_id=clip_id,
+        )
+    structure_split = None
+    for field in ("split", "dataset_split", "partition"):
+        if field not in structure_row:
+            continue
+        structure_split = _normalize_split(structure_row.get(field))
+        if structure_split != symbolic_split:
+            raise HookTheoryAdapterError(
+                f"structure row split mismatch in {field!r}",
+                clip_id=clip_id,
+            )
+        break
+    ori_uid = structure_row.get("ori_uid")
+    normalized_ori_uid = ori_uid.strip() if isinstance(ori_uid, str) and ori_uid.strip() else None
+    return _ValidatedStructureMatch(
+        clip_id=clip_id,
+        ori_uid=normalized_ori_uid,
+        audio_path=audio_path,
+        split=structure_split,
+        row=structure_row,
+    )
+
+
+def _structure_flags(
+    structure_match: _ValidatedStructureMatch | None, piece_id: str
+) -> tuple[str, list[QualityFlag]]:
+    if structure_match is None:
         return piece_id, [
             _flag(
                 "hooktheory.structure_unmatched_symbolic_clip",
@@ -1216,9 +1399,8 @@ def _structure_flags(
             provenance_id="prov:structure",
         )
     ]
-    ori_uid = structure_row.get("ori_uid")
-    if isinstance(ori_uid, str) and ori_uid.strip():
-        return ori_uid.strip(), flags
+    if structure_match.ori_uid is not None:
+        return structure_match.ori_uid, flags
     flags.append(
         _flag(
             "hooktheory.structure_missing_ori_uid",
@@ -1283,14 +1465,15 @@ def convert_hooktheory_record(
                 piece_id,
             )
         )
-    source_group_id, structure_flags = _structure_flags(structure_row, piece_id)
+    structure_match = _validate_structure_match(structure_row, clip_id, split)
+    source_group_id, structure_flags = _structure_flags(structure_match, piece_id)
     flags.extend(structure_flags)
 
-    tempos, tempo_flags, default_tempo = _select_tempos(payload, piece_id)
-    meters, meter_flags, default_meter = _select_meters(payload, piece_id)
-    keys, key_flags = _key_regions(payload, piece_id)
-    melody, note_flags, note_end = _make_notes(payload, keys, piece_id)
-    chords, chord_flags, chord_end = _chord_regions(payload, piece_id)
+    timeline, meters, meter_flags, default_meter = _select_meters(payload, piece_id)
+    tempos, tempo_flags, default_tempo = _select_tempos(payload, timeline, piece_id)
+    keys, key_flags = _key_regions(payload, timeline, piece_id)
+    melody, note_flags, note_end = _make_notes(payload, keys, timeline, piece_id)
+    chords, chord_flags, chord_end = _chord_regions(payload, timeline, piece_id)
     flags.extend(tempo_flags)
     flags.extend(meter_flags)
     flags.extend(key_flags)
@@ -1304,7 +1487,7 @@ def convert_hooktheory_record(
         max((event.onset_qn for event in tempos), default=RationalTime(0)),
         max((event.onset_qn for event in meters), default=RationalTime(0)),
     )
-    duration, duration_flags = _raw_duration(payload, content_end, piece_id)
+    duration, duration_flags = _raw_duration(payload, timeline, content_end, piece_id)
     flags.extend(duration_flags)
     bars, beats, bar_flags = _bars_and_beats(duration, meters, piece_id)
     flags.extend(bar_flags)
@@ -1319,7 +1502,7 @@ def convert_hooktheory_record(
     provenance = _provenance(
         clip_id,
         source_path,
-        structure_row=structure_row,
+        structure_match=structure_match,
         default_tempo=default_tempo,
         default_meter=default_meter,
         include_targets=config.include_targets,

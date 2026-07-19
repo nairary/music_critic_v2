@@ -246,3 +246,43 @@ This log is append-only.
   duplicating annotations. Exact mid-bar meter changes create diagnosed
   incomplete bars while preserving contiguous bar/beat coverage and schema
   version `2.0.0`.
+
+## 2026-07-19 — ADR-022: HookTheory timing, tempo, and pitch use upstream metric semantics
+
+- Status: Accepted for the Phase 2B.1 implementation; the phase itself remains
+  In review.
+- Context: The first adapter implementation treated every TheoryTab beat as one
+  quarter note, every BPM as quarter-note BPM, and melody octave zero as MIDI
+  72. Structural validation did not establish those musical meanings.
+- Evidence: The raw/simplified crosswalk contains 27,216 exact paired meter
+  regions and no value mismatches. Pinned Sheet Sage
+  `bbdd7b7b6a5fb845828f82790acdceb03a197779` defines compound meters through
+  three secondary pulses and converts notes with active-scale intervals. The
+  complete melody crosswalk pairs 1,211,093 notes with zero pitch-class or
+  relative-octave mismatches. Refined alignment has no compound-meter interval;
+  72 eligible user-alignment intervals select felt-pulse tempo with 0.39%
+  median relative error, versus 50.04% for quarter-BPM and 200.07% for
+  raw-beat-BPM. Sheet Sage `Note.as_midi_pitch()` establishes MIDI 60 for
+  relative octave zero. The one distributed MIDI match is postprocessed and is
+  not used as raw source truth.
+- Decision — meter labels (`observed_corpus_semantics`): numerator is
+  `numBeats`; denominator is 4 for `beatUnit=1` and 8 for `beatUnit=3`.
+- Decision — time coordinates (`upstream_semantics`): raw beat 1 maps to qn 0;
+  `qn_per_raw_beat` is 1 for `beatUnit=1` and 1/2 for `beatUnit=3`. Changes are
+  integrated piecewise, including event ends and `endBeat`.
+- Decision — tempo (`upstream_semantics`, supported by corpus alignment): BPM
+  is quarter-note BPM in simple meter and compound felt-pulse BPM in
+  denominator-8 meter. Therefore `us_per_qn=60_000_000/bpm` in simple meter
+  and `40_000_000/bpm` in compound meter. A tempo at a meter-change onset uses
+  the new meter.
+- Decision — pitch class (`observed_corpus_semantics` and
+  `upstream_semantics`): derive a degree from the active key's immutable scale
+  steps, then apply `bb`, `b`, natural, `#`, or `##` accidental offset.
+- Decision — absolute octave (`upstream_semantics`): canonical MIDI pitch is
+  `60 + 12*raw_octave + tonic_pc + active_scale_degree_offset + accidental`.
+  MIDI 72 remains documented only as `legacy_compatibility`.
+- Consequences: durations crossing meter changes remain exact, 12/8 retains 12
+  half-qn canonical beats per complete bar, unsupported scales omit dependent
+  notes rather than assuming major, and production provenance names the
+  upstream scale-degree method. No schema-version change or runtime Sheet Sage
+  dependency is introduced.

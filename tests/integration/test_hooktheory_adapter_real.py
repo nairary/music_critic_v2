@@ -19,8 +19,13 @@ from music_critic.data import RationalTime, dumps_piece, loads_piece, validate_p
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_ROOT = REPO_ROOT / "tests/fixtures/hooktheory"
-RAW_PATH = REPO_ROOT / "data/HookTheory/Hooktheory_Raw.json/4_merged.json"
-STRUCTURE_ROOT = REPO_ROOT / "data/HookTheory"
+STRUCTURE_ROOT = Path(
+    os.environ.get(
+        "MUSIC_CRITIC_HOOKTHEORY_ROOT",
+        REPO_ROOT / "data/HookTheory",
+    )
+)
+RAW_PATH = STRUCTURE_ROOT / "Hooktheory_Raw.json/4_merged.json"
 
 
 pytestmark = pytest.mark.skipif(
@@ -32,6 +37,11 @@ pytestmark = pytest.mark.skipif(
 def exact(value: object, *, subtract_one: bool = False) -> RationalTime:
     assert isinstance(value, (int, Decimal)) and not isinstance(value, bool)
     result = Fraction(str(value)) - (1 if subtract_one else 0)
+    return RationalTime(result.numerator, result.denominator)
+
+
+def exact_text(value: str) -> RationalTime:
+    result = Fraction(value)
     return RationalTime(result.numerator, result.denominator)
 
 
@@ -137,8 +147,18 @@ def test_all_phase_2b0_golden_cases_convert_against_raw_production_source() -> N
                 for note in piece.notes
                 if note.note_id == f"note:melody-{source_index:06d}"
             )
-            assert canonical.onset_qn == exact(raw_note["beat"], subtract_one=True)
-            assert canonical.duration_qn == exact(raw_note["duration"])
+            expected_onset = expected.get("canonical_onset_qn")
+            expected_duration = expected.get("canonical_duration_qn")
+            assert canonical.onset_qn == (
+                exact_text(expected_onset)
+                if expected_onset is not None
+                else exact(raw_note["beat"], subtract_one=True)
+            )
+            assert canonical.duration_qn == (
+                exact_text(expected_duration)
+                if expected_duration is not None
+                else exact(raw_note["duration"])
+            )
             assert canonical.pitch == expected["derived_pitch"]
 
         for expected_meter in case["expected_v2_contract"].get("meter", []):

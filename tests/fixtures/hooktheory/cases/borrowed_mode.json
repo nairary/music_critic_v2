@@ -12,12 +12,12 @@
   "legacy_canonical_expected": {"exists": true, "meta_excerpt": {"ori_uid": null}, "chord_events": [{"index": 0, "value": {"root": 0, "borrowed_kind": "mode_name", "borrowed_mode_name": "minor", "borrowed_pcset": [0, 2, 3, 5, 7, 8, 10]}}]},
   "expected_v2_contract": {
     "timing": [{"raw_beat_decimal": "1", "canonical_onset_qn": "0/1", "raw_duration_decimal": "2", "canonical_duration_qn": "2/1"}],
-    "melody": [{"raw_sd": "1", "octave": 0, "tonic_pc": 2, "sd_chromatic_offset": 0, "is_rest": false, "derived_pitch": 74, "pitch_source": "derived", "provenance_method": "hooktheory_sd_octave_to_midi_v1"}],
+    "melody": [{"raw_sd": "1", "octave": 0, "tonic_pc": 2, "active_scale_degree_offset": 0, "accidental_offset": 0, "is_rest": false, "derived_pitch": 62, "pitch_source": "derived", "provenance_method": "hooktheory_scale_degree_to_midi_upstream"}],
     "chords": [{"raw_root": 1, "is_rest": false, "canonical_functional_degree": 0, "special": null, "raw_applied": 0, "applied_target": null, "borrowed_interpretation": {"kind": "mode_name", "mode_name": "minor", "pitch_classes": [0, 2, 3, 5, 7, 8, 10], "status": "confirmed"}}],
     "source_group_id": null,
     "structure": {"coordinate_unit": "audio_seconds", "section_alignment_status": "unresolved_audio_seconds", "target_array_expected": false, "annotation_span_expected": false},
     "unavailable_target": {"mask": false, "value": null, "source": null, "confidence": null, "provenance": null}
   },
   "expected_diagnostics": ["hooktheory.structure_unmatched_symbolic_clip"],
-  "evidence": {"source_record_sha256": "4103c50755e02ebcb99816efabda7e0dccd0f80d5df9176541553eca3ccacc4a", "status": "confirmed_real_data"}
+  "evidence": {"source_record_sha256": "4103c50755e02ebcb99816efabda7e0dccd0f80d5df9176541553eca3ccacc4a", "status": "confirmed_real_data", "remediation_note": {"previous_expectation": 74, "new_expectation": 62, "reason": "replace the legacy MIDI-72 anchor with upstream MIDI-60 semantics", "evidence_source": "pinned Sheet Sage TheorytabNote.as_note and Note.as_midi_pitch", "classification": "upstream_semantics"}}
 }

@@ -125,12 +125,12 @@ def test_exact_timing_first_beat_active_keys_rests_bb1_and_round_trip() -> None:
     )
     piece = convert(record)
     assert [(note.onset_qn, note.duration_qn, note.pitch) for note in piece.notes] == [
-        (RationalTime(1, 4), RationalTime(1, 2), 84),
-        (RationalTime(2), RationalTime(1), 75),
+        (RationalTime(1, 4), RationalTime(1, 2), 60),
+        (RationalTime(2), RationalTime(1), 63),
     ]
     assert target(piece, "theory.melody.scale_degree").values == ("bb1", "1")
     assert target(piece, "theory.local_key.mode").values == ("major", "dorian")
-    assert "hooktheory.double_flat_v1_compatibility" in codes(piece)
+    assert "hooktheory.double_flat_v1_compatibility" not in codes(piece)
     assert not validate_piece(piece).errors
     assert loads_piece(dumps_piece(piece)) == piece
 
@@ -207,7 +207,7 @@ def test_meter_mapping_changes_and_incomplete_bar_are_exact() -> None:
     assert [(event.onset_qn, event.numerator, event.denominator) for event in piece.meter_events] == [
         (RationalTime(0), 4, 4),
         (RationalTime(2), 12, 8),
-        (RationalTime(6), 8, 4),
+        (RationalTime(4), 8, 4),
     ]
     assert piece.bars[0].duration_qn == RationalTime(2)
     assert piece.bars[0].is_incomplete is True
@@ -296,14 +296,14 @@ def test_unexpected_borrowed_and_deferred_fields_are_diagnostic() -> None:
 def test_structure_grouping_missing_structure_and_missing_ori_uid() -> None:
     matched = convert(
         raw_record(),
-        structure={"ori_uid": "song-1", "segment_start": Decimal("1.2")},
+        structure={"audio_path": "audio/clip.mp3", "ori_uid": "song-1", "segment_start": Decimal("1.2")},
     )
     assert matched.source_group_id == "song-1"
     assert "hooktheory.structure_alignment_unresolved" in codes(matched)
     assert matched.annotations
     assert all(span.annotation_type != "section" for span in matched.annotations)
 
-    missing_uid = convert(raw_record(), structure={"ori_uid": ""})
+    missing_uid = convert(raw_record(), structure={"audio_path": "audio/clip.mp3", "ori_uid": ""})
     assert missing_uid.source_group_id == missing_uid.piece_id
     assert "hooktheory.structure_missing_ori_uid" in codes(missing_uid)
 
@@ -395,6 +395,206 @@ def test_loader_uses_production_streamer_and_optional_structure_index(tmp_path: 
     )
     assert piece.source_group_id == "group"
     assert piece.source_path == str(raw_path)
+
+
+def test_loader_distinguishes_missing_duplicate_and_unmatched_structure(tmp_path: Path) -> None:
+    raw_path = tmp_path / "4_merged.json"
+    raw_path.write_text('"clip":' + json.dumps(raw_record()), encoding="utf-8")
+    structure_root = tmp_path / "structure"
+    structure_root.mkdir()
+    with pytest.raises(HookTheoryAdapterError, match="structure source is missing"):
+        load_hooktheory_piece(raw_path, "clip", config=CONFIG, structure_root=structure_root)
+
+    structure_path = structure_root / "HookTheoryStructure.train.jsonl"
+    duplicate = json.dumps({"audio_path": "audio/clip.mp3", "ori_uid": "group"})
+    structure_path.write_text(duplicate + "\n" + duplicate + "\n", encoding="utf-8")
+    with pytest.raises(HookTheoryAdapterError, match="duplicate structure rows"):
+        load_hooktheory_piece(raw_path, "clip", config=CONFIG, structure_root=structure_root)
+
+    structure_path.write_text(
+        json.dumps({"audio_path": "audio/another.mp3", "ori_uid": "group"}) + "\n",
+        encoding="utf-8",
+    )
+    unmatched = load_hooktheory_piece(
+        raw_path, "clip", config=CONFIG, structure_root=structure_root
+    )
+    assert "hooktheory.structure_unmatched_symbolic_clip" in codes(unmatched)
+
+
+def test_compound_timeline_maps_fractional_intervals_and_endbeat_piecewise() -> None:
+    piece = convert(
+        raw_record(
+            end_beat=Decimal("9.5"),
+            meters=[
+                {"beat": 1, "numBeats": 4, "beatUnit": 1},
+                {"beat": 5, "numBeats": 12, "beatUnit": 3},
+            ],
+            notes=[
+                {"beat": Decimal("4.5"), "duration": Decimal("5"), "sd": "1", "octave": 0, "isRest": False},
+            ],
+            chords=[chord(beat=Decimal("4.5"), duration=Decimal("5"))],
+        )
+    )
+    assert piece.notes[0].onset_qn == RationalTime(7, 2)
+    assert piece.notes[0].duration_qn == RationalTime(11, 4)
+    chord_span = next(span for span in piece.annotations if span.annotation_type == "theory.chord")
+    assert chord_span.start_qn == RationalTime(7, 2)
+    assert chord_span.end_qn == RationalTime(25, 4)
+    assert piece.duration_qn == RationalTime(25, 4)
+    assert piece.meter_events[1].onset_qn == RationalTime(4)
+
+
+def test_timeline_crosses_multiple_meter_changes_and_defaults_before_first_source_meter() -> None:
+    piece = convert(
+        raw_record(
+            end_beat=9,
+            meters=[
+                {"beat": 3, "numBeats": 6, "beatUnit": 3},
+                {"beat": 6, "numBeats": 3, "beatUnit": 1},
+            ],
+            notes=[
+                {"beat": 2, "duration": 6, "sd": "1", "octave": 0, "isRest": False},
+            ],
+        )
+    )
+    assert [(event.onset_qn, event.numerator, event.denominator) for event in piece.meter_events] == [
+        (RationalTime(0), 4, 4),
+        (RationalTime(2), 6, 8),
+        (RationalTime(7, 2), 3, 4),
+    ]
+    assert piece.notes[0].onset_qn == RationalTime(1)
+    assert piece.notes[0].duration_qn == RationalTime(9, 2)
+    assert "hooktheory.default_meter" in codes(piece)
+
+
+def test_compound_tempo_is_felt_pulse_and_same_onset_uses_new_meter() -> None:
+    piece = convert(
+        raw_record(
+            meters=[
+                {"beat": 1, "numBeats": 4, "beatUnit": 1},
+                {"beat": 5, "numBeats": 9, "beatUnit": 3},
+            ],
+            tempos=[
+                {"beat": 1, "bpm": 120},
+                {"beat": 5, "bpm": 100},
+            ],
+        )
+    )
+    assert [(event.onset_qn, event.microseconds_per_quarter) for event in piece.tempo_events] == [
+        (RationalTime(0), 500_000),
+        (RationalTime(4), 400_000),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("scale", "degree", "expected"),
+    [
+        ("major", "3", 64),
+        ("minor", "3", 63),
+        ("minor", "6", 68),
+        ("dorian", "3", 63),
+        ("dorian", "6", 69),
+        ("phrygian", "2", 61),
+        ("lydian", "4", 66),
+        ("mixolydian", "7", 70),
+        ("locrian", "5", 66),
+        ("harmonicMinor", "7", 71),
+        ("phrygianDominant", "3", 64),
+        ("dorian", "#3", 64),
+    ],
+)
+def test_scale_aware_pitch_for_all_observed_modes(
+    scale: str, degree: str, expected: int
+) -> None:
+    piece = convert(
+        raw_record(
+            keys=[{"beat": 1, "tonic": "C", "scale": scale}],
+            notes=[{"beat": 1, "duration": 1, "sd": degree, "octave": 0, "isRest": False}],
+        )
+    )
+    assert piece.notes[0].pitch == expected
+
+
+def test_pitch_octave_carry_unsupported_scale_and_key_change_boundary() -> None:
+    carried = convert(
+        raw_record(
+            keys=[
+                {"beat": 1, "tonic": "B", "scale": "major"},
+                {"beat": 2, "tonic": "C", "scale": "minor"},
+            ],
+            notes=[
+                {"beat": 1, "duration": 1, "sd": "2", "octave": 0, "isRest": False},
+                {"beat": 2, "duration": 1, "sd": "3", "octave": 0, "isRest": False},
+            ],
+        )
+    )
+    assert [note.pitch for note in carried.notes] == [73, 63]
+
+    unsupported = convert(
+        raw_record(
+            keys=[{"beat": 1, "tonic": "C", "scale": "wholeTone"}],
+            notes=[{"beat": 1, "duration": 1, "sd": "1", "octave": 0, "isRest": False}],
+        )
+    )
+    assert unsupported.notes == ()
+    assert {"hooktheory.key_mode_invalid", "hooktheory.pitch_active_key_unresolved"} <= codes(unsupported)
+
+
+@pytest.mark.parametrize(
+    ("degree", "expected"),
+    [("1", 60), ("b1", 59), ("bb1", 58), ("#1", 61), ("b3", 63), ("#4", 66), ("b7", 70), ("#7", 72)],
+)
+def test_accidentals_apply_after_active_scale(degree: str, expected: int) -> None:
+    piece = convert(
+        raw_record(
+            notes=[{"beat": 1, "duration": 1, "sd": degree, "octave": 0, "isRest": False}],
+        )
+    )
+    assert piece.notes[0].pitch == expected
+
+
+def test_duplicate_key_onset_keeps_first_and_reports_conflict() -> None:
+    piece = convert(
+        raw_record(
+            keys=[
+                {"beat": 1, "tonic": "C", "scale": "major"},
+                {"beat": 1, "tonic": "D", "scale": "minor"},
+            ]
+        )
+    )
+    assert piece.notes[0].pitch == 60
+    assert "hooktheory.key_conflict" in codes(piece)
+
+
+def test_mixed_compound_to_simple_timeline_is_continuous() -> None:
+    piece = convert(
+        raw_record(
+            end_beat=13,
+            meters=[
+                {"beat": 1, "numBeats": 12, "beatUnit": 3},
+                {"beat": 7, "numBeats": 4, "beatUnit": 1},
+            ],
+            notes=[{"beat": 5, "duration": 4, "sd": "1", "octave": -4, "isRest": False}],
+        )
+    )
+    assert piece.meter_events[1].onset_qn == RationalTime(3)
+    assert piece.notes[0].onset_qn == RationalTime(2)
+    assert piece.notes[0].duration_qn == RationalTime(3)
+    assert piece.notes[0].pitch == 12
+
+
+@pytest.mark.parametrize("audio_path", ["audio/other.mp3", "", None])
+def test_structure_row_identity_is_mandatory(audio_path: object) -> None:
+    with pytest.raises(HookTheoryAdapterError, match="structure row belongs to another clip"):
+        convert(raw_record(), structure={"audio_path": audio_path, "ori_uid": "leak"})
+
+
+def test_structure_row_split_mismatch_is_rejected() -> None:
+    with pytest.raises(HookTheoryAdapterError, match="split mismatch"):
+        convert(
+            raw_record(split="train"),
+            structure={"audio_path": "audio/clip.mp3", "ori_uid": "group", "split": "test"},
+        )
 
 
 def test_validation_failures_are_wrapped_with_complete_report(monkeypatch) -> None:

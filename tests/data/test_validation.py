@@ -304,6 +304,33 @@ def _six_eight_piece(piece: CanonicalPiece) -> CanonicalPiece:
     )
 
 
+def _two_bar_piece(piece: CanonicalPiece) -> CanonicalPiece:
+    second_bar = replace(
+        piece.bars[0],
+        bar_id="bar:001",
+        index=1,
+        start_qn=RationalTime(4),
+        display_number="2",
+    )
+    second_beats = tuple(
+        replace(
+            beat,
+            beat_id=f"beat:{index + 4:03d}",
+            bar_id="bar:001",
+            start_qn=beat.start_qn + RationalTime(4),
+        )
+        for index, beat in enumerate(piece.beats)
+    )
+    beats = piece.beats + second_beats
+    return replace(
+        piece,
+        duration_qn=RationalTime(8),
+        bars=(piece.bars[0], second_bar),
+        beats=beats,
+        targets=_targets_for_beats(piece.targets, beats),
+    )
+
+
 def test_validation_code_coverage_is_complete() -> None:
     declared = set(get_args(ValidationCode))
     assert declared == VALIDATOR_TESTED_CODES | SERIALIZATION_ONLY_CODES
@@ -1021,6 +1048,32 @@ def test_pickup_and_compound_meter_grids_are_valid(
     assert validate_piece(_six_eight_piece(valid_piece)).issues == ()
 
 
+def test_incomplete_bar_generalization_keeps_coverage_and_grid_guards(
+    valid_piece: CanonicalPiece,
+) -> None:
+    piece = _two_bar_piece(valid_piece)
+    shortened = replace(
+        piece,
+        bars=(
+            replace(piece.bars[0], duration_qn=RationalTime(3), is_incomplete=True),
+            replace(piece.bars[1], start_qn=RationalTime(3)),
+        ),
+    )
+    _assert_code(shortened, "BAR_INVALID")
+    _assert_code(
+        replace(piece, bars=(piece.bars[0], replace(piece.bars[1], start_qn=RationalTime(5)))),
+        "BAR_COVERAGE_INVALID",
+    )
+    _assert_code(
+        replace(piece, bars=(piece.bars[0], replace(piece.bars[1], start_qn=RationalTime(3)))),
+        "BAR_COVERAGE_INVALID",
+    )
+    _assert_code(
+        replace(piece, beats=(replace(piece.beats[0], duration_qn=RationalTime(2)),) + piece.beats[1:]),
+        "BEAT_GRID_INVALID",
+    )
+
+
 def test_annotation_rules_and_target_alignment_span(
     valid_piece: CanonicalPiece,
 ) -> None:
@@ -1071,6 +1124,66 @@ def test_annotation_rules_and_target_alignment_span(
         targets=(target,) + valid_piece.targets,
     )
     assert validate_piece(aligned).issues == ()
+
+
+def test_annotation_target_family_suffix_is_scoped_not_arbitrary(
+    valid_piece: CanonicalPiece,
+) -> None:
+    span = AnnotationSpan(
+        "span:key",
+        "theory.local_key",
+        "target_alignment",
+        RationalTime(0),
+        RationalTime(4),
+        None,
+        None,
+        "prov:annotation",
+    )
+    target = TargetArray(
+        target_id="target:key-mode",
+        task="theory.local_key.mode",
+        annotation_view_id=None,
+        alignment_type="annotation_span",
+        entity_ids=("span:key",),
+        value_type="categorical",
+        class_labels=("major", "minor"),
+        values=("major",),
+        mask=(True,),
+        confidence=(None,),
+        source=("human",),
+        provenance=("prov:annotation",),
+    )
+    related = replace(
+        valid_piece,
+        annotations=(span,),
+        targets=tuple(
+            sorted(
+                (target,) + valid_piece.targets,
+                key=lambda value: (
+                    value.task,
+                    value.annotation_view_id is not None,
+                    value.annotation_view_id or "",
+                    value.target_id,
+                ),
+            )
+        ),
+    )
+    assert validate_piece(related).issues == ()
+    unrelated = replace(
+        related,
+        targets=tuple(
+            sorted(
+                (replace(target, task="theory.chord.mode"),) + valid_piece.targets,
+                key=lambda value: (
+                    value.task,
+                    value.annotation_view_id is not None,
+                    value.annotation_view_id or "",
+                    value.target_id,
+                ),
+            )
+        ),
+    )
+    _assert_code(unrelated, "TARGET_ALIGNMENT_INVALID")
 
 
 @pytest.mark.parametrize(

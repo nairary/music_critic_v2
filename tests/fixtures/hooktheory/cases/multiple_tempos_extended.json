@@ -12,7 +12,7 @@
   "legacy_canonical_expected": {"exists": true, "meta_excerpt": {"tempos": [{"beat": 1, "bpm": 63}, {"beat": 25, "bpm": 60}, {"beat": 41, "bpm": 68}]}, "chord_events": [{"index": 5, "value": {"root": 0, "type": 11, "borrowed_kind": "none"}}]},
   "expected_v2_contract": {
     "timing": [{"raw_beat_decimal": "1.5", "canonical_onset_qn": "1/2", "raw_duration_decimal": "0.5", "canonical_duration_qn": "1/2"}],
-    "melody": [{"raw_sd": "3", "octave": 0, "tonic_pc": 2, "sd_chromatic_offset": 4, "is_rest": false, "derived_pitch": 78, "pitch_source": "derived", "provenance_method": "hooktheory_sd_octave_to_midi_v1"}],
+    "melody": [{"raw_sd": "3", "octave": 0, "tonic_pc": 2, "active_scale_degree_offset": 3, "accidental_offset": 0, "is_rest": false, "derived_pitch": 65, "pitch_source": "derived", "provenance_method": "hooktheory_scale_degree_to_midi_upstream"}],
     "chords": [{"raw_root": 1, "is_rest": false, "canonical_functional_degree": 0, "special": null, "raw_applied": 0, "applied_target": null}],
     "regions": {"key_onsets_qn": ["0/1", "40/1", "52/1"], "tempo_onsets_qn": ["0/1", "24/1", "40/1"]},
     "source_group_id": null,
@@ -20,5 +20,5 @@
     "unavailable_target": {"mask": false, "value": null, "source": null, "confidence": null, "provenance": null}
   },
   "expected_diagnostics": ["hooktheory.structure_unmatched_symbolic_clip"],
-  "evidence": {"source_record_sha256": "a4f180216260701be050d86dbd8ec4c7f5babc4fbadbff7a6ce2be1cd11ca3e6", "status": "confirmed_real_data"}
+  "evidence": {"source_record_sha256": "a4f180216260701be050d86dbd8ec4c7f5babc4fbadbff7a6ce2be1cd11ca3e6", "status": "confirmed_real_data", "remediation_note": {"previous_expectation": 78, "new_expectation": 65, "reason": "use the active minor scale degree and upstream MIDI-60 anchor", "evidence_source": "zero-mismatch corpus melody crosswalk", "classification": "observed_corpus_semantics"}}
 }
