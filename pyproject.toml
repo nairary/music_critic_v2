@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Raw-symbolic-first Music Critic V2 research codebase"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["mido>=1.3,<2"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
