@@ -135,3 +135,27 @@ input. Observer code remains reference material only.
 - robust CLI errors;
 - tiny deterministic test fixtures;
 - pair/group-aware ranking evaluation.
+
+## Phase 2B.0 remediation classification
+
+Adapted from V1 as explicitly named compatibility behavior:
+
+- the chromatic scale-degree table, including `bb1`;
+- the MIDI-72 absolute-octave reconstruction formula, with provenance method
+  `hooktheory_sd_octave_to_midi_v1`;
+- support for diagnosing legacy root `8` as synthetic bVII compatibility input.
+
+Rejected as source or upstream facts:
+
+- treating MIDI 72 as an observed corpus pitch or Sheet Sage invariant;
+- treating root `8` as observed (the corpus-wide count is zero) or accepted by
+  upstream TheoryTab (sounding upstream roots are `1..7`);
+- treating encoded IDs, V1 meter tokens such as `12/3`, or first-region summary
+  fields as V2 canonical source semantics;
+- requiring gold structure, chord annotations, or theory labels at inference.
+
+Upstream Sheet Sage at commit
+`bbdd7b7b6a5fb845828f82790acdceb03a197779` supplies separate evidence for
+1-based beat conversion, beat-unit grouping, raw TheoryTab validation, and
+partially available applied-chord behavior. Applied harmony remains
+intentionally deferred from the V2 MVP.

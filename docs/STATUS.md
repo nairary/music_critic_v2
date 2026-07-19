@@ -9,27 +9,113 @@
 - Phase 1B.2: Completed
 - Phase 1B.3: Completed
 - Phase 1 merge SHA: `37edf76889730980aa6ce9e9ec981e362c3480a9`
-- Current branch: `phase/2a-generic-midi-adapter-mvp`
+- Current branch: `phase/2b0-hooktheory-golden-fixtures`
 - Current phase: Phase 2 — generic MIDI and HookTheory adapters
 - Phase 2 state: In progress
 - Phase 2A.1: Accepted and Completed
 - Accepted Phase 2A.1 implementation SHA:
   `32d68e8cb446d9b5dd57bfea1d28b94ccce46274`
-- Current task: Phase 2B.0 — HookTheory legacy audit and golden fixtures
+- Phase 2B.0: Accepted and Completed
+- Accepted Phase 2B.0 implementation SHA:
+  `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`
+- Current task: Phase 2B.0 documentation closure before Phase 2B.1
 
 ## Phase 2 migration status
 
-- The HookTheory migration contract is documented in
-  `docs/HOOKTHEORY_MIGRATION.md` from the reverse-engineered legacy pipeline.
-- HookTheory melody pitch uses the accepted legacy derived reconstruction
-  formula anchored at MIDI 72, with algorithmic provenance method
+- The HookTheory migration contract in `docs/HOOKTHEORY_MIGRATION.md` is
+  **Accepted**. Evidence is classified as observed corpus,
+  upstream Sheet Sage, V1 compatibility, project decision, or unresolved.
+- HookTheory melody pitch uses the V1 absolute-octave compatibility convention
+  anchored at MIDI 72, with algorithmic provenance method
   `hooktheory_sd_octave_to_midi_v1`.
 - Applied harmony is deferred from the first HookTheory adapter.
 - The HookTheory adapter has not been implemented.
-- Phase 2B.0 legacy audit/golden fixtures is the next task; Phase 2B.1 adapter
-  implementation remains pending.
+- Phase 2B.0 is **Accepted and Completed** at implementation SHA
+  `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`. Phase 2B.1 is ready to begin on
+  its dedicated branch and will remain in review until separately accepted.
 - No graph, dataset, model, SSL, training, preference, quality, inference, or
   GRPO work has started.
+
+## Phase 2B.0 HookTheory audit result
+
+- `scripts/audit_hooktheory_legacy.py` is a deterministic, read-only,
+  standard-library audit CLI for complete JSON objects, legacy top-level
+  fragments, and JSONL. It preserves decimal lexemes with `Decimal`, inventories
+  and hashes sources, profiles bounded field evidence, runs named corpus-wide
+  anomaly/duplicate/pitch/meter checks, crosswalks the simplified schema,
+  audits structure joins, and reports `ori_uid` leakage.
+- The raw merged source has 26,178 records: train 21,233, val 2,184, and test
+  2,761. Three train records have no `json` payload. Existing processed and
+  canonical full outputs each contain the remaining 26,175 records.
+- Primary hashes: raw merged
+  `8ab601050d0b8c8752c3b6bf190d63edefa5fce07735ce823bca6a3922dff833`,
+  processed full
+  `18421660eada680a223666f8e9af6b193900d91292b2ea7148e5c0687d2d42fe`,
+  and canonical full
+  `2b78e7d90bd81bd6a9d9ce946bc1ebff259d6967dcda1ad7b139bfbc5a5d8dc8`.
+  The upstream simplified source hash is
+  `5e7457df5640170337c6e320d32fe90d6355b5ab96f15dbd3567180a05be9c08`.
+  The complete source/processed hash inventory is in
+  `docs/HOOKTHEORY_FIELD_AUDIT.md` and the fixture manifest.
+- Structure joins by normalized split plus `audio_path` stem match all 11,515
+  structure rows: train 9,498, val 927, and test 1,090. Symbolic-only counts are
+  train 11,735, val 1,257, and test 1,671; there are no structure-only or
+  duplicate structure IDs and no missing structure `ori_uid` values.
+- There are 2,714 original-song groups with multiple clips. Twenty-three
+  `ori_uid` values cross split boundaries and are explicit leakage findings
+  that must be resolved atomically before training.
+- The pinned upstream Sheet Sage evidence commit is
+  `bbdd7b7b6a5fb845828f82790acdceb03a197779`. The simplified-schema crosswalk
+  has 26,175 matches, three raw-only missing-payload records, no
+  simplified-only records, and no identifier/split mismatches.
+- The crosswalk semantically compares meter regions for every matched record:
+  27,217 raw regions, 27,216 simplified regions, 27,216 compared regions, and
+  27,216 exact matches. It reports zero missing-raw regions, one
+  missing-simplified region, one record count mismatch, and zero value
+  mismatches. The bounded coverage discrepancy is clip `nvgy-WaRgkA`; key,
+  melody, and harmony are inventoried but were not corpus-wide semantically
+  compared.
+- Nineteen bounded cases cover major/minor/modal examples, integer and
+  fractional timing, first-beat conversion, rests and derived pitches,
+  multiple key/tempo/meter regions, root-zero rest and malformed non-rest zero,
+  chord types/inversions/decorations, borrowed null/empty/mode/list/unknown
+  forms, applied raw evidence, matched and unmatched symbolic structure,
+  shared `ori_uid`, a missing payload, `beatUnit=3`, `numBeats=8`, negative
+  roots, null note beats/octaves, alternate `_`, and `bb1`.
+- Not observed and not fabricated: raw root `8`, stringified borrowed lists,
+  unexpected borrowed runtime types, derived out-of-range pitch, non-null
+  pedal, exact duplicate regions, duplicate structure IDs, structure-only rows,
+  or missing structure `ori_uid`.
+- The semantic meter crosswalk accepts canonical numerator `numBeats`, with
+  denominator 4 for `beatUnit=1` and 8 for `beatUnit=3`; the one omitted
+  simplified region is coverage loss rather than a value counterexample. Still
+  unresolved or intentionally deferred: `alternate`, non-null `pedal`, applied
+  harmony, and audio-seconds-to-symbolic alignment. Structure timestamps remain
+  audio seconds with `section_alignment_status=unresolved_audio_seconds`.
+- The production HookTheory adapter has not started. No public API, dependency,
+  canonical conversion entry point, graph, dataset, model, SSL, training,
+  preference, evaluation, inference, or GRPO work was added.
+
+## Phase 2B.0 remediation verification
+
+All Python commands used the project-local Python 3.13.5 interpreter.
+
+- Corpus-wide audit CLI: passed; the final report was written outside the
+  repository under `/tmp` and asserted all named counts, pitch-accounting
+  totals, and crosswalk totals.
+- Static audit and golden-fixture tests: `17 passed`.
+- Opt-in raw/simplified/processed/canonical/structure integration, including a
+  full `build_report` count assertion: `2 passed`.
+- Full default suite: `331 passed, 4 skipped`; the skips are explicitly gated
+  local real-data tests.
+- `compileall src scripts tests`: passed.
+- `git diff --check`: passed.
+- The repository `make check` wrapper was unavailable because `make` is not
+  installed; its two commands were run directly and passed as reported above.
+- The legacy snapshot checker reports that the external read-only legacy
+  worktree's pre-existing staged/dirty state differs from the recorded
+  snapshot. The legacy commit remains pinned and this task did not modify,
+  format, stage, reset, clean, or restore any legacy file.
 
 ## Phase 2A.1 generic MIDI result
 
@@ -173,8 +259,8 @@ not a Phase 2A.1 merge blocker.
   status observed before this task. No legacy file was modified.
 - HookTheory remains documentation-only. No graph, dataset, model, SSL,
   training, preference, quality, inference, or GRPO code was added.
-- Phase 2A.1 is accepted and Completed. Phase 2B.0 is the next implementation
-  slice; no HookTheory implementation or golden-fixture extraction has started.
+- Phase 2A.1 is accepted and Completed. The later Phase 2B.0 evidence and
+  remediation work described above does not alter the accepted MIDI adapter.
 
 ## Final Phase 1 result
 

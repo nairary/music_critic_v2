@@ -1,0 +1,19 @@
+{
+  "case_id": "missing_payload",
+  "coverage_tags": ["missing_payload", "structure_unmatched_symbolic"],
+  "source_reference": {"dataset_relative_path": "data/HookTheory/Hooktheory_Raw.json/4_merged.json", "split": "train", "clip_id": "ANmpR_LbxyM", "ori_uid": null, "source_record_locator": "top_level_object:ANmpR_LbxyM"},
+  "raw_excerpt": {"json_present": false, "regions": {}, "notes": [], "chords": []},
+  "structure_excerpt": null,
+  "legacy_selected_expected": {"exists": false, "meta_excerpt": {}, "melody_events": [], "chord_events": []},
+  "legacy_canonical_expected": {"exists": false, "meta_excerpt": {}, "chord_events": []},
+  "expected_v2_contract": {
+    "timing": [],
+    "melody": [],
+    "chords": [],
+    "source_group_id": null,
+    "structure": {"coordinate_unit": "audio_seconds", "section_alignment_status": "unresolved_audio_seconds", "target_array_expected": false, "annotation_span_expected": false},
+    "unavailable_target": {"mask": false, "value": null, "source": null, "confidence": null, "provenance": null}
+  },
+  "expected_diagnostics": ["hooktheory.missing_json_payload", "hooktheory.structure_unmatched_symbolic_clip"],
+  "evidence": {"source_record_sha256": "5964209ea9ae9fd8436eca3ec8fb3521fcd078723bc495ecb789233e491256ba", "status": "confirmed_real_data"}
+}

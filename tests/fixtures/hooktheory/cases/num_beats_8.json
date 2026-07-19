@@ -1,0 +1,24 @@
+{
+  "case_id": "num_beats_8",
+  "coverage_tags": ["num_beats_8", "resolved_meter", "first_beat", "derived_pitch", "structure_unmatched_symbolic"],
+  "source_reference": {"dataset_relative_path": "data/HookTheory/Hooktheory_Raw.json/4_merged.json", "split": "train", "clip_id": "MkygzKMnxKB", "ori_uid": null, "source_record_locator": "top_level_object:MkygzKMnxKB"},
+  "raw_excerpt": {
+    "regions": {"meters": [{"beat": 1, "numBeats": 8, "beatUnit": 1}]},
+    "notes": [{"index": 0, "value": {"sd": "1", "octave": 0, "beat": 1, "duration": 4, "isRest": false, "recordingEndBeat": null}}],
+    "chords": [{"index": 0, "value": {"root": 1, "beat": 1, "duration": 4, "type": 5, "inversion": 0, "applied": 0, "adds": [], "omits": [], "alterations": [], "suspensions": [], "pedal": null, "alternate": "", "borrowed": null, "isRest": false, "recordingEndBeat": null}}]
+  },
+  "structure_excerpt": null,
+  "legacy_selected_expected": {"exists": true, "meta_excerpt": {"split": "train", "ori_uid": null}, "melody_events": [], "chord_events": []},
+  "legacy_canonical_expected": {"exists": true, "meta_excerpt": {"split": "train", "ori_uid": null}, "chord_events": []},
+  "expected_v2_contract": {
+    "timing": [{"raw_beat_decimal": "1", "canonical_onset_qn": "0/1", "raw_duration_decimal": "4", "canonical_duration_qn": "4/1"}],
+    "melody": [{"raw_sd": "1", "octave": 0, "tonic_pc": 0, "sd_chromatic_offset": 0, "is_rest": false, "derived_pitch": 72, "pitch_source": "derived", "provenance_method": "hooktheory_sd_octave_to_midi_v1"}],
+    "chords": [{"raw_root": 1, "is_rest": false, "canonical_functional_degree": 0, "special": null, "raw_applied": 0, "applied_target": null}],
+    "meter": [{"raw_num_beats": 8, "raw_beat_unit": 1, "felt_group_size_source_beats": 1, "canonical_numerator": 8, "canonical_denominator": 4, "status": "resolved_by_semantic_crosswalk"}],
+    "source_group_id": null,
+    "structure": {"coordinate_unit": "audio_seconds", "section_alignment_status": "unresolved_audio_seconds", "target_array_expected": false, "annotation_span_expected": false},
+    "unavailable_target": {"mask": false, "value": null, "source": null, "confidence": null, "provenance": null}
+  },
+  "expected_diagnostics": ["hooktheory.structure_unmatched_symbolic_clip"],
+  "evidence": {"source_record_sha256": "55d8660788c7d8006d074430f7f1af029d7861db9e0105d69f6bbef510b2ca43", "status": "confirmed_real_data", "upstream_simplified_excerpt": {"split": "TRAIN", "hooktheory_id": "MkygzKMnxKB", "alignment_available": true, "annotations": {"meters": [{"beat": 0, "beats_per_bar": 8, "beat_unit": 4}]}}}
+}
