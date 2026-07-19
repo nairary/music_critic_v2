@@ -97,7 +97,7 @@ document is the phase execution checklist.
 ## Phase 2 — Generic MIDI and HookTheory adapters
 
 - Status: In progress
-- Sequence: Phase 2A.1 is completed; Phase 2B.0 remediation is in review.
+- Sequence: Phase 2A.1 and Phase 2B.0 are completed; Phase 2B.1 is next.
 - Goal: map unlabeled MIDI and HookTheory into the same canonical schema.
 - Dependencies: Phase 1.
 - Outputs: adapter interface, generic MIDI adapter, HookTheory adapter.
@@ -122,8 +122,10 @@ document is the phase execution checklist.
 
 ### Phase 2B.0 — HookTheory legacy audit and golden fixtures
 
-- Status: In review
-- Sequence: current review gate after Phase 2A.1 closure.
+- Status: Accepted and Completed
+- Accepted implementation SHA:
+  `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`
+- Sequence: completed after Phase 2A.1 closure.
 - Goal: verify the documented migration contract against bounded real examples
   and lock golden fixtures before production conversion code is written.
 - Outputs: a deterministic read-only legacy/data audit CLI; an evidence-backed
@@ -139,13 +141,13 @@ document is the phase execution checklist.
 
 ### Phase 2B.1 — HookTheory adapter
 
-- Status: Pending/blocked on Phase 2B.0 acceptance
+- Status: Ready for implementation
 - Dependencies: Phase 2B.0.
 - Goal: implement the accepted HookTheory migration contract without exposing
   theory labels as raw inference inputs.
 
 The graph phase, model phases, and training phases remain pending. HookTheory
-adapter implementation has not started.
+adapter implementation is the next Phase 2 task.
 
 ## Phase 3 — Raw graph builder
 

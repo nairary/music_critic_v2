@@ -1,8 +1,9 @@
 # HookTheory Field and Legacy-Behavior Audit
 
-Status: **Phase 2B.0 in review**. This audit is an executable-specification gate
-for a future adapter; it is not an adapter implementation or an accepted
-migration contract.
+Status: **Phase 2B.0 accepted and completed**. Accepted implementation:
+`9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`. This audit is the accepted
+executable-specification evidence for the Phase 2B.1 adapter; it is not an
+adapter implementation.
 
 ## Audit basis
 

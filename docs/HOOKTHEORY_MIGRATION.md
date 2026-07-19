@@ -1,14 +1,15 @@
 # HookTheory Adapter Migration Contract
 
-Status: **PROPOSED — Phase 2B.0 in review**. Phase 2B.1 remains pending and
-blocked on acceptance of this contract.
+Status: **ACCEPTED — Phase 2B.0 completed**. Accepted Phase 2B.0 implementation:
+`9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`. Phase 2B.1 may implement this
+contract while remaining in review until separately accepted.
 
 The real-data inventory, runtime domains, hashes, join statistics, leakage
 findings, and bounded golden evidence are recorded in
 [`HOOKTHEORY_FIELD_AUDIT.md`](HOOKTHEORY_FIELD_AUDIT.md). That Phase 2B.0 audit
 is the evidence source when it is more specific than this migration summary.
 
-This proposed contract separates three evidence sources: observed m-a-p
+This accepted contract separates three evidence sources: observed m-a-p
 artifacts; upstream Sheet Sage TheoryTab at commit
 `bbdd7b7b6a5fb845828f82790acdceb03a197779`; and the legacy Music Critic pipeline
 at commit `2d8281f31cc9ad9c8fecaf332da0c61e0e949415` where explicit V1
@@ -103,7 +104,7 @@ compares `raw beat - 1` with simplified `beat`, `raw numBeats` with simplified
 All 27,216 paired regions match exactly. One additional raw region is absent
 from the simplified record for clip `nvgy-WaRgkA`, producing one count mismatch
 and one missing-simplified region but no value mismatch. This is simplified
-coverage loss, not contradictory mapping evidence. The proposed canonical
+coverage loss, not contradictory mapping evidence. The accepted canonical
 mapping is therefore:
 
 ```text
@@ -156,7 +157,7 @@ not raw V2 features and not authoritative source values.
 
 ## Chord normalization
 
-Raw roots have this proposed normalization:
+Raw roots have this accepted normalization:
 
 | Raw value | Canonical interpretation |
 |---|---|
@@ -236,8 +237,7 @@ silently.
 
 ## Phase 2B implementation gate
 
-Phase 2B.0 now establishes bounded real examples for every observed category
-listed in the field audit; root `8` is covered only by a synthetic compatibility
-unit test and an explicit corpus-wide zero count. Adapter implementation must
-not begin until review accepts this proposed contract. Phase 2B.1 is therefore
-pending/blocked and contains no HookTheory production code.
+Phase 2B.0 establishes bounded real examples for every observed category listed
+in the field audit; root `8` is covered only by a synthetic compatibility unit
+test and an explicit corpus-wide zero count. Review accepted this contract and
+Phase 2B.1 may now implement it on its dedicated branch.

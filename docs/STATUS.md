@@ -15,21 +15,24 @@
 - Phase 2A.1: Accepted and Completed
 - Accepted Phase 2A.1 implementation SHA:
   `32d68e8cb446d9b5dd57bfea1d28b94ccce46274`
-- Current task: Phase 2B.0 remediation — in review
+- Phase 2B.0: Accepted and Completed
+- Accepted Phase 2B.0 implementation SHA:
+  `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`
+- Current task: Phase 2B.0 documentation closure before Phase 2B.1
 
 ## Phase 2 migration status
 
 - The HookTheory migration contract in `docs/HOOKTHEORY_MIGRATION.md` is
-  **Proposed**, not accepted. Evidence is classified as observed corpus,
+  **Accepted**. Evidence is classified as observed corpus,
   upstream Sheet Sage, V1 compatibility, project decision, or unresolved.
 - HookTheory melody pitch uses the V1 absolute-octave compatibility convention
   anchored at MIDI 72, with algorithmic provenance method
   `hooktheory_sd_octave_to_midi_v1`.
 - Applied harmony is deferred from the first HookTheory adapter.
 - The HookTheory adapter has not been implemented.
-- Phase 2B.0 remediation is implemented on the current review branch and is
-  **In review**; Phase 2B.1 adapter implementation is **Pending/blocked** until
-  this contract is accepted.
+- Phase 2B.0 is **Accepted and Completed** at implementation SHA
+  `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`. Phase 2B.1 is ready to begin on
+  its dedicated branch and will remain in review until separately accepted.
 - No graph, dataset, model, SSL, training, preference, quality, inference, or
   GRPO work has started.
 
