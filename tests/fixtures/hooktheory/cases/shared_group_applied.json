@@ -12,12 +12,12 @@
   "legacy_canonical_expected": {"exists": true, "meta_excerpt": {"split": "train", "ori_uid": "-A74dEskT6s"}, "chord_events": [{"index": 2, "value": {"root": 3, "type": 5, "applied": 4, "is_rest": false}}]},
   "expected_v2_contract": {
     "timing": [{"raw_beat_decimal": "1", "canonical_onset_qn": "0/1", "raw_duration_decimal": "0.5", "canonical_duration_qn": "1/2"}, {"raw_beat_decimal": "9", "canonical_onset_qn": "8/1", "raw_duration_decimal": "4", "canonical_duration_qn": "4/1"}],
-    "melody": [{"raw_sd": "1", "octave": 0, "tonic_pc": 11, "sd_chromatic_offset": 0, "is_rest": false, "derived_pitch": 83, "pitch_source": "derived", "provenance_method": "hooktheory_sd_octave_to_midi_v1", "applied_ignored": true}],
+    "melody": [{"raw_sd": "1", "octave": 0, "tonic_pc": 11, "active_scale_degree_offset": 0, "accidental_offset": 0, "is_rest": false, "derived_pitch": 71, "pitch_source": "derived", "provenance_method": "hooktheory_scale_degree_to_midi_upstream", "applied_ignored": true}],
     "chords": [{"raw_root": 4, "is_rest": false, "canonical_functional_degree": 3, "special": null, "raw_applied": 4, "applied_target": null}],
     "source_group_id": "-A74dEskT6s",
     "structure": {"coordinate_unit": "audio_seconds", "section_alignment_status": "unresolved_audio_seconds", "target_array_expected": false, "annotation_span_expected": false},
     "unavailable_target": {"mask": false, "value": null, "source": null, "confidence": null, "provenance": null}
   },
   "expected_diagnostics": ["hooktheory.applied_harmony_deferred"],
-  "evidence": {"source_record_sha256": "1b1d2639660a7cd883e70458d968d2abd68426cdbd10c7398391a468f65f91c5", "status": "confirmed_real_data"}
+  "evidence": {"source_record_sha256": "1b1d2639660a7cd883e70458d968d2abd68426cdbd10c7398391a468f65f91c5", "status": "confirmed_real_data", "remediation_note": {"previous_expectation": 83, "new_expectation": 71, "reason": "replace the legacy MIDI-72 anchor; applied harmony remains deferred", "evidence_source": "pinned Sheet Sage and corpus melody crosswalk", "classification": "upstream_semantics"}}
 }

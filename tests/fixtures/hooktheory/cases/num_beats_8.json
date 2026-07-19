@@ -12,7 +12,7 @@
   "legacy_canonical_expected": {"exists": true, "meta_excerpt": {"split": "train", "ori_uid": null}, "chord_events": []},
   "expected_v2_contract": {
     "timing": [{"raw_beat_decimal": "1", "canonical_onset_qn": "0/1", "raw_duration_decimal": "4", "canonical_duration_qn": "4/1"}],
-    "melody": [{"raw_sd": "1", "octave": 0, "tonic_pc": 0, "sd_chromatic_offset": 0, "is_rest": false, "derived_pitch": 72, "pitch_source": "derived", "provenance_method": "hooktheory_sd_octave_to_midi_v1"}],
+    "melody": [{"raw_sd": "1", "octave": 0, "tonic_pc": 0, "active_scale_degree_offset": 0, "accidental_offset": 0, "is_rest": false, "derived_pitch": 60, "pitch_source": "derived", "provenance_method": "hooktheory_scale_degree_to_midi_upstream"}],
     "chords": [{"raw_root": 1, "is_rest": false, "canonical_functional_degree": 0, "special": null, "raw_applied": 0, "applied_target": null}],
     "meter": [{"raw_num_beats": 8, "raw_beat_unit": 1, "felt_group_size_source_beats": 1, "canonical_numerator": 8, "canonical_denominator": 4, "status": "resolved_by_semantic_crosswalk"}],
     "source_group_id": null,
@@ -20,5 +20,5 @@
     "unavailable_target": {"mask": false, "value": null, "source": null, "confidence": null, "provenance": null}
   },
   "expected_diagnostics": ["hooktheory.structure_unmatched_symbolic_clip"],
-  "evidence": {"source_record_sha256": "55d8660788c7d8006d074430f7f1af029d7861db9e0105d69f6bbef510b2ca43", "status": "confirmed_real_data", "upstream_simplified_excerpt": {"split": "TRAIN", "hooktheory_id": "MkygzKMnxKB", "alignment_available": true, "annotations": {"meters": [{"beat": 0, "beats_per_bar": 8, "beat_unit": 4}]}}}
+  "evidence": {"source_record_sha256": "55d8660788c7d8006d074430f7f1af029d7861db9e0105d69f6bbef510b2ca43", "status": "confirmed_real_data", "upstream_simplified_excerpt": {"split": "TRAIN", "hooktheory_id": "MkygzKMnxKB", "alignment_available": true, "annotations": {"meters": [{"beat": 0, "beats_per_bar": 8, "beat_unit": 4}]}}, "remediation_note": {"previous_expectation": 72, "new_expectation": 60, "reason": "replace the legacy MIDI-72 anchor", "evidence_source": "pinned Sheet Sage and corpus melody crosswalk", "classification": "upstream_semantics"}}
 }

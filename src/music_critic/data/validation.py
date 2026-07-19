@@ -953,6 +953,8 @@ def _validate_meter_events(ctx: _Context) -> None:
         for _, bar in _records(ctx, "bars", CanonicalBar)
         if isinstance(bar.start_qn, RationalTime)
     }
+    if isinstance(ctx.piece.duration_qn, RationalTime):
+        bar_starts.add(ctx.piece.duration_qn)
     has_bars = bool(_records(ctx, "bars", CanonicalBar))
     for index, event in _records(ctx, "meter_events", MeterEvent):
         base = f"/meter_events/{index}"
@@ -1187,15 +1189,21 @@ def _validate_bars(ctx: _Context) -> None:
                             bar_id,
                         )
                 elif bar.is_incomplete:
+                    boundary = start + duration if start is not None else None
+                    meter_change_boundary = any(
+                        isinstance(event.onset_qn, RationalTime)
+                        and event.onset_qn == boundary
+                        for _, event in _records(ctx, "meter_events", MeterEvent)
+                    )
                     if (
-                        ordinal != len(bars) - 1
+                        (ordinal != len(bars) - 1 and not meter_change_boundary)
                         or offset != zero
                         or duration >= nominal
                     ):
                         ctx.add(
                             "BAR_INVALID",
-                            "a non-pickup incomplete bar must be a shortened final bar "
-                            "with zero metric offset",
+                            "a non-pickup incomplete bar must end at piece duration or "
+                            "an exact meter-change boundary with zero metric offset",
                             base,
                             bar_id,
                         )
@@ -1701,10 +1709,18 @@ def _validate_targets(ctx: _Context) -> None:
                     )
                 elif target.alignment_type == "annotation_span":
                     annotation = ctx.annotation_by_id.get(entity_value)
+                    annotation_matches_task = (
+                        annotation is not None
+                        and isinstance(annotation.annotation_type, str)
+                        and (
+                            annotation.annotation_type == target.task
+                            or target.task.startswith(annotation.annotation_type + ".")
+                        )
+                    )
                     if (
                         annotation is None
                         or annotation.layer != "target_alignment"
-                        or annotation.annotation_type != target.task
+                        or not annotation_matches_task
                     ):
                         ctx.add(
                             "TARGET_ALIGNMENT_INVALID",

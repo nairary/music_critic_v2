@@ -15,12 +15,12 @@
   "legacy_canonical_expected": {"exists": true, "meta_excerpt": {"split": "train", "ori_uid": null}, "chord_events": []},
   "expected_v2_contract": {
     "timing": [{"raw_beat_decimal": "36", "canonical_onset_qn": "35/1", "raw_duration_decimal": "0.5", "canonical_duration_qn": "1/2"}],
-    "melody": [{"raw_sd": "bb1", "octave": 1, "tonic_pc": 3, "sd_chromatic_offset": 10, "is_rest": false, "derived_pitch": 97, "pitch_source": "derived", "provenance_method": "hooktheory_sd_octave_to_midi_v1"}],
+    "melody": [{"raw_sd": "bb1", "octave": 1, "tonic_pc": 3, "active_scale_degree_offset": 0, "accidental_offset": -2, "is_rest": false, "derived_pitch": 73, "pitch_source": "derived", "provenance_method": "hooktheory_scale_degree_to_midi_upstream"}],
     "chords": [],
     "source_group_id": null,
     "structure": {"coordinate_unit": "audio_seconds", "section_alignment_status": "unresolved_audio_seconds", "target_array_expected": false, "annotation_span_expected": false},
     "unavailable_target": {"mask": false, "value": null, "source": null, "confidence": null, "provenance": null}
   },
   "expected_diagnostics": ["hooktheory.double_flat_v1_compatibility", "hooktheory.structure_unmatched_symbolic_clip"],
-  "evidence": {"source_record_sha256": "896fd9c63fd39477f7607c90956b8f31a0a305b3ae79e55f0f9726981455393e", "status": "confirmed_real_data", "upstream_simplified_excerpt": {"split": "TRAIN", "hooktheory_id": "bWgMwKKPolX", "alignment_available": true, "annotations": {"meters": [{"beat": 0, "beats_per_bar": 4, "beat_unit": 4}]}}}
+  "evidence": {"source_record_sha256": "896fd9c63fd39477f7607c90956b8f31a0a305b3ae79e55f0f9726981455393e", "status": "confirmed_real_data", "upstream_simplified_excerpt": {"split": "TRAIN", "hooktheory_id": "bWgMwKKPolX", "alignment_available": true, "annotations": {"meters": [{"beat": 0, "beats_per_bar": 4, "beat_unit": 4}]}}, "remediation_note": {"previous_expectation": 97, "new_expectation": 73, "reason": "apply a true double-flat with octave carry and the upstream MIDI-60 anchor", "evidence_source": "pinned Sheet Sage bb1 test and corpus melody crosswalk", "classification": "upstream_semantics"}}
 }

@@ -138,11 +138,10 @@ input. Observer code remains reference material only.
 
 ## Phase 2B.0 remediation classification
 
-Adapted from V1 as explicitly named compatibility behavior:
+Retained from V1 only as documented or synthetic compatibility behavior:
 
-- the chromatic scale-degree table, including `bb1`;
-- the MIDI-72 absolute-octave reconstruction formula, with provenance method
-  `hooktheory_sd_octave_to_midi_v1`;
+- the historical major-fixed chromatic table and MIDI-72 absolute-octave
+  reconstruction, which are no longer production semantics;
 - support for diagnosing legacy root `8` as synthetic bVII compatibility input.
 
 Rejected as source or upstream facts:
@@ -159,3 +158,17 @@ Upstream Sheet Sage at commit
 1-based beat conversion, beat-unit grouping, raw TheoryTab validation, and
 partially available applied-chord behavior. Applied harmony remains
 intentionally deferred from the V2 MVP.
+
+## Phase 2B.1 production adaptation
+
+The remediated production adapter rejects the V1 major-fixed pitch table and
+MIDI-72 anchor in favor of pinned Sheet Sage scale steps, true accidental
+offsets, and MIDI 60 for relative octave zero. It also rejects V1's uniform
+float beat arithmetic: canonical qn time is integrated piecewise with one qn
+per simple raw beat and one-half qn per compound raw beat. V1 remains useful
+only for source discovery, grouping intent, and explicit synthetic root-8
+compatibility tests.
+
+Rejected at runtime: legacy imports, HTCanon input, encoded theory IDs, legacy
+meter tokens, chord-note rendering, applied-harmony reinterpretation, and any
+requirement for gold structure or theory targets at inference.

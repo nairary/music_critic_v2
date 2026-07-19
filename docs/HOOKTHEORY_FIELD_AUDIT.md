@@ -1,9 +1,10 @@
 # HookTheory Field and Legacy-Behavior Audit
 
-Status: **Phase 2B.0 accepted and completed**. Accepted implementation:
-`9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`. This audit is the accepted
-executable-specification evidence for the Phase 2B.1 adapter; it is not an
-adapter implementation.
+Status: **Phase 2B.0 and Phase 2B.1 accepted and completed**. Accepted Phase
+2B.0 implementation: `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`.
+Accepted Phase 2B.1 implementation:
+`3898b168063094b87e5ca5d88aae0317c1562c3f`. This audit remains executable
+evidence rather than a production adapter implementation.
 
 ## Audit basis
 
@@ -143,33 +144,43 @@ and record the resolved canonical fraction.
 
 ## Classified executable behavior
 
-Upstream Sheet Sage subtracts one from TheoryTab beats when constructing a lead
-sheet. V2 must likewise use the raw numeric lexeme as exact decimal/rational
-input and calculate:
+Upstream Sheet Sage subtracts one from TheoryTab beats to form its simplified
+symbolic coordinate. That simplified coordinate is not always a canonical
+quarter-note coordinate. V2 parses the raw lexeme exactly and maps it through
+the active meter timeline:
 
 ```text
-canonical_onset_qn = Fraction(raw_beat_decimal_string) - 1
+raw beat 1 -> qn 0
+beatUnit=1 -> 1 qn per raw beat
+beatUnit=3 -> 1/2 qn per raw beat
 ```
+
+The `beatUnit=3` factor is derived rather than inferred from the simplified
+numeric coordinate. Sheet Sage first maps one raw beat to four tertiary units.
+Simple primary pulses contain four tertiary units (`2 * 2`), while compound
+primary pulses contain twelve (`3 * 4`). Thus one compound raw beat is `4/12`
+of a dotted-quarter primary pulse: one eighth note, or one-half qn. Simplified
+melody onset/offset, meter beat, and alignment beat fields remain source-beat
+coordinates; `raw beat - 1` is only the raw-to-simplified coordinate identity.
 
 The audit parses JSON floating-point lexemes directly with `Decimal`, then
 constructs `Fraction(str(decimal))`; it never round-trips through binary float
 or relies on float equality.
 
-The exact Music Critic V1 compatibility scale-degree offsets are `1:0`, `b1:11`, `#1:1`, `2:2`,
-`b2:1`, `#2:3`, `3:4`, `b3:3`, `#3:5`, `4:5`, `b4:4`, `#4:6`, `5:7`,
-`b5:6`, `#5:8`, `6:9`, `b6:8`, `#6:10`, `7:11`, `b7:10`, `#7:0`, and
-`bb1:10`. A non-rest pitch is derived as:
+The old major-fixed chromatic table and MIDI-72 anchor are retained only as
+Music Critic V1 compatibility history. Production derives a non-rest pitch as:
 
 ```text
-72 + 12 * octave + tonic_pitch_class + scale_degree_chromatic_offset
+60 + 12 * octave + tonic_pitch_class
+   + active_scale_degree_offset + accidental_offset
 ```
 
-The formula and MIDI-72 anchor are the **Music Critic V1 absolute-octave
-compatibility convention**. They are neither a raw corpus field nor an upstream
-Sheet Sage invariant. Upstream separately evidences `sd`, `octave`, active-key,
-and accidental behavior, but its `TheorytabNote` conversion does not establish
-a MIDI-72 anchor. Provenance remains exactly
-`hooktheory_sd_octave_to_midi_v1`.
+The active scale supports all nine observed names: major 13,714 regions, minor
+10,747, mixolydian 1,049, dorian 1,033, lydian 293, phrygian 290, locrian 71,
+harmonic minor 48, and phrygian dominant 34. Sheet Sage
+`TheorytabNote.as_note()` establishes the relative scale/accidental behavior;
+`Note.as_midi_pitch()` establishes the MIDI-60 anchor. Production provenance is
+`hooktheory_scale_degree_to_midi_upstream`.
 
 The corpus-wide compatibility derivation produced 1,228,046 successes, 110,283
 rests, eight missing-input cases, nine unresolved-active-key cases, and zero
@@ -230,10 +241,23 @@ beat 25 (`numBeats=4`, `beatUnit=1`) is absent from the simplified record. This
 is classified as simplified coverage loss, not contradictory meter semantics;
 all comparable regions support the accepted canonical fraction mapping.
 
-Key, melody, and harmony fields are inventoried on both sides for availability
-and shape only. This audit does **not** claim a corpus-wide semantic comparison
-for those fields. Simplified user/refined beat-time alignment arrays are also
-inventoried, but are absent from raw TheoryTab JSON.
+The Phase 2B.0 report inventories key, melody, and harmony fields for shape
+only. The separate Phase 2B.1 semantic audit now compares melody—but not key or
+harmony—corpus-wide. It pairs notes by clip, exact onset/offset, and duplicate
+source order: 1,211,093 comparable pairs yield 1,211,093 pitch-class matches,
+1,211,093 relative-octave matches, and zero mismatches in either class. There
+are 16,929 unpaired raw sounding notes and 3,255 unpaired simplified notes, so
+those events are reported rather than guessed.
+
+Timing and tempo evidence is recorded by
+`scripts/audit_hooktheory_adapter_semantics.py`. Candidate timing changes 6,443
+note intervals and 2,009 chord intervals; 348 source events cross a meter
+change. It changes 100 piece bar counts and 100 piece beat counts. Refined
+alignment supplies 812,653 simple-meter intervals but no compound intervals.
+The 72 eligible compound user-alignment intervals have median absolute relative
+errors of 50.04% (quarter BPM), 200.07% (raw-beat BPM), and 0.39% (felt-pulse
+BPM); the felt-pulse hypothesis places 70/72 within 10%. This supports
+`40_000_000/bpm` microseconds per qn in compound meter.
 
 The report retains bounded mismatch examples. Integration tests verify selected
 real matches across raw, simplified, processed, canonical, and structure
