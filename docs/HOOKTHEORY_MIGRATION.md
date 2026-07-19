@@ -2,6 +2,11 @@
 
 Status: **ACCEPTED FOR FUTURE PHASE 2B IMPLEMENTATION**.
 
+The real-data inventory, runtime domains, hashes, join statistics, leakage
+findings, and bounded golden evidence are recorded in
+[`HOOKTHEORY_FIELD_AUDIT.md`](HOOKTHEORY_FIELD_AUDIT.md). That Phase 2B.0 audit
+is the evidence source when it is more specific than this migration summary.
+
 This document records the migration contract reverse-engineered from the legacy
 HookTheory pipeline at commit
 `2d8281f31cc9ad9c8fecaf332da0c61e0e949415`. The legacy source is the primary
@@ -164,13 +169,23 @@ ordinary MIDI-observable evidence.
 
 ## Unresolved issues
 
-The following remain open for the Phase 2B.0 audit and golden-fixture slice:
+The Phase 2B.0 audit confirms that `beatUnit` has observed values `1` and `3`,
+but does not establish their meter-denominator semantics. It also confirms that
+`alternate` is either empty or `_`, and that every audited `pedal` is null.
+The following remain open for adapter implementation:
 
 - exact HookTheory `beatUnit` semantics;
 - mapping from `beatUnit` to canonical meter denominator;
 - `alternate` semantics;
 - `pedal` semantics;
 - reliable alignment from audio-section seconds to symbolic clip beats.
+
+Real-data categories not observed in the audited source are raw root `8`, a
+stringified borrowed pitch-class list, an unexpected borrowed runtime type, a
+derived out-of-range melody pitch, non-null `pedal`, exact duplicate regions,
+duplicate structure clip IDs, unmatched structure rows, and missing structure
+`ori_uid`. The legacy rule for raw root `8` remains accepted as bVII, but has no
+real-data golden case and must not be represented as though one was observed.
 
 Unresolved fields must remain raw and diagnostic. They must not be guessed
 silently.
