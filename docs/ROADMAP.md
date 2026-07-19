@@ -172,12 +172,18 @@ document is the phase execution checklist.
   melody notes, optional canonical-beat clicks, and optional target markers.
 - Outputs: a generic exporter API, HookTheory rendering CLI, semantic MIDI
   round trips, a deterministic listening sampler, and a separate audit-only
-  simplified/alignment comparison. All are implemented on
+  simplified/alignment comparison. Independent comparison tolerance derives
+  from MIDI PPQ; corpus ambiguity and channel/program diagnostics are report-only
+  and do not alter exporter policy. All are implemented on
   `phase/2b2-canonical-midi-renderer`; generated MIDI remains untracked.
 - Verification: all 18 usable real golden cases render and reload; 17 are
   strictly exact and the one excessive-LCM case matches within its explicit
-  PPQ-960 bound. Independent simplified evidence has zero pitch, note-count,
-  or meter mismatches across those 18 cases.
+  PPQ-960-derived bound. Independent simplified evidence has zero pitch,
+  note-count, meter, or audit-cross-check mismatches across those 18 cases.
+  The streaming corpus ambiguity audit finds 1,802 same-pitch overlap pairs in
+  102 of 26,175 usable clips (1,627 nested) and zero channel/program conflicts;
+  these findings limit generic round-trip/timbre guarantees but do not fail
+  rendering.
 - Non-goals: chord voicing, audio synthesis, graph/model/training work, and
   treating renderer output as independent source truth.
 

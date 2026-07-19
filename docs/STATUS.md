@@ -29,7 +29,7 @@
 - Phase 2B.2 starting SHA: `3d814a2e2db7434ee6c666619dc287e5eb101101`
 - Phase 2B.2 implementation SHA:
   `f3799765b74b17cc3a493430dc11f2a64a781b74`
-- Current task: review and close Phase 2B.2 canonical MIDI renderer
+- Current task: review Phase 2B.2 canonical MIDI renderer remediation
 
 ## Phase 2 migration status
 
@@ -72,24 +72,38 @@
   deterministic samples covering every observed mode, 6/8, 9/8, 12/8,
   multiple meters/tempos, fractional timing, and shared `ori_uid`. It writes
   exact canonical JSON, MIDI, per-clip reports, a batch manifest, and a
-  listening manifest.
+  listening manifest, plus independent comparison, audio-disagreement, and
+  ambiguity reports in one reproducible review package.
 - The real golden batch selected 19 cases, rendered all 18 usable cases, and
   reported the required missing payload as an expected skip. Seventeen cases
   are strictly exact. `ANmplRlZmyM` requires PPQ 500000000000000; the explicit
   PPQ-960 fallback reports maximum error `29/1500000000000000` qn.
 - The independent simplified-source audit imports no production HookTheory
-  adapter. Across 1,383 rendered/reference notes it reports 18/18 accepted
-  clips, 17 strictly exact clips, one quantization-bounded clip, zero pitch
-  mismatches, zero note-count mismatches, and zero meter disagreements. Exact
-  symbolic onset/duration median, p90, and p95 errors are zero; maximum is
-  `1.9333333333333334e-14` qn from the single bounded source-decimal case.
+  adapter. It derives `1/(2*PPQ)` from each parsed MIDI instead of trusting the
+  exporter report as a tolerance, directly measures onset/offset/duration, and
+  treats the reported maximum only as a cross-check. Across 1,383
+  rendered/reference notes it reports 18/18 accepted clips, 17 strictly exact
+  clips, one independently quantization-bounded clip, zero pitch mismatches,
+  zero note-count mismatches, zero meter disagreements, and zero audit/report
+  cross-check violations.
 - Eligible constant-meter/constant-tempo/non-swing audio comparison covers
   1,236 notes. Onset absolute error is median 0.0328056 s, p90 0.96854 s, p95
   1.667565 s; duration absolute error is median 0.00120975 s, p90 0.013095 s,
   p95 0.04021 s. Nine clips exceed the report's 50 ms onset-p95 diagnostic;
-  this is reported as alignment/tempo disagreement, not forced equality.
+  seven agree, nine disagree, and two are ineligible. Disagreement details are
+  a separate artifact and remain alignment/tempo evidence, not exporter errors.
+- A streaming ambiguity audit covers all 26,175 usable records and 1,228,022
+  notes without corpus-wide MIDI rendering. It finds 1,802 same-pitch overlap
+  pairs across 102 clips, including 1,627 nested pairs, and zero simultaneous
+  different-program conflicts on one channel. The exporter reports these
+  ambiguities without rejecting, shifting, or rewriting notes/channels/programs.
+- The guarantee is deliberately split: the HookTheory semantic comparison
+  covers pitch, onset, duration, tempo, meter, and piece duration; generic MIDI
+  rendering preserves representable pitch/timing/tempo/meter but does not
+  promise full canonical identity for overlaps, program conflicts,
+  unrepresentable data, provenance, targets, or annotations.
 - Generated listening artifacts are outside Git at
-  `/tmp/music-critic-v2-phase2b2-golden/listening-manifest.json`. No generated
+  `/tmp/music-critic-v2-phase2b2-remediation/listening-manifest.json`. No generated
   MIDI or canonical batch output is tracked.
 - Non-goals remain chord voicing and deferred harmony interpretation, audio or
   SoundFont rendering, graphs, datasets, models, training, inference, and
@@ -97,14 +111,18 @@
 
 ## Phase 2B.2 verification
 
-- Exporter unit tests: `20 passed` (including all nine observed scale families).
-- New renderer CLI and independent-comparison tests: `4 passed`.
-- Opt-in real golden renderer/round-trip/comparison integration: `1 passed in
-  11.24s`; 18 renders/reloads and one required missing-payload error.
-- Full default repository suite: `422 passed, 7 skipped in 0.90s`; every skip
+- Exporter unit tests remain `20 passed` (including all nine observed scale
+  families); the production exporter API and event architecture are unchanged.
+- Focused renderer CLI, independent-comparison, ambiguity, and conflict tests:
+  `9 passed in 0.09s`.
+- Opt-in real golden renderer/round-trip/review-package plus full-corpus
+  ambiguity integration: `3 passed`; 18 renders/reloads, one
+  required missing-payload skip, every required report, and all 26,175 usable
+  canonical clips audited without corpus MIDI rendering.
+- Full default repository suite: `427 passed, 9 skipped in 0.92s`; every skip
   is an explicitly gated local-corpus integration.
 - Full suite with every HookTheory, semantic-crosswalk, renderer, and real-MIDI
-  integration enabled: `429 passed in 266.04s`.
+  integration enabled: `436 passed in 374.20s`.
 - `python -m compileall -q src scripts tests`: passed.
 - `git diff --check`: passed with no output.
 - Production dependency/import scan: passed through repository-contract and

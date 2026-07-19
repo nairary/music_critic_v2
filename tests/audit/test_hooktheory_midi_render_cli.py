@@ -15,6 +15,7 @@ def test_render_cli_writes_exact_piece_report_manifest_and_skips_missing(
     raw_root.mkdir()
     raw_path = raw_root / "4_merged.json"
     output = tmp_path / "output"
+    simplified_path = tmp_path / "Hooktheory.json"
     raw_path.write_text(
         json.dumps(
             {
@@ -51,6 +52,22 @@ def test_render_cli_writes_exact_piece_report_manifest_and_skips_missing(
         ),
         encoding="utf-8",
     )
+    simplified_path.write_text(
+        json.dumps(
+            {
+                "compound": {
+                    "annotations": {
+                        "meters": [{"beat": 0, "beats_per_bar": 6, "beat_unit": 8}],
+                        "melody": [
+                            {"onset": 0, "offset": 2, "pitch_class": 3, "octave": 0}
+                        ],
+                    },
+                    "alignment": {},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
 
     result = main(
         [
@@ -62,6 +79,8 @@ def test_render_cli_writes_exact_piece_report_manifest_and_skips_missing(
             "missing",
             "--output-dir",
             str(output),
+            "--simplified-path",
+            str(simplified_path),
             "--no-click",
         ]
     )
@@ -87,8 +106,17 @@ def test_render_cli_writes_exact_piece_report_manifest_and_skips_missing(
     listening = json.loads(
         (output / "listening-manifest.json").read_text(encoding="utf-8")
     )
-    assert listening["entries"][0]["meter"] == "6/8"
+    assert listening["entries"][0]["meter_regions"][0]["numerator"] == 6
+    assert listening["entries"][0]["meter_regions"][0]["denominator"] == 8
     assert listening["entries"][0]["mode"] == "minor"
+    assert listening["entries"][0]["audio_alignment_status"] == "ineligible"
+    assert "verify 6/8, 9/8 or 12/8 playback duration" in listening["entries"][0]["diagnostic_focus"]
+    assert "verify denominator-unit click" in listening["entries"][0]["diagnostic_focus"]
+    assert listening["entries"][0]["same_pitch_overlap_pairs"] == 0
+    assert listening["entries"][0]["channel_program_conflict_pairs"] == 0
+    assert (output / "comparison-report.json").is_file()
+    assert (output / "audio-disagreement-clips.json").is_file()
+    assert (output / "ambiguity-report.json").is_file()
 
 
 def test_deterministic_sampler_covers_modes_meters_changes_and_shared_group(

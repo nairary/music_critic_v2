@@ -18,7 +18,7 @@ import mido
 from music_critic.adapters._json_stream import iter_object_records
 
 
-REPORT_SCHEMA_VERSION = "hooktheory_midi_render_comparison_v1"
+REPORT_SCHEMA_VERSION = "hooktheory_midi_render_comparison_v2"
 
 
 def _exact(value: Any) -> Fraction:
@@ -181,7 +181,9 @@ def _midi_projection(path: Path) -> dict[str, Any]:
     notes = []
     meters = []
     tempos = []
+    maximum_tick = 0
     for track_index, tick, message in _absolute_tracks(midi):
+        maximum_tick = max(maximum_tick, tick)
         if message.type == "time_signature":
             meters.append(
                 (Fraction(tick, midi.ticks_per_beat), message.numerator, message.denominator)
@@ -215,6 +217,48 @@ def _midi_projection(path: Path) -> dict[str, Any]:
         "notes": tuple(notes),
         "meters": tuple(meters),
         "tempos": tuple(tempos),
+        "duration_qn": Fraction(maximum_tick, midi.ticks_per_beat),
+    }
+
+
+def _rational_object(value: Any) -> Fraction:
+    if not isinstance(value, Mapping):
+        raise ValueError("expected a rational object")
+    numerator, denominator = value.get("num"), value.get("den")
+    if (
+        isinstance(numerator, bool)
+        or not isinstance(numerator, int)
+        or isinstance(denominator, bool)
+        or not isinstance(denominator, int)
+        or denominator == 0
+    ):
+        raise ValueError("invalid rational object")
+    return Fraction(numerator, denominator)
+
+
+def _canonical_projection(path: Path) -> dict[str, Any]:
+    document = json.loads(path.read_text(encoding="utf-8"))
+    tempos = tuple(
+        (
+            _rational_object(item["onset_qn"]),
+            item["microseconds_per_quarter"],
+        )
+        for item in document.get("tempo_events", ())
+        if isinstance(item, Mapping)
+    )
+    meters = tuple(
+        (
+            _rational_object(item["onset_qn"]),
+            item["numerator"],
+            item["denominator"],
+        )
+        for item in document.get("meter_events", ())
+        if isinstance(item, Mapping)
+    )
+    return {
+        "duration_qn": _rational_object(document["duration_qn"]),
+        "tempos": tempos,
+        "meters": meters,
     }
 
 
@@ -264,9 +308,11 @@ def _clip_comparison(
     clip_id: str,
     simplified: Mapping[str, Any],
     midi: Mapping[str, Any],
+    canonical: Mapping[str, Any],
     *,
     example_limit: int,
-    timing_tolerance_qn: Fraction,
+    reported_quantization_error_qn: Fraction,
+    reported_exact_timing: bool | None,
     quality_flags: list[dict[str, Any]],
 ) -> tuple[
     dict[str, Any],
@@ -292,36 +338,87 @@ def _clip_comparison(
         expected[0] == actual[0]
         for expected, actual in zip(reference_projection, rendered_projection)
     )
-    symbolic_errors = [
-        max(abs(expected[1] - actual[1]), abs(expected[2] - actual[2]))
+    endpoint_quantization_bound = Fraction(1, 2 * midi["ppq"])
+    # All values below are exact Fractions, so no floating-point tolerance is
+    # needed. Keep the named slack explicit to prevent a future float rewrite
+    # from silently broadening the acceptance boundary.
+    fraction_technical_slack = Fraction(0)
+    onset_error_fractions = [
+        abs(expected[1] - actual[1])
         for expected, actual in zip(reference_projection, rendered_projection)
     ]
+    offset_error_fractions = [
+        abs(expected[2] - actual[2])
+        for expected, actual in zip(reference_projection, rendered_projection)
+    ]
+    duration_error_fractions = [
+        abs((expected[2] - expected[1]) - (actual[2] - actual[1]))
+        for expected, actual in zip(reference_projection, rendered_projection)
+    ]
+    maximum_onset_error = max(onset_error_fractions, default=Fraction(0))
+    maximum_offset_error = max(offset_error_fractions, default=Fraction(0))
+    maximum_duration_error = max(duration_error_fractions, default=Fraction(0))
+    maximum_endpoint_error = max(maximum_onset_error, maximum_offset_error)
     timing_within_tolerance = (
         len(reference_projection) == len(rendered_projection)
-        and all(error <= timing_tolerance_qn for error in symbolic_errors)
+        and maximum_onset_error <= endpoint_quantization_bound + fraction_technical_slack
+        and maximum_offset_error <= endpoint_quantization_bound + fraction_technical_slack
+        and maximum_duration_error <= endpoint_quantization_bound + fraction_technical_slack
     )
+    report_crosscheck_violations = []
+    if reported_quantization_error_qn > endpoint_quantization_bound:
+        report_crosscheck_violations.append("reported_error_exceeds_ppq_bound")
+    if reported_quantization_error_qn < maximum_endpoint_error:
+        report_crosscheck_violations.append("reported_error_below_observed_endpoint_error")
+    if reported_exact_timing is True and (
+        reported_quantization_error_qn != 0 or maximum_endpoint_error != 0
+    ):
+        report_crosscheck_violations.append("exact_report_has_nonzero_error")
+    independent_violations = []
+    if maximum_onset_error > endpoint_quantization_bound + fraction_technical_slack:
+        independent_violations.append("onset_error_exceeds_ppq_bound")
+    if maximum_offset_error > endpoint_quantization_bound + fraction_technical_slack:
+        independent_violations.append("offset_error_exceeds_ppq_bound")
+    if maximum_duration_error > endpoint_quantization_bound + fraction_technical_slack:
+        independent_violations.append("duration_error_exceeds_ppq_bound")
+    canonical_duration_error = abs(canonical["duration_qn"] - midi["duration_qn"])
+    canonical_duration_accepted = canonical_duration_error <= endpoint_quantization_bound
+    if not canonical_duration_accepted:
+        independent_violations.append("piece_duration_error_exceeds_ppq_bound")
+    canonical_tempo_accepted = len(canonical["tempos"]) == len(midi["tempos"]) and all(
+        expected[1] == actual[1]
+        and abs(expected[0] - actual[0]) <= endpoint_quantization_bound
+        for expected, actual in zip(canonical["tempos"], midi["tempos"])
+    )
+    if not canonical_tempo_accepted:
+        independent_violations.append("canonical_tempo_events_disagree")
+    canonical_meter_accepted = len(canonical["meters"]) == len(midi["meters"]) and all(
+        expected[1:] == actual[1:]
+        and abs(expected[0] - actual[0]) <= endpoint_quantization_bound
+        for expected, actual in zip(canonical["meters"], midi["meters"])
+    )
+    if not canonical_meter_accepted:
+        independent_violations.append("canonical_meter_events_disagree")
     paired = min(len(reference_projection), len(rendered_projection))
     pitch_matches = sum(
         expected[0] == actual[0]
         for expected, actual in zip(reference_projection, rendered_projection)
     )
-    symbolic_onset_errors = [
-        float(abs(expected[1] - actual[1]))
-        for expected, actual in zip(reference_projection, rendered_projection)
-    ]
-    symbolic_duration_errors = [
-        float(
-            abs(
-                (expected[2] - expected[1])
-                - (actual[2] - actual[1])
-            )
-        )
-        for expected, actual in zip(reference_projection, rendered_projection)
-    ]
+    symbolic_onset_errors = [float(value) for value in onset_error_fractions]
+    symbolic_duration_errors = [float(value) for value in duration_error_fractions]
     expected_meters = [
         (meter.onset_qn, meter.numerator, meter.denominator)
         for meter in simplified["meters"]
     ]
+    meter_regions_exact = expected_meters == list(midi["meters"])
+    symbolic_accepted = (
+        pitch_exact
+        and timing_within_tolerance
+        and meter_regions_exact
+        and canonical_tempo_accepted
+        and canonical_meter_accepted
+        and canonical_duration_accepted
+    )
     mismatches = []
     for index, (expected, actual) in enumerate(
         zip(reference_projection, rendered_projection)
@@ -375,6 +472,13 @@ def _clip_comparison(
         tempo_alignment_status = "within_50ms_p95"
     else:
         tempo_alignment_status = "disagrees_over_50ms_p95"
+    audio_alignment_status = (
+        "ineligible"
+        if tempo_alignment_status == "unavailable" or tempo_alignment_status.startswith("ineligible:")
+        else "agreeing"
+        if tempo_alignment_status == "within_50ms_p95"
+        else "disagreeing"
+    )
     return (
         {
             "clip_id": clip_id,
@@ -388,10 +492,18 @@ def _clip_comparison(
             "note_count_match": len(reference_projection) == len(rendered_projection),
             "symbolic_notes_exact": reference_projection == rendered_projection,
             "symbolic_pitch_exact": pitch_exact,
-            "symbolic_timing_tolerance_qn": _fraction_text(timing_tolerance_qn),
-            "maximum_symbolic_timing_error_qn": _fraction_text(
-                max(symbolic_errors, default=Fraction(0))
-            ),
+            "midi_ticks_per_quarter": midi["ppq"],
+            "endpoint_quantization_bound_qn": _fraction_text(endpoint_quantization_bound),
+            "fraction_technical_slack_qn": _fraction_text(fraction_technical_slack),
+            "reported_maximum_quantization_error_qn": _fraction_text(reported_quantization_error_qn),
+            "reported_exact_timing": reported_exact_timing,
+            "maximum_observed_onset_error_qn": _fraction_text(maximum_onset_error),
+            "maximum_observed_offset_error_qn": _fraction_text(maximum_offset_error),
+            "maximum_observed_duration_error_qn": _fraction_text(maximum_duration_error),
+            "report_crosscheck_passed": not report_crosscheck_violations,
+            "report_crosscheck_violations": report_crosscheck_violations,
+            "independent_timing_violations": independent_violations,
+            "audit_passed": not report_crosscheck_violations and not independent_violations,
             "symbolic_notes_accepted": pitch_exact and timing_within_tolerance,
             "symbolic_onset_absolute_error_qn": _percentiles(
                 symbolic_onset_errors
@@ -399,14 +511,22 @@ def _clip_comparison(
             "symbolic_duration_absolute_error_qn": _percentiles(
                 symbolic_duration_errors
             ),
-            "meter_regions_exact": expected_meters == list(midi["meters"]),
+            "symbolic_accepted": symbolic_accepted,
+            "meter_regions_exact": meter_regions_exact,
             "meter_status": (
-                "exact" if expected_meters == list(midi["meters"]) else "disagrees"
+                "exact" if meter_regions_exact else "disagrees"
             ),
             "expected_meter_regions": len(expected_meters),
             "rendered_meter_regions": len(midi["meters"]),
             "tempo_event_count": len(midi["tempos"]),
+            "canonical_tempo_events_accepted": canonical_tempo_accepted,
+            "canonical_meter_events_accepted": canonical_meter_accepted,
+            "canonical_piece_duration_qn": _fraction_text(canonical["duration_qn"]),
+            "rendered_piece_duration_qn": _fraction_text(midi["duration_qn"]),
+            "canonical_piece_duration_error_qn": _fraction_text(canonical_duration_error),
+            "canonical_piece_duration_accepted": canonical_duration_accepted,
             "alignment_source": alignment_name,
+            "audio_alignment_status": audio_alignment_status,
             "tempo_alignment_status": tempo_alignment_status,
             "audio_alignment_ineligibility": audio_ineligibility,
             "audio_aligned_note_count": len(onset_audio_errors),
@@ -445,6 +565,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--render-dir", required=True, type=Path)
     parser.add_argument("--render-manifest", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--audio-disagreement-output", type=Path)
     parser.add_argument("--example-limit", type=int, default=10)
     return parser
 
@@ -464,19 +585,22 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             missing_simplified.append(clip_id)
             continue
         midi = _midi_projection(args.render_dir / f"{clip_id}.canonical.mid")
+        canonical = _canonical_projection(args.render_dir / f"{clip_id}.canonical.json")
         render_report = json.loads(
             (args.render_dir / f"{clip_id}.render-report.json").read_text(
                 encoding="utf-8"
             )
         )
         error_value = render_report["render"]["maximum_quantization_error_qn"]
-        timing_tolerance = Fraction(error_value["num"], error_value["den"])
+        reported_error = Fraction(error_value["num"], error_value["den"])
         comparison, clip_onsets, clip_durations, clip_symbolic_onsets, clip_symbolic_durations = _clip_comparison(
             clip_id,
             reference,
             midi,
+            canonical,
             example_limit=args.example_limit,
-            timing_tolerance_qn=timing_tolerance,
+            reported_quantization_error_qn=reported_error,
+            reported_exact_timing=render_report.get("render", {}).get("exact_timing"),
             quality_flags=render_report.get("piece", {}).get("quality_flags", []),
         )
         comparisons.append(comparison)
@@ -484,6 +608,37 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         duration_errors.extend(clip_durations)
         symbolic_onset_errors.extend(clip_symbolic_onsets)
         symbolic_duration_errors.extend(clip_symbolic_durations)
+    disagreement_details = [
+        {
+            "clip_id": item["clip_id"],
+            "alignment_source": item["alignment_source"],
+            "aligned_note_count": item["audio_aligned_note_count"],
+            "onset_median_seconds": item["audio_onset_absolute_error_seconds"]["median"],
+            "onset_p90_seconds": item["audio_onset_absolute_error_seconds"]["p90"],
+            "onset_p95_seconds": item["audio_onset_absolute_error_seconds"]["p95"],
+            "duration_median_seconds": item["audio_duration_absolute_error_seconds"]["median"],
+            "duration_p90_seconds": item["audio_duration_absolute_error_seconds"]["p90"],
+            "duration_p95_seconds": item["audio_duration_absolute_error_seconds"]["p95"],
+            "meter_regions": [
+                {
+                    "onset_qn": _fraction_text(onset),
+                    "numerator": numerator,
+                    "denominator": denominator,
+                }
+                for onset, numerator, denominator in midi_item["meters"]
+            ],
+            "tempo_events": [
+                {"onset_qn": _fraction_text(onset), "microseconds_per_quarter": tempo}
+                for onset, tempo in midi_item["tempos"]
+            ],
+            "quality_flags": item["quality_flags"],
+        }
+        for item, midi_item in (
+            (comparison, _midi_projection(args.render_dir / f"{comparison['clip_id']}.canonical.mid"))
+            for comparison in comparisons
+            if comparison["audio_alignment_status"] == "disagreeing"
+        )
+    ]
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
         "selected_clips": len(clips),
@@ -499,7 +654,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             not item["note_count_match"] for item in comparisons
         ),
         "symbolic_mismatch_clips": sum(
-            not item["symbolic_notes_accepted"] for item in comparisons
+            not item["symbolic_accepted"] for item in comparisons
         ),
         "symbolic_notes_accepted_clips": sum(
             item["symbolic_notes_accepted"] for item in comparisons
@@ -511,12 +666,37 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "meter_mismatch_clips": sum(
             not item["meter_regions_exact"] for item in comparisons
         ),
+        "canonical_tempo_mismatch_clips": sum(
+            not item["canonical_tempo_events_accepted"] for item in comparisons
+        ),
+        "canonical_meter_mismatch_clips": sum(
+            not item["canonical_meter_events_accepted"] for item in comparisons
+        ),
+        "canonical_duration_mismatch_clips": sum(
+            not item["canonical_piece_duration_accepted"] for item in comparisons
+        ),
         "pitch_mismatch_count": sum(
             item["pitch_mismatches"] for item in comparisons
         ),
         "tempo_disagreement_clips": sum(
             item["tempo_alignment_status"] == "disagrees_over_50ms_p95"
             for item in comparisons
+        ),
+        "symbolic_accepted_clips": sum(
+            item["symbolic_accepted"] for item in comparisons
+        ),
+        "audio_agreement_clips": sum(
+            item["audio_alignment_status"] == "agreeing" for item in comparisons
+        ),
+        "audio_disagreement_clips": sum(
+            item["audio_alignment_status"] == "disagreeing" for item in comparisons
+        ),
+        "audio_ineligible_clips": sum(
+            item["audio_alignment_status"] == "ineligible" for item in comparisons
+        ),
+        "audit_violation_clips": sum(not item["audit_passed"] for item in comparisons),
+        "reported_error_crosscheck_failure_clips": sum(
+            not item["report_crosscheck_passed"] for item in comparisons
         ),
         "symbolic_onset_absolute_error_qn": _percentiles(
             symbolic_onset_errors
@@ -526,6 +706,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "audio_onset_absolute_error_seconds": _percentiles(onset_errors),
         "audio_duration_absolute_error_seconds": _percentiles(duration_errors),
+        "audio_disagreement_details": disagreement_details,
         "comparisons": comparisons,
     }
 
@@ -541,11 +722,29 @@ def main(argv: list[str] | None = None) -> int:
     payload = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.output is not None:
         args.output.write_text(payload, encoding="utf-8")
+    disagreement_path = args.audio_disagreement_output
+    if disagreement_path is None and args.output is not None:
+        disagreement_path = args.output.parent / "audio-disagreement-clips.json"
+    if disagreement_path is not None:
+        disagreement_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "hooktheory_audio_disagreements_v1",
+                    "audio_disagreement_clips": report["audio_disagreement_clips"],
+                    "clips": report["audio_disagreement_details"],
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
     print(payload, end="")
     return 1 if (
         report["missing_simplified_clips"]
         or report["symbolic_mismatch_clips"]
         or report["meter_mismatch_clips"]
+        or report["audit_violation_clips"]
     ) else 0
 
 

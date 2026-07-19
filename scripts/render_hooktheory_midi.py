@@ -19,6 +19,14 @@ from music_critic.adapters import (
 from music_critic.adapters._json_stream import iter_jsonl, iter_object_records
 from music_critic.data import CanonicalPiece, dump_piece
 from music_critic.exporters import MidiRenderConfig, MidiRenderReport, write_piece_midi
+try:
+    from scripts.audit_hooktheory_midi_ambiguities import analyze_piece_ambiguities
+    from scripts.compare_hooktheory_midi_rendering import (
+        build_report as build_comparison_report,
+    )
+except ModuleNotFoundError:  # Direct ``python scripts/...`` execution.
+    from audit_hooktheory_midi_ambiguities import analyze_piece_ambiguities
+    from compare_hooktheory_midi_rendering import build_report as build_comparison_report
 
 
 REPORT_SCHEMA_VERSION = "hooktheory_midi_render_manifest_v1"
@@ -274,6 +282,11 @@ def _piece_summary(piece: CanonicalPiece) -> dict[str, Any]:
     }
 
 
+def _time_text(value: Any) -> str:
+    fraction = value.to_fraction()
+    return str(fraction.numerator) if fraction.denominator == 1 else f"{fraction.numerator}/{fraction.denominator}"
+
+
 def _listening_entry(
     piece: CanonicalPiece,
     *,
@@ -282,19 +295,56 @@ def _listening_entry(
     coverage_tags: tuple[str, ...],
     midi_name: str,
     json_name: str,
+    report_name: str,
+    render_report: MidiRenderReport,
+    ambiguities: dict[str, Any],
 ) -> dict[str, Any]:
-    meter = piece.meter_events[0]
-    tempo = piece.tempo_events[0]
+    focus = list(coverage_tags) or ["melody", "tempo", "meter"]
+    if any(event.denominator == 8 for event in piece.meter_events):
+        focus.extend(
+            (
+                "verify 6/8, 9/8 or 12/8 playback duration",
+                "verify denominator-unit click",
+            )
+        )
+    if ambiguities["same_pitch_overlap_pairs"]:
+        focus.append("same-pitch overlap: MIDI note-off pairing is diagnostic only")
+    if ambiguities["channel_program_conflict_pairs"]:
+        focus.append("program conflict: verify channel timbre manually")
     return {
         "clip_id": clip_id,
         "case_id": case_id,
         "coverage_tags": list(coverage_tags),
         "mode": _active_value(piece, "theory.local_key.mode"),
-        "meter": f"{meter.numerator}/{meter.denominator}",
-        "microseconds_per_quarter": tempo.microseconds_per_quarter,
+        "meter_regions": [
+            {
+                "onset_qn": _time_text(event.onset_qn),
+                "numerator": event.numerator,
+                "denominator": event.denominator,
+            }
+            for event in piece.meter_events
+        ],
+        "tempo_events": [
+            {
+                "onset_qn": _time_text(event.onset_qn),
+                "microseconds_per_quarter": event.microseconds_per_quarter,
+            }
+            for event in piece.tempo_events
+        ],
+        "duration_qn": _time_text(piece.duration_qn),
+        "note_count": len(piece.notes),
+        "ticks_per_quarter": render_report.ticks_per_quarter,
+        "exact_timing": render_report.exact_timing,
+        "timing_quantized": render_report.timing_quantized,
+        "maximum_quantization_error_qn": _time_text(render_report.maximum_quantization_error_qn),
+        "same_pitch_overlap_pairs": ambiguities["same_pitch_overlap_pairs"],
+        "channel_program_conflict_pairs": ambiguities["channel_program_conflict_pairs"],
+        "audio_alignment_status": "pending_comparison",
+        "audio_onset_p95_seconds": None,
         "midi_path": midi_name,
         "canonical_json_path": json_name,
-        "listening_focus": list(coverage_tags) or ["melody", "tempo", "meter"],
+        "render_report_path": report_name,
+        "diagnostic_focus": focus,
     }
 
 
@@ -306,6 +356,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path("data/HookTheory/Hooktheory_Raw.json/4_merged.json"),
     )
     parser.add_argument("--structure-root", type=Path)
+    parser.add_argument(
+        "--simplified-path",
+        type=Path,
+        default=Path("data/HookTheory/Hooktheory.json"),
+    )
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--clip-id", action="append", default=[])
     parser.add_argument("--manifest", type=Path)
@@ -383,6 +438,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     results: list[dict[str, Any]] = []
     listening: list[dict[str, Any]] = []
+    ambiguity_items: list[dict[str, Any]] = []
     failed = 0
     for clip_id, case_id, tags in selected:
         if args.hide_targets and "target_hiding" not in tags:
@@ -407,6 +463,8 @@ def main(argv: list[str] | None = None) -> int:
             report = write_piece_midi(
                 piece, args.output_dir / midi_name, config=render_config
             )
+            ambiguities = analyze_piece_ambiguities(piece, example_limit=10)
+            ambiguity_items.append(ambiguities)
             report_document = {
                 "schema_version": REPORT_SCHEMA_VERSION,
                 "clip_id": clip_id,
@@ -414,6 +472,7 @@ def main(argv: list[str] | None = None) -> int:
                 "midi_path": midi_name,
                 "piece": _piece_summary(piece),
                 "render": _report_dict(report),
+                "midi_ambiguities": ambiguities,
             }
             (args.output_dir / report_name).write_text(
                 json.dumps(report_document, indent=2, sort_keys=True) + "\n",
@@ -437,6 +496,9 @@ def main(argv: list[str] | None = None) -> int:
                     coverage_tags=tags,
                     midi_name=midi_name,
                     json_name=json_name,
+                    report_name=report_name,
+                    render_report=report,
+                    ambiguities=ambiguities,
                 )
             )
         except HookTheoryAdapterError as exc:
@@ -475,6 +537,80 @@ def main(argv: list[str] | None = None) -> int:
     (args.output_dir / "render-manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
+    ambiguity_report = {
+        "schema_version": "hooktheory_midi_ambiguity_audit_v1",
+        "scope": "rendered review-package clips",
+        "total_clips": len(ambiguity_items),
+        "total_notes": sum(item["note_count"] for item in ambiguity_items),
+        "clips_with_same_pitch_overlaps": sum(item["same_pitch_overlap_pairs"] > 0 for item in ambiguity_items),
+        "same_pitch_overlap_pairs": sum(item["same_pitch_overlap_pairs"] for item in ambiguity_items),
+        "same_pitch_nested_pairs": sum(item["same_pitch_nested_pairs"] for item in ambiguity_items),
+        "clips_with_channel_program_conflicts": sum(item["channel_program_conflict_pairs"] > 0 for item in ambiguity_items),
+        "channel_program_conflict_pairs": sum(item["channel_program_conflict_pairs"] for item in ambiguity_items),
+        "same_pitch_overlap_examples": [
+            example
+            for item in ambiguity_items
+            for example in item["same_pitch_overlap_examples"]
+        ][:10],
+        "channel_program_conflict_examples": [
+            example
+            for item in ambiguity_items
+            for example in item["channel_program_conflict_examples"]
+        ][:10],
+    }
+    (args.output_dir / "ambiguity-report.json").write_text(
+        json.dumps(ambiguity_report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    comparison_failed = False
+    if manifest["rendered_clips"]:
+        comparison = build_comparison_report(
+            argparse.Namespace(
+                simplified_path=args.simplified_path,
+                render_dir=args.output_dir,
+                render_manifest=args.output_dir / "render-manifest.json",
+                output=args.output_dir / "comparison-report.json",
+                audio_disagreement_output=args.output_dir / "audio-disagreement-clips.json",
+                example_limit=10,
+            )
+        )
+        (args.output_dir / "comparison-report.json").write_text(
+            json.dumps(comparison, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        (args.output_dir / "audio-disagreement-clips.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "hooktheory_audio_disagreements_v1",
+                    "audio_disagreement_clips": comparison["audio_disagreement_clips"],
+                    "clips": comparison["audio_disagreement_details"],
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        by_clip = {item["clip_id"]: item for item in comparison["comparisons"]}
+        disagreement_focus = [
+            "compare playback speed with source",
+            "inspect alignment drift",
+            "verify tempo interpretation",
+        ]
+        for entry in listening:
+            item = by_clip.get(entry["clip_id"])
+            if item is None:
+                continue
+            entry["audio_alignment_status"] = item["audio_alignment_status"]
+            entry["audio_onset_p95_seconds"] = item["audio_onset_absolute_error_seconds"]["p95"]
+            if item["audio_alignment_status"] == "disagreeing":
+                entry["diagnostic_focus"].extend(disagreement_focus)
+        comparison_failed = bool(
+            comparison["missing_simplified_clips"]
+            or comparison["symbolic_mismatch_clips"]
+            or comparison["meter_mismatch_clips"]
+            or comparison["audit_violation_clips"]
+        )
     (args.output_dir / "listening-manifest.json").write_text(
         json.dumps(
             {
@@ -488,7 +624,7 @@ def main(argv: list[str] | None = None) -> int:
         encoding="utf-8",
     )
     print(json.dumps(manifest, indent=2, sort_keys=True))
-    return 1 if failed else 0
+    return 1 if failed or comparison_failed else 0
 
 
 if __name__ == "__main__":

@@ -37,6 +37,12 @@ defaults are velocity 96, program 0, and channel 0. Percussion source notes are
 not copied into the melody track. Clicks use channel index 9, MIDI notes 37 and
 31, and velocity 80.
 
+There is deliberately no MIDI channel allocator. Canonical channel/program
+values are emitted without moving notes or resolving conflicts between tracks;
+channel 9 remains reserved for percussion/click use. Simultaneous different
+programs on one effective channel are reported as a timbre ambiguity, but the
+piece is still rendered and no timbre guarantee is made for that interval.
+
 ## Exact timing and PPQ
 
 The exporter validates the piece before rendering and collects denominators
@@ -84,6 +90,23 @@ python scripts/render_hooktheory_midi.py \
   --output-dir artifacts/hooktheory_midi
 ```
 
+Permanent review-package form (the production raw and simplified paths are the
+defaults):
+
+```bash
+python scripts/render_hooktheory_midi.py \
+  --manifest tests/fixtures/hooktheory/golden_manifest.json \
+  --output-dir artifacts/hooktheory_midi_review \
+  --allow-quantization
+```
+
+Full-corpus ambiguity audit without corpus MIDI rendering:
+
+```bash
+python scripts/audit_hooktheory_midi_ambiguities.py \
+  --output artifacts/hooktheory_midi_review/corpus-ambiguity-report.json
+```
+
 `--deterministic-sample` chooses stable lexicographic representatives for
 major, minor, every observed scale mode, 6/8, 9/8, 12/8, multiple meters,
 multiple tempos, fractional timing, and a shared `ori_uid`. `--hide-targets`
@@ -91,7 +114,12 @@ provides the target-hiding rendering condition. Generated MIDI and listening
 artifacts remain outside version control.
 
 The renderer writes exact canonical JSON, MIDI, and a per-clip report, plus
-batch and listening manifests. Missing payloads are reported as expected skips.
+batch and listening manifests. The same command also writes
+`comparison-report.json`, `audio-disagreement-clips.json`, and
+`ambiguity-report.json`; each listening entry includes meter/tempo regions,
+mode, duration, note count, PPQ/exactness/error, ambiguity counts, audio status,
+onset p95, diagnostic focus, and artifact paths. Missing payloads are reported
+as expected skips. `artifacts/` and generated MIDI remain ignored by Git.
 
 ## Independent comparison
 
@@ -99,7 +127,16 @@ batch and listening manifests. Missing payloads are reported as expected skips.
 It reconstructs reference pitch as `60 + 12 * octave + pitch_class`, maps
 simplified source-beat boundaries through simplified meter regions, and compares
 them with MIDI events. Strict symbolic equality is reported separately from
-acceptance within a renderer-declared quantization bound.
+acceptance. The audit derives its endpoint bound independently from the parsed
+MIDI file as `1 / (2 * PPQ)` qn; it never uses
+`MidiRenderReport.maximum_quantization_error_qn` as the acceptance tolerance.
+It directly measures onset, offset, and duration errors as exact `Fraction`
+values. Exact renders must observe zero symbolic error. Quantized renders must
+stay within the PPQ-derived bound, with zero technical slack in the current
+all-rational implementation. The exporter-reported maximum is only
+cross-checked: it must not exceed the PPQ bound or under-report observed
+endpoint error. Any independent or report cross-check violation makes the
+comparison command exit nonzero.
 
 Audio-aligned metrics use monotonic refined alignment when available, otherwise
 user alignment, normalized to local beat zero. Audio comparison is restricted
@@ -108,11 +145,49 @@ deviation rather than requiring performance alignment to equal symbolic tempo.
 Per-clip counts, pairing, pitch/timing errors, tempo/meter status, quality flags,
 and bounded examples accompany aggregate median, p90, and p95 metrics.
 
+Audio results are explicitly partitioned into symbolic-accepted,
+audio-agreeing, audio-disagreeing, and audio-ineligible clips. Disagreement
+details are also written separately with alignment source, aligned-note count,
+onset and duration median/p90/p95, meter, tempo, and quality flags. Audio
+disagreement is evidence about source alignment/tempo assumptions, not an
+exporter error.
+
+## Guarantee boundary and ambiguity audit
+
+For the HookTheory golden comparison, the semantic guarantee covers melody
+pitch, onset, duration, canonical tempo, canonical meter, and piece duration.
+For a generic `CanonicalPiece`, exact representable timing, pitch, tempo, and
+meter are rendered faithfully, but SMF does not promise full
+`CanonicalPiece` identity. In particular, same-pitch overlapping notes on one
+canonical track/effective channel can be ambiguous under MIDI note-off pairing;
+program conflicts can make timbre ambiguous; and provenance, targets,
+annotations, and otherwise unrepresentable data do not round-trip as canonical
+identity.
+
+`scripts/audit_hooktheory_midi_ambiguities.py` independently scans canonical
+notes without changing exporter behavior. It classifies strict interval
+overlaps for the same canonical track, effective channel, and pitch (including
+nested pairs), and simultaneous different effective programs on the same MIDI
+channel. Adjacent notes, different tracks, and different channels are not
+same-pitch overlap findings. The exporter continues to render every finding;
+it does not reject, shift channels, or rewrite programs.
+
+The 2026-07-20 streaming corpus audit covered all 26,175 usable clips and
+1,228,022 canonical notes. It found 1,802 same-pitch overlap pairs in 102 clips,
+including 1,627 nested pairs. It found zero channel/program conflict clips and
+zero conflict pairs. Only bounded examples are retained; no corpus-wide MIDI
+batch is created.
+
 ## Current golden result
 
 The 2026-07-20 opt-in run selected all 19 golden cases: 18 rendered and the
 required missing payload was skipped. Seventeen renders were strictly exact.
 `ANmplRlZmyM` requires exact PPQ 500000000000000, so its opt-in PPQ-960 render
 reported maximum error `29/1500000000000000` qn. The independent comparison
-accepted all 18: 17 strictly exact, one within its declared bound, zero pitch
-mismatches, zero note-count mismatches, and zero meter disagreements.
+accepted all 18: 17 strictly exact, one within its independent PPQ-derived
+bound, zero pitch mismatches, zero note-count mismatches, zero meter
+disagreements, and zero independent/report cross-check violations. The review
+set contains no same-pitch overlaps or program conflicts. Audio classification
+is seven agreeing, nine disagreeing, and two ineligible clips; the nine
+disagreements are retained in `audio-disagreement-clips.json` and do not fail
+rendering.

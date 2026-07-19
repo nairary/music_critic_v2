@@ -17,6 +17,11 @@ from music_critic.adapters.hooktheory import (
 from music_critic.data import dump_piece, load_piece
 from music_critic.exporters import MidiRenderConfig, write_piece_midi
 from scripts.compare_hooktheory_midi_rendering import build_parser, build_report
+from scripts.audit_hooktheory_midi_ambiguities import (
+    build_parser as build_ambiguity_parser,
+    build_report as build_ambiguity_report,
+)
+from scripts.render_hooktheory_midi import main as render_main
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -254,7 +259,77 @@ def test_all_real_golden_cases_render_round_trip_and_compare_independently(
     assert comparison["compared_clips"] == 18
     assert comparison["note_count_mismatch_clips"] == 0
     assert comparison["meter_mismatch_clips"] == 0
+    assert comparison["canonical_tempo_mismatch_clips"] == 0
+    assert comparison["canonical_meter_mismatch_clips"] == 0
+    assert comparison["canonical_duration_mismatch_clips"] == 0
     assert comparison["symbolic_notes_exact_clips"] == 17
     assert comparison["symbolic_quantization_accepted_clips"] == 1
     assert comparison["symbolic_notes_accepted_clips"] == 18
     assert comparison["symbolic_mismatch_clips"] == 0
+    assert comparison["audit_violation_clips"] == 0
+    assert comparison["symbolic_accepted_clips"] == 18
+    assert (
+        comparison["audio_agreement_clips"]
+        + comparison["audio_disagreement_clips"]
+        + comparison["audio_ineligible_clips"]
+        == 18
+    )
+
+
+def test_real_review_package_generates_every_audit_report(tmp_path: Path) -> None:
+    output = tmp_path / "review-package"
+
+    result = render_main(
+        [
+            "--raw-path",
+            str(RAW_PATH),
+            "--simplified-path",
+            str(SIMPLIFIED_PATH),
+            "--structure-root",
+            str(DATA_ROOT),
+            "--manifest",
+            str(FIXTURE_ROOT / "golden_manifest.json"),
+            "--output-dir",
+            str(output),
+            "--allow-timing-quantization",
+        ]
+    )
+
+    assert result == 0
+    for name in (
+        "render-manifest.json",
+        "listening-manifest.json",
+        "comparison-report.json",
+        "audio-disagreement-clips.json",
+        "ambiguity-report.json",
+    ):
+        assert (output / name).is_file(), name
+    render_manifest = json.loads(
+        (output / "render-manifest.json").read_text(encoding="utf-8")
+    )
+    assert render_manifest["rendered_clips"] == 18
+    assert render_manifest["skipped_missing_payload"] == 1
+    comparison = json.loads(
+        (output / "comparison-report.json").read_text(encoding="utf-8")
+    )
+    assert comparison["symbolic_accepted_clips"] == 18
+    assert comparison["audit_violation_clips"] == 0
+
+
+def test_full_corpus_ambiguity_audit_streams_all_usable_clips() -> None:
+    args = build_ambiguity_parser().parse_args(
+        ["--raw-path", str(RAW_PATH), "--example-limit", "4"]
+    )
+
+    report = build_ambiguity_report(args)
+
+    assert report["total_clips"] == 26_178
+    assert report["usable_clips"] == 26_175
+    assert report["missing_payload_clips"] == 3
+    assert report["failed_clips"] == 0
+    assert report["total_notes"] == 1_228_022
+    assert report["clips_with_same_pitch_overlaps"] == 102
+    assert report["same_pitch_overlap_pairs"] == 1_802
+    assert report["same_pitch_nested_pairs"] == 1_627
+    assert report["clips_with_channel_program_conflicts"] == 0
+    assert report["channel_program_conflict_pairs"] == 0

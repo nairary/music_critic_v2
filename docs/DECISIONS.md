@@ -326,3 +326,25 @@ This log is append-only.
   excessive-LCM events carry a rational error bound. Rendering remains absent
   from the data, graph, model, training, and inference dependency paths. Chord
   voicing, audio synthesis, and unsupported harmony semantics remain deferred.
+
+## 2026-07-20 — ADR-025: MIDI review acceptance and ambiguity are independent diagnostics
+
+- Status: Accepted for Phase 2B.2 review.
+- Context: An independent comparison cannot use an exporter-reported error as
+  its own tolerance. Standard MIDI also cannot uniquely preserve every
+  canonical identity: same-pitch overlapping notes share note-off semantics,
+  and simultaneous programs on one channel share channel state.
+- Decision: Derive the comparison endpoint bound only from parsed MIDI PPQ as
+  `1/(2*PPQ)`, directly measure exact onset/offset/duration error, require zero
+  observed error for exact renders, and use the exporter maximum only as a
+  bounded consistency check. Audit same-track/effective-channel/pitch interval
+  overlaps and same-channel simultaneous program conflicts in separate
+  diagnostics. Preserve canonical channel/program values with no allocator;
+  render findings unchanged, reserve channel 9 for percussion/click, and make
+  audio disagreement non-fatal alignment evidence.
+- Consequences: HookTheory golden guarantees cover melody pitch/timing, tempo,
+  meter, and piece duration. Generic exact representable timing/pitch/tempo/meter
+  remain supported, but full `CanonicalPiece` identity and timbre are not
+  promised for ambiguity groups, unrepresentable data, targets, provenance, or
+  annotations. The full corpus has 1,802 same-pitch overlap pairs in 102 clips,
+  1,627 nested pairs, and zero channel/program conflict pairs.
