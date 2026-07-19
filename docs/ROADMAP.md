@@ -97,7 +97,7 @@ document is the phase execution checklist.
 ## Phase 2 — Generic MIDI and HookTheory adapters
 
 - Status: In progress
-- Sequence: Phase 2A.1 is current after the completed canonical data layer.
+- Sequence: Phase 2A.1 is completed; Phase 2B.0 is the current next slice.
 - Goal: map unlabeled MIDI and HookTheory into the same canonical schema.
 - Dependencies: Phase 1.
 - Outputs: adapter interface, generic MIDI adapter, HookTheory adapter.
@@ -107,9 +107,9 @@ document is the phase execution checklist.
 
 ### Phase 2A.1 — Generic MIDI adapter MVP
 
-- Status: Current
-- Implementation: implementation and real-data remediation are complete on the
-  phase branch; Phase 2A.1 remains pending final review.
+- Status: Completed
+- Implementation: accepted after synthetic tests, strict bounded POP909/PDMX
+  integration, and separate 100-file real-data diagnostic smoke runs.
 - Goal: convert type-0/type-1 PPQN MIDI into valid canonical pieces with exact
   tick timing, deterministic note pairing, and serialization round trips.
 - Outputs: the minimal public MIDI adapter API, synthetic tests, and a bounded
@@ -122,7 +122,8 @@ document is the phase execution checklist.
 
 ### Phase 2B.0 — HookTheory legacy audit and golden fixtures
 
-- Status: Pending
+- Status: Current
+- Sequence: next implementation slice after Phase 2A.1 closure.
 - Goal: verify the documented migration contract against bounded real examples
   and lock golden fixtures before production conversion code is written.
 - Outputs: source examples, exact expected canonical mappings, and diagnostic

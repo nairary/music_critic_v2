@@ -12,7 +12,10 @@
 - Current branch: `phase/2a-generic-midi-adapter-mvp`
 - Current phase: Phase 2 — generic MIDI and HookTheory adapters
 - Phase 2 state: In progress
-- Current task: Phase 2A.1 — generic MIDI adapter MVP
+- Phase 2A.1: Accepted and Completed
+- Accepted Phase 2A.1 implementation SHA:
+  `32d68e8cb446d9b5dd57bfea1d28b94ccce46274`
+- Current task: Phase 2B.0 — HookTheory legacy audit and golden fixtures
 
 ## Phase 2 migration status
 
@@ -23,8 +26,8 @@
   `hooktheory_sd_octave_to_midi_v1`.
 - Applied harmony is deferred from the first HookTheory adapter.
 - The HookTheory adapter has not been implemented.
-- Phase 2B.0 legacy audit/golden fixtures and Phase 2B.1 adapter implementation
-  remain pending.
+- Phase 2B.0 legacy audit/golden fixtures is the next task; Phase 2B.1 adapter
+  implementation remains pending.
 - No graph, dataset, model, SSL, training, preference, quality, inference, or
   GRPO work has started.
 
@@ -152,6 +155,11 @@ the adapter contract was not broadened merely to force 100% conversion. No
 hang, uncontrolled memory growth, parser bug, validation escape, or
 serialization mismatch was observed.
 
+The mid-bar meter-change rejection and its single PDMX diagnostic failure are
+accepted for the Phase 2A.1 MVP. POP909's warning total requires later
+warning-code analysis before making training-data quality decisions, but it is
+not a Phase 2A.1 merge blocker.
+
 ## Phase 2A.1 scope confirmation
 
 - Phase 1 production code, Phase 1 data tests, the accepted schema/data
@@ -165,8 +173,8 @@ serialization mismatch was observed.
   status observed before this task. No legacy file was modified.
 - HookTheory remains documentation-only. No graph, dataset, model, SSL,
   training, preference, quality, inference, or GRPO code was added.
-- Phase 2A.1 remains Current and pending final review; it is not marked
-  Completed.
+- Phase 2A.1 is accepted and Completed. Phase 2B.0 is the next implementation
+  slice; no HookTheory implementation or golden-fixture extraction has started.
 
 ## Final Phase 1 result
 
