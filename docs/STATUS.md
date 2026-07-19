@@ -27,6 +27,8 @@
   `b1df77737f641b705e3c48724b2741c7a022a2e4`
 - Phase 2B.2: Ready for review
 - Phase 2B.2 starting SHA: `3d814a2e2db7434ee6c666619dc287e5eb101101`
+- Phase 2B.2 implementation SHA:
+  `f3799765b74b17cc3a493430dc11f2a64a781b74`
 - Current task: review and close Phase 2B.2 canonical MIDI renderer
 
 ## Phase 2 migration status

@@ -165,6 +165,7 @@ document is the phase execution checklist.
 ### Phase 2B.2 — Canonical MIDI renderer
 
 - Status: Ready for review
+- Implementation: `f3799765b74b17cc3a493430dc11f2a64a781b74`
 - Dependencies: accepted Phase 2A.1 and Phase 2B.1 adapters.
 - Goal: render any valid `CanonicalPiece` to diagnostic standard MIDI while
   preserving representable rational timing, canonical tempo, canonical meter,
