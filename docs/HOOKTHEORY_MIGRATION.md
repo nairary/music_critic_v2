@@ -62,11 +62,12 @@ cross-split group. Null-`ori_uid` clips remain individually identified; the
 adapter must not fabricate group identity.
 
 `data/HookTheory/Hooktheory.json` is a crosswalk source, classified as the
-upstream Sheet Sage simplified alternate schema. Its alignment metadata and
-absolute meter/key/melody/harmony representations may corroborate or diagnose
-the raw TheoryTab record, but they do not silently replace raw fields. The
-audit found 26,175 matches, three raw-only missing-payload records, no
-simplified-only records, and no split or nested-identifier mismatches.
+upstream Sheet Sage simplified alternate schema. Its meter representation is
+semantically crosswalked against the raw TheoryTab record; its alignment,
+key, melody, and harmony representations are inventoried for availability and
+shape only and do not silently replace raw fields. The audit found 26,175
+matches, three raw-only missing-payload records, no simplified-only records,
+and no split or nested-identifier mismatches.
 
 ## Coordinate systems
 
@@ -91,6 +92,27 @@ preserved.
 Multiple key, tempo, and meter regions are meaningful and must not be collapsed
 to the first region. The future adapter must preserve all valid regions in
 canonical order.
+
+## Meter mapping
+
+The raw-to-simplified corpus comparison covers all 26,175 matched records. It
+compares `raw beat - 1` with simplified `beat`, `raw numBeats` with simplified
+`beats_per_bar`, and raw `beatUnit` values `1` and `3` with simplified
+`beat_unit` values `4` and `8`, respectively.
+
+All 27,216 paired regions match exactly. One additional raw region is absent
+from the simplified record for clip `nvgy-WaRgkA`, producing one count mismatch
+and one missing-simplified region but no value mismatch. This is simplified
+coverage loss, not contradictory mapping evidence. The proposed canonical
+mapping is therefore:
+
+```text
+numerator = raw numBeats
+denominator = 4 if raw beatUnit == 1 else 8
+```
+
+The adapter must still preserve and diagnose invalid or unsupported raw meter
+values rather than applying this expression blindly outside the audited domain.
 
 ## Melody records and derived pitch
 
@@ -192,13 +214,11 @@ ordinary MIDI-observable evidence.
 
 ## Unresolved issues
 
-The Phase 2B.0 audit confirms that `beatUnit` has observed values `1` and `3`,
-and upstream establishes that `3` groups three source beats into one felt beat.
-The exact V2 numerator/denominator mapping remains unresolved. It also confirms that
-`alternate` is either empty or `_`, and that every audited `pedal` is null.
-The following remain open for adapter implementation:
+The Phase 2B.0 audit resolves the canonical meter fraction over the audited
+domain. It also confirms that `alternate` is either empty or `_`, and that
+every audited `pedal` is null. The following remain open for adapter
+implementation:
 
-- mapping raw meter grouping to exact V2 numerator and denominator;
 - `alternate` semantics;
 - `pedal` semantics;
 - reliable alignment from audio-section seconds to symbolic clip beats.

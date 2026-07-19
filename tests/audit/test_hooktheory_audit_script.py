@@ -7,6 +7,7 @@ from pathlib import Path
 from scripts.audit_hooktheory_legacy import (
     SHEETSAGE_COMMIT,
     audit_raw,
+    audit_upstream_simplified,
     derive_v1_compatibility_pitch,
     exact_duplicate_regions,
     iter_jsonl,
@@ -83,7 +84,7 @@ def test_synthetic_audit_checks_root8_meter_borrowed_and_decimal_timing(tmp_path
         ],
     }
     path.write_text(json.dumps({"clip": raw_record(payload)}), encoding="utf-8")
-    audit, _, candidates = audit_raw(path, candidate_limit=12)
+    audit, _, _, candidates = audit_raw(path, candidate_limit=12)
     findings = audit["audited_findings"]
     assert findings["raw_root_8"]["corpus_status"] == "observed"
     assert findings["negative_root"]["count"] == 1
@@ -100,3 +101,76 @@ def test_synthetic_audit_checks_root8_meter_borrowed_and_decimal_timing(tmp_path
 
 def test_upstream_pin_is_exact() -> None:
     assert SHEETSAGE_COMMIT == "bbdd7b7b6a5fb845828f82790acdceb03a197779"
+
+
+def test_semantic_meter_crosswalk_accepts_exact_values_with_raw_only_region(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "simplified.json"
+    path.write_text(json.dumps({
+        "a": {
+            "split": "TRAIN",
+            "hooktheory": {"id": "a"},
+            "annotations": {"meters": [
+                {"beat": 0, "beats_per_bar": 12, "beat_unit": 8},
+                {"beat": 24, "beats_per_bar": 4, "beat_unit": 4},
+            ]},
+        },
+        "b": {
+            "split": "TRAIN",
+            "hooktheory": {"id": "b"},
+            "annotations": {"meters": []},
+        },
+    }), encoding="utf-8")
+    crosswalk = audit_upstream_simplified(
+        path,
+        {"a": "train", "b": "train"},
+        {
+            "a": {"meters": [
+                {"beat": 1, "numBeats": 12, "beatUnit": 3},
+                {"beat": 25, "numBeats": 4, "beatUnit": 1},
+            ]},
+            "b": {"meters": [
+                {"beat": 1, "numBeats": 8, "beatUnit": 1},
+            ]},
+        },
+    )
+    meter = crosswalk["meter_semantic_comparison"]
+    assert meter["raw_meter_regions"] == 3
+    assert meter["simplified_meter_regions"] == 2
+    assert meter["total_compared_meter_regions"] == 2
+    assert meter["exact_matches"] == 2
+    assert meter["missing_raw_regions"] == 0
+    assert meter["missing_simplified_regions"] == 1
+    assert meter["count_mismatches"] == 1
+    assert meter["value_mismatches"] == 0
+    assert meter["canonical_mapping"]["accepted"] is True
+    assert {item["kind"] for item in meter["bounded_mismatch_examples"]} == {
+        "count_mismatch", "missing_simplified_region"
+    }
+
+
+def test_semantic_meter_crosswalk_rejects_value_mismatch(tmp_path: Path) -> None:
+    path = tmp_path / "simplified.json"
+    path.write_text(json.dumps({
+        "clip": {
+            "split": "TRAIN",
+            "hooktheory": {"id": "clip"},
+            "annotations": {"meters": [
+                {"beat": 0, "beats_per_bar": 6, "beat_unit": 4}
+            ]},
+        }
+    }), encoding="utf-8")
+    crosswalk = audit_upstream_simplified(
+        path,
+        {"clip": "train"},
+        {"clip": {"meters": [
+            {"beat": 1, "numBeats": 6, "beatUnit": 3}
+        ]}},
+    )
+    meter = crosswalk["meter_semantic_comparison"]
+    assert meter["total_compared_meter_regions"] == 1
+    assert meter["exact_matches"] == 0
+    assert meter["value_mismatches"] == 1
+    assert meter["bounded_mismatch_examples"][0]["kind"] == "value_mismatch"
+    assert meter["canonical_mapping"]["accepted"] is False

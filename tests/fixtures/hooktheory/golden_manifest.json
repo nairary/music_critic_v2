@@ -32,7 +32,8 @@
     "midi_anchor_72": {"classification": "Music Critic V1 absolute-octave compatibility convention", "corpus_status": "raw inputs observed separately", "upstream_status": "not an upstream TheoryTab invariant"},
     "root_8_bvii": {"classification": "Music Critic V1 synthetic compatibility behavior", "corpus_status": "not_observed", "upstream_status": "rejected for sounding chords"},
     "alternate_underscore": {"classification": "observed m-a-p corpus anomaly", "semantic_status": "unresolved"},
-    "beat_unit_3": {"classification": "observed m-a-p corpus plus upstream grouping behavior", "group_size_source_beats": 3, "canonical_meter_fraction": "unresolved"}
+    "beat_unit_3": {"classification": "observed m-a-p corpus plus corpus-wide semantic Sheet Sage crosswalk", "group_size_source_beats": 3, "canonical_meter_fraction": {"numerator": "numBeats", "denominator": 8}},
+    "beat_unit_1": {"classification": "observed m-a-p corpus plus corpus-wide semantic Sheet Sage crosswalk", "group_size_source_beats": 1, "canonical_meter_fraction": {"numerator": "numBeats", "denominator": 4}}
   },
   "fixture_schema_version": "hooktheory_golden_v1",
   "legacy_commit": "2d8281f31cc9ad9c8fecaf332da0c61e0e949415",
@@ -76,7 +77,6 @@
     "alternate semantics",
     "applied harmony semantics",
     "audio-seconds to symbolic alignment",
-    "raw meter grouping to exact V2 numerator and denominator",
     "pedal semantics"
   ]
 }

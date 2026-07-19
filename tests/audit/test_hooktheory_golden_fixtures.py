@@ -47,7 +47,7 @@ VALID_TAGS = {
     "structure_matched",
     "structure_unmatched_symbolic",
     "double_flat_bb1",
-    "unresolved_meter",
+    "resolved_meter",
 }
 REQUIRED_OBSERVED_TAGS = VALID_TAGS - {"borrowed_empty"}
 FORBIDDEN_RAW_FEATURES = {"sd_id", "root_id", "type_id", "inversion_id", "applied_id"}
@@ -125,7 +125,9 @@ def test_case_shape_ids_tags_and_coverage() -> None:
             "dataset_relative_path", "split", "clip_id", "ori_uid",
             "source_record_locator",
         }
-        assert reference["dataset_relative_path"].startswith("data/HookTheory/")
+        assert reference["dataset_relative_path"] == (
+            "data/HookTheory/Hooktheory_Raw.json/4_merged.json"
+        )
     assert REQUIRED_OBSERVED_TAGS <= observed_tags
     assert "raw_root_8_bvii" in manifest["not_observed_categories"]
     assert "borrowed_stringified_pitch_class_list" in manifest["not_observed_categories"]
@@ -229,11 +231,19 @@ def test_observed_meter_and_anomaly_cases_are_real_and_mask_safe() -> None:
         "raw_num_beats": 12,
         "raw_beat_unit": 3,
         "felt_group_size_source_beats": 3,
-        "canonical_numerator": None,
-        "canonical_denominator": None,
-        "status": "unresolved",
+        "canonical_numerator": 12,
+        "canonical_denominator": 8,
+        "status": "resolved_by_semantic_crosswalk",
     }
-    assert by_tag["num_beats_8"]["expected_v2_contract"]["meter"][0]["raw_num_beats"] == 8
+    simple = by_tag["num_beats_8"]["expected_v2_contract"]["meter"][0]
+    assert simple == {
+        "raw_num_beats": 8,
+        "raw_beat_unit": 1,
+        "felt_group_size_source_beats": 1,
+        "canonical_numerator": 8,
+        "canonical_denominator": 4,
+        "status": "resolved_by_semantic_crosswalk",
+    }
     assert by_tag["alternate_underscore"]["raw_excerpt"]["chords"][0]["value"]["alternate"] == "_"
     null_case = by_tag["null_note_beat"]
     assert null_case["raw_excerpt"]["notes"][0]["value"]["beat"] is None

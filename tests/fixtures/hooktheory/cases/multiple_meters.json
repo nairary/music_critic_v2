@@ -14,11 +14,11 @@
     "timing": [{"raw_beat_decimal": "3", "canonical_onset_qn": "2/1", "raw_duration_decimal": "1", "canonical_duration_qn": "1/1"}],
     "melody": [{"raw_sd": "5", "octave": 1, "tonic_pc": 3, "sd_chromatic_offset": 7, "is_rest": false, "derived_pitch": 94, "pitch_source": "derived", "provenance_method": "hooktheory_sd_octave_to_midi_v1"}],
     "chords": [],
-    "regions": {"meter_onsets_qn": ["0/1", "48/1", "52/1"], "beat_unit_interpretation": "unresolved"},
+    "regions": {"meter_onsets_qn": ["0/1", "48/1", "52/1"], "beat_unit_interpretation": {"raw_beat_unit": 1, "canonical_denominator": 4, "status": "resolved_by_semantic_crosswalk"}},
     "source_group_id": null,
     "structure": {"coordinate_unit": "audio_seconds", "section_alignment_status": "unresolved_audio_seconds", "target_array_expected": false, "annotation_span_expected": false},
     "unavailable_target": {"mask": false, "value": null, "source": null, "confidence": null, "provenance": null}
   },
-  "expected_diagnostics": ["hooktheory.structure_unmatched_symbolic_clip", "hooktheory.beat_unit_unresolved"],
+  "expected_diagnostics": ["hooktheory.structure_unmatched_symbolic_clip"],
   "evidence": {"source_record_sha256": "c250937151ab2d3083202304ee1be2a43ca5e5dd22d2d5de79ad22f14ad3b7cb", "status": "confirmed_real_data"}
 }

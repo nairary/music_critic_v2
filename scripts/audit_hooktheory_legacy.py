@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 
-REPORT_SCHEMA_VERSION = "hooktheory_legacy_audit_v2"
+REPORT_SCHEMA_VERSION = "hooktheory_legacy_audit_v3"
 BOUNDED_EXAMPLES = 12
 SHEETSAGE_COMMIT = "bbdd7b7b6a5fb845828f82790acdceb03a197779"
 SD_TO_CHROMATIC = {
@@ -335,9 +335,9 @@ def inventory_file(path: Path, root: Path, prefix: str, *, count: bool) -> dict[
     elif "processed" in path.as_posix() or "timeline" in name:
         role, identifiers = "processed", ["top_level_key", "song_id", "meta.ori_uid"]
     elif path == find_raw_source(root) if prefix == "data/HookTheory" else False:
-        role, identifiers = "raw_legacy", ["top_level_key", "hash"]
+        role, identifiers = "map_raw_theorytab_source", ["top_level_key", "hash"]
     elif name == "hooktheory.json":
-        role, identifiers = "selected_alternate_schema", ["top_level_key", "hooktheory.id"]
+        role, identifiers = "upstream_sheetsage_simplified", ["top_level_key", "hooktheory.id"]
     else:
         role, identifiers = "documentation", []
     return {
@@ -592,7 +592,15 @@ def inspect_event_fields(
             timing_lexemes[str(event["beat"])] += 1
 
 
-def audit_raw(raw_path: Path, candidate_limit: int) -> tuple[dict[str, Any], dict[str, str], dict[str, list[str]]]:
+def audit_raw(
+    raw_path: Path,
+    candidate_limit: int,
+) -> tuple[
+    dict[str, Any],
+    dict[str, str],
+    dict[str, dict[str, Any]],
+    dict[str, list[str]],
+]:
     profiles = {name: FieldProfile() for name in RAW_FIELDS}
     region_profiles = {name: FieldProfile() for name in ("keys", "tempos", "meters")}
     split_counts: Counter[str] = Counter()
@@ -607,6 +615,7 @@ def audit_raw(raw_path: Path, candidate_limit: int) -> tuple[dict[str, Any], dic
     duplicate_counts: Counter[str] = Counter()
     duplicate_examples: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
     clip_splits: dict[str, str] = {}
+    raw_payload_summaries: dict[str, dict[str, Any]] = {}
     missing_json = 0
     unexpected_json = 0
     for top_key, record in iter_top_level_object(raw_path, parse_decimal=True):
@@ -627,6 +636,24 @@ def audit_raw(raw_path: Path, candidate_limit: int) -> tuple[dict[str, Any], dic
             unexpected_json += 1
             add_candidate(candidates, "unexpected_json_payload_type", clip_id)
             continue
+        raw_meters = payload.get("meters")
+        raw_payload_summaries[clip_id] = {
+            "meters": [
+                {
+                    "beat": meter.get("beat"),
+                    "numBeats": meter.get("numBeats"),
+                    "beatUnit": meter.get("beatUnit"),
+                }
+                if isinstance(meter, dict) else bounded_value(meter)
+                for meter in raw_meters
+            ] if isinstance(raw_meters, list) else None,
+            "key_region_count": len(payload["keys"])
+            if isinstance(payload.get("keys"), list) else None,
+            "melody_event_count": len(payload["notes"])
+            if isinstance(payload.get("notes"), list) else None,
+            "harmony_event_count": len(payload["chords"])
+            if isinstance(payload.get("chords"), list) else None,
+        }
         for plural in ("notes", "chords", "keys", "tempos", "meters"):
             value = payload.get(plural)
             if isinstance(value, list):
@@ -716,6 +743,7 @@ def audit_raw(raw_path: Path, candidate_limit: int) -> tuple[dict[str, Any], dic
             },
         },
         clip_splits,
+        raw_payload_summaries,
         bounded_candidates,
     )
 
@@ -732,8 +760,42 @@ def load_object_ids(path: Path) -> tuple[set[str], Counter[str]]:
     return ids, splits
 
 
+def exact_numeric_text(value: Any) -> str | None:
+    if isinstance(value, bool) or not isinstance(value, (int, Decimal)):
+        return None
+    fraction = decimal_fraction(value)
+    return f"{fraction.numerator}/{fraction.denominator}"
+
+
+def raw_meter_semantics(region: Any) -> dict[str, Any]:
+    if not isinstance(region, dict):
+        return {"beat": None, "beats_per_bar": None, "beat_unit": None}
+    beat = region.get("beat")
+    beat_text = None
+    if isinstance(beat, (int, Decimal)) and not isinstance(beat, bool):
+        normalized = decimal_fraction(beat) - 1
+        beat_text = f"{normalized.numerator}/{normalized.denominator}"
+    return {
+        "beat": beat_text,
+        "beats_per_bar": region.get("numBeats"),
+        "beat_unit": {1: 4, 3: 8}.get(region.get("beatUnit")),
+    }
+
+
+def simplified_meter_semantics(region: Any) -> dict[str, Any]:
+    if not isinstance(region, dict):
+        return {"beat": None, "beats_per_bar": None, "beat_unit": None}
+    return {
+        "beat": exact_numeric_text(region.get("beat")),
+        "beats_per_bar": region.get("beats_per_bar"),
+        "beat_unit": region.get("beat_unit"),
+    }
+
+
 def audit_upstream_simplified(
-    path: Path, raw_splits: dict[str, str]
+    path: Path,
+    raw_splits: dict[str, str],
+    raw_payload_summaries: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     """Crosswalk the raw dump with Sheet Sage's simplified alternate schema."""
 
@@ -744,7 +806,14 @@ def audit_upstream_simplified(
     mismatches: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
     mismatch_counts: Counter[str] = Counter()
     selected_matches: list[dict[str, Any]] = []
-    for clip_id, record in iter_top_level_object(path):
+    meter_counts: Counter[str] = Counter()
+    meter_mismatch_examples: list[dict[str, Any]] = []
+
+    def add_meter_example(example: dict[str, Any]) -> None:
+        if len(meter_mismatch_examples) < BOUNDED_EXAMPLES:
+            meter_mismatch_examples.append(bounded_value(example))
+
+    for clip_id, record in iter_top_level_object(path, parse_decimal=True):
         simplified_ids.add(clip_id)
         if not isinstance(record, dict):
             mismatch_counts["unexpected_record_type"] += 1
@@ -786,6 +855,68 @@ def audit_upstream_simplified(
             mismatches["annotations_type"].append(
                 {"clip_id": clip_id, "runtime_type": json_type(annotations)}
             )
+        raw_summary = raw_payload_summaries.get(clip_id)
+        if raw_summary is None:
+            meter_counts["records_missing_raw_summary"] += 1
+        else:
+            raw_meters = raw_summary.get("meters")
+            simplified_meters = annotations.get("meters") if isinstance(annotations, dict) else None
+            if not isinstance(raw_meters, list):
+                meter_counts["records_missing_raw_meter_collection"] += 1
+                raw_meters = []
+            if not isinstance(simplified_meters, list):
+                meter_counts["records_missing_simplified_meter_collection"] += 1
+                simplified_meters = []
+            meter_counts["records_compared"] += 1
+            meter_counts["raw_meter_regions"] += len(raw_meters)
+            meter_counts["simplified_meter_regions"] += len(simplified_meters)
+            if len(raw_meters) != len(simplified_meters):
+                meter_counts["count_mismatches"] += 1
+                add_meter_example({
+                    "kind": "count_mismatch",
+                    "clip_id": clip_id,
+                    "raw_count": len(raw_meters),
+                    "simplified_count": len(simplified_meters),
+                })
+            for index in range(max(len(raw_meters), len(simplified_meters))):
+                if index >= len(raw_meters):
+                    meter_counts["missing_raw_regions"] += 1
+                    add_meter_example({
+                        "kind": "missing_raw_region",
+                        "clip_id": clip_id,
+                        "index": index,
+                        "simplified": simplified_meters[index],
+                    })
+                    continue
+                if index >= len(simplified_meters):
+                    meter_counts["missing_simplified_regions"] += 1
+                    add_meter_example({
+                        "kind": "missing_simplified_region",
+                        "clip_id": clip_id,
+                        "index": index,
+                        "raw": raw_meters[index],
+                        "expected": raw_meter_semantics(raw_meters[index]),
+                    })
+                    continue
+                meter_counts["total_compared_meter_regions"] += 1
+                expected = raw_meter_semantics(raw_meters[index])
+                actual = simplified_meter_semantics(simplified_meters[index])
+                complete_semantics = all(
+                    value is not None for value in expected.values()
+                ) and all(value is not None for value in actual.values())
+                if complete_semantics and expected == actual:
+                    meter_counts["exact_matches"] += 1
+                else:
+                    meter_counts["value_mismatches"] += 1
+                    add_meter_example({
+                        "kind": "value_mismatch",
+                        "clip_id": clip_id,
+                        "index": index,
+                        "raw": raw_meters[index],
+                        "expected": expected,
+                        "simplified": simplified_meters[index],
+                        "actual": actual,
+                    })
         if raw_split is not None and len(selected_matches) < BOUNDED_EXAMPLES:
             selected_matches.append({
                 "clip_id": clip_id,
@@ -795,6 +926,14 @@ def audit_upstream_simplified(
             })
     raw_ids = set(raw_splits)
     matched = raw_ids & simplified_ids
+    meter_mapping_accepted = (
+        meter_counts["total_compared_meter_regions"] > 0
+        and meter_counts["value_mismatches"] == 0
+        and meter_counts["missing_raw_regions"] == 0
+        and meter_counts["records_missing_raw_summary"] == 0
+        and meter_counts["records_missing_raw_meter_collection"] == 0
+        and meter_counts["records_missing_simplified_meter_collection"] == 0
+    )
     return {
         "source": "data/HookTheory/Hooktheory.json",
         "classification": "upstream Sheet Sage simplified alternate schema",
@@ -811,14 +950,47 @@ def audit_upstream_simplified(
             name: values[:BOUNDED_EXAMPLES] for name, values in sorted(mismatches.items())
         },
         "selected_match_examples": selected_matches,
+        "meter_semantic_comparison": {
+            "records_compared": meter_counts["records_compared"],
+            "raw_meter_regions": meter_counts["raw_meter_regions"],
+            "simplified_meter_regions": meter_counts["simplified_meter_regions"],
+            "total_compared_meter_regions": meter_counts["total_compared_meter_regions"],
+            "exact_matches": meter_counts["exact_matches"],
+            "missing_raw_regions": meter_counts["missing_raw_regions"],
+            "missing_simplified_regions": meter_counts["missing_simplified_regions"],
+            "count_mismatches": meter_counts["count_mismatches"],
+            "value_mismatches": meter_counts["value_mismatches"],
+            "records_missing_raw_summary": meter_counts["records_missing_raw_summary"],
+            "records_missing_raw_meter_collection": meter_counts[
+                "records_missing_raw_meter_collection"
+            ],
+            "records_missing_simplified_meter_collection": meter_counts[
+                "records_missing_simplified_meter_collection"
+            ],
+            "bounded_mismatch_examples": meter_mismatch_examples,
+            "canonical_mapping": {
+                "accepted": meter_mapping_accepted,
+                "numerator": "raw numBeats",
+                "denominator": {"beatUnit=1": 4, "beatUnit=3": 8},
+                "basis": (
+                    "all paired regions match exactly and there are no simplified-only "
+                    "regions; raw-only regions are reported as simplified coverage loss"
+                ),
+            },
+        },
         "field_crosswalk": {
             "identifier": "raw top-level key/hash <-> simplified top-level key/hooktheory.id",
             "split": "raw split <-> simplified split (case-normalized; valid normalized to val)",
             "alignment_metadata": "simplified alignment.{user,refined}.{beats,times}; absent from raw TheoryTab JSON",
-            "meter": "raw meters.{beat,numBeats,beatUnit} <-> simplified annotations.meters.{beat,beats_per_bar,beat_unit}",
-            "key": "raw keys.{beat,tonic,scale} <-> simplified annotations.keys.{beat,tonic_pitch_class,scale_degree_intervals}",
-            "melody": "raw notes.{beat,duration,sd,octave,isRest} <-> simplified annotations.melody.{onset,offset,octave,pitch_class}",
-            "harmony": "raw chords functional/decorative fields <-> simplified annotations.harmony absolute root pitch class, root-position intervals, inversion",
+            "meter_semantically_compared": (
+                "raw beat-1/numBeats/beatUnit mapped to simplified "
+                "beat/beats_per_bar/beat_unit for every matched record"
+            ),
+            "shape_only_not_semantically_compared": {
+                "key": "raw key regions and simplified key annotation fields inventoried only",
+                "melody": "raw note and simplified melody field shapes/counts inventoried only",
+                "harmony": "raw chord and simplified harmony field shapes/counts inventoried only",
+            },
         },
     }
 
@@ -964,8 +1136,12 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     if not simplified_path.is_file():
         raise FileNotFoundError(f"simplified HookTheory source is missing: {simplified_path}")
     inventory = discover_inventory(hooktheory_root, htcanon_root, raw_path)
-    raw_audit, raw_splits, raw_candidates = audit_raw(raw_path, args.candidate_limit)
-    simplified_crosswalk = audit_upstream_simplified(simplified_path, raw_splits)
+    raw_audit, raw_splits, raw_payload_summaries, raw_candidates = audit_raw(
+        raw_path, args.candidate_limit
+    )
+    simplified_crosswalk = audit_upstream_simplified(
+        simplified_path, raw_splits, raw_payload_summaries
+    )
     processed_path = htcanon_root / "HK_processed/hooktheory_processed.json"
     canonical_path = htcanon_root / "HK_processed/canonical_full/hooktheory_canonical.json"
     processed_ids, processed_splits = load_object_ids(processed_path)
@@ -1037,7 +1213,11 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "meter": {
                 "observed_corpus": "beatUnit values 1 and 3",
                 "upstream": "beatUnit=3 groups three source beats into one felt beat",
-                "v2_exact_meter_fraction": "unresolved",
+                "v2_canonical_mapping": {
+                    "numerator": "numBeats",
+                    "denominator": {"beatUnit=1": 4, "beatUnit=3": 8},
+                    "status": "accepted from semantic raw-to-simplified comparison",
+                },
             },
             "structure_join": "normalized_split + audio_path_stem",
             "section_alignment_status": "unresolved_audio_seconds",

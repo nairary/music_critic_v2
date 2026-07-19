@@ -57,11 +57,13 @@ compatibility behavior are never relabeled as upstream semantics.
 `Hooktheory_Raw.json` is a directory, not a JSON file. Its primary merged raw
 object is `Hooktheory_Raw.json/4_merged.json`. The audit reader accepts complete
 top-level JSON objects and the legacy fragment form without outer braces.
+The report inventory roles are `map_raw_theorytab_source` for that merged file
+and `upstream_sheetsage_simplified` for `Hooktheory.json`.
 
 | Relative path | Role / structure | Records | Bytes | SHA-256 |
 |---|---:|---:|---:|---|
-| `data/HookTheory/Hooktheory_Raw.json/4_merged.json` | raw legacy JSON object | 26,178 | 1,503,859,489 | `8ab601050d0b8c8752c3b6bf190d63edefa5fce07735ce823bca6a3922dff833` |
-| `data/HookTheory/Hooktheory.json` | selected alternate-schema JSON object | 26,175 | 308,953,124 | `5e7457df5640170337c6e320d32fe90d6355b5ab96f15dbd3567180a05be9c08` |
+| `data/HookTheory/Hooktheory_Raw.json/4_merged.json` | m-a-p raw TheoryTab source | 26,178 | 1,503,859,489 | `8ab601050d0b8c8752c3b6bf190d63edefa5fce07735ce823bca6a3922dff833` |
+| `data/HookTheory/Hooktheory.json` | upstream Sheet Sage simplified schema | 26,175 | 308,953,124 | `5e7457df5640170337c6e320d32fe90d6355b5ab96f15dbd3567180a05be9c08` |
 | `data/HookTheory/Hooktheory_Train_Segments.json` | train manifest JSON object | 13,560 | 1,831,047 | `f2601eb544f2e5028ffad54d3827912865578fb9ad96e6768b35e4714d5c7207` |
 | `data/HookTheory/Hooktheory_Valid_Segments.json` | val manifest JSON object | 1,333 | 180,037 | `12526962f77c2eb41cd117c8effa678b39c2b350384a7b048b327aff287b0c48` |
 | `data/HookTheory/Hooktheory_Test_Segments.json` | test manifest JSON object | 1,480 | 200,130 | `72be80045d4d28842352383e605e8712d50b3437a07b15faa541ee9d17283d5a` |
@@ -113,7 +115,7 @@ The 26,178 raw records contain 1,338,346 note events, 449,072 chord events,
 | `borrowed` | null 328,325; string 114,290; array 6,457 | null, empty, known mode, unknown `super:2`, and pitch-class arrays observed |
 | `alternate` | string 449,072 | empty string and `_`; semantics unresolved |
 | `pedal` | null 449,072 | no non-null example observed |
-| `beatUnit` | integer 27,217 | values `1` (27,106) and `3` (111); meter-denominator mapping unresolved |
+| `beatUnit` | integer 27,217 | values `1` (27,106) and `3` (111); semantic crosswalk maps them to denominators 4 and 8 |
 | `numBeats` | integer 27,217 | `2,3,4,5,6,8,9,12` |
 
 All raw chord list fields were present. The eight null octaves, 17 null beat
@@ -133,10 +135,10 @@ The corpus-wide `(numBeats, beatUnit)` counts are:
 | `(12, 1)` | 10 | `(12, 3)` | 42 |
 
 Upstream Sheet Sage restricts `beatUnit` to `{1, 3}` and implements
-`beatUnit=3` by grouping three source beats into one felt beat. That grouping
-is upstream evidence. The exact V2 meter numerator and denominator for every
-raw pair remain unresolved; fixtures preserve the raw pair and expose null
-canonical numerator/denominator instead of guessing.
+`beatUnit=3` by grouping three source beats into one felt beat. The corpus-wide
+semantic crosswalk below accepts `numerator = numBeats`, with denominator `4`
+for `beatUnit=1` and `8` for `beatUnit=3`. Golden fixtures preserve the raw pair
+and record the resolved canonical fraction.
 
 ## Classified executable behavior
 
@@ -209,16 +211,28 @@ match raw records. The three raw-only identifiers are `ANmpR_LbxyM`,
 split mismatches, or nested `hooktheory.id` mismatches.
 
 All 26,175 simplified records contain alignment metadata and annotations;
-22,217 contain user alignment and 17,980 contain refined alignment. The
-crosswalk verifies identity/split and these alternate representations:
+22,217 contain user alignment and 17,980 contain refined alignment. For every
+matched record, the audit loads raw payload summaries keyed by clip ID and
+semantically compares every paired meter region using:
 
-- raw meter beat/count/unit versus simplified beat/beats-per-bar/beat-unit;
-- raw tonic/scale versus tonic pitch class/scale-degree intervals;
-- raw melody degree/duration versus onset/offset/octave/pitch class;
-- raw functional/decorative harmony versus onset/offset/root pitch class,
-  root-position intervals, and inversion;
-- simplified user/refined beat-time alignment arrays, absent from raw
-  TheoryTab JSON.
+```text
+raw beat - 1 == simplified beat
+raw numBeats == simplified beats_per_bar
+raw beatUnit 1/3 == simplified beat_unit 4/8
+```
+
+The result is 27,217 raw regions, 27,216 simplified regions, 27,216 compared
+regions, and 27,216 exact matches. There are zero missing-raw regions, one
+missing-simplified region, one record-level count mismatch, and zero value
+mismatches. The bounded discrepancy is clip `nvgy-WaRgkA`: its raw region at
+beat 25 (`numBeats=4`, `beatUnit=1`) is absent from the simplified record. This
+is classified as simplified coverage loss, not contradictory meter semantics;
+all comparable regions support the accepted canonical fraction mapping.
+
+Key, melody, and harmony fields are inventoried on both sides for availability
+and shape only. This audit does **not** claim a corpus-wide semantic comparison
+for those fields. Simplified user/refined beat-time alignment arrays are also
+inventoried, but are absent from raw TheoryTab JSON.
 
 The report retains bounded mismatch examples. Integration tests verify selected
 real matches across raw, simplified, processed, canonical, and structure
@@ -269,7 +283,7 @@ non-null pedal, an exact duplicate region, a duplicate structure clip ID, an
 unmatched structure row, or a missing structure `ori_uid`.
 
 This audit establishes field behavior, traceability, joins, upstream grouping,
-and bounded examples. Exact V2 meter fractions, alternate/pedal semantics,
-applied-harmony MVP conversion, and audio-to-symbolic section alignment remain
-unresolved or intentionally deferred. It does not construct a
-`CanonicalPiece`.
+the corpus-wide semantic meter mapping, and bounded examples. Alternate/pedal
+semantics, applied-harmony MVP conversion, and audio-to-symbolic section
+alignment remain unresolved or intentionally deferred. It does not construct
+a `CanonicalPiece`.

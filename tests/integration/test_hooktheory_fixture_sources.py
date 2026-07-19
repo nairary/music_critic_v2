@@ -3,12 +3,18 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from argparse import Namespace
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from scripts.audit_hooktheory_legacy import iter_jsonl, iter_top_level_object, sha256_file
+from scripts.audit_hooktheory_legacy import (
+    build_report,
+    iter_jsonl,
+    iter_top_level_object,
+    sha256_file,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -157,3 +163,83 @@ def test_committed_sources_and_excerpts_match_local_artifacts() -> None:
         assert actual["hooktheory"]["id"] == expected["hooktheory_id"] == clip_id
         assert isinstance(actual.get("alignment"), dict) is expected["alignment_available"]
         assert_mapping_subset(expected["annotations"], actual["annotations"])
+
+
+def test_build_report_corpus_counts_and_semantic_meter_crosswalk() -> None:
+    report = build_report(Namespace(
+        hooktheory_root=REPO_ROOT / "data/HookTheory",
+        htcanon_root=REPO_ROOT / "data/HTCanon",
+        legacy_root=Path(os.environ.get(
+            "MUSIC_CRITIC_LEGACY_ROOT",
+            "/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic",
+        )),
+        candidate_limit=12,
+    ))
+    assert report["report_schema_version"] == "hooktheory_legacy_audit_v3"
+    raw = report["raw_audit"]
+    assert raw["record_counts_by_split"] == {
+        "test": 2761, "train": 21233, "val": 2184
+    }
+    assert raw["records_missing_json"] == 3
+    assert raw["event_counts"]["meters"] == 27217
+    assert raw["derived_pitch_v1_compatibility"]["counts"] == {
+        "success": 1228046,
+        "missing_inputs": 8,
+        "out_of_range": 0,
+        "unresolved_active_key": 9,
+        "rest": 110283,
+    }
+    assert {
+        name: finding["count"]
+        for name, finding in raw["exact_duplicate_regions"].items()
+    } == {"keys": 0, "tempos": 0, "meters": 0}
+
+    crosswalk = report["simplified_schema_crosswalk"]
+    assert crosswalk["matched_identifiers"] == 26175
+    assert crosswalk["raw_only_identifiers"] == 3
+    assert crosswalk["simplified_only_identifiers"] == 0
+    meter = crosswalk["meter_semantic_comparison"]
+    assert meter["records_compared"] == 26175
+    assert meter["raw_meter_regions"] == 27217
+    assert meter["simplified_meter_regions"] == 27216
+    assert meter["total_compared_meter_regions"] == 27216
+    assert meter["exact_matches"] == 27216
+    assert meter["missing_raw_regions"] == 0
+    assert meter["missing_simplified_regions"] == 1
+    assert meter["count_mismatches"] == 1
+    assert meter["value_mismatches"] == 0
+    assert meter["records_missing_raw_summary"] == 0
+    assert meter["records_missing_raw_meter_collection"] == 0
+    assert meter["records_missing_simplified_meter_collection"] == 0
+    assert meter["canonical_mapping"] == {
+        "accepted": True,
+        "numerator": "raw numBeats",
+        "denominator": {"beatUnit=1": 4, "beatUnit=3": 8},
+        "basis": (
+            "all paired regions match exactly and there are no simplified-only "
+            "regions; raw-only regions are reported as simplified coverage loss"
+        ),
+    }
+    assert meter["bounded_mismatch_examples"] == [
+        {
+            "kind": "count_mismatch",
+            "clip_id": "nvgy-WaRgkA",
+            "raw_count": 2,
+            "simplified_count": 1,
+        },
+        {
+            "kind": "missing_simplified_region",
+            "clip_id": "nvgy-WaRgkA",
+            "index": 1,
+            "raw": {"beat": 25, "beatUnit": 1, "numBeats": 4},
+            "expected": {"beat": "24/1", "beat_unit": 4, "beats_per_bar": 4},
+        },
+    ]
+
+    inventory = {item["path"]: item["role"] for item in report["source_inventory"]}
+    assert inventory["data/HookTheory/Hooktheory_Raw.json/4_merged.json"] == (
+        "map_raw_theorytab_source"
+    )
+    assert inventory["data/HookTheory/Hooktheory.json"] == (
+        "upstream_sheetsage_simplified"
+    )

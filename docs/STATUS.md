@@ -65,6 +65,13 @@
   `bbdd7b7b6a5fb845828f82790acdceb03a197779`. The simplified-schema crosswalk
   has 26,175 matches, three raw-only missing-payload records, no
   simplified-only records, and no identifier/split mismatches.
+- The crosswalk semantically compares meter regions for every matched record:
+  27,217 raw regions, 27,216 simplified regions, 27,216 compared regions, and
+  27,216 exact matches. It reports zero missing-raw regions, one
+  missing-simplified region, one record count mismatch, and zero value
+  mismatches. The bounded coverage discrepancy is clip `nvgy-WaRgkA`; key,
+  melody, and harmony are inventoried but were not corpus-wide semantically
+  compared.
 - Nineteen bounded cases cover major/minor/modal examples, integer and
   fractional timing, first-beat conversion, rests and derived pitches,
   multiple key/tempo/meter regions, root-zero rest and malformed non-rest zero,
@@ -76,10 +83,11 @@
   unexpected borrowed runtime types, derived out-of-range pitch, non-null
   pedal, exact duplicate regions, duplicate structure IDs, structure-only rows,
   or missing structure `ori_uid`.
-- Upstream establishes that `beatUnit=3` groups three source beats into one felt
-  beat; the exact V2 numerator/denominator remains unresolved. Also unresolved
-  or intentionally deferred: `alternate`, non-null `pedal`, applied harmony,
-  and audio-seconds-to-symbolic alignment. Structure timestamps remain
+- The semantic meter crosswalk accepts canonical numerator `numBeats`, with
+  denominator 4 for `beatUnit=1` and 8 for `beatUnit=3`; the one omitted
+  simplified region is coverage loss rather than a value counterexample. Still
+  unresolved or intentionally deferred: `alternate`, non-null `pedal`, applied
+  harmony, and audio-seconds-to-symbolic alignment. Structure timestamps remain
   audio seconds with `section_alignment_status=unresolved_audio_seconds`.
 - The production HookTheory adapter has not started. No public API, dependency,
   canonical conversion entry point, graph, dataset, model, SSL, training,
@@ -92,9 +100,10 @@ All Python commands used the project-local Python 3.13.5 interpreter.
 - Corpus-wide audit CLI: passed; the final report was written outside the
   repository under `/tmp` and asserted all named counts, pitch-accounting
   totals, and crosswalk totals.
-- Static audit and golden-fixture tests: `15 passed`.
-- Opt-in raw/simplified/processed/canonical/structure integration: `1 passed`.
-- Full default suite: `329 passed, 3 skipped`; the skips are explicitly gated
+- Static audit and golden-fixture tests: `17 passed`.
+- Opt-in raw/simplified/processed/canonical/structure integration, including a
+  full `build_report` count assertion: `2 passed`.
+- Full default suite: `331 passed, 4 skipped`; the skips are explicitly gated
   local real-data tests.
 - `compileall src scripts tests`: passed.
 - `git diff --check`: passed.
