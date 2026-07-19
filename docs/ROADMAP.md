@@ -108,12 +108,15 @@ document is the phase execution checklist.
 ### Phase 2A.1 — Generic MIDI adapter MVP
 
 - Status: Current
-- Implementation: complete on the phase branch; final checks and publication
-  are recorded in `STATUS.md`.
+- Implementation: implementation and real-data remediation are complete on the
+  phase branch; Phase 2A.1 remains pending final review.
 - Goal: convert type-0/type-1 PPQN MIDI into valid canonical pieces with exact
   tick timing, deterministic note pairing, and serialization round trips.
 - Outputs: the minimal public MIDI adapter API, synthetic tests, and a bounded
   smoke CLI.
+- Acceptance includes strict 20-file spread samples from both POP909 and PDMX,
+  plus separate diagnostic 100-file spread smoke runs over each recursive
+  corpus tree.
 - Non-goals: HookTheory implementation, graph construction, semantic analysis,
   and model or training work.
 

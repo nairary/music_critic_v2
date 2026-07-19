@@ -63,32 +63,100 @@
   lyric alignment, sustain-pedal reconstruction, voice/role/pickup inference,
   chord or key detection from notes, section detection, and aesthetic scoring.
 
+## Phase 2A.1 remediation review
+
+- Finding: an observed time signature with `numerator=0` and a positive source
+  duration could enter metric-grid construction with a zero nominal bar length,
+  preventing the bar loop from advancing.
+- Fix: every selected observed/default meter is now validated before boundary
+  checking, canonical meter creation, or metric-grid construction. Numerator
+  and denominator must be positive integers and denominator must be a power of
+  two. Invalid source values raise `MidiAdapterError` with source path, event
+  tick, raw numerator/denominator, and the reason; they are never clamped,
+  normalized, or replaced with `4/4`.
+- Meter-boundary checking now uses one exact rational divisibility calculation
+  per meter region instead of iterating across intervening bars.
+- Metric-grid materialization has a deterministic combined bar-and-beat limit
+  of `1,000,000` records. The adapter computes the exact record count per meter
+  interval with integer/rational arithmetic before allocating any bar or beat.
+  A rejection reports the source path, active meter, interval, estimated count,
+  and configured limit.
+- A serialized meter with denominator `2**127` and positive duration is rejected
+  by the safety policy without iterative materialization. Ordinary power-of-two
+  denominators including `2`, `4`, `8`, and `16` remain supported.
+- Smoke discovery remains recursive and case-insensitive, excludes symlinks
+  resolving outside the requested root, and now supports `first` and `spread`
+  sampling. `first` remains the default. `spread` uses deterministic evenly
+  spaced ceiling indices, includes both endpoints when selecting more than one
+  file, and never duplicates a selected path.
+
 ## Phase 2A.1 verification
 
 All commands used the project-local Python 3.13.5 interpreter at
 `.venv/bin/python`.
 
-- `tests/data/test_timing.py`: `28 passed in 0.04s`.
-- `tests/data/test_schema.py`: `13 passed in 0.13s`.
-- `tests/data/test_validation.py`: `110 passed in 0.23s`.
-- `tests/data/test_serialization.py`: `94 passed in 0.30s`.
-- `tests/adapters/test_midi.py`: `50 passed in 0.22s`.
-- Full suite: `302 passed in 0.60s`.
-- `.venv/bin/python -m compileall src scripts`: passed.
+- `tests/data/test_timing.py`: `28 passed`.
+- `tests/data/test_schema.py`: `13 passed`.
+- `tests/data/test_validation.py`: `110 passed`.
+- `tests/data/test_serialization.py`: `94 passed`.
+- `tests/adapters/test_midi.py`: `62 passed`.
+- Full suite without the opt-in real-data variable: `314 passed, 2 skipped`;
+  both skips are the explicitly gated local real-data cases.
+- Explicit real-data integration with
+  `MUSIC_CRITIC_RUN_REAL_MIDI_TESTS=1`: `2 passed`. This strictly converted,
+  validated, and JSON-round-tripped 20 spread-selected POP909 files and 20
+  spread-selected PDMX files without skipping any selected file.
+- `.venv/bin/python -m compileall src scripts tests/integration`: passed.
 - Data-layer import isolation: `data import isolation passed`.
 - Adapter public imports: `adapter imports passed`.
-- Dependency import: `mido imported`.
 - `git diff --check`: passed.
 - Synthetic smoke root: `/tmp/music-critic-midi-smoke.W2edj4`.
 - Synthetic smoke: `files_seen=3`, `attempted=3`, `converted=3`, `failed=0`,
   `warnings=10`, `notes=3`, `tracks=5`, `type_0=2`, `type_1=1`.
-- `MUSIC_DATA_ROOT` was unset. `real-data smoke test not run: no MIDI files found
-  under MUSIC_DATA_ROOT`.
+
+## Real-MIDI validation
+
+Both source datasets were read recursively and remained unmodified.
+
+- POP909 root:
+  `/home/str/music-critic-v2/data/pop909-cl/POP909_processed/POP909_processed`.
+- POP909 recursive discovery: `files_seen=909`.
+- POP909 100-file spread smoke: `attempted=100`, `converted=100`, `failed=0`,
+  `warnings=14475`, `notes=209228`, `tracks=300`, `type_0=0`, `type_1=100`.
+- POP909 selected-path coverage: `selected_parent_dirs=1`,
+  `selected_min_depth=1`, `selected_max_depth=1`.
+- PDMX root: `/home/str/music-critic-v2/data/pdmx/mid`.
+- PDMX recursive discovery: `files_seen=254035` across the complete branched
+  MIDI tree.
+- PDMX 100-file spread smoke: `attempted=100`, `converted=99`, `failed=1`,
+  `warnings=378`, `notes=47459`, `tracks=246`, `type_0=0`, `type_1=99`.
+- PDMX selected-path coverage: `selected_parent_dirs=100`,
+  `selected_min_depth=3`, `selected_max_depth=3`.
+
+Failure triage for both 100-file diagnostic runs:
+
+- unreadable/corrupt MIDI: `0`;
+- MIDI type 2: `0`;
+- SMPTE/non-PPQN: `0`;
+- invalid meter values: `0`;
+- meter change inside a bar: `1`, represented by
+  `2/31/QmcmH3b8xr1N9KSEu5zS4HG7f6Beq1fENiy3bdZ9D3FXrE.mid` at tick `8970`
+  under active meter `75/4`;
+- metric-grid safety rejection: `0`;
+- canonical validation failure: `0`;
+- serialization round-trip failure: `0`;
+- unexpected exception: `0`.
+
+The one diagnostic PDMX failure is an explicitly unsupported MVP condition;
+the adapter contract was not broadened merely to force 100% conversion. No
+hang, uncontrolled memory growth, parser bug, validation escape, or
+serialization mismatch was observed.
 
 ## Phase 2A.1 scope confirmation
 
 - Phase 1 production code, Phase 1 data tests, the accepted schema/data
   contract, and the normative fixture were not modified.
+- Project dependencies were not modified by the remediation.
 - The Phase 0 repository-contract test was updated to allow `mido` only inside
   `music_critic.adapters`; its bans remain active everywhere else, and the
   adapter/document packages are now required repository structure.
@@ -97,6 +165,8 @@ All commands used the project-local Python 3.13.5 interpreter at
   status observed before this task. No legacy file was modified.
 - HookTheory remains documentation-only. No graph, dataset, model, SSL,
   training, preference, quality, inference, or GRPO code was added.
+- Phase 2A.1 remains Current and pending final review; it is not marked
+  Completed.
 
 ## Final Phase 1 result
 

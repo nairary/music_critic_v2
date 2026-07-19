@@ -24,15 +24,45 @@ def _discover(path: Path) -> list[Path] | None:
     if path.is_file():
         return [path]
     if path.is_dir():
+        resolved_root = path.resolve()
         return sorted(
             (
                 candidate
                 for candidate in path.rglob("*")
-                if candidate.is_file() and candidate.suffix.lower() in {".mid", ".midi"}
+                if candidate.is_file()
+                and candidate.suffix.lower() in {".mid", ".midi"}
+                and candidate.resolve().is_relative_to(resolved_root)
             ),
             key=lambda candidate: candidate.as_posix(),
         )
     return None
+
+
+def _select_paths(paths: list[Path], limit: int | None, sample_mode: str) -> list[Path]:
+    if limit is None or limit >= len(paths):
+        return list(paths)
+    if sample_mode == "first":
+        return paths[:limit]
+    if limit == 1:
+        return paths[:1]
+    last_index = len(paths) - 1
+    denominator = limit - 1
+    return [
+        paths[(index * last_index + denominator - 1) // denominator]
+        for index in range(limit)
+    ]
+
+
+def _selection_coverage(selected: list[Path], root: Path) -> tuple[int, int, int]:
+    if not selected:
+        return 0, 0, 0
+    if root.is_dir():
+        relative_paths = [path.relative_to(root) for path in selected]
+    else:
+        relative_paths = [Path(path.name) for path in selected]
+    parent_count = len({relative.parent.as_posix() for relative in relative_paths})
+    depths = [len(relative.parts) for relative in relative_paths]
+    return parent_count, min(depths), max(depths)
 
 
 def _short_reason(exc: BaseException) -> str:
@@ -49,6 +79,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("path", type=Path)
     parser.add_argument("--limit", type=_positive_int)
+    parser.add_argument("--sample-mode", choices=("first", "spread"), default="first")
     parser.add_argument("--dataset-name", default="midi-smoke")
     parser.add_argument("--split")
     parser.add_argument("--fail-fast", action="store_true")
@@ -58,7 +89,8 @@ def main(argv: list[str] | None = None) -> int:
     if discovered is None:
         print(f"invalid input path: {args.path}", file=sys.stderr)
         return 2
-    selected = discovered[: args.limit] if args.limit is not None else discovered
+    selected = _select_paths(discovered, args.limit, args.sample_mode)
+    parent_count, min_depth, max_depth = _selection_coverage(selected, args.path)
     summary = {
         "files_seen": len(discovered),
         "attempted": 0,
@@ -69,6 +101,9 @@ def main(argv: list[str] | None = None) -> int:
         "tracks": 0,
         "type_0": 0,
         "type_1": 0,
+        "selected_parent_dirs": parent_count,
+        "selected_min_depth": min_depth,
+        "selected_max_depth": max_depth,
     }
     failures: list[str] = []
     config = MidiAdapterConfig(dataset_name=args.dataset_name, split=args.split)
@@ -112,6 +147,9 @@ def main(argv: list[str] | None = None) -> int:
         "tracks",
         "type_0",
         "type_1",
+        "selected_parent_dirs",
+        "selected_min_depth",
+        "selected_max_depth",
     ):
         print(f"{key}={summary[key]}")
     return 1 if summary["failed"] else 0

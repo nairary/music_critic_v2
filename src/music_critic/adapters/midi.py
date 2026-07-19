@@ -37,6 +37,7 @@ __all__ = ["MidiAdapterConfig", "MidiAdapterError", "load_midi_piece"]
 _DEFAULT_TEMPO = 500_000
 _DEFAULT_NUMERATOR = 4
 _DEFAULT_DENOMINATOR = 4
+_MAX_METRIC_GRID_RECORDS = 1_000_000
 
 _MAJOR_FIFTHS = {
     "Cb": -7,
@@ -586,20 +587,56 @@ def _validate_meter_boundaries(
     for event in meter[1:]:
         onset = RationalTime(event.tick, ticks_per_beat)
         nominal = RationalTime(numerator * 4, denominator)
-        while cursor < onset:
-            next_boundary = cursor + nominal
-            if next_boundary > onset:
-                raise MidiAdapterError(
-                    f"{path_string}: meter change at tick {event.tick} is inside "
-                    f"a bar under active meter {numerator}/{denominator}"
-                )
-            cursor = next_boundary
-        if cursor != onset:
+        interval = onset - cursor
+        bar_count = interval.to_fraction() / nominal.to_fraction()
+        if bar_count.denominator != 1:
             raise MidiAdapterError(
-                f"{path_string}: meter change at tick {event.tick} is not on a "
-                f"bar boundary under active meter {numerator}/{denominator}"
+                f"{path_string}: meter change at tick {event.tick} is inside "
+                f"a bar under active meter {numerator}/{denominator}"
             )
+        cursor = onset
         numerator, denominator = event.value
+
+
+def _validate_meter_values(
+    meter: Iterable[_SelectedEvent],
+    path_string: str,
+) -> None:
+    for event in meter:
+        try:
+            numerator, denominator = event.value
+        except (TypeError, ValueError) as exc:
+            raise MidiAdapterError(
+                f"{path_string}: invalid meter at tick {event.tick}: "
+                f"numerator=<unavailable>, denominator=<unavailable>; "
+                "meter must contain exactly two integer values"
+            ) from exc
+        if (
+            not isinstance(numerator, int)
+            or isinstance(numerator, bool)
+            or numerator <= 0
+        ):
+            raise MidiAdapterError(
+                f"{path_string}: invalid meter at tick {event.tick}: "
+                f"numerator={numerator!r}, denominator={denominator!r}; "
+                "numerator must be an integer greater than zero"
+            )
+        if (
+            not isinstance(denominator, int)
+            or isinstance(denominator, bool)
+            or denominator <= 0
+        ):
+            raise MidiAdapterError(
+                f"{path_string}: invalid meter at tick {event.tick}: "
+                f"numerator={numerator!r}, denominator={denominator!r}; "
+                "denominator must be an integer greater than zero"
+            )
+        if denominator & (denominator - 1):
+            raise MidiAdapterError(
+                f"{path_string}: invalid meter at tick {event.tick}: "
+                f"numerator={numerator}, denominator={denominator}; "
+                "denominator must be a power of two"
+            )
 
 
 def _make_meter_events(
@@ -683,22 +720,76 @@ def _active_meter(meters: tuple[MeterEvent, ...], onset: RationalTime) -> MeterE
     return active
 
 
+def _metric_timeline_duration(
+    source_end_tick: int,
+    ticks_per_beat: int,
+    meters: tuple[MeterEvent, ...],
+) -> RationalTime:
+    source_end = RationalTime(source_end_tick, ticks_per_beat)
+    if source_end == RationalTime(0):
+        initial = meters[0]
+        return RationalTime(initial.numerator * 4, initial.denominator)
+    if meters[-1].onset_qn == source_end and meters[-1].onset_qn > RationalTime(0):
+        return source_end + RationalTime(
+            meters[-1].numerator * 4,
+            meters[-1].denominator,
+        )
+    return source_end
+
+
+def _ceil_fraction(value: Any) -> int:
+    return (value.numerator + value.denominator - 1) // value.denominator
+
+
+def _validate_metric_grid_size(
+    duration: RationalTime,
+    meters: tuple[MeterEvent, ...],
+    path_string: str,
+) -> None:
+    total_records = 0
+    for index, meter in enumerate(meters):
+        interval_start = meter.onset_qn
+        interval_end = (
+            min(meters[index + 1].onset_qn, duration)
+            if index + 1 < len(meters)
+            else duration
+        )
+        if interval_start >= duration or interval_end <= interval_start:
+            continue
+
+        interval = (interval_end - interval_start).to_fraction()
+        nominal_bar = RationalTime(
+            meter.numerator * 4,
+            meter.denominator,
+        ).to_fraction()
+        beat_unit = RationalTime(4, meter.denominator).to_fraction()
+        bar_ratio = interval / nominal_bar
+        full_bars = bar_ratio.numerator // bar_ratio.denominator
+        remainder = interval - full_bars * nominal_bar
+        bar_records = full_bars + (1 if remainder else 0)
+        beat_records = full_bars * meter.numerator
+        if remainder:
+            beat_records += _ceil_fraction(remainder / beat_unit)
+        total_records += bar_records + beat_records
+        if total_records > _MAX_METRIC_GRID_RECORDS:
+            raise MidiAdapterError(
+                f"{path_string}: metric-grid safety rejection for active meter "
+                f"{meter.numerator}/{meter.denominator}, interval "
+                f"{interval_start.num}/{interval_start.den}.."
+                f"{interval_end.num}/{interval_end.den} qn; estimated "
+                f"bar+beat records={total_records}, "
+                f"limit={_MAX_METRIC_GRID_RECORDS}"
+            )
+
+
 def _make_bars_and_beats(
     source_end_tick: int,
     ticks_per_beat: int,
     meters: tuple[MeterEvent, ...],
+    path_string: str,
 ) -> tuple[RationalTime, tuple[CanonicalBar, ...], tuple[CanonicalBeat, ...]]:
-    source_end = RationalTime(source_end_tick, ticks_per_beat)
-    if source_end == RationalTime(0):
-        initial = meters[0]
-        duration = RationalTime(initial.numerator * 4, initial.denominator)
-    else:
-        duration = source_end
-        if meters[-1].onset_qn == source_end and meters[-1].onset_qn > RationalTime(0):
-            duration = duration + RationalTime(
-                meters[-1].numerator * 4,
-                meters[-1].denominator,
-            )
+    duration = _metric_timeline_duration(source_end_tick, ticks_per_beat, meters)
+    _validate_metric_grid_size(duration, meters, path_string)
 
     bars: list[CanonicalBar] = []
     beats: list[CanonicalBeat] = []
@@ -883,6 +974,7 @@ def load_midi_piece(
         tempo, meter, piece_id
     )
     flags.extend(default_flags)
+    _validate_meter_values(meter, path_value)
     _validate_meter_boundaries(meter, ticks_per_beat, path_value)
 
     paired, _program_changes, selected_programs, note_flags = _pair_notes(
@@ -902,7 +994,7 @@ def load_midi_piece(
     )
     flags.extend(unsupported_key_flags)
     duration, bars, beats = _make_bars_and_beats(
-        source_end_tick, ticks_per_beat, meter_events
+        source_end_tick, ticks_per_beat, meter_events, path_value
     )
 
     quality_flags = tuple(

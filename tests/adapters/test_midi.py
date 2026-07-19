@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import mido
 import pytest
 
+from scripts.smoke_midi_adapter import _discover, _select_paths
 from music_critic.adapters import (
     MidiAdapterConfig,
     MidiAdapterError,
@@ -613,3 +614,140 @@ def test_corrupted_midi_is_wrapped_in_adapter_error(tmp_path: Path) -> None:
     path.write_bytes(b"not a midi file")
     with pytest.raises(MidiAdapterError, match="corrupted or unreadable"):
         _load(path)
+
+
+def test_zero_numerator_serialized_midi_is_rejected_before_grid_construction(
+    tmp_path: Path,
+) -> None:
+    path = _write_midi(
+        tmp_path,
+        [[
+            mido.MetaMessage("time_signature", numerator=0, denominator=4, time=0),
+            mido.Message("note_on", note=60, velocity=90, time=0),
+            mido.Message("note_off", note=60, velocity=0, time=480),
+        ]],
+        name="zero-numerator.mid",
+    )
+    with pytest.raises(MidiAdapterError) as caught:
+        _load(path)
+    message = str(caught.value)
+    assert str(path) in message
+    assert "tick 0" in message
+    assert "numerator=0" in message
+    assert "denominator=4" in message
+    assert "greater than zero" in message
+
+
+def test_non_power_of_two_meter_is_rejected_before_grid_construction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = _write_midi(tmp_path, [[]], name="non-power.mid")
+    fake_track = [
+        SimpleNamespace(
+            type="time_signature",
+            numerator=4,
+            denominator=3,
+            time=0,
+        ),
+        SimpleNamespace(type="end_of_track", time=480),
+    ]
+    fake_midi = SimpleNamespace(type=0, ticks_per_beat=480, tracks=[fake_track])
+    monkeypatch.setattr("music_critic.adapters.midi.mido.MidiFile", lambda **_: fake_midi)
+    with pytest.raises(MidiAdapterError, match=r"tick 0.*denominator=3.*power of two"):
+        _load(path)
+
+
+def test_pathological_serialized_denominator_hits_metric_grid_safety_limit(
+    tmp_path: Path,
+) -> None:
+    denominator = 1 << 127
+    path = _write_midi(
+        tmp_path,
+        [[
+            mido.MetaMessage(
+                "time_signature",
+                numerator=4,
+                denominator=denominator,
+                time=0,
+            ),
+            mido.MetaMessage("end_of_track", time=480),
+        ]],
+        name="pathological-denominator.mid",
+    )
+    with pytest.raises(MidiAdapterError) as caught:
+        _load(path)
+    message = str(caught.value)
+    assert str(path) in message
+    assert f"active meter 4/{denominator}" in message
+    assert "interval 0/1..1/1 qn" in message
+    assert "estimated bar+beat records=" in message
+    assert "limit=1000000" in message
+
+
+@pytest.mark.parametrize("denominator", [2, 4, 8, 16])
+def test_ordinary_power_of_two_denominators_remain_supported(
+    tmp_path: Path, denominator: int
+) -> None:
+    path = _write_midi(
+        tmp_path,
+        [[
+            mido.MetaMessage(
+                "time_signature",
+                numerator=4,
+                denominator=denominator,
+                time=0,
+            ),
+            mido.Message("note_on", note=60, velocity=90, time=0),
+            mido.Message("note_off", note=60, velocity=0, time=480),
+        ]],
+        name=f"meter-{denominator}.mid",
+    )
+    piece = _load(path)
+    assert piece.meter_events[0].denominator == denominator
+    assert validate_piece(piece).errors == ()
+
+
+def test_spread_sampling_is_deterministic_unique_and_includes_endpoints() -> None:
+    paths = [Path(f"branch/{index:02d}/piece.mid") for index in range(11)]
+    first = _select_paths(paths, 5, "spread")
+    second = _select_paths(paths, 5, "spread")
+    assert first == second
+    assert first[0] == paths[0]
+    assert first[-1] == paths[-1]
+    assert len(first) == len(set(first)) == 5
+    assert first == [paths[index] for index in (0, 3, 5, 8, 10)]
+
+
+def test_first_sampling_preserves_sorted_head() -> None:
+    paths = [Path(f"{index:02d}.mid") for index in range(8)]
+    assert _select_paths(paths, 3, "first") == paths[:3]
+
+
+def test_spread_sampling_limit_one_selects_first_path() -> None:
+    paths = [Path("a.mid"), Path("b.mid"), Path("c.mid")]
+    assert _select_paths(paths, 1, "spread") == [paths[0]]
+
+
+def test_sampling_limit_at_or_above_discovered_count_selects_all() -> None:
+    paths = [Path("a.mid"), Path("b.mid"), Path("c.mid")]
+    assert _select_paths(paths, 3, "spread") == paths
+    assert _select_paths(paths, 20, "spread") == paths
+
+
+def test_recursive_discovery_covers_branched_nested_case_insensitive_paths(
+    tmp_path: Path,
+) -> None:
+    expected = [
+        tmp_path / "a" / "one.mid",
+        tmp_path / "b" / "deep" / "two.MIDI",
+        tmp_path / "c" / "deeper" / "still" / "three.MiD",
+    ]
+    for path in expected:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"")
+    ignored = tmp_path / "b" / "deep" / "metadata.json"
+    ignored.write_text("{}", encoding="utf-8")
+    discovered = _discover(tmp_path)
+    assert discovered == sorted(expected, key=lambda path: path.as_posix())
+    selected = _select_paths(discovered, 2, "spread")
+    assert selected == [discovered[0], discovered[-1]]
