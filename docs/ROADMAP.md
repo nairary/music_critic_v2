@@ -96,14 +96,49 @@ document is the phase execution checklist.
 
 ## Phase 2 — Generic MIDI and HookTheory adapters
 
-- Status: Pending
-- Sequence: next phase after the completed canonical data layer.
+- Status: In progress
+- Sequence: Phase 2A.1 is completed; Phase 2B.0 is the current next slice.
 - Goal: map unlabeled MIDI and HookTheory into the same canonical schema.
 - Dependencies: Phase 1.
 - Outputs: adapter interface, generic MIDI adapter, HookTheory adapter.
 - Tests: missing tempo/meter, type-0/type-1 MIDI, annotation masking.
 - Non-goals: graph neural networks.
 - Acceptance: labels can be hidden and raw canonical inputs remain valid.
+
+### Phase 2A.1 — Generic MIDI adapter MVP
+
+- Status: Completed
+- Implementation: accepted after synthetic tests, strict bounded POP909/PDMX
+  integration, and separate 100-file real-data diagnostic smoke runs.
+- Goal: convert type-0/type-1 PPQN MIDI into valid canonical pieces with exact
+  tick timing, deterministic note pairing, and serialization round trips.
+- Outputs: the minimal public MIDI adapter API, synthetic tests, and a bounded
+  smoke CLI.
+- Acceptance includes strict 20-file spread samples from both POP909 and PDMX,
+  plus separate diagnostic 100-file spread smoke runs over each recursive
+  corpus tree.
+- Non-goals: HookTheory implementation, graph construction, semantic analysis,
+  and model or training work.
+
+### Phase 2B.0 — HookTheory legacy audit and golden fixtures
+
+- Status: Current
+- Sequence: next implementation slice after Phase 2A.1 closure.
+- Goal: verify the documented migration contract against bounded real examples
+  and lock golden fixtures before production conversion code is written.
+- Outputs: source examples, exact expected canonical mappings, and diagnostic
+  expectations.
+- Non-goals: a production HookTheory adapter.
+
+### Phase 2B.1 — HookTheory adapter
+
+- Status: Pending
+- Dependencies: Phase 2B.0.
+- Goal: implement the accepted HookTheory migration contract without exposing
+  theory labels as raw inference inputs.
+
+The graph phase, model phases, and training phases remain pending. HookTheory
+adapter implementation has not started.
 
 ## Phase 3 — Raw graph builder
 

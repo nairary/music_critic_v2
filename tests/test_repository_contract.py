@@ -16,6 +16,7 @@ REQUIRED_DOCS = {
     "DECISIONS.md",
     "ROADMAP.md",
     "STATUS.md",
+    "HOOKTHEORY_MIGRATION.md",
     "legacy_snapshot.json",
 }
 
@@ -28,6 +29,7 @@ REQUIRED_PACKAGES = {
     "training",
     "inference",
     "evaluation",
+    "adapters",
 }
 
 
@@ -65,15 +67,20 @@ def test_package_has_no_legacy_or_heavy_imports() -> None:
     }
 
     for path in PACKAGE_ROOT.rglob("*.py"):
+        relative_parts = path.relative_to(PACKAGE_ROOT).parts
+        allowed_roots = {"mido"} if relative_parts[0] == "adapters" else set()
+        disallowed_roots = forbidden_roots - allowed_roots
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 roots = {alias.name.split(".", 1)[0] for alias in node.names}
-                assert not (roots & forbidden_roots), f"{path}: {roots & forbidden_roots}"
+                assert not (roots & disallowed_roots), (
+                    f"{path}: {roots & disallowed_roots}"
+                )
             elif isinstance(node, ast.ImportFrom) and node.module:
                 root = node.module.split(".", 1)[0]
-                assert root not in forbidden_roots, f"{path}: {node.module}"
+                assert root not in disallowed_roots, f"{path}: {node.module}"
         for token in forbidden_text:
             assert token not in source, f"{path} contains legacy path {token}"
 
