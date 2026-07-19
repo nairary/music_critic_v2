@@ -2,15 +2,31 @@
 
 ## Current phase
 
-- Date: 2026-07-17
+- Date: 2026-07-19
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
 - Phase 1B.2: Completed
 - Phase 1B.3: Completed
-- Next phase: Phase 2 — generic MIDI and HookTheory adapters
-- Phase 2 state: Pending; no Phase 2 implementation has started
-- Next task: plan the generic MIDI adapter and real-data smoke testing
+- Phase 1 merge SHA: `37edf76889730980aa6ce9e9ec981e362c3480a9`
+- Current branch: `phase/2a-generic-midi-adapter-mvp`
+- Current phase: Phase 2 — generic MIDI and HookTheory adapters
+- Phase 2 state: In progress
+- Current task: Phase 2A.1 — generic MIDI adapter MVP
+
+## Phase 2 migration status
+
+- The HookTheory migration contract is documented in
+  `docs/HOOKTHEORY_MIGRATION.md` from the reverse-engineered legacy pipeline.
+- HookTheory melody pitch uses the accepted legacy derived reconstruction
+  formula anchored at MIDI 72, with algorithmic provenance method
+  `hooktheory_sd_octave_to_midi_v1`.
+- Applied harmony is deferred from the first HookTheory adapter.
+- The HookTheory adapter has not been implemented.
+- Phase 2B.0 legacy audit/golden fixtures and Phase 2B.1 adapter implementation
+  remain pending.
+- No graph, dataset, model, SSL, training, preference, quality, inference, or
+  GRPO work has started.
 
 ## Final Phase 1 result
 
