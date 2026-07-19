@@ -164,13 +164,19 @@ document is the phase execution checklist.
 
 ### Phase 2B.2 — Canonical MIDI renderer
 
-- Status: Pending
+- Status: Ready for review
 - Dependencies: accepted Phase 2A.1 and Phase 2B.1 adapters.
 - Goal: render any valid `CanonicalPiece` to diagnostic standard MIDI while
   preserving representable rational timing, canonical tempo, canonical meter,
   melody notes, optional canonical-beat clicks, and optional target markers.
 - Outputs: a generic exporter API, HookTheory rendering CLI, semantic MIDI
-  round trips, and a separate audit-only simplified/alignment comparison.
+  round trips, a deterministic listening sampler, and a separate audit-only
+  simplified/alignment comparison. All are implemented on
+  `phase/2b2-canonical-midi-renderer`; generated MIDI remains untracked.
+- Verification: all 18 usable real golden cases render and reload; 17 are
+  strictly exact and the one excessive-LCM case matches within its explicit
+  PPQ-960 bound. Independent simplified evidence has zero pitch, note-count,
+  or meter mismatches across those 18 cases.
 - Non-goals: chord voicing, audio synthesis, graph/model/training work, and
   treating renderer output as independent source truth.
 

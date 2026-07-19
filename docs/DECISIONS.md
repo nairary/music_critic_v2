@@ -305,3 +305,24 @@ This log is append-only.
   comparison, not a universal qn conversion. Phase 2B.1 can merge while the
   external waiver remains explicit; a future owner action must choose snapshot
   refresh or manual legacy restoration.
+
+## 2026-07-20 — ADR-024: Canonical MIDI export is an exact diagnostic boundary
+
+- Status: Accepted for Phase 2B.2 review.
+- Context: Listening to canonical HookTheory conversion and round-tripping it
+  through the generic MIDI adapter are useful diagnostics, but a MIDI created
+  from canonical records cannot independently validate the raw-source mapping.
+  SMF PPQ is also bounded to 32767 while exact source decimals can require a
+  much larger denominator LCM.
+- Decision: Add an output-only `music_critic.exporters` package using the
+  already-declared low-level `mido` dependency. Validate input, choose the LCM
+  of every rendered canonical time when it fits, and require explicit caller
+  opt-in before half-up PPQ quantization at a documented fallback. Preserve
+  canonical tempo, meter, and non-null melody performance fields; otherwise
+  use explicit defaults. Generate clicks only from canonical beats and expose
+  theory only as optional marker text. Keep simplified-source comparison in an
+  audit script that does not import or call the HookTheory adapter.
+- Consequences: Exact representable events round-trip without float equality;
+  excessive-LCM events carry a rational error bound. Rendering remains absent
+  from the data, graph, model, training, and inference dependency paths. Chord
+  voicing, audio synthesis, and unsupported harmony semantics remain deferred.

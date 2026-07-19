@@ -9,7 +9,7 @@
 - Phase 1B.2: Completed
 - Phase 1B.3: Completed
 - Phase 1 merge SHA: `37edf76889730980aa6ce9e9ec981e362c3480a9`
-- Current branch: `phase/2b1-hooktheory-adapter`
+- Current branch: `phase/2b2-canonical-midi-renderer`
 - Current phase: Phase 2 — generic MIDI and HookTheory adapters
 - Phase 2 state: In progress
 - Phase 2A.1: Accepted and Completed
@@ -25,7 +25,9 @@
   `6111d3d062e02897e3f8ebdca7e4388f80ef434e`
 - Phase 2B.1 merge SHA:
   `b1df77737f641b705e3c48724b2741c7a022a2e4`
-- Current task: create Phase 2B.2 canonical MIDI renderer branch
+- Phase 2B.2: Ready for review
+- Phase 2B.2 starting SHA: `3d814a2e2db7434ee6c666619dc287e5eb101101`
+- Current task: review and close Phase 2B.2 canonical MIDI renderer
 
 ## Phase 2 migration status
 
@@ -41,8 +43,77 @@
   `3898b168063094b87e5ca5d88aae0317c1562c3f`.
 - Phase 2B.0 is **Accepted and Completed** at implementation SHA
   `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`.
+- Phase 2B.2 is **Ready for review** on
+  `phase/2b2-canonical-midi-renderer`.
 - No graph, dataset, model, SSL, training, preference, quality, inference, or
   GRPO work has started.
+
+## Phase 2B.2 canonical MIDI renderer result
+
+- Public API from `music_critic.exporters`: `MidiRenderConfig`,
+  `MidiRenderReport`, `MidiRenderError`, `piece_to_midi_bytes`, and
+  `write_piece_midi`. It is generic and imports neither HookTheory, Sheet Sage,
+  nor the legacy repository.
+- Existing `mido>=1.3,<2` is reused; no dependency changed. The canonical data
+  layer remains isolated from `mido` and the exporter.
+- Validated canonical qn timing selects the denominator LCM up to PPQ 32767.
+  Explicit or fallback quantization is forbidden unless
+  `require_exact_timing=False`; enabled quantization uses deterministic half-up
+  rounding and reports its exact rational maximum error.
+- Format-1 MIDI contains a conductor track, non-percussion canonical melody
+  track(s), and an optional final percussion click track. Canonical tempo and
+  time-signature values are written directly. Clicks derive from
+  `CanonicalBeat`; key/chord targets become optional marker text only. No chord
+  notes are synthesized.
+- `scripts/render_hooktheory_midi.py` supports one clip, golden manifests,
+  target hiding, click/marker toggles, explicit PPQ, explicit quantization, and
+  deterministic samples covering every observed mode, 6/8, 9/8, 12/8,
+  multiple meters/tempos, fractional timing, and shared `ori_uid`. It writes
+  exact canonical JSON, MIDI, per-clip reports, a batch manifest, and a
+  listening manifest.
+- The real golden batch selected 19 cases, rendered all 18 usable cases, and
+  reported the required missing payload as an expected skip. Seventeen cases
+  are strictly exact. `ANmplRlZmyM` requires PPQ 500000000000000; the explicit
+  PPQ-960 fallback reports maximum error `29/1500000000000000` qn.
+- The independent simplified-source audit imports no production HookTheory
+  adapter. Across 1,383 rendered/reference notes it reports 18/18 accepted
+  clips, 17 strictly exact clips, one quantization-bounded clip, zero pitch
+  mismatches, zero note-count mismatches, and zero meter disagreements. Exact
+  symbolic onset/duration median, p90, and p95 errors are zero; maximum is
+  `1.9333333333333334e-14` qn from the single bounded source-decimal case.
+- Eligible constant-meter/constant-tempo/non-swing audio comparison covers
+  1,236 notes. Onset absolute error is median 0.0328056 s, p90 0.96854 s, p95
+  1.667565 s; duration absolute error is median 0.00120975 s, p90 0.013095 s,
+  p95 0.04021 s. Nine clips exceed the report's 50 ms onset-p95 diagnostic;
+  this is reported as alignment/tempo disagreement, not forced equality.
+- Generated listening artifacts are outside Git at
+  `/tmp/music-critic-v2-phase2b2-golden/listening-manifest.json`. No generated
+  MIDI or canonical batch output is tracked.
+- Non-goals remain chord voicing and deferred harmony interpretation, audio or
+  SoundFont rendering, graphs, datasets, models, training, inference, and
+  Phase 3.
+
+## Phase 2B.2 verification
+
+- Exporter unit tests: `20 passed` (including all nine observed scale families).
+- New renderer CLI and independent-comparison tests: `4 passed`.
+- Opt-in real golden renderer/round-trip/comparison integration: `1 passed in
+  11.24s`; 18 renders/reloads and one required missing-payload error.
+- Full default repository suite: `422 passed, 7 skipped in 0.90s`; every skip
+  is an explicitly gated local-corpus integration.
+- Full suite with every HookTheory, semantic-crosswalk, renderer, and real-MIDI
+  integration enabled: `429 passed in 266.04s`.
+- `python -m compileall -q src scripts tests`: passed.
+- `git diff --check`: passed with no output.
+- Production dependency/import scan: passed through repository-contract and
+  import-isolation tests. `mido` is allowed only in adapters/exporters; the data
+  layer imports neither it nor rendering, and production rendering imports no
+  HookTheory or legacy module.
+- Absolute-path scan found only the pre-existing, deliberate legacy-check and
+  legacy-contract references; no new production absolute path was introduced.
+- The external legacy snapshot check remains exit 1 under the documented
+  ADR-023 resolution-C waiver. Its current 29-entry staged state is unchanged
+  by Phase 2B.2 and remains detailed in `docs/LEGACY_DRIFT_REPORT.md`.
 
 ## Phase 2B.1 production HookTheory adapter result
 

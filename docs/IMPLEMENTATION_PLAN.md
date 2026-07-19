@@ -2246,6 +2246,20 @@ Use:
 - canonical validator passes;
 - raw-only graph can be built from both.
 
+### Phase 2B.2 diagnostic canonical MIDI export
+
+After both adapters are accepted, add an output-only `music_critic.exporters`
+boundary. A validated `CanonicalPiece` renders to format-1 MIDI with exact
+rational PPQ when representable, explicit bounded quantization otherwise,
+canonical tempo and meter events, non-percussion melody notes, optional
+canonical-beat clicks, and optional key/chord marker text. Rendering is
+diagnostic infrastructure and is not a graph, training, or inference input.
+
+Verify semantic canonical -> MIDI -> canonical projections through the generic
+MIDI adapter. Separately compare rendered events with simplified HookTheory
+pitch, meter, symbolic timing, and eligible audio alignment without importing
+or calling the production HookTheory adapter. Do not synthesize chord voicings.
+
 ## Phase 3. V2 raw graph builder
 
 ### Add
