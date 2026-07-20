@@ -96,9 +96,9 @@ document is the phase execution checklist.
 
 ## Phase 2 — Generic MIDI and HookTheory adapters
 
-- Status: In progress
-- Sequence: Phase 2A.1, Phase 2B.0, and Phase 2B.1 are completed; Phase 2B.2 is
-  the remaining Phase 2 diagnostic-infrastructure task.
+- Status: Accepted and Completed
+- Sequence: Phase 2A.1, Phase 2B.0, Phase 2B.1, and Phase 2B.2 are accepted and
+  completed.
 - Goal: map unlabeled MIDI and HookTheory into the same canonical schema.
 - Dependencies: Phase 1.
 - Outputs: adapter interface, generic MIDI adapter, HookTheory adapter.
@@ -167,6 +167,8 @@ document is the phase execution checklist.
 - Status: Accepted and Completed
 - Accepted implementation:
   `97eda0d8fdb7c884bd3d22f0027fb872b2034399`
+- Closure: `bb94e2972f94a4e092331ebd240781263656dea1`
+- Merged to `main`: `1d8a5ecf217ebd466018a1f845eedfab7e1f7828`
 - Initial implementation:
   `f3799765b74b17cc3a493430dc11f2a64a781b74`
 - Acceptance covers the complete implementation and review-remediation chain
@@ -202,6 +204,9 @@ The graph phase, model phases, and training phases remain pending.
 
 ## Phase 3 — Raw graph builder
 
+- Status: Not started
+- Next task: Phase 3A — Raw graph contract and research-scope correction.
+- Branch: `phase/3a-raw-graph-contract`
 - Goal: construct inference-safe heterogeneous graphs.
 - Dependencies: Phases 1–2.
 - Outputs: `song/track/bar/beat/onset/note` graph and versioned metadata.

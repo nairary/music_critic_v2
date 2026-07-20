@@ -9,9 +9,7 @@
 - Phase 1B.2: Completed
 - Phase 1B.3: Completed
 - Phase 1 merge SHA: `37edf76889730980aa6ce9e9ec981e362c3480a9`
-- Current branch: `phase/2b2-canonical-midi-renderer`
-- Current phase: Phase 2 — generic MIDI and HookTheory adapters
-- Phase 2 state: In progress
+- Phase 2: Accepted and Completed
 - Phase 2A.1: Accepted and Completed
 - Accepted Phase 2A.1 implementation SHA:
   `32d68e8cb446d9b5dd57bfea1d28b94ccce46274`
@@ -31,8 +29,13 @@
   `f3799765b74b17cc3a493430dc11f2a64a781b74`
 - Accepted Phase 2B.2 implementation HEAD:
   `97eda0d8fdb7c884bd3d22f0027fb872b2034399`
-- Current task: organizational Phase 2B.2 closure, merge to `main`, and clean
-  Phase 3A branch bootstrap; Phase 3A implementation has not started.
+- Phase 2B.2 closure SHA:
+  `bb94e2972f94a4e092331ebd240781263656dea1`
+- Phase 2B.2 merge SHA:
+  `1d8a5ecf217ebd466018a1f845eedfab7e1f7828`
+- Next phase: Phase 3A — Raw graph contract and research-scope correction
+- Next branch: `phase/3a-raw-graph-contract`
+- Phase 3A implementation: Not started
 
 ## Phase 2 migration status
 
