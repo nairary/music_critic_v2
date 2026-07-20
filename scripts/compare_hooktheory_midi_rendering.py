@@ -468,10 +468,19 @@ def _clip_comparison(
         for meter in simplified["meters"]
     ]
     meter_regions_exact = expected_meters == list(midi["meters"])
+    meter_regions_accepted = (
+        len(expected_meters) == len(midi["meters"])
+        and all(
+            expected[1:] == actual[1:]
+            and abs(expected[0] - actual[0])
+            <= endpoint_acceptance_bound + fraction_technical_slack
+            for expected, actual in zip(expected_meters, midi["meters"])
+        )
+    )
     symbolic_accepted = (
         pitch_exact
         and timing_within_tolerance
-        and meter_regions_exact
+        and meter_regions_accepted
         and canonical_tempo_accepted
         and canonical_meter_accepted
         and canonical_duration_accepted
@@ -573,8 +582,13 @@ def _clip_comparison(
             ),
             "symbolic_accepted": symbolic_accepted,
             "meter_regions_exact": meter_regions_exact,
+            "meter_regions_accepted": meter_regions_accepted,
             "meter_status": (
-                "exact" if meter_regions_exact else "disagrees"
+                "exact"
+                if meter_regions_exact
+                else "quantized"
+                if meter_regions_accepted
+                else "disagrees"
             ),
             "expected_meter_regions": len(expected_meters),
             "rendered_meter_regions": len(midi["meters"]),
@@ -710,6 +724,13 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "meter_regions_exact_clips": sum(
             item["meter_regions_exact"] for item in comparisons
         ),
+        "meter_regions_accepted_clips": sum(
+            item["meter_regions_accepted"] for item in comparisons
+        ),
+        "meter_regions_quantization_accepted_clips": sum(
+            item["meter_regions_accepted"] and not item["meter_regions_exact"]
+            for item in comparisons
+        ),
         "note_count_mismatch_clips": sum(
             not item["note_count_match"] for item in comparisons
         ),
@@ -724,7 +745,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             for item in comparisons
         ),
         "meter_mismatch_clips": sum(
-            not item["meter_regions_exact"] for item in comparisons
+            not item["meter_regions_accepted"] for item in comparisons
         ),
         "canonical_tempo_mismatch_clips": sum(
             not item["canonical_tempo_events_accepted"] for item in comparisons

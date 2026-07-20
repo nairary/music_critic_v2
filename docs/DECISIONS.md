@@ -366,3 +366,21 @@ This log is append-only.
   longer rejected, while endpoints remain half-tick bounded and exact renders
   admit no nonzero note endpoint/duration, tempo/meter-onset, or piece-duration
   error. The production exporter and its report contract remain unchanged.
+
+## 2026-07-20 — ADR-027: Meter equality and meter acceptance are distinct
+
+- Status: Accepted for Phase 2B.2 review remediation.
+- Context: The canonical-meter audit already applied the endpoint bound, but
+  the simplified-source aggregate and CLI still treated non-exact meter onset
+  as a mismatch even when quantization was within that bound.
+- Decision: Preserve `meter_regions_exact` for exact event count, onset,
+  numerator, and denominator identity. Add `meter_regions_accepted`, requiring
+  equal count and exact numerator/denominator while allowing onset error up to
+  the active endpoint acceptance bound: zero in exact mode and `1/(2*PPQ)` in
+  quantized mode. Use accepted meter regions for symbolic acceptance,
+  `meter_mismatch_clips`, and CLI exit; report exact and quantization-accepted
+  counts separately.
+- Consequences: Valid half-tick meter-onset quantization no longer fails the
+  independent audit. Structural meter differences and exact-mode onset drift
+  still fail. Simplified-source and canonical-JSON meter comparisons remain
+  separate evidence paths; the production exporter is unchanged.

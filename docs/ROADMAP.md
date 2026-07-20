@@ -174,8 +174,10 @@ document is the phase execution checklist.
   round trips, a deterministic listening sampler, and a separate audit-only
   simplified/alignment comparison. Independent comparison derives a half-tick
   bound for single endpoints and a full-tick bound for duration from MIDI PPQ;
-  exact mode permits no nonzero error. Corpus ambiguity and channel/program
-  diagnostics are report-only and do not alter exporter policy. All are
+  exact mode permits no nonzero error. Meter reports preserve strict identity
+  separately from bounded onset acceptance, and aggregate/CLI decisions use
+  the latter. Corpus ambiguity and channel/program diagnostics are report-only
+  and do not alter exporter policy. All are
   implemented on `phase/2b2-canonical-midi-renderer`; generated MIDI remains
   untracked.
 - Verification: all 18 usable real golden cases render and reload; 17 are

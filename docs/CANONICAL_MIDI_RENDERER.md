@@ -143,6 +143,14 @@ cross-checked: it must not exceed the PPQ bound or under-report observed
 endpoint error. Any independent or report cross-check violation makes the
 comparison command exit nonzero.
 
+Simplified-source meter identity has two explicit results. `meter_regions_exact`
+requires equal event count, onset, numerator, and denominator.
+`meter_regions_accepted` still requires equal event count and exact
+numerator/denominator, but accepts each onset within the active endpoint bound:
+zero in exact mode or `1 / (2 * PPQ)` in quantized mode. Symbolic acceptance,
+`meter_mismatch_clips`, and CLI success use the accepted result; exact and
+quantization-accepted meter counts remain separate diagnostics.
+
 Audio-aligned metrics use monotonic refined alignment when available, otherwise
 user alignment, normalized to local beat zero. Audio comparison is restricted
 to constant-meter, constant-tempo, non-swing eligible clips and reports timing
