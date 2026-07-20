@@ -172,3 +172,13 @@ compatibility tests.
 Rejected at runtime: legacy imports, HTCanon input, encoded theory IDs, legacy
 meter tokens, chord-note rendering, applied-harmony reinterpretation, and any
 requirement for gold structure or theory targets at inference.
+
+## Phase 2B.2 renderer adaptation
+
+No legacy renderer module or runtime logic was copied or imported. The generic
+exporter is derived solely from the V2 canonical contract and low-level `mido`
+events. V1 chord accompaniment concepts remain rejected: canonical chord and
+key targets are DAW markers only, and applied, alternate, pedal, and voicing
+semantics do not generate notes. Exact rational PPQ selection, explicit
+quantization reporting, canonical-beat clicks, and canonical MIDI round-trip
+tests are new V2 infrastructure.

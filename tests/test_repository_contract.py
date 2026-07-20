@@ -17,6 +17,7 @@ REQUIRED_DOCS = {
     "ROADMAP.md",
     "STATUS.md",
     "HOOKTHEORY_MIGRATION.md",
+    "CANONICAL_MIDI_RENDERER.md",
     "legacy_snapshot.json",
 }
 
@@ -30,6 +31,7 @@ REQUIRED_PACKAGES = {
     "inference",
     "evaluation",
     "adapters",
+    "exporters",
 }
 
 
@@ -68,7 +70,9 @@ def test_package_has_no_legacy_or_heavy_imports() -> None:
 
     for path in PACKAGE_ROOT.rglob("*.py"):
         relative_parts = path.relative_to(PACKAGE_ROOT).parts
-        allowed_roots = {"mido"} if relative_parts[0] == "adapters" else set()
+        allowed_roots = (
+            {"mido"} if relative_parts[0] in {"adapters", "exporters"} else set()
+        )
         disallowed_roots = forbidden_roots - allowed_roots
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(path))

@@ -305,3 +305,104 @@ This log is append-only.
   comparison, not a universal qn conversion. Phase 2B.1 can merge while the
   external waiver remains explicit; a future owner action must choose snapshot
   refresh or manual legacy restoration.
+
+## 2026-07-20 — ADR-024: Canonical MIDI export is an exact diagnostic boundary
+
+- Status: Accepted for Phase 2B.2 review.
+- Context: Listening to canonical HookTheory conversion and round-tripping it
+  through the generic MIDI adapter are useful diagnostics, but a MIDI created
+  from canonical records cannot independently validate the raw-source mapping.
+  SMF PPQ is also bounded to 32767 while exact source decimals can require a
+  much larger denominator LCM.
+- Decision: Add an output-only `music_critic.exporters` package using the
+  already-declared low-level `mido` dependency. Validate input, choose the LCM
+  of every rendered canonical time when it fits, and require explicit caller
+  opt-in before half-up PPQ quantization at a documented fallback. Preserve
+  canonical tempo, meter, and non-null melody performance fields; otherwise
+  use explicit defaults. Generate clicks only from canonical beats and expose
+  theory only as optional marker text. Keep simplified-source comparison in an
+  audit script that does not import or call the HookTheory adapter.
+- Consequences: Exact representable events round-trip without float equality;
+  excessive-LCM events carry a rational error bound. Rendering remains absent
+  from the data, graph, model, training, and inference dependency paths. Chord
+  voicing, audio synthesis, and unsupported harmony semantics remain deferred.
+
+## 2026-07-20 — ADR-025: MIDI review acceptance and ambiguity are independent diagnostics
+
+- Status: Accepted for Phase 2B.2 review.
+- Context: An independent comparison cannot use an exporter-reported error as
+  its own tolerance. Standard MIDI also cannot uniquely preserve every
+  canonical identity: same-pitch overlapping notes share note-off semantics,
+  and simultaneous programs on one channel share channel state.
+- Decision: Derive the comparison endpoint bound only from parsed MIDI PPQ as
+  `1/(2*PPQ)`, directly measure exact onset/offset/duration error, require zero
+  observed error for exact renders, and use the exporter maximum only as a
+  bounded consistency check. Audit same-track/effective-channel/pitch interval
+  overlaps and same-channel simultaneous program conflicts in separate
+  diagnostics. Preserve canonical channel/program values with no allocator;
+  render findings unchanged, reserve channel 9 for percussion/click, and make
+  audio disagreement non-fatal alignment evidence.
+- Consequences: HookTheory golden guarantees cover melody pitch/timing, tempo,
+  meter, and piece duration. Generic exact representable timing/pitch/tempo/meter
+  remain supported, but full `CanonicalPiece` identity and timbre are not
+  promised for ambiguity groups, unrepresentable data, targets, provenance, or
+  annotations. The full corpus has 1,802 same-pitch overlap pairs in 102 clips,
+  1,627 nested pairs, and zero channel/program conflict pairs.
+
+## 2026-07-20 — ADR-026: Derived MIDI duration uses a full-tick audit bound
+
+- Status: Accepted for Phase 2B.2 review remediation.
+- Context: ADR-025 correctly bounds each independently rounded MIDI endpoint by
+  half a tick, but its wording did not distinguish a note duration calculated
+  as `offset - onset`. Opposite endpoint rounding errors can accumulate to one
+  full tick in that derived duration.
+- Decision: Keep the independently derived single-endpoint bound at
+  `1/(2*PPQ)` for note onsets/offsets, tempo/meter onsets, and terminal piece
+  duration. Use `1/PPQ` only for derived note-duration error. Exact mode uses
+  zero for both acceptance bounds. Continue comparing the exporter-reported
+  pointwise maximum only against the maximum observed endpoint error, never
+  against duration and never as the audit tolerance.
+- Consequences: Correctly quantized notes with opposing endpoint errors are no
+  longer rejected, while endpoints remain half-tick bounded and exact renders
+  admit no nonzero note endpoint/duration, tempo/meter-onset, or piece-duration
+  error. The production exporter and its report contract remain unchanged.
+
+## 2026-07-20 — ADR-027: Meter equality and meter acceptance are distinct
+
+- Status: Accepted for Phase 2B.2 review remediation.
+- Context: The canonical-meter audit already applied the endpoint bound, but
+  the simplified-source aggregate and CLI still treated non-exact meter onset
+  as a mismatch even when quantization was within that bound.
+- Decision: Preserve `meter_regions_exact` for exact event count, onset,
+  numerator, and denominator identity. Add `meter_regions_accepted`, requiring
+  equal count and exact numerator/denominator while allowing onset error up to
+  the active endpoint acceptance bound: zero in exact mode and `1/(2*PPQ)` in
+  quantized mode. Use accepted meter regions for symbolic acceptance,
+  `meter_mismatch_clips`, and CLI exit; report exact and quantization-accepted
+  counts separately.
+- Consequences: Valid half-tick meter-onset quantization no longer fails the
+  independent audit. Structural meter differences and exact-mode onset drift
+  still fail. Simplified-source and canonical-JSON meter comparisons remain
+  separate evidence paths; the production exporter is unchanged.
+
+## 2026-07-20 — ADR-028: Accept and close Phase 2B.2 canonical MIDI renderer
+
+- Status: Accepted.
+- Decision: Accept and complete Phase 2B.2 at implementation HEAD
+  `97eda0d8fdb7c884bd3d22f0027fb872b2034399`. The accepted behavior comprises
+  the generic `CanonicalPiece` MIDI exporter; rational PPQ selection; explicit
+  opt-in quantization; direct canonical tempo and meter export; melody-note
+  export; optional canonical-beat click and target markers; independent
+  simplified-source comparison; separate endpoint and derived-duration bounds;
+  exact-versus-accepted meter reporting; report-only overlap and
+  channel/program ambiguity diagnostics; and a reproducible HookTheory
+  listening/review package.
+- Explicit non-goals: HookTheory chord-note synthesis, automatic chord voicing,
+  SoundFont or audio rendering, channel-allocation policy changes, graph
+  construction, SSL or preference training, and treating renderer output as
+  independent dataset truth.
+- Consequences: Phase 3 may rely on validated canonical data and generic MIDI
+  diagnostics, but it must not treat diagnostic MIDI output or synthesized
+  target-derived content as raw model input. Audio-alignment disagreement
+  remains diagnostic evidence rather than an exporter failure, and generic MIDI
+  round trips retain the documented ambiguity and representational limits.

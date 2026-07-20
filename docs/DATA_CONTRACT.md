@@ -1681,3 +1681,18 @@ Phase 1B must implement this API without inventing fields and add tests for:
 
 MIDI parsing, graph construction, tensor conversion, window implementation, and
 model code remain outside Phase 1A.
+
+## 13. Diagnostic MIDI export contract
+
+MIDI rendering does not extend or revise canonical schema version `2.0.0`. The
+exporter consumes a validator-clean `CanonicalPiece` and cannot add observations
+or targets to it. Every rendered event time is derived from exact canonical qn.
+The report records PPQ, exactness, and maximum quantization error; a caller must
+explicitly disable exact timing before any rounding is allowed.
+
+Canonical tempo values are written directly as microseconds per quarter and
+canonical meters retain their numerator and denominator, including 6/8, 9/8,
+and 12/8. Clicks derive from `CanonicalBeat`, not reinferred meter. Key/chord
+targets may be represented only as optional diagnostic marker text and do not
+become sounding notes. MIDI round trips compare semantic projections because
+MIDI cannot preserve canonical IDs, provenance, annotations, or target arrays.

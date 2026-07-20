@@ -33,6 +33,20 @@ flags, tempo and meter events, track membership, and deterministic statistics.
 Optional score metadata must carry availability information and be droppable.
 Theory annotations are auxiliary targets rather than required encoder inputs.
 
+## Diagnostic export boundary
+
+`music_critic.exporters` is an output-only sibling of `music_critic.adapters`.
+Adapters convert external data into validated canonical records; exporters
+convert validated canonical records into diagnostic external artifacts. The
+canonical MIDI exporter may depend on `mido`, but `music_critic.data` does not
+import the exporter or `mido`, and graph/model/training paths do not depend on
+rendering. HookTheory-specific selection remains in scripts rather than the
+generic exporter.
+
+Rendered MIDI is a consistency view of `CanonicalPiece`, not independent source
+truth. Independent source checks use a separate audit script and are never
+imported by production code.
+
 ## Mandatory raw-inference graph levels
 
 - `song`
