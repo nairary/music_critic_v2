@@ -79,9 +79,11 @@
   are strictly exact. `ANmplRlZmyM` requires PPQ 500000000000000; the explicit
   PPQ-960 fallback reports maximum error `29/1500000000000000` qn.
 - The independent simplified-source audit imports no production HookTheory
-  adapter. It derives `1/(2*PPQ)` from each parsed MIDI instead of trusting the
-  exporter report as a tolerance, directly measures onset/offset/duration, and
-  treats the reported maximum only as a cross-check. Across 1,383
+  adapter. It derives the single-endpoint bound `1/(2*PPQ)` and derived-duration
+  bound `1/PPQ` from each parsed MIDI instead of trusting the exporter report as
+  a tolerance. Exact mode permits no nonzero note endpoint/duration,
+  tempo/meter-onset, or piece-duration error; the reported pointwise maximum is
+  only cross-checked against observed endpoints. Across 1,383
   rendered/reference notes it reports 18/18 accepted clips, 17 strictly exact
   clips, one independently quantization-bounded clip, zero pitch mismatches,
   zero note-count mismatches, zero meter disagreements, and zero audit/report
@@ -113,16 +115,16 @@
 
 - Exporter unit tests remain `20 passed` (including all nine observed scale
   families); the production exporter API and event architecture are unchanged.
-- Focused renderer CLI, independent-comparison, ambiguity, and conflict tests:
-  `9 passed in 0.09s`.
+- Focused independent-comparison tests: `9 passed in 0.07s`; renderer CLI:
+  `2 passed`; ambiguity/conflict audit: `2 passed`.
 - Opt-in real golden renderer/round-trip/review-package plus full-corpus
   ambiguity integration: `3 passed`; 18 renders/reloads, one
   required missing-payload skip, every required report, and all 26,175 usable
   canonical clips audited without corpus MIDI rendering.
-- Full default repository suite: `427 passed, 9 skipped in 0.92s`; every skip
+- Full default repository suite: `431 passed, 9 skipped in 0.96s`; every skip
   is an explicitly gated local-corpus integration.
 - Full suite with every HookTheory, semantic-crosswalk, renderer, and real-MIDI
-  integration enabled: `436 passed in 374.20s`.
+  integration enabled: `440 passed in 380.47s`.
 - `python -m compileall -q src scripts tests`: passed.
 - `git diff --check`: passed with no output.
 - Production dependency/import scan: passed through repository-contract and

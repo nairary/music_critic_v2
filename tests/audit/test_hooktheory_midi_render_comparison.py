@@ -89,7 +89,8 @@ def test_independent_comparison_maps_compound_source_beats(tmp_path: Path) -> No
         json.dumps(
             {
                 "render": {
-                    "maximum_quantization_error_qn": {"num": 0, "den": 1}
+                    "maximum_quantization_error_qn": {"num": 0, "den": 1},
+                    "exact_timing": True,
                 }
             }
         ),
@@ -130,6 +131,8 @@ def test_independent_comparison_maps_compound_source_beats(tmp_path: Path) -> No
     assert comparison["maximum_observed_offset_error_qn"] == "0"
     assert comparison["maximum_observed_duration_error_qn"] == "0"
     assert comparison["endpoint_quantization_bound_qn"] == "1/4"
+    assert comparison["duration_quantization_bound_qn"] == "1/2"
+    assert comparison["audit_passed"] is True
 
 
 def _comparison_case(
@@ -140,6 +143,7 @@ def _comparison_case(
     midi_onset_ticks: int,
     reported_error: tuple[int, int],
     reported_exact: bool,
+    midi_duration_ticks: int = 2,
 ) -> tuple[Path, Path]:
     clip_id = "case"
     simplified_path = tmp_path / "Hooktheory.json"
@@ -169,7 +173,7 @@ def _comparison_case(
     _write_compound_midi(
         render_dir / f"{clip_id}.canonical.mid",
         onset_ticks=midi_onset_ticks,
-        duration_ticks=2,
+        duration_ticks=midi_duration_ticks,
     )
     _write_canonical_projection(render_dir, clip_id)
     (render_dir / f"{clip_id}.render-report.json").write_text(
@@ -291,6 +295,139 @@ def test_quantized_symbolic_error_within_independent_ppq_bound_is_accepted(
     assert comparison["maximum_observed_onset_error_qn"] == "1/5"
     assert comparison["endpoint_quantization_bound_qn"] == "1/4"
     assert comparison["audit_passed"] is True
+
+
+def test_opposite_endpoint_rounding_uses_full_tick_duration_bound(
+    tmp_path: Path,
+) -> None:
+    simplified, render_dir = _comparison_case(
+        tmp_path,
+        reference_onset=0.4,
+        reference_offset=3.6,
+        midi_onset_ticks=0,
+        midi_duration_ticks=4,
+        reported_error=(1, 5),
+        reported_exact=False,
+    )
+
+    report = build_report(
+        Namespace(
+            simplified_path=simplified,
+            render_dir=render_dir,
+            render_manifest=None,
+            output=None,
+            audio_disagreement_output=None,
+            example_limit=4,
+        )
+    )
+
+    comparison = report["comparisons"][0]
+    assert comparison["endpoint_quantization_bound_qn"] == "1/4"
+    assert comparison["duration_quantization_bound_qn"] == "1/2"
+    assert comparison["maximum_observed_onset_error_qn"] == "1/5"
+    assert comparison["maximum_observed_offset_error_qn"] == "1/5"
+    assert comparison["maximum_observed_duration_error_qn"] == "2/5"
+    assert comparison["symbolic_notes_accepted"] is True
+    assert comparison["audit_passed"] is True
+
+
+def test_duration_error_above_one_tick_fails_audit_and_cli(tmp_path: Path) -> None:
+    simplified, render_dir = _comparison_case(
+        tmp_path,
+        reference_onset=0,
+        reference_offset=2,
+        midi_onset_ticks=0,
+        midi_duration_ticks=4,
+        reported_error=(0, 1),
+        reported_exact=False,
+    )
+
+    report = build_report(
+        Namespace(
+            simplified_path=simplified,
+            render_dir=render_dir,
+            render_manifest=None,
+            output=None,
+            audio_disagreement_output=None,
+            example_limit=4,
+        )
+    )
+
+    comparison = report["comparisons"][0]
+    assert comparison["maximum_observed_duration_error_qn"] == "1"
+    assert "duration_error_exceeds_duration_bound" in comparison["independent_timing_violations"]
+    assert comparison["audit_passed"] is False
+    assert main(
+        [
+            "--simplified-path",
+            str(simplified),
+            "--render-dir",
+            str(render_dir),
+        ]
+    ) == 1
+
+
+def test_exact_report_rejects_nonzero_observed_duration_error(tmp_path: Path) -> None:
+    simplified, render_dir = _comparison_case(
+        tmp_path,
+        reference_onset=0.4,
+        reference_offset=1.6,
+        midi_onset_ticks=0,
+        midi_duration_ticks=2,
+        reported_error=(0, 1),
+        reported_exact=True,
+    )
+
+    report = build_report(
+        Namespace(
+            simplified_path=simplified,
+            render_dir=render_dir,
+            render_manifest=None,
+            output=None,
+            audio_disagreement_output=None,
+            example_limit=4,
+        )
+    )
+
+    comparison = report["comparisons"][0]
+    assert comparison["maximum_observed_duration_error_qn"] == "2/5"
+    assert "exact_note_duration_error_nonzero" in comparison["independent_timing_violations"]
+    assert "exact_report_has_nonzero_error" in comparison["report_crosscheck_violations"]
+    assert comparison["audit_passed"] is False
+    assert main(
+        [
+            "--simplified-path",
+            str(simplified),
+            "--render-dir",
+            str(render_dir),
+        ]
+    ) == 1
+
+
+def test_under_reported_endpoint_error_is_detected(tmp_path: Path) -> None:
+    simplified, render_dir = _comparison_case(
+        tmp_path,
+        reference_onset=0.4,
+        reference_offset=2.4,
+        midi_onset_ticks=0,
+        reported_error=(0, 1),
+        reported_exact=False,
+    )
+    report = build_report(
+        Namespace(
+            simplified_path=simplified,
+            render_dir=render_dir,
+            render_manifest=None,
+            output=None,
+            audio_disagreement_output=None,
+            example_limit=4,
+        )
+    )
+
+    comparison = report["comparisons"][0]
+    assert comparison["symbolic_notes_accepted"] is True
+    assert "reported_error_below_observed_endpoint_error" in comparison["report_crosscheck_violations"]
+    assert comparison["audit_passed"] is False
 
 
 def test_independent_comparison_does_not_import_production_hooktheory_adapter() -> None:

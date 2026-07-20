@@ -339,6 +339,7 @@ def _clip_comparison(
         for expected, actual in zip(reference_projection, rendered_projection)
     )
     endpoint_quantization_bound = Fraction(1, 2 * midi["ppq"])
+    duration_quantization_bound = Fraction(1, midi["ppq"])
     # All values below are exact Fractions, so no floating-point tolerance is
     # needed. Keep the named slack explicit to prevent a future float rewrite
     # from silently broadening the acceptance boundary.
@@ -358,12 +359,58 @@ def _clip_comparison(
     maximum_onset_error = max(onset_error_fractions, default=Fraction(0))
     maximum_offset_error = max(offset_error_fractions, default=Fraction(0))
     maximum_duration_error = max(duration_error_fractions, default=Fraction(0))
-    maximum_endpoint_error = max(maximum_onset_error, maximum_offset_error)
+    canonical_duration_error = abs(canonical["duration_qn"] - midi["duration_qn"])
+    tempo_onset_errors = [
+        abs(expected[0] - actual[0])
+        for expected, actual in zip(canonical["tempos"], midi["tempos"])
+    ]
+    meter_onset_errors = [
+        abs(expected[0] - actual[0])
+        for expected, actual in zip(canonical["meters"], midi["meters"])
+    ]
+    maximum_tempo_onset_error = max(tempo_onset_errors, default=Fraction(0))
+    maximum_meter_onset_error = max(meter_onset_errors, default=Fraction(0))
+    maximum_endpoint_error = max(
+        maximum_onset_error,
+        maximum_offset_error,
+        maximum_tempo_onset_error,
+        maximum_meter_onset_error,
+        canonical_duration_error,
+    )
+    exact_required = reported_exact_timing is True
+    endpoint_acceptance_bound = (
+        Fraction(0) if exact_required else endpoint_quantization_bound
+    )
+    duration_acceptance_bound = (
+        Fraction(0) if exact_required else duration_quantization_bound
+    )
     timing_within_tolerance = (
         len(reference_projection) == len(rendered_projection)
-        and maximum_onset_error <= endpoint_quantization_bound + fraction_technical_slack
-        and maximum_offset_error <= endpoint_quantization_bound + fraction_technical_slack
-        and maximum_duration_error <= endpoint_quantization_bound + fraction_technical_slack
+        and maximum_onset_error <= endpoint_acceptance_bound + fraction_technical_slack
+        and maximum_offset_error <= endpoint_acceptance_bound + fraction_technical_slack
+        and maximum_duration_error <= duration_acceptance_bound + fraction_technical_slack
+    )
+    canonical_duration_accepted = (
+        canonical_duration_error
+        <= endpoint_acceptance_bound + fraction_technical_slack
+    )
+    canonical_tempo_accepted = (
+        len(canonical["tempos"]) == len(midi["tempos"])
+        and all(
+            expected[1] == actual[1]
+            for expected, actual in zip(canonical["tempos"], midi["tempos"])
+        )
+        and maximum_tempo_onset_error
+        <= endpoint_acceptance_bound + fraction_technical_slack
+    )
+    canonical_meter_accepted = (
+        len(canonical["meters"]) == len(midi["meters"])
+        and all(
+            expected[1:] == actual[1:]
+            for expected, actual in zip(canonical["meters"], midi["meters"])
+        )
+        and maximum_meter_onset_error
+        <= endpoint_acceptance_bound + fraction_technical_slack
     )
     report_crosscheck_violations = []
     if reported_quantization_error_qn > endpoint_quantization_bound:
@@ -371,34 +418,44 @@ def _clip_comparison(
     if reported_quantization_error_qn < maximum_endpoint_error:
         report_crosscheck_violations.append("reported_error_below_observed_endpoint_error")
     if reported_exact_timing is True and (
-        reported_quantization_error_qn != 0 or maximum_endpoint_error != 0
+        reported_quantization_error_qn != 0
+        or maximum_endpoint_error != 0
+        or maximum_duration_error != 0
     ):
         report_crosscheck_violations.append("exact_report_has_nonzero_error")
     independent_violations = []
-    if maximum_onset_error > endpoint_quantization_bound + fraction_technical_slack:
-        independent_violations.append("onset_error_exceeds_ppq_bound")
-    if maximum_offset_error > endpoint_quantization_bound + fraction_technical_slack:
-        independent_violations.append("offset_error_exceeds_ppq_bound")
-    if maximum_duration_error > endpoint_quantization_bound + fraction_technical_slack:
-        independent_violations.append("duration_error_exceeds_ppq_bound")
-    canonical_duration_error = abs(canonical["duration_qn"] - midi["duration_qn"])
-    canonical_duration_accepted = canonical_duration_error <= endpoint_quantization_bound
+    if maximum_onset_error > endpoint_acceptance_bound + fraction_technical_slack:
+        independent_violations.append(
+            "exact_note_onset_error_nonzero"
+            if exact_required
+            else "onset_error_exceeds_ppq_bound"
+        )
+    if maximum_offset_error > endpoint_acceptance_bound + fraction_technical_slack:
+        independent_violations.append(
+            "exact_note_offset_error_nonzero"
+            if exact_required
+            else "offset_error_exceeds_ppq_bound"
+        )
+    if maximum_duration_error > duration_acceptance_bound + fraction_technical_slack:
+        independent_violations.append(
+            "exact_note_duration_error_nonzero"
+            if exact_required
+            else "duration_error_exceeds_duration_bound"
+        )
     if not canonical_duration_accepted:
-        independent_violations.append("piece_duration_error_exceeds_ppq_bound")
-    canonical_tempo_accepted = len(canonical["tempos"]) == len(midi["tempos"]) and all(
-        expected[1] == actual[1]
-        and abs(expected[0] - actual[0]) <= endpoint_quantization_bound
-        for expected, actual in zip(canonical["tempos"], midi["tempos"])
-    )
+        independent_violations.append(
+            "exact_piece_duration_error_nonzero"
+            if exact_required
+            else "piece_duration_error_exceeds_ppq_bound"
+        )
     if not canonical_tempo_accepted:
         independent_violations.append("canonical_tempo_events_disagree")
-    canonical_meter_accepted = len(canonical["meters"]) == len(midi["meters"]) and all(
-        expected[1:] == actual[1:]
-        and abs(expected[0] - actual[0]) <= endpoint_quantization_bound
-        for expected, actual in zip(canonical["meters"], midi["meters"])
-    )
+        if exact_required and maximum_tempo_onset_error:
+            independent_violations.append("exact_tempo_onset_error_nonzero")
     if not canonical_meter_accepted:
         independent_violations.append("canonical_meter_events_disagree")
+        if exact_required and maximum_meter_onset_error:
+            independent_violations.append("exact_meter_onset_error_nonzero")
     paired = min(len(reference_projection), len(rendered_projection))
     pitch_matches = sum(
         expected[0] == actual[0]
@@ -494,12 +551,15 @@ def _clip_comparison(
             "symbolic_pitch_exact": pitch_exact,
             "midi_ticks_per_quarter": midi["ppq"],
             "endpoint_quantization_bound_qn": _fraction_text(endpoint_quantization_bound),
+            "duration_quantization_bound_qn": _fraction_text(duration_quantization_bound),
             "fraction_technical_slack_qn": _fraction_text(fraction_technical_slack),
             "reported_maximum_quantization_error_qn": _fraction_text(reported_quantization_error_qn),
             "reported_exact_timing": reported_exact_timing,
             "maximum_observed_onset_error_qn": _fraction_text(maximum_onset_error),
             "maximum_observed_offset_error_qn": _fraction_text(maximum_offset_error),
             "maximum_observed_duration_error_qn": _fraction_text(maximum_duration_error),
+            "maximum_observed_tempo_onset_error_qn": _fraction_text(maximum_tempo_onset_error),
+            "maximum_observed_meter_onset_error_qn": _fraction_text(maximum_meter_onset_error),
             "report_crosscheck_passed": not report_crosscheck_violations,
             "report_crosscheck_violations": report_crosscheck_violations,
             "independent_timing_violations": independent_violations,

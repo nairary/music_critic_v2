@@ -127,13 +127,18 @@ as expected skips. `artifacts/` and generated MIDI remain ignored by Git.
 It reconstructs reference pitch as `60 + 12 * octave + pitch_class`, maps
 simplified source-beat boundaries through simplified meter regions, and compares
 them with MIDI events. Strict symbolic equality is reported separately from
-acceptance. The audit derives its endpoint bound independently from the parsed
-MIDI file as `1 / (2 * PPQ)` qn; it never uses
+acceptance. The audit derives two bounds independently from the parsed MIDI:
+each onset/offset, tempo onset, meter onset, or terminal piece-duration endpoint
+may differ by at most `1 / (2 * PPQ)` qn, while note duration (the difference
+of two independently rounded endpoints) may differ by at most `1 / PPQ` qn. It
+never uses
 `MidiRenderReport.maximum_quantization_error_qn` as the acceptance tolerance.
 It directly measures onset, offset, and duration errors as exact `Fraction`
-values. Exact renders must observe zero symbolic error. Quantized renders must
-stay within the PPQ-derived bound, with zero technical slack in the current
-all-rational implementation. The exporter-reported maximum is only
+values. Exact renders must observe zero note endpoint/duration, tempo/meter
+onset, and piece-duration error; PPQ-derived tolerance never admits nonzero
+exact-mode error. Quantized renders use the separate endpoint and duration
+bounds with zero technical slack in the current all-rational implementation.
+The exporter-reported maximum concerns one converted time point and is only
 cross-checked: it must not exceed the PPQ bound or under-report observed
 endpoint error. Any independent or report cross-check violation makes the
 comparison command exit nonzero.

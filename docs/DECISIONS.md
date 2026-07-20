@@ -348,3 +348,21 @@ This log is append-only.
   promised for ambiguity groups, unrepresentable data, targets, provenance, or
   annotations. The full corpus has 1,802 same-pitch overlap pairs in 102 clips,
   1,627 nested pairs, and zero channel/program conflict pairs.
+
+## 2026-07-20 — ADR-026: Derived MIDI duration uses a full-tick audit bound
+
+- Status: Accepted for Phase 2B.2 review remediation.
+- Context: ADR-025 correctly bounds each independently rounded MIDI endpoint by
+  half a tick, but its wording did not distinguish a note duration calculated
+  as `offset - onset`. Opposite endpoint rounding errors can accumulate to one
+  full tick in that derived duration.
+- Decision: Keep the independently derived single-endpoint bound at
+  `1/(2*PPQ)` for note onsets/offsets, tempo/meter onsets, and terminal piece
+  duration. Use `1/PPQ` only for derived note-duration error. Exact mode uses
+  zero for both acceptance bounds. Continue comparing the exporter-reported
+  pointwise maximum only against the maximum observed endpoint error, never
+  against duration and never as the audit tolerance.
+- Consequences: Correctly quantized notes with opposing endpoint errors are no
+  longer rejected, while endpoints remain half-tick bounded and exact renders
+  admit no nonzero note endpoint/duration, tempo/meter-onset, or piece-duration
+  error. The production exporter and its report contract remain unchanged.

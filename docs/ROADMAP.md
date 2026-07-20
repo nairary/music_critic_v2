@@ -172,10 +172,12 @@ document is the phase execution checklist.
   melody notes, optional canonical-beat clicks, and optional target markers.
 - Outputs: a generic exporter API, HookTheory rendering CLI, semantic MIDI
   round trips, a deterministic listening sampler, and a separate audit-only
-  simplified/alignment comparison. Independent comparison tolerance derives
-  from MIDI PPQ; corpus ambiguity and channel/program diagnostics are report-only
-  and do not alter exporter policy. All are implemented on
-  `phase/2b2-canonical-midi-renderer`; generated MIDI remains untracked.
+  simplified/alignment comparison. Independent comparison derives a half-tick
+  bound for single endpoints and a full-tick bound for duration from MIDI PPQ;
+  exact mode permits no nonzero error. Corpus ambiguity and channel/program
+  diagnostics are report-only and do not alter exporter policy. All are
+  implemented on `phase/2b2-canonical-midi-renderer`; generated MIDI remains
+  untracked.
 - Verification: all 18 usable real golden cases render and reload; 17 are
   strictly exact and the one excessive-LCM case matches within its explicit
   PPQ-960-derived bound. Independent simplified evidence has zero pitch,
