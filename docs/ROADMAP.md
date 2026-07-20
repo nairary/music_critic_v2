@@ -164,8 +164,13 @@ document is the phase execution checklist.
 
 ### Phase 2B.2 — Canonical MIDI renderer
 
-- Status: Ready for review
-- Implementation: `f3799765b74b17cc3a493430dc11f2a64a781b74`
+- Status: Accepted and Completed
+- Accepted implementation:
+  `97eda0d8fdb7c884bd3d22f0027fb872b2034399`
+- Initial implementation:
+  `f3799765b74b17cc3a493430dc11f2a64a781b74`
+- Acceptance covers the complete implementation and review-remediation chain
+  ending at `97eda0d8fdb7c884bd3d22f0027fb872b2034399`.
 - Dependencies: accepted Phase 2A.1 and Phase 2B.1 adapters.
 - Goal: render any valid `CanonicalPiece` to diagnostic standard MIDI while
   preserving representable rational timing, canonical tempo, canonical meter,
@@ -173,11 +178,12 @@ document is the phase execution checklist.
 - Outputs: a generic exporter API, HookTheory rendering CLI, semantic MIDI
   round trips, a deterministic listening sampler, and a separate audit-only
   simplified/alignment comparison. Independent comparison derives a half-tick
-  bound for single endpoints and a full-tick bound for duration from MIDI PPQ;
-  exact mode permits no nonzero error. Meter reports preserve strict identity
-  separately from bounded onset acceptance, and aggregate/CLI decisions use
-  the latter. Corpus ambiguity and channel/program diagnostics are report-only
-  and do not alter exporter policy. All are
+  `1/(2*PPQ)` bound for single endpoints and a full-tick `1/PPQ` bound for
+  derived note duration; exact mode permits no observed timing error. Meter
+  reports preserve strict identity separately from bounded onset acceptance,
+  and aggregate/CLI decisions use the latter. Corpus ambiguity and
+  channel/program diagnostics are report-only and do not alter exporter
+  policy. All are
   implemented on `phase/2b2-canonical-midi-renderer`; generated MIDI remains
   untracked.
 - Verification: all 18 usable real golden cases render and reload; 17 are
@@ -188,8 +194,9 @@ document is the phase execution checklist.
   102 of 26,175 usable clips (1,627 nested) and zero channel/program conflicts;
   these findings limit generic round-trip/timbre guarantees but do not fail
   rendering.
-- Non-goals: chord voicing, audio synthesis, graph/model/training work, and
-  treating renderer output as independent source truth.
+- Non-goals: chord voicing, audio synthesis, graph construction, models, SSL,
+  training, preference scoring, Phase 3 implementation, and treating renderer
+  output as independent source truth.
 
 The graph phase, model phases, and training phases remain pending.
 

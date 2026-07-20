@@ -384,3 +384,25 @@ This log is append-only.
   independent audit. Structural meter differences and exact-mode onset drift
   still fail. Simplified-source and canonical-JSON meter comparisons remain
   separate evidence paths; the production exporter is unchanged.
+
+## 2026-07-20 — ADR-028: Accept and close Phase 2B.2 canonical MIDI renderer
+
+- Status: Accepted.
+- Decision: Accept and complete Phase 2B.2 at implementation HEAD
+  `97eda0d8fdb7c884bd3d22f0027fb872b2034399`. The accepted behavior comprises
+  the generic `CanonicalPiece` MIDI exporter; rational PPQ selection; explicit
+  opt-in quantization; direct canonical tempo and meter export; melody-note
+  export; optional canonical-beat click and target markers; independent
+  simplified-source comparison; separate endpoint and derived-duration bounds;
+  exact-versus-accepted meter reporting; report-only overlap and
+  channel/program ambiguity diagnostics; and a reproducible HookTheory
+  listening/review package.
+- Explicit non-goals: HookTheory chord-note synthesis, automatic chord voicing,
+  SoundFont or audio rendering, channel-allocation policy changes, graph
+  construction, SSL or preference training, and treating renderer output as
+  independent dataset truth.
+- Consequences: Phase 3 may rely on validated canonical data and generic MIDI
+  diagnostics, but it must not treat diagnostic MIDI output or synthesized
+  target-derived content as raw model input. Audio-alignment disagreement
+  remains diagnostic evidence rather than an exporter failure, and generic MIDI
+  round trips retain the documented ambiguity and representational limits.

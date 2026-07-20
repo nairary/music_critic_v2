@@ -25,11 +25,14 @@
   `6111d3d062e02897e3f8ebdca7e4388f80ef434e`
 - Phase 2B.1 merge SHA:
   `b1df77737f641b705e3c48724b2741c7a022a2e4`
-- Phase 2B.2: Ready for review
+- Phase 2B.2: Accepted and Completed
 - Phase 2B.2 starting SHA: `3d814a2e2db7434ee6c666619dc287e5eb101101`
-- Phase 2B.2 implementation SHA:
+- Phase 2B.2 initial implementation SHA:
   `f3799765b74b17cc3a493430dc11f2a64a781b74`
-- Current task: review Phase 2B.2 canonical MIDI renderer remediation
+- Accepted Phase 2B.2 implementation HEAD:
+  `97eda0d8fdb7c884bd3d22f0027fb872b2034399`
+- Current task: organizational Phase 2B.2 closure, merge to `main`, and clean
+  Phase 3A branch bootstrap; Phase 3A implementation has not started.
 
 ## Phase 2 migration status
 
@@ -45,8 +48,9 @@
   `3898b168063094b87e5ca5d88aae0317c1562c3f`.
 - Phase 2B.0 is **Accepted and Completed** at implementation SHA
   `9bfcd45d7d3ae7e404a88dc8c0a040aa23c49e7e`.
-- Phase 2B.2 is **Ready for review** on
-  `phase/2b2-canonical-midi-renderer`.
+- Phase 2B.2 is **Accepted and Completed** at implementation HEAD
+  `97eda0d8fdb7c884bd3d22f0027fb872b2034399`; the accepted chain includes the
+  initial implementation and every review remediation.
 - No graph, dataset, model, SSL, training, preference, quality, inference, or
   GRPO work has started.
 

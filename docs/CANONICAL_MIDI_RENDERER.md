@@ -1,6 +1,9 @@
 # Canonical MIDI Renderer
 
-Status: **Phase 2B.2 ready for review**.
+Phase status: **Accepted and Completed**.
+
+Accepted implementation:
+`97eda0d8fdb7c884bd3d22f0027fb872b2034399`.
 
 ## Scope and trust boundary
 
