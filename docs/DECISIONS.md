@@ -406,3 +406,34 @@ This log is append-only.
   target-derived content as raw model input. Audio-alignment disagreement
   remains diagnostic evidence rather than an exporter failure, and generic MIDI
   round trips retain the documented ambiguity and representational limits.
+
+## 2026-07-22 — ADR-029: Phase 3A graph is a versioned raw-only heterograph
+
+- Status: Accepted.
+- Context: HookTheory supplies rich supervisory targets while generic MIDI does
+  not. A shared encoder graph must therefore be invariant to every target,
+  annotation view, split, source group, and provenance field. Polyphonic note
+  cliques would also make dense passages grow quadratically.
+- Decision: Graph schema `1.0.0` contains exactly `song`, `track`, `bar`,
+  `beat`, `onset`, and `note`, with the containment, chronological, reverse,
+  and sustained relations recorded in `docs/ARCHITECTURE.md`. Exact canonical
+  onset determines note/bar and onset/bar/beat ownership. Positive-duration
+  notes connect to every beat start in `[onset, offset)`; grace notes do not.
+  Beat and onset nodes are unconditional raw candidate slots. Feature registry
+  `1.0.0` declares separate categorical, continuous, and availability tensors,
+  all marked raw-inference-safe. Builder `1.0.0` ignores targets, annotations,
+  dataset/split/group/source identity, provenance, confidence, and quality
+  flags. Each PyG `HeteroData` stores canonical schema, graph schema, feature
+  registry, and builder versions. Deterministic JSON serialization is the
+  diagnostic/cache-fingerprint representation.
+- Dependency boundary: PyTorch and PyG become runtime dependencies only for
+  `music_critic.graph`; `music_critic.data` remains standard-library-only and
+  adapters/exporters retain their existing `mido` boundary. Optional compiled
+  PyG extensions are not required for Phase 3A.
+- Consequences: HookTheory target-visible/hidden and generic MIDI pieces share
+  one model-facing schema. Simultaneous-note context flows through onset/beat
+  intermediaries instead of cliques, and edge growth is bounded by containment,
+  chronological, and note/beat incidence. Semantic nodes, target routing,
+  graph batching/caching, GNNs, SSL, masking, and corruption training remain
+  later phases and require explicit version decisions if they alter this base
+  contract.

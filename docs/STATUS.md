@@ -2,7 +2,7 @@
 
 ## Current phase
 
-- Date: 2026-07-20
+- Date: 2026-07-22
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -33,9 +33,51 @@
   `bb94e2972f94a4e092331ebd240781263656dea1`
 - Phase 2B.2 merge SHA:
   `1d8a5ecf217ebd466018a1f845eedfab7e1f7828`
-- Next phase: Phase 3A — Raw graph contract and research-scope correction
-- Next branch: `phase/3a-raw-graph-contract`
-- Phase 3A implementation: Not started
+- Phase 3A: Completed
+- Phase 3A branch: `phase/3a-raw-graph-contract`
+- Next phase: Phase 4 — POP909 adapter
+
+## Phase 3A raw graph result
+
+- Public API from `music_critic.graph`: `build_raw_graph`,
+  `validate_raw_graph`, `graph_to_dict`, `dumps_graph`, `dump_graph`, and
+  `graph_fingerprint`, plus the feature/relation/version registries.
+- Every build returns PyG `HeteroData` with mandatory `song`, `track`, `bar`,
+  `beat`, `onset`, and `note` stores. Canonical schema `2.0.0`, graph schema
+  `1.0.0`, feature registry `1.0.0`, and graph builder `1.0.0` are stored on
+  each graph.
+- Exact onset-based containment, chronological/reverse relations, and sparse
+  note-to-beat sustained activity are deterministic. Beat and onset candidate
+  slots are raw unconditional positions for future direct theory heads.
+- Separate categorical, continuous, and availability tensors contain only raw
+  MIDI-observable or deterministic raw-derived fields. Targets, theory/gold
+  annotations, dataset/source grouping, split, source path, provenance,
+  confidence, and quality flags are not read for features or topology.
+- Simultaneous notes share onset/beat intermediaries; no pairwise simultaneous
+  clique is built. Regression tests bound edge growth linearly on dense
+  same-onset fixtures.
+- PyTorch and PyG are explicit graph runtime dependencies. The canonical data
+  layer remains standard-library-only, and optional compiled PyG extensions are
+  not required.
+- `scripts/benchmark_graph_builder.py` reports per-type node/edge counts,
+  contract versions, and min/mean/max construction time for canonical JSON.
+- Non-goals remain GNNs, SSL objectives, masking/corruptions, semantic nodes,
+  graph caches/collation, models, training, preference, and scoring inference.
+
+## Phase 3A verification
+
+- Focused graph suite: `17 passed`.
+- Full default repository suite: `452 passed, 9 skipped`; all skips remain
+  explicitly gated local-corpus integrations. PyG emits two upstream
+  `torch.jit.script` deprecation warnings; there are no test failures.
+- `python -m compileall -q src scripts tests`: passed.
+- `git diff --check`: passed with no output.
+- Five-repeat canonical fixture benchmark: 20 nodes and 108 directed edges;
+  construction mean `0.003632 s`, minimum `0.003575 s`, and maximum
+  `0.003689 s` on the implementation environment.
+- Installed verification runtime: Python 3.13, CPU-only PyTorch `2.13.0`, and
+  PyG `2.8.0.post1`. Declared compatibility remains bounded by
+  `torch>=2.8,<3` and `torch-geometric>=2.7,<3`.
 
 ## Phase 2 migration status
 
@@ -54,8 +96,9 @@
 - Phase 2B.2 is **Accepted and Completed** at implementation HEAD
   `97eda0d8fdb7c884bd3d22f0027fb872b2034399`; the accepted chain includes the
   initial implementation and every review remediation.
-- No graph, dataset, model, SSL, training, preference, quality, inference, or
-  GRPO work has started.
+- At Phase 2 closure, no graph, dataset, model, SSL, training, preference,
+  quality, inference, or GRPO work had started; Phase 3A is now completed as
+  recorded above.
 
 ## Phase 2B.2 canonical MIDI renderer result
 

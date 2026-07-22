@@ -11,18 +11,25 @@ checkout is absent.
 
 ## Current state
 
-Phase 0 bootstrap only. The repository currently contains project structure,
-architecture and migration documentation, a legacy snapshot, and contract
-tests. It does not yet implement canonical schema classes, MIDI adapters,
-graphs, neural models, training, or inference.
+Phases 0 through 3A are implemented. The repository provides an exact immutable
+canonical schema, generic MIDI and HookTheory adapters, diagnostic canonical
+MIDI export, and a versioned raw-only PyG heterograph builder. The graph uses
+mandatory `song`, `track`, `bar`, `beat`, `onset`, and `note` nodes and never
+uses theory targets, gold semantic structure, split, or provenance as encoder
+input or topology. Neural models, SSL objectives, corruption training,
+preference training, and deployable scoring inference are not implemented yet.
 
 ## Layout
 
-- `src/music_critic/`: future production package;
+- `src/music_critic/data/`: canonical timing, schema, validation, serialization;
+- `src/music_critic/adapters/`: generic MIDI and HookTheory conversion;
+- `src/music_critic/exporters/`: output-only diagnostic MIDI rendering;
+- `src/music_critic/graph/`: feature registry, relations, builder, validation,
+  and deterministic graph serialization;
 - `docs/`: authoritative plan, architecture, contracts, decisions, and status;
 - `configs/`: reserved for phase-owned configuration;
-- `scripts/`: repository maintenance checks;
-- `tests/`: lightweight repository-contract tests.
+- `scripts/`: audits, rendering/smoke tools, and graph benchmark;
+- `tests/`: canonical, adapter, exporter, audit, integration, and graph tests.
 
 ## Environment
 
@@ -44,6 +51,15 @@ python -m pytest -q
 python -m compileall src
 make check
 make legacy-check
+```
+
+Build a raw graph or run the small construction benchmark from canonical JSON:
+
+```bash
+PYTHONPATH=src python -c \
+  "from music_critic.data import load_piece; from music_critic.graph import build_raw_graph; print(build_raw_graph(load_piece('tests/fixtures/data/canonical_piece_v2.json')))"
+PYTHONPATH=src python scripts/benchmark_graph_builder.py \
+  tests/fixtures/data/canonical_piece_v2.json --repeats 5
 ```
 
 An editable installation is optional:
