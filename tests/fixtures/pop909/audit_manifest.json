@@ -1,0 +1,304 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "alternative_version_count": 3,
+        "canonical_note_count": 1556,
+        "canonical_track_count": 4,
+        "key_annotation_count": 1,
+        "no_chord_count": 5,
+        "source_track_count": 4,
+        "tempo_event_count": 1,
+        "warning_codes": {
+          "EMPTY_TRACK": 1,
+          "INCOMPLETE_FINAL_BAR": 1,
+          "PIECE_TRAILING_SILENCE": 1
+        }
+      },
+      "primary_midi": "POP909/001/001.mid",
+      "reasons": [
+        "ordinary_official_role_tracks"
+      ],
+      "sha256": "a93079efb82bdf1e27e75951b7eb454509efb130f0bc0e936257df5c73aabcb0",
+      "song_id": "001",
+      "source_group_id": "pop909:001"
+    },
+    {
+      "expected": {
+        "alternative_version_count": 1,
+        "canonical_note_count": 175,
+        "canonical_track_count": 4,
+        "key_annotation_count": 1,
+        "no_chord_count": 4,
+        "source_track_count": 4,
+        "tempo_event_count": 1,
+        "warning_codes": {
+          "EMPTY_TRACK": 1,
+          "INCOMPLETE_FINAL_BAR": 1,
+          "PIECE_TRAILING_SILENCE": 1
+        }
+      },
+      "primary_midi": "POP909/098/098.mid",
+      "reasons": [
+        "alignment_extreme"
+      ],
+      "sha256": "e9843ee815c4b7266607f0a7904edd73995050c0321ac452a1448c9f0b08fb39",
+      "song_id": "098",
+      "source_group_id": "pop909:098"
+    },
+    {
+      "expected": {
+        "alternative_version_count": 2,
+        "canonical_note_count": 2166,
+        "canonical_track_count": 4,
+        "key_annotation_count": 3,
+        "no_chord_count": 2,
+        "source_track_count": 4,
+        "tempo_event_count": 1,
+        "warning_codes": {
+          "EMPTY_TRACK": 1,
+          "INCOMPLETE_FINAL_BAR": 1,
+          "OVERLAPPING_SAME_PITCH_NOTES": 4,
+          "PIECE_TRAILING_SILENCE": 1
+        }
+      },
+      "primary_midi": "POP909/197/197.mid",
+      "reasons": [
+        "complex_or_rare_chord_labels"
+      ],
+      "sha256": "14649ccbc87407f1625f20ec0bab8a6c7ac4f9d78a6f0405bee7be82fbcf8fd3",
+      "song_id": "197",
+      "source_group_id": "pop909:197"
+    },
+    {
+      "expected": {
+        "alternative_version_count": 1,
+        "canonical_note_count": 1839,
+        "canonical_track_count": 4,
+        "key_annotation_count": 1,
+        "no_chord_count": 8,
+        "source_track_count": 4,
+        "tempo_event_count": 178,
+        "warning_codes": {
+          "EMPTY_TRACK": 1,
+          "INCOMPLETE_FINAL_BAR": 1,
+          "MID_BAR_TEMPO_CHANGE": 177,
+          "OVERLAPPING_SAME_PITCH_NOTES": 5,
+          "PIECE_TRAILING_SILENCE": 1
+        }
+      },
+      "primary_midi": "POP909/225/225.mid",
+      "reasons": [
+        "tempo_changes",
+        "warning:MID_BAR_TEMPO_CHANGE"
+      ],
+      "sha256": "09cbd80c76c75725f4edaf03955a7449c4398e75ee98ab8e9cd1361ce710cedf",
+      "song_id": "225",
+      "source_group_id": "pop909:225"
+    },
+    {
+      "expected": {
+        "alternative_version_count": 2,
+        "canonical_note_count": 2114,
+        "canonical_track_count": 4,
+        "key_annotation_count": 1,
+        "no_chord_count": 73,
+        "source_track_count": 4,
+        "tempo_event_count": 153,
+        "warning_codes": {
+          "EMPTY_TRACK": 1,
+          "INCOMPLETE_FINAL_BAR": 1,
+          "MID_BAR_TEMPO_CHANGE": 152,
+          "OVERLAPPING_SAME_PITCH_NOTES": 6,
+          "PIECE_TRAILING_SILENCE": 1
+        }
+      },
+      "primary_midi": "POP909/247/247.mid",
+      "reasons": [
+        "no_chord_regions"
+      ],
+      "sha256": "b17f46ff9065179a9d49be6ba354470e55b6364b26223bbf764b307e663fa6ce",
+      "song_id": "247",
+      "source_group_id": "pop909:247"
+    },
+    {
+      "expected": {
+        "alternative_version_count": 3,
+        "canonical_note_count": 1015,
+        "canonical_track_count": 4,
+        "key_annotation_count": 5,
+        "no_chord_count": 1,
+        "source_track_count": 4,
+        "tempo_event_count": 18,
+        "warning_codes": {
+          "EMPTY_TRACK": 1,
+          "INCOMPLETE_FINAL_BAR": 1,
+          "OVERLAPPING_SAME_PITCH_NOTES": 4,
+          "PIECE_TRAILING_SILENCE": 1
+        }
+      },
+      "primary_midi": "POP909/592/592.mid",
+      "reasons": [
+        "key_changes"
+      ],
+      "sha256": "d6a9eb58d76f0a41e96e85db166a0fcdf7bd6257aed233ca7cdd4c3b5f1afb7c",
+      "song_id": "592",
+      "source_group_id": "pop909:592"
+    },
+    {
+      "expected": {
+        "alternative_version_count": 1,
+        "canonical_note_count": 1726,
+        "canonical_track_count": 4,
+        "key_annotation_count": 2,
+        "no_chord_count": 3,
+        "source_track_count": 4,
+        "tempo_event_count": 18,
+        "warning_codes": {
+          "EMPTY_TRACK": 1,
+          "INCOMPLETE_FINAL_BAR": 1,
+          "MID_BAR_TEMPO_CHANGE": 16,
+          "OVERLAPPING_SAME_PITCH_NOTES": 1,
+          "PIECE_TRAILING_SILENCE": 1,
+          "midi.tempo_conflict": 1
+        }
+      },
+      "primary_midi": "POP909/632/632.mid",
+      "reasons": [
+        "warning:midi.tempo_conflict"
+      ],
+      "sha256": "a884a35087f3b0a75031b6e4334f1301bf9c179169daafa35495671b42d194a8",
+      "song_id": "632",
+      "source_group_id": "pop909:632"
+    },
+    {
+      "expected": {
+        "alternative_version_count": 9,
+        "canonical_note_count": 1643,
+        "canonical_track_count": 4,
+        "key_annotation_count": 1,
+        "no_chord_count": 3,
+        "source_track_count": 4,
+        "tempo_event_count": 1,
+        "warning_codes": {
+          "EMPTY_TRACK": 1,
+          "INCOMPLETE_FINAL_BAR": 1,
+          "OVERLAPPING_SAME_PITCH_NOTES": 1,
+          "PIECE_TRAILING_SILENCE": 1,
+          "midi.meter_conflict": 1
+        }
+      },
+      "primary_midi": "POP909/775/775.mid",
+      "reasons": [
+        "alternative_versions"
+      ],
+      "sha256": "ff44e1d61d6c04b0cd21fd69c0790730701fd821bb9867c8826611fcb7577ab8",
+      "song_id": "775",
+      "source_group_id": "pop909:775"
+    },
+    {
+      "expected": {
+        "alternative_version_count": 1,
+        "canonical_note_count": 2232,
+        "canonical_track_count": 4,
+        "key_annotation_count": 2,
+        "no_chord_count": 3,
+        "source_track_count": 4,
+        "tempo_event_count": 1,
+        "warning_codes": {
+          "EMPTY_TRACK": 1,
+          "INCOMPLETE_FINAL_BAR": 1,
+          "OVERLAPPING_SAME_PITCH_NOTES": 931,
+          "PIECE_TRAILING_SILENCE": 1
+        }
+      },
+      "primary_midi": "POP909/802/802.mid",
+      "reasons": [
+        "warning:OVERLAPPING_SAME_PITCH_NOTES"
+      ],
+      "sha256": "2f9286b70e44df8eac2ae978f269e1a42ded274659b2f62e89f232916ce21918",
+      "song_id": "802",
+      "source_group_id": "pop909:802"
+    },
+    {
+      "expected": {
+        "alternative_version_count": 3,
+        "canonical_note_count": 1323,
+        "canonical_track_count": 4,
+        "key_annotation_count": 3,
+        "no_chord_count": 3,
+        "source_track_count": 4,
+        "tempo_event_count": 1,
+        "warning_codes": {
+          "EMPTY_TRACK": 1,
+          "INCOMPLETE_FINAL_BAR": 1,
+          "OVERLAPPING_SAME_PITCH_NOTES": 15,
+          "PIECE_TRAILING_SILENCE": 1,
+          "midi.meter_conflict": 1
+        }
+      },
+      "primary_midi": "POP909/906/906.mid",
+      "reasons": [
+        "warning:midi.meter_conflict"
+      ],
+      "sha256": "f900d48a27961909b112b637fb22eb645958cf0df7664ed86e296e5076146401",
+      "song_id": "906",
+      "source_group_id": "pop909:906"
+    },
+    {
+      "expected": {
+        "alternative_version_count": 1,
+        "canonical_note_count": 1015,
+        "canonical_track_count": 4,
+        "key_annotation_count": 1,
+        "no_chord_count": 3,
+        "source_track_count": 4,
+        "tempo_event_count": 7,
+        "warning_codes": {
+          "EMPTY_TRACK": 1,
+          "INCOMPLETE_FINAL_BAR": 1,
+          "MID_BAR_TEMPO_CHANGE": 6,
+          "OVERLAPPING_SAME_PITCH_NOTES": 1,
+          "PIECE_TRAILING_SILENCE": 1
+        }
+      },
+      "primary_midi": "POP909/909/909.mid",
+      "reasons": [
+        "unusual_track_configuration",
+        "warning:EMPTY_TRACK",
+        "warning:INCOMPLETE_FINAL_BAR",
+        "warning:PIECE_TRAILING_SILENCE"
+      ],
+      "sha256": "30b743c7ddabf9665ed461e2833c1c56389f90bc4a8bb34bbec696f99029837f",
+      "song_id": "909",
+      "source_group_id": "pop909:909"
+    }
+  ],
+  "corpus": {
+    "alternative_midi_count": 1989,
+    "annotation_file_counts": {
+      "beat_audio": 909,
+      "beat_midi": 909,
+      "chord_audio": 909,
+      "chord_midi": 909,
+      "key_audio": 909
+    },
+    "corpus_fingerprint_sha256": "3822c50d7a964cb5ee747888c646a6ff52d38b230e8bb602520f7eb6b3866114",
+    "file_count": 7446,
+    "git": {
+      "commit": "d83e6edba6872a704f5d3b8b32f5cb540088dae6",
+      "remote": "https://github.com/music-x-lab/POP909-Dataset.git"
+    },
+    "layout": "official_song_directories",
+    "primary_midi_count": 909,
+    "song_count": 909
+  },
+  "expected_crosswalk": {
+    "converted": 908,
+    "failed": 1,
+    "failed_song_ids": [
+      "043"
+    ]
+  },
+  "schema_version": "1.0.0"
+}

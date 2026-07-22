@@ -2,7 +2,7 @@
 
 ## Current phase
 
-- Date: 2026-07-22
+- Date: 2026-07-23
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -35,7 +35,70 @@
   `1d8a5ecf217ebd466018a1f845eedfab7e1f7828`
 - Phase 3A: Completed
 - Phase 3A branch: `phase/3a-raw-graph-contract`
-- Next phase: Phase 4 — POP909 adapter
+- Phase 4A: Completed
+- Phase 4A branch: `phase/4a-pop909-evidence-contract`
+- Next phase: Phase 4B — production POP909 adapter implementation
+
+## Phase 4A POP909 evidence result
+
+- Added a deterministic, bounded-memory, read-only audit CLI with official
+  song-directory and flattened processed-mirror discovery, complete file
+  hashing, explicit failure retention, vocabulary/timing evidence, and
+  deterministic JSON output. The CLI rejects every output path under its
+  dataset root.
+- Pinned the official evidence snapshot at POP909 repository commit
+  `d83e6edba6872a704f5d3b8b32f5cb540088dae6`: 7,446 files, 909 songs and
+  primary MIDIs, 1,989 alternative MIDIs, and 909 files in each of five
+  annotation families. Whole-corpus fingerprint:
+  `3822c50d7a964cb5ee747888c646a6ff52d38b230e8bb602520f7eb6b3866114`.
+- Identified the installed `data/pop909-cl` corpus as an unversioned,
+  annotation-free processed mirror: 1,819 files including 909 MIDI files and
+  910 AppleDouble resources. Fingerprint:
+  `af623705a375c419751e4ba6456224b8b700f50fc1a09a32af57e1620d1ff4dd`.
+- Complete generic-adapter audit: official `908/909` converted with song `043`
+  explicitly rejected for a mid-bar meter change; processed mirror `908/909`
+  converted with song `172` rejected by the same category. Sixteen
+  deterministic serialization round trips passed on each corpus.
+- Official warnings total 14,896. Processed warnings total 126,605, of which
+  123,873 (97.84%) are event-level `OVERLAPPING_SAME_PITCH_NOTES`; the earlier
+  100-file spread total of 14,475 is reproduced exactly and does not represent
+  14,475 failed files.
+- Exact track names resolve `MELODY`, `BRIDGE`, and `PIANO` for all 909
+  official primaries. Zero of 1,989 alternative versions and zero of 909
+  processed primaries resolve the complete documented triple, so their role
+  targets must remain masked.
+- All 877,060 records across the five official annotation families parse
+  without row failures. Source times are decimal seconds and are not exactly
+  interchangeable with canonical beat positions. Audio/MIDI chord views also
+  differ materially and remain separate target views.
+- All 223,189 chord records and 1,107 key records parse losslessly under the
+  proposed non-compressed grammars. The chord union has 930 labels including
+  6,202 `N` records; the key vocabulary has 24 labels and 152 pieces have key
+  changes.
+- Golden evidence pins 11 bounded official cases plus explicit failure `043`.
+  One `pop909:<song-id>` group contains every primary, annotation, and version;
+  Phase 4A assigns no final splits.
+- Production code under `src/music_critic/adapters`, graph code, model code,
+  and project dependencies are unchanged. Remaining Phase 4B decisions are a
+  general mid-bar-meter policy for `043` and masked handling of ambiguous
+  alternative roles.
+
+## Phase 4A verification
+
+- Focused audit plus repository-contract checks: `12 passed, 1 skipped`; the
+  skip is the explicitly gated real-corpus test.
+- Full default suite: `471 passed, 10 skipped, 2 warnings` in `3.38s`. The
+  warnings are the existing upstream `torch.jit.script` deprecations.
+- Explicit complete-corpus integration with
+  `MUSIC_CRITIC_RUN_REAL_POP909_TESTS=1`: `1 passed` in `189.46s` against the
+  pinned official snapshot.
+- Full installed processed-mirror CLI audit: exit `0`, 909 attempted and every
+  primary accounted for as 908 converted plus one explicit failure.
+- Full pinned official CLI audit: exit `0`, 909 attempted and every primary
+  accounted for as 908 converted plus one explicit failure.
+- `.venv/bin/python -m compileall -q src scripts tests`: passed.
+- `git diff --check`: passed with no output.
+- `git diff -- src/music_critic/adapters`: empty.
 
 ## Phase 3A raw graph result
 

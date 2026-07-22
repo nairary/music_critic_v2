@@ -194,3 +194,16 @@ gold chord and section nodes, epsilon onset grouping, and simultaneous-note
 pairwise structure. The new graph is derived only from the accepted canonical
 contract, adds track and denominator-unit beat levels, uses exact onsets, and
 represents sustained activity through sparse note-to-beat incidence.
+
+## Phase 4A POP909 evidence adaptation
+
+No legacy repository file was opened, copied, imported, or modified for Phase
+4A. No legacy runtime logic was reused. The installed processed POP909 mirror
+was measured only as local corpus evidence and was rejected as a specification
+source: it lacks version, license, documentation, and annotation assets, and
+its `piano` plus `chords`/`MIDI 01` tracks are not equivalent to the official
+`MELODY`/`BRIDGE`/`PIANO` contract. Legacy five-class chord compression,
+track-order role guessing, exact float/beat snapping, and treating missing
+labels as negatives remain rejected. The Phase 4B contract instead derives
+from the pinned official POP909 repository/paper, exact V2 timing, explicit
+provenance, masked auxiliary targets, and song-level version grouping.

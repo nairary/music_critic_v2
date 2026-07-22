@@ -446,3 +446,32 @@ This log is append-only.
   Semantic nodes, target routing, graph batching/caching, GNNs, SSL, masking,
   and corruption training remain later phases and require explicit version
   decisions if they alter this base contract.
+
+## 2026-07-23 — ADR-030: POP909 adaptation requires official evidence and masked views
+
+- Status: Accepted for Phase 4A.
+- Context: The installed `data/pop909-cl` tree is an unversioned flattened
+  processed MIDI mirror with no annotations or documentation, and its track
+  structure differs from the official corpus. The pinned official repository
+  has complete annotation assets, but its algorithmic audio/MIDI views do not
+  align exactly and its alternative MIDI versions do not retain the complete
+  primary track-name contract.
+- Decision: Define the Phase 4B supervised source contract from official
+  POP909 repository commit
+  `d83e6edba6872a704f5d3b8b32f5cb540088dae6` and its recorded hashes. Preserve
+  all raw tracks. Expose primary `MELODY`, `BRIDGE`, and `PIANO` semantics only
+  as masked track-level targets resolved by unique exact names; never use role
+  labels in raw graph input and never infer missing roles from order. Preserve
+  annotation decimal seconds and raw labels, keep audio/MIDI views separate,
+  and require an explicit versioned tolerance for any derived alignment.
+  Treat beat/chord/key annotations as algorithmic auxiliary targets with
+  unknown confidence, not human gold. Use one `pop909:<three-digit-song-id>`
+  group for the primary, all annotations, and every version, without assigning
+  splits in Phase 4A. Retain official song `043` as an explicit conversion
+  failure until a general mid-bar-meter rule is accepted and tested.
+- Consequences: The local processed mirror remains usable only through the
+  generic unlabeled-MIDI path unless independent provenance is supplied.
+  Alternative roles and missing annotations are masked rather than negative or
+  guessed. Phase 4B must preserve raw-label provenance, exact timing, group
+  integrity, and raw-graph leakage invariance; it cannot special-case one song
+  merely to obtain 100% conversion.

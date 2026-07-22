@@ -220,14 +220,38 @@ The model and training phases remain pending.
   schema (not necessarily the same data), with every target and provenance
   mutation leaving inputs/topology unchanged and extra graph fields rejected.
 
-## Phase 4 — POP909 adapter
+## Phase 4 — POP909 evidence and adapter
 
-- Goal: validate track-aware canonical and graph paths on multitrack pop data.
+### Phase 4A — Evidence audit and adapter contract
+
+- Status: Completed.
+- Goal: establish the exact corpus, timing, track-role, annotation,
+  provenance, vocabulary, grouping, and warning evidence before production
+  code is written.
 - Dependencies: Phases 1–3.
-- Outputs: POP909 parsing, alignment diagnostics, role targets, manifests.
-- Tests: tempo/annotation alignment and version grouping.
-- Non-goals: large-scale training.
-- Acceptance: leakage-safe POP909 graphs pass validation.
+- Outputs: deterministic read-only audit CLI, field audit, Phase 4B contract,
+  and a hashed golden-evidence manifest.
+- Tests: synthetic discovery/parser/timing/report/no-write coverage and an
+  explicitly gated complete official-corpus audit.
+- Non-goals: production adapter, graph changes, datasets, models, SSL,
+  training, and split assignment.
+- Acceptance: every local and official primary is accounted for, annotations
+  and vocabularies are completely inventoried, ambiguous roles remain masked
+  by contract, and no source dataset file is changed.
+
+### Phase 4B — Production adapter implementation
+
+- Status: Pending.
+- Goal: implement the evidence-backed POP909 adapter and validate track-aware
+  canonical and graph paths on multitrack pop data.
+- Dependencies: Phase 4A and its unresolved mid-bar-meter policy.
+- Outputs: POP909 parsing, exact/tolerant alignment diagnostics, masked role
+  and annotation targets, provenance, and group-safe interfaces.
+- Tests: golden cases, tempo/annotation alignment, target hiding, version
+  grouping, and raw-graph leakage invariance.
+- Non-goals: large-scale training and final split assignment.
+- Acceptance: all accepted primaries convert or fail under a documented
+  general rule, and leakage-safe POP909 graphs pass validation.
 
 ## Phase 5 — Multi-source dataset and collator
 
