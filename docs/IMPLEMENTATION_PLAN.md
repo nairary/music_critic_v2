@@ -245,87 +245,40 @@ The model must have a `raw_only=True` inference mode that excludes optional sema
 
 ## 6. New module layout
 
-Add the following package structure without deleting old modules:
+The repository convention accepted by ADR-003 and implemented through Phase 3A
+uses one `music_critic` package rather than `_v2` package suffixes. The
+reconciled module structure is:
 
 ```text
-src/
-  data_v2/
+src/music_critic/
+  data/
     __init__.py
     schema.py
-    feature_registry.py
-    target_registry.py
     timing.py
     validation.py
     serialization.py
-    manifests.py
-    windowing.py
-    augmentation.py
-    stats.py
-    adapters/
-      __init__.py
-      base.py
-      hooktheory.py
-      pop909.py
-      dilemmadata.py
-      pdmx.py
-      midi_generic.py
-    cli/
-      preprocess_dataset.py
-      validate_canonical.py
-      build_graph_cache.py
-      inspect_piece.py
-
-  graph_v2/
+  adapters/
     __init__.py
+    midi.py
+    hooktheory.py
+  exporters/
+    __init__.py
+    midi.py
+  graph/
+    __init__.py
+    feature_registry.py
+    relations.py
     builder.py
-    edge_builder.py
-    candidate_slots.py
-    hierarchy.py
-    masking.py
-    negative_sampling.py
-    transforms.py
-
-  dataloader_v2/
-    __init__.py
-    canonical_dataset.py
-    multisource_dataset.py
-    samplers.py
-    collate.py
-    task_router.py
-
-  models_v2/
-    __init__.py
-    feature_encoder.py
-    local_graph_encoder.py
-    hierarchy_pooling.py
-    global_transformer.py
-    top_down_fusion.py
-    ssl_decoder.py
-    theory_heads.py
-    quality_heads.py
-    aesthetic_head.py
-    music_critic_v2.py
-
-  training_v2/
-    __init__.py
-    losses_ssl.py
-    losses_theory.py
-    losses_preference.py
-    losses_aesthetic.py
-    loss_router.py
-    train_ssl.py
-    train_multitask.py
-    train_preference.py
-    evaluate.py
-
-  inference_v2/
-    __init__.py
-    midi_to_graph.py
-    infer_critic.py
-    output_schema.py
+    validation.py
+    serialization.py
 ```
 
-The exact names may be adjusted to repository conventions, but keep the separation between raw canonical data, graph construction, model, training, and inference.
+Later phase-owned modules remain separated under `music_critic.models`,
+`music_critic.ssl`, `music_critic.tasks`, `music_critic.training`,
+`music_critic.inference`, and `music_critic.evaluation`; their internal files
+are added only when their roadmap phase begins. Feature registration belongs to
+the graph boundary because it defines model-facing tensor columns, while the
+canonical schema remains independent of PyTorch and PyG.
 
 ## 7. Canonical piece dataclasses
 
@@ -2201,10 +2154,10 @@ Use:
 
 ### Add
 
-- `src/data_v2/schema.py`;
-- `src/data_v2/timing.py`;
-- `src/data_v2/validation.py`;
-- `src/data_v2/serialization.py`;
+- `src/music_critic/data/schema.py`;
+- `src/music_critic/data/timing.py`;
+- `src/music_critic/data/validation.py`;
+- `src/music_critic/data/serialization.py`;
 - schema unit tests.
 
 ### Required tests
@@ -2260,16 +2213,23 @@ MIDI adapter. Separately compare rendered events with simplified HookTheory
 pitch, meter, symbolic timing, and eligible audio alignment without importing
 or calling the production HookTheory adapter. Do not synthesize chord voicings.
 
-## Phase 3. V2 raw graph builder
+## Phase 3A. Inference-safe raw heterograph contract
 
 ### Add
 
-- mandatory node types;
-- mandatory edges;
-- reverse-edge utility;
-- sustained-note-to-beat edges;
-- feature registry;
-- graph inspection CLI.
+- `src/music_critic/graph/feature_registry.py`;
+- `src/music_critic/graph/relations.py`;
+- `src/music_critic/graph/builder.py`;
+- `src/music_critic/graph/validation.py`;
+- `src/music_critic/graph/serialization.py`;
+- `scripts/benchmark_graph_builder.py`.
+
+The graph contains mandatory raw nodes and relations, explicit reverse edges,
+sustained-note-to-beat incidence, and unconditional beat/onset candidate slots.
+It uses PyG `HeteroData`; PyTorch/PyG imports remain confined to
+`music_critic.graph`, while the dependencies themselves are currently declared
+globally for the project environment. Exact rational timing determines graph
+structure and is converted to `float32` only at feature-tensor construction.
 
 ### Tests
 
@@ -2279,13 +2239,24 @@ or calling the production HookTheory adapter. Do not synthesize chord voicings.
 - no cross-graph indices;
 - empty track handling;
 - sustained notes;
-- meter changes.
+- meter and tempo changes;
+- pickup and percussion behavior;
+- target-by-target and provenance leakage invariance;
+- deterministic serialization and bounded graph growth.
 
 ### Acceptance criteria
 
-- identical model-facing schema for HookTheory and generic MIDI;
+- model-facing schema parity for HookTheory and generic MIDI, not general data
+  parity;
 - no theory target appears in raw input tensors;
-- graph metadata stores schema versions.
+- graph metadata stores canonical schema, graph schema, feature registry, and
+  graph-builder versions.
+
+### Non-goals
+
+- GNNs or other learned encoders;
+- SSL objectives, masking, decoder views, or corruption training;
+- target routing, semantic nodes, graph caches, or dataset collation.
 
 ## Phase 4. POP909 adapter
 

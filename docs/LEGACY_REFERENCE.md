@@ -182,3 +182,15 @@ key targets are DAW markers only, and applied, alternate, pedal, and voicing
 semantics do not generate notes. Exact rational PPQ selection, explicit
 quantization reporting, canonical-beat clicks, and canonical MIDI round-trip
 tests are new V2 infrastructure.
+
+## Phase 3A graph adaptation
+
+The legacy graph builder was not re-opened, imported, or copied for Phase 3A;
+the existing audit above supplied the bounded reference classification. V2
+retains only the general ideas of deterministic node ordering, explicit empty
+stores, chronological edges, and explicit reverse relations. It rejects V1
+mixed float layouts, theory-bearing note/song/chord/section features, mandatory
+gold chord and section nodes, epsilon onset grouping, and simultaneous-note
+pairwise structure. The new graph is derived only from the accepted canonical
+contract, adds track and denominator-unit beat levels, uses exact onsets, and
+represents sustained activity through sparse note-to-beat incidence.

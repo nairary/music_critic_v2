@@ -70,9 +70,11 @@ def test_package_has_no_legacy_or_heavy_imports() -> None:
 
     for path in PACKAGE_ROOT.rglob("*.py"):
         relative_parts = path.relative_to(PACKAGE_ROOT).parts
-        allowed_roots = (
-            {"mido"} if relative_parts[0] in {"adapters", "exporters"} else set()
-        )
+        allowed_roots = set()
+        if relative_parts[0] in {"adapters", "exporters"}:
+            allowed_roots.add("mido")
+        if relative_parts[0] == "graph":
+            allowed_roots.update({"torch", "torch_geometric"})
         disallowed_roots = forbidden_roots - allowed_roots
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(path))

@@ -406,3 +406,43 @@ This log is append-only.
   target-derived content as raw model input. Audio-alignment disagreement
   remains diagnostic evidence rather than an exporter failure, and generic MIDI
   round trips retain the documented ambiguity and representational limits.
+
+## 2026-07-22 — ADR-029: Phase 3A graph is a versioned raw-only heterograph
+
+- Status: Accepted.
+- Context: HookTheory supplies rich supervisory targets while generic MIDI does
+  not. A shared encoder graph must therefore be invariant to every target,
+  annotation view, split, source group, and provenance field. Polyphonic note
+  cliques would also make dense passages grow quadratically.
+- Decision: Graph schema `1.0.0` contains exactly `song`, `track`, `bar`,
+  `beat`, `onset`, and `note`, with the containment, chronological, reverse,
+  and sustained relations recorded in `docs/ARCHITECTURE.md`. Exact canonical
+  onset determines note/bar and onset/bar/beat ownership. Positive-duration
+  notes connect to every beat start in `[onset, offset)`; grace notes do not.
+  Beat and onset nodes are unconditional raw candidate slots. Feature registry
+  `1.0.0` declares separate categorical, continuous, and availability tensors,
+  all marked raw-inference-safe. Builder `1.0.0` ignores targets, annotations,
+  dataset/split/group/source identity, provenance, confidence, and quality
+  flags. Each PyG `HeteroData` stores canonical schema, graph schema, feature
+  registry, and builder versions. Exact allowlists cover graph, node-store, and
+  edge-store attributes; deterministic JSON serialization and fingerprinting
+  validate the graph before encoding. Program/channel absence uses dedicated
+  non-colliding unknown categories, while known out-of-vocabulary categorical
+  observations are rejected. Exact rational time controls structure and is
+  converted to `float32` only when continuous feature tensors are materialized.
+  The builder validates canonical input by default and exposes
+  `assume_valid=True` only as an explicit validated-input fast path.
+- Dependency boundary: PyTorch and PyG imports are isolated to
+  `music_critic.graph`; they are nevertheless current global package
+  dependencies. `music_critic.data` remains importable without importing them,
+  and adapters/exporters retain their existing `mido` boundary. Optional
+  compiled PyG extensions are not required for Phase 3A.
+- Consequences: HookTheory target-visible/hidden and generic MIDI pieces share
+  one model-facing schema (schema parity, not general data parity).
+  Simultaneous-note context flows through onset/beat intermediaries instead of
+  cliques. Construction is output-sensitive in containment, chronological, and
+  note/beat incidence; long sustains can still emit many `active_at` edges.
+  Float feature timing has less precision than exact canonical structure.
+  Semantic nodes, target routing, graph batching/caching, GNNs, SSL, masking,
+  and corruption training remain later phases and require explicit version
+  decisions if they alter this base contract.

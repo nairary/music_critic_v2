@@ -200,19 +200,25 @@ document is the phase execution checklist.
   training, preference scoring, Phase 3 implementation, and treating renderer
   output as independent source truth.
 
-The graph phase, model phases, and training phases remain pending.
+The model and training phases remain pending.
 
 ## Phase 3 — Raw graph builder
 
-- Status: Not started
-- Next task: Phase 3A — Raw graph contract and research-scope correction.
+- Status: Completed
+- Completed task: Phase 3A — Raw graph contract and research-scope correction.
 - Branch: `phase/3a-raw-graph-contract`
 - Goal: construct inference-safe heterogeneous graphs.
 - Dependencies: Phases 1–2.
-- Outputs: `song/track/bar/beat/onset/note` graph and versioned metadata.
-- Tests: edge validity, temporal order, sustained activity, no target leakage.
+- Outputs: versioned PyG `song/track/bar/beat/onset/note` graph, raw feature
+  registry, deterministic serialization, validation, and benchmark.
+- Tests: strict attribute allowlists, edge validity/reverses, temporal order,
+  sustained activity, candidate slots, target/provenance leakage, adapter
+  schema parity, serialization, categorical sentinels, invalid input, and
+  output-sensitive growth.
 - Non-goals: learned encoders.
-- Acceptance: equivalent raw schemas produce consistent graph structure.
+- Acceptance: HookTheory and generic MIDI produce the same raw model-facing
+  schema (not necessarily the same data), with every target and provenance
+  mutation leaving inputs/topology unchanged and extra graph fields rejected.
 
 ## Phase 4 — POP909 adapter
 

@@ -60,6 +60,85 @@ Every mandatory node and edge must be reproducible from raw symbolic evidence.
 The base graph must not require gold harmonic spans, phrases, cadences, tonal
 regions, or semantic track roles.
 
+## Phase 3A raw heterograph contract
+
+The public builder is `music_critic.graph.build_raw_graph`. It returns PyG
+`HeteroData` with canonical schema, graph schema, feature registry, and builder
+versions on every graph. Graph schema `1.0.0`, feature registry `1.0.0`, and
+builder `1.0.0` define the initial contract.
+
+Node order is always `song`, `track`, `bar`, `beat`, `onset`, `note`. Onsets
+are the sorted unique exact `RationalTime` values of note starts. Every beat and
+onset is a raw candidate slot for later direct theory heads. Candidate slots
+contain no label, boundary, class, confidence, or target availability value.
+
+Containment uses exact half-open intervals. A note belongs to the track in its
+canonical record and to the bar containing its onset. An onset belongs to the
+bar and beat containing its exact time; an event at the terminal piece boundary
+is owned by the final interval. Notes are not split when they sustain across a
+bar, meter, or tempo boundary.
+
+Mandatory forward relations and their explicit reverses are:
+
+```text
+song contains_track track       <-> track belongs_to_song song
+song contains_bar bar           <-> bar belongs_to_song song
+track contains_note note        <-> note belongs_to_track track
+bar contains_beat beat          <-> beat belongs_to_bar bar
+bar contains_onset onset        <-> onset belongs_to_bar bar
+bar contains_note note          <-> note belongs_to_bar bar
+beat contains_onset onset       <-> onset belongs_to_beat beat
+onset starts_note note          <-> note in_onset onset
+bar next_bar bar                <-> bar previous_bar bar
+beat next_beat beat             <-> beat previous_beat beat
+onset next_onset onset          <-> onset previous_onset onset
+note next_in_track note         <-> note previous_in_track note
+note active_at beat             <-> beat has_active_note note
+```
+
+Temporal relations follow canonical chronological order. `next_in_track`
+follows canonical note order within each track, including its deterministic
+pitch/duration/ID tie-breaks for equal onsets. For a positive-duration note,
+`active_at` connects to every canonical beat whose start lies in the exact
+half-open note interval `[onset, offset)`. Grace notes create no sustained edge.
+This distinguishes starting incidence from sustained activity without creating
+simultaneous-note cliques. Cross-track vertical context flows through onset and
+beat nodes. Construction is output-sensitive: indexing is
+`O((N + O) log B + E_active + E_graph)`, where sustained-note incidence may
+itself be large for notes spanning many beats, but dense same-onset polyphony
+does not create pairwise note cliques.
+
+Model-facing inputs are separate `x_cat`, `x_cont`, `x_cat_available`, and
+`x_cont_available` tensors whose columns are declared by the feature registry.
+Only raw MIDI-observable or deterministic raw-derived fields are registered.
+Canonical targets, target-alignment or theory annotations, dataset/source-group
+identity, split, source path, provenance, confidence, and quality flags are not
+read when features or topology are built. Semantic nodes are not part of graph
+schema `1.0.0`.
+
+`validate_raw_graph` defines exact global, node-store, and edge-store attribute
+allowlists. Extra attributes, including labels, theory, split, provenance, and
+edge labels, invalidate the graph; deterministic serialization and
+fingerprinting validate first and therefore fail rather than silently omitting
+them. Unavailable categorical values use a dedicated, non-colliding unknown ID
+when the feature declares one, and unavailable continuous values use the
+canonical `0.0` placeholder under a false availability mask. Known categorical
+values outside their declared vocabulary are rejected.
+
+`build_raw_graph` validates the complete `CanonicalPiece` by default, including
+ordering and references. `assume_valid=True` is an explicit fast path only for
+callers that have already obtained an error-free canonical validation report;
+behavior on invalid input through that path is outside the contract. Structural
+ownership and activity calculations use exact rational time. Continuous timing
+is converted to `float32` only at feature-tensor construction, so feature
+precision is lower than canonical structural precision.
+
+PyTorch and PyG imports remain isolated to `music_critic.graph`, while the
+current package dependency declaration installs them globally. Graph schema
+`1.0.0` does not yet define batching/caching metadata or semantic prediction
+stores, and sustained-note output is necessarily proportional to emitted
+note/beat incidence.
+
 ## Optional semantic predictions
 
 The system may predict:
