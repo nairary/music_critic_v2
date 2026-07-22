@@ -131,9 +131,9 @@ evidence must not be described as infallible or unqualified human gold.
 POP909-CL song `172` changes from 4/4 to 6/8 at tick 85,080 with PPQN 480.
 The previous 4/4 boundary is 84,480 and the next is 86,400, so the event is 600
 ticks inside the active bar. The current generic adapter correctly rejects the
-score-only projection. Phase 4A classifies `172` as the documented quarantine,
-retaining 908/909 accepted conversion coverage. Phase 4B may retain that
-quarantine or adopt a general tested partial-bar meter rule.
+score-only projection. The Phase 4B MVP must retain `172` as the documented
+quarantine, yielding 908/909 accepted conversion coverage. A later phase may
+adopt a general tested partial-bar meter rule through a new recorded decision.
 It must not special-case this song or silently move the event.
 
 Production acceptance requires:
@@ -145,14 +145,14 @@ Production acceptance requires:
 - unavailable masks for missing/unsupported targets;
 - chord-mutation raw/canonical/graph invariance;
 - group and lineage-group split leakage tests;
-- explicit handling of `172` under a general policy;
+- the locked MVP quarantine for `172`, with no silent meter-event movement;
 - no writes under source roots and no committed data, reports, caches, MIDI,
   generated media, or outputs.
 
 The audit's `evidence_contract_ready` status is independent of
-`production_adapter_ready`. The former may be true with expected masked target
-absence and a documented quarantine; the latter remains false until Phase 4B
-actually implements and validates this contract.
+`production_adapter_ready`. The former is true with expected masked target
+absence and the locked documented quarantine. The sole production blocker is
+that Phase 4B has not implemented and validated this contract.
 
 Phase 4B does not authorize model, SSL, training, preference, or inference
 implementation.

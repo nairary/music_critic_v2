@@ -540,3 +540,24 @@ This log is append-only.
   spans, field-specific availability counts, and the exact anomaly-evidence
   fingerprint. Phase 4B must implement this contract without adding chord
   evidence to raw inputs or special-casing song `172`.
+
+## 2026-07-23 — ADR-033: Phase 4B MVP retains the documented song-172 quarantine
+
+- Status: Accepted; closes the Phase 4A readiness question left open by
+  ADR-031 and ADR-032.
+- Context: The adapter contract already permits retaining song `172` as a
+  documented quarantine, but readiness metadata still named a pending general
+  partial-bar-meter policy as a production blocker. That made an optional
+  future enhancement appear mandatory for the Phase 4B MVP.
+- Decision: Lock the Phase 4B MVP score policy to accept the 908 generic
+  score-only conversions and quarantine song `172` under the observed
+  `midi_adapter.meter_change_inside_bar` condition. A general partial-bar meter
+  policy requires a later recorded decision and is not an MVP dependency. The
+  strict audit retains `evidence_contract_ready=true`, reports
+  `production_adapter_ready=false`, and names only
+  `phase_4b_production_adapter_not_implemented` as a production blocker.
+- Consequences: Phase 4B can implement the evidence-backed adapter without a
+  meter-semantics expansion or a song-specific repair. Production acceptance
+  is 908/909 for the MVP, with `172` preserved as explicit provenance-bearing
+  quarantine evidence. No adapter, graph, model, or meter code is added by
+  this decision.

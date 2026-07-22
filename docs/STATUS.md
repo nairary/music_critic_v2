@@ -64,8 +64,9 @@
 - Score-only generic conversion is 908/909. Song `172` is the sole conversion
   failure: its 4/4→6/8 event at tick 85,080 is 600 ticks inside the active
   1,920-tick bar. The later 6/8→4/4 event is also 480 ticks inside its segment
-  bar. Phase 4A records `172` as the sole quarantine; Phase 4B may preserve it
-  or accept a general partial-bar policy.
+  bar. The Phase 4B MVP policy is locked to preserve `172` as the sole
+  quarantine at 908/909 accepted coverage; a general partial-bar policy is an
+  optional later enhancement.
 - Score-only warnings total 126,163, including 123,439 same-pitch overlaps.
   Unsafe complete-file diagnostics total 126,605, including 123,873 overlaps
   and eight chord-note pairing warnings. The channel-1 contamination delta is
@@ -88,8 +89,8 @@
   affected block/span markers. Manifest evidence SHA-256:
   `d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`.
 - Strict readiness now reports `evidence_contract_ready=true` separately from
-  `production_adapter_ready=false`; the latter remains blocked on Phase 4B and
-  the documented song-172 policy.
+  `production_adapter_ready=false`; the unimplemented Phase 4B adapter is the
+  sole production blocker because the song-172 MVP quarantine policy is locked.
 - Original POP909 is retained under `pop909_original` only for
   lineage/ablation evidence. CL and original use separate source groups and
   share `pop909-lineage:<song-id>` when both appear in a later split.
@@ -97,6 +98,19 @@
   model, SSL, training, or inference code was added.
 
 ## Phase 4A remediation verification
+
+Final pre-merge verification after locking the song-172 MVP quarantine:
+
+- Fresh complete 909-file integration from the final manifest, with no
+  `MUSIC_CRITIC_POP909_CL_EXISTING_REPORT`: `1 passed in 220.73s`. The new
+  `/tmp` report independently reproduced 909/909 upstream matches, the
+  909-entry corpus-wide block-count distribution, 908 accepted scores plus the
+  `172` quarantine, `evidence_contract_ready=true`, and only
+  `phase_4b_production_adapter_not_implemented` as a production blocker.
+- Full default suite: `478 passed, 11 skipped, 2 warnings in 3.33s`.
+- `.venv/bin/python -m compileall -q src scripts tests`: passed.
+- `git diff --check`, manifest JSON parsing, and empty adapter/graph diff:
+  passed.
 
 Semantic-remediation verification on top of `65f6580`:
 

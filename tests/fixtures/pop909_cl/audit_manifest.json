@@ -34,6 +34,14 @@
     "failed": 1,
     "quarantined": 1,
     "fatal_failed": 0,
+    "phase_4b_mvp_policy": {
+      "policy": "retain_documented_quarantine",
+      "accepted_song_count": 908,
+      "quarantined_song_ids": [
+        "172"
+      ],
+      "reason": "midi_adapter.meter_change_inside_bar"
+    },
     "failed_song_ids": [
       "172"
     ]
@@ -114,8 +122,7 @@
     "evidence_violations": [],
     "production_adapter_ready": false,
     "production_blockers": [
-      "phase_4b_production_adapter_not_implemented",
-      "song_172_quarantined_pending_general_partial_bar_meter_policy"
+      "phase_4b_production_adapter_not_implemented"
     ]
   },
   "cases": [

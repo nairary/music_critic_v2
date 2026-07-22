@@ -2307,7 +2307,8 @@ structure and is converted to `float32` only at feature-tensor construction.
 - raw inference requires only the score projection and no chord targets;
 - the strict audit reports `evidence_contract_ready` independently from
   `production_adapter_ready`, accepting only the pinned `367`/`658` masked
-  absence and documented `172` quarantine.
+  absence and the locked Phase 4B MVP quarantine for `172`; the unimplemented
+  production adapter is the sole production-readiness blocker.
 
 ## Phase 5. Multi-source dataset and collator
 

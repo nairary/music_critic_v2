@@ -1503,6 +1503,14 @@ def build_report(
             "quarantined": len(quarantined_score_failures),
             "fatal_failed": len(fatal_score_failures),
             "quarantined_song_ids": [row["song_id"] for row in quarantined_score_failures],
+            "phase_4b_mvp_policy": {
+                "policy": "retain_documented_quarantine",
+                "accepted_song_count": len(selected) - len(score_failures),
+                "quarantined_song_ids": [
+                    row["song_id"] for row in quarantined_score_failures
+                ],
+                "reason": "midi_adapter.meter_change_inside_bar",
+            },
             "failures_by_category": _counter(score_failure_categories),
             "failures": [
                 {"song_id": row["song_id"], "relative_path": row["relative_path"], **row["score_projection"]}
@@ -1603,7 +1611,6 @@ def build_report(
             "evidence_violations": evidence_violations,
             "production_blockers": [
                 "phase_4b_production_adapter_not_implemented",
-                "song_172_quarantined_pending_general_partial_bar_meter_policy",
             ],
         },
     }

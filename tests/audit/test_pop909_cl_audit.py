@@ -412,6 +412,12 @@ def test_report_is_deterministic_and_never_writes_under_source_root(tmp_path: Pa
     assert dumps_report(first) == dumps_report(second)
     assert first["corpus_identity"]["corpus_midi_file_count"] == 2
     assert first["score_only_crosswalk"]["converted"] == 2
+    assert first["score_only_crosswalk"]["phase_4b_mvp_policy"] == {
+        "policy": "retain_documented_quarantine",
+        "accepted_song_count": 2,
+        "quarantined_song_ids": [],
+        "reason": "midi_adapter.meter_change_inside_bar",
+    }
     assert first["chord_annotation_inventory"]["total_blocks"] == 4
     inventory = first["chord_annotation_inventory"]
     assert inventory["raw_block_provenance"]["source"] == "human"
@@ -433,6 +439,9 @@ def test_report_is_deterministic_and_never_writes_under_source_root(tmp_path: Pa
         "available": 2,
         "unavailable": 2,
     }
+    assert first["strict"]["production_blockers"] == [
+        "phase_4b_production_adapter_not_implemented"
+    ]
     assert _tree_hashes(root) == before
 
     output = tmp_path / "report.json"

@@ -109,10 +109,12 @@ onset/end tick, all note end ticks, complete pitch multiset, pitch-class set,
 lowest source pitch, bass pitch class, track/channel/name evidence, exact
 relative source path, and file SHA-256.
 
-Across the 907 available chord instruments there are 116,055 blocks. Per-file
-block count ranges 0–278 (median 124; p95 185). Pairing finds four dangling
-note-ons and four unmatched note-offs, one each in songs `076`, `084`, `086`,
-and `088`. Structural diagnostics find:
+Across the 907 available chord instruments there are 116,055 blocks. The
+reported corpus-wide block-count distribution covers all 909 logical files;
+the unavailable chord targets in `367` and `658` contribute its two zero
+entries. On that scope the range is 0–278 (median 124; p95 185). Pairing finds
+four dangling note-ons and four unmatched note-offs, one each in songs `076`,
+`084`, `086`, and `088`. Structural diagnostics find:
 
 | Diagnostic | Count |
 | --- | ---: |
@@ -192,18 +194,19 @@ At tick 85,080 the active 4/4 bar length is 1,920 ticks, so the first change is
 600 ticks after the prior boundary. The current generic adapter rejects this
 general unsupported condition before reaching the second mid-bar change. The
 upstream processing log records time-signature changes plus a start-beat shift
-for this song. Phase 4A records `172` as the quarantine, giving accepted score
-coverage of 908/909. Phase 4B may retain it or adopt a general tested
-partial-bar meter policy. No one-song exception or silent event movement is
-allowed.
+for this song. The Phase 4B MVP policy is locked to retain `172` as the
+documented quarantine, giving accepted score coverage of 908/909. A general
+tested partial-bar meter policy is an optional later enhancement, not an MVP
+readiness blocker. No one-song exception or silent event movement is allowed.
 
 ## Readiness
 
 The strict report exposes independent statuses. `evidence_contract_ready` is
 true: the pinned evidence is complete, `367`/`658` are expected masked target
 absence, and `172` is documented quarantine rather than an unclassified
-failure. `production_adapter_ready` is false because Phase 4B has not
-implemented the adapter and the general partial-bar policy remains unresolved.
+failure. `production_adapter_ready` is false only because Phase 4B has not
+implemented the production adapter; the locked quarantine policy closes the
+song-172 readiness question for the MVP.
 
 ## Grouping and golden evidence
 

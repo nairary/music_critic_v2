@@ -247,7 +247,9 @@ The model and training phases remain pending.
 - Status: Pending.
 - Goal: implement the evidence-backed POP909-CL adapter over the combined
   channel-0 score and target-only embedded channel-1 chord instrument.
-- Dependencies: Phase 4A and the unresolved song-172 partial-bar-meter policy.
+- Dependencies: Phase 4A. The MVP retains song `172` as the documented
+  quarantine at 908/909 accepted coverage; a general partial-bar-meter policy
+  is optional later work.
 - Outputs: score-only canonical projection, exact-tick chord blocks and masked
   targets, qualified provenance, and source/lineage-group interfaces.
 - Tests: golden CL cases, instrument ambiguity, exact chord timing,

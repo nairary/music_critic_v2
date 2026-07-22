@@ -78,6 +78,9 @@ def test_complete_recorded_pop909_cl_audit() -> None:
         "midi_adapter.meter_change_inside_bar": 1
     }
     assert crosswalk["quarantined_song_ids"] == ["172"]
+    assert crosswalk["phase_4b_mvp_policy"] == manifest["score_crosswalk"][
+        "phase_4b_mvp_policy"
+    ]
     assert all(row["equal"] for row in crosswalk["serialization_round_trip_sample"])
     assert report["unsafe_complete_file_generic_diagnostics"]["production_safe"] is False
     assert "midi_parse_failure" not in report["instrument_contract"]["failure_counts"]
@@ -133,6 +136,9 @@ def test_complete_recorded_pop909_cl_audit() -> None:
     assert report["strict"] == manifest["readiness"]
     assert report["strict"]["evidence_contract_ready"] is True
     assert report["strict"]["production_adapter_ready"] is False
+    assert report["strict"]["production_blockers"] == [
+        "phase_4b_production_adapter_not_implemented"
+    ]
 
     rows = {row["song_id"]: row for row in report["per_file"]}
     for case in manifest["cases"]:
