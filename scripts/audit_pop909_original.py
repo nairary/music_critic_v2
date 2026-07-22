@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic, read-only POP909 corpus evidence audit.
+"""Deterministic, read-only original-POP909 lineage evidence audit.
 
 This module is deliberately an audit boundary, not a production dataset adapter.
 It supports both the official song-directory layout and flattened/processed MIDI
@@ -310,7 +310,7 @@ def propose_source_group_id(song_id: str) -> str:
     normalized = song_id.strip()
     if not _SONG_ID_RE.fullmatch(normalized):
         raise Pop909AuditError(f"invalid POP909 song identifier: {song_id!r}")
-    return f"pop909:{normalized}"
+    return f"pop909-original:{normalized}"
 
 
 def _hash_file(path: Path) -> str:
@@ -1206,7 +1206,7 @@ def build_report(
             piece = load_midi_piece(
                 str(song.primary_midi),
                 config=MidiAdapterConfig(
-                    dataset_name="pop909",
+                    dataset_name="pop909_original",
                     source_group_id=propose_source_group_id(song.song_id),
                 ),
             )
@@ -1448,6 +1448,7 @@ def build_report(
             "seconds_mapping": "Decimal source seconds; exact Fraction tempo integration; no rounding to beats",
         },
         "identity": {
+            "corpus_id": "pop909_original",
             "layout": discovery.layout,
             "root_basename": discovery.root.name,
             "corpus_root_relative": _relative(discovery.corpus_root, discovery.root)
@@ -1594,7 +1595,7 @@ def build_report(
             },
         },
         "grouping": {
-            "policy": "one pop909:<three-digit-song-id> group for primary MIDI, every annotation, and every alternative version",
+            "policy": "one pop909-original:<three-digit-song-id> group for primary MIDI, every annotation, and every alternative version",
             "final_splits_assigned": False,
             "deterministic_split_interface": "split_source_groups(group_ids, seed, ratios) -> mapping[group_id, split]; sort groups before seeded assignment",
             "duplicate_song_identifier_count": len(discovery.duplicate_song_ids),

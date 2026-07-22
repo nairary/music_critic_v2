@@ -207,3 +207,16 @@ track-order role guessing, exact float/beat snapping, and treating missing
 labels as negatives remain rejected. The Phase 4B contract instead derives
 from the pinned official POP909 repository/paper, exact V2 timing, explicit
 provenance, masked auxiliary targets, and song-level version grouping.
+
+### Phase 4A POP909-CL remediation
+
+The preceding Phase 4A paragraph records the initial, now superseded corpus
+classification. No legacy repository file was opened or changed during the
+remediation, and no legacy logic was reused. A complete byte comparison against
+the pinned POP909-CL repository established the local files as the production
+`POP909_processed` corpus. The remediation retains rejection of legacy
+five-class chord compression, track-order guessing, float timing equality,
+target leakage, and missing-as-negative labels. It adds a stricter boundary:
+the embedded channel-1 chord instrument is target-only and is removed before
+canonical raw conversion, while channel-0 score content remains the inference
+input. Original POP909 is lineage/ablation evidence only.

@@ -6,22 +6,22 @@ from pathlib import Path
 
 import pytest
 
-from scripts.audit_pop909 import build_report
+from scripts.audit_pop909_original import build_report
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MANIFEST_PATH = REPO_ROOT / "tests" / "fixtures" / "pop909" / "audit_manifest.json"
-RUN_REAL_POP909 = os.environ.get("MUSIC_CRITIC_RUN_REAL_POP909_TESTS") == "1"
+MANIFEST_PATH = REPO_ROOT / "tests" / "fixtures" / "pop909_original" / "audit_manifest.json"
+RUN_REAL_POP909 = os.environ.get("MUSIC_CRITIC_RUN_REAL_POP909_ORIGINAL_TESTS") == "1"
 
 pytestmark = pytest.mark.skipif(
     not RUN_REAL_POP909,
-    reason="set MUSIC_CRITIC_RUN_REAL_POP909_TESTS=1 with MUSIC_CRITIC_POP909_ROOT",
+    reason="set MUSIC_CRITIC_RUN_REAL_POP909_ORIGINAL_TESTS=1 with MUSIC_CRITIC_POP909_ORIGINAL_ROOT",
 )
 
 
 def test_complete_recorded_pop909_audit() -> None:
-    supplied = os.environ.get("MUSIC_CRITIC_POP909_ROOT")
-    assert supplied, "MUSIC_CRITIC_POP909_ROOT must explicitly identify the corpus root"
+    supplied = os.environ.get("MUSIC_CRITIC_POP909_ORIGINAL_ROOT")
+    assert supplied, "MUSIC_CRITIC_POP909_ORIGINAL_ROOT must identify the lineage corpus root"
     root = Path(supplied)
     assert root.is_dir(), f"explicit POP909 root is missing: {root}"
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))

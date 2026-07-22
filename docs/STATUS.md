@@ -37,65 +37,61 @@
 - Phase 3A branch: `phase/3a-raw-graph-contract`
 - Phase 4A: Completed
 - Phase 4A branch: `phase/4a-pop909-evidence-contract`
-- Next phase: Phase 4B — production POP909 adapter implementation
+- Phase 4A POP909-CL identity/leakage remediation: Completed
+- Next phase: Phase 4B — production POP909-CL adapter implementation
 
-## Phase 4A POP909 evidence result
+## Phase 4A POP909-CL remediation result
 
-- Added a deterministic, bounded-memory, read-only audit CLI with official
-  song-directory and flattened processed-mirror discovery, complete file
-  hashing, explicit failure retention, vocabulary/timing evidence, and
-  deterministic JSON output. The CLI rejects every output path under its
-  dataset root.
-- Pinned the official evidence snapshot at POP909 repository commit
-  `d83e6edba6872a704f5d3b8b32f5cb540088dae6`: 7,446 files, 909 songs and
-  primary MIDIs, 1,989 alternative MIDIs, and 909 files in each of five
-  annotation families. Whole-corpus fingerprint:
-  `3822c50d7a964cb5ee747888c646a6ff52d38b230e8bb602520f7eb6b3866114`.
-- Identified the installed `data/pop909-cl` corpus as an unversioned,
-  annotation-free processed mirror: 1,819 files including 909 MIDI files and
-  910 AppleDouble resources. Fingerprint:
+- Corrected the production corpus identity to `pop909_cl`, specifically
+  `POP909_processed` at upstream commit
+  `be9094392903c471a930519e1c0bacf8b6be5d62`. All 909 installed MIDI files
+  match upstream byte-for-byte. Content fingerprint:
+  `b34f07d9a2678abdb6f0dcf5db1c3aec3f35caca813f1fac80c0717cfc8e0c65`.
+- Separated 910 AppleDouble files from the 909-file content contract. The full
+  1,819-file installation fingerprint remains
   `af623705a375c419751e4ba6456224b8b700f50fc1a09a32af57e1620d1ff4dd`.
-- Complete generic-adapter audit: official `908/909` converted with song `043`
-  explicitly rejected for a mid-bar meter change; processed mirror `908/909`
-  converted with song `172` rejected by the same category. Sixteen
-  deterministic serialization round trips passed on each corpus.
-- Official warnings total 14,896. Processed warnings total 126,605, of which
-  123,873 (97.84%) are event-level `OVERLAPPING_SAME_PITCH_NOTES`; the earlier
-  100-file spread total of 14,475 is reproduced exactly and does not represent
-  14,475 failed files.
-- Exact track names resolve `MELODY`, `BRIDGE`, and `PIANO` for all 909
-  official primaries. Zero of 1,989 alternative versions and zero of 909
-  processed primaries resolve the complete documented triple, so their role
-  targets must remain masked.
-- All 877,060 records across the five official annotation families parse
-  without row failures. Source times are decimal seconds and are not exactly
-  interchangeable with canonical beat positions. Audio/MIDI chord views also
-  differ materially and remain separate target views.
-- All 223,189 chord records and 1,107 key records parse losslessly under the
-  proposed non-compressed grammars. The chord union has 930 labels including
-  6,202 `N` records; the key vocabulary has 24 labels and 152 pieces have key
-  changes.
-- Golden evidence pins 11 bounded official cases plus explicit failure `043`.
-  One `pop909:<song-id>` group contains every primary, annotation, and version;
-  Phase 4A assigns no final splits.
-- Production code under `src/music_critic/adapters`, graph code, model code,
-  and project dependencies are unchanged. Remaining Phase 4B decisions are a
-  general mid-bar-meter policy for `043` and masked handling of ambiguous
-  alternative roles.
+- Measured one unique channel-0 combined-score instrument in every file and a
+  unique channel-1 chord instrument in 907. Songs `367` and `658` have no
+  chord instrument and retain structured `missing_chord_instrument` failures.
+- Added a score-only projection boundary. Channel-1 chord notes cannot enter
+  canonical musical tracks/notes, raw statistics, graph structure/features,
+  serialization, fingerprints, or inference inputs. Synthetic chord mutation,
+  replacement, and deletion leave projected bytes, canonical score content,
+  and raw graph fingerprints unchanged.
+- Score-only generic conversion is 908/909. Song `172` is the sole conversion
+  failure: its 4/4→6/8 event at tick 85,080 is 600 ticks inside the active
+  1,920-tick bar. The later 6/8→4/4 event is also 480 ticks inside its segment
+  bar. Phase 4B must quarantine `172` or accept a general partial-bar policy.
+- Score-only warnings total 126,163, including 123,439 same-pitch overlaps.
+  Unsafe complete-file diagnostics total 126,605, including 123,873 overlaps
+  and eight chord-note pairing warnings. The channel-1 contamination delta is
+  434 overlaps plus those eight warnings; the remaining high count belongs to
+  the flattened combined score and remains event-level rather than file-level.
+- Audited 116,055 exact-tick chord blocks: 109,668 unambiguously supported,
+  5,801 ambiguous, and 586 unsupported. The report preserves 261 raw
+  pitch-class sets, 340 selected root/quality/bass labels, 1,098 implicit `N`
+  gaps, 691 overlaps, 87 repeated-pitch blocks, and 313 mixed-end blocks.
+- Qualified chord provenance as canonical source `human` with
+  `human_corrected` and `expert_reviewed` details, unknown numeric confidence,
+  and no claim of infallible human gold.
+- Original POP909 is retained under `pop909_original` only for
+  lineage/ablation evidence. CL and original use separate source groups and
+  share `pop909-lineage:<song-id>` when both appear in a later split.
+- No production adapter, canonical-meter change, dataset/split, graph schema,
+  model, SSL, training, or inference code was added.
 
-## Phase 4A verification
+## Phase 4A remediation verification
 
-- Focused audit plus repository-contract checks: `12 passed, 1 skipped`; the
-  skip is the explicitly gated real-corpus test.
-- Full default suite: `471 passed, 10 skipped, 2 warnings` in `3.38s`. The
-  warnings are the existing upstream `torch.jit.script` deprecations.
-- Explicit complete-corpus integration with
-  `MUSIC_CRITIC_RUN_REAL_POP909_TESTS=1`: `1 passed` in `189.46s` against the
-  pinned official snapshot.
-- Full installed processed-mirror CLI audit: exit `0`, 909 attempted and every
-  primary accounted for as 908 converted plus one explicit failure.
-- Full pinned official CLI audit: exit `0`, 909 attempted and every primary
-  accounted for as 908 converted plus one explicit failure.
+- Focused original-lineage, CL synthetic/invariance, and repository-contract
+  suites: `18 passed, 2 warnings`; warnings are the
+  existing upstream PyTorch deprecations.
+- Single explicit full POP909-CL audit/integration:
+  `1 passed in 210.85s`; detailed output was written only under `/tmp` and was
+  not committed.
+- Final manifest was revalidated from that existing report without a second
+  corpus parse: `1 passed in 1.06s`.
+- Full default suite: `477 passed, 11 skipped, 2 warnings in 3.36s`; real-data
+  integrations remain explicitly gated.
 - `.venv/bin/python -m compileall -q src scripts tests`: passed.
 - `git diff --check`: passed with no output.
 - `git diff -- src/music_critic/adapters`: empty.
@@ -563,12 +559,13 @@ All commands used the project-local Python 3.13.5 interpreter at
 
 Both source datasets were read recursively and remained unmodified.
 
-- POP909 root:
+- POP909-CL complete-file diagnostic root:
   `/home/str/music-critic-v2/data/pop909-cl/POP909_processed/POP909_processed`.
-- POP909 recursive discovery: `files_seen=909`.
-- POP909 100-file spread smoke: `attempted=100`, `converted=100`, `failed=0`,
+- POP909-CL recursive discovery: `files_seen=909`.
+- POP909-CL unsafe complete-file 100-file spread smoke: `attempted=100`,
+  `converted=100`, `failed=0`,
   `warnings=14475`, `notes=209228`, `tracks=300`, `type_0=0`, `type_1=100`.
-- POP909 selected-path coverage: `selected_parent_dirs=1`,
+- POP909-CL selected-path coverage: `selected_parent_dirs=1`,
   `selected_min_depth=1`, `selected_max_depth=1`.
 - PDMX root: `/home/str/music-critic-v2/data/pdmx/mid`.
 - PDMX recursive discovery: `files_seen=254035` across the complete branched

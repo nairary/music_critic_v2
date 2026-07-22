@@ -11,7 +11,7 @@ from music_critic.data import dumps_piece, loads_piece, validate_piece
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-POP909_ROOT = REPO_ROOT / "data" / "pop909-cl" / "POP909_processed" / "POP909_processed"
+POP909_CL_ROOT = REPO_ROOT / "data" / "pop909-cl" / "POP909_processed" / "POP909_processed"
 PDMX_ROOT = REPO_ROOT / "data" / "pdmx" / "mid"
 RUN_REAL_MIDI = os.environ.get("MUSIC_CRITIC_RUN_REAL_MIDI_TESTS") == "1"
 
@@ -23,7 +23,7 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.mark.parametrize(
     ("dataset_name", "root"),
-    (("pop909", POP909_ROOT), ("pdmx", PDMX_ROOT)),
+    (("pop909_cl_unsafe_complete_file", POP909_CL_ROOT), ("pdmx", PDMX_ROOT)),
 )
 def test_real_midi_spread_sample(dataset_name: str, root: Path) -> None:
     assert root.is_dir(), f"required {dataset_name} MIDI root is missing: {root}"

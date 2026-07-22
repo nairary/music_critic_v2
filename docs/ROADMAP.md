@@ -220,38 +220,42 @@ The model and training phases remain pending.
   schema (not necessarily the same data), with every target and provenance
   mutation leaving inputs/topology unchanged and extra graph fields rejected.
 
-## Phase 4 — POP909 evidence and adapter
+## Phase 4 — POP909-CL evidence and adapter
 
 ### Phase 4A — Evidence audit and adapter contract
 
-- Status: Completed.
-- Goal: establish the exact corpus, timing, track-role, annotation,
-  provenance, vocabulary, grouping, and warning evidence before production
-  code is written.
+- Status: Completed after POP909-CL identity/leakage remediation.
+- Goal: establish the exact POP909-CL corpus, embedded-chord, timing,
+  instrument, provenance, grouping, and warning evidence before production
+  code is written; retain original POP909 only as lineage/ablation evidence.
 - Dependencies: Phases 1–3.
-- Outputs: deterministic read-only audit CLI, field audit, Phase 4B contract,
-  and a hashed golden-evidence manifest.
-- Tests: synthetic discovery/parser/timing/report/no-write coverage and an
-  explicitly gated complete official-corpus audit.
+- Outputs: separate deterministic read-only CL and original-lineage audit
+  CLIs, CL field audit and Phase 4B contract, lineage notes, and separate
+  hashed manifests.
+- Tests: CL discovery/instrument/chord/timing/no-write coverage, score-only raw
+  graph leakage invariance, original-audit regressions, and an explicitly
+  gated complete POP909-CL audit.
 - Non-goals: production adapter, graph changes, datasets, models, SSL,
   training, and split assignment.
-- Acceptance: every local and official primary is accounted for, annotations
-  and vocabularies are completely inventoried, ambiguous roles remain masked
-  by contract, and no source dataset file is changed.
+- Acceptance: all 909 CL files match the pinned upstream snapshot; chord
+  instruments are target-only; score warnings and chord diagnostics are
+  separate; embedded chord evidence is completely inventoried; and no source
+  dataset file is changed.
 
 ### Phase 4B — Production adapter implementation
 
 - Status: Pending.
-- Goal: implement the evidence-backed POP909 adapter and validate track-aware
-  canonical and graph paths on multitrack pop data.
-- Dependencies: Phase 4A and its unresolved mid-bar-meter policy.
-- Outputs: POP909 parsing, exact/tolerant alignment diagnostics, masked role
-  and annotation targets, provenance, and group-safe interfaces.
-- Tests: golden cases, tempo/annotation alignment, target hiding, version
-  grouping, and raw-graph leakage invariance.
+- Goal: implement the evidence-backed POP909-CL adapter over the combined
+  channel-0 score and target-only embedded channel-1 chord instrument.
+- Dependencies: Phase 4A and the unresolved song-172 partial-bar-meter policy.
+- Outputs: score-only canonical projection, exact-tick chord blocks and masked
+  targets, qualified provenance, and source/lineage-group interfaces.
+- Tests: golden CL cases, instrument ambiguity, exact chord timing,
+  target hiding, source/lineage grouping, and raw-graph leakage invariance.
 - Non-goals: large-scale training and final split assignment.
-- Acceptance: all accepted primaries convert or fail under a documented
-  general rule, and leakage-safe POP909 graphs pass validation.
+- Acceptance: all accepted CL scores convert or fail under a documented
+  general rule, channel-1 annotation cannot affect raw graphs, and leakage-safe
+  POP909-CL graphs pass validation.
 
 ## Phase 5 — Multi-source dataset and collator
 

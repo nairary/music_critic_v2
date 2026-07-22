@@ -11,7 +11,8 @@ checkout is absent.
 
 ## Current state
 
-Phases 0 through 3A are implemented. The repository provides an exact immutable
+Phases 0 through 3A and the Phase 4A POP909-CL evidence gate are implemented.
+The repository provides an exact immutable
 canonical schema, generic MIDI and HookTheory adapters, diagnostic canonical
 MIDI export, and a versioned raw-only PyG heterograph builder. The graph uses
 mandatory `song`, `track`, `bar`, `beat`, `onset`, and `note` nodes and never
@@ -82,3 +83,9 @@ python -m pip install -e .
 
 See `docs/ROADMAP.md` for staged implementation work and
 `docs/IMPLEMENTATION_PLAN.md` for the scientific specification.
+
+POP909-CL production evidence and the pending Phase 4B contract are documented
+in `docs/POP909_CL_FIELD_AUDIT.md` and
+`docs/POP909_CL_ADAPTER_CONTRACT.md`. Original POP909 is retained separately
+as lineage/possible ablation evidence in
+`docs/POP909_ORIGINAL_FIELD_AUDIT.md`.

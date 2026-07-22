@@ -21,7 +21,7 @@
       ],
       "sha256": "a93079efb82bdf1e27e75951b7eb454509efb130f0bc0e936257df5c73aabcb0",
       "song_id": "001",
-      "source_group_id": "pop909:001"
+      "source_group_id": "pop909-original:001"
     },
     {
       "expected": {
@@ -44,7 +44,7 @@
       ],
       "sha256": "e9843ee815c4b7266607f0a7904edd73995050c0321ac452a1448c9f0b08fb39",
       "song_id": "098",
-      "source_group_id": "pop909:098"
+      "source_group_id": "pop909-original:098"
     },
     {
       "expected": {
@@ -68,7 +68,7 @@
       ],
       "sha256": "14649ccbc87407f1625f20ec0bab8a6c7ac4f9d78a6f0405bee7be82fbcf8fd3",
       "song_id": "197",
-      "source_group_id": "pop909:197"
+      "source_group_id": "pop909-original:197"
     },
     {
       "expected": {
@@ -94,7 +94,7 @@
       ],
       "sha256": "09cbd80c76c75725f4edaf03955a7449c4398e75ee98ab8e9cd1361ce710cedf",
       "song_id": "225",
-      "source_group_id": "pop909:225"
+      "source_group_id": "pop909-original:225"
     },
     {
       "expected": {
@@ -119,7 +119,7 @@
       ],
       "sha256": "b17f46ff9065179a9d49be6ba354470e55b6364b26223bbf764b307e663fa6ce",
       "song_id": "247",
-      "source_group_id": "pop909:247"
+      "source_group_id": "pop909-original:247"
     },
     {
       "expected": {
@@ -143,7 +143,7 @@
       ],
       "sha256": "d6a9eb58d76f0a41e96e85db166a0fcdf7bd6257aed233ca7cdd4c3b5f1afb7c",
       "song_id": "592",
-      "source_group_id": "pop909:592"
+      "source_group_id": "pop909-original:592"
     },
     {
       "expected": {
@@ -169,7 +169,7 @@
       ],
       "sha256": "a884a35087f3b0a75031b6e4334f1301bf9c179169daafa35495671b42d194a8",
       "song_id": "632",
-      "source_group_id": "pop909:632"
+      "source_group_id": "pop909-original:632"
     },
     {
       "expected": {
@@ -194,7 +194,7 @@
       ],
       "sha256": "ff44e1d61d6c04b0cd21fd69c0790730701fd821bb9867c8826611fcb7577ab8",
       "song_id": "775",
-      "source_group_id": "pop909:775"
+      "source_group_id": "pop909-original:775"
     },
     {
       "expected": {
@@ -218,7 +218,7 @@
       ],
       "sha256": "2f9286b70e44df8eac2ae978f269e1a42ded274659b2f62e89f232916ce21918",
       "song_id": "802",
-      "source_group_id": "pop909:802"
+      "source_group_id": "pop909-original:802"
     },
     {
       "expected": {
@@ -243,7 +243,7 @@
       ],
       "sha256": "f900d48a27961909b112b637fb22eb645958cf0df7664ed86e296e5076146401",
       "song_id": "906",
-      "source_group_id": "pop909:906"
+      "source_group_id": "pop909-original:906"
     },
     {
       "expected": {
@@ -271,10 +271,11 @@
       ],
       "sha256": "30b743c7ddabf9665ed461e2833c1c56389f90bc4a8bb34bbec696f99029837f",
       "song_id": "909",
-      "source_group_id": "pop909:909"
+      "source_group_id": "pop909-original:909"
     }
   ],
   "corpus": {
+    "corpus_id": "pop909_original",
     "alternative_midi_count": 1989,
     "annotation_file_counts": {
       "beat_audio": 909,

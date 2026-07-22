@@ -5,7 +5,7 @@ from pathlib import Path
 
 import mido
 
-from scripts.audit_pop909 import (
+from scripts.audit_pop909_original import (
     Pop909AuditError,
     build_report,
     compare_timings,
@@ -85,7 +85,7 @@ def test_discovery_is_deterministic_and_groups_versions(tmp_path: Path) -> None:
     assert [song.song_id for song in first.songs] == ["001", "002"]
     assert first.layout == "official_song_directories"
     assert first.songs[0].alternatives == (version.resolve(),)
-    assert propose_source_group_id("001") == "pop909:001"
+    assert propose_source_group_id("001") == "pop909-original:001"
 
 
 def test_missing_malformed_and_duplicate_assets_are_retained(tmp_path: Path) -> None:
@@ -171,6 +171,7 @@ def test_report_serialization_is_deterministic_and_audits_vocabulary(tmp_path: P
     first = build_report(root)
     second = build_report(root)
     assert dumps_report(first) == dumps_report(second)
+    assert first["identity"]["corpus_id"] == "pop909_original"
     assert first["generic_midi_crosswalk"]["converted"] == 1
     assert first["track_role_evidence"]["primary_resolved"] == 1
     assert first["vocabularies"]["chords"]["lossless_coverage"] == 1.0

@@ -763,58 +763,69 @@ Use HookTheory for:
 - applied and borrowed chords;
 - section supervision where available.
 
-## 16. POP909 adapter
+## 16. POP909-CL adapter
 
 ### 16.1 Purpose
 
-POP909 is the first priority for validating the new track-aware graph because each song has distinct melody/lead/accompaniment material and chord/key/beat annotations.
+POP909-CL `POP909_processed` is the production Phase 4 corpus. It validates a
+strict raw/target boundary inside one MIDI file: a combined musical score is
+the raw observation and embedded corrected chord blocks are auxiliary targets.
+Original POP909 remains lineage and possible future ablation evidence.
 
-### 16.2 Expected musical roles
+### 16.2 Instrument and leakage contract
 
-Preserve the documented tracks separately:
+Resolve instruments from the documented channel contract plus measured MIDI
+evidence:
 
-- main/vocal melody;
-- secondary or lead melody;
-- piano accompaniment.
+- channel 0: combined musical score and the only note-bearing raw input;
+- channel 1: corrected chord-block annotation and target-only evidence;
+- conductor tempo, meter, and key meta-events: retained with the score.
 
-Attach track-role targets with high confidence based on dataset semantics.
+Names and track order are corroborating evidence only. Channel-1 notes, track
+records, end times, and other annotation-dependent content must not enter
+canonical musical tracks/notes, graph structure/features, serialization,
+fingerprints, statistics, or inference input.
 
 ### 16.3 Pipeline
 
-1. Parse MIDI and retain all three tracks.
-2. Parse tempo, beat, chord, and key annotation files.
-3. Build a reliable mapping among:
-   - MIDI ticks;
-   - musical quarter-note beats;
-   - annotation times in seconds where applicable.
-4. Validate monotonic alignment and report maximum alignment error.
-5. Create note, onset, beat, bar, and track objects.
-6. Parse chord strings into:
-   - raw symbol;
-   - absolute root;
-   - bass;
-   - coarse quality;
-   - extensions and alterations.
-7. Derive relative degree only when a key annotation is available and valid.
-8. Store key/chord annotation source as algorithmic/pseudo-human according to dataset documentation, with configurable confidence.
-9. Keep multiple versions of the same song under the same `source_group_id` and split.
+1. Discover exact three-digit logical IDs while preserving source filenames,
+   including whitespace, and excluding AppleDouble installation noise.
+2. Resolve unique channel-0 score and channel-1 chord instruments without
+   guessing from track order, name, or pitch range.
+3. Construct a score-only MIDI projection in memory or temporary storage,
+   preserving conductor tempo/meter/key events and excluding channel 1.
+4. Convert and validate only that projection as canonical raw content.
+5. Pair chord notes and group blocks at exact integer ticks/PPQN.
+6. Preserve every block's pitch multiset, pitch-class set, source bass,
+   track/channel/path/hash, and overlap/gap/pairing evidence before
+   normalization.
+7. Audit the upstream root/quality/bass normalizer while retaining every
+   ambiguous candidate and every unsupported raw shape.
+8. Represent positive-duration gaps as implicit `N` spans; missing chord
+   instruments make targets unavailable rather than negative.
+9. Store available chord targets with canonical source `human`, provenance
+   details `human_corrected` and `expert_reviewed`, and null numeric confidence
+   unless upstream supplies one.
+10. Use `pop909-cl:<song-id>` as the CL source group and
+    `pop909-lineage:<song-id>` to bind original/CL derivatives in later splits.
 
 ### 16.4 Do not overcompress chord vocabulary
 
-Retain both:
+Retain all of:
 
 - a coarse quality vocabulary used for classification;
-- a structured representation of extensions, alterations, suspensions, and bass;
-- the original raw chord string.
+- the complete source pitch multiset and pitch-class set;
+- every root/quality candidate for ambiguous shapes;
+- the upstream-selected root, quality, bass, and inversion when supported;
+- unsupported shapes and implicit no-chord spans.
 
 ### 16.5 Primary uses
 
-- track-role prediction;
-- melody/accompaniment modeling;
-- pop harmony;
-- cross-track SSL;
-- exact two/three-track controllability evaluation;
-- multitrack graph debugging.
+- symbolic chord recognition from raw combined score;
+- pop harmony auxiliary supervision;
+- boundary/root/quality/bass ablations;
+- raw/target leakage evaluation;
+- exact-timing and metadata-correction robustness.
 
 ## 17. Dilemmadata adapter
 
@@ -2258,31 +2269,33 @@ structure and is converted to `float32` only at feature-tensor construction.
 - SSL objectives, masking, decoder views, or corruption training;
 - target routing, semantic nodes, graph caches, or dataset collation.
 
-## Phase 4. POP909 adapter
+## Phase 4. POP909-CL adapter
 
 ### Tasks
 
-- discover songs and versions;
-- parse MIDI tracks and annotation files;
-- align time systems;
-- create track-role targets;
-- parse chord/key spans;
-- generate alignment reports;
-- group versions safely.
+- verify the pinned POP909-CL content and license identity;
+- discover exact filenames and logical IDs while excluding extraction noise;
+- separate the channel-0 score from target-only channel-1 chord blocks;
+- build leakage-safe score-only canonical pieces;
+- preserve and normalize chord blocks at exact ticks/PPQN;
+- generate score-warning and chord-structure reports separately;
+- group CL/original derivatives safely.
 
 ### Tests
 
-- known track-role mapping;
-- chord span alignment;
-- key-change alignment;
-- multi-version grouping;
-- no split leakage.
+- missing/ambiguous instrument resolution;
+- chord mutation raw-graph invariance;
+- exact chord blocks, implicit gaps, unsupported and ambiguous shapes;
+- time/key meta-event retention and song-172 meter evidence;
+- source and lineage grouping with no split leakage.
 
 ### Acceptance criteria
 
-- process a small POP909 subset with less than a configured alignment-error threshold;
-- graph includes three tracks and correct role targets;
-- raw inference mode works with annotation files hidden.
+- all accepted POP909-CL scores convert or fail under a documented general
+  meter rule;
+- channel-1 annotation mutations cannot affect canonical raw content or graph
+  fingerprints;
+- raw inference requires only the score projection and no chord targets.
 
 ## Phase 5. Multi-source dataset and collator
 
@@ -2489,9 +2502,9 @@ sources:
     enabled: true
     manifest: data/v2/hooktheory/manifest.jsonl
     weight: 0.10
-  pop909:
+  pop909_cl:
     enabled: true
-    manifest: data/v2/pop909/manifest.jsonl
+    manifest: data/v2/pop909_cl/manifest.jsonl
     weight: 0.20
   dilemmadata:
     enabled: true

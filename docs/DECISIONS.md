@@ -475,3 +475,40 @@ This log is append-only.
   guessed. Phase 4B must preserve raw-label provenance, exact timing, group
   integrity, and raw-graph leakage invariance; it cannot special-case one song
   merely to obtain 100% conversion.
+
+## 2026-07-23 — ADR-031: POP909-CL supersedes original POP909 for production Phase 4B
+
+- Status: Accepted; explicitly supersedes ADR-030 for the production Phase 4B
+  corpus and adapter contract. ADR-030 remains in this append-only log as the
+  incorrect prior decision.
+- Context: ADR-030 misidentified the installed `data/pop909-cl` extraction as
+  an unproven flattened original-POP909 mirror. Complete path/hash comparison
+  proves that all 909 relevant local MIDI files are byte-identical to
+  `POP909_processed` at POP909-CL commit
+  `be9094392903c471a930519e1c0bacf8b6be5d62`. POP909-CL embeds corrected chord
+  blocks in the MIDI rather than external sidecars. The original audit remains
+  scientifically useful, but its external labels, roles, alternatives, and
+  song-043 failure are not production CL facts.
+- Decision: Make `pop909_cl` the primary Phase 4B corpus and use
+  `pop909-cl:<song-id>` for its source group. Retain original POP909 as
+  `pop909_original` with `pop909-original:<song-id>`. If both are later used,
+  matching IDs share `pop909-lineage:<song-id>` and one split. Resolve the
+  combined musical score from the documented channel-0 instrument using
+  measured channel evidence. Treat the documented channel-1 chord instrument
+  as target-only: it cannot enter canonical raw tracks/notes, statistics,
+  graph structure/features, serialization, fingerprints, or inference input.
+  Preserve chord blocks losslessly at exact ticks/PPQN before applying the
+  upstream root/quality/bass normalization; retain unsupported, ambiguous,
+  overlapping, and implicit no-chord evidence. Record target source as human
+  with provenance details `human_corrected` and `expert_reviewed`, without
+  claiming infallible gold or fabricated numeric confidence. Preserve MIDI
+  time/key signatures as source meta-events. Song `172`, not original song
+  `043`, is the unresolved production meter case and remains quarantined until
+  a general partial-bar policy is accepted.
+- Consequences: Complete-file generic-adapter warnings are unsafe diagnostics,
+  not score-quality measurements. AppleDouble extraction noise is excluded
+  from the CL content fingerprint. Missing chord instruments yield unavailable
+  targets rather than negatives; missing/ambiguous instruments are structured
+  failures and are never repaired from pitch range, names, or order. Phase 4B
+  may implement only the score projection and masked target contract; this ADR
+  adds no production adapter or canonical meter special case.
