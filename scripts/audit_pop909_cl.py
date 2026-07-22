@@ -32,7 +32,7 @@ from music_critic.adapters import MidiAdapterConfig, MidiAdapterError, load_midi
 from music_critic.data import dumps_piece, loads_piece, validate_piece
 
 
-AUDIT_SCHEMA_VERSION = "2.0.0"
+AUDIT_SCHEMA_VERSION = "3.0.0"
 CORPUS_ID = "pop909_cl"
 UPSTREAM_REPOSITORY = "https://github.com/AndyWeasley2004/POP909-CL-Dataset"
 UPSTREAM_COMMIT = "be9094392903c471a930519e1c0bacf8b6be5d62"
@@ -44,6 +44,11 @@ EXPECTED_SONG_IDS = tuple(f"{number:03d}" for number in range(1, 910))
 DEFAULT_ROUND_TRIP_SAMPLE_SIZE = 16
 SCORE_CHANNEL = 0
 CHORD_CHANNEL = 1
+EXPECTED_MISSING_CHORD_TARGET_IDS = frozenset({"367", "658"})
+QUARANTINED_SCORE_IDS = frozenset({"172"})
+RAW_BLOCK_PROVENANCE_ID = "pop909_cl.raw_chord_block"
+NORMALIZED_TARGET_PROVENANCE_ID = "pop909_cl.upstream_normalized_target"
+IMPLICIT_N_PROVENANCE_ID = "pop909_cl.upstream_implicit_n"
 _SONG_ID_RE = re.compile(r"^[0-9]{3}$")
 _MIDI_SUFFIXES = {".mid", ".midi"}
 _T = TypeVar("_T")
@@ -427,11 +432,84 @@ def project_score_midi_bytes(midi: mido.MidiFile, contract: InstrumentContract) 
     return buffer.getvalue()
 
 
-def _pair_chord_notes(track: mido.MidiTrack) -> tuple[list[dict[str, int]], dict[str, int]]:
+def _raw_block_provenance() -> dict[str, Any]:
+    return {
+        "provenance_id": RAW_BLOCK_PROVENANCE_ID,
+        "source": "human",
+        "details": ["human_corrected", "expert_reviewed"],
+        "confidence": None,
+    }
+
+
+def _normalizer_provenance(*, output: str) -> dict[str, Any]:
+    gap_derivation = output in {
+        "upstream_no_chord_gap_inference",
+        "trailing_coverage_classification",
+    }
+    return {
+        "provenance_id": IMPLICIT_N_PROVENANCE_ID
+        if gap_derivation
+        else NORMALIZED_TARGET_PROVENANCE_ID,
+        "source": "derived",
+        "confidence": None,
+        "derivation_chain": [
+            {
+                "source": "human",
+                "entity": "POP909-CL channel-1 raw chord-block evidence",
+                "details": ["human_corrected", "expert_reviewed"],
+            },
+            {
+                "source": "derived",
+                "method": "POP909-CL process_pop909.py:process_pop909 gap-event construction"
+                if gap_derivation
+                else "POP909-CL process_pop909.py:get_chord_quality",
+                "upstream_repository": UPSTREAM_REPOSITORY,
+                "upstream_commit": UPSTREAM_COMMIT,
+                "semantics": (
+                    "emit leading N before the first chord and internal N between chord blocks; emit no trailing N after the final chord"
+                    if gap_derivation
+                    else "ascending candidate roots; exact sevenths before exact triads"
+                ),
+            },
+            {
+                "source": "derived",
+                "method": f"music_critic.phase_4a.{output}",
+                "semantics": "candidate-preserving exact-tick evidence audit",
+            },
+        ],
+    }
+
+
+def _target_field(
+    *,
+    available: bool,
+    value: Any,
+    source: str,
+    provenance_ref: str,
+    candidate_values: Sequence[Any] | None = None,
+) -> dict[str, Any]:
+    row = {
+        "available": available,
+        "value": value if available else None,
+        "source": source if available else None,
+        "provenance": provenance_ref if available else None,
+    }
+    if candidate_values is not None:
+        row["candidate_values"] = list(candidate_values)
+    return row
+
+
+def _pair_chord_notes(
+    track: mido.MidiTrack,
+    *,
+    source_track_index: int,
+    source_path: str,
+    source_sha256: str,
+) -> tuple[list[dict[str, int]], dict[str, Any]]:
     open_notes: dict[int, deque[tuple[int, int, int]]] = defaultdict(deque)
     paired: list[dict[str, int]] = []
-    unmatched_off = 0
-    ordinal = 0
+    unmatched_events: list[dict[str, Any]] = []
+    chord_note_event_ordinal = 0
     tick = 0
     for message in track:
         tick += int(message.time)
@@ -441,13 +519,28 @@ def _pair_chord_notes(track: mido.MidiTrack) -> tuple[list[dict[str, int]], dict
         is_off = message.type == "note_off" or (
             message.type == "note_on" and message.velocity == 0
         )
+        if not (is_on or is_off):
+            continue
+        ordinal = chord_note_event_ordinal
+        chord_note_event_ordinal += 1
         if is_on:
             open_notes[int(message.note)].append((tick, int(message.velocity), ordinal))
-            ordinal += 1
         elif is_off:
             queue = open_notes[int(message.note)]
             if not queue:
-                unmatched_off += 1
+                unmatched_events.append({
+                    "anomaly_id": f"unmatched_note_off:{ordinal}",
+                    "category": "unmatched_note_off",
+                    "tick": tick,
+                    "pitch": int(message.note),
+                    "velocity": int(message.velocity),
+                    "channel": int(message.channel),
+                    "message_type": message.type,
+                    "ordinal": ordinal,
+                    "source_track_index": source_track_index,
+                    "source_path": source_path,
+                    "source_sha256": source_sha256,
+                })
                 continue
             onset, velocity, note_ordinal = queue.popleft()
             paired.append({
@@ -457,9 +550,33 @@ def _pair_chord_notes(track: mido.MidiTrack) -> tuple[list[dict[str, int]], dict
                 "velocity": velocity,
                 "ordinal": note_ordinal,
             })
-    dangling = sum(len(queue) for queue in open_notes.values())
+    dangling_events = [
+        {
+            "anomaly_id": f"dangling_note_on:{ordinal}",
+            "category": "dangling_note_on",
+            "tick": onset,
+            "pitch": pitch,
+            "velocity": velocity,
+            "channel": CHORD_CHANNEL,
+            "message_type": "note_on",
+            "ordinal": ordinal,
+            "source_track_index": source_track_index,
+            "source_path": source_path,
+            "source_sha256": source_sha256,
+        }
+        for pitch, queue in open_notes.items()
+        for onset, velocity, ordinal in queue
+    ]
+    events = sorted(
+        [*unmatched_events, *dangling_events],
+        key=lambda row: (row["tick"], row["ordinal"], row["category"], row["pitch"]),
+    )
     paired.sort(key=lambda row: (row["onset_tick"], row["pitch"], row["end_tick"], row["ordinal"]))
-    return paired, {"unmatched_note_off": unmatched_off, "dangling_note_on": dangling}
+    return paired, {
+        "unmatched_note_off": len(unmatched_events),
+        "dangling_note_on": len(dangling_events),
+        "events": events,
+    }
 
 
 def chord_normalization(pitch_classes: Iterable[int], bass_pc: int) -> dict[str, Any]:
@@ -480,10 +597,47 @@ def chord_normalization(pitch_classes: Iterable[int], bass_pc: int) -> dict[str,
                     "inversion_semitones": (bass_pc - root_pc) % 12,
                 })
     selected = candidates[0] if candidates else None
+    ambiguous = len(candidates) > 1
+    root_values = sorted({candidate["root"] for candidate in candidates})
+    quality_values = sorted({candidate["quality"] for candidate in candidates})
+    inversion_values = sorted({candidate["inversion_semitones"] for candidate in candidates})
     return {
-        "status": "unsupported" if not candidates else ("ambiguous" if len(candidates) > 1 else "supported"),
+        "status": "unsupported" if not candidates else ("ambiguous" if ambiguous else "supported"),
         "selected_by_upstream_order": selected,
         "candidates": candidates,
+        "provenance": {
+            "source": "derived",
+            "provenance_ref": NORMALIZED_TARGET_PROVENANCE_ID,
+        },
+        "target_fields": {
+            "root": _target_field(
+                available=bool(candidates) and not ambiguous,
+                value=selected["root"] if selected else None,
+                source="derived",
+                provenance_ref=NORMALIZED_TARGET_PROVENANCE_ID,
+                candidate_values=root_values,
+            ),
+            "quality": _target_field(
+                available=bool(candidates) and len(quality_values) == 1,
+                value=quality_values[0] if len(quality_values) == 1 else None,
+                source="derived",
+                provenance_ref=NORMALIZED_TARGET_PROVENANCE_ID,
+                candidate_values=quality_values,
+            ),
+            "inversion": _target_field(
+                available=bool(candidates) and not ambiguous,
+                value=selected["inversion_semitones"] if selected else None,
+                source="derived",
+                provenance_ref=NORMALIZED_TARGET_PROVENANCE_ID,
+                candidate_values=inversion_values,
+            ),
+            "bass": _target_field(
+                available=True,
+                value=_PITCH_CLASS_NAMES[bass_pc],
+                source="human",
+                provenance_ref=RAW_BLOCK_PROVENANCE_ID,
+            ),
+        },
     }
 
 
@@ -501,12 +655,26 @@ def extract_chord_blocks(
         return {
             "status": "unavailable",
             "reason": "chord instrument is missing or ambiguous",
+            "task_availability": {
+                task: False
+                for task in ("boundary", "bass", "root", "quality", "inversion", "no_chord")
+            },
             "blocks": [],
             "implicit_n_gaps": [],
-            "pairing_diagnostics": {"unmatched_note_off": 0, "dangling_note_on": 0},
+            "trailing_unannotated_span": None,
+            "pairing_diagnostics": {
+                "unmatched_note_off": 0,
+                "dangling_note_on": 0,
+                "events": [],
+            },
         }
     track_index = contract.chord_track_indices[0]
-    paired, pairing = _pair_chord_notes(midi.tracks[track_index])
+    paired, pairing = _pair_chord_notes(
+        midi.tracks[track_index],
+        source_track_index=track_index,
+        source_path=source_path,
+        source_sha256=source_sha256,
+    )
     grouped: dict[int, list[dict[str, int]]] = defaultdict(list)
     for note in paired:
         grouped[note["onset_tick"]].append(note)
@@ -517,6 +685,8 @@ def extract_chord_blocks(
         pitch_classes = sorted({pitch % 12 for pitch in pitches})
         lowest = min(pitches)
         bass_pc = lowest % 12
+        raw_provenance = _raw_block_provenance()
+        normalization = chord_normalization(pitch_classes, bass_pc)
         blocks.append({
             "onset_tick": onset,
             "end_tick": max(note["end_tick"] for note in notes),
@@ -530,9 +700,57 @@ def extract_chord_blocks(
             "source_track_names": track_names,
             "source_path": source_path,
             "source_sha256": source_sha256,
-            "normalization": chord_normalization(pitch_classes, bass_pc),
+            "provenance": raw_provenance,
+            "target_fields": {
+                "boundary": _target_field(
+                    available=True,
+                    value={
+                        "onset_tick": onset,
+                        "end_tick": max(note["end_tick"] for note in notes),
+                    },
+                    source="human",
+                    provenance_ref=RAW_BLOCK_PROVENANCE_ID,
+                ),
+                **normalization["target_fields"],
+            },
+            "normalization": normalization,
+            "pairing_anomaly_ids": [],
         })
-    gaps, overlap_count = chord_span_diagnostics(blocks, score_duration_tick)
+    gaps, trailing_unannotated, overlap_count = chord_span_diagnostics(
+        blocks, score_duration_tick
+    )
+    spans: list[dict[str, Any]] = [*gaps]
+    if trailing_unannotated is not None:
+        spans.append(trailing_unannotated)
+    for event in pairing["events"]:
+        tick = int(event["tick"])
+        affected_blocks = [
+            block
+            for block in blocks
+            if int(block["onset_tick"]) <= tick <= int(block["end_tick"])
+        ]
+        affected_spans = [
+            span
+            for span in spans
+            if int(span["start_tick"]) <= tick < int(span["end_tick"])
+        ]
+        event["affected_block_onsets"] = [
+            int(block["onset_tick"]) for block in affected_blocks
+        ]
+        event["affected_span_ids"] = [span["span_id"] for span in affected_spans]
+        event["affected_interval"] = {
+            "start_tick": tick,
+            "end_tick": score_duration_tick
+            if event["category"] == "dangling_note_on"
+            else tick,
+            "basis": "open_note_to_score_end"
+            if event["category"] == "dangling_note_on"
+            else "unmatched_point_event",
+        }
+        for block in affected_blocks:
+            block["pairing_anomaly_ids"].append(event["anomaly_id"])
+        for span in affected_spans:
+            span["pairing_anomaly_ids"].append(event["anomaly_id"])
     repeated_pitch_blocks = sum(
         len(block["midi_pitch_multiset"]) != len(set(block["midi_pitch_multiset"]))
         for block in blocks
@@ -540,11 +758,17 @@ def extract_chord_blocks(
     mixed_end_blocks = sum(len(set(block["note_end_ticks"])) > 1 for block in blocks)
     return {
         "status": "available",
+        "task_availability": {
+            task: True
+            for task in ("boundary", "bass", "root", "quality", "inversion", "no_chord")
+        },
         "ppqn": midi.ticks_per_beat,
         "block_count": len(blocks),
         "blocks": blocks,
         "implicit_n_gaps": gaps,
         "implicit_n_gap_count": len(gaps),
+        "trailing_unannotated_span": trailing_unannotated,
+        "trailing_unannotated_span_count": int(trailing_unannotated is not None),
         "overlap_count": overlap_count,
         "duplicate_block_onset_count": 0,
         "repeated_pitch_at_onset_block_count": repeated_pitch_blocks,
@@ -556,23 +780,51 @@ def extract_chord_blocks(
 def chord_span_diagnostics(
     blocks: Sequence[Mapping[str, Any]],
     score_duration_tick: int,
-) -> tuple[list[dict[str, int]], int]:
-    """Return gaps over the union of block spans and blocks overlapping that union."""
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None, int]:
+    """Return upstream-compatible N gaps, masked trailing coverage, and overlaps."""
 
-    gaps: list[dict[str, int]] = []
+    gaps: list[dict[str, Any]] = []
     covered_until = 0
     overlap_count = 0
+    gap_index = 0
     for block in blocks:
         onset = int(block["onset_tick"])
         end = int(block["end_tick"])
         if onset > covered_until:
-            gaps.append({"start_tick": covered_until, "end_tick": onset})
+            gap_kind = "leading_no_chord" if covered_until == 0 else "internal_no_chord"
+            gaps.append({
+                "span_id": f"implicit_n:{gap_index}",
+                "kind": gap_kind,
+                "start_tick": covered_until,
+                "end_tick": onset,
+                "pairing_anomaly_ids": [],
+                "target_field": _target_field(
+                    available=True,
+                    value="N",
+                    source="derived",
+                    provenance_ref=IMPLICIT_N_PROVENANCE_ID,
+                ),
+            })
+            gap_index += 1
         elif onset < covered_until:
             overlap_count += 1
         covered_until = max(covered_until, end)
+    trailing: dict[str, Any] | None = None
     if covered_until < score_duration_tick:
-        gaps.append({"start_tick": covered_until, "end_tick": score_duration_tick})
-    return gaps, overlap_count
+        trailing = {
+            "span_id": "trailing_unannotated:0",
+            "kind": "trailing_unannotated",
+            "start_tick": covered_until,
+            "end_tick": score_duration_tick,
+            "pairing_anomaly_ids": [],
+            "target_field": _target_field(
+                available=False,
+                value=None,
+                source="derived",
+                provenance_ref=IMPLICIT_N_PROVENANCE_ID,
+            ),
+        }
+    return gaps, trailing, overlap_count
 
 
 def _score_duration_tick(contract: InstrumentContract) -> int:
@@ -779,6 +1031,21 @@ def _golden_cases(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
         if candidates:
             selected = max(candidates, key=lambda row: (row[field], row["song_id"]))
             reasons[selected["song_id"]].add(reason)
+    trailing_candidates = [
+        row
+        for row in converted
+        if row.get("chord_annotations", {}).get("trailing_unannotated_span")
+    ]
+    if trailing_candidates:
+        selected = max(
+            trailing_candidates,
+            key=lambda row: (
+                row["chord_annotations"]["trailing_unannotated_span"]["end_tick"]
+                - row["chord_annotations"]["trailing_unannotated_span"]["start_tick"],
+                row["song_id"],
+            ),
+        )
+        reasons[selected["song_id"]].add("maximum_trailing_unannotated_coverage")
     result: list[dict[str, Any]] = []
     for song_id in sorted(reasons):
         row = by_id[song_id]
@@ -798,6 +1065,9 @@ def _golden_cases(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
                 "unsupported_block_count": row.get("unsupported_block_count", 0),
                 "ambiguous_block_count": row.get("ambiguous_block_count", 0),
                 "implicit_n_gap_count": row.get("implicit_n_gap_count", 0),
+                "trailing_unannotated_span_count": row.get(
+                    "trailing_unannotated_span_count", 0
+                ),
                 "overlap_count": row.get("overlap_count", 0),
                 "meter_boundary_evidence": row["meter_boundary_evidence"],
             },
@@ -855,6 +1125,12 @@ def build_report(
     block_counts: list[int] = []
     gap_counts: list[int] = []
     overlap_counts: list[int] = []
+    trailing_unannotated_durations: list[int] = []
+    task_available: Counter[str] = Counter()
+    task_unavailable: Counter[str] = Counter()
+    files_with_available_chord_targets = 0
+    files_with_unavailable_chord_targets = 0
+    pairing_anomaly_events: list[dict[str, Any]] = []
     round_trip_ids = {
         asset.song_id
         for asset in _select_spread(selected, min(DEFAULT_ROUND_TRIP_SAMPLE_SIZE, len(selected)))
@@ -910,6 +1186,10 @@ def build_report(
                 )
                 row["chord_annotations"] = chord
                 blocks = chord["blocks"]
+                if chord["status"] == "available":
+                    files_with_available_chord_targets += 1
+                else:
+                    files_with_unavailable_chord_targets += 1
                 supported = 0
                 ambiguous = 0
                 unsupported = 0
@@ -921,6 +1201,8 @@ def build_report(
                     supported += status in {"supported", "ambiguous"}
                     ambiguous += status == "ambiguous"
                     unsupported += status == "unsupported"
+                    for task, target in block["target_fields"].items():
+                        (task_available if target["available"] else task_unavailable)[task] += 1
                     selected_normalization = block["normalization"]["selected_by_upstream_order"]
                     if selected_normalization is not None:
                         label = (
@@ -932,12 +1214,25 @@ def build_report(
                         qualities[selected_normalization["quality"]] += 1
                         basses[selected_normalization["bass"]] += 1
                         inversions[selected_normalization["inversion_semitones"]] += 1
+                task_available["no_chord"] += chord.get("implicit_n_gap_count", 0)
+                trailing_span = chord.get("trailing_unannotated_span")
+                if trailing_span is not None:
+                    task_unavailable["no_chord"] += 1
+                    trailing_unannotated_durations.append(
+                        int(trailing_span["end_tick"]) - int(trailing_span["start_tick"])
+                    )
+                pairing_anomaly_events.extend(
+                    chord.get("pairing_diagnostics", {}).get("events", [])
+                )
                 row.update({
                     "block_count": len(blocks),
                     "supported_block_count": supported,
                     "ambiguous_block_count": ambiguous,
                     "unsupported_block_count": unsupported,
                     "implicit_n_gap_count": chord.get("implicit_n_gap_count", 0),
+                    "trailing_unannotated_span_count": chord.get(
+                        "trailing_unannotated_span_count", 0
+                    ),
                     "overlap_count": chord.get("overlap_count", 0),
                 })
                 block_counts.append(len(blocks))
@@ -963,6 +1258,7 @@ def build_report(
                     score_note_counts.append(note_count)
                     row["score_projection"] = {
                         "status": "converted",
+                        "acceptance": "accepted",
                         "sha256": sha256(projected_bytes).hexdigest(),
                         "canonical_note_count": note_count,
                         "canonical_track_count": track_count,
@@ -982,6 +1278,9 @@ def build_report(
                     score_failure_categories[category] += 1
                     row["score_projection"] = {
                         "status": "failed",
+                        "acceptance": "quarantined"
+                        if asset.song_id in QUARANTINED_SCORE_IDS
+                        else "fatal_failure",
                         "exception_type": exception_type,
                         "category": category,
                         "message": _normalized_error(exc, projected_path, f"score_projection:{asset.song_id}"),
@@ -1037,10 +1336,12 @@ def build_report(
                 row.setdefault("unsupported_block_count", 0)
                 row.setdefault("ambiguous_block_count", 0)
                 row.setdefault("implicit_n_gap_count", 0)
+                row.setdefault("trailing_unannotated_span_count", 0)
                 row.setdefault("overlap_count", 0)
                 row.setdefault("score_warning_count", 0)
                 row.setdefault("score_projection", {
                     "status": "failed",
+                    "acceptance": "fatal_failure",
                     "exception_type": exception_type,
                     "category": category,
                     "message": _normalized_error(exc, asset.path, asset.relative_to_root),
@@ -1071,34 +1372,74 @@ def build_report(
 
     score_failures = [row for row in score_rows if row["score_projection"]["status"] == "failed"]
     unsafe_failures = [row for row in score_rows if row["unsafe_complete_file_generic"]["status"] == "failed"]
-    instrument_failure_rows = [
-        {
+    instrument_failure_rows = []
+    for row in score_rows:
+        if not row["instrument_contract"]["failures"]:
+            continue
+        expected_missing_target = (
+            row["song_id"] in EXPECTED_MISSING_CHORD_TARGET_IDS
+            and [failure["category"] for failure in row["instrument_contract"]["failures"]]
+            == ["missing_chord_instrument"]
+        )
+        instrument_failure_rows.append({
             "song_id": row["song_id"],
             "relative_path": row["relative_path"],
+            "classification": "expected_masked_target_unavailability"
+            if expected_missing_target
+            else "fatal_structure_failure",
+            "fatal": not expected_missing_target,
             "failures": row["instrument_contract"]["failures"],
-        }
-        for row in score_rows
-        if row["instrument_contract"]["failures"]
+        })
+    fatal_instrument_failure_rows = [row for row in instrument_failure_rows if row["fatal"]]
+    expected_missing_observed = {
+        row["song_id"]
+        for row in instrument_failure_rows
+        if row["classification"] == "expected_masked_target_unavailability"
+    }
+    quarantined_score_failures = [
+        row for row in score_failures if row["song_id"] in QUARANTINED_SCORE_IDS
     ]
-    strict_violations: list[str] = []
+    fatal_score_failures = [
+        row for row in score_failures if row["song_id"] not in QUARANTINED_SCORE_IDS
+    ]
+    evidence_violations: list[str] = []
     if discovery.missing_song_ids:
-        strict_violations.append("missing_song_ids")
+        evidence_violations.append("missing_song_ids")
     if discovery.duplicate_song_ids:
-        strict_violations.append("duplicate_song_ids")
+        evidence_violations.append("duplicate_song_ids")
     if discovery.unexpected_midi_paths:
-        strict_violations.append("unexpected_midi_paths")
+        evidence_violations.append("unexpected_midi_paths")
     if content_fingerprint != PINNED_CONTENT_FINGERPRINT:
-        strict_violations.append("pinned_content_fingerprint_mismatch")
+        evidence_violations.append("pinned_content_fingerprint_mismatch")
     if upstream_root is not None and not upstream_comparison["provenance_confirmed"]:
-        strict_violations.append("upstream_content_or_commit_mismatch")
-    if instrument_failure_rows:
-        strict_violations.append("instrument_contract_failures")
-    if score_failures:
-        strict_violations.append("score_projection_conversion_failures")
+        evidence_violations.append("upstream_content_or_commit_mismatch")
+    if fatal_instrument_failure_rows:
+        evidence_violations.append("fatal_instrument_contract_failures")
+    if expected_missing_observed != EXPECTED_MISSING_CHORD_TARGET_IDS:
+        evidence_violations.append("expected_missing_chord_target_set_mismatch")
+    if fatal_score_failures:
+        evidence_violations.append("fatal_score_projection_conversion_failures")
+    if {row["song_id"] for row in quarantined_score_failures} != QUARANTINED_SCORE_IDS:
+        evidence_violations.append("documented_quarantine_set_mismatch")
     if not all(row["equal"] for row in round_trips):
-        strict_violations.append("serialization_round_trip_failures")
+        evidence_violations.append("serialization_round_trip_failures")
 
     total_blocks = sum(block_counts)
+    sorted_pairing_anomaly_events = sorted(
+        pairing_anomaly_events,
+        key=lambda row: (
+            row["source_path"], row["tick"], row["ordinal"], row["category"]
+        ),
+    )
+    pairing_anomaly_evidence_sha256 = sha256(
+        json.dumps(
+            sorted_pairing_anomaly_events,
+            ensure_ascii=False,
+            allow_nan=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
     report = {
         "audit_schema_version": AUDIT_SCHEMA_VERSION,
         "corpus_identity": {
@@ -1140,6 +1481,14 @@ def build_report(
             "selection_policy": "unique channel-bearing instrument; names and track order are corroborating evidence only",
             "failure_counts": _counter(structure_failures),
             "failures": instrument_failure_rows,
+            "fatal_failure_counts": _counter(Counter(
+                failure["category"]
+                for row in fatal_instrument_failure_rows
+                for failure in row["failures"]
+            )),
+            "expected_masked_target_unavailability_song_ids": sorted(
+                expected_missing_observed
+            ),
             "track_channel_shapes": _counter(track_shapes),
             "track_names": _counter(track_names),
             "global_meta_event_counts": _counter(global_meta_counts),
@@ -1151,6 +1500,9 @@ def build_report(
             "attempted": len(selected),
             "converted": len(selected) - len(score_failures),
             "failed": len(score_failures),
+            "quarantined": len(quarantined_score_failures),
+            "fatal_failed": len(fatal_score_failures),
+            "quarantined_song_ids": [row["song_id"] for row in quarantined_score_failures],
             "failures_by_category": _counter(score_failure_categories),
             "failures": [
                 {"song_id": row["song_id"], "relative_path": row["relative_path"], **row["score_projection"]}
@@ -1174,12 +1526,25 @@ def build_report(
             "canonical_note_count_distribution": _distribution(unsafe_note_counts),
         },
         "chord_annotation_inventory": {
-            "target_source": "human",
-            "provenance_details": ["human_corrected", "expert_reviewed"],
-            "confidence": None,
+            "raw_block_provenance": _raw_block_provenance(),
+            "normalized_target_provenance": _normalizer_provenance(
+                output="upstream_chord_normalization"
+            ),
+            "implicit_n_provenance": _normalizer_provenance(
+                output="upstream_no_chord_gap_inference"
+            ),
             "qualification": "curated labels preserve raw MIDI evidence; unsupported and ambiguous normalizations remain explicit",
             "time_coordinate": "exact MIDI ticks with per-file PPQN",
-            "no_chord_policy": "N is an implicit positive-duration gap, not a MIDI note",
+            "no_chord_policy": "only upstream-compatible leading/internal positive-duration gaps are derived N; trailing uncovered time is masked/unannotated",
+            "files_with_available_chord_targets": files_with_available_chord_targets,
+            "files_with_unavailable_chord_targets": files_with_unavailable_chord_targets,
+            "task_mask_counts": {
+                task: {
+                    "available": task_available[task],
+                    "unavailable": task_unavailable[task],
+                }
+                for task in ("boundary", "bass", "root", "quality", "inversion", "no_chord")
+            },
             "total_blocks": total_blocks,
             "block_count_distribution": _distribution(block_counts),
             "normalization_status_counts": _counter(block_statuses),
@@ -1197,6 +1562,10 @@ def build_report(
             "inversion_semitones": _counter(inversions),
             "implicit_n_gap_count": sum(gap_counts),
             "implicit_n_gap_count_distribution": _distribution(gap_counts),
+            "trailing_unannotated_span_count": len(trailing_unannotated_durations),
+            "trailing_unannotated_duration_tick_distribution": _distribution(
+                trailing_unannotated_durations
+            ),
             "overlap_count": sum(overlap_counts),
             "overlap_count_distribution": _distribution(overlap_counts),
             "duplicate_block_onset_count": sum(
@@ -1218,6 +1587,8 @@ def build_report(
                     for row in score_rows
                 ),
             },
+            "pairing_anomaly_events": sorted_pairing_anomaly_events,
+            "pairing_anomaly_evidence_sha256": pairing_anomaly_evidence_sha256,
         },
         "grouping": {
             "source_group_policy": "pop909-cl:<song-id> contains all CL evidence for one song",
@@ -1226,7 +1597,15 @@ def build_report(
         },
         "per_file": score_rows,
         "golden_evidence": _golden_cases(score_rows),
-        "strict": {"contract_ready": not strict_violations, "violations": strict_violations},
+        "strict": {
+            "evidence_contract_ready": not evidence_violations,
+            "production_adapter_ready": False,
+            "evidence_violations": evidence_violations,
+            "production_blockers": [
+                "phase_4b_production_adapter_not_implemented",
+                "song_172_quarantined_pending_general_partial_bar_meter_policy",
+            ],
+        },
     }
     return report
 
@@ -1261,7 +1640,7 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:
         print(f"POP909-CL audit failed: {type(exc).__name__}: {' '.join(str(exc).split())[:500]}", file=sys.stderr)
         return 2
-    if args.strict and not report["strict"]["contract_ready"]:
+    if args.strict and not report["strict"]["evidence_contract_ready"]:
         return 1
     return 0
 

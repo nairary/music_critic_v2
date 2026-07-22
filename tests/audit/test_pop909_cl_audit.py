@@ -146,6 +146,15 @@ def test_channel_contract_rejects_missing_and_ambiguous_instruments(tmp_path: Pa
     _write_cl_midi(missing_chord, chord_track_count=0)
     contract = inspect_instrument_contract(mido.MidiFile(missing_chord))
     assert [row["category"] for row in contract.failures] == ["missing_chord_instrument"]
+    missing_evidence = extract_chord_blocks(
+        mido.MidiFile(missing_chord),
+        contract,
+        source_path="367.mid",
+        source_sha256="c" * 64,
+        score_duration_tick=1_920,
+    )
+    assert missing_evidence["status"] == "unavailable"
+    assert all(value is False for value in missing_evidence["task_availability"].values())
 
     ambiguous_chord = tmp_path / "ambiguous-chord.mid"
     _write_cl_midi(ambiguous_chord, chord_track_count=2)
@@ -204,14 +213,49 @@ def test_chord_blocks_preserve_ticks_multisets_gaps_and_unsupported_shapes(tmp_p
     assert evidence["blocks"][0]["pitch_class_set"] == [0, 4, 7]
     assert evidence["blocks"][0]["source_track_index"] == 2
     assert evidence["blocks"][0]["source_sha256"] == "a" * 64
+    assert evidence["blocks"][0]["provenance"] == {
+        "provenance_id": "pop909_cl.raw_chord_block",
+        "source": "human",
+        "details": ["human_corrected", "expert_reviewed"],
+        "confidence": None,
+    }
+    assert evidence["blocks"][0]["normalization"]["provenance"]["source"] == "derived"
+    assert evidence["blocks"][0]["target_fields"]["root"]["provenance"] == (
+        "pop909_cl.upstream_normalized_target"
+    )
+    assert evidence["blocks"][0]["target_fields"]["root"]["available"] is True
+    assert evidence["blocks"][0]["target_fields"]["quality"]["available"] is True
+    assert evidence["blocks"][0]["target_fields"]["inversion"]["available"] is True
     assert evidence["blocks"][1]["normalization"]["status"] == "unsupported"
-    assert evidence["implicit_n_gaps"] == [
-        {"start_tick": 480, "end_tick": 960},
-        {"start_tick": 1_440, "end_tick": 1_920},
-    ]
-    assert chord_normalization({0, 3, 6, 9}, bass_pc=0)["status"] == "ambiguous"
+    assert evidence["blocks"][1]["target_fields"]["boundary"]["available"] is True
+    assert evidence["blocks"][1]["target_fields"]["bass"]["available"] is True
+    for task in ("root", "quality", "inversion"):
+        assert evidence["blocks"][1]["target_fields"][task]["available"] is False
+    assert [
+        (gap["kind"], gap["start_tick"], gap["end_tick"])
+        for gap in evidence["implicit_n_gaps"]
+    ] == [("internal_no_chord", 480, 960)]
+    gap = evidence["implicit_n_gaps"][0]
+    assert gap["target_field"]["available"] is True
+    assert gap["target_field"]["value"] == "N"
+    assert gap["target_field"]["source"] == "derived"
+    assert gap["target_field"]["provenance"] == "pop909_cl.upstream_implicit_n"
+    assert evidence["trailing_unannotated_span"]["start_tick"] == 1_440
+    assert evidence["trailing_unannotated_span"]["end_tick"] == 1_920
+    assert evidence["trailing_unannotated_span"]["target_field"] == {
+        "available": False,
+        "value": None,
+        "source": None,
+        "provenance": None,
+    }
+    ambiguous = chord_normalization({0, 3, 6, 9}, bass_pc=0)
+    assert ambiguous["status"] == "ambiguous"
+    assert ambiguous["target_fields"]["root"]["available"] is False
+    assert ambiguous["target_fields"]["inversion"]["available"] is False
+    assert ambiguous["target_fields"]["quality"]["available"] is True
+    assert ambiguous["target_fields"]["quality"]["value"] == "o7"
     assert chord_normalization({0, 1}, bass_pc=0)["status"] == "unsupported"
-    gaps, overlaps = chord_span_diagnostics(
+    gaps, trailing, overlaps = chord_span_diagnostics(
         [
             {"onset_tick": 0, "end_tick": 1_000},
             {"onset_tick": 500, "end_tick": 600},
@@ -221,9 +265,68 @@ def test_chord_blocks_preserve_ticks_multisets_gaps_and_unsupported_shapes(tmp_p
         1_600,
     )
     assert overlaps == 2
-    assert gaps == [
-        {"start_tick": 1_000, "end_tick": 1_200},
-        {"start_tick": 1_400, "end_tick": 1_600},
+    assert [(row["start_tick"], row["end_tick"]) for row in gaps] == [
+        (1_000, 1_200),
+    ]
+    assert trailing is not None
+    assert (trailing["start_tick"], trailing["end_tick"]) == (1_400, 1_600)
+
+
+def test_pairing_anomalies_preserve_exact_source_evidence_and_mark_coverage() -> None:
+    midi = mido.MidiFile(type=1, ticks_per_beat=480)
+    midi.tracks.extend([_conductor(), _score_track()])
+    track = mido.MidiTrack([
+        mido.MetaMessage("track_name", name="chords", time=0),
+        mido.Message("program_change", channel=1, program=0, time=0),
+        mido.Message("note_off", channel=1, note=55, velocity=9, time=5),
+        mido.Message("note_on", channel=1, note=60, velocity=77, time=5),
+        mido.Message("note_on", channel=1, note=64, velocity=66, time=0),
+        mido.Message("note_off", channel=1, note=64, velocity=4, time=100),
+        mido.MetaMessage("end_of_track", time=90),
+    ])
+    midi.tracks.append(track)
+    evidence = extract_chord_blocks(
+        midi,
+        inspect_instrument_contract(midi),
+        source_path="POP909_processed/999.mid",
+        source_sha256="b" * 64,
+        score_duration_tick=200,
+    )
+    events = evidence["pairing_diagnostics"]["events"]
+    assert events[0] == {
+        "anomaly_id": "unmatched_note_off:0",
+        "category": "unmatched_note_off",
+        "tick": 5,
+        "pitch": 55,
+        "velocity": 9,
+        "channel": 1,
+        "message_type": "note_off",
+        "ordinal": 0,
+        "source_track_index": 2,
+        "source_path": "POP909_processed/999.mid",
+        "source_sha256": "b" * 64,
+        "affected_block_onsets": [],
+        "affected_span_ids": ["implicit_n:0"],
+        "affected_interval": {
+            "start_tick": 5,
+            "end_tick": 5,
+            "basis": "unmatched_point_event",
+        },
+    }
+    assert events[1]["category"] == "dangling_note_on"
+    assert events[1]["tick"] == 10
+    assert events[1]["pitch"] == 60
+    assert events[1]["velocity"] == 77
+    assert events[1]["ordinal"] == 1
+    assert events[1]["affected_block_onsets"] == [10]
+    assert events[1]["affected_interval"] == {
+        "start_tick": 10,
+        "end_tick": 200,
+        "basis": "open_note_to_score_end",
+    }
+    assert evidence["blocks"][0]["pairing_anomaly_ids"] == ["dangling_note_on:1"]
+    assert evidence["implicit_n_gaps"][0]["pairing_anomaly_ids"] == [
+        "unmatched_note_off:0"
     ]
 
 
@@ -310,11 +413,26 @@ def test_report_is_deterministic_and_never_writes_under_source_root(tmp_path: Pa
     assert first["corpus_identity"]["corpus_midi_file_count"] == 2
     assert first["score_only_crosswalk"]["converted"] == 2
     assert first["chord_annotation_inventory"]["total_blocks"] == 4
-    assert first["chord_annotation_inventory"]["target_source"] == "human"
-    assert first["chord_annotation_inventory"]["provenance_details"] == [
-        "human_corrected",
-        "expert_reviewed",
-    ]
+    inventory = first["chord_annotation_inventory"]
+    assert inventory["raw_block_provenance"]["source"] == "human"
+    assert inventory["normalized_target_provenance"]["source"] == "derived"
+    assert inventory["implicit_n_provenance"]["source"] == "derived"
+    assert inventory["normalized_target_provenance"]["derivation_chain"][1][
+        "method"
+    ] == "POP909-CL process_pop909.py:get_chord_quality"
+    assert "gap-event construction" in inventory["implicit_n_provenance"][
+        "derivation_chain"
+    ][1]["method"]
+    assert inventory["implicit_n_gap_count"] == 2
+    assert inventory["trailing_unannotated_span_count"] == 2
+    assert inventory["task_mask_counts"]["root"] == {
+        "available": 2,
+        "unavailable": 2,
+    }
+    assert inventory["task_mask_counts"]["quality"] == {
+        "available": 2,
+        "unavailable": 2,
+    }
     assert _tree_hashes(root) == before
 
     output = tmp_path / "report.json"

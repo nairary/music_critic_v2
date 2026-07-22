@@ -798,15 +798,22 @@ fingerprints, statistics, or inference input.
 5. Pair chord notes and group blocks at exact integer ticks/PPQN.
 6. Preserve every block's pitch multiset, pitch-class set, source bass,
    track/channel/path/hash, and overlap/gap/pairing evidence before
-   normalization.
+   normalization. Pairing anomalies retain exact event fields and affected
+   block/span references rather than aggregate counts alone.
 7. Audit the upstream root/quality/bass normalizer while retaining every
    ambiguous candidate and every unsupported raw shape.
-8. Represent positive-duration gaps as implicit `N` spans; missing chord
-   instruments make targets unavailable rather than negative.
-9. Store available chord targets with canonical source `human`, provenance
-   details `human_corrected` and `expert_reviewed`, and null numeric confidence
-   unless upstream supplies one.
-10. Use `pop909-cl:<song-id>` as the CL source group and
+8. Represent only leading/internal positive-duration gaps as derived `N` spans;
+   represent trailing uncovered time separately as masked/unannotated. Missing
+   chord instruments make targets unavailable rather than negative.
+9. Store raw chord blocks with source `human`, provenance details
+   `human_corrected` and `expert_reviewed`, and null numeric confidence. Store
+   normalized root/quality/inversion and inferred `N` with source `derived`
+   and an explicit chain through the pinned upstream normalizer/gap rule.
+10. Apply field-specific masks: boundary/bass remain available when directly
+    observed; ambiguous root/inversion are unavailable single-label targets;
+    ambiguous quality is available only on candidate agreement; unsupported
+    root/quality/inversion are unavailable.
+11. Use `pop909-cl:<song-id>` as the CL source group and
     `pop909-lineage:<song-id>` to bind original/CL derivatives in later splits.
 
 ### 16.4 Do not overcompress chord vocabulary
@@ -2286,6 +2293,8 @@ structure and is converted to `float32` only at feature-tensor construction.
 - missing/ambiguous instrument resolution;
 - chord mutation raw-graph invariance;
 - exact chord blocks, implicit gaps, unsupported and ambiguous shapes;
+- trailing masked coverage, task-specific masks, split raw/derived provenance,
+  and exact pairing-anomaly evidence;
 - time/key meta-event retention and song-172 meter evidence;
 - source and lineage grouping with no split leakage.
 
@@ -2295,7 +2304,10 @@ structure and is converted to `float32` only at feature-tensor construction.
   meter rule;
 - channel-1 annotation mutations cannot affect canonical raw content or graph
   fingerprints;
-- raw inference requires only the score projection and no chord targets.
+- raw inference requires only the score projection and no chord targets;
+- the strict audit reports `evidence_contract_ready` independently from
+  `production_adapter_ready`, accepting only the pinned `367`/`658` masked
+  absence and documented `172` quarantine.
 
 ## Phase 5. Multi-source dataset and collator
 

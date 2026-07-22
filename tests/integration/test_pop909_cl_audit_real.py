@@ -43,6 +43,7 @@ def test_complete_recorded_pop909_cl_audit() -> None:
     else:
         report = build_report(root, upstream_root=upstream_root)
 
+    assert report["audit_schema_version"] == manifest["audit_schema_version"]
     identity = report["corpus_identity"]
     for key, expected in manifest["corpus"].items():
         assert identity[key] == expected, key
@@ -62,9 +63,13 @@ def test_complete_recorded_pop909_cl_audit() -> None:
     assert report["instrument_contract"]["failure_counts"] == manifest[
         "instrument_failure_counts"
     ]
+    assert report["instrument_contract"]["fatal_failure_counts"] == {}
+    assert report["instrument_contract"][
+        "expected_masked_target_unavailability_song_ids"
+    ] == manifest["expected_masked_target_unavailability_song_ids"]
 
     crosswalk = report["score_only_crosswalk"]
-    for key in ("attempted", "converted", "failed"):
+    for key in ("attempted", "converted", "failed", "quarantined", "fatal_failed"):
         assert crosswalk[key] == manifest["score_crosswalk"][key], key
     assert [row["song_id"] for row in crosswalk["failures"]] == manifest[
         "score_crosswalk"
@@ -72,6 +77,7 @@ def test_complete_recorded_pop909_cl_audit() -> None:
     assert crosswalk["failures_by_category"] == {
         "midi_adapter.meter_change_inside_bar": 1
     }
+    assert crosswalk["quarantined_song_ids"] == ["172"]
     assert all(row["equal"] for row in crosswalk["serialization_round_trip_sample"])
     assert report["unsafe_complete_file_generic_diagnostics"]["production_safe"] is False
     assert "midi_parse_failure" not in report["instrument_contract"]["failure_counts"]
@@ -84,11 +90,14 @@ def test_complete_recorded_pop909_cl_audit() -> None:
                 "total_blocks",
                 "normalization_status_counts",
                 "implicit_n_gap_count",
+                "trailing_unannotated_span_count",
+                "task_mask_counts",
                 "overlap_count",
                 "duplicate_block_onset_count",
                 "repeated_pitch_at_onset_block_count",
                 "mixed_note_end_tick_block_count",
                 "pairing_diagnostics",
+                "pairing_anomaly_evidence_sha256",
             ),
         ),
     ):
@@ -97,6 +106,33 @@ def test_complete_recorded_pop909_cl_audit() -> None:
                 section,
                 key,
             )
+
+    inventory = report["chord_annotation_inventory"]
+    assert inventory["raw_block_provenance"]["source"] == "human"
+    assert inventory["raw_block_provenance"]["details"] == [
+        "human_corrected",
+        "expert_reviewed",
+    ]
+    assert inventory["normalized_target_provenance"]["source"] == "derived"
+    assert inventory["implicit_n_provenance"]["source"] == "derived"
+    assert len(inventory["pairing_anomaly_events"]) == 8
+    for event in inventory["pairing_anomaly_events"]:
+        assert {
+            "category",
+            "tick",
+            "pitch",
+            "velocity",
+            "channel",
+            "ordinal",
+            "source_path",
+            "source_sha256",
+            "affected_block_onsets",
+            "affected_span_ids",
+            "affected_interval",
+        } <= event.keys()
+    assert report["strict"] == manifest["readiness"]
+    assert report["strict"]["evidence_contract_ready"] is True
+    assert report["strict"]["production_adapter_ready"] is False
 
     rows = {row["song_id"]: row for row in report["per_file"]}
     for case in manifest["cases"]:
@@ -109,6 +145,14 @@ def test_complete_recorded_pop909_cl_audit() -> None:
         assert row["score_projection"]["status"] == case["score_projection_status"]
         for key, expected in case.get("expected_facts", {}).items():
             assert row[key] == expected, (case["song_id"], key)
+        if case["song_id"] in {"367", "658"}:
+            assert row["chord_annotations"]["status"] == "unavailable"
+            assert all(
+                available is False
+                for available in row["chord_annotations"]["task_availability"].values()
+            )
+        if case["song_id"] == "172":
+            assert row["score_projection"]["acceptance"] == "quarantined"
         if "meter_change" in case:
             observed = next(
                 item for item in row["meter_boundary_evidence"] if item["tick"] == 85_080

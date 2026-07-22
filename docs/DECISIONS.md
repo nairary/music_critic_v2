@@ -512,3 +512,31 @@ This log is append-only.
   failures and are never repaired from pitch range, names, or order. Phase 4B
   may implement only the score projection and masked target contract; this ADR
   adds no production adapter or canonical meter special case.
+
+## 2026-07-23 — ADR-032: POP909-CL target semantics separate observation from derivation
+
+- Status: Accepted for Phase 4A; refines ADR-031 without changing the selected
+  corpus or raw/target leakage boundary.
+- Context: The first remediated audit assigned source `human` to normalized
+  chord fields, treated uncovered time after the final chord as `N`, retained
+  pairing anomalies only as counts, and made expected target absence plus the
+  known song-172 meter case fail one undifferentiated readiness flag. Those
+  semantics overstate both annotation coverage and direct human provenance.
+- Decision: Raw channel-1 chord blocks use source `human` with
+  `human_corrected` and `expert_reviewed` details. Root, quality, inversion,
+  and inferred leading/internal `N` use source `derived` with explicit chains
+  through the pinned upstream normalizer or gap-event construction. The
+  upstream-compatible `N` contract has leading/internal spans only; trailing
+  uncovered time is masked/unannotated. Directly observed boundary and bass
+  remain available. Ambiguous root/inversion are unavailable single-label
+  targets, ambiguous quality is available only when all candidates agree, and
+  unsupported root/quality/inversion are unavailable. Pairing anomalies retain
+  exact event and affected-region evidence. Missing chord targets for `367`
+  and `658` are expected masked availability, and `172` is the documented
+  quarantine. Strict output separates `evidence_contract_ready` from
+  `production_adapter_ready`.
+- Consequences: Phase 4A evidence can be ready while production remains
+  unimplemented. The manifest pins 947 derived `N` spans, 151 trailing masked
+  spans, field-specific availability counts, and the exact anomaly-evidence
+  fingerprint. Phase 4B must implement this contract without adding chord
+  evidence to raw inputs or special-casing song `172`.

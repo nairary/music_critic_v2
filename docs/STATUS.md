@@ -38,6 +38,7 @@
 - Phase 4A: Completed
 - Phase 4A branch: `phase/4a-pop909-evidence-contract`
 - Phase 4A POP909-CL identity/leakage remediation: Completed
+- Phase 4A POP909-CL semantic remediation: Completed
 - Next phase: Phase 4B — production POP909-CL adapter implementation
 
 ## Phase 4A POP909-CL remediation result
@@ -52,7 +53,9 @@
   `af623705a375c419751e4ba6456224b8b700f50fc1a09a32af57e1620d1ff4dd`.
 - Measured one unique channel-0 combined-score instrument in every file and a
   unique channel-1 chord instrument in 907. Songs `367` and `658` have no
-  chord instrument and retain structured `missing_chord_instrument` failures.
+  chord instrument; their structured `missing_chord_instrument` observations
+  map to expected all-false chord-target availability rather than fatal corpus
+  failures.
 - Added a score-only projection boundary. Channel-1 chord notes cannot enter
   canonical musical tracks/notes, raw statistics, graph structure/features,
   serialization, fingerprints, or inference inputs. Synthetic chord mutation,
@@ -61,7 +64,8 @@
 - Score-only generic conversion is 908/909. Song `172` is the sole conversion
   failure: its 4/4→6/8 event at tick 85,080 is 600 ticks inside the active
   1,920-tick bar. The later 6/8→4/4 event is also 480 ticks inside its segment
-  bar. Phase 4B must quarantine `172` or accept a general partial-bar policy.
+  bar. Phase 4A records `172` as the sole quarantine; Phase 4B may preserve it
+  or accept a general partial-bar policy.
 - Score-only warnings total 126,163, including 123,439 same-pitch overlaps.
   Unsafe complete-file diagnostics total 126,605, including 123,873 overlaps
   and eight chord-note pairing warnings. The channel-1 contamination delta is
@@ -69,11 +73,23 @@
   the flattened combined score and remains event-level rather than file-level.
 - Audited 116,055 exact-tick chord blocks: 109,668 unambiguously supported,
   5,801 ambiguous, and 586 unsupported. The report preserves 261 raw
-  pitch-class sets, 340 selected root/quality/bass labels, 1,098 implicit `N`
-  gaps, 691 overlaps, 87 repeated-pitch blocks, and 313 mixed-end blocks.
-- Qualified chord provenance as canonical source `human` with
-  `human_corrected` and `expert_reviewed` details, unknown numeric confidence,
-  and no claim of infallible human gold.
+  pitch-class sets, 340 selected root/quality/bass labels, 947 upstream-compatible
+  leading/internal `N` spans, 151 trailing masked/unannotated spans, 691
+  overlaps, 87 repeated-pitch blocks, and 313 mixed-end blocks.
+- Split provenance correctly: raw chord blocks, directly observed boundary,
+  and bass use source `human` with `human_corrected`/`expert_reviewed`; normalized
+  root/quality/inversion and inferred `N` use source `derived` with pinned
+  upstream derivation chains.
+- Added task masks: boundary/bass 116,055 available; root/inversion 109,668
+  available and 6,387 unavailable; quality 109,800 available and 6,255
+  unavailable; `N` 947 available with 151 trailing spans unavailable.
+- Preserved the four dangling note-ons and four unmatched note-offs as exact
+  event evidence with tick, pitch, velocity/channel, ordinal, path/hash, and
+  affected block/span markers. Manifest evidence SHA-256:
+  `d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`.
+- Strict readiness now reports `evidence_contract_ready=true` separately from
+  `production_adapter_ready=false`; the latter remains blocked on Phase 4B and
+  the documented song-172 policy.
 - Original POP909 is retained under `pop909_original` only for
   lineage/ablation evidence. CL and original use separate source groups and
   share `pop909-lineage:<song-id>` when both appear in a later split.
@@ -81,6 +97,21 @@
   model, SSL, training, or inference code was added.
 
 ## Phase 4A remediation verification
+
+Semantic-remediation verification on top of `65f6580`:
+
+- Focused CL/original/repository plus saved-report acceptance:
+  `20 passed, 2 warnings in 4.96s`.
+- The single permitted new 909-file pass completed the audit, then the test
+  stopped at the intentionally stale manifest key: `1 failed in 216.16s`.
+  It was not rerun. Corrected aggregates were reconstructed deterministically
+  from the existing detailed Phase 4A report, with only the four already-known
+  anomaly files (`076`, `084`, `086`, `088`) reparsed for exact event evidence.
+- Updated-manifest acceptance using that `/tmp` report:
+  `1 passed in 3.16s`.
+- Full default suite: `478 passed, 11 skipped, 2 warnings in 3.65s`.
+- `.venv/bin/python -m compileall -q src scripts tests`: passed.
+- `git diff --check`: passed; the production-adapter diff remains empty.
 
 - Focused original-lineage, CL synthetic/invariance, and repository-contract
   suites: `18 passed, 2 warnings`; warnings are the

@@ -43,11 +43,12 @@ Phase 4B must resolve instruments from channel-bearing MIDI events under that
 documented contract. Track order and names such as `piano`, `chords`, or
 `MIDI 01` are corroborating evidence only. Exactly one score instrument is
 required. Missing or multiple score/chord instruments, mixed channels, or
-other note-bearing channels produce structured failures; pitch range and track
-order must never repair them silently.
+other note-bearing channels produce structured observations; pitch range and
+track order must never repair them silently. Unexpected observations are fatal.
 
 The measured exceptions `367` and `658` have a channel-0 score but no channel-1
-chord instrument. Their chord targets are unavailable, not negative. Song
+chord instrument. Their per-task chord availability is entirely masked, not
+negative, and these two pinned exceptions are expected rather than fatal. Song
 `658` demonstrates why a `chords` track name cannot override channel evidence:
 its sole note-bearing track is channel 0 and is therefore the score.
 
@@ -86,10 +87,17 @@ must preserve before normalization:
   SHA-256;
 - pairing, repeated-pitch, mixed-end, overlap, and gap diagnostics.
 
-`N` is not encoded by a special MIDI note. Positive-duration gaps before,
-between, or after chord blocks are retained explicitly as implicit no-chord
-spans. Overlaps are diagnostics and are not truncated. Unsupported and
-ambiguous pitch-class sets retain all raw evidence.
+Every dangling note-on and unmatched note-off must retain category, exact tick,
+pitch, velocity and channel where present, chord-note-event ordinal, source
+track/path/hash, and references to affected blocks/spans plus an explicit
+affected interval. Aggregate counts cannot replace this evidence.
+
+`N` is not encoded by a special MIDI note. Match upstream event semantics:
+retain positive-duration leading and internal gaps as derived `N`, but do not
+label uncovered time after the final chord as `N`. Trailing uncovered time is
+a separate masked/unannotated span with null value/source/provenance. Overlaps
+are diagnostics and are not truncated. Unsupported and ambiguous pitch-class
+sets retain all raw evidence.
 
 The pinned upstream normalization checks exact seventh patterns before exact
 triad patterns while trying roots in ascending pitch-class order. Phase 4B may
@@ -98,22 +106,34 @@ matching candidates. Symmetric shapes can therefore be ambiguous, and an
 unmatched set remains `unsupported`; neither case may be compressed silently.
 
 Suggested auxiliary targets are separate masked arrays for boundary, root,
-quality, bass/inversion, and no-chord state, aligned to exact rational
-`tick/PPQN` annotation spans. Available `TargetArray` entries use canonical
-source `human`, with `human_corrected` and `expert_reviewed` recorded as
-provenance details and numeric confidence left null unless upstream supplies
-it. This provenance means curated expert evidence; it must not be described as
-infallible or unqualified human gold. Unsupported
-normalizations have unavailable structured targets while their raw annotation
-evidence remains preserved.
+quality, bass, inversion, and no-chord state, aligned to exact rational
+`tick/PPQN` annotation spans. Masks are task-specific:
+
+- directly observed boundary and bass remain available even when normalization
+  is ambiguous or unsupported;
+- ambiguous root and inversion are unavailable single-label targets while all
+  candidates remain preserved (a future version may explicitly choose a
+  multi-label representation);
+- quality is available for an ambiguous block only when every candidate agrees;
+- unsupported root, quality, and inversion are unavailable;
+- leading/internal `N` is available derived evidence, while trailing uncovered
+  time and missing chord instruments are unavailable.
+
+Raw chord blocks use source `human`, details `human_corrected` and
+`expert_reviewed`, and null numeric confidence. Normalized root/quality/
+inversion and inferred `N` use source `derived` with explicit provenance chains
+through the corresponding pinned upstream normalizer/gap-event rule. Directly
+observed boundary and bass reference raw-block provenance. Curated expert
+evidence must not be described as infallible or unqualified human gold.
 
 ## Meter case and validation
 
 POP909-CL song `172` changes from 4/4 to 6/8 at tick 85,080 with PPQN 480.
 The previous 4/4 boundary is 84,480 and the next is 86,400, so the event is 600
 ticks inside the active bar. The current generic adapter correctly rejects the
-score-only projection. Phase 4B must either quarantine `172` and retain
-908/909 conversion coverage or adopt a general tested partial-bar meter rule.
+score-only projection. Phase 4A classifies `172` as the documented quarantine,
+retaining 908/909 accepted conversion coverage. Phase 4B may retain that
+quarantine or adopt a general tested partial-bar meter rule.
 It must not special-case this song or silently move the event.
 
 Production acceptance requires:
@@ -128,6 +148,11 @@ Production acceptance requires:
 - explicit handling of `172` under a general policy;
 - no writes under source roots and no committed data, reports, caches, MIDI,
   generated media, or outputs.
+
+The audit's `evidence_contract_ready` status is independent of
+`production_adapter_ready`. The former may be true with expected masked target
+absence and a documented quarantine; the latter remains false until Phase 4B
+actually implements and validates this contract.
 
 Phase 4B does not authorize model, SSL, training, preference, or inference
 implementation.
