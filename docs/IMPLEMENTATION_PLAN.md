@@ -2227,7 +2227,9 @@ or calling the production HookTheory adapter. Do not synthesize chord voicings.
 The graph contains mandatory raw nodes and relations, explicit reverse edges,
 sustained-note-to-beat incidence, and unconditional beat/onset candidate slots.
 It uses PyG `HeteroData`; PyTorch/PyG imports remain confined to
-`music_critic.graph`.
+`music_critic.graph`, while the dependencies themselves are currently declared
+globally for the project environment. Exact rational timing determines graph
+structure and is converted to `float32` only at feature-tensor construction.
 
 ### Tests
 
@@ -2244,7 +2246,8 @@ It uses PyG `HeteroData`; PyTorch/PyG imports remain confined to
 
 ### Acceptance criteria
 
-- identical model-facing schema for HookTheory and generic MIDI;
+- model-facing schema parity for HookTheory and generic MIDI, not general data
+  parity;
 - no theory target appears in raw input tensors;
 - graph metadata stores canonical schema, graph schema, feature registry, and
   graph-builder versions.

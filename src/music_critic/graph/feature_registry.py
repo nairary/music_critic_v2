@@ -26,6 +26,12 @@ class FeatureSpec:
     has_availability_mask: bool = True
     raw_inference_safe: bool = True
 
+    @property
+    def unavailable_continuous_value(self) -> float:
+        """Canonical placeholder for an unavailable continuous observation."""
+
+        return 0.0
+
     def __post_init__(self) -> None:
         if not self.name or self.name != self.name.strip():
             raise ValueError("feature names must be non-empty and trimmed")
@@ -38,8 +44,40 @@ class FeatureSpec:
                 0 <= self.unknown_id < self.vocabulary_size
             ):
                 raise ValueError("unknown_id must be inside the vocabulary")
+            if (
+                self.unknown_id is not None
+                and self.unknown_id != self.vocabulary_size - 1
+            ):
+                raise ValueError("unknown_id must be a dedicated final vocabulary ID")
         elif self.vocabulary_size is not None or self.unknown_id is not None:
             raise ValueError("continuous features cannot declare a vocabulary")
+
+    def encode_category(self, value: int | None, *, available: bool) -> int:
+        """Encode one categorical observation without sentinel collisions."""
+
+        if self.kind != "categorical" or self.vocabulary_size is None:
+            raise ValueError(f"{self.node_type}.{self.name} is not categorical")
+        if not available:
+            if self.unknown_id is None:
+                raise ValueError(
+                    f"{self.node_type}.{self.name} has no unavailable category"
+                )
+            return self.unknown_id
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError(
+                f"available {self.node_type}.{self.name} must be an integer"
+            )
+        if not 0 <= value < self.vocabulary_size:
+            raise ValueError(
+                f"known {self.node_type}.{self.name}={value} is outside "
+                f"[0,{self.vocabulary_size - 1}]"
+            )
+        if self.unknown_id is not None and value == self.unknown_id:
+            raise ValueError(
+                f"known {self.node_type}.{self.name} collides with dedicated "
+                f"unknown ID {self.unknown_id}"
+            )
+        return value
 
 
 class FeatureRegistry:
@@ -119,8 +157,8 @@ RAW_FEATURE_REGISTRY = FeatureRegistry(
         _cont("song", "tempo_max_us_per_qn"),
         _cont("song", "tempo_change_count", normalization="log1p"),
         _cont("song", "meter_change_count", normalization="log1p"),
-        _cat("track", "program", 128, unknown_id=0),
-        _cat("track", "channel", 16, unknown_id=0),
+        _cat("track", "program", 129, unknown_id=128),
+        _cat("track", "channel", 17, unknown_id=16),
         _cat("track", "is_percussion", 2),
         _cont("track", "source_track_index"),
         _cont("track", "note_count", normalization="log1p"),
@@ -133,8 +171,8 @@ RAW_FEATURE_REGISTRY = FeatureRegistry(
         _cont("track", "active_bar_ratio"),
         _cont("track", "mean_duration_qn"),
         _cont("track", "mean_velocity"),
-        _cat("bar", "meter_numerator", 256, unknown_id=0),
-        _cat("bar", "meter_denominator_log2", 128, unknown_id=0),
+        _cat("bar", "meter_numerator", 256),
+        _cat("bar", "meter_denominator_log2", 128),
         _cat("bar", "is_pickup", 2),
         _cat("bar", "is_incomplete", 2),
         _cont("bar", "index"),
@@ -146,8 +184,8 @@ RAW_FEATURE_REGISTRY = FeatureRegistry(
         _cont("bar", "active_note_count", normalization="log1p"),
         _cont("bar", "onset_count", normalization="log1p"),
         _cont("bar", "active_track_count", normalization="log1p"),
-        _cat("beat", "meter_numerator", 256, unknown_id=0),
-        _cat("beat", "meter_denominator_log2", 128, unknown_id=0),
+        _cat("beat", "meter_numerator", 256),
+        _cat("beat", "meter_denominator_log2", 128),
         _cat("beat", "is_downbeat", 2),
         _cont("beat", "index_in_bar"),
         _cont("beat", "start_qn"),
@@ -167,8 +205,8 @@ RAW_FEATURE_REGISTRY = FeatureRegistry(
         _cat("note", "pitch", 128),
         _cat("note", "pitch_class", 12),
         _cat("note", "octave", 11),
-        _cat("note", "program", 128, unknown_id=0),
-        _cat("note", "channel", 16, unknown_id=0),
+        _cat("note", "program", 129, unknown_id=128),
+        _cat("note", "channel", 17, unknown_id=16),
         _cat("note", "is_percussion", 2),
         _cat("note", "is_grace", 2),
         _cont("note", "onset_qn"),

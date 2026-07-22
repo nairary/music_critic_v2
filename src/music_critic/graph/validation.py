@@ -5,6 +5,7 @@ from __future__ import annotations
 import torch
 from torch_geometric.data import HeteroData
 
+from music_critic.data import SCHEMA_VERSION
 from music_critic.graph.feature_registry import RAW_FEATURE_REGISTRY, FeatureRegistry
 from music_critic.graph.relations import (
     GRAPH_BUILDER_VERSION,
@@ -19,6 +20,46 @@ class GraphContractError(ValueError):
     """Raised when a graph does not satisfy the stable raw contract."""
 
 
+ALLOWED_GLOBAL_ATTRIBUTES = frozenset(
+    {
+        "schema_version",
+        "graph_schema_version",
+        "feature_registry_version",
+        "graph_builder_version",
+        "raw_only",
+    }
+)
+BASE_NODE_ATTRIBUTES = frozenset(
+    {
+        "num_nodes",
+        "x_cat",
+        "x_cat_available",
+        "x_cont",
+        "x_cont_available",
+        "entity_id",
+        "cat_feature_names",
+        "cont_feature_names",
+    }
+)
+CANDIDATE_NODE_ATTRIBUTES = BASE_NODE_ATTRIBUTES | {"candidate_slot"}
+ALLOWED_EDGE_ATTRIBUTES = frozenset({"edge_index"})
+
+
+def _require_exact_attributes(
+    *,
+    location: str,
+    actual: set[str],
+    expected: frozenset[str],
+) -> None:
+    if actual != expected:
+        extra = sorted(actual - expected)
+        missing = sorted(expected - actual)
+        raise GraphContractError(
+            f"{location} attributes differ from the raw-only contract: "
+            f"extra={extra}, missing={missing}"
+        )
+
+
 def validate_raw_graph(
     graph: HeteroData,
     *,
@@ -28,6 +69,11 @@ def validate_raw_graph(
 
     if not isinstance(graph, HeteroData):
         raise GraphContractError("graph must be torch_geometric.data.HeteroData")
+    _require_exact_attributes(
+        location="global",
+        actual=set(graph._global_store.keys()),
+        expected=ALLOWED_GLOBAL_ATTRIBUTES,
+    )
     if tuple(graph.node_types) != MANDATORY_NODE_TYPES:
         raise GraphContractError(
             f"node types must be exactly {MANDATORY_NODE_TYPES}, got {graph.node_types}"
@@ -46,12 +92,23 @@ def validate_raw_graph(
             raise GraphContractError(
                 f"graph metadata {name!r} must be {expected!r}"
             )
-    schema_version = getattr(graph, "schema_version", None)
-    if not isinstance(schema_version, str) or not schema_version:
-        raise GraphContractError("graph must store its canonical schema version")
+    if getattr(graph, "schema_version", None) != SCHEMA_VERSION:
+        raise GraphContractError(
+            f"graph metadata 'schema_version' must be {SCHEMA_VERSION!r}"
+        )
 
     for node_type in MANDATORY_NODE_TYPES:
         store = graph[node_type]
+        allowed_node_attributes = (
+            CANDIDATE_NODE_ATTRIBUTES
+            if node_type in {"beat", "onset"}
+            else BASE_NODE_ATTRIBUTES
+        )
+        _require_exact_attributes(
+            location=f"node store {node_type!r}",
+            actual=set(store.keys()),
+            expected=allowed_node_attributes,
+        )
         count = store.num_nodes
         if not isinstance(count, int) or count < 0:
             raise GraphContractError(f"{node_type}.num_nodes is invalid")
@@ -92,13 +149,49 @@ def validate_raw_graph(
                 raise GraphContractError(
                     f"{node_type}.{spec.name} is outside its declared vocabulary"
                 )
+            available = store.x_cat_available[:, column]
+            unavailable = ~available
+            if unavailable.any():
+                if spec.unknown_id is None:
+                    raise GraphContractError(
+                        f"{node_type}.{spec.name} has unavailable values but no "
+                        "dedicated unknown ID"
+                    )
+                if not torch.all(values[unavailable] == spec.unknown_id):
+                    raise GraphContractError(
+                        f"{node_type}.{spec.name} unavailable values must use "
+                        f"unknown ID {spec.unknown_id}"
+                    )
+            if (
+                spec.unknown_id is not None
+                and available.any()
+                and torch.any(values[available] == spec.unknown_id)
+            ):
+                raise GraphContractError(
+                    f"{node_type}.{spec.name} available values cannot use "
+                    f"unknown ID {spec.unknown_id}"
+                )
+        for column, spec in enumerate(continuous):
+            unavailable = ~store.x_cont_available[:, column]
+            if unavailable.any() and not torch.all(
+                store.x_cont[unavailable, column]
+                == spec.unavailable_continuous_value
+            ):
+                raise GraphContractError(
+                    f"{node_type}.{spec.name} unavailable values must use "
+                    f"placeholder {spec.unavailable_continuous_value}"
+                )
         if tuple(store.cat_feature_names) != registry.names(
             node_type, "categorical"
         ):
             raise GraphContractError(f"{node_type} categorical columns are reordered")
         if tuple(store.cont_feature_names) != registry.names(node_type, "continuous"):
             raise GraphContractError(f"{node_type} continuous columns are reordered")
-        if len(tuple(store.entity_id)) != count:
+        if not isinstance(store.entity_id, tuple) or not all(
+            isinstance(entity_id, str) for entity_id in store.entity_id
+        ):
+            raise GraphContractError(f"{node_type}.entity_id must be a tuple of strings")
+        if len(store.entity_id) != count:
             raise GraphContractError(f"{node_type}.entity_id length differs from node count")
         if len(set(store.entity_id)) != count:
             raise GraphContractError(f"{node_type}.entity_id values must be unique")
@@ -117,6 +210,11 @@ def validate_raw_graph(
             )
 
     for edge_type in MANDATORY_EDGE_TYPES:
+        _require_exact_attributes(
+            location=f"edge store {edge_type!r}",
+            actual=set(graph[edge_type].keys()),
+            expected=ALLOWED_EDGE_ATTRIBUTES,
+        )
         edge_index = graph[edge_type].edge_index
         if not isinstance(edge_index, torch.Tensor):
             raise GraphContractError(f"{edge_type} has no edge_index tensor")
@@ -143,4 +241,11 @@ def validate_raw_graph(
             )
 
 
-__all__ = ["GraphContractError", "validate_raw_graph"]
+__all__ = [
+    "ALLOWED_EDGE_ATTRIBUTES",
+    "ALLOWED_GLOBAL_ATTRIBUTES",
+    "BASE_NODE_ATTRIBUTES",
+    "CANDIDATE_NODE_ATTRIBUTES",
+    "GraphContractError",
+    "validate_raw_graph",
+]

@@ -211,13 +211,14 @@ The model and training phases remain pending.
 - Dependencies: Phases 1–2.
 - Outputs: versioned PyG `song/track/bar/beat/onset/note` graph, raw feature
   registry, deterministic serialization, validation, and benchmark.
-- Tests: edge validity/reverses, temporal order, sustained activity,
-  candidate slots, target/provenance leakage, adapter parity, serialization,
-  and bounded growth.
+- Tests: strict attribute allowlists, edge validity/reverses, temporal order,
+  sustained activity, candidate slots, target/provenance leakage, adapter
+  schema parity, serialization, categorical sentinels, invalid input, and
+  output-sensitive growth.
 - Non-goals: learned encoders.
 - Acceptance: HookTheory and generic MIDI produce the same raw model-facing
-  schema, with every target and provenance mutation leaving inputs/topology
-  unchanged.
+  schema (not necessarily the same data), with every target and provenance
+  mutation leaving inputs/topology unchanged and extra graph fields rejected.
 
 ## Phase 4 — POP909 adapter
 

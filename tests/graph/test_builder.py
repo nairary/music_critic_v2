@@ -233,6 +233,7 @@ def test_meter_and_tempo_changes_are_raw_features(
                 provenance_id=None,
             ),
         ),
+        targets=(),
     )
     changed_graph = build_raw_graph(changed_piece)
     numerator_column = tuple(changed_graph["bar"].cat_feature_names).index(
@@ -316,14 +317,24 @@ def test_hooktheory_adapter_target_hiding_is_graph_identical() -> None:
 def _dense_piece(canonical_piece: CanonicalPiece, count: int) -> CanonicalPiece:
     source = canonical_piece.notes[0]
     notes = tuple(
-        replace(
-            source,
-            note_id=f"note:dense-{index:04d}",
-            pitch=48 + index % 36,
-            onset_qn=RationalTime(0),
-            duration_qn=RationalTime(1),
+        sorted(
+            (
+                replace(
+                    source,
+                    note_id=f"note:dense-{index:04d}",
+                    pitch=48 + index % 36,
+                    onset_qn=RationalTime(0),
+                    duration_qn=RationalTime(1),
+                )
+                for index in range(count)
+            ),
+            key=lambda note: (
+                note.onset_qn,
+                note.pitch,
+                note.duration_qn,
+                note.note_id,
+            ),
         )
-        for index in range(count)
     )
     return replace(
         canonical_piece,

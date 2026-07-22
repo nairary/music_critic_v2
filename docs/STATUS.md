@@ -53,28 +53,54 @@
   MIDI-observable or deterministic raw-derived fields. Targets, theory/gold
   annotations, dataset/source grouping, split, source path, provenance,
   confidence, and quality flags are not read for features or topology.
+- Graph validation now enforces exact global, node-store, and edge-store
+  attribute allowlists. Serialization and fingerprinting validate first, so an
+  injected target, theory, split, provenance, or edge-label field is rejected
+  rather than silently ignored. False availability masks require canonical
+  placeholders.
+- Categorical encoding is owned by `FeatureSpec`. MIDI program/channel `0`
+  remain valid observations and are distinct from dedicated unavailable IDs
+  `128`/`16`; known out-of-vocabulary meter values are rejected. These
+  pre-merge corrections retain feature/schema version `1.0.0`.
 - Simultaneous notes share onset/beat intermediaries; no pairwise simultaneous
-  clique is built. Regression tests bound edge growth linearly on dense
-  same-onset fixtures.
-- PyTorch and PyG are explicit graph runtime dependencies. The canonical data
-  layer remains standard-library-only, and optional compiled PyG extensions are
-  not required.
-- `scripts/benchmark_graph_builder.py` reports per-type node/edge counts,
-  contract versions, and min/mean/max construction time for canonical JSON.
+  clique is built. Bisect ownership, pre-grouped track/bar/beat/onset indices,
+  and onset sweep-line activity replace repeated interval scans. Construction
+  is output-sensitive in emitted graph and sustained-note incidence; long
+  sustains can still produce many `active_at` edges.
+- `build_raw_graph` validates the complete `CanonicalPiece` by default.
+  `assume_valid=True` is an explicit fast path for a caller that already has an
+  error-free canonical validation report.
+- PyTorch and PyG imports are graph-isolated but are currently global project
+  dependencies. The canonical data layer remains standard-library-only, and
+  optional compiled PyG extensions are not required.
+- `scripts/benchmark_graph_builder.py` reports validation/build time, per-type
+  node/edge counts, output tensor size, and peak memory indicators for 100,
+  1,000, and 10,000 sequential notes, dense same-onset polyphony, long
+  sustained notes, canonical JSON, and optional POP909/PDMX/HookTheory smoke
+  inputs.
+- `.github/workflows/ci.yml` exposes the stable `full-suite` check on every
+  push and pull request; it runs the complete tests and source compilation.
 - Non-goals remain GNNs, SSL objectives, masking/corruptions, semantic nodes,
   graph caches/collation, models, training, preference, and scoring inference.
 
 ## Phase 3A verification
 
-- Focused graph suite: `17 passed`.
-- Full default repository suite: `452 passed, 9 skipped`; all skips remain
+- Focused graph suite: `29 passed`.
+- Full default repository suite: `464 passed, 9 skipped`; all skips remain
   explicitly gated local-corpus integrations. PyG emits two upstream
   `torch.jit.script` deprecation warnings; there are no test failures.
 - `python -m compileall -q src scripts tests`: passed.
 - `git diff --check`: passed with no output.
-- Five-repeat canonical fixture benchmark: 20 nodes and 108 directed edges;
-  construction mean `0.003632 s`, minimum `0.003575 s`, and maximum
-  `0.003689 s` on the implementation environment.
+- One-repeat full synthetic benchmark completed without a timing assertion.
+  Sequential 100/1,000/10,000-note cases produced 237/2,317/23,127 nodes,
+  1,584/15,754/157,494 directed edges, and approximately
+  0.040/0.395/3.943 MB of output tensors. The dense 10,000-note same-onset case
+  produced one onset and 100,020 directed edges rather than a note clique. The
+  100-note, 1,000-beat sustain case emitted exactly 100,000 `active_at` edges.
+  Observed build times were `0.055`, `0.573`, `6.149`, `3.323`, and `0.899`
+  seconds respectively on the implementation environment; they are reported
+  diagnostically and are not unit-test thresholds. Traced Python peak was
+  approximately 41.5 MB and cumulative process peak RSS approximately 466 MB.
 - Installed verification runtime: Python 3.13, CPU-only PyTorch `2.13.0`, and
   PyG `2.8.0.post1`. Declared compatibility remains bounded by
   `torch>=2.8,<3` and `torch-geometric>=2.7,<3`.

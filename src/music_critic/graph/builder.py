@@ -1,8 +1,11 @@
-"""Deterministic conversion from canonical raw observations to PyG graphs."""
+"""Deterministic conversion from validated canonical observations to PyG."""
 
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 from collections import defaultdict
+from dataclasses import dataclass
+from heapq import heappop, heappush
 from math import sqrt
 from statistics import fmean
 from typing import Iterable, TypeAlias
@@ -11,7 +14,13 @@ import torch
 from torch import Tensor
 from torch_geometric.data import HeteroData
 
-from music_critic.data import SCHEMA_VERSION, CanonicalPiece, RationalTime
+from music_critic.data import (
+    SCHEMA_VERSION,
+    CanonicalNote,
+    CanonicalPiece,
+    RationalTime,
+    validate_piece,
+)
 from music_critic.graph.feature_registry import (
     RAW_FEATURE_REGISTRY,
     FeatureRegistry,
@@ -21,82 +30,59 @@ from music_critic.graph.relations import (
     GRAPH_BUILDER_VERSION,
     GRAPH_SCHEMA_VERSION,
     MANDATORY_EDGE_TYPES,
-    MANDATORY_NODE_TYPES,
     REVERSE_EDGE_TYPES,
 )
 
 
-FeatureValue: TypeAlias = tuple[int | float, bool]
+FeatureValue: TypeAlias = tuple[int | float | None, bool]
 FeatureRow: TypeAlias = dict[str, FeatureValue]
 EdgePair: TypeAlias = tuple[int, int]
+EdgeType: TypeAlias = tuple[str, str, str]
 
 
 class GraphBuildError(ValueError):
-    """Raised when raw canonical structure cannot form the graph contract."""
+    """Raised when canonical raw structure cannot form the graph contract."""
 
 
 def _float_time(value: RationalTime) -> float:
+    """Convert exact structural time only at the tensor feature boundary."""
+
     return value.num / value.den
 
 
-def _offset(note: object) -> RationalTime:
-    return note.onset_qn + note.duration_qn  # type: ignore[attr-defined]
+def _offset(note: CanonicalNote) -> RationalTime:
+    return note.onset_qn + note.duration_qn
 
 
-def _contains_point(
-    start: RationalTime,
-    duration: RationalTime,
+def _point_owner(
     point: RationalTime,
-) -> bool:
-    return start <= point < start + duration
-
-
-def _interval_overlaps(
-    left_start: RationalTime,
-    left_end: RationalTime,
-    right_start: RationalTime,
-    right_end: RationalTime,
-) -> bool:
-    return left_start < right_end and right_start < left_end
-
-
-def _owner_index(
-    point: RationalTime,
-    intervals: Iterable[tuple[RationalTime, RationalTime]],
+    starts: tuple[RationalTime, ...],
+    ends: tuple[RationalTime, ...],
 ) -> int | None:
-    materialized = tuple(intervals)
-    for index, (start, duration) in enumerate(materialized):
-        if _contains_point(start, duration, point):
-            return index
-    if materialized:
-        final_start, final_duration = materialized[-1]
-        if point == final_start + final_duration:
-            return len(materialized) - 1
+    """Find a half-open interval owner in O(log intervals)."""
+
+    if not starts:
+        return None
+    index = bisect_right(starts, point) - 1
+    if index >= 0 and point < ends[index]:
+        return index
+    if point == ends[-1]:
+        return len(starts) - 1
     return None
 
 
-def _tempo_at(piece: CanonicalPiece, point: RationalTime) -> int:
-    active = None
-    for event in piece.tempo_events:
-        if event.onset_qn > point:
-            break
-        active = event.microseconds_per_quarter
-    if active is None:
-        raise GraphBuildError("canonical piece has no effective tempo at qn 0")
-    return active
-
-
-def _meter_values(piece: CanonicalPiece) -> dict[str, tuple[int, int]]:
-    return {
-        event.meter_event_id: (event.numerator, event.denominator)
-        for event in piece.meter_events
-    }
-
-
-def _bounded_category(value: int, vocabulary_size: int, unknown_id: int) -> int:
-    if 0 <= value < vocabulary_size and value != unknown_id:
-        return value
-    return unknown_id
+def _effective_values(
+    points: Iterable[RationalTime],
+    event_starts: tuple[RationalTime, ...],
+    event_values: tuple[int, ...],
+) -> list[int]:
+    values: list[int] = []
+    for point in points:
+        event_index = bisect_right(event_starts, point) - 1
+        if event_index < 0:
+            raise GraphBuildError("canonical piece has no effective event at qn 0")
+        values.append(event_values[event_index])
+    return values
 
 
 def _pack_features(
@@ -126,18 +112,26 @@ def _pack_features(
     for row_index, row in enumerate(rows):
         for column, spec in enumerate(categorical):
             value, available = row[spec.name]
-            encoded = int(value)
-            if spec.vocabulary_size is None:
-                raise GraphBuildError(f"{spec.name} has no categorical vocabulary")
-            if not 0 <= encoded < spec.vocabulary_size:
-                raise GraphBuildError(
-                    f"{node_type}.{spec.name}={encoded} is outside its vocabulary"
+            try:
+                encoded = spec.encode_category(
+                    value if isinstance(value, int) and not isinstance(value, bool) else None,
+                    available=available,
                 )
+            except ValueError as exc:
+                raise GraphBuildError(str(exc)) from exc
             x_cat[row_index, column] = encoded
             x_cat_available[row_index, column] = available
         for column, spec in enumerate(continuous):
             value, available = row[spec.name]
-            x_cont[row_index, column] = float(value)
+            if available:
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    raise GraphBuildError(
+                        f"available {node_type}.{spec.name} must be numeric"
+                    )
+                encoded_continuous = float(value)
+            else:
+                encoded_continuous = spec.unavailable_continuous_value
+            x_cont[row_index, column] = encoded_continuous
             x_cont_available[row_index, column] = available
 
     store = data[node_type]
@@ -158,52 +152,190 @@ def _edge_tensor(pairs: list[EdgePair]) -> Tensor:
 
 
 def _add_forward_and_reverse(
-    edge_pairs: dict[tuple[str, str, str], list[EdgePair]],
-    edge_type: tuple[str, str, str],
+    edge_pairs: dict[EdgeType, list[EdgePair]],
+    edge_type: EdgeType,
     pairs: Iterable[EdgePair],
 ) -> None:
     pair_list = list(pairs)
     edge_pairs[edge_type].extend(pair_list)
     reverse = REVERSE_EDGE_TYPES[edge_type]
-    edge_pairs[reverse].extend((dst, src) for src, dst in pair_list)
+    edge_pairs[reverse].extend((destination, source) for source, destination in pair_list)
 
 
-def _track_feature_rows(
-    piece: CanonicalPiece,
-    notes_by_track: dict[str, list[object]],
-) -> list[FeatureRow]:
-    duration = _float_time(piece.duration_qn)
-    rows: list[FeatureRow] = []
-    bar_intervals = tuple(
-        (bar.start_qn, bar.start_qn + bar.duration_qn) for bar in piece.bars
+@dataclass(slots=True)
+class _PieceIndex:
+    track_index: dict[str, int]
+    bar_index: dict[str, int]
+    note_indices_by_track: dict[str, list[int]]
+    note_indices_by_track_onset: dict[str, dict[RationalTime, list[int]]]
+    onset_times: tuple[RationalTime, ...]
+    onset_index: dict[RationalTime, int]
+    note_indices_by_onset: dict[RationalTime, list[int]]
+    onset_indices_by_track: dict[str, list[int]]
+    onset_bar_owner: tuple[int | None, ...]
+    onset_beat_owner: tuple[int | None, ...]
+    note_bar_owner: tuple[int | None, ...]
+    note_indices_by_bar: list[list[int]]
+    note_indices_by_beat: list[list[int]]
+    onset_indices_by_bar: list[list[int]]
+    onset_indices_by_beat: list[list[int]]
+    bar_active_note_count: list[int]
+    bar_active_track_count: list[int]
+    beat_active_note_count: list[int]
+    beat_active_track_count: list[int]
+    onset_active_note_count: list[int]
+    onset_active_track_count: list[int]
+    active_bar_indices_by_track: dict[str, set[int]]
+    sustained_pairs: list[EdgePair]
+
+
+def _build_piece_index(piece: CanonicalPiece) -> _PieceIndex:
+    track_index = {track.track_id: index for index, track in enumerate(piece.tracks)}
+    bar_index = {bar.bar_id: index for index, bar in enumerate(piece.bars)}
+    note_indices_by_track = {track.track_id: [] for track in piece.tracks}
+    note_indices_by_track_onset: dict[
+        str, dict[RationalTime, list[int]]
+    ] = {track.track_id: defaultdict(list) for track in piece.tracks}
+    note_indices_by_onset: dict[RationalTime, list[int]] = defaultdict(list)
+    for note_index, note in enumerate(piece.notes):
+        if note.track_id not in note_indices_by_track:
+            raise GraphBuildError(f"note {note.note_id} references an unknown track")
+        note_indices_by_track[note.track_id].append(note_index)
+        note_indices_by_track_onset[note.track_id][note.onset_qn].append(note_index)
+        note_indices_by_onset[note.onset_qn].append(note_index)
+
+    onset_times = tuple(note_indices_by_onset)
+    onset_index = {time: index for index, time in enumerate(onset_times)}
+    onset_indices_by_track = {
+        track_id: [onset_index[time] for time in onset_groups]
+        for track_id, onset_groups in note_indices_by_track_onset.items()
+    }
+    bar_starts = tuple(bar.start_qn for bar in piece.bars)
+    bar_ends = tuple(bar.start_qn + bar.duration_qn for bar in piece.bars)
+    beat_starts = tuple(beat.start_qn for beat in piece.beats)
+    beat_ends = tuple(beat.start_qn + beat.duration_qn for beat in piece.beats)
+
+    onset_bar_owner = tuple(
+        _point_owner(time, bar_starts, bar_ends) for time in onset_times
+    )
+    onset_beat_owner = tuple(
+        _point_owner(time, beat_starts, beat_ends) for time in onset_times
+    )
+    note_bar_owner = tuple(
+        onset_bar_owner[onset_index[note.onset_qn]] for note in piece.notes
     )
 
+    note_indices_by_bar = [[] for _ in piece.bars]
+    note_indices_by_beat = [[] for _ in piece.beats]
+    onset_indices_by_bar = [[] for _ in piece.bars]
+    onset_indices_by_beat = [[] for _ in piece.beats]
+    for current_onset_index, owner in enumerate(onset_bar_owner):
+        if owner is not None:
+            onset_indices_by_bar[owner].append(current_onset_index)
+    for current_onset_index, owner in enumerate(onset_beat_owner):
+        if owner is not None:
+            onset_indices_by_beat[owner].append(current_onset_index)
+    for note_index, note in enumerate(piece.notes):
+        onset = onset_index[note.onset_qn]
+        bar_owner = onset_bar_owner[onset]
+        beat_owner = onset_beat_owner[onset]
+        if bar_owner is not None:
+            note_indices_by_bar[bar_owner].append(note_index)
+        if beat_owner is not None:
+            note_indices_by_beat[beat_owner].append(note_index)
+
+    bar_active_note_count = [0] * len(piece.bars)
+    bar_active_tracks = [set() for _ in piece.bars]
+    beat_active_note_count = [0] * len(piece.beats)
+    beat_active_tracks = [set() for _ in piece.beats]
+    active_bar_indices_by_track = {
+        track.track_id: set() for track in piece.tracks
+    }
+    sustained_pairs: list[EdgePair] = []
+
+    for note_index, note in enumerate(piece.notes):
+        if note.duration_qn.num == 0:
+            owner = note_bar_owner[note_index]
+            if owner is not None:
+                bar_active_note_count[owner] += 1
+                bar_active_tracks[owner].add(note.track_id)
+                active_bar_indices_by_track[note.track_id].add(owner)
+            continue
+
+        note_end = _offset(note)
+        first_bar = bisect_right(bar_ends, note.onset_qn)
+        stop_bar = bisect_left(bar_starts, note_end)
+        for current_bar in range(first_bar, stop_bar):
+            bar_active_note_count[current_bar] += 1
+            bar_active_tracks[current_bar].add(note.track_id)
+            active_bar_indices_by_track[note.track_id].add(current_bar)
+
+        first_beat = bisect_left(beat_starts, note.onset_qn)
+        stop_beat = bisect_left(beat_starts, note_end)
+        for current_beat in range(first_beat, stop_beat):
+            beat_active_note_count[current_beat] += 1
+            beat_active_tracks[current_beat].add(note.track_id)
+            sustained_pairs.append((note_index, current_beat))
+
+    onset_active_note_count: list[int] = []
+    onset_active_track_count: list[int] = []
+    active_heap: list[tuple[RationalTime, int]] = []
+    active_count_by_track: dict[str, int] = defaultdict(int)
+    for time in onset_times:
+        for note_index in note_indices_by_onset[time]:
+            note = piece.notes[note_index]
+            if note.duration_qn.num > 0:
+                heappush(active_heap, (_offset(note), note_index))
+                active_count_by_track[note.track_id] += 1
+        while active_heap and active_heap[0][0] <= time:
+            _, expired_index = heappop(active_heap)
+            expired_track = piece.notes[expired_index].track_id
+            active_count_by_track[expired_track] -= 1
+            if active_count_by_track[expired_track] == 0:
+                del active_count_by_track[expired_track]
+        onset_active_note_count.append(len(active_heap))
+        onset_active_track_count.append(len(active_count_by_track))
+
+    return _PieceIndex(
+        track_index=track_index,
+        bar_index=bar_index,
+        note_indices_by_track=note_indices_by_track,
+        note_indices_by_track_onset=note_indices_by_track_onset,
+        onset_times=onset_times,
+        onset_index=onset_index,
+        note_indices_by_onset=note_indices_by_onset,
+        onset_indices_by_track=onset_indices_by_track,
+        onset_bar_owner=onset_bar_owner,
+        onset_beat_owner=onset_beat_owner,
+        note_bar_owner=note_bar_owner,
+        note_indices_by_bar=note_indices_by_bar,
+        note_indices_by_beat=note_indices_by_beat,
+        onset_indices_by_bar=onset_indices_by_bar,
+        onset_indices_by_beat=onset_indices_by_beat,
+        bar_active_note_count=bar_active_note_count,
+        bar_active_track_count=[len(tracks) for tracks in bar_active_tracks],
+        beat_active_note_count=beat_active_note_count,
+        beat_active_track_count=[len(tracks) for tracks in beat_active_tracks],
+        onset_active_note_count=onset_active_note_count,
+        onset_active_track_count=onset_active_track_count,
+        active_bar_indices_by_track=active_bar_indices_by_track,
+        sustained_pairs=sustained_pairs,
+    )
+
+
+def _track_rows(piece: CanonicalPiece, index: _PieceIndex) -> list[FeatureRow]:
+    duration = _float_time(piece.duration_qn)
+    rows: list[FeatureRow] = []
     for track in piece.tracks:
-        track_notes = notes_by_track[track.track_id]
+        track_notes = [
+            piece.notes[note_index]
+            for note_index in index.note_indices_by_track[track.track_id]
+        ]
         pitches = [note.pitch for note in track_notes]
         durations = [_float_time(note.duration_qn) for note in track_notes]
         velocities = [note.velocity for note in track_notes if note.velocity is not None]
-        onset_counts: dict[RationalTime, int] = defaultdict(int)
-        for note in track_notes:
-            onset_counts[note.onset_qn] += 1
-        polyphonic_onsets = sum(count > 1 for count in onset_counts.values())
-        active_bars = 0
-        for bar_start, bar_end in bar_intervals:
-            if any(
-                (
-                    note.duration_qn.num > 0
-                    and _interval_overlaps(
-                        note.onset_qn, _offset(note), bar_start, bar_end
-                    )
-                )
-                or (
-                    note.duration_qn.num == 0
-                    and bar_start <= note.onset_qn < bar_end
-                )
-                for note in track_notes
-            ):
-                active_bars += 1
-
+        onset_groups = index.note_indices_by_track_onset[track.track_id]
+        track_onsets = index.onset_indices_by_track[track.track_id]
         mean_pitch = fmean(pitches) if pitches else 0.0
         pitch_std = (
             sqrt(fmean((pitch - mean_pitch) ** 2 for pitch in pitches))
@@ -212,36 +344,45 @@ def _track_feature_rows(
         )
         rows.append(
             {
-                "program": (track.program or 0, track.program is not None),
-                "channel": (track.channel or 0, track.channel is not None),
+                "program": (track.program, track.program is not None),
+                "channel": (track.channel, track.channel is not None),
                 "is_percussion": (int(track.is_percussion), True),
                 "source_track_index": (
-                    track.source_track_index or 0,
+                    track.source_track_index,
                     track.source_track_index is not None,
                 ),
                 "note_count": (len(track_notes), True),
-                "mean_pitch": (mean_pitch, bool(pitches)),
-                "pitch_std": (pitch_std, bool(pitches)),
-                "min_pitch": (min(pitches) if pitches else 0, bool(pitches)),
-                "max_pitch": (max(pitches) if pitches else 0, bool(pitches)),
+                "mean_pitch": (mean_pitch if pitches else None, bool(pitches)),
+                "pitch_std": (pitch_std if pitches else None, bool(pitches)),
+                "min_pitch": (min(pitches) if pitches else None, bool(pitches)),
+                "max_pitch": (max(pitches) if pitches else None, bool(pitches)),
                 "note_density": (
-                    len(track_notes) / duration if duration > 0 else 0.0,
+                    len(track_notes) / duration if duration > 0 else None,
                     duration > 0,
                 ),
                 "polyphony_ratio": (
-                    polyphonic_onsets / len(onset_counts) if onset_counts else 0.0,
-                    bool(onset_counts),
+                    sum(
+                        len(note_indices) > 1
+                        for note_indices in onset_groups.values()
+                    )
+                    / len(track_onsets)
+                    if track_onsets
+                    else None,
+                    bool(track_onsets),
                 ),
                 "active_bar_ratio": (
-                    active_bars / len(piece.bars) if piece.bars else 0.0,
+                    len(index.active_bar_indices_by_track[track.track_id])
+                    / len(piece.bars)
+                    if piece.bars
+                    else None,
                     bool(piece.bars),
                 ),
                 "mean_duration_qn": (
-                    fmean(durations) if durations else 0.0,
+                    fmean(durations) if durations else None,
                     bool(durations),
                 ),
                 "mean_velocity": (
-                    fmean(velocities) if velocities else 0.0,
+                    fmean(velocities) if velocities else None,
                     bool(velocities),
                 ),
             }
@@ -249,21 +390,44 @@ def _track_feature_rows(
     return rows
 
 
+def _require_valid_piece(piece: CanonicalPiece) -> None:
+    report = validate_piece(piece)
+    if report.errors:
+        summary = ", ".join(
+            f"{issue.code}@{issue.path}" for issue in report.errors[:8]
+        )
+        suffix = "" if len(report.errors) <= 8 else f" (+{len(report.errors) - 8} more)"
+        raise GraphBuildError(
+            "build_raw_graph requires a validator-clean CanonicalPiece: "
+            f"{summary}{suffix}"
+        )
+
+
 def build_raw_graph(
     piece: CanonicalPiece,
     registry: FeatureRegistry = RAW_FEATURE_REGISTRY,
     *,
     raw_only: bool = True,
+    assume_valid: bool = False,
 ) -> HeteroData:
-    """Build the Phase 3A raw-only graph without reading supervisory fields.
+    """Build the Phase 3A raw-only graph.
 
-    Targets, annotations, provenance, source paths, source groups, dataset names,
-    and split values are intentionally never inspected while constructing node
-    features or relations.
+    By default the complete ``CanonicalPiece`` is validated before construction.
+    ``assume_valid=True`` is an explicit fast path for a piece that the caller
+    has already checked with :func:`music_critic.data.validate_piece`; behavior
+    is undefined for invalid or non-canonically ordered input on that path.
+
+    Supervisory fields are validated as part of the default input precondition,
+    but targets, annotations, provenance, source identity, grouping, and split
+    are never read while constructing features or relations.
     """
 
+    if not isinstance(piece, CanonicalPiece):
+        raise GraphBuildError("piece must be a CanonicalPiece")
     if not raw_only:
         raise GraphBuildError("Phase 3A implements only raw_only=True graphs")
+    if not assume_valid:
+        _require_valid_piece(piece)
     if piece.schema_version != SCHEMA_VERSION:
         raise GraphBuildError(
             f"unsupported canonical schema {piece.schema_version!r}; "
@@ -272,49 +436,21 @@ def build_raw_graph(
     if any(not spec.raw_inference_safe for spec in registry.specs):
         raise GraphBuildError("feature registry contains a raw-inference-unsafe field")
 
-    track_index = {track.track_id: index for index, track in enumerate(piece.tracks)}
-    bar_index = {bar.bar_id: index for index, bar in enumerate(piece.bars)}
-    beat_index = {beat.beat_id: index for index, beat in enumerate(piece.beats)}
-    if len(track_index) != len(piece.tracks):
-        raise GraphBuildError("duplicate track IDs")
-    if len(bar_index) != len(piece.bars) or len(beat_index) != len(piece.beats):
-        raise GraphBuildError("duplicate bar or beat IDs")
-
-    notes_by_track: dict[str, list[object]] = {
-        track.track_id: [] for track in piece.tracks
+    piece_index = _build_piece_index(piece)
+    meters = {
+        event.meter_event_id: (event.numerator, event.denominator)
+        for event in piece.meter_events
     }
-    for note in piece.notes:
-        if note.track_id not in notes_by_track:
-            raise GraphBuildError(f"note {note.note_id} references an unknown track")
-        notes_by_track[note.track_id].append(note)
-
-    onset_times = tuple(sorted({note.onset_qn for note in piece.notes}))
-    onset_index = {time: index for index, time in enumerate(onset_times)}
-    notes_at_onset: dict[RationalTime, list[int]] = defaultdict(list)
-    for index, note in enumerate(piece.notes):
-        notes_at_onset[note.onset_qn].append(index)
-
-    bar_intervals = tuple((bar.start_qn, bar.duration_qn) for bar in piece.bars)
-    beat_intervals = tuple((beat.start_qn, beat.duration_qn) for beat in piece.beats)
-    onset_bar_owner = {
-        time: _owner_index(time, bar_intervals) for time in onset_times
-    }
-    onset_beat_owner = {
-        time: _owner_index(time, beat_intervals) for time in onset_times
-    }
-    note_bar_owner = [
-        _owner_index(note.onset_qn, bar_intervals) for note in piece.notes
-    ]
-
-    meters = _meter_values(piece)
-    for bar in piece.bars:
-        if bar.meter_event_id not in meters:
-            raise GraphBuildError(f"bar {bar.bar_id} references an unknown meter")
-    for beat in piece.beats:
-        if beat.bar_id not in bar_index:
-            raise GraphBuildError(f"beat {beat.beat_id} references an unknown bar")
-        if beat.meter_event_id not in meters:
-            raise GraphBuildError(f"beat {beat.beat_id} references an unknown meter")
+    tempo_starts = tuple(event.onset_qn for event in piece.tempo_events)
+    tempo_values = tuple(
+        event.microseconds_per_quarter for event in piece.tempo_events
+    )
+    bar_tempos = _effective_values(
+        (bar.start_qn for bar in piece.bars), tempo_starts, tempo_values
+    )
+    beat_tempos = _effective_values(
+        (beat.start_qn for beat in piece.beats), tempo_starts, tempo_values
+    )
 
     data = HeteroData()
     data.schema_version = piece.schema_version
@@ -323,25 +459,24 @@ def build_raw_graph(
     data.graph_builder_version = GRAPH_BUILDER_VERSION
     data.raw_only = True
 
-    tempo_values = [event.microseconds_per_quarter for event in piece.tempo_events]
     song_rows: list[FeatureRow] = [
         {
             "duration_qn": (_float_time(piece.duration_qn), True),
             "track_count": (len(piece.tracks), True),
             "bar_count": (len(piece.bars), True),
             "beat_count": (len(piece.beats), True),
-            "onset_count": (len(onset_times), True),
+            "onset_count": (len(piece_index.onset_times), True),
             "note_count": (len(piece.notes), True),
             "tempo_mean_us_per_qn": (
-                fmean(tempo_values) if tempo_values else 0.0,
+                fmean(tempo_values) if tempo_values else None,
                 bool(tempo_values),
             ),
             "tempo_min_us_per_qn": (
-                min(tempo_values) if tempo_values else 0,
+                min(tempo_values) if tempo_values else None,
                 bool(tempo_values),
             ),
             "tempo_max_us_per_qn": (
-                max(tempo_values) if tempo_values else 0,
+                max(tempo_values) if tempo_values else None,
                 bool(tempo_values),
             ),
             "tempo_change_count": (max(0, len(piece.tempo_events) - 1), True),
@@ -352,58 +487,39 @@ def build_raw_graph(
     _pack_features(
         data,
         "track",
-        _track_feature_rows(piece, notes_by_track),
+        _track_rows(piece, piece_index),
         tuple(track.track_id for track in piece.tracks),
         registry,
     )
 
     bar_rows: list[FeatureRow] = []
-    for index, bar in enumerate(piece.bars):
+    for bar_position, bar in enumerate(piece.bars):
         numerator, denominator = meters[bar.meter_event_id]
-        denominator_log2 = denominator.bit_length() - 1
-        bar_end = bar.start_qn + bar.duration_qn
-        assigned_onsets = [
-            time for time in onset_times if onset_bar_owner[time] == index
-        ]
-        starting_notes = [
-            note for note, owner in zip(piece.notes, note_bar_owner) if owner == index
-        ]
-        active_notes = [
-            note
-            for note in piece.notes
-            if (
-                note.duration_qn.num > 0
-                and _interval_overlaps(
-                    note.onset_qn, _offset(note), bar.start_qn, bar_end
-                )
-            )
-            or (
-                note.duration_qn.num == 0
-                and bar.start_qn <= note.onset_qn < bar_end
-            )
-        ]
         bar_rows.append(
             {
-                "meter_numerator": (
-                    _bounded_category(numerator, 256, 255),
-                    True,
-                ),
-                "meter_denominator_log2": (
-                    _bounded_category(denominator_log2, 128, 127),
-                    True,
-                ),
+                "meter_numerator": (numerator, True),
+                "meter_denominator_log2": (denominator.bit_length() - 1, True),
                 "is_pickup": (int(bar.is_pickup), True),
                 "is_incomplete": (int(bar.is_incomplete), True),
                 "index": (bar.index, True),
                 "start_qn": (_float_time(bar.start_qn), True),
                 "duration_qn": (_float_time(bar.duration_qn), True),
                 "metric_offset_qn": (_float_time(bar.metric_offset_qn), True),
-                "tempo_us_per_qn": (_tempo_at(piece, bar.start_qn), True),
-                "starting_note_count": (len(starting_notes), True),
-                "active_note_count": (len(active_notes), True),
-                "onset_count": (len(assigned_onsets), True),
+                "tempo_us_per_qn": (bar_tempos[bar_position], True),
+                "starting_note_count": (
+                    len(piece_index.note_indices_by_bar[bar_position]),
+                    True,
+                ),
+                "active_note_count": (
+                    piece_index.bar_active_note_count[bar_position],
+                    True,
+                ),
+                "onset_count": (
+                    len(piece_index.onset_indices_by_bar[bar_position]),
+                    True,
+                ),
                 "active_track_count": (
-                    len({note.track_id for note in active_notes}),
+                    piece_index.bar_active_track_count[bar_position],
                     True,
                 ),
             }
@@ -417,31 +533,12 @@ def build_raw_graph(
     )
 
     beat_rows: list[FeatureRow] = []
-    for index, beat in enumerate(piece.beats):
+    for beat_position, beat in enumerate(piece.beats):
         numerator, denominator = meters[beat.meter_event_id]
-        denominator_log2 = denominator.bit_length() - 1
-        assigned_onsets = [
-            time for time in onset_times if onset_beat_owner[time] == index
-        ]
-        starting_notes = [
-            note for note in piece.notes if onset_beat_owner[note.onset_qn] == index
-        ]
-        active_notes = [
-            note
-            for note in piece.notes
-            if note.duration_qn.num > 0
-            and note.onset_qn <= beat.start_qn < _offset(note)
-        ]
         beat_rows.append(
             {
-                "meter_numerator": (
-                    _bounded_category(numerator, 256, 255),
-                    True,
-                ),
-                "meter_denominator_log2": (
-                    _bounded_category(denominator_log2, 128, 127),
-                    True,
-                ),
+                "meter_numerator": (numerator, True),
+                "meter_denominator_log2": (denominator.bit_length() - 1, True),
                 "is_downbeat": (int(beat.is_downbeat), True),
                 "index_in_bar": (beat.index_in_bar, True),
                 "start_qn": (_float_time(beat.start_qn), True),
@@ -450,12 +547,18 @@ def build_raw_graph(
                     _float_time(beat.position_in_bar_qn),
                     True,
                 ),
-                "strength": (beat.strength or 0.0, beat.strength is not None),
-                "tempo_us_per_qn": (_tempo_at(piece, beat.start_qn), True),
-                "starting_note_count": (len(starting_notes), True),
-                "active_note_count": (len(active_notes), True),
+                "strength": (beat.strength, beat.strength is not None),
+                "tempo_us_per_qn": (beat_tempos[beat_position], True),
+                "starting_note_count": (
+                    len(piece_index.note_indices_by_beat[beat_position]),
+                    True,
+                ),
+                "active_note_count": (
+                    piece_index.beat_active_note_count[beat_position],
+                    True,
+                ),
                 "active_track_count": (
-                    len({note.track_id for note in active_notes}),
+                    piece_index.beat_active_track_count[beat_position],
                     True,
                 ),
             }
@@ -470,60 +573,67 @@ def build_raw_graph(
     data["beat"].candidate_slot = torch.ones(len(piece.beats), dtype=torch.bool)
 
     onset_rows: list[FeatureRow] = []
-    onsets_per_beat: dict[int, int] = defaultdict(int)
-    for owner in onset_beat_owner.values():
-        if owner is not None:
-            onsets_per_beat[owner] += 1
-    for time in onset_times:
-        owner_bar = onset_bar_owner[time]
+    for current_onset, time in enumerate(piece_index.onset_times):
+        owner_bar = piece_index.onset_bar_owner[current_onset]
+        owner_beat = piece_index.onset_beat_owner[current_onset]
         position = (
             time - piece.bars[owner_bar].start_qn
             if owner_bar is not None
-            else RationalTime(0)
+            else None
         )
-        active_notes = [
-            note
-            for note in piece.notes
-            if note.duration_qn.num > 0 and note.onset_qn <= time < _offset(note)
-        ]
-        beat_owner = onset_beat_owner[time]
         onset_rows.append(
             {
                 "start_qn": (_float_time(time), True),
                 "position_in_bar_qn": (
-                    _float_time(position),
-                    owner_bar is not None,
+                    _float_time(position) if position is not None else None,
+                    position is not None,
                 ),
-                "starting_note_count": (len(notes_at_onset[time]), True),
-                "active_note_count": (len(active_notes), True),
+                "starting_note_count": (
+                    len(piece_index.note_indices_by_onset[time]),
+                    True,
+                ),
+                "active_note_count": (
+                    piece_index.onset_active_note_count[current_onset],
+                    True,
+                ),
                 "active_track_count": (
-                    len({note.track_id for note in active_notes}),
+                    piece_index.onset_active_track_count[current_onset],
                     True,
                 ),
                 "onsets_in_beat": (
-                    onsets_per_beat[beat_owner] if beat_owner is not None else 0,
-                    beat_owner is not None,
+                    len(piece_index.onset_indices_by_beat[owner_beat])
+                    if owner_beat is not None
+                    else None,
+                    owner_beat is not None,
                 ),
             }
         )
-    onset_ids = tuple(f"onset:{time.num}_{time.den}" for time in onset_times)
+    onset_ids = tuple(
+        f"onset:{time.num}_{time.den}" for time in piece_index.onset_times
+    )
     _pack_features(data, "onset", onset_rows, onset_ids, registry)
-    data["onset"].candidate_slot = torch.ones(len(onset_times), dtype=torch.bool)
+    data["onset"].candidate_slot = torch.ones(
+        len(piece_index.onset_times), dtype=torch.bool
+    )
 
     track_pitch_stats: dict[str, tuple[float, float]] = {}
-    for track_id, track_notes in notes_by_track.items():
-        pitches = [note.pitch for note in track_notes]
+    for track_id, note_indices in piece_index.note_indices_by_track.items():
+        pitches = [piece.notes[note_index].pitch for note_index in note_indices]
         mean = fmean(pitches) if pitches else 0.0
-        std = sqrt(fmean((pitch - mean) ** 2 for pitch in pitches)) if pitches else 0.0
+        std = (
+            sqrt(fmean((pitch - mean) ** 2 for pitch in pitches))
+            if pitches
+            else 0.0
+        )
         track_pitch_stats[track_id] = (mean, std)
 
     note_rows: list[FeatureRow] = []
-    for index, note in enumerate(piece.notes):
-        owner_bar = note_bar_owner[index]
+    for note_index, note in enumerate(piece.notes):
+        owner_bar = piece_index.note_bar_owner[note_index]
         position = (
             note.onset_qn - piece.bars[owner_bar].start_qn
             if owner_bar is not None
-            else RationalTime(0)
+            else None
         )
         mean_pitch, pitch_std = track_pitch_stats[note.track_id]
         note_rows.append(
@@ -531,19 +641,19 @@ def build_raw_graph(
                 "pitch": (note.pitch, True),
                 "pitch_class": (note.pitch % 12, True),
                 "octave": (note.pitch // 12, True),
-                "program": (note.program or 0, note.program is not None),
-                "channel": (note.channel or 0, note.channel is not None),
+                "program": (note.program, note.program is not None),
+                "channel": (note.channel, note.channel is not None),
                 "is_percussion": (int(note.is_percussion), True),
                 "is_grace": (int(note.is_grace), True),
                 "onset_qn": (_float_time(note.onset_qn), True),
                 "duration_qn": (_float_time(note.duration_qn), True),
-                "velocity": (note.velocity or 0, note.velocity is not None),
+                "velocity": (note.velocity, note.velocity is not None),
                 "position_in_bar_qn": (
-                    _float_time(position),
-                    owner_bar is not None,
+                    _float_time(position) if position is not None else None,
+                    position is not None,
                 ),
                 "track_relative_pitch": (
-                    (note.pitch - mean_pitch) / pitch_std if pitch_std > 0 else 0.0,
+                    (note.pitch - mean_pitch) / pitch_std if pitch_std > 0 else None,
                     pitch_std > 0,
                 ),
             }
@@ -556,35 +666,41 @@ def build_raw_graph(
         registry,
     )
 
-    edge_pairs: dict[tuple[str, str, str], list[EdgePair]] = {
+    edge_pairs: dict[EdgeType, list[EdgePair]] = {
         edge_type: [] for edge_type in MANDATORY_EDGE_TYPES
     }
     _add_forward_and_reverse(
         edge_pairs,
         ("song", "contains_track", "track"),
-        ((0, index) for index in range(len(piece.tracks))),
+        ((0, track) for track in range(len(piece.tracks))),
     )
     _add_forward_and_reverse(
         edge_pairs,
         ("song", "contains_bar", "bar"),
-        ((0, index) for index in range(len(piece.bars))),
+        ((0, bar) for bar in range(len(piece.bars))),
     )
     _add_forward_and_reverse(
         edge_pairs,
         ("track", "contains_note", "note"),
-        ((track_index[note.track_id], index) for index, note in enumerate(piece.notes)),
+        (
+            (piece_index.track_index[note.track_id], note_index)
+            for note_index, note in enumerate(piece.notes)
+        ),
     )
     _add_forward_and_reverse(
         edge_pairs,
         ("bar", "contains_beat", "beat"),
-        ((bar_index[beat.bar_id], index) for index, beat in enumerate(piece.beats)),
+        (
+            (piece_index.bar_index[beat.bar_id], beat_index)
+            for beat_index, beat in enumerate(piece.beats)
+        ),
     )
     _add_forward_and_reverse(
         edge_pairs,
         ("bar", "contains_onset", "onset"),
         (
-            (owner, onset_index[time])
-            for time, owner in onset_bar_owner.items()
+            (owner, onset_index)
+            for onset_index, owner in enumerate(piece_index.onset_bar_owner)
             if owner is not None
         ),
     )
@@ -592,8 +708,8 @@ def build_raw_graph(
         edge_pairs,
         ("bar", "contains_note", "note"),
         (
-            (owner, index)
-            for index, owner in enumerate(note_bar_owner)
+            (owner, note_index)
+            for note_index, owner in enumerate(piece_index.note_bar_owner)
             if owner is not None
         ),
     )
@@ -601,8 +717,8 @@ def build_raw_graph(
         edge_pairs,
         ("beat", "contains_onset", "onset"),
         (
-            (owner, onset_index[time])
-            for time, owner in onset_beat_owner.items()
+            (owner, onset_index)
+            for onset_index, owner in enumerate(piece_index.onset_beat_owner)
             if owner is not None
         ),
     )
@@ -610,48 +726,39 @@ def build_raw_graph(
         edge_pairs,
         ("onset", "starts_note", "note"),
         (
-            (onset_index[note.onset_qn], index)
-            for index, note in enumerate(piece.notes)
+            (piece_index.onset_index[note.onset_qn], note_index)
+            for note_index, note in enumerate(piece.notes)
         ),
     )
-
     _add_forward_and_reverse(
         edge_pairs,
         ("bar", "next_bar", "bar"),
-        ((index, index + 1) for index in range(max(0, len(piece.bars) - 1))),
+        ((bar, bar + 1) for bar in range(max(0, len(piece.bars) - 1))),
     )
     _add_forward_and_reverse(
         edge_pairs,
         ("beat", "next_beat", "beat"),
-        ((index, index + 1) for index in range(max(0, len(piece.beats) - 1))),
+        ((beat, beat + 1) for beat in range(max(0, len(piece.beats) - 1))),
     )
     _add_forward_and_reverse(
         edge_pairs,
         ("onset", "next_onset", "onset"),
-        ((index, index + 1) for index in range(max(0, len(onset_times) - 1))),
+        (
+            (onset, onset + 1)
+            for onset in range(max(0, len(piece_index.onset_times) - 1))
+        ),
     )
     for track in piece.tracks:
-        indices = [
-            index for index, note in enumerate(piece.notes) if note.track_id == track.track_id
-        ]
+        note_indices = piece_index.note_indices_by_track[track.track_id]
         _add_forward_and_reverse(
             edge_pairs,
             ("note", "next_in_track", "note"),
-            zip(indices, indices[1:]),
+            zip(note_indices, note_indices[1:]),
         )
-
-    sustained_pairs: list[EdgePair] = []
-    for note_index, note in enumerate(piece.notes):
-        if note.duration_qn.num == 0:
-            continue
-        note_end = _offset(note)
-        for candidate_index, beat in enumerate(piece.beats):
-            if note.onset_qn <= beat.start_qn < note_end:
-                sustained_pairs.append((note_index, candidate_index))
     _add_forward_and_reverse(
         edge_pairs,
         ("note", "active_at", "beat"),
-        sustained_pairs,
+        piece_index.sustained_pairs,
     )
 
     for edge_type in MANDATORY_EDGE_TYPES:

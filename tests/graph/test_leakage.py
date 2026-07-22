@@ -22,19 +22,17 @@ def test_removing_or_changing_every_target_does_not_change_inputs_or_topology(
         )
         assert _serialized(without) == baseline
 
+        assert target.class_labels
+        replacement_label = target.class_labels[-1]
         sentinel = replace(
             target,
-            target_id=f"target:sentinel-{index}",
-            task=f"sentinel.task.{index}",
-            annotation_view_id=f"sentinel.view.{index}",
-            alignment_type="piece",
-            entity_ids=("piece:does-not-exist",),
-            class_labels=("sentinel",),
-            values=("sentinel",),
-            mask=(True,),
-            confidence=(0.01,),
-            source=("pseudo_label",),
-            provenance=("prov:does-not-exist",),
+            values=tuple(
+                replacement_label if available else None
+                for available in target.mask
+            ),
+            confidence=tuple(
+                0.51 if available else None for available in target.mask
+            ),
         )
         changed = replace(
             canonical_piece,
@@ -74,7 +72,7 @@ def test_train_test_and_provenance_fields_never_enter_graph(
         version="999",
         checksum_sha256=None,
         created_at=None,
-        parents=(),
+        parents=("prov:source",),
         details=(("split", "test"),),
     )
     sentinel_flag = QualityFlag(
@@ -91,7 +89,7 @@ def test_train_test_and_provenance_fields_never_enter_graph(
         split="test",
         source_path="/private/test-piece.mid",
         source_resolution=999,
-        provenance=(sentinel_provenance,),
-        quality_flags=(sentinel_flag,),
+        provenance=(*canonical_piece.provenance, sentinel_provenance),
+        quality_flags=(*canonical_piece.quality_flags, sentinel_flag),
     )
     assert _serialized(changed) == baseline

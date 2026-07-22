@@ -424,16 +424,25 @@ This log is append-only.
   all marked raw-inference-safe. Builder `1.0.0` ignores targets, annotations,
   dataset/split/group/source identity, provenance, confidence, and quality
   flags. Each PyG `HeteroData` stores canonical schema, graph schema, feature
-  registry, and builder versions. Deterministic JSON serialization is the
-  diagnostic/cache-fingerprint representation.
-- Dependency boundary: PyTorch and PyG become runtime dependencies only for
-  `music_critic.graph`; `music_critic.data` remains standard-library-only and
-  adapters/exporters retain their existing `mido` boundary. Optional compiled
-  PyG extensions are not required for Phase 3A.
+  registry, and builder versions. Exact allowlists cover graph, node-store, and
+  edge-store attributes; deterministic JSON serialization and fingerprinting
+  validate the graph before encoding. Program/channel absence uses dedicated
+  non-colliding unknown categories, while known out-of-vocabulary categorical
+  observations are rejected. Exact rational time controls structure and is
+  converted to `float32` only when continuous feature tensors are materialized.
+  The builder validates canonical input by default and exposes
+  `assume_valid=True` only as an explicit validated-input fast path.
+- Dependency boundary: PyTorch and PyG imports are isolated to
+  `music_critic.graph`; they are nevertheless current global package
+  dependencies. `music_critic.data` remains importable without importing them,
+  and adapters/exporters retain their existing `mido` boundary. Optional
+  compiled PyG extensions are not required for Phase 3A.
 - Consequences: HookTheory target-visible/hidden and generic MIDI pieces share
-  one model-facing schema. Simultaneous-note context flows through onset/beat
-  intermediaries instead of cliques, and edge growth is bounded by containment,
-  chronological, and note/beat incidence. Semantic nodes, target routing,
-  graph batching/caching, GNNs, SSL, masking, and corruption training remain
-  later phases and require explicit version decisions if they alter this base
-  contract.
+  one model-facing schema (schema parity, not general data parity).
+  Simultaneous-note context flows through onset/beat intermediaries instead of
+  cliques. Construction is output-sensitive in containment, chronological, and
+  note/beat incidence; long sustains can still emit many `active_at` edges.
+  Float feature timing has less precision than exact canonical structure.
+  Semantic nodes, target routing, graph batching/caching, GNNs, SSL, masking,
+  and corruption training remain later phases and require explicit version
+  decisions if they alter this base contract.
