@@ -1,0 +1,310 @@
+{
+  "schema_version": "2.0.0",
+  "audit_schema_version": "3.0.0",
+  "corpus": {
+    "corpus_id": "pop909_cl",
+    "corpus_midi_file_count": 909,
+    "corpus_content_fingerprint": "b34f07d9a2678abdb6f0dcf5db1c3aec3f35caca813f1fac80c0717cfc8e0c65",
+    "installation_file_count": 1819,
+    "installation_noise_file_count": 910,
+    "installation_fingerprint": "af623705a375c419751e4ba6456224b8b700f50fc1a09a32af57e1620d1ff4dd",
+    "missing_song_ids": [],
+    "duplicate_song_ids": [],
+    "unexpected_midi_paths": []
+  },
+  "upstream": {
+    "commit": "be9094392903c471a930519e1c0bacf8b6be5d62",
+    "exact_content_matches": 909,
+    "content_mismatches": 0,
+    "local_only_song_ids": [],
+    "upstream_only_song_ids": [],
+    "license": "MIT",
+    "license_sha256": "fe6064d631bdf4ce46028ef3aa7bc4eac285b8a1000c46682795f26448d29288"
+  },
+  "instrument_failure_counts": {
+    "missing_chord_instrument": 2
+  },
+  "expected_masked_target_unavailability_song_ids": [
+    "367",
+    "658"
+  ],
+  "score_crosswalk": {
+    "attempted": 909,
+    "converted": 908,
+    "failed": 1,
+    "quarantined": 1,
+    "fatal_failed": 0,
+    "phase_4b_mvp_policy": {
+      "policy": "retain_documented_quarantine",
+      "accepted_song_count": 908,
+      "quarantined_song_ids": [
+        "172"
+      ],
+      "reason": "midi_adapter.meter_change_inside_bar"
+    },
+    "failed_song_ids": [
+      "172"
+    ]
+  },
+  "aggregates": {
+    "score_only_crosswalk": {
+      "warnings_by_code": {
+        "EMPTY_TRACK": 908,
+        "INCOMPLETE_FINAL_BAR": 908,
+        "OVERLAPPING_SAME_PITCH_NOTES": 123439,
+        "PIECE_TRAILING_SILENCE": 908
+      },
+      "files_affected_by_warning_code": {
+        "EMPTY_TRACK": 908,
+        "INCOMPLETE_FINAL_BAR": 908,
+        "OVERLAPPING_SAME_PITCH_NOTES": 907,
+        "PIECE_TRAILING_SILENCE": 908
+      }
+    },
+    "unsafe_complete_file_generic_diagnostics": {
+      "warnings_by_code": {
+        "EMPTY_TRACK": 908,
+        "INCOMPLETE_FINAL_BAR": 908,
+        "OVERLAPPING_SAME_PITCH_NOTES": 123873,
+        "PIECE_TRAILING_SILENCE": 908,
+        "midi.dangling_note_on": 4,
+        "midi.unmatched_note_off": 4
+      }
+    },
+    "chord_annotation_inventory": {
+      "total_blocks": 116055,
+      "normalization_status_counts": {
+        "ambiguous": 5801,
+        "supported": 109668,
+        "unsupported": 586
+      },
+      "implicit_n_gap_count": 947,
+      "trailing_unannotated_span_count": 151,
+      "task_mask_counts": {
+        "bass": {
+          "available": 116055,
+          "unavailable": 0
+        },
+        "boundary": {
+          "available": 116055,
+          "unavailable": 0
+        },
+        "inversion": {
+          "available": 109668,
+          "unavailable": 6387
+        },
+        "no_chord": {
+          "available": 947,
+          "unavailable": 151
+        },
+        "quality": {
+          "available": 109800,
+          "unavailable": 6255
+        },
+        "root": {
+          "available": 109668,
+          "unavailable": 6387
+        }
+      },
+      "overlap_count": 691,
+      "duplicate_block_onset_count": 0,
+      "repeated_pitch_at_onset_block_count": 87,
+      "mixed_note_end_tick_block_count": 313,
+      "pairing_diagnostics": {
+        "dangling_note_on": 4,
+        "unmatched_note_off": 4
+      },
+      "pairing_anomaly_evidence_sha256": "d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051"
+    }
+  },
+  "readiness": {
+    "evidence_contract_ready": true,
+    "evidence_violations": [],
+    "production_adapter_ready": false,
+    "production_blockers": [
+      "phase_4b_production_adapter_not_implemented"
+    ]
+  },
+  "cases": [
+    {
+      "song_id": "001",
+      "relative_path": "POP909_processed/POP909_processed/001.mid",
+      "sha256": "88c8ebcd428d5aecbfb6ddf5f8d6e9dfd5b9ee0332d66b15cab5a0fa0efe660e",
+      "instrument_failure_categories": [],
+      "score_projection_status": "converted",
+      "expected_facts": {
+        "block_count": 126,
+        "unsupported_block_count": 0,
+        "ambiguous_block_count": 0,
+        "implicit_n_gap_count": 1,
+        "overlap_count": 0,
+        "score_warning_count": 81
+      }
+    },
+    {
+      "song_id": "043",
+      "relative_path": "POP909_processed/POP909_processed/043 .mid",
+      "sha256": "42a5a3e39767c318faa233dd3d05b5e0c3d74fdbccf732a2fbd9aa000376de0d",
+      "instrument_failure_categories": [],
+      "score_projection_status": "converted",
+      "expected_facts": {
+        "block_count": 278,
+        "unsupported_block_count": 3,
+        "ambiguous_block_count": 50,
+        "implicit_n_gap_count": 3,
+        "overlap_count": 2,
+        "score_warning_count": 130
+      }
+    },
+    {
+      "song_id": "172",
+      "relative_path": "POP909_processed/POP909_processed/172.mid",
+      "sha256": "310be3f500e6216d5a39e45ce463800f8f3ac4822e04b290e07ceb395a665597",
+      "instrument_failure_categories": [],
+      "score_projection_status": "failed",
+      "expected_facts": {
+        "block_count": 92,
+        "unsupported_block_count": 0,
+        "ambiguous_block_count": 2,
+        "implicit_n_gap_count": 1,
+        "overlap_count": 0,
+        "score_warning_count": 0
+      },
+      "meter_change": {
+        "tick": 85080,
+        "previous_meter": "4/4",
+        "new_meter": "6/8",
+        "active_bar_length_ticks": 1920,
+        "previous_bar_boundary_tick": 84480,
+        "next_bar_boundary_tick": 86400,
+        "offset_inside_bar_ticks": 600,
+        "on_expected_boundary": false
+      }
+    },
+    {
+      "song_id": "246",
+      "relative_path": "POP909_processed/POP909_processed/246.mid",
+      "sha256": "e5a4cc5a1d2d0547b45aeca7552b30029dadc5f66e3040c5929424fd8cfe135f",
+      "instrument_failure_categories": [],
+      "score_projection_status": "converted",
+      "expected_facts": {
+        "block_count": 128,
+        "unsupported_block_count": 0,
+        "ambiguous_block_count": 19,
+        "implicit_n_gap_count": 3,
+        "trailing_unannotated_span_count": 1,
+        "overlap_count": 0,
+        "score_warning_count": 33
+      }
+    },
+    {
+      "song_id": "367",
+      "relative_path": "POP909_processed/POP909_processed/367.mid",
+      "sha256": "b125d213540706a1f0283e1fbf04530f7b49035f0188dcc631a1b3209cef7eb5",
+      "instrument_failure_categories": [
+        "missing_chord_instrument"
+      ],
+      "score_projection_status": "converted",
+      "expected_facts": {
+        "block_count": 0,
+        "unsupported_block_count": 0,
+        "ambiguous_block_count": 0,
+        "implicit_n_gap_count": 0,
+        "overlap_count": 0,
+        "score_warning_count": 69
+      }
+    },
+    {
+      "song_id": "658",
+      "relative_path": "POP909_processed/POP909_processed/658.mid",
+      "sha256": "f3185877176d39463f70b97399bd9a56ac0f9b451400e16b193062c2b9cc9268",
+      "instrument_failure_categories": [
+        "missing_chord_instrument"
+      ],
+      "score_projection_status": "converted",
+      "expected_facts": {
+        "block_count": 0,
+        "unsupported_block_count": 0,
+        "ambiguous_block_count": 0,
+        "implicit_n_gap_count": 0,
+        "overlap_count": 0,
+        "score_warning_count": 3
+      }
+    },
+    {
+      "song_id": "076",
+      "relative_path": "POP909_processed/POP909_processed/076.mid",
+      "sha256": "4daca3b7cffa0df7db207168fbc9a7df0fcf7a9f0212b2a3c7f10b6ea0c2fb7c",
+      "instrument_failure_categories": [],
+      "score_projection_status": "converted",
+      "expected_facts": {
+        "block_count": 211,
+        "unsupported_block_count": 49,
+        "ambiguous_block_count": 0,
+        "implicit_n_gap_count": 2,
+        "overlap_count": 139,
+        "score_warning_count": 175
+      }
+    },
+    {
+      "song_id": "088",
+      "relative_path": "POP909_processed/POP909_processed/088.mid",
+      "sha256": "54364c262fc7f1526997dc084a5e2766eab5b4adedc5481dad450bd360a47cc0",
+      "instrument_failure_categories": [],
+      "score_projection_status": "converted",
+      "expected_facts": {
+        "block_count": 191,
+        "unsupported_block_count": 30,
+        "ambiguous_block_count": 16,
+        "implicit_n_gap_count": 1,
+        "overlap_count": 141,
+        "score_warning_count": 68
+      }
+    },
+    {
+      "song_id": "262",
+      "relative_path": "POP909_processed/POP909_processed/262.mid",
+      "sha256": "7aa2f2f524eb02c4c64a831b84a2f65fd8cb623948001f763f552220bbe952e9",
+      "instrument_failure_categories": [],
+      "score_projection_status": "converted",
+      "expected_facts": {
+        "block_count": 206,
+        "unsupported_block_count": 0,
+        "ambiguous_block_count": 51,
+        "implicit_n_gap_count": 1,
+        "overlap_count": 0,
+        "score_warning_count": 275
+      }
+    },
+    {
+      "song_id": "802",
+      "relative_path": "POP909_processed/POP909_processed/802.mid",
+      "sha256": "59a04ea453991e75fa786ea63dd624bd5e2d86272e30cfefa4b5ba79fc86ffd7",
+      "instrument_failure_categories": [],
+      "score_projection_status": "converted",
+      "expected_facts": {
+        "block_count": 103,
+        "unsupported_block_count": 0,
+        "ambiguous_block_count": 5,
+        "implicit_n_gap_count": 1,
+        "overlap_count": 0,
+        "score_warning_count": 966
+      }
+    },
+    {
+      "song_id": "857",
+      "relative_path": "POP909_processed/POP909_processed/857.mid",
+      "sha256": "068f362b119de9389fe235d3eb9cf15dce3cdd39e982036dd5918bbdc1badcb2",
+      "instrument_failure_categories": [],
+      "score_projection_status": "converted",
+      "expected_facts": {
+        "block_count": 176,
+        "unsupported_block_count": 0,
+        "ambiguous_block_count": 30,
+        "implicit_n_gap_count": 9,
+        "overlap_count": 1,
+        "score_warning_count": 117
+      }
+    }
+  ]
+}

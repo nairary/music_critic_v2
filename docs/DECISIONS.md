@@ -446,3 +446,118 @@ This log is append-only.
   Semantic nodes, target routing, graph batching/caching, GNNs, SSL, masking,
   and corruption training remain later phases and require explicit version
   decisions if they alter this base contract.
+
+## 2026-07-23 — ADR-030: POP909 adaptation requires official evidence and masked views
+
+- Status: Accepted for Phase 4A.
+- Context: The installed `data/pop909-cl` tree is an unversioned flattened
+  processed MIDI mirror with no annotations or documentation, and its track
+  structure differs from the official corpus. The pinned official repository
+  has complete annotation assets, but its algorithmic audio/MIDI views do not
+  align exactly and its alternative MIDI versions do not retain the complete
+  primary track-name contract.
+- Decision: Define the Phase 4B supervised source contract from official
+  POP909 repository commit
+  `d83e6edba6872a704f5d3b8b32f5cb540088dae6` and its recorded hashes. Preserve
+  all raw tracks. Expose primary `MELODY`, `BRIDGE`, and `PIANO` semantics only
+  as masked track-level targets resolved by unique exact names; never use role
+  labels in raw graph input and never infer missing roles from order. Preserve
+  annotation decimal seconds and raw labels, keep audio/MIDI views separate,
+  and require an explicit versioned tolerance for any derived alignment.
+  Treat beat/chord/key annotations as algorithmic auxiliary targets with
+  unknown confidence, not human gold. Use one `pop909:<three-digit-song-id>`
+  group for the primary, all annotations, and every version, without assigning
+  splits in Phase 4A. Retain official song `043` as an explicit conversion
+  failure until a general mid-bar-meter rule is accepted and tested.
+- Consequences: The local processed mirror remains usable only through the
+  generic unlabeled-MIDI path unless independent provenance is supplied.
+  Alternative roles and missing annotations are masked rather than negative or
+  guessed. Phase 4B must preserve raw-label provenance, exact timing, group
+  integrity, and raw-graph leakage invariance; it cannot special-case one song
+  merely to obtain 100% conversion.
+
+## 2026-07-23 — ADR-031: POP909-CL supersedes original POP909 for production Phase 4B
+
+- Status: Accepted; explicitly supersedes ADR-030 for the production Phase 4B
+  corpus and adapter contract. ADR-030 remains in this append-only log as the
+  incorrect prior decision.
+- Context: ADR-030 misidentified the installed `data/pop909-cl` extraction as
+  an unproven flattened original-POP909 mirror. Complete path/hash comparison
+  proves that all 909 relevant local MIDI files are byte-identical to
+  `POP909_processed` at POP909-CL commit
+  `be9094392903c471a930519e1c0bacf8b6be5d62`. POP909-CL embeds corrected chord
+  blocks in the MIDI rather than external sidecars. The original audit remains
+  scientifically useful, but its external labels, roles, alternatives, and
+  song-043 failure are not production CL facts.
+- Decision: Make `pop909_cl` the primary Phase 4B corpus and use
+  `pop909-cl:<song-id>` for its source group. Retain original POP909 as
+  `pop909_original` with `pop909-original:<song-id>`. If both are later used,
+  matching IDs share `pop909-lineage:<song-id>` and one split. Resolve the
+  combined musical score from the documented channel-0 instrument using
+  measured channel evidence. Treat the documented channel-1 chord instrument
+  as target-only: it cannot enter canonical raw tracks/notes, statistics,
+  graph structure/features, serialization, fingerprints, or inference input.
+  Preserve chord blocks losslessly at exact ticks/PPQN before applying the
+  upstream root/quality/bass normalization; retain unsupported, ambiguous,
+  overlapping, and implicit no-chord evidence. Record target source as human
+  with provenance details `human_corrected` and `expert_reviewed`, without
+  claiming infallible gold or fabricated numeric confidence. Preserve MIDI
+  time/key signatures as source meta-events. Song `172`, not original song
+  `043`, is the unresolved production meter case and remains quarantined until
+  a general partial-bar policy is accepted.
+- Consequences: Complete-file generic-adapter warnings are unsafe diagnostics,
+  not score-quality measurements. AppleDouble extraction noise is excluded
+  from the CL content fingerprint. Missing chord instruments yield unavailable
+  targets rather than negatives; missing/ambiguous instruments are structured
+  failures and are never repaired from pitch range, names, or order. Phase 4B
+  may implement only the score projection and masked target contract; this ADR
+  adds no production adapter or canonical meter special case.
+
+## 2026-07-23 — ADR-032: POP909-CL target semantics separate observation from derivation
+
+- Status: Accepted for Phase 4A; refines ADR-031 without changing the selected
+  corpus or raw/target leakage boundary.
+- Context: The first remediated audit assigned source `human` to normalized
+  chord fields, treated uncovered time after the final chord as `N`, retained
+  pairing anomalies only as counts, and made expected target absence plus the
+  known song-172 meter case fail one undifferentiated readiness flag. Those
+  semantics overstate both annotation coverage and direct human provenance.
+- Decision: Raw channel-1 chord blocks use source `human` with
+  `human_corrected` and `expert_reviewed` details. Root, quality, inversion,
+  and inferred leading/internal `N` use source `derived` with explicit chains
+  through the pinned upstream normalizer or gap-event construction. The
+  upstream-compatible `N` contract has leading/internal spans only; trailing
+  uncovered time is masked/unannotated. Directly observed boundary and bass
+  remain available. Ambiguous root/inversion are unavailable single-label
+  targets, ambiguous quality is available only when all candidates agree, and
+  unsupported root/quality/inversion are unavailable. Pairing anomalies retain
+  exact event and affected-region evidence. Missing chord targets for `367`
+  and `658` are expected masked availability, and `172` is the documented
+  quarantine. Strict output separates `evidence_contract_ready` from
+  `production_adapter_ready`.
+- Consequences: Phase 4A evidence can be ready while production remains
+  unimplemented. The manifest pins 947 derived `N` spans, 151 trailing masked
+  spans, field-specific availability counts, and the exact anomaly-evidence
+  fingerprint. Phase 4B must implement this contract without adding chord
+  evidence to raw inputs or special-casing song `172`.
+
+## 2026-07-23 — ADR-033: Phase 4B MVP retains the documented song-172 quarantine
+
+- Status: Accepted; closes the Phase 4A readiness question left open by
+  ADR-031 and ADR-032.
+- Context: The adapter contract already permits retaining song `172` as a
+  documented quarantine, but readiness metadata still named a pending general
+  partial-bar-meter policy as a production blocker. That made an optional
+  future enhancement appear mandatory for the Phase 4B MVP.
+- Decision: Lock the Phase 4B MVP score policy to accept the 908 generic
+  score-only conversions and quarantine song `172` under the observed
+  `midi_adapter.meter_change_inside_bar` condition. A general partial-bar meter
+  policy requires a later recorded decision and is not an MVP dependency. The
+  strict audit retains `evidence_contract_ready=true`, reports
+  `production_adapter_ready=false`, and names only
+  `phase_4b_production_adapter_not_implemented` as a production blocker.
+- Consequences: Phase 4B can implement the evidence-backed adapter without a
+  meter-semantics expansion or a song-specific repair. Production acceptance
+  is 908/909 for the MVP, with `172` preserved as explicit provenance-bearing
+  quarantine evidence. No adapter, graph, model, or meter code is added by
+  this decision.

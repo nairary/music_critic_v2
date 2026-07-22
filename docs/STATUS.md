@@ -2,7 +2,7 @@
 
 ## Current phase
 
-- Date: 2026-07-22
+- Date: 2026-07-23
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -35,7 +35,111 @@
   `1d8a5ecf217ebd466018a1f845eedfab7e1f7828`
 - Phase 3A: Completed
 - Phase 3A branch: `phase/3a-raw-graph-contract`
-- Next phase: Phase 4 — POP909 adapter
+- Phase 4A: Completed
+- Phase 4A branch: `phase/4a-pop909-evidence-contract`
+- Phase 4A POP909-CL identity/leakage remediation: Completed
+- Phase 4A POP909-CL semantic remediation: Completed
+- Next phase: Phase 4B — production POP909-CL adapter implementation
+
+## Phase 4A POP909-CL remediation result
+
+- Corrected the production corpus identity to `pop909_cl`, specifically
+  `POP909_processed` at upstream commit
+  `be9094392903c471a930519e1c0bacf8b6be5d62`. All 909 installed MIDI files
+  match upstream byte-for-byte. Content fingerprint:
+  `b34f07d9a2678abdb6f0dcf5db1c3aec3f35caca813f1fac80c0717cfc8e0c65`.
+- Separated 910 AppleDouble files from the 909-file content contract. The full
+  1,819-file installation fingerprint remains
+  `af623705a375c419751e4ba6456224b8b700f50fc1a09a32af57e1620d1ff4dd`.
+- Measured one unique channel-0 combined-score instrument in every file and a
+  unique channel-1 chord instrument in 907. Songs `367` and `658` have no
+  chord instrument; their structured `missing_chord_instrument` observations
+  map to expected all-false chord-target availability rather than fatal corpus
+  failures.
+- Added a score-only projection boundary. Channel-1 chord notes cannot enter
+  canonical musical tracks/notes, raw statistics, graph structure/features,
+  serialization, fingerprints, or inference inputs. Synthetic chord mutation,
+  replacement, and deletion leave projected bytes, canonical score content,
+  and raw graph fingerprints unchanged.
+- Score-only generic conversion is 908/909. Song `172` is the sole conversion
+  failure: its 4/4→6/8 event at tick 85,080 is 600 ticks inside the active
+  1,920-tick bar. The later 6/8→4/4 event is also 480 ticks inside its segment
+  bar. The Phase 4B MVP policy is locked to preserve `172` as the sole
+  quarantine at 908/909 accepted coverage; a general partial-bar policy is an
+  optional later enhancement.
+- Score-only warnings total 126,163, including 123,439 same-pitch overlaps.
+  Unsafe complete-file diagnostics total 126,605, including 123,873 overlaps
+  and eight chord-note pairing warnings. The channel-1 contamination delta is
+  434 overlaps plus those eight warnings; the remaining high count belongs to
+  the flattened combined score and remains event-level rather than file-level.
+- Audited 116,055 exact-tick chord blocks: 109,668 unambiguously supported,
+  5,801 ambiguous, and 586 unsupported. The report preserves 261 raw
+  pitch-class sets, 340 selected root/quality/bass labels, 947 upstream-compatible
+  leading/internal `N` spans, 151 trailing masked/unannotated spans, 691
+  overlaps, 87 repeated-pitch blocks, and 313 mixed-end blocks.
+- Split provenance correctly: raw chord blocks, directly observed boundary,
+  and bass use source `human` with `human_corrected`/`expert_reviewed`; normalized
+  root/quality/inversion and inferred `N` use source `derived` with pinned
+  upstream derivation chains.
+- Added task masks: boundary/bass 116,055 available; root/inversion 109,668
+  available and 6,387 unavailable; quality 109,800 available and 6,255
+  unavailable; `N` 947 available with 151 trailing spans unavailable.
+- Preserved the four dangling note-ons and four unmatched note-offs as exact
+  event evidence with tick, pitch, velocity/channel, ordinal, path/hash, and
+  affected block/span markers. Manifest evidence SHA-256:
+  `d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`.
+- Strict readiness now reports `evidence_contract_ready=true` separately from
+  `production_adapter_ready=false`; the unimplemented Phase 4B adapter is the
+  sole production blocker because the song-172 MVP quarantine policy is locked.
+- Original POP909 is retained under `pop909_original` only for
+  lineage/ablation evidence. CL and original use separate source groups and
+  share `pop909-lineage:<song-id>` when both appear in a later split.
+- No production adapter, canonical-meter change, dataset/split, graph schema,
+  model, SSL, training, or inference code was added.
+
+## Phase 4A remediation verification
+
+Final pre-merge verification after locking the song-172 MVP quarantine:
+
+- Fresh complete 909-file integration from the final manifest, with no
+  `MUSIC_CRITIC_POP909_CL_EXISTING_REPORT`: `1 passed in 220.73s`. The new
+  `/tmp` report independently reproduced 909/909 upstream matches, the
+  909-entry corpus-wide block-count distribution, 908 accepted scores plus the
+  `172` quarantine, `evidence_contract_ready=true`, and only
+  `phase_4b_production_adapter_not_implemented` as a production blocker.
+- Full default suite: `478 passed, 11 skipped, 2 warnings in 3.33s`.
+- `.venv/bin/python -m compileall -q src scripts tests`: passed.
+- `git diff --check`, manifest JSON parsing, and empty adapter/graph diff:
+  passed.
+
+Semantic-remediation verification on top of `65f6580`:
+
+- Focused CL/original/repository plus saved-report acceptance:
+  `20 passed, 2 warnings in 4.96s`.
+- The single permitted new 909-file pass completed the audit, then the test
+  stopped at the intentionally stale manifest key: `1 failed in 216.16s`.
+  It was not rerun. Corrected aggregates were reconstructed deterministically
+  from the existing detailed Phase 4A report, with only the four already-known
+  anomaly files (`076`, `084`, `086`, `088`) reparsed for exact event evidence.
+- Updated-manifest acceptance using that `/tmp` report:
+  `1 passed in 3.16s`.
+- Full default suite: `478 passed, 11 skipped, 2 warnings in 3.65s`.
+- `.venv/bin/python -m compileall -q src scripts tests`: passed.
+- `git diff --check`: passed; the production-adapter diff remains empty.
+
+- Focused original-lineage, CL synthetic/invariance, and repository-contract
+  suites: `18 passed, 2 warnings`; warnings are the
+  existing upstream PyTorch deprecations.
+- Single explicit full POP909-CL audit/integration:
+  `1 passed in 210.85s`; detailed output was written only under `/tmp` and was
+  not committed.
+- Final manifest was revalidated from that existing report without a second
+  corpus parse: `1 passed in 1.06s`.
+- Full default suite: `477 passed, 11 skipped, 2 warnings in 3.36s`; real-data
+  integrations remain explicitly gated.
+- `.venv/bin/python -m compileall -q src scripts tests`: passed.
+- `git diff --check`: passed with no output.
+- `git diff -- src/music_critic/adapters`: empty.
 
 ## Phase 3A raw graph result
 
@@ -500,12 +604,13 @@ All commands used the project-local Python 3.13.5 interpreter at
 
 Both source datasets were read recursively and remained unmodified.
 
-- POP909 root:
+- POP909-CL complete-file diagnostic root:
   `/home/str/music-critic-v2/data/pop909-cl/POP909_processed/POP909_processed`.
-- POP909 recursive discovery: `files_seen=909`.
-- POP909 100-file spread smoke: `attempted=100`, `converted=100`, `failed=0`,
+- POP909-CL recursive discovery: `files_seen=909`.
+- POP909-CL unsafe complete-file 100-file spread smoke: `attempted=100`,
+  `converted=100`, `failed=0`,
   `warnings=14475`, `notes=209228`, `tracks=300`, `type_0=0`, `type_1=100`.
-- POP909 selected-path coverage: `selected_parent_dirs=1`,
+- POP909-CL selected-path coverage: `selected_parent_dirs=1`,
   `selected_min_depth=1`, `selected_max_depth=1`.
 - PDMX root: `/home/str/music-critic-v2/data/pdmx/mid`.
 - PDMX recursive discovery: `files_seen=254035` across the complete branched
