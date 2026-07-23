@@ -574,20 +574,29 @@ This log is append-only.
 - Decision: Treat HookTheory and POP909-CL chord annotations as target-only
   auxiliary harmonic supervision. Direct annotations may produce explicitly
   provenance-linked derived harmonic targets, including pitch-class/set
-  representations. Any target-derived note realization is forbidden in raw
-  canonical tracks/notes, graph features/topology, serialization, fingerprints,
-  caches, and inference. A derived realization is a target-only diagnostic or
-  experimental view, not actual accompaniment ground truth. Chord prediction
-  is an auxiliary semantic task and classifier confidence is not a harmony
-  quality metric. Role-agnostic probabilistic completion and normalized PLL
-  remain future design-and-ablation questions. Production inference requires
-  neither melody, accompaniment, chord, bass, voice, nor staff roles.
+  representations. Bass and inversion are separate target families with
+  independent availability masks; a joint or factorized head is a future
+  ablation that must preserve both masks. Any target-derived note realization
+  is forbidden in raw canonical tracks/notes, graph features/topology,
+  raw-input serialization, graph serialization, raw-input cache identity,
+  graph fingerprints, and inference. Derived targets may be serialized in
+  separate target/annotation/diagnostic artifacts with provenance, but those
+  artifacts cannot define raw/graph identity or enter inference. A derived
+  realization is a target-only diagnostic or experimental view, not actual
+  accompaniment ground truth. Chord prediction is an auxiliary semantic task
+  and classifier confidence is not a harmony quality metric. Role-agnostic
+  probabilistic completion and normalized PLL remain future
+  design-and-ablation questions. Production inference requires neither melody,
+  accompaniment, chord, bass, voice, nor staff roles.
 - Consequences: HookTheory melody-only graphs and POP909-CL channel-0
   combined-score graphs may train shared harmonic heads through
   dataset-specific masks, annotation views, and per-target provenance. Missing
   or ambiguous labels remain unavailable rather than negative. Representation
   reconstruction, masked conditional likelihood, actual accompaniment
   likelihood, and the preference/quality critic remain separate objectives.
+  Phases 7–8 validate SSL mechanics on bounded pre-PDMX data; Phase 10 must
+  enable full-scale rerun and evaluation of their accepted objectives on the
+  PDMX raw-compatible corpus before scaled SSL conclusions.
   This decision changes no schema, adapter, graph, audit, model, or inference
   implementation; the complete contract and deferred questions are in
   `docs/HARMONIC_SUPERVISION.md`.

@@ -52,10 +52,17 @@ POP909-CL channel-0 combined-score raw graph -> shared encoder -> harmonic predi
 HookTheory chord annotations and POP909-CL channel-1 chord blocks are
 target-only auxiliary harmonic supervision. Direct annotations may produce
 derived harmonic targets such as root, quality, pitch-class set,
-bass/inversion, boundary/span, and no-chord under dataset-specific availability
-masks and annotation views. A derivation is safe while it remains target-only;
-target-derived notes or blocks must not affect raw canonical content, graph
-features/topology, serialization, fingerprints, caches, or inference.
+bass, inversion, boundary/span, and no-chord under dataset-specific availability
+masks and annotation views. Bass and inversion are separate target families
+with independent masks; a joint or factorized head is a future ablation. A
+derivation is safe while it remains target-only. Target-derived notes or blocks
+must not affect raw canonical content, graph features/topology, raw-input
+serialization, graph serialization, raw-input cache identity, graph
+fingerprints, or inference.
+
+Derived targets may be serialized in separate target, annotation, or diagnostic
+artifacts with provenance. Such artifacts remain outside raw-input/graph
+serialization and identity and are not production inference input.
 
 The architecture keeps four questions separate: harmonic-semantic recognition,
 melody-conditioned harmonization, likelihood of actual performed/score notes
@@ -67,6 +74,11 @@ A probabilistic masked-note/pitch-set decoder and deterministic
 pseudo-log-likelihood protocol are future design-and-ablation work. They are
 separate from representation reconstruction and from the future
 preference/quality critic.
+
+Phases 7–8 validate SSL mechanics on bounded pre-PDMX data. Phase 10 adds the
+PDMX raw-compatible projection and must enable a full-scale rerun/evaluation of
+the accepted Phase 7–8 objectives before scaled SSL or later adaptive-objective
+claims.
 
 ## Diagnostic export boundary
 

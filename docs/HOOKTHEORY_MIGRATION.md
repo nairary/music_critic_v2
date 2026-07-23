@@ -252,12 +252,14 @@ POP909-CL where semantics align. The complete cross-dataset contract is in
 
 The current raw observation remains the adapter's isolated melody. Future
 derived harmonic targets may include chord boundary/presence, root, quality, a
-12-dimensional pitch-class set, bass/inversion when available, span/duration,
-and supported decorations or functional fields. They require dataset-specific
-availability masks, annotation views, and per-target provenance. One annotated
-chord sequence is one observed melody-conditioned harmonization; single-label
-cross-entropy must not be interpreted as evidence that no other harmonization
-is valid.
+12-dimensional pitch-class set, bass when available, inversion when available,
+span/duration, and supported decorations or functional fields. Bass and
+inversion are separate target families with independent availability masks; a
+joint or factorized head is only a future ablation. All targets require
+dataset-specific availability masks, annotation views, and per-target
+provenance. One annotated chord sequence is one observed melody-conditioned
+harmonization; single-label cross-entropy must not be interpreted as evidence
+that no other harmonization is valid.
 
 Deriving a pitch-class set or target-only diagnostic rendering is not by itself
 leakage. Any derived value must use source `derived`, reference the direct
@@ -268,9 +270,12 @@ actual performed/score accompaniment and is not independent human ground
 truth.
 
 No target-derived notes may enter raw canonical tracks/notes, graph
-features/topology, serialization, fingerprints, caches, or inference, even if
-track names or roles are removed. This documentation change adds no renderer,
-new target arrays, adapter behavior, or model code.
+features/topology, raw-input serialization, graph serialization, raw-input
+cache identity, graph fingerprints, or inference, even if track names or roles
+are removed. Derived targets may be serialized separately in target,
+annotation, or diagnostic artifacts when provenance is retained; those
+artifacts remain outside raw/graph identity and inference. This documentation
+change adds no renderer, new target arrays, adapter behavior, or model code.
 
 ## Unresolved issues
 

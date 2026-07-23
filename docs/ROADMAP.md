@@ -270,7 +270,8 @@ The model and training phases remain pending.
 - Dependencies: adapter and graph phases.
 - Outputs: datasets, samplers, collator, task routing, a common harmonic target
   ontology, dataset-specific annotation views, availability masks, and
-  per-target provenance for mixed HookTheory/POP909-CL batches.
+  per-target provenance for mixed HookTheory/POP909-CL batches; bass and
+  inversion are separate target families with independent masks.
 - Tests: masks, empty/ambiguous tasks, no unavailable-as-negative conversion,
   lineage-safe grouping, dataset balancing, deterministic sampling.
 - Non-goals: advanced SSL.
@@ -282,8 +283,9 @@ The model and training phases remain pending.
 - Goal: implement the minimum hybrid encoder.
 - Dependencies: Phase 5.
 - Outputs: feature encoder, local GNN, pooling, bar Transformer, fusion, and
-  auxiliary boundary/root/quality/pitch-class-set/bass-inversion/no-chord
-  heads.
+  auxiliary boundary, root, quality, pitch-class-set, bass, inversion, and
+  no-chord heads. A joint or factorized bass/inversion head remains an ablation
+  and must preserve both masks.
 - Tests: shapes, empty node types, checkpoint round trip, one-batch overfit.
 - Non-goals: GraphMAE2/Hi-GMAE/UGMAE extensions.
 - Acceptance: a small raw graph batch trains end to end with masked harmonic
@@ -300,7 +302,8 @@ The model and training phases remain pending.
 - Non-goals: quality scoring.
 - Acceptance: tiny reconstruction overfit and stable held-out metrics;
   reconstruction loss is reported separately from masked conditional
-  likelihood, and no final probability factorization is assumed.
+  likelihood, and no final probability factorization is assumed. Before PDMX,
+  Phase 7 validates SSL mechanics only rather than full-scale effectiveness.
 
 ## Phase 8 — Hi-GMAE-style hierarchical masking
 
@@ -311,7 +314,8 @@ The model and training phases remain pending.
 - Tests: descendant masks, non-degenerate views, level-specific losses.
 - Non-goals: theory corpus integration.
 - Acceptance: hierarchical masking works on variable graph sizes and exact
-  objective families remain independently ablatable.
+  objective families remain independently ablatable. Before PDMX, Phase 8
+  validates hierarchy/masking mechanics only.
 
 ## Phase 9 — Dilemmadata adapter and theory supervision
 
@@ -330,11 +334,16 @@ The model and training phases remain pending.
 - Goal: support scalable role-agnostic public-domain score pretraining and
   future actual-score completion through a raw-MIDI-compatible projection.
 - Dependencies: SSL and canonical cache contracts.
-- Outputs: PDMX adapter, filters, windowed/versioned cache.
-- Tests: timing conversion, invalid-score filtering, cache compatibility.
+- Outputs: PDMX adapter, filters, windowed/versioned cache, and full-scale
+  rerun/evaluation entry points for the accepted Phase 7–8 SSL objectives on
+  the PDMX raw-compatible corpus.
+- Tests: timing conversion, invalid-score filtering, cache compatibility, and
+  reproducible scaled SSL evaluation configuration.
 - Non-goals: using ratings as absolute quality labels.
 - Acceptance: a small licensed subset preprocesses reproducibly and optional
-  notation/role metadata can be removed without changing mandatory inputs.
+  notation/role metadata can be removed without changing mandatory inputs;
+  accepted Phase 7–8 objectives are rerun and evaluated at full scale before
+  scaled SSL or Phase 11 objective conclusions.
 
 ## Phase 11 — UGMAE-inspired adaptive and structural objectives
 

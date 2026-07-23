@@ -80,8 +80,14 @@ channel/program is changed, its semantic role is omitted, or its notes are
 presented as ordinary note nodes. Pitch content, onset, duration, voicing, and
 regular block structure can identify the answer. Consequently target-derived
 information must not affect raw canonical musical content, raw statistics,
-graph features, graph topology, serialization, cache identity, fingerprints,
-or any production inference path.
+graph features, graph topology, raw-input serialization, graph serialization,
+raw-input cache identity, graph fingerprints, or any production inference
+path.
+
+Derived targets may be serialized separately in target, annotation, or
+diagnostic artifacts when they retain availability and provenance. Those
+artifacts must remain outside raw-input/graph serialization and identity, and
+must not be consumed as production inference input.
 
 Deriving a target representation is not itself leakage. Leakage occurs when
 the derived target crosses this boundary into model input or input identity.
@@ -114,7 +120,8 @@ Future common harmonic target families may include:
 - quality;
 - a 12-dimensional pitch-class multi-hot or equivalent set-valued target;
 - raw pitch multiset where the source directly provides it;
-- bass pitch class and inversion when available;
+- bass pitch class when available;
+- inversion when available;
 - no-chord state;
 - decorations, applied/borrowed, and functional fields only after their
   semantics are supported;
@@ -132,6 +139,12 @@ references the direct annotation as a provenance parent, and records the
 deterministic normalizer or renderer version. Alternative legitimate analyses
 remain separate annotation views unless the source supplies a probability
 distribution.
+
+Bass and inversion are separate target families with independent availability
+masks. Observed bass does not make a derived inversion available, and an
+available inversion does not imply that bass was directly observed. A joint or
+factorized bass/inversion head may be evaluated later, but it must preserve the
+two masks and is not selected by this contract.
 
 A conversion such as:
 
@@ -154,9 +167,10 @@ Future modeling has two distinct levels.
 ### Level 1: harmonic semantics and planning
 
 Shared auxiliary heads may predict boundary, root, quality, pitch-class set,
-bass/inversion, and no-chord, followed later by local key, Roman numeral, and
-cadence. HookTheory and POP909-CL are complementary sources; Dilemmadata may
-add theory supervision in its later roadmap phase.
+bass, inversion, and no-chord, followed later by local key, Roman numeral, and
+cadence. Bass and inversion retain separate availability masks. HookTheory and
+POP909-CL are complementary sources; Dilemmadata may add theory supervision in
+its later roadmap phase.
 
 This level asks: **what harmony is present or suitable in this context?** It
 does not assign a normalized probability to a particular accompaniment
@@ -254,6 +268,12 @@ Exact hierarchical and adaptive objectives must also be compared rather than
 assumed equivalent: coherent onset/beat/bar-span masks, pitch-only masks with
 rhythm visible, and track/span masks can answer different questions.
 
+Phases 7 and 8 validate SSL masking, reconstruction, latent-target, and
+hierarchical mechanics on bounded pre-PDMX data; they do not establish
+full-scale corpus effectiveness. Phase 10 must enable a full-scale rerun and
+evaluation of the accepted Phase 7–8 objectives on the PDMX raw-compatible
+corpus before scaled SSL claims or Phase 11 objective conclusions are made.
+
 ## 9. Limitations
 
 - HookTheory provides one annotated harmonization per clip and no actual
@@ -274,6 +294,8 @@ rhythm visible, and track/span masks can answer different questions.
 This documentation decision does not choose or implement:
 
 - the final common harmonic vocabulary or target tensor layouts;
+- whether a joint or factorized bass/inversion head improves on separate heads
+  while preserving independent masks;
 - HookTheory pitch-class-set derivation or a chord renderer;
 - POP909-CL Phase 4B adapter behavior beyond its accepted contract;
 - handling of HookTheory applied harmony or unresolved decorations;
