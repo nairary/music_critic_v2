@@ -33,6 +33,41 @@ flags, tempo and meter events, track membership, and deterministic statistics.
 Optional score metadata must carry availability information and be droppable.
 Theory annotations are auxiliary targets rather than required encoder inputs.
 
+Production inference is role-agnostic: melody, accompaniment, bass, chord,
+voice, and staff labels are not mandatory encoder inputs. Future training and
+evaluation must test track permutation/merging, metadata removal, single-track
+polyphony, multitrack inputs, and unreliable or absent metadata. Track roles
+may be predicted as auxiliary targets.
+
+## Harmonic supervision and quality boundary
+
+The accepted cross-dataset contract is specified in
+[`HARMONIC_SUPERVISION.md`](HARMONIC_SUPERVISION.md). The safe shared paths are:
+
+```text
+HookTheory melody-only raw graph -> shared encoder -> harmonic predictions
+POP909-CL channel-0 combined-score raw graph -> shared encoder -> harmonic predictions
+```
+
+HookTheory chord annotations and POP909-CL channel-1 chord blocks are
+target-only auxiliary harmonic supervision. Direct annotations may produce
+derived harmonic targets such as root, quality, pitch-class set,
+bass/inversion, boundary/span, and no-chord under dataset-specific availability
+masks and annotation views. A derivation is safe while it remains target-only;
+target-derived notes or blocks must not affect raw canonical content, graph
+features/topology, serialization, fingerprints, caches, or inference.
+
+The architecture keeps four questions separate: harmonic-semantic recognition,
+melody-conditioned harmonization, likelihood of actual performed/score notes
+and voicing, and preference/quality assessment. A target-only diagnostic
+rendering is not actual accompaniment. Chord classifier confidence and SSL
+reconstruction loss are not quality scores.
+
+A probabilistic masked-note/pitch-set decoder and deterministic
+pseudo-log-likelihood protocol are future design-and-ablation work. They are
+separate from representation reconstruction and from the future
+preference/quality critic.
+
 ## Diagnostic export boundary
 
 `music_critic.exporters` is an output-only sibling of `music_critic.adapters`.

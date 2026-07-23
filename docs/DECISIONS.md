@@ -561,3 +561,33 @@ This log is append-only.
   is 908/909 for the MVP, with `172` preserved as explicit provenance-bearing
   quarantine evidence. No adapter, graph, model, or meter code is added by
   this decision.
+
+## 2026-07-23 — ADR-034: Harmonic annotations are target-only semantics, not accompaniment quality
+
+- Status: Accepted.
+- Context: HookTheory supplies melody-conditioned chord annotations while
+  POP909-CL supplies expert-reviewed/human-corrected chord blocks describing
+  harmony in a channel-0 combined score. Both can supervise shared harmonic
+  concepts, but neither target representation should be mistaken for raw input,
+  actual performed/score accompaniment, or a quality judgment. Arbitrary MIDI
+  also cannot be assumed to carry reliable semantic track roles.
+- Decision: Treat HookTheory and POP909-CL chord annotations as target-only
+  auxiliary harmonic supervision. Direct annotations may produce explicitly
+  provenance-linked derived harmonic targets, including pitch-class/set
+  representations. Any target-derived note realization is forbidden in raw
+  canonical tracks/notes, graph features/topology, serialization, fingerprints,
+  caches, and inference. A derived realization is a target-only diagnostic or
+  experimental view, not actual accompaniment ground truth. Chord prediction
+  is an auxiliary semantic task and classifier confidence is not a harmony
+  quality metric. Role-agnostic probabilistic completion and normalized PLL
+  remain future design-and-ablation questions. Production inference requires
+  neither melody, accompaniment, chord, bass, voice, nor staff roles.
+- Consequences: HookTheory melody-only graphs and POP909-CL channel-0
+  combined-score graphs may train shared harmonic heads through
+  dataset-specific masks, annotation views, and per-target provenance. Missing
+  or ambiguous labels remain unavailable rather than negative. Representation
+  reconstruction, masked conditional likelihood, actual accompaniment
+  likelihood, and the preference/quality critic remain separate objectives.
+  This decision changes no schema, adapter, graph, audit, model, or inference
+  implementation; the complete contract and deferred questions are in
+  `docs/HARMONIC_SUPERVISION.md`.

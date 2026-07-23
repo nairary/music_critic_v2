@@ -74,6 +74,14 @@ Raw graph leakage tests must compare identical score projections after chord
 mutation and require identical canonical score tracks/notes and graph
 fingerprints. Annotation evidence must change independently.
 
+For downstream use alongside HookTheory, the shared auxiliary-target,
+actual-accompaniment, role-agnostic inference, and future PLL boundaries are
+defined in [`HARMONIC_SUPERVISION.md`](HARMONIC_SUPERVISION.md). That document
+does not change this Phase 4B evidence, instrument, mask, provenance,
+acceptance, or leakage contract: channel 0 is the combined polyphonic score;
+channel 1 remains target-only expert-reviewed/human-corrected annotation and is
+not actual performed/score accompaniment.
+
 ## Exact chord-block evidence
 
 Within the uniquely resolved channel-1 instrument, pair note-on/off messages

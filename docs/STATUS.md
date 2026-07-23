@@ -39,7 +39,52 @@
 - Phase 4A branch: `phase/4a-pop909-evidence-contract`
 - Phase 4A POP909-CL identity/leakage remediation: Completed
 - Phase 4A POP909-CL semantic remediation: Completed
+- Harmonic supervision documentation contract: Accepted in ADR-034
+- Documentation branch: `docs/harmonic-supervision-contract`
+- Documentation base commit: `681abbdf331c032e34cc7541224ca98f13e19a86`
 - Next phase: Phase 4B — production POP909-CL adapter implementation
+
+## Harmonic supervision documentation result
+
+- Added `docs/HARMONIC_SUPERVISION.md` as the central contract separating
+  harmonic-semantic recognition, melody-conditioned harmonization, actual
+  performed/score accompaniment likelihood, and preference/quality scoring.
+- HookTheory melody-only raw graphs and POP909-CL channel-0 combined-score raw
+  graphs may later train compatible auxiliary harmonic heads through
+  dataset-specific annotation views, masks, and per-target provenance.
+- HookTheory chord annotations may produce derived root, quality,
+  pitch-class-set, bass/inversion, boundary/span, and supported semantic
+  targets. A derivation is safe while target-only; derived notes remain banned
+  from raw canonical content, graph input/topology, serialization,
+  fingerprints, caches, and inference.
+- POP909-CL Phase 4A/4B evidence, masks, provenance, channel contract, audit
+  counts, acceptance criteria, and song-172 quarantine remain unchanged.
+- Role-agnostic production inference requires no melody, accompaniment, bass,
+  chord, voice, staff, or semantic-segmentation labels. Future robustness work
+  covers track permutation/merging and metadata removal.
+- Masked conditional likelihood and PLL remain future probabilistic-decoder,
+  normalization, calibration, and ablation work. Neither chord confidence nor
+  GraphMAE reconstruction loss is a quality score.
+- Roadmap Phases 5–12 and 14–15 now carry the future ontology, head, masking,
+  corpus-projection, likelihood, critic, inference, and ablation boundaries.
+- No production code, canonical/graph schema, adapters, fixtures, manifests,
+  dependencies, data, models, training, or inference behavior changed. Phase
+  4B and model/PLL implementation were not started.
+
+## Harmonic supervision documentation verification
+
+- `.venv/bin/python -m pytest -q tests/test_repository_contract.py`: `5 passed
+  in 0.08s`.
+- Full default suite: `478 passed, 11 skipped, 2 warnings in 3.23s`; the skips
+  are opt-in real-corpus integrations and the warnings are the existing
+  upstream PyTorch deprecations.
+- `.venv/bin/python -m compileall -q src scripts tests`: passed with no output.
+- `git diff --check`: passed with no output.
+- Semantic terminology/link scan and changed-path checks: passed; every changed
+  or added path is Markdown under `docs/`.
+- No opt-in POP909-CL, HookTheory, original POP909, PDMX, or Dilemmadata corpus
+  scan was run. No MIDI, report, cache, checkpoint, dataset, or generated output
+  was added.
 
 ## Phase 4A POP909-CL remediation result
 

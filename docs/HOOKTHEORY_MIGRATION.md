@@ -242,6 +242,36 @@ IDs, and similar encoded IDs are not raw V2 features. The production adapter
 starts from pre-encoding values and does not expose those IDs as ordinary
 MIDI-observable evidence.
 
+## Future harmonic-supervision use
+
+The accepted migration and Phase 2 results above are unchanged. For later
+dataset/model phases, HookTheory chord annotations are direct source
+annotations that may supervise the same auxiliary harmonic families as
+POP909-CL where semantics align. The complete cross-dataset contract is in
+[`HARMONIC_SUPERVISION.md`](HARMONIC_SUPERVISION.md).
+
+The current raw observation remains the adapter's isolated melody. Future
+derived harmonic targets may include chord boundary/presence, root, quality, a
+12-dimensional pitch-class set, bass/inversion when available, span/duration,
+and supported decorations or functional fields. They require dataset-specific
+availability masks, annotation views, and per-target provenance. One annotated
+chord sequence is one observed melody-conditioned harmonization; single-label
+cross-entropy must not be interpreted as evidence that no other harmonization
+is valid.
+
+Deriving a pitch-class set or target-only diagnostic rendering is not by itself
+leakage. Any derived value must use source `derived`, reference the direct
+HookTheory annotation, and record the deterministic normalizer/renderer
+version. A realization such as `C major -> C3 E3 G3` adds project-selected
+voicing, octave, register, doubling, order, rhythm, and duration. It is not
+actual performed/score accompaniment and is not independent human ground
+truth.
+
+No target-derived notes may enter raw canonical tracks/notes, graph
+features/topology, serialization, fingerprints, caches, or inference, even if
+track names or roles are removed. This documentation change adds no renderer,
+new target arrays, adapter behavior, or model code.
+
 ## Unresolved issues
 
 The Phase 2B.0 audit resolves the canonical meter fraction over the audited
