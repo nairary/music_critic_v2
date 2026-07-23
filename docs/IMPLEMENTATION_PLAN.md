@@ -4,7 +4,9 @@
 > - Legacy commit: `2d8281f31cc9ad9c8fecaf332da0c61e0e949415`
 > - Copied: 2026-07-16
 > - This repository's copy is authoritative for future Music Critic V2 work.
-> - The scientific content below was copied unchanged.
+> - The baseline scientific content was copied unchanged; accepted V2
+>   amendments are recorded in `docs/DECISIONS.md`, including the cross-dataset
+>   contract in `docs/HARMONIC_SUPERVISION.md`.
 
 # Codex Implementation Specification: Music Critic V2
 
@@ -138,6 +140,12 @@ The implementation must first establish a clean data and model foundation.
 ---
 
 # Part II. Core design principles
+
+The terminology and raw/target boundary for harmonic-semantic recognition,
+melody-conditioned harmonization, actual accompaniment likelihood, and
+preference/quality assessment are specified centrally in
+[`HARMONIC_SUPERVISION.md`](HARMONIC_SUPERVISION.md). Those are separate tasks,
+even when they share an encoder.
 
 ## 3. Input/target separation
 
@@ -744,6 +752,17 @@ HookTheory remains a theory-rich pop lead-sheet source. It is not a true multitr
 - Preserve section annotations when present as optional phrase/section targets.
 - Keep `ori_uid` or original-song identity as `source_group_id` so clips from one original song remain in the same split.
 
+The current adapter implements its accepted target list. Future target-ontology
+work may derive chord boundary/presence, root, quality, 12-class pitch-class
+set, bass where available, inversion where available, span/duration, and
+supported decoration or function views. Bass and inversion are separate target
+families with independent availability masks; a joint or factorized head is a
+future ablation. Every derived view remains target-only, uses source `derived`,
+and references the direct HookTheory annotation and normalizer version. It may
+be serialized in a separate target/annotation/diagnostic artifact with
+provenance, but it may not affect raw-input serialization, graph serialization,
+raw-input cache identity, graph fingerprints, or inference.
+
 ### 15.3 Important migration rule
 
 Do not use the already encoded `sd_id`, `root_id`, and similar IDs as raw V2 features. Prefer the canonical pre-encoding HookTheory representation. If only encoded data is available, decode through metadata vocabularies and mark the conversion source.
@@ -754,6 +773,12 @@ Do not use the already encoded `sd_id`, `root_id`, and similar IDs as raw V2 fea
 - chord symbols are semantic annotations, not a MIDI accompaniment track;
 - limited instrumentation;
 - fragments may not provide complete form.
+
+One direct chord annotation is one observed melody-conditioned harmonization;
+it does not establish a unique correct answer. A mechanically realized chord
+adds project-selected voicing, register, doubling, rhythm, and duration and is
+therefore a target-only diagnostic or experimental view, not actual
+performed/score accompaniment.
 
 Use HookTheory for:
 
@@ -772,6 +797,9 @@ strict raw/target boundary inside one MIDI file: a combined musical score is
 the raw observation and embedded corrected chord blocks are auxiliary targets.
 Original POP909 remains lineage and possible future ablation evidence.
 
+The channel-1 annotation instrument is not an ordinary performed accompaniment
+part and POP909-CL is not, on that basis, an accompaniment-generation corpus.
+
 ### 16.2 Instrument and leakage contract
 
 Resolve instruments from the documented channel contract plus measured MIDI
@@ -783,8 +811,11 @@ evidence:
 
 Names and track order are corroborating evidence only. Channel-1 notes, track
 records, end times, and other annotation-dependent content must not enter
-canonical musical tracks/notes, graph structure/features, serialization,
-fingerprints, statistics, or inference input.
+canonical raw musical tracks/notes, graph structure/features, raw-input
+serialization, graph serialization, raw-input cache identity, graph
+fingerprints, raw statistics, or inference input. Separate target, annotation,
+or diagnostic artifacts may serialize the annotation evidence with provenance
+without becoming raw/graph identity or inference input.
 
 ### 16.3 Pipeline
 
@@ -809,10 +840,12 @@ fingerprints, statistics, or inference input.
    `human_corrected` and `expert_reviewed`, and null numeric confidence. Store
    normalized root/quality/inversion and inferred `N` with source `derived`
    and an explicit chain through the pinned upstream normalizer/gap rule.
-10. Apply field-specific masks: boundary/bass remain available when directly
-    observed; ambiguous root/inversion are unavailable single-label targets;
+10. Apply field-specific masks: boundary and bass each remain available when
+    directly observed; ambiguous root and ambiguous inversion are unavailable
+    single-label targets;
     ambiguous quality is available only on candidate agreement; unsupported
-    root/quality/inversion are unavailable.
+    root/quality/inversion are unavailable. Bass and inversion remain separate
+    target families with independent masks.
 11. Use `pop909-cl:<song-id>` as the CL source group and
     `pop909-lineage:<song-id>` to bind original/CL derivatives in later splits.
 
@@ -830,9 +863,15 @@ Retain all of:
 
 - symbolic chord recognition from raw combined score;
 - pop harmony auxiliary supervision;
-- boundary/root/quality/bass ablations;
+- boundary/root/quality/bass/inversion ablations;
 - raw/target leakage evaluation;
 - exact-timing and metadata-correction robustness.
+
+HookTheory and POP909-CL may later route compatible boundary, root, quality,
+pitch-class-set, bass, inversion, and no-chord targets to shared heads through
+dataset-specific availability masks and annotation views. Bass and inversion
+use independent masks; joint/factorized prediction is a future ablation.
+Channel-1 content remains excluded from every raw input and identity path.
 
 ## 17. Dilemmadata adapter
 
@@ -843,6 +882,13 @@ Dilemmadata is the primary source for classical Roman-numeral, local-key, cadenc
 ### 17.2 Input nature
 
 The dataset uses note-wise TSV-like rows. Theory labels may be repeated on all notes active under one harmonic event. The adapter must not create one harmony node per TSV row.
+
+For arbitrary-MIDI-compatible experiments, pitch, onset, duration, and
+compatible meter fields may form the raw projection. Staff, voice, note
+spelling, `step`, `alter`, and `tpc` are optional score evidence and must not be
+assumed available in arbitrary MIDI. Harmony, key, cadence, phrase, Roman
+numeral, and other analysis columns are targets. The exact projection remains
+a Phase 9 design decision.
 
 ### 17.3 Pipeline
 
@@ -891,6 +937,11 @@ When the same score has two legitimate analyses:
 ### 18.1 Purpose
 
 PDMX is primarily a large-scale public-domain score corpus for raw symbolic SSL, instrumentation, multitrack structure, notation, and expressive features. It is not a clean Roman-numeral corpus.
+
+It is also the primary candidate for scalable role-agnostic SSL and future
+actual-score completion through a raw-MIDI-compatible projection. Optional
+score-only fields must remain droppable so they do not become inference
+requirements.
 
 ### 18.2 Initial subset
 
@@ -960,6 +1011,11 @@ It must:
 - derive track statistics;
 - never require key, chord, phrase, or role labels;
 - emit the same canonical schema as training adapters.
+
+It must also work without reliable melody, accompaniment, bass, chord, voice,
+or staff roles. Future robustness evaluation covers track permutation,
+name/metadata/program/channel removal, track merging and justified splitting,
+single-track polyphony, and multitrack inputs.
 
 All labeled validation corpora must be evaluable through this raw MIDI path with labels hidden.
 
@@ -1085,7 +1141,7 @@ Never report only accuracy for cadence or rare harmony classes.
 
 ## 25. Dataset mixture sampling
 
-PDMX must not numerically drown out HookTheory, POP909, and Dilemmadata.
+PDMX must not numerically drown out HookTheory, POP909-CL, and Dilemmadata.
 
 Support sampling modes:
 
@@ -1631,7 +1687,10 @@ Use membership edges and batch indices for efficient scatter/gather. Avoid Pytho
 - chord boundary/change;
 - root;
 - quality;
-- bass/inversion;
+- pitch-class set;
+- bass;
+- inversion;
+- no-chord;
 - Roman numeral components;
 - local key.
 
@@ -1659,11 +1718,22 @@ Avoid one enormous flat Roman-numeral class if possible. Predict factorized fiel
 - mode;
 - scale degree;
 - chord quality;
+- bass pitch class;
 - inversion;
 - secondary/applied degree;
 - borrowed/modal status.
 
 Also retain an optional flat-label head for direct benchmark comparison.
+
+The common auxiliary subset across HookTheory and POP909-CL is boundary,
+root, quality, pitch-class set, bass, inversion, and no-chord, subject to actual
+per-entry availability. Bass and inversion are separate target families with
+independent masks. A joint or factorized head remains a future ablation and
+must not collapse availability. HookTheory supplies melody-conditioned
+semantics; POP909-CL supplies recognition targets for harmony already present
+in its channel-0 combined score. Dataset-specific annotation views preserve
+differences and ambiguity; absence or an unavailable single-label target is
+never a negative.
 
 ## 43. Using theory predictions in quality scoring
 
@@ -1765,6 +1835,22 @@ Possible SSL diagnostics:
 
 These may correlate with internal coherence but must not be presented as objective musical quality without validation.
 
+Representation reconstruction is distinct from masked conditional likelihood.
+A future probabilistic note/pitch-set decoder must emit normalized
+distributions under a deterministic inference-safe masking protocol before a
+normalized pseudo-log-likelihood can be claimed. At minimum, normalize by the
+number of predicted events and audit dependence on length, density, genre, and
+complexity. Conceptually:
+
+```text
+PLL_harmony(X) = mean_i log p(pitch_i | X without masked event/span i)
+```
+
+The factorization, masking unit, and calibration require a design gate before
+implementation. PLL may measure commonness rather than quality and remains an
+input to future ablation, not a production quality API. Chord classifier
+confidence likewise is not a harmony-quality score.
+
 ---
 
 # Part XIII. Audio-aesthetic integration
@@ -1833,7 +1919,7 @@ Do not use only the student indefinitely during RL.
 Datasets:
 
 - migrated HookTheory;
-- POP909 small subset;
+- POP909-CL channel-0 small subset;
 - tiny synthetic fixtures.
 
 Objectives:
@@ -1842,14 +1928,14 @@ Objectives:
 
 Exit criterion:
 
-- same raw graph interface works for HookTheory, POP909, and generic MIDI.
+- same raw graph interface works for HookTheory, POP909-CL, and generic MIDI.
 
 ## 53. Stage 1: basic masked SSL
 
 Datasets:
 
-- POP909;
-- small PDMX subset;
+- POP909-CL channel-0 scores;
+- tiny synthetic and generic-MIDI fixtures;
 - optionally HookTheory/Dilemmadata raw notes.
 
 Model:
@@ -1887,7 +1973,7 @@ Datasets:
 
 - Dilemmadata;
 - HookTheory;
-- POP909.
+- POP909-CL.
 
 Losses activated by target masks.
 
@@ -2003,6 +2089,11 @@ ordinary MIDI
 ```
 
 No ground-truth theoretical fields are supplied.
+
+No melody, accompaniment, bass, chord, voice, staff, or other semantic role is
+required. Track-role predictions may be returned as auxiliary outputs, but the
+encoder path must remain valid after names and optional metadata are removed
+or tracks are merged into a single polyphonic stream.
 
 ## 65. Soft intermediate predictions
 
@@ -2142,12 +2233,24 @@ Use:
 ## 73. Required data ablations
 
 1. HookTheory only;
-2. HookTheory + POP909;
+2. HookTheory + POP909-CL;
 3. plus Dilemmadata;
 4. plus PDMX SSL;
 5. transposition off/on;
 6. class balancing off/on;
 7. pseudo-labels off/on.
+
+Harmonic-supervision and likelihood claims additionally require:
+
+1. no chord supervision;
+2. HookTheory-only chord supervision;
+3. POP909-CL-only chord supervision;
+4. combined HookTheory + POP909-CL chord supervision;
+5. label-only versus pitch-class-set harmonic heads;
+6. SSL reconstruction without PLL versus a probabilistic PLL variant;
+7. PLL alone versus PLL plus the preference/quality critic;
+8. track permutation/merging/metadata-removal sensitivity;
+9. melody-only versus combined-score versus heterogeneous raw-MIDI evaluation.
 
 ---
 
@@ -2315,16 +2418,24 @@ structure and is converted to `float32` only at feature-tensor construction.
 ### Tasks
 
 - load canonical files from multiple datasets;
+- define a common harmonic target ontology with dataset-specific annotation
+  views, availability masks, and per-target provenance, including distinct
+  bass and inversion families with independent masks;
+- route mixed HookTheory and POP909-CL batches without converting unavailable
+  or ambiguous targets to negative labels;
 - support dataset mixture probabilities;
 - collate graphs, targets, masks, confidence, and provenance;
 - support deterministic worker seeds;
-- implement stats by dataset.
+- implement stats by dataset;
+- preserve source- and lineage-safe grouping before sampling or splitting.
 
 ### Acceptance criteria
 
 - one batch can contain different datasets;
 - missing tasks do not produce loss;
-- PDMX-like no-harmony sample and HookTheory sample collate together.
+- PDMX-like no-harmony sample and HookTheory sample collate together;
+- compatible HookTheory and POP909-CL harmonic targets reach shared tasks only
+  where their masks are true.
 
 ## Phase 6. MusicCriticV2 baseline architecture
 
@@ -2335,7 +2446,9 @@ structure and is converted to `float32` only at feature-tensor construction.
 - hierarchy pooling;
 - bar+track Transformer;
 - song embedding;
-- simple raw reconstruction heads.
+- simple raw reconstruction heads;
+- auxiliary harmonic heads for boundary, root, quality, pitch-class set, bass,
+  inversion, and no-chord, with separate bass and inversion target masks.
 
 ### Do not yet implement
 
@@ -2350,6 +2463,11 @@ structure and is converted to `float32` only at feature-tensor construction.
 - no Python loop over every note in score-head computation;
 - gradients flow through all mandatory node types;
 - one-batch overfit test passes for reconstruction.
+- harmonic-head losses are mask-routed and their logits are not called quality
+  scores.
+
+Phase 6 remains a baseline encoder plus auxiliary semantics; it does not
+implement the preference/quality critic.
 
 ## Phase 7. GraphMAE2-style SSL
 
@@ -2361,19 +2479,33 @@ structure and is converted to `float32` only at feature-tensor construction.
 - latent prediction at song and bar levels;
 - switchable EMA target encoder.
 
+Keep representation reconstruction separate from an optional future
+probabilistic masked-note/pitch-set decoder. Before implementing the latter,
+record a design gate for normalized distributions, event/span factorization,
+deterministic inference-safe evaluation masking, and PLL normalization. Phase 7
+does not preselect a final likelihood factorization.
+
+Because the production PDMX adapter/cache arrives in Phase 10, Phase 7 validates
+SSL mechanics only on bounded pre-PDMX corpora and synthetic/generic-MIDI
+fixtures. It does not establish full-scale SSL effectiveness.
+
 ### Acceptance criteria
 
 - masked fields are not visible to online encoder;
 - loss decreases on tiny dataset;
 - decoder views differ deterministically by seed;
 - latent target has stop-gradient;
-- comparison against simple V1-like masking is logged.
+- comparison against simple V1-like masking is logged;
+- reports distinguish SSL reconstruction loss from any probabilistic masked
+  conditional likelihood or PLL metric.
 
 ## Phase 8. Hi-GMAE-style hierarchy
 
 ### Implement
 
 - bar-span masks;
+- coherent onset/beat/bar-span masks;
+- pitch-only masks that leave rhythm visible as an explicit ablation;
 - track masks/dropout;
 - coarse-to-fine `MaskPlan` projection;
 - bar and track latent recovery;
@@ -2385,6 +2517,11 @@ structure and is converted to `float32` only at feature-tensor construction.
 - decoder receives visible hierarchy correctly;
 - per-level losses are logged;
 - one-batch overfit test for bar masking passes.
+- mask families remain separately configurable for ablation.
+
+Like Phase 7, Phase 8 validates masking and hierarchical recovery mechanics on
+bounded pre-PDMX data. Its accepted objectives must be rerun at scale after the
+Phase 10 PDMX raw-compatible corpus/cache exists.
 
 ## Phase 9. Dilemmadata adapter and theory heads
 
@@ -2397,6 +2534,8 @@ structure and is converted to `float32` only at feature-tensor construction.
 - cadence/phrase/section targets;
 - alternate-analysis provenance;
 - theory heads and loss routing.
+- a documented raw-MIDI-compatible projection that does not assume staff,
+  voice, note spelling, `step`, `alter`, or `tpc` availability.
 
 ### Acceptance criteria
 
@@ -2404,7 +2543,9 @@ structure and is converted to `float32` only at feature-tensor construction.
 - alternative analyses remain grouped;
 - raw-only input predicts labels;
 - theory label leakage test passes;
-- macro-F1 metrics are produced.
+- macro-F1 metrics are produced;
+- harmony/key/cadence/phrase/Roman-numeral columns remain targets rather than
+  mandatory inference features.
 
 ## Phase 10. PDMX adapter and scalable cache
 
@@ -2417,6 +2558,10 @@ structure and is converted to `float32` only at feature-tensor construction.
 - multiprocessing preprocessing;
 - shard/cache format;
 - skip report.
+- raw-MIDI-compatible role-agnostic projection for large-scale SSL and
+  actual-score completion experiments.
+- full-scale rerun and evaluation entry points for the accepted Phase 7–8 SSL
+  objectives on the PDMX raw-compatible corpus.
 
 ### Acceptance criteria
 
@@ -2424,7 +2569,11 @@ structure and is converted to `float32` only at feature-tensor construction.
 - restart/resume preprocessing;
 - graph-size percentiles reported;
 - invalid files isolated rather than stopping run;
-- training loader streams cached windows.
+- training loader streams cached windows;
+- optional notation/role metadata can be dropped without changing the
+  mandatory encoder schema;
+- accepted Phase 7–8 objectives are rerun and evaluated on a documented
+  full-scale PDMX configuration before scaled SSL or Phase 11 objective claims.
 
 ## Phase 11. UGMAE-style structure and consistency
 
@@ -2435,6 +2584,8 @@ structure and is converted to `float32` only at feature-tensor construction.
 - bootstrap two-view loss;
 - transposition consistency;
 - optional learned adaptive masks.
+- ablatable coherent onset/beat/bar, pitch-only-with-visible-rhythm, and
+  track/span masking policies.
 
 ### Acceptance criteria
 
@@ -2442,7 +2593,9 @@ structure and is converted to `float32` only at feature-tensor construction.
 - metrics per relation;
 - transposition invariant/equivariant tests;
 - adaptive policy cannot select zero or all nodes;
-- uniform-mask baseline remains available.
+- uniform-mask baseline remains available;
+- masking/objective variants are compared rather than treated as
+  interchangeable.
 
 ## Phase 12. Preference and aspect critic
 
@@ -2455,13 +2608,17 @@ structure and is converted to `float32` only at feature-tensor construction.
 - tie/soft preference support;
 - uncertainty;
 - group-level metrics.
+- optional, separately identified harmonic/note PLL and fragility signals from
+  accepted probabilistic experiments.
 
 ### Acceptance criteria
 
 - pair order swap changes target consistently;
 - no leakage from prompt or file names;
 - one-batch pair overfit;
-- prompt-group evaluation report.
+- prompt-group evaluation report;
+- SSL reconstruction loss is never used or reported as a ready-made quality
+  score.
 
 ## Phase 13. Audio-aesthetic distillation
 
@@ -2497,7 +2654,31 @@ structure and is converted to `float32` only at feature-tensor construction.
 - no theory annotation required;
 - exact-track-count and role diagnostics available;
 - latency and memory benchmark logged;
-- old observer inference still works independently.
+- old observer inference still works independently;
+- scoring requires no gold harmony, chord track, melody/accompaniment role,
+  voice/staff label, or semantic segmentation.
+
+## Phase 15. Harmonic ablations, robustness, calibration, and human evaluation
+
+### Implement
+
+- no-chord-supervision, HookTheory-only, POP909-CL-only, and combined
+  supervision comparisons;
+- label-only versus pitch-class-set harmonic-head comparisons;
+- SSL reconstruction without PLL, probabilistic PLL, and PLL plus preference
+  critic comparisons;
+- track permutation/merging/metadata-removal robustness;
+- melody-only, combined-score, and heterogeneous raw-MIDI evaluation;
+- length/density/genre/complexity controls, calibration, and human evaluation.
+
+### Acceptance criteria
+
+- every harmonic, likelihood, robustness, and quality claim identifies its
+  dataset view, mask/provenance contract, and uncertainty;
+- PLL is evaluated as a limited masked conditional-likelihood signal rather
+  than treated as a complete aesthetic score;
+- a blind raw-MIDI evaluation set confirms that semantic roles are not
+  inference requirements.
 
 ---
 
@@ -2773,7 +2954,7 @@ loss = soft_bradley_terry_loss(margin, batch.preference_probability)
 
 - same source-group ID cannot appear in multiple splits;
 - transposed copies inherit source group;
-- POP909 versions remain grouped;
+- POP909-CL/original lineage derivatives remain grouped;
 - Dilemmadata alternative analyses remain grouped;
 - PDMX duplicates use provided/hash grouping;
 - generated variants of one prompt use group-aware evaluation.
@@ -2887,7 +3068,7 @@ The V2 project is not complete merely when a large model trains. It is complete 
 
 1. A generic unlabeled MIDI can be converted to the same raw graph schema used in training.
 2. No hidden theory label is required at inference.
-3. HookTheory, POP909, Dilemmadata, and PDMX adapters produce versioned canonical data with provenance.
+3. HookTheory, POP909-CL, Dilemmadata, and PDMX adapters produce versioned canonical data with provenance.
 4. The model handles variable track counts.
 5. The SSL pipeline supports simple random masks, decoder re-masking, latent prediction, and hierarchical masks.
 6. UGMAE-style structure/bootstrap components are optional and ablated.
@@ -2909,7 +3090,7 @@ Implement:
 - canonical schema;
 - generic MIDI adapter;
 - HookTheory V2 adapter;
-- POP909 adapter;
+- POP909-CL adapter;
 - raw graph builder with `track`, `beat`, `onset`, `bar`, `note`, `song`;
 - leakage-safe targets and masks.
 
@@ -2926,7 +3107,10 @@ Implement:
 - random field masking;
 - GraphMAE2-style decoder re-masking and song/bar latent prediction.
 
-Train on POP909 plus a small PDMX subset.
+Before Phase 10, use POP909-CL channel-0 scores and bounded
+synthetic/generic-MIDI data to validate SSL mechanics. After the PDMX
+raw-compatible adapter/cache is available in Phase 10, rerun and evaluate the
+accepted objectives at full scale on PDMX before making scaled SSL claims.
 
 ## Milestone C: theory transfer
 

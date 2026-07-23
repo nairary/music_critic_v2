@@ -3,6 +3,11 @@
 The scientific detail in `IMPLEMENTATION_PLAN.md` remains authoritative. This
 document is the phase execution checklist.
 
+The accepted future-facing boundary among auxiliary harmonic supervision,
+actual accompaniment likelihood, and preference/quality scoring is in
+[`HARMONIC_SUPERVISION.md`](HARMONIC_SUPERVISION.md). It changes no completed
+phase status.
+
 ## Phase 0 — Clean repository bootstrap and legacy audit
 
 - Status: Completed
@@ -263,61 +268,89 @@ The model and training phases remain pending.
 
 - Goal: batch heterogeneous task availability across datasets.
 - Dependencies: adapter and graph phases.
-- Outputs: datasets, samplers, collator, task routing.
-- Tests: masks, empty tasks, dataset balancing, deterministic sampling.
+- Outputs: datasets, samplers, collator, task routing, a common harmonic target
+  ontology, dataset-specific annotation views, availability masks, and
+  per-target provenance for mixed HookTheory/POP909-CL batches; bass and
+  inversion are separate target families with independent masks.
+- Tests: masks, empty/ambiguous tasks, no unavailable-as-negative conversion,
+  lineage-safe grouping, dataset balancing, deterministic sampling.
 - Non-goals: advanced SSL.
-- Acceptance: one mixed batch routes only available targets.
+- Acceptance: one mixed batch routes only available targets and preserves
+  source/lineage grouping.
 
 ## Phase 6 — Baseline local GNN, hierarchy, and bar Transformer
 
 - Goal: implement the minimum hybrid encoder.
 - Dependencies: Phase 5.
-- Outputs: feature encoder, local GNN, pooling, bar Transformer, fusion.
+- Outputs: feature encoder, local GNN, pooling, bar Transformer, fusion, and
+  auxiliary boundary, root, quality, pitch-class-set, bass, inversion, and
+  no-chord heads. A joint or factorized bass/inversion head remains an ablation
+  and must preserve both masks.
 - Tests: shapes, empty node types, checkpoint round trip, one-batch overfit.
 - Non-goals: GraphMAE2/Hi-GMAE/UGMAE extensions.
-- Acceptance: a small raw graph batch trains end to end.
+- Acceptance: a small raw graph batch trains end to end with masked harmonic
+  routing; Phase 6 is not described as a quality critic.
 
 ## Phase 7 — GraphMAE2-style SSL
 
 - Goal: add masked observable-feature representation learning.
 - Dependencies: Phase 6.
-- Outputs: masking views, remasked decoder, latent prediction losses.
+- Outputs: masking views, remasked representation decoder, latent prediction
+  losses, and a design gate before any normalized probabilistic
+  masked-note/pitch-set decoder or deterministic PLL protocol.
 - Tests: no masked-value leakage, deterministic views, stop-gradient behavior.
 - Non-goals: quality scoring.
-- Acceptance: tiny reconstruction overfit and stable held-out metrics.
+- Acceptance: tiny reconstruction overfit and stable held-out metrics;
+  reconstruction loss is reported separately from masked conditional
+  likelihood, and no final probability factorization is assumed. Before PDMX,
+  Phase 7 validates SSL mechanics only rather than full-scale effectiveness.
 
 ## Phase 8 — Hi-GMAE-style hierarchical masking
 
 - Goal: mask coherent descendants and learn multi-level representations.
 - Dependencies: Phase 7.
-- Outputs: hierarchy-aware masks and multi-level objectives.
+- Outputs: hierarchy-aware onset/beat/bar-span masks, pitch-only masks with
+  visible rhythm, track/span masks, and multi-level objectives.
 - Tests: descendant masks, non-degenerate views, level-specific losses.
 - Non-goals: theory corpus integration.
-- Acceptance: hierarchical masking works on variable graph sizes.
+- Acceptance: hierarchical masking works on variable graph sizes and exact
+  objective families remain independently ablatable. Before PDMX, Phase 8
+  validates hierarchy/masking mechanics only.
 
 ## Phase 9 — Dilemmadata adapter and theory supervision
 
 - Goal: add local key, harmony, cadence, phrase, and note-theory targets.
 - Dependencies: canonical/graph/model foundations.
-- Outputs: adapter, annotation views, theory heads and masked losses.
+- Outputs: adapter, annotation views, theory heads, masked losses, and a
+  raw-MIDI-compatible projection that does not assume staff, voice, spelling,
+  `step`, `alter`, or `tpc` at inference.
 - Tests: alternative-analysis grouping, span compression, no-label loss zero.
 - Non-goals: preference critic.
-- Acceptance: theory heads overfit a tiny masked batch without raw leakage.
+- Acceptance: theory heads overfit a tiny masked batch without raw leakage;
+  harmony/key/cadence/phrase/Roman-numeral columns remain targets.
 
 ## Phase 10 — PDMX adapter and large-scale SSL cache
 
-- Goal: support scalable public-domain score pretraining.
+- Goal: support scalable role-agnostic public-domain score pretraining and
+  future actual-score completion through a raw-MIDI-compatible projection.
 - Dependencies: SSL and canonical cache contracts.
-- Outputs: PDMX adapter, filters, windowed/versioned cache.
-- Tests: timing conversion, invalid-score filtering, cache compatibility.
+- Outputs: PDMX adapter, filters, windowed/versioned cache, and full-scale
+  rerun/evaluation entry points for the accepted Phase 7–8 SSL objectives on
+  the PDMX raw-compatible corpus.
+- Tests: timing conversion, invalid-score filtering, cache compatibility, and
+  reproducible scaled SSL evaluation configuration.
 - Non-goals: using ratings as absolute quality labels.
-- Acceptance: a small licensed subset preprocesses reproducibly.
+- Acceptance: a small licensed subset preprocesses reproducibly and optional
+  notation/role metadata can be removed without changing mandatory inputs;
+  accepted Phase 7–8 objectives are rerun and evaluated at full scale before
+  scaled SSL or Phase 11 objective conclusions.
 
 ## Phase 11 — UGMAE-inspired adaptive and structural objectives
 
 - Goal: add adaptive masking and optional structure consistency.
 - Dependencies: stable SSL baseline.
-- Outputs: adaptive policies and structural/consistency losses.
+- Outputs: adaptive policies, structural/consistency losses, and ablatable
+  coherent onset/beat/bar, pitch-only-with-visible-rhythm, and track/span masks.
 - Tests: probability bounds, deterministic evaluation, ablation toggles.
 - Non-goals: preference deployment.
 - Acceptance: objectives train without collapsing mandatory graph structure.
@@ -326,10 +359,13 @@ The model and training phases remain pending.
 
 - Goal: learn aspect and pairwise preference scores from real candidates.
 - Dependencies: trained shared encoder and grouped preference data.
-- Outputs: aspect heads, preference head, calibrated pairwise losses.
+- Outputs: aspect heads, preference head, calibrated pairwise losses, and
+  optional separately identified likelihood/fragility signals from accepted
+  probabilistic experiments.
 - Tests: pair-swap invariance, group-aware sampling, one-batch ranking overfit.
 - Non-goals: universal genre-independent MOS.
-- Acceptance: held-out prompt-group ranking beats defined baselines.
+- Acceptance: held-out prompt-group ranking beats defined baselines; SSL
+  reconstruction loss is not treated as a quality score.
 
 ## Phase 13 — Audio-aesthetic teacher labels and MIDI surrogate
 
@@ -347,13 +383,21 @@ The model and training phases remain pending.
 - Outputs: MIDI inference CLI/API, structured output, policy integration hooks.
 - Tests: unlabeled type-0/type-1 MIDI, missing metadata, batch ranking.
 - Non-goals: changing model training objectives silently.
-- Acceptance: inference requires no gold theory or semantic segmentation.
+- Acceptance: inference requires no gold theory, chord track,
+  melody/accompaniment/bass role, voice/staff label, or semantic segmentation.
 
 ## Phase 15 — Ablations, calibration, and human evaluation
 
 - Goal: support defensible research conclusions and deployment thresholds.
 - Dependencies: all claimed components.
-- Outputs: architecture/data ablations, calibration, robustness, human studies.
+- Outputs: architecture/data ablations, calibration, robustness, human studies,
+  and the required harmonic comparisons: no supervision, HookTheory-only,
+  POP909-CL-only, combined supervision, label-only versus pitch-class-set
+  heads, SSL without PLL, probabilistic PLL, PLL plus preference critic,
+  track/metadata perturbations, and melody-only versus combined-score versus
+  heterogeneous raw-MIDI evaluation.
 - Tests: reproducible evaluation manifests and leakage audits.
 - Non-goals: adding unablated features.
-- Acceptance: every major claim has an ablation and uncertainty report.
+- Acceptance: every major claim has an ablation and uncertainty report; PLL is
+  normalized and bias-audited rather than presented as complete aesthetic
+  quality, and a blind raw-MIDI set verifies role-agnostic inference.

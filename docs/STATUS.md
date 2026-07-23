@@ -39,7 +39,75 @@
 - Phase 4A branch: `phase/4a-pop909-evidence-contract`
 - Phase 4A POP909-CL identity/leakage remediation: Completed
 - Phase 4A POP909-CL semantic remediation: Completed
+- Harmonic supervision documentation contract: Accepted in ADR-034
+- Documentation branch: `docs/harmonic-supervision-contract`
+- Documentation base commit: `681abbdf331c032e34cc7541224ca98f13e19a86`
+- Pre-merge clarification base: `4f5f1e32f0244cbbfedd3a0cd4dbaa9047a82e51`
 - Next phase: Phase 4B — production POP909-CL adapter implementation
+
+## Harmonic supervision documentation result
+
+- Added `docs/HARMONIC_SUPERVISION.md` as the central contract separating
+  harmonic-semantic recognition, melody-conditioned harmonization, actual
+  performed/score accompaniment likelihood, and preference/quality scoring.
+- HookTheory melody-only raw graphs and POP909-CL channel-0 combined-score raw
+  graphs may later train compatible auxiliary harmonic heads through
+  dataset-specific annotation views, masks, and per-target provenance.
+- HookTheory chord annotations may produce derived root, quality,
+  pitch-class-set, bass, inversion, boundary/span, and supported semantic
+  targets. Bass and inversion are separate target families with independent
+  masks; joint/factorized prediction is a future ablation. A derivation is safe
+  while target-only; derived notes remain banned from raw canonical content,
+  graph input/topology, raw-input serialization, graph serialization,
+  raw-input cache identity, graph fingerprints, and inference. Separate
+  target/annotation/diagnostic artifacts may serialize derived targets with
+  provenance without becoming raw/graph identity or inference input.
+- POP909-CL Phase 4A/4B evidence, masks, provenance, channel contract, audit
+  counts, acceptance criteria, and song-172 quarantine remain unchanged.
+- Role-agnostic production inference requires no melody, accompaniment, bass,
+  chord, voice, staff, or semantic-segmentation labels. Future robustness work
+  covers track permutation/merging and metadata removal.
+- Masked conditional likelihood and PLL remain future probabilistic-decoder,
+  normalization, calibration, and ablation work. Neither chord confidence nor
+  GraphMAE reconstruction loss is a quality score.
+- Roadmap Phases 5–12 and 14–15 now carry the future ontology, head, masking,
+  corpus-projection, likelihood, critic, inference, and ablation boundaries.
+- Phases 7–8 validate SSL mechanics on bounded pre-PDMX data. Phase 10 must
+  enable a full-scale rerun/evaluation of their accepted objectives on the PDMX
+  raw-compatible corpus before scaled SSL or Phase 11 objective conclusions.
+- No production code, canonical/graph schema, adapters, fixtures, manifests,
+  dependencies, data, models, training, or inference behavior changed. Phase
+  4B and model/PLL implementation were not started.
+
+## Pre-merge harmonic clarification verification
+
+- `.venv/bin/python -m pytest -q tests/test_repository_contract.py`: `5 passed
+  in 0.08s`.
+- Full default suite: `478 passed, 11 skipped, 2 warnings in 3.33s`; real-corpus
+  integrations remained opt-in and skipped, and the warnings are the existing
+  upstream PyTorch deprecations.
+- `.venv/bin/python -m compileall -q src scripts tests`: passed with no output.
+- `git diff --check`: passed with no output.
+- Changed-path and artifact checks: only seven Markdown documents changed; no
+  code, schema, adapter, fixture, manifest, dependency, data, MIDI, report,
+  cache, checkpoint, or generated output changed or was added.
+- No POP909-CL, HookTheory, original POP909, PDMX, or Dilemmadata corpus scan
+  was run.
+
+## Harmonic supervision documentation verification
+
+- `.venv/bin/python -m pytest -q tests/test_repository_contract.py`: `5 passed
+  in 0.08s`.
+- Full default suite: `478 passed, 11 skipped, 2 warnings in 3.23s`; the skips
+  are opt-in real-corpus integrations and the warnings are the existing
+  upstream PyTorch deprecations.
+- `.venv/bin/python -m compileall -q src scripts tests`: passed with no output.
+- `git diff --check`: passed with no output.
+- Semantic terminology/link scan and changed-path checks: passed; every changed
+  or added path is Markdown under `docs/`.
+- No opt-in POP909-CL, HookTheory, original POP909, PDMX, or Dilemmadata corpus
+  scan was run. No MIDI, report, cache, checkpoint, dataset, or generated output
+  was added.
 
 ## Phase 4A POP909-CL remediation result
 
@@ -58,9 +126,11 @@
   failures.
 - Added a score-only projection boundary. Channel-1 chord notes cannot enter
   canonical musical tracks/notes, raw statistics, graph structure/features,
-  serialization, fingerprints, or inference inputs. Synthetic chord mutation,
-  replacement, and deletion leave projected bytes, canonical score content,
-  and raw graph fingerprints unchanged.
+  raw-input serialization, graph serialization, raw-input cache identity,
+  graph fingerprints, or inference inputs. Separate target/annotation artifacts
+  may retain chord evidence and provenance without defining raw/graph identity.
+  Synthetic chord mutation, replacement, and deletion leave projected bytes,
+  canonical score content, and raw graph fingerprints unchanged.
 - Score-only generic conversion is 908/909. Song `172` is the sole conversion
   failure: its 4/4→6/8 event at tick 85,080 is 600 ticks inside the active
   1,920-tick bar. The later 6/8→4/4 event is also 480 ticks inside its segment
@@ -81,7 +151,8 @@
   and bass use source `human` with `human_corrected`/`expert_reviewed`; normalized
   root/quality/inversion and inferred `N` use source `derived` with pinned
   upstream derivation chains.
-- Added task masks: boundary/bass 116,055 available; root/inversion 109,668
+- Added independent task masks: boundary 116,055 available; bass 116,055
+  available; root 109,668 available and 6,387 unavailable; inversion 109,668
   available and 6,387 unavailable; quality 109,800 available and 6,255
   unavailable; `N` 947 available with 151 trailing spans unavailable.
 - Preserved the four dangling note-ons and four unmatched note-offs as exact
