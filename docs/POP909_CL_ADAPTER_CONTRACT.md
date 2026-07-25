@@ -2,8 +2,8 @@
 
 ## Status and evidence boundary
 
-This document specifies Phase 4B from the remediated Phase 4A evidence. It is
-not a production implementation. The production corpus is
+This document specifies the implemented Phase 4B production adapter from the
+remediated Phase 4A evidence. The production corpus is
 `POP909_processed` from POP909-CL repository commit
 `be9094392903c471a930519e1c0bacf8b6be5d62`. Original POP909 is lineage and
 possible future ablation evidence only.
@@ -13,6 +13,32 @@ upstream directory. Phase 4B must validate the recorded content fingerprint
 and retain upstream repository, commit, MIT license, source path, and file hash
 provenance. Absence of README/Git files from an extracted installation does not
 weaken provenance when the complete content comparison succeeds.
+
+## Production API
+
+Adapter version `1.0.0` is implemented in
+`music_critic.adapters.pop909_cl` and exposed minimally through
+`music_critic.adapters`.
+
+The primary API is:
+
+- `Pop909ClCorpusIdentity` and `discover_pop909_cl_corpus`;
+- `Pop909ClAdapterConfig`;
+- `Pop909ClCorpusRecord`;
+- `convert_pop909_cl_file`;
+- `iter_pop909_cl_corpus`;
+- `Pop909ClAccepted`, `Pop909ClExpectedTargetAbsence`, and
+  `Pop909ClQuarantine`;
+- `Pop909ClAdapterError`, `Pop909ClCorpusIdentityError`, and
+  `Pop909ClConversionError`;
+- `pop909_cl_source_group_id` and `pop909_lineage_group_id`.
+
+The module also exposes typed chord-block, candidate, coverage, pairing, track,
+and instrument evidence records. Production code does not import
+`scripts/audit_pop909_cl.py`. Corpus manifest version `1.0.0` and the opt-in
+streaming acceptance are implemented by
+`scripts/accept_pop909_cl_adapter.py` and
+`tests/fixtures/pop909_cl/production_manifest.json`.
 
 ## Discovery and identity
 
@@ -134,6 +160,29 @@ through the corresponding pinned upstream normalizer/gap-event rule. Directly
 observed boundary and bass reference raw-block provenance. Curated expert
 evidence must not be described as infallible or unqualified human gold.
 
+The stable Phase 4B task IDs are:
+
+- `pop909_cl.chord.boundary`;
+- `pop909_cl.chord.root`;
+- `pop909_cl.chord.quality`;
+- `pop909_cl.chord.bass`;
+- `pop909_cl.chord.inversion`;
+- `pop909_cl.chord.no_chord`.
+
+They align through target-alignment spans of type `pop909_cl.chord` and use
+annotation view `pop909_cl.channel_1`. For `367` and `658`, one full raw-piece
+alignment span and six one-entry arrays have `mask=false` with null
+value/confidence/source/provenance. This is explicit target unavailability,
+not an empty negative class.
+
+Exact source chord onset/end ticks and PPQN remain lossless in
+`Pop909ClChordBlock` and raw-block provenance. When an upstream chord block
+extends beyond the channel-0 raw score duration, its canonical target-alignment
+span is deterministically intersected with the raw piece interval because
+schema `2.0.0` forbids an annotation beyond `piece.duration_qn`. The exact
+unclipped interval remains in structured evidence and provenance, and target
+content never extends raw duration.
+
 ## Meter case and validation
 
 POP909-CL song `172` changes from 4/4 to 6/8 at tick 85,080 with PPQN 480.
@@ -157,10 +206,20 @@ Production acceptance requires:
 - no writes under source roots and no committed data, reports, caches, MIDI,
   generated media, or outputs.
 
-The audit's `evidence_contract_ready` status is independent of
-`production_adapter_ready`. The former is true with expected masked target
-absence and the locked documented quarantine. The sole production blocker is
-that Phase 4B has not implemented and validated this contract.
+The historical Phase 4A audit's `evidence_contract_ready` status remains
+independent of its then-false `production_adapter_ready` field. Phase 4B
+production readiness is now established by adapter-backed manifest checks, not
+by rewriting that historical audit result.
+
+The fresh streaming production acceptance completed in 1,249.285 seconds:
+909 logical files, 908 validator-clean accepted pieces, only `172`
+quarantined, 907 chord instruments, `367` and `658` explicitly masked,
+116,055 blocks, 109,668 root/inversion targets, 109,800 quality targets,
+116,055 boundary/bass targets, 5,801 ambiguous blocks, 586 unsupported blocks,
+947 derived `N` spans, and 151 trailing masked spans. All 908 accepted pieces
+passed deterministic visible/hidden canonical round trips, raw equality, and
+raw graph fingerprint equality. The anomaly fingerprint is
+`d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`.
 
 Phase 4B does not authorize model, SSL, training, preference, or inference
 implementation.

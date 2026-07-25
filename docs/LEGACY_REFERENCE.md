@@ -220,3 +220,17 @@ target leakage, and missing-as-negative labels. It adds a stricter boundary:
 the embedded channel-1 chord instrument is target-only and is removed before
 canonical raw conversion, while channel-0 score content remains the inference
 input. Original POP909 is lineage/ablation evidence only.
+
+## Phase 4B production adaptation
+
+No legacy repository file was opened, copied, imported, or modified for Phase
+4B, and no legacy runtime logic was reused. The production adapter was derived
+from the pinned POP909-CL contract, the independent Phase 4A audit, the V2
+generic MIDI adapter, canonical schema, and raw graph leakage boundary.
+
+Retained only as already documented general V2 engineering concepts:
+deterministic conversion, exact timing, explicit provenance, structured
+failures, and masked missing targets. Rejected throughout the implementation:
+legacy five-class chord compression, track-order/name/pitch-range routing,
+float snapping, mandatory semantic graph structure, chord-note rendering,
+target-derived raw notes, and missing-as-negative behavior.

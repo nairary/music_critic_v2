@@ -249,7 +249,7 @@ The model and training phases remain pending.
 
 ### Phase 4B — Production adapter implementation
 
-- Status: Pending.
+- Status: Completed.
 - Goal: implement the evidence-backed POP909-CL adapter over the combined
   channel-0 score and target-only embedded channel-1 chord instrument.
 - Dependencies: Phase 4A. The MVP retains song `172` as the documented
@@ -263,6 +263,12 @@ The model and training phases remain pending.
 - Acceptance: all accepted CL scores convert or fail under a documented
   general rule, channel-1 annotation cannot affect raw graphs, and leakage-safe
   POP909-CL graphs pass validation.
+- Result: adapter `1.0.0` and corpus manifest `1.0.0` reproduce 909 logical
+  files, 908 accepted pieces, only song `172` quarantined, and fully masked
+  targets for `367`/`658`. All 908 accepted visible/hidden pieces validate,
+  round-trip deterministically, preserve equal raw projections, and have equal
+  raw graph fingerprints. The complete pinned block/mask/anomaly aggregates
+  match Phase 4A.
 
 ## Phase 5 — Multi-source dataset and collator
 

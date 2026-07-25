@@ -1,0 +1,65 @@
+{
+  "acceptance_schema_version": "1.0.0",
+  "adapter_version": "1.0.0",
+  "corpus": {
+    "content_fingerprint": "b34f07d9a2678abdb6f0dcf5db1c3aec3f35caca813f1fac80c0717cfc8e0c65",
+    "dataset_name": "pop909_cl",
+    "upstream_commit": "be9094392903c471a930519e1c0bacf8b6be5d62",
+    "upstream_license": "MIT",
+    "upstream_license_sha256": "fe6064d631bdf4ce46028ef3aa7bc4eac285b8a1000c46682795f26448d29288",
+    "upstream_repository": "https://github.com/AndyWeasley2004/POP909-CL-Dataset"
+  },
+  "expected": {
+    "accepted": 908,
+    "accepted_missing_targets": 2,
+    "ambiguous_blocks": 5801,
+    "anomaly_evidence_fingerprint": "d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051",
+    "bass_available": 116055,
+    "boundary_available": 116055,
+    "chord_blocks": 116055,
+    "chord_instruments": 907,
+    "derived_n_spans": 947,
+    "deterministic_round_trips": 908,
+    "inversion_available": 109668,
+    "logical_files": 909,
+    "missing_target_song_ids": [
+      "367",
+      "658"
+    ],
+    "quality_available": 109800,
+    "quarantine_song_ids": [
+      "172"
+    ],
+    "quarantined": 1,
+    "root_available": 109668,
+    "target_hidden_graph_equal": 908,
+    "target_hidden_raw_equal": 908,
+    "trailing_masked_spans": 151,
+    "unsupported_blocks": 586,
+    "validated_pieces": 908
+  },
+  "golden_cases": [
+    {
+      "song_id": "001",
+      "status": "accepted"
+    },
+    {
+      "relative_path": "043 .mid",
+      "song_id": "043",
+      "status": "accepted"
+    },
+    {
+      "category": "midi_adapter.meter_change_inside_bar",
+      "song_id": "172",
+      "status": "quarantined"
+    },
+    {
+      "song_id": "367",
+      "status": "accepted_missing_targets"
+    },
+    {
+      "song_id": "658",
+      "status": "accepted_missing_targets"
+    }
+  ]
+}

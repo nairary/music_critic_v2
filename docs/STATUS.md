@@ -2,7 +2,7 @@
 
 ## Current phase
 
-- Date: 2026-07-23
+- Date: 2026-07-25
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -40,10 +40,88 @@
 - Phase 4A POP909-CL identity/leakage remediation: Completed
 - Phase 4A POP909-CL semantic remediation: Completed
 - Harmonic supervision documentation contract: Accepted in ADR-034
+- Phase 4B: Accepted and Completed
+- Phase 4B branch: `phase/4b-pop909-cl-adapter`
+- POP909-CL adapter version: `1.0.0`
+- POP909-CL production manifest version: `1.0.0`
 - Documentation branch: `docs/harmonic-supervision-contract`
 - Documentation base commit: `681abbdf331c032e34cc7541224ca98f13e19a86`
 - Pre-merge clarification base: `4f5f1e32f0244cbbfedd3a0cd4dbaa9047a82e51`
-- Next phase: Phase 4B — production POP909-CL adapter implementation
+- Next phase: Phase 5 — multi-source dataset and collator
+
+## Phase 4B production POP909-CL adapter result
+
+- Public API from `music_critic.adapters`: `Pop909ClCorpusIdentity`,
+  `Pop909ClAdapterConfig`, `Pop909ClCorpusRecord`,
+  `discover_pop909_cl_corpus`, `convert_pop909_cl_file`,
+  `iter_pop909_cl_corpus`, typed accepted/missing/quarantine results, typed
+  adapter/corpus/conversion errors, and source/lineage group helpers.
+- Deterministic discovery supports direct and nested `POP909_processed`,
+  preserves `043 .mid`, excludes AppleDouble noise, diagnoses malformed,
+  missing, duplicate, and unexpected IDs, and requires the pinned 909-file
+  fingerprint.
+- Instrument routing uses only channel-bearing events. Channel 0 plus
+  conductor/meta tracks form the raw score projection; channel 1 is excluded
+  completely and parsed separately as target evidence.
+- Six stable target tasks cover boundary, root, quality, bass, inversion, and
+  no-chord. Exact block evidence retains ticks/PPQN, pitch multisets and
+  per-note ends, candidates, source track/path/hash, pairing, repeat,
+  mixed-end, overlap, and gap diagnostics. Bass and inversion have independent
+  masks.
+- `367` and `658` return `Pop909ClExpectedTargetAbsence` with six explicit
+  one-entry `mask=false` arrays. `172` returns `Pop909ClQuarantine` only when
+  the generic adapter actually raises
+  `midi_adapter.meter_change_inside_bar`; a successful conversion or different
+  failure is fatal.
+- `include_targets=False` removes target spans, arrays, and target-only
+  provenance/diagnostics while preserving the raw piece. Source chord
+  mutation, replacement, and deletion leave score projection bytes, canonical
+  tracks/notes, and graph fingerprints unchanged.
+- Exact chord intervals remain lossless in structured evidence. Canonical
+  target-alignment spans are intersected with raw duration only when a target
+  extends beyond channel-0 score end; provenance records that projection and
+  raw duration never depends on channel 1.
+- Production code imports no audit or legacy module and writes score
+  projections only to short-lived temporary files outside the dataset root.
+  No dependency or canonical/graph schema version changed.
+- Pre-merge remediation removed the public file-verification opt-out from
+  `Pop909ClAdapterConfig`. Conversion now always compares the SHA-256 of the
+  payload read from disk with the discovery record before parsing MIDI; a
+  post-discovery mutation is rejected as
+  `pop909_cl.file_fingerprint_mismatch`.
+
+## Phase 4B verification
+
+- Focused production adapter plus Phase 4A audit:
+  `20 passed, 1 skipped, 2 warnings in 2.00s`.
+- MIDI, HookTheory, graph leakage/builder/strict validation, canonical
+  serialization, and repository-contract regressions:
+  `237 passed, 2 warnings in 2.44s`.
+- Fresh streaming 909-file production acceptance:
+  `ready=true` in `1249.285s`; the detailed report is only at
+  `/tmp/music-critic-v2-phase4b-production-acceptance.json`.
+- Acceptance counts: 909 logical files; 908 accepted; 906 with chord evidence;
+  `367` and `658` accepted with explicit masked absence; `172` is the sole
+  quarantine; 907 chord instruments; zero fatal failures.
+- Target/evidence counts: 116,055 blocks; root/inversion 109,668; quality
+  109,800; boundary/bass 116,055; 5,801 ambiguous; 586 unsupported; 947
+  derived `N`; 151 trailing masked spans.
+- All 908 accepted pieces passed canonical validation, deterministic
+  target-visible and target-hidden JSON round trips, raw equality, and graph
+  fingerprint equality. Pairing anomaly evidence reproduced
+  `d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`.
+- Full default suite: `491 passed, 12 skipped, 2 warnings in 3.46s`; all skips
+  are explicitly gated real-corpus integrations and both warnings are the
+  existing upstream PyTorch deprecations.
+- The 909-file acceptance was not repeated for the fingerprint remediation:
+  the preceding successful run already used mandatory verification through
+  the then-default `verify_file_sha256=True`.
+- `.venv/bin/python -m compileall -q src scripts tests` and
+  `git diff --check`: passed with no output.
+- Commit/push and GitHub Actions are reported in the final Phase 4B handoff.
+- Phase 5, collator, common ontology, models, GNN, SSL, training, PLL,
+  preference/quality critic, splits, partial-bar support, and chord rendering
+  were not started.
 
 ## Harmonic supervision documentation result
 

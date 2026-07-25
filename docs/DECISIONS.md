@@ -600,3 +600,67 @@ This log is append-only.
   This decision changes no schema, adapter, graph, audit, model, or inference
   implementation; the complete contract and deferred questions are in
   `docs/HARMONIC_SUPERVISION.md`.
+
+## 2026-07-25 — ADR-035: Phase 4B production POP909-CL adapter is accepted
+
+- Status: Accepted and Completed.
+- Context: ADR-031 through ADR-034 establish the pinned corpus identity,
+  channel-0/raw versus channel-1/target boundary, field-specific masks,
+  provenance, missing-target policy, and song-172 MVP quarantine. Schema
+  `2.0.0` can represent the six target families, but it forbids annotation
+  spans beyond raw piece duration and has no lineage or structured
+  candidate-evidence field.
+- Decision — API and versions: implement adapter
+  `music_critic.adapters.pop909_cl` version `1.0.0` and production corpus
+  manifest version `1.0.0`. Public entry points are
+  `discover_pop909_cl_corpus`, `convert_pop909_cl_file`, and
+  `iter_pop909_cl_corpus`, configured by `Pop909ClCorpusIdentity` and
+  `Pop909ClAdapterConfig`. Results are typed as `Pop909ClAccepted`,
+  `Pop909ClExpectedTargetAbsence`, or `Pop909ClQuarantine`; typed corpus,
+  adapter, and conversion errors preserve failure categories.
+- Decision — identity and grouping: require the pinned 909-file content
+  fingerprint, upstream repository/commit, MIT identity and license hash,
+  original relative path and per-file SHA-256. Use
+  `pop909-cl:<song-id>` as canonical source group and retain
+  `pop909-lineage:<song-id>` in the production corpus record and provenance.
+  Assign no split.
+- Decision — raw/target boundary: route instruments only by channel-bearing
+  events. Convert a temporary score-only channel-0 plus conductor/meta
+  projection through the unchanged public generic MIDI API. Channel 1 never
+  affects raw tracks/notes/statistics, raw identity, duration, graph content,
+  serialization, or inference. `include_targets=False` removes all target
+  spans, arrays, and target-only provenance while preserving raw content.
+- Decision — target representation: use alignment type
+  `pop909_cl.chord`, annotation view `pop909_cl.channel_1`, and stable task IDs
+  `pop909_cl.chord.boundary`, `.root`, `.quality`, `.bass`, `.inversion`, and
+  `.no_chord`. Direct boundary/bass target provenance points to a per-block
+  human annotation record. Root/quality/inversion point to derived normalizer
+  records; inferred `N` uses a separate gap derivation. Bass and inversion
+  masks remain independent. Structured production evidence retains every
+  candidate and exact diagnostic outside the fixed canonical schema.
+- Decision — missing and quarantine: `367` and `658` use one full-piece target
+  alignment plus six one-entry arrays whose mask/value/confidence/source/
+  provenance are respectively false/null/null/null/null. `172` is quarantined
+  only if the generic adapter actually reports
+  `midi_adapter.meter_change_inside_bar`; any other failure or unexpected
+  success is fatal.
+- Decision — target intervals beyond raw duration: retain exact original
+  onset/end ticks and PPQN in `Pop909ClChordBlock` and provenance. Intersect
+  only the canonical target-alignment span with the raw piece interval when
+  required by schema bounds. Never extend raw duration from target evidence.
+- Acceptance: the fresh streaming pass reproduced 909 logical files, 908
+  validator-clean accepted pieces, only `172` quarantined, 907 chord
+  instruments, expected masked absence for `367`/`658`, 116,055 chord blocks,
+  root/inversion 109,668, quality 109,800, boundary/bass 116,055, 5,801
+  ambiguous, 586 unsupported, 947 derived `N`, 151 trailing masked spans, and
+  anomaly fingerprint
+  `d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`.
+  All 908 accepted visible/hidden pieces validated, round-tripped
+  deterministically, retained equal raw content, and produced equal raw graph
+  fingerprints.
+- Consequences: Phase 4B is production-ready without changing canonical schema
+  `2.0.0`, graph schema `1.0.0`, generic MIDI public API, or meter semantics.
+  The Phase 4A audit remains an independent evidence oracle and historical
+  readiness record. Phase 5 ontology/collation, models, SSL, training, PLL,
+  preference/quality, splits, partial-bar support, other corpus adapters, and
+  chord rendering remain deferred.
