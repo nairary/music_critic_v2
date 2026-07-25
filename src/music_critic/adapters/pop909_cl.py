@@ -167,7 +167,6 @@ class Pop909ClCorpusIdentity:
 @dataclass(frozen=True, slots=True)
 class Pop909ClAdapterConfig:
     include_targets: bool = True
-    verify_file_sha256: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -1551,7 +1550,7 @@ def convert_pop909_cl_file(
             song_id=record.song_id,
         ) from exc
     actual_sha256 = sha256(payload).hexdigest()
-    if config.verify_file_sha256 and actual_sha256 != record.sha256:
+    if actual_sha256 != record.sha256:
         raise Pop909ClConversionError(
             f"{record.relative_path}: file SHA-256 changed after discovery",
             category="pop909_cl.file_fingerprint_mismatch",

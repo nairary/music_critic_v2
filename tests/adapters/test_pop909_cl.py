@@ -279,6 +279,26 @@ def test_discovery_diagnoses_missing_duplicate_malformed_and_fingerprint(
         )
 
 
+def test_file_mutation_after_discovery_always_fails_fingerprint_check(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "POP909_processed" / "001.mid"
+    _write_midi(path)
+    discovery = discover_pop909_cl_corpus(
+        tmp_path,
+        identity=Pop909ClCorpusIdentity(
+            expected_song_ids=("001",),
+            expected_content_fingerprint=_fingerprint([path]),
+        ),
+    )
+
+    _write_midi(path, chord_first=(62, 65, 69))
+
+    with pytest.raises(Pop909ClConversionError) as caught:
+        convert_pop909_cl_file(discovery.records[0])
+    assert caught.value.category == "pop909_cl.file_fingerprint_mismatch"
+
+
 def test_instrument_routing_uses_channels_not_misleading_names(tmp_path: Path) -> None:
     record = _write_midi(
         tmp_path / "658.mid",

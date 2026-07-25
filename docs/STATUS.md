@@ -84,11 +84,16 @@
 - Production code imports no audit or legacy module and writes score
   projections only to short-lived temporary files outside the dataset root.
   No dependency or canonical/graph schema version changed.
+- Pre-merge remediation removed the public file-verification opt-out from
+  `Pop909ClAdapterConfig`. Conversion now always compares the SHA-256 of the
+  payload read from disk with the discovery record before parsing MIDI; a
+  post-discovery mutation is rejected as
+  `pop909_cl.file_fingerprint_mismatch`.
 
 ## Phase 4B verification
 
 - Focused production adapter plus Phase 4A audit:
-  `19 passed, 1 skipped, 2 warnings in 1.86s`.
+  `20 passed, 1 skipped, 2 warnings in 2.00s`.
 - MIDI, HookTheory, graph leakage/builder/strict validation, canonical
   serialization, and repository-contract regressions:
   `237 passed, 2 warnings in 2.44s`.
@@ -105,9 +110,12 @@
   target-visible and target-hidden JSON round trips, raw equality, and graph
   fingerprint equality. Pairing anomaly evidence reproduced
   `d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`.
-- Full default suite: `490 passed, 12 skipped, 2 warnings in 3.51s`; all skips
+- Full default suite: `491 passed, 12 skipped, 2 warnings in 3.46s`; all skips
   are explicitly gated real-corpus integrations and both warnings are the
   existing upstream PyTorch deprecations.
+- The 909-file acceptance was not repeated for the fingerprint remediation:
+  the preceding successful run already used mandatory verification through
+  the then-default `verify_file_sha256=True`.
 - `.venv/bin/python -m compileall -q src scripts tests` and
   `git diff --check`: passed with no output.
 - Commit/push and GitHub Actions are reported in the final Phase 4B handoff.
