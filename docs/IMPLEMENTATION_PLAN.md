@@ -2408,10 +2408,14 @@ structure and is converted to `float32` only at feature-tensor construction.
 - channel-1 annotation mutations cannot affect canonical raw content or graph
   fingerprints;
 - raw inference requires only the score projection and no chord targets;
-- the strict audit reports `evidence_contract_ready` independently from
-  `production_adapter_ready`, accepting only the pinned `367`/`658` masked
-  absence and the locked Phase 4B MVP quarantine for `172`; the unimplemented
-  production adapter is the sole production-readiness blocker.
+- the historical Phase 4A audit reports `evidence_contract_ready`
+  independently from its then-false `production_adapter_ready`, while the
+  versioned Phase 4B production manifest and streaming adapter acceptance
+  establish current production readiness;
+- production acceptance reproduces 909 logical files, 908 accepted pieces,
+  only the `172` quarantine, the `367`/`658` masked absence, every pinned
+  target-family count, deterministic visible/hidden round trips, and raw-graph
+  fingerprint invariance.
 
 ## Phase 5. Multi-source dataset and collator
 

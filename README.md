@@ -11,10 +11,15 @@ checkout is absent.
 
 ## Current state
 
-Phases 0 through 3A and the Phase 4A POP909-CL evidence gate are implemented.
+Phases 0 through 3A and the production Phase 4B POP909-CL adapter are
+implemented.
 The repository provides an exact immutable
 canonical schema, generic MIDI and HookTheory adapters, diagnostic canonical
-MIDI export, and a versioned raw-only PyG heterograph builder. The graph uses
+MIDI export, a production POP909-CL adapter, and a versioned raw-only PyG
+heterograph builder. The POP909-CL adapter fingerprints the pinned 909-file
+corpus, projects only channel-0 score content into raw canonical pieces, keeps
+channel-1 chord evidence as masked target-only supervision, and streams corpus
+conversion with typed missing-target and quarantine results. The graph uses
 mandatory `song`, `track`, `bar`, `beat`, `onset`, and `note` nodes and never
 uses theory targets, gold semantic structure, split, or provenance as encoder
 input or topology. HookTheory and generic MIDI therefore have graph-schema
@@ -25,7 +30,8 @@ preference training, and deployable scoring inference are not implemented yet.
 ## Layout
 
 - `src/music_critic/data/`: canonical timing, schema, validation, serialization;
-- `src/music_critic/adapters/`: generic MIDI and HookTheory conversion;
+- `src/music_critic/adapters/`: generic MIDI, HookTheory, and POP909-CL
+  conversion;
 - `src/music_critic/exporters/`: output-only diagnostic MIDI rendering;
 - `src/music_critic/graph/`: feature registry, relations, builder, validation,
   and deterministic graph serialization;
@@ -84,7 +90,16 @@ python -m pip install -e .
 See `docs/ROADMAP.md` for staged implementation work and
 `docs/IMPLEMENTATION_PLAN.md` for the scientific specification.
 
-POP909-CL production evidence and the pending Phase 4B contract are documented
+Run the opt-in production acceptance against an installed pinned corpus:
+
+```bash
+PYTHONPATH=src python scripts/accept_pop909_cl_adapter.py \
+  --root data/pop909-cl \
+  --manifest tests/fixtures/pop909_cl/production_manifest.json \
+  --output /tmp/music-critic-v2-phase4b-production-acceptance.json
+```
+
+POP909-CL production evidence and the completed Phase 4B contract are documented
 in `docs/POP909_CL_FIELD_AUDIT.md` and
 `docs/POP909_CL_ADAPTER_CONTRACT.md`. Original POP909 is retained separately
 as lineage/possible ablation evidence in
