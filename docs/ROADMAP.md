@@ -291,9 +291,13 @@ The model and training phases remain pending.
   positive-unlabeled boundary events and explicit positive `N` coverage spans
   have no synthetic negatives, and the encoding registry does not choose a
   loss.
-- Phase 5B.2 remaining work: practical corpus indexing and `Dataset`,
-  source/lineage-safe split consumption, deterministic mixture/epoch sampler,
-  worker-safe `DataLoader`, and configurable mixture weights.
+- Phase 5B.2 result: portable index/cache and external split manifest contracts
+  `1.0.0`, streaming offline HookTheory and POP909-CL cache builders,
+  one-artifact lazy Dataset, single-split multi-corpus composition,
+  target-blind largest-remainder quota sampler with deterministic shuffled
+  cycles, and spawn-safe DataLoader routing through the Phase 5B.1 collator.
+  Production split ratios/seed and training weights remain explicit Phase 6
+  configuration decisions.
 - Outputs: datasets, samplers, collator, task routing, the versioned
   source-native target ontology plus any future evidence-backed normalized
   views, dataset-specific annotation views, availability masks, and per-target
@@ -304,7 +308,8 @@ The model and training phases remain pending.
   raw feature/topology mutation, malformed PyG batches, deterministic
   collation, instrumentation-based scaling, and separate raw-only and
   target-heavy benchmarks.
-  Phase 5B.2 owns dataset balancing, worker determinism, and corpus indexing.
+  Phase 5B.2 covers bounded dataset/cache/split/sampler/worker determinism,
+  corruption rejection, raw-only support, and 0/2-worker parity.
 - Non-goals: advanced SSL.
 - Acceptance: one mixed batch routes only available targets and preserves
   source/lineage grouping.

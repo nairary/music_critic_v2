@@ -50,11 +50,63 @@
 - Phase 5B.1: Completed
 - Phase 5B.1 branch: `phase/5b1-target-tensorizer-collator`
 - Target encoding registry version: `1.0.0`
+- Phase 5B.2: Implemented and locally verified; draft PR Required CI is the
+  merge-gate authority
+- Phase 5B.2 branch: `phase/5b2-corpus-dataset-loader`
+- Multi-source corpus index version: `1.0.0`
+- Multi-source canonical cache version: `1.0.0`
+- Split manifest version: `1.0.0`
+- Mixture sampler version: `1.0.0`
 - Documentation branch: `docs/harmonic-supervision-contract`
 - Documentation base commit: `681abbdf331c032e34cc7541224ca98f13e19a86`
 - Pre-merge clarification base: `4f5f1e32f0244cbbfedd3a0cd4dbaa9047a82e51`
-- Next phase: Phase 5B.2 — corpus Dataset, deterministic mixture sampler,
-  worker-safe DataLoader, and practical corpus indexing
+- Next phase after acceptance: Phase 6 — baseline architecture and explicitly
+  configured production split/mixture; Phase 6 has not started
+
+## Phase 5B.2 corpus Dataset and loader result
+
+- Portable deterministic index headers bind source, adapter/config, canonical,
+  graph/feature, ontology, and encoding contracts. Accepted records and
+  structured quarantine are separate; absolute/traversing paths, duplicate
+  piece identities, stale versions, and fingerprint mismatches fail closed.
+- Offline HookTheory streaming and POP909-CL discovery/adapter builders write
+  one SHA-addressed canonical JSON artifact at a time with atomic rename.
+  Partial writes are invalid; graphs and tensors are not cached.
+- `IndexedMultiSourceDataset` loads metadata only and reads/verifies one
+  artifact in `__getitem__`, then invokes `prepare_multisource_sample`.
+  Raw-only canonical pieces and spawn/pickle graph binding are supported.
+- External split manifests bind all pieces and transitive source/lineage
+  components. Suggested source splits are diagnostics only. No production
+  ratios/seed were selected.
+- Single-split multi-corpus composition, exact largest-remainder quotas,
+  deterministic shuffled local cycles, `set_epoch`, worker seeding, and the
+  unchanged Phase 5B.1 collator provide epoch-level reproducibility without
+  target-dependent split or sampling.
+- Default evidence is bounded/synthetic only. No full HookTheory cache build,
+  909-file POP909-CL acceptance rerun, training corpus build, adapter change,
+  production manifest change, or Phase 6 implementation is part of this task.
+
+## Phase 5B.2 verification
+
+- Base `main`: `c56bfaff2bbbb1f2d5ba249327274fa950648034`.
+- Focused dataset/cache/split/sampler/worker plus Phase 5B.1 collator and graph
+  leakage regressions: 113 passed.
+- Full default suite: 603 passed, 12 skipped; skips are opt-in real-corpus
+  integration tests.
+- Deterministic target-contract audit and bounded corpus index/cache/split
+  audit both passed `--check`.
+- Bounded acceptance used two HookTheory-style items plus one production
+  POP909-CL adapter item. Index fingerprints were
+  `5ede4df8cdd2127db7ae86efd4c1d379ad9bf1d616036f1899b13bd97e38ef92`
+  and
+  `5fa9f3afe8b6987c3a08e1f952ac336a0ba411c832a096cc6e020c4738de9f0d`.
+- A 2:1 explicit mixture at epoch size 6 realized HookTheory/POP quotas 4/2.
+  Both worker modes emitted six samples, 56 nodes, 196 edges, and 250 target
+  rows with schedule fingerprint
+  `b9c481a6298192de64d705c9f631da2592cd3a9cc8762b1f369149381796f2f7`.
+  End-to-end diagnostic throughput was 18.14 samples/s (`num_workers=0`) and
+  2.13 samples/s (spawn `num_workers=2`) on this tiny cold-start-dominated
+  fixture; there is no timing threshold.
 
 ## Phase 5B.1 exact alignment, tensorizer, and collator result
 
@@ -65,7 +117,7 @@
 - Encoding registry fingerprint:
   `386aceef18b6ba7da5e91d406cefdcdc21d46b6839ded873312402940b507e01`.
   Deterministic bounded audit report fingerprint:
-  `f1168939287b26188b9a9c70282f416a808b8f802bc9367b226b77f81ce745af`.
+  `7303164a65d034127bd5e685b582384c3b1462d4d18c142ce356eb9001be3982`.
 - Pre-merge remediation builds one immutable alignment index per piece.
   O(1) note/annotation/exact-time mappings and rational-time bisect span lookup
   have strict complexity `O(P + C log C + T log C + R + F*C)`, including

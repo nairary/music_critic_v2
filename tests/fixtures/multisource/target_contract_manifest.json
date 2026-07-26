@@ -1,9 +1,9 @@
 {
   "audit_schema_version": "1.1.0",
   "contract_source_sha256": {
-    "docs/HARMONIC_SUPERVISION.md": "3f98129783335dfb210f39c59e23bf043cbd1b6c2da8db045eb96989b633c072",
-    "docs/MULTISOURCE_COLLATOR.md": "ef0216b76970d1d2a2a70ee05e0105235711fcec84d2d60aa8b9748605d6dec3",
-    "docs/MULTISOURCE_TARGET_CONTRACT.md": "61d21777435b03a45ac2dce948b6752005b6361c81fa62c5e0b82b3e35069315",
+    "docs/HARMONIC_SUPERVISION.md": "78397907a3a85068c034af084da0762194ef24af6da2940ee6d84cf998a30f22",
+    "docs/MULTISOURCE_COLLATOR.md": "b5f6bf4fcf48a60c63e898bd8c0512553f084f906950849c855116d2e981bafb",
+    "docs/MULTISOURCE_TARGET_CONTRACT.md": "39a78de450ed71b1d793ec65268a5cb7eac1fa173c9d599ba3a0a3f518a2797f",
     "docs/POP909_CL_ADAPTER_CONTRACT.md": "42732a2da34c59dfa407ca4db2b969e78e9aa1506ee2e63a8abeed228c39736f",
     "scripts/audit_multisource_targets.py": "cda2585659fa6b33269b1eea1c221889aec222696bfccbbf8fdeccf61940ffac",
     "scripts/benchmark_multisource_collator.py": "5ce320a3f1b634369cec689600e6b0b4d30278890a42b9f778f57efdb6279146",
@@ -15,7 +15,7 @@
     "src/music_critic/tasks/alignment.py": "1ccb87d2b65d4e2053f89e2d2eb1a2de8a39dd1449e8cc93583cfce5484e05dd",
     "src/music_critic/tasks/collator.py": "34ce0060cffd7366418052552883d3c250715a200c213ed4b829ecdf5b3e0505",
     "src/music_critic/tasks/encoding.py": "de5199ffc1ea6034b860109967a8c931b813d68a4cffd5209072d45b02add4af",
-    "src/music_critic/tasks/multisource.py": "4f9ce4fb75387ba8880d86692459367812830aedcc199b4923d802777522eb27",
+    "src/music_critic/tasks/multisource.py": "beb319f5d32562c0a08712de8ba02a8e0649f03463a2242b1668ce52f8679ae4",
     "src/music_critic/tasks/ontology.py": "06a7201d6ca94b4ff898a273ea39ff669f5dcaa11b1e7c2047b9803896755d8c",
     "tests/fixtures/hooktheory/golden_manifest.json": "a051f9ddc5ea7047200a1f94b2db6b1d3deb2ab15a2284827c704fb7681b1d0e",
     "tests/fixtures/pop909_cl/production_manifest.json": "631873cac3ae0ff03b1f17a3d933f83954ed0da2a9bcf53e334bf5d7a6cd308a"

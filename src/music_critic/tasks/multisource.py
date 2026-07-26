@@ -308,6 +308,25 @@ class MultiSourceSample(MultiSourceTargetProjection):
                 "differs from its immutable preparation fingerprint"
             )
 
+    def __reduce__(self) -> tuple[object, tuple[object, ...]]:
+        """Restore the private graph-binding token after worker serialization."""
+
+        projection = MultiSourceTargetProjection(
+            canonical_piece=self.canonical_piece,
+            dataset_id=self.dataset_id,
+            piece_id=self.piece_id,
+            source_group_id=self.source_group_id,
+            lineage_group_id=self.lineage_group_id,
+            target_bundle=self.target_bundle,
+            target_availability=self.target_availability,
+            target_provenance_sidecar=self.target_provenance_sidecar,
+            diagnostics=self.diagnostics,
+        )
+        return (
+            _restore_multisource_sample,
+            (projection, self.raw_graph, self.raw_graph_fingerprint),
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class TargetDiagnostic:
@@ -1189,6 +1208,20 @@ def _sample_from_projection(
         raw_graph=raw_graph,
         raw_graph_fingerprint=raw_graph_fingerprint,
         _binding_token=_RAW_GRAPH_BINDING_TOKEN,
+    )
+
+
+def _restore_multisource_sample(
+    projection: MultiSourceTargetProjection,
+    raw_graph: Any,
+    raw_graph_fingerprint: str,
+) -> MultiSourceSample:
+    """Pickle restoration path that revalidates and reinstates the private token."""
+
+    return _sample_from_projection(
+        projection,
+        raw_graph=raw_graph,
+        raw_graph_fingerprint=raw_graph_fingerprint,
     )
 
 

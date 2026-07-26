@@ -2493,13 +2493,25 @@ structure and is converted to `float32` only at feature-tensor construction.
 
 ### Phase 5B.2. Corpus dataset, mixture sampler, and worker-safe loading
 
-- Load/index canonical files from multiple datasets without full in-memory
-  materialization.
-- Preserve source- and lineage-safe grouping before sampling or splitting.
-- Implement practical corpus indexing, deterministic mixture probabilities,
-  sampler/epoch behavior, worker seeds, `Dataset`, and `DataLoader`.
-- Route prepared samples through the Phase 5B.1 collator without weakening its
-  target masks, offsets, source semantics, or raw-only allowlists.
+- Implemented portable corpus index `1.0.0`, canonical cache `1.0.0`, split
+  manifest `1.0.0`, and mixture sampler `1.0.0`.
+- Offline builders stream HookTheory records or consume POP909-CL discovery,
+  preserve structured quarantine separately, and write one deterministic,
+  SHA-addressed canonical JSON artifact at a time. Raw-only canonical pieces
+  are supported; graphs/tensors are not cached.
+- The lazy map-style Dataset reads/verifies one artifact per item, validates it,
+  prepares the Phase 3A graph, and survives spawn/pickle while retaining the
+  private graph-binding verification.
+- External split manifests cover every indexed piece and bind exact transitive
+  source/lineage components. Suggested source splits are diagnostics only.
+  Production ratios and seed remain unselected.
+- Stable multi-corpus ranges plus explicit largest-remainder quotas, local
+  torch-generator schedules, shuffled no-repeat-before-exhaustion cycles, and
+  `set_epoch` provide epoch-level deterministic mixtures without consulting
+  targets.
+- The worker-safe DataLoader exposes batch/worker/persistence/prefetch/context
+  config, seeds Python and torch from the PyTorch worker seed, and routes
+  samples through the unchanged Phase 5B.1 collator.
 
 ### Phase 5B acceptance criteria
 

@@ -324,3 +324,11 @@ does not choose or implement:
 These decisions belong to their named roadmap phases and require tests,
 provenance, leakage checks, and ablations before implementation claims are
 made.
+
+Phase 5B.2 adds only target-blind corpus transport. Cache keys bind ontology
+semantics so stale target artifacts cannot masquerade as current, but split
+planning and mixture sampling inspect only dataset/piece and proven
+source/lineage identities. Available/masked counts are diagnostics, never
+sampling weights. Missing boundary/no-chord observations therefore remain
+unlabeled through Dataset and DataLoader exactly as in the Phase 5A/5B.1
+contracts. No loss or PU objective is selected.
