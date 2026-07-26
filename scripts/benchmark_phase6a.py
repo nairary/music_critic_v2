@@ -188,12 +188,14 @@ def _counts(batch) -> dict[str, object]:
     }
 
 
-def benchmark_variant(batch, variant: str) -> dict[str, object]:
+def benchmark_variant(
+    batch, variant: str, *, gnn_layers: int = 2
+) -> dict[str, object]:
     torch.manual_seed(101)
     config = LocalBaselineConfig(
         variant=variant,
         hidden_dim=32,
-        gnn_layers=2,
+        gnn_layers=gnn_layers,
         dropout=0.0,
     )
     model = LocalHeterogeneousBaseline(config).cpu().train()

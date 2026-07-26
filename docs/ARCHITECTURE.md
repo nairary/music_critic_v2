@@ -1,8 +1,9 @@
 # Music Critic V2 Architecture
 
-Status: **INCREMENTAL**. Phase 6A implements the raw feature and local-GNN
-portion; hierarchy, Transformer, SSL, and critic paths below remain future
-phases.
+Status: **INCREMENTAL**. Phase 6A implements raw feature and local-GNN
+representations; Phase 6B implements deterministic hierarchy, coarse
+Transformer context, and top-down fusion. SSL and critic paths below remain
+future phases.
 
 ## System flow
 
@@ -11,7 +12,7 @@ flowchart LR
     A[Raw MIDI or score-derived symbolic input] --> B[Canonical representation]
     B --> C[Raw heterogeneous graph]
     C --> D[Phase 6A feature-only or local relation-aware GNN]
-    D -. Phase 6B .-> E[Hierarchical pooling]
+    D --> E[Phase 6B deterministic hierarchical pooling]
     E --> F[Coarse temporal Transformer]
     F --> G[Top-down fusion]
     G --> H[SSL decoders]
@@ -328,11 +329,25 @@ for supervision or analysis, but cannot be required by raw inference.
    loss; raw-only inference therefore uses the same candidate path. Target
    replacement, deletion, masking, or addition cannot change candidate
    identity or eval logits. No head is global-mean-only.
-2. Phase 6B hierarchical pooling produces bar and track tokens without discarding local
-   embeddings.
-3. A coarse temporal Transformer models long-range bar-level development and
-   cross-track structure.
-4. Top-down fusion returns global context to local embeddings.
+2. Phase 6B validates exact ownership from raw forward/reverse hierarchy edges.
+   Sparse family pooling produces bar tokens from own+beat+onset+note evidence
+   and track tokens from own+note evidence. Mean, maximum, log-count, explicit
+   availability, learned projection, and parent residual are retained without
+   a dense membership matrix or child-by-parent tensor.
+   Store existence and `edge_index` presence are checked before PyG indexing,
+   so structured failures cannot create missing stores. Externally supplied
+   ownership is compared exactly with raw relations and local membership; the
+   standard model path scans raw ownership once.
+3. One padded sequence per sample is `[SONG] + bars + tracks`, with separate
+   type embeddings, runtime ordinal positions, and a key-padding mask. A
+   batch-first pre-norm Transformer returns contextual song/bar/track rows
+   without cross-sample attention. The SONG row is a representation, not a
+   quality score. Counts, family ordinals, and positions are tensorized; coarse
+   packing has no per-row host synchronization and performs one batch-level
+   synchronization only to allocate `max(L_s)` padding.
+4. Gated top-down residual fusion returns contextual bar+track+song to notes,
+   bar+song to onsets/beats, contextual parent+song to bars/tracks, and
+   contextual song to song while retaining all local rows.
 5. Separate heads perform SSL reconstruction, theory prediction, aspect
    scoring, pairwise preference, and optional aesthetic distillation.
 
@@ -340,9 +355,10 @@ Missing supervised targets always use explicit masks. A missing label is never
 interpreted as a negative example.
 
 Phase 6A implements only visible-input local reconstruction as a plumbing
-check and fully supervised auxiliary semantics. GraphMAE2-style masking begins
-in Phase 7. Phase 6B may add global context but must not use mean-only final
-aggregation; future critic evidence must retain local or top-k worst regions.
+check and fully supervised auxiliary semantics. Phase 6B adds global context
+without changing that reconstruction or using mean-only final aggregation.
+GraphMAE2-style masking begins in Phase 7; future critic evidence must retain
+local or top-k worst regions.
 
 Phase 6A model/output and loss contracts are `1.1.0`; candidate prediction is
 `1.0.0`. Tensor node-type codes in `BatchTarget` contract `1.1.0` permit the
@@ -353,6 +369,11 @@ atomic state application; saves use atomic same-directory replacement.
 Canonical one-note sensitivity rebuilds and validates both graphs. Its
 oversmoothing statistic is separate per sample/node type/scale, unavailable
 below two nodes, and exact linear `O(ND)`.
+
+Phase 6B pooling, coarse-sequence, hierarchical-output, top-down-fusion,
+hierarchical-model/output, and hierarchical-checkpoint contracts are each
+`1.0.0`. Phase 6A versions remain unchanged. The full additive contract is in
+`PHASE6B_HIERARCHY.md`.
 
 ## Incremental research scope
 

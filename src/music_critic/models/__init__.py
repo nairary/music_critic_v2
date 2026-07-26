@@ -1,4 +1,4 @@
-"""Trainable local raw-graph baselines for Music Critic Phase 6A."""
+"""Trainable local and hierarchical raw-graph Music Critic baselines."""
 
 from music_critic.models.baseline import (
     BaselineOutput,
@@ -52,6 +52,44 @@ from music_critic.models.heads import (
     join_task_supervision,
     routing_operation_counts,
 )
+from music_critic.models.hierarchical_baseline import (
+    HierarchicalBaselineOutput,
+    HierarchicalHeterogeneousBaseline,
+)
+from music_critic.models.hierarchical_checkpoint import (
+    hierarchical_checkpoint_metadata,
+    load_hierarchical_checkpoint,
+    save_hierarchical_checkpoint,
+)
+from music_critic.models.hierarchical_diagnostics import (
+    HierarchicalEmbeddingDelta,
+    HierarchicalSingleNoteDiagnostic,
+    hierarchical_single_note_sensitivity,
+)
+from music_critic.models.hierarchy import (
+    CoarseMusicTransformer,
+    CoarseTokenSequence,
+    ContextualCoarseOutput,
+    ContextualEncoderOutput,
+    DeterministicHierarchyPool,
+    HierarchicalContextEncoder,
+    HierarchyContractError,
+    HierarchyOwnership,
+    HierarchyPoolingOutput,
+    TopDownFusion,
+    extract_hierarchy_ownership,
+    validate_hierarchy_graph_structure,
+    validate_hierarchy_ownership,
+)
+from music_critic.models.hierarchy_contracts import (
+    COARSE_TOKEN_SEQUENCE_CONTRACT_VERSION,
+    HIERARCHICAL_CHECKPOINT_CONTRACT_VERSION,
+    HIERARCHICAL_ENCODER_OUTPUT_VERSION,
+    HIERARCHICAL_MODEL_CONTRACT_VERSION,
+    HIERARCHY_POOLING_CONTRACT_VERSION,
+    TOP_DOWN_FUSION_CONTRACT_VERSION,
+    HierarchicalBaselineConfig,
+)
 from music_critic.models.reconstruction import (
     RECONSTRUCTION_FIELDS,
     RawReconstructionHeads,
@@ -65,11 +103,30 @@ __all__ = [
     "BaselineLossReport",
     "BaselineOutput",
     "CHECKPOINT_CONTRACT_VERSION",
+    "COARSE_TOKEN_SEQUENCE_CONTRACT_VERSION",
     "CheckpointContractError",
     "ENCODER_OUTPUT_VERSION",
     "EXCLUDED_TASK_REASONS",
     "EmbeddingDelta",
     "EncoderOutput",
+    "ContextualCoarseOutput",
+    "ContextualEncoderOutput",
+    "CoarseMusicTransformer",
+    "CoarseTokenSequence",
+    "DeterministicHierarchyPool",
+    "HIERARCHICAL_CHECKPOINT_CONTRACT_VERSION",
+    "HIERARCHICAL_ENCODER_OUTPUT_VERSION",
+    "HIERARCHICAL_MODEL_CONTRACT_VERSION",
+    "HIERARCHY_POOLING_CONTRACT_VERSION",
+    "HierarchicalBaselineConfig",
+    "HierarchicalBaselineOutput",
+    "HierarchicalContextEncoder",
+    "HierarchicalEmbeddingDelta",
+    "HierarchicalHeterogeneousBaseline",
+    "HierarchicalSingleNoteDiagnostic",
+    "HierarchyContractError",
+    "HierarchyOwnership",
+    "HierarchyPoolingOutput",
     "LocalBaselineConfig",
     "LocalHeterogeneousBaseline",
     "LocalHeterogeneousEncoder",
@@ -91,17 +148,26 @@ __all__ = [
     "TaskLoss",
     "TaskPrediction",
     "TaskSupervision",
+    "TOP_DOWN_FUSION_CONTRACT_VERSION",
+    "TopDownFusion",
     "active_task_head_specs",
     "aggregate_task_losses",
     "checkpoint_metadata",
     "feature_registry_fingerprint",
+    "extract_hierarchy_ownership",
+    "validate_hierarchy_graph_structure",
+    "validate_hierarchy_ownership",
+    "hierarchical_checkpoint_metadata",
+    "hierarchical_single_note_sensitivity",
     "join_task_supervision",
     "load_baseline_checkpoint",
+    "load_hierarchical_checkpoint",
     "normalize_continuous",
     "oversmoothing_by_group",
     "perturb_canonical_note_pitch",
     "reconstruction_loss",
     "routing_operation_counts",
     "save_baseline_checkpoint",
+    "save_hierarchical_checkpoint",
     "single_note_sensitivity",
 ]

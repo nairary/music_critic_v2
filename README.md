@@ -11,7 +11,8 @@ checkout is absent.
 
 ## Current state
 
-Phases 0 through 5B.2 and the Phase 6A local baseline are implemented.
+Phases 0 through 5B.2 and the Phase 6A/6B representation baselines are
+implemented.
 The repository provides an exact immutable
 canonical schema, generic MIDI and HookTheory adapters, diagnostic canonical
 MIDI export, a production POP909-CL adapter, and a versioned raw-only PyG
@@ -30,9 +31,11 @@ manifested splits, a lazy Dataset, deterministic mixture sampling, and
 worker-safe loading. Phase 6A adds comparable feature-only and local
 relation-aware encoders, retained local outputs, 14 source-native
 fully-supervised heads, inspectable losses, local reconstruction plumbing,
-strict checkpoints, and CPU diagnostics. Hierarchy/Transformer Phase 6B, SSL,
-corruption training, preference training, PLL, and deployable scoring
-inference are not implemented yet.
+strict checkpoints, and CPU diagnostics. Phase 6B adds deterministic raw-edge
+ownership, bar/track pooling, a per-sample coarse Transformer, contextual SONG
+rows, top-down gated residual fusion, strict hierarchical checkpoints, and a
+controlled three-way ablation. SSL, corruption training, preference training,
+PLL, and deployable scoring inference are not implemented yet.
 
 ## Layout
 
@@ -45,7 +48,8 @@ inference are not implemented yet.
 - `src/music_critic/tasks/`: source-native ontology, exact alignment, versioned
   encodings, target tensorization, mixed-source collator, corpus loading, and
   statistics;
-- `src/music_critic/models/`: Phase 6A raw feature/local-GNN encoders,
+- `src/music_critic/models/`: Phase 6A raw feature/local-GNN encoders and the
+  Phase 6B deterministic hierarchy, coarse Transformer, top-down fusion,
   source-native heads, losses, reconstruction, diagnostics, and checkpoints;
 - `docs/`: authoritative plan, architecture, contracts, decisions, and status;
 - `configs/`: reserved for phase-owned configuration;
@@ -89,6 +93,8 @@ PYTHONPATH=src python scripts/benchmark_multisource_collator.py \
   --target-heavy --repeats 3
 PYTHONPATH=src python scripts/benchmark_phase6a.py \
   --larger-repeats 4 --overfit-steps 40
+PYTHONPATH=src python scripts/benchmark_phase6b.py \
+  --larger-repeats 4 --overfit-steps 30
 ```
 
 `build_raw_graph` validates its `CanonicalPiece` by default. Callers that have
@@ -130,3 +136,6 @@ documented in `docs/MULTISOURCE_DATASET.md`. Full corpus cache builds are
 explicit opt-in commands; default tests use bounded/synthetic artifacts only.
 The learned local baseline and its strict non-critic/non-SSL boundary are in
 `docs/PHASE6A_BASELINE.md`.
+The deterministic hierarchy, bar+track Transformer, contextual song row,
+top-down fusion, and controlled three-way ablation are in
+`docs/PHASE6B_HIERARCHY.md`.
