@@ -356,11 +356,13 @@ The model and training phases remain pending.
 - Outputs: deterministic hierarchy pooling, bar/track tokens, bar+track
   Transformer, song embedding, top-down fusion, and the controlled
   feature-only/local-GNN/hierarchical ablation.
-- Tests: exact ownership and malformed hierarchy rejection, deterministic
-  membership and empty groups, sparse pooling, padding and cross-sample
-  isolation, retained local and top-down cardinality, candidate/target
-  invariance, gradients/overfit, strict checkpoint round-trip/atomicity,
-  hierarchical sensitivity, and the controlled three-way benchmark.
+- Tests: exact ownership, stable structured missing/invalid-store categories,
+  non-mutating failures, forged-ownership rejection, deterministic membership
+  and empty groups, sparse pooling, tensorized uneven packing/reference/CUDA
+  parity, padding and end-to-end cross-sample isolation, retained local and
+  top-down cardinality, candidate/target invariance, gradients/overfit, strict
+  checkpoint round-trip/atomicity, per-path hierarchical sensitivity, and the
+  controlled three-way plus uneven-sequence benchmarks.
 - Non-goals: GraphMAE2 SSL, PLL, preference/quality critic, or shared
   pitch-class-set semantics.
 - Acceptance: global context is available alongside retained note/onset/beat

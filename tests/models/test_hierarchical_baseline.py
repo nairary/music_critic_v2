@@ -9,6 +9,7 @@ from music_critic.models import (
     ACTIVE_TASK_IDS,
     HierarchicalBaselineConfig,
     HierarchicalHeterogeneousBaseline,
+    perturb_canonical_note_pitch,
 )
 from music_critic.tasks import (
     collate_multisource_samples,
@@ -82,6 +83,48 @@ def test_target_replace_delete_mask_add_cannot_change_eval_logits() -> None:
         assert all(
             torch.equal(reference_logits[item.task_id], item.logits)
             for item in output.predictions
+        )
+
+
+def test_end_to_end_perturbation_cannot_change_unrelated_sample() -> None:
+    original = _hook_piece(root=1)
+    note_id = original.notes[0].note_id
+    perturbed = perturb_canonical_note_pitch(original, note_id)
+    unrelated = _hook_piece(root=5)
+
+    def pair_batch(first):
+        return collate_multisource_samples(
+            tuple(
+                prepare_multisource_sample(piece)
+                for piece in (first, unrelated)
+            )
+        )
+
+    torch.manual_seed(723)
+    model = _model().eval()
+    before = model(
+        pair_batch(original), include_reconstruction=False
+    )
+    after = model(
+        pair_batch(perturbed), include_reconstruction=False
+    )
+    for node_type in MANDATORY_NODE_TYPES:
+        before_rows = (
+            before.encoder.fused.batch_membership[node_type] == 1
+        )
+        after_rows = after.encoder.fused.batch_membership[node_type] == 1
+        assert torch.equal(before_rows, after_rows)
+        assert torch.equal(
+            before.encoder.fused.embeddings[node_type][before_rows],
+            after.encoder.fused.embeddings[node_type][after_rows],
+        )
+    for left, right in zip(before.predictions, after.predictions):
+        assert left.task_id == right.task_id
+        left_rows = left.sample_indices == 1
+        right_rows = right.sample_indices == 1
+        assert torch.equal(left_rows, right_rows)
+        assert torch.equal(
+            left.logits[left_rows], right.logits[right_rows]
         )
 
 

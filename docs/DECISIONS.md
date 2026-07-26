@@ -1041,3 +1041,35 @@ This log is append-only.
   production target semantics. SSL, corruption/remasking, latent prediction,
   PLL, PU objectives, preference learning, and critic/quality scoring remain
   later work; Phase 7 has not started.
+
+## 2026-07-26 — ADR-042: Phase 6B ownership is structured and coarse packing is tensorized
+
+- Status: Accepted as final pre-merge remediation of draft PR #10.
+- Context: PyG mapping reads can create missing stores, the initial
+  `HierarchyOwnership` constructor did not prove equality with the raw graph,
+  and coarse sequence construction scanned membership rows through
+  device-to-host `.item()` calls. These implementation gaps weakened failure
+  categories and made synchronization count grow with coarse rows even though
+  the intended Phase 6B serialized outputs were already correct.
+- Decision: Check graph type, mandatory node stores, all six
+  ownership/containment relation pairs, and `edge_index` attributes before
+  indexing. Give input/store/attribute/tensor/missing/duplicate/reordered/range/
+  reverse/cross-sample failures distinct stable `HierarchyContractError`
+  categories, and guarantee validation failure does not change store types or
+  attribute-key sets.
+- Decision: Any externally supplied ownership is validated for exact ordered
+  keys, complete membership, sample count, dtype/rank/shape/device, one owner
+  per child, ranges, sample agreement, and exact raw forward/reverse equality.
+  The standard model extracts raw ownership once before Phase 6A encoding,
+  then uses a private local-row/device consistency handoff rather than a second
+  raw scan.
+- Decision: Compute bar/track counts with `bincount`, cumulative family starts
+  with `cumsum`, and ordinals/positions/indexed placement on device. Production
+  has no Python scan or per-row `.item()`/`.tolist()`/`.cpu()`. One
+  `max(lengths).item()` synchronization per batch remains necessary to allocate
+  the padded `B x max(L) x D` output and is independent of coarse-row count.
+- Consequences: Canonical `[SONG]+bars+tracks` order, type/position embeddings,
+  padding, gradients, eval determinism, six public/serialized Phase 6B
+  contracts, and all Phase 6A semantics remain unchanged, so the six versions
+  remain `1.0.0`. No graph/canonical/ontology/encoding/adapter/manifest/corpus
+  semantics change. Phase 7 remains unstarted.

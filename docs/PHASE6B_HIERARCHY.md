@@ -58,6 +58,23 @@ reverse ownership raises `HierarchyContractError`. Production does not silently
 repair or regroup malformed hierarchy. No target-only fields, semantic spans,
 split metadata, or provenance participate in ownership.
 
+Extraction first verifies that its input is a PyG `HeteroData`/`Batch`, then
+checks all mandatory node stores, all twelve ownership/containment edge stores,
+and each existing `edge_index` before indexing a store. Missing stores are
+therefore never created as a PyG read side effect. Input type, node store, edge
+store, edge attribute, tensor type/dtype/rank/shape/device, missing child,
+duplicate child, reordered child, owner range, reverse mismatch, and
+cross-sample failures have distinct stable `HierarchyContractError`
+categories. Failed validation leaves `node_types`, `edge_types`, and every
+store's attribute-key set unchanged.
+
+Externally supplied `HierarchyOwnership` is revalidated for exact ordered keys,
+sample count, complete membership maps, tensor dtype/rank/shape/device, owner
+ranges, child/parent sample agreement, and exact equality with both raw edge
+directions. The production model performs one complete raw ownership scan
+before Phase 6A graph encoding and passes that result through an internal
+local-row/device consistency check; it does not repeat the six relation scans.
+
 ## Deterministic sparse pooling
 
 A bar token combines its own local bar row with separate beat, onset, and note
@@ -93,6 +110,22 @@ positions, so supported length is not a learned fixed table. Padding has an
 explicit key-padding mask. A sample is never concatenated with another sample;
 batched attention therefore cannot cross sample boundaries.
 
+Packing computes per-sample bar/track counts with `bincount`, boundaries with
+`cumsum`, local family ordinals with tensor arithmetic, and padded positions
+with indexed tensor placement:
+
+```text
+song_position = 0
+bar_position = 1 + bar_ordinal
+track_position = 1 + bar_count[sample] + track_ordinal
+```
+
+There is no Python scan over bar or track rows and no `.tolist()`/`.cpu()` or
+per-row `.item()` in production packing. Determining the padded allocation
+length performs exactly one `lengths.max().item()` device-to-host
+synchronization per constructed batch, independent of coarse-row count.
+Indexed placement preserves gradients to song, bar, and track inputs.
+
 The implementation is `batch_first=True`, pre-norm
 `torch.nn.TransformerEncoder`. It returns contextual song, bar, and track rows
 in their original graph-row order. With sample sequence lengths `L_s`, hidden
@@ -100,6 +133,11 @@ width `D`, and feed-forward width `M`, attention costs
 `O(sum_s L_s^2 D)` and feed-forward processing costs
 `O(sum_s L_s D M)`. Padded activation storage follows the bounded batch tensor
 shape `B x max(L_s) x D` plus the attention implementation's internal state.
+Before attention, count/position construction is `O(B + N_bar + N_track)` and
+feature placement/positional encoding is
+`O(B * max(L_s) * D + (N_bar + N_track) * D)`. Required padded output storage
+is `O(B * max(L_s) * D)` with `O(B + N_bar + N_track)` tensor metadata; no
+child-by-parent matrix is involved.
 
 The contextual SONG row is a learned representation of the raw piece under
 this baseline. It is not a scalar quality judgement.
@@ -163,6 +201,12 @@ forward/backward 0.05796 s. On the larger batch they were 0.00189 s, 0.00164 s,
 0.00051 s, and 0.06584 s. No acceptance threshold or performance conclusion is
 derived from these bounded measurements.
 
+A separate 16-repeat uneven-sequence remediation benchmark used coarse lengths
+`[3, 4, 3]`, padded shape `[3, 4, 32]`, and retained 237 candidate rows.
+Tensorized sequence construction averaged 0.000259 s and complete hierarchical
+eval forward averaged 0.025124 s. This is bounded plumbing evidence with no
+speed threshold and no production-throughput claim.
+
 Every local node encoder, child/parent pooler, Transformer attention and
 feed-forward block, all six fusion modules, and all 14 task heads receive
 gradients in the bounded training check. A 30-step feasibility run reduced the
@@ -184,9 +228,12 @@ retention. The bounded run produced these non-zero L2 deltas:
 | fused bar / track | 0.08809 / 0.18145 |
 | reconstruction logits | 1.37096 |
 
-An unrelated sample processed in the same batch remains bit-exact at local,
-pooled, contextual, and fused stages. These values show that the expected
-hierarchy path is live; they do not rank music quality.
+Every listed path is asserted separately rather than through an aggregate
+`any(delta > 0)` check. An unrelated sample processed in the same batch remains
+bit-exact at local, pooled, contextual, and fused stages; an end-to-end
+two-batch perturbation test additionally preserves its fused embeddings and all
+candidate logits bit-exactly. These values show that the expected hierarchy
+path is live; they do not rank music quality.
 
 ## Phase boundary
 

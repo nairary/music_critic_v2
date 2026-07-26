@@ -223,5 +223,22 @@ def test_hierarchical_single_note_reports_local_coarse_and_fused_levels() -> Non
         ("fused", "bar"),
         ("fused", "track"),
     } <= stages
-    assert any(item.l2 > 0 for item in report.deltas)
+    deltas = {
+        (item.stage, item.node_type): item.l2
+        for item in report.deltas
+    }
+    for path in (
+        ("phase6a_local", "note"),
+        ("pooled", "bar"),
+        ("pooled", "track"),
+        ("contextual", "bar"),
+        ("contextual", "track"),
+        ("contextual", "song"),
+        ("fused", "note"),
+        ("fused", "onset"),
+        ("fused", "beat"),
+        ("fused", "bar"),
+        ("fused", "track"),
+    ):
+        assert deltas[path] > 0, path
     assert report.reconstruction_logit_l2_delta > 0

@@ -156,6 +156,60 @@ def benchmark_controlled_ablation(batch) -> list[dict[str, object]]:
     return [*local_reports, benchmark_hierarchical_variant(batch)]
 
 
+@torch.no_grad()
+def benchmark_uneven_sequence_packing(
+    batch, *, repeats: int = 8
+) -> dict[str, object]:
+    """Measure bounded uneven packing and complete eval forward plumbing."""
+
+    if repeats <= 0:
+        raise ValueError("repeats must be positive")
+    torch.manual_seed(909)
+    model = HierarchicalHeterogeneousBaseline(
+        _hierarchical_config()
+    ).cpu().eval()
+    graph = batch.raw_graph_batch
+    ownership = extract_hierarchy_ownership(graph)
+    local = model.local_baseline.encode(graph)
+    pooling = model.context_encoder.pooling(
+        local.final_output, ownership
+    )
+    sequence = model.context_encoder.transformer.build_sequence(
+        local.final_output, pooling
+    )
+    lengths = sequence.sequence_lengths.tolist()
+    if len(set(lengths)) < 2:
+        raise ValueError(
+            "uneven benchmark requires at least two sequence lengths"
+        )
+    start = perf_counter()
+    for _ in range(repeats):
+        sequence = model.context_encoder.transformer.build_sequence(
+            local.final_output, pooling
+        )
+    packing_total = perf_counter() - start
+    start = perf_counter()
+    for _ in range(repeats):
+        output = model(batch, include_reconstruction=False)
+    forward_total = perf_counter() - start
+    return {
+        "scope": (
+            "bounded uneven-sequence plumbing only; no throughput or "
+            "speed acceptance threshold"
+        ),
+        "repeats": repeats,
+        "sequence_lengths": lengths,
+        "padded_shape": list(sequence.tokens.shape),
+        "sequence_construction_total_seconds": packing_total,
+        "sequence_construction_mean_seconds": packing_total / repeats,
+        "hierarchical_forward_total_seconds": forward_total,
+        "hierarchical_forward_mean_seconds": forward_total / repeats,
+        "candidate_logit_rows": sum(
+            int(item.logits.shape[0]) for item in output.predictions
+        ),
+    }
+
+
 def hierarchical_overfit_evidence(batch, steps: int) -> dict[str, object]:
     torch.manual_seed(911)
     model = HierarchicalHeterogeneousBaseline(
@@ -305,11 +359,17 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--larger-repeats", type=int, default=4)
     parser.add_argument("--overfit-steps", type=int, default=30)
+    parser.add_argument("--packing-repeats", type=int, default=8)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    if args.larger_repeats < 2 or args.overfit_steps <= 0:
+    if (
+        args.larger_repeats < 2
+        or args.overfit_steps <= 0
+        or args.packing_repeats <= 0
+    ):
         parser.error(
-            "larger-repeats must be >=2 and overfit-steps must be positive"
+            "larger-repeats must be >=2 and overfit/packing repeats "
+            "must be positive"
         )
     with TemporaryDirectory(prefix="music-critic-phase6b-") as directory:
         root = Path(directory)
@@ -325,6 +385,11 @@ def main() -> int:
                 "tiny_mixed": benchmark_controlled_ablation(tiny),
                 "larger_synthetic": benchmark_controlled_ablation(larger),
             },
+            "uneven_sequence_packing": (
+                benchmark_uneven_sequence_packing(
+                    tiny, repeats=args.packing_repeats
+                )
+            ),
             "overfit": hierarchical_overfit_evidence(
                 tiny, args.overfit_steps
             ),

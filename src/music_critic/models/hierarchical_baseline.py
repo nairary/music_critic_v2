@@ -79,14 +79,15 @@ class HierarchicalHeterogeneousBaseline(nn.Module):
         *,
         return_layers: bool = False,
     ) -> ContextualEncoderOutput:
-        # Ownership is checked before Phase 6A graph validation so malformed
-        # containment consistently raises the Phase 6B structured error.
+        # Extract before Phase 6A validation so every malformed ownership path
+        # has a structured Phase 6B error. The internal handoff validates local
+        # row/device consistency without scanning the raw relations again.
         ownership = extract_hierarchy_ownership(raw_graph_batch)
         local = self.local_baseline.encode(
             raw_graph_batch, return_layers=return_layers
         )
-        return self.context_encoder(
-            local, raw_graph_batch, ownership=ownership
+        return self.context_encoder._forward_with_extracted_ownership(
+            local, ownership
         )
 
     def forward(

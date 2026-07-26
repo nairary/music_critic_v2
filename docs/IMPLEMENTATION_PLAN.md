@@ -2592,13 +2592,14 @@ the preference/quality critic. Its concrete contract is in
 ### Implemented contract
 
 - validate exact one-owner mappings exclusively from the six raw hierarchy
-  forward/reverse relation pairs;
+  forward/reverse relation pairs, with structured non-mutating store/attribute
+  preflight and exact revalidation of any externally supplied ownership;
 - deterministically pool own+beat/onset/note evidence into bars and own+note
   evidence into tracks using mean, max, log-count, availability, projection,
   and parent residual without dense membership;
 - form one `[SONG] + bars + tracks` sequence per sample with type embeddings,
-  runtime positions, and padding masks, then apply a batch-first pre-norm
-  Transformer;
+  runtime positions, and padding masks through tensorized counts/cumulative
+  offsets/indexed placement, then apply a batch-first pre-norm Transformer;
 - top-down gated residual fusion into retained local rows using only raw-owned
   parent contexts;
 - preserve all Phase 6A candidates, target-only joins, heads, losses, raw-only
@@ -2617,6 +2618,12 @@ Pooling, coarse sequence, hierarchical output, fusion, hierarchical
 model/output, and checkpoint contracts begin at `1.0.0`. Their concrete
 semantics and bounded evidence are in `docs/PHASE6B_HIERARCHY.md`. Phase 7 has
 not started.
+
+Final pre-merge remediation makes all malformed ownership failures structured,
+prevents PyG read-side store creation, closes externally forged ownership, and
+removes coarse-row Python/host scans. The single remaining host synchronization
+determines the padded allocation maximum once per batch. These implementation
+hardening changes preserve the six serialized/public `1.0.0` semantics.
 
 ## Phase 7. GraphMAE2-style SSL
 

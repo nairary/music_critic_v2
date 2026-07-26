@@ -84,6 +84,14 @@
   reverse edges must transpose the forward mapping, and membership must be
   cardinality-aligned, monotonic, and cross-sample clean. Malformed hierarchy
   raises `HierarchyContractError`.
+- Extraction checks graph type, every mandatory node/edge store, and
+  `edge_index` presence before PyG indexing. Stable categories distinguish
+  missing stores/attributes, invalid dtype/rank/shape/device, missing,
+  duplicate, reordered or out-of-range children/owners, reverse mismatch, and
+  cross-sample ownership. Failures do not change store inventories or
+  attribute-key sets. Externally supplied ownership is fully revalidated
+  against raw relations and local rows; the standard path scans each of the
+  six relations once.
 - Bar pooling uses own+beat/onset/note families and track pooling uses own+note.
   Each family exposes mean, max, `log1p(count)`, availability, and a learned
   projection; the parent residual is explicit. Sparse indexed reductions
@@ -92,6 +100,10 @@
   separate type embeddings, runtime sinusoidal ordinals, and padding masks.
   The batch-first pre-norm Transformer never attends across samples. Its
   contextual SONG row is representation evidence, not a quality score.
+- Coarse counts, family ordinals, and padded positions are computed by
+  `bincount`/`cumsum`/indexed tensor placement. Production performs no per-row
+  `.item()`/`.tolist()`/`.cpu()` and exactly one batch-level synchronization
+  for maximum padded length. Gradients flow through song/bar/track placement.
 - Note fusion receives contextual bar+track+song; onset/beat receive bar+song;
   bar/track receive their contextual row+song; song receives contextual song.
   All paths are gated residuals. The existing 14 Phase 6A heads consume fused
@@ -117,6 +129,10 @@
 - Pooling/Transformer/fusion stage observations were
   0.00146/0.00400/0.00052 s on tiny and 0.00189/0.00164/0.00051 s on larger.
   Coarse lengths were `[3, 4, 3]` on tiny and padded `[9, 4, 32]` on larger.
+- A separate 16-repeat uneven `[3, 4, 3]` sequence benchmark with padded shape
+  `[3, 4, 32]` observed 0.000259 s mean sequence construction and 0.025124 s
+  mean complete hierarchical eval forward while retaining 237 candidates.
+  It is plumbing evidence without a speed or throughput threshold.
 - Every pooler, Transformer attention/feed-forward block, all six fusion
   modules, every local node encoder, and all 14 heads receive gradients. Thirty
   bounded steps reduced harmonic loss 1.79136 to 0.00000354 and reconstruction
@@ -127,11 +143,14 @@
   (0.90333/0.21826/0.65703), fused bar/track
   (0.08809/0.18145), and reconstruction logits (1.37096). Topology, ownership,
   cardinality, and local retention remain fixed; an unrelated co-batched
-  sample remains bit-exact at every stage.
-- Focused Phase 6B tests: 21 passed. All model tests including Phase 6A:
-  61 passed. Graph/leakage/repository regressions: 63 passed.
-  Dataset/collator regressions: 119 passed. Full default suite: 699 passed,
-  12 skipped. Deterministic target audit, compileall, and diff checks pass.
+  sample remains bit-exact at every stage. Tests require each named delta
+  separately and preserve unrelated fused embeddings and candidate logits
+  bit-exactly end to end.
+- Focused Phase 6B tests: 45 passed, 1 optional CUDA skip. All model tests
+  including Phase 6A: 85 passed, 1 optional CUDA skip.
+  Graph/leakage/repository regressions: 63 passed. Dataset/collator
+  regressions: 119 passed. Full default suite: 723 passed, 13 skipped.
+  Deterministic target audit, compileall, and diff checks pass.
   The only warnings are the two pre-existing upstream PyTorch JIT deprecation
   warnings.
 

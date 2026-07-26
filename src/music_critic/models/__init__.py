@@ -78,6 +78,8 @@ from music_critic.models.hierarchy import (
     HierarchyPoolingOutput,
     TopDownFusion,
     extract_hierarchy_ownership,
+    validate_hierarchy_graph_structure,
+    validate_hierarchy_ownership,
 )
 from music_critic.models.hierarchy_contracts import (
     COARSE_TOKEN_SEQUENCE_CONTRACT_VERSION,
@@ -153,6 +155,8 @@ __all__ = [
     "checkpoint_metadata",
     "feature_registry_fingerprint",
     "extract_hierarchy_ownership",
+    "validate_hierarchy_graph_structure",
+    "validate_hierarchy_ownership",
     "hierarchical_checkpoint_metadata",
     "hierarchical_single_note_sensitivity",
     "join_task_supervision",

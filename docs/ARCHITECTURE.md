@@ -334,11 +334,17 @@ for supervision or analysis, but cannot be required by raw inference.
    and track tokens from own+note evidence. Mean, maximum, log-count, explicit
    availability, learned projection, and parent residual are retained without
    a dense membership matrix or child-by-parent tensor.
+   Store existence and `edge_index` presence are checked before PyG indexing,
+   so structured failures cannot create missing stores. Externally supplied
+   ownership is compared exactly with raw relations and local membership; the
+   standard model path scans raw ownership once.
 3. One padded sequence per sample is `[SONG] + bars + tracks`, with separate
    type embeddings, runtime ordinal positions, and a key-padding mask. A
    batch-first pre-norm Transformer returns contextual song/bar/track rows
    without cross-sample attention. The SONG row is a representation, not a
-   quality score.
+   quality score. Counts, family ordinals, and positions are tensorized; coarse
+   packing has no per-row host synchronization and performs one batch-level
+   synchronization only to allocate `max(L_s)` padding.
 4. Gated top-down residual fusion returns contextual bar+track+song to notes,
    bar+song to onsets/beats, contextual parent+song to bars/tracks, and
    contextual song to song while retaining all local rows.

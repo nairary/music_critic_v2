@@ -7,6 +7,7 @@ from typing import Mapping
 
 import torch
 from torch import Tensor, nn
+from torch_geometric.data import HeteroData
 
 from music_critic.graph import MANDATORY_NODE_TYPES
 from music_critic.models.encoder import (
@@ -67,6 +68,66 @@ class _HierarchyRows:
     batch_membership: Mapping[str, Tensor]
 
 
+def _hierarchy_relation_stores(
+    graph: object,
+) -> dict[str, tuple[Tensor, Tensor]]:
+    """Read existing hierarchy stores without PyG's store-creation indexing."""
+
+    if not isinstance(graph, HeteroData):
+        raise HierarchyContractError("hierarchy.input_type_invalid")
+    node_stores = dict(graph.node_items())
+    node_types = tuple(node_stores)
+    for node_type in MANDATORY_NODE_TYPES:
+        if node_type not in node_types:
+            raise HierarchyContractError(
+                f"hierarchy.node_store_missing:{node_type}"
+            )
+    edge_stores = dict(graph.edge_items())
+    edge_types = tuple(edge_stores)
+    result = {}
+    for name, ownership_type, containment_type in _OWNERSHIP_RELATIONS:
+        tensors = []
+        for direction, edge_type in (
+            ("ownership", ownership_type),
+            ("containment", containment_type),
+        ):
+            if edge_type not in edge_types:
+                raise HierarchyContractError(
+                    f"hierarchy.edge_store_missing:{name}:{direction}"
+                )
+            store = edge_stores[edge_type]
+            if "edge_index" not in store:
+                raise HierarchyContractError(
+                    f"hierarchy.edge_index_missing:{name}:{direction}"
+                )
+            edge_index = store["edge_index"]
+            if not isinstance(edge_index, Tensor):
+                raise HierarchyContractError(
+                    f"hierarchy.edge_index_type_invalid:{name}:{direction}"
+                )
+            if edge_index.dtype != torch.long:
+                raise HierarchyContractError(
+                    f"hierarchy.edge_index_dtype_invalid:{name}:{direction}"
+                )
+            if edge_index.ndim != 2:
+                raise HierarchyContractError(
+                    f"hierarchy.edge_index_rank_invalid:{name}:{direction}"
+                )
+            if edge_index.shape[0] != 2:
+                raise HierarchyContractError(
+                    f"hierarchy.edge_index_shape_invalid:{name}:{direction}"
+                )
+            tensors.append(edge_index)
+        result[name] = (tensors[0], tensors[1])
+    return result
+
+
+def validate_hierarchy_graph_structure(graph: object) -> None:
+    """Validate mandatory existing stores without scanning ownership values."""
+
+    _hierarchy_relation_stores(graph)
+
+
 def _validate_membership(
     membership: object,
     *,
@@ -100,41 +161,51 @@ def _validate_membership(
 
 
 def _owner_index(
-    graph: object,
     local: EncoderOutput | _HierarchyRows,
     *,
     name: str,
     reverse_edge_type: tuple[str, str, str],
-    forward_edge_type: tuple[str, str, str],
+    ownership_edge_index: Tensor,
+    containment_edge_index: Tensor,
 ) -> Tensor:
     child_type, _, parent_type = reverse_edge_type
-    reverse = graph[reverse_edge_type].edge_index
-    forward = graph[forward_edge_type].edge_index
+    reverse = ownership_edge_index
+    forward = containment_edge_index
     child_count = local.embeddings[child_type].shape[0]
     parent_count = local.embeddings[parent_type].shape[0]
+    expected_device = local.embeddings[child_type].device
     if (
-        not isinstance(reverse, Tensor)
-        or reverse.dtype != torch.long
-        or reverse.ndim != 2
-        or reverse.shape[0] != 2
-        or not isinstance(forward, Tensor)
-        or forward.dtype != torch.long
-        or forward.ndim != 2
-        or forward.shape[0] != 2
+        reverse.device != expected_device
+        or forward.device != expected_device
+        or local.embeddings[parent_type].device != expected_device
     ):
         raise HierarchyContractError(
-            f"hierarchy.edge_index_invalid:{name}"
+            f"hierarchy.edge_index_device_mismatch:{name}"
         )
+    if reverse.shape[1] < child_count:
+        raise HierarchyContractError(f"hierarchy.owner_missing:{name}")
+    if reverse.shape[1] > child_count:
+        raise HierarchyContractError(f"hierarchy.owner_duplicate:{name}")
+    child_rows = reverse[0]
+    if child_rows.numel() and (
+        bool((child_rows < 0).any())
+        or bool((child_rows >= child_count).any())
+    ):
+        raise HierarchyContractError(
+            f"hierarchy.child_out_of_range:{name}"
+        )
+    child_counts = torch.bincount(
+        child_rows, minlength=child_count
+    )
+    if bool((child_counts > 1).any()):
+        raise HierarchyContractError(f"hierarchy.owner_duplicate:{name}")
+    if bool((child_counts == 0).any()):
+        raise HierarchyContractError(f"hierarchy.owner_missing:{name}")
     expected_children = torch.arange(
         child_count, dtype=torch.long, device=reverse.device
     )
-    if (
-        reverse.shape[1] != child_count
-        or not torch.equal(reverse[0], expected_children)
-    ):
-        raise HierarchyContractError(
-            f"hierarchy.owner_missing_duplicate_or_unordered:{name}"
-        )
+    if not torch.equal(child_rows, expected_children):
+        raise HierarchyContractError(f"hierarchy.child_reordered:{name}")
     if not torch.equal(forward, reverse.flip(0)):
         raise HierarchyContractError(
             f"hierarchy.reverse_containment_mismatch:{name}"
@@ -178,6 +249,10 @@ class HierarchyOwnership:
             raise HierarchyContractError(
                 "hierarchy.ownership_keys_incomplete"
             )
+        if tuple(self.batch_membership) != MANDATORY_NODE_TYPES:
+            raise HierarchyContractError(
+                "hierarchy.ownership_membership_keys_incomplete"
+            )
 
 
 def extract_hierarchy_ownership(
@@ -186,24 +261,42 @@ def extract_hierarchy_ownership(
 ) -> HierarchyOwnership:
     """Validate deterministic one-owner containment without regrouping rows."""
 
+    relation_tensors = _hierarchy_relation_stores(graph)
     if local is None:
+        stores = dict(graph.node_items())
+        for node_type, store in stores.items():
+            if "x_cont" not in store:
+                raise HierarchyContractError(
+                    f"hierarchy.node_rows_missing:{node_type}"
+                )
+            if (
+                not isinstance(store["x_cont"], Tensor)
+                or store["x_cont"].ndim != 2
+            ):
+                raise HierarchyContractError(
+                    f"hierarchy.node_rows_invalid:{node_type}"
+                )
         embeddings = {
-            node_type: graph[node_type].x_cont
+            node_type: stores[node_type]["x_cont"]
             for node_type in MANDATORY_NODE_TYPES
         }
         batch_membership = {
             node_type: (
-                graph[node_type].batch
-                if hasattr(graph[node_type], "batch")
+                stores[node_type]["batch"]
+                if "batch" in stores[node_type]
                 else torch.zeros(
-                    int(graph[node_type].num_nodes),
+                    embeddings[node_type].shape[0],
                     dtype=torch.long,
-                    device=graph[node_type].x_cont.device,
+                    device=embeddings[node_type].device,
                 )
             )
             for node_type in MANDATORY_NODE_TYPES
         }
     else:
+        if not isinstance(local, EncoderOutput):
+            raise HierarchyContractError(
+                "hierarchy.local_output_type_invalid"
+            )
         embeddings = local.embeddings
         batch_membership = local.batch_membership
     if tuple(embeddings) != MANDATORY_NODE_TYPES:
@@ -241,13 +334,13 @@ def extract_hierarchy_ownership(
     )
     owners = {
         name: _owner_index(
-            graph,
             row_view,
             name=name,
             reverse_edge_type=reverse,
-            forward_edge_type=forward,
+            ownership_edge_index=relation_tensors[name][0],
+            containment_edge_index=relation_tensors[name][1],
         )
-        for name, reverse, forward in _OWNERSHIP_RELATIONS
+        for name, reverse, _forward in _OWNERSHIP_RELATIONS
     }
     return HierarchyOwnership(
         contract_version=HIERARCHY_POOLING_CONTRACT_VERSION,
@@ -255,6 +348,131 @@ def extract_hierarchy_ownership(
         owners=owners,
         batch_membership=membership,
     )
+
+
+def _validate_ownership_local_contract(
+    local: EncoderOutput,
+    ownership: HierarchyOwnership,
+) -> HierarchyOwnership:
+    """Validate a precomputed object completely against retained local rows."""
+
+    if not isinstance(ownership, HierarchyOwnership):
+        raise HierarchyContractError(
+            "hierarchy.precomputed_ownership_type_invalid"
+        )
+    if ownership.contract_version != HIERARCHY_POOLING_CONTRACT_VERSION:
+        raise HierarchyContractError(
+            "hierarchy.ownership_version_incompatible"
+        )
+    expected_names = tuple(item[0] for item in _OWNERSHIP_RELATIONS)
+    if tuple(ownership.owners) != expected_names:
+        raise HierarchyContractError(
+            "hierarchy.ownership_keys_incomplete"
+        )
+    if tuple(ownership.batch_membership) != MANDATORY_NODE_TYPES:
+        raise HierarchyContractError(
+            "hierarchy.ownership_membership_keys_incomplete"
+        )
+    expected_sample_count = local.embeddings["song"].shape[0]
+    if (
+        isinstance(ownership.sample_count, bool)
+        or not isinstance(ownership.sample_count, int)
+        or ownership.sample_count != expected_sample_count
+    ):
+        raise HierarchyContractError(
+            "hierarchy.ownership_sample_count_mismatch"
+        )
+    relation_by_name = {
+        name: reverse
+        for name, reverse, _forward in _OWNERSHIP_RELATIONS
+    }
+    for name in expected_names:
+        child_type, _, parent_type = relation_by_name[name]
+        owners = ownership.owners[name]
+        child_count = local.embeddings[child_type].shape[0]
+        parent_count = local.embeddings[parent_type].shape[0]
+        if not isinstance(owners, Tensor):
+            raise HierarchyContractError(
+                f"hierarchy.ownership_owner_type_invalid:{name}"
+            )
+        if owners.dtype != torch.long:
+            raise HierarchyContractError(
+                f"hierarchy.ownership_owner_dtype_invalid:{name}"
+            )
+        if owners.ndim != 1:
+            raise HierarchyContractError(
+                f"hierarchy.ownership_owner_rank_invalid:{name}"
+            )
+        if owners.shape != (child_count,):
+            raise HierarchyContractError(
+                f"hierarchy.ownership_owner_shape_invalid:{name}"
+            )
+        if owners.device != local.embeddings[child_type].device:
+            raise HierarchyContractError(
+                f"hierarchy.ownership_owner_device_mismatch:{name}"
+            )
+        if owners.numel() and (
+            bool((owners < 0).any())
+            or bool((owners >= parent_count).any())
+        ):
+            raise HierarchyContractError(
+                f"hierarchy.ownership_owner_out_of_range:{name}"
+            )
+        if owners.numel() and not torch.equal(
+            local.batch_membership[child_type],
+            local.batch_membership[parent_type].index_select(0, owners),
+        ):
+            raise HierarchyContractError(
+                f"hierarchy.ownership_cross_sample:{name}"
+            )
+    for node_type in MANDATORY_NODE_TYPES:
+        membership = ownership.batch_membership[node_type]
+        expected_membership = local.batch_membership[node_type]
+        if not isinstance(membership, Tensor):
+            raise HierarchyContractError(
+                f"hierarchy.ownership_membership_type_invalid:{node_type}"
+            )
+        if membership.dtype != torch.long:
+            raise HierarchyContractError(
+                f"hierarchy.ownership_membership_dtype_invalid:{node_type}"
+            )
+        if membership.ndim != 1:
+            raise HierarchyContractError(
+                f"hierarchy.ownership_membership_rank_invalid:{node_type}"
+            )
+        if membership.shape != expected_membership.shape:
+            raise HierarchyContractError(
+                f"hierarchy.ownership_membership_shape_invalid:{node_type}"
+            )
+        if membership.device != expected_membership.device:
+            raise HierarchyContractError(
+                f"hierarchy.ownership_membership_device_mismatch:{node_type}"
+            )
+        if not torch.equal(membership, expected_membership):
+            raise HierarchyContractError(
+                f"hierarchy.ownership_membership_mismatch:{node_type}"
+            )
+    return ownership
+
+
+def validate_hierarchy_ownership(
+    graph: object,
+    local: EncoderOutput,
+    ownership: HierarchyOwnership,
+) -> HierarchyOwnership:
+    """Validate externally supplied ownership against raw graph and local rows."""
+
+    _validate_ownership_local_contract(local, ownership)
+    expected_names = tuple(item[0] for item in _OWNERSHIP_RELATIONS)
+    expected = extract_hierarchy_ownership(graph, local)
+    for name in expected_names:
+        if not torch.equal(
+            ownership.owners[name], expected.owners[name]
+        ):
+            raise HierarchyContractError(
+                f"hierarchy.ownership_graph_mismatch:{name}"
+            )
+    return ownership
 
 
 def _scatter_family_statistics(
@@ -457,23 +675,34 @@ class DeterministicHierarchyPool(nn.Module):
         )
 
 
-def _sample_boundaries(
-    membership: Tensor, sample_count: int
-) -> tuple[int, ...]:
-    boundaries = [0]
-    cursor = 0
-    for sample_index in range(sample_count):
-        while (
-            cursor < membership.shape[0]
-            and int(membership[cursor].item()) == sample_index
-        ):
-            cursor += 1
-        boundaries.append(cursor)
-    if cursor != membership.shape[0]:
-        raise HierarchyContractError(
-            "hierarchy.membership_boundaries_inconsistent"
+def _coarse_family_layout(
+    membership: Tensor,
+    sample_count: int,
+    *,
+    position_offset_by_sample: Tensor,
+) -> tuple[Tensor, Tensor, Tensor]:
+    """Return counts, within-family ordinals, and padded positions."""
+
+    counts = torch.bincount(membership, minlength=sample_count)
+    starts = torch.cumsum(counts, dim=0) - counts
+    ordinals = (
+        torch.arange(
+            membership.shape[0],
+            dtype=torch.long,
+            device=membership.device,
         )
-    return tuple(boundaries)
+        - starts.index_select(0, membership)
+    )
+    positions = (
+        position_offset_by_sample.index_select(0, membership) + ordinals
+    )
+    return counts, ordinals, positions
+
+
+def _maximum_padded_length(lengths: Tensor) -> int:
+    """Make the sole device-to-host synchronization needed for allocation."""
+
+    return int(lengths.max().item()) if lengths.numel() else 0
 
 
 def _sinusoidal_position(
@@ -584,33 +813,34 @@ class CoarseMusicTransformer(nn.Module):
     ) -> CoarseTokenSequence:
         ownership = pooling.ownership
         sample_count = ownership.sample_count
-        bar_boundaries = _sample_boundaries(
-            ownership.batch_membership["bar"], sample_count
-        )
-        track_boundaries = _sample_boundaries(
-            ownership.batch_membership["track"], sample_count
-        )
-        lengths = torch.tensor(
-            [
-                1
-                + bar_boundaries[index + 1]
-                - bar_boundaries[index]
-                + track_boundaries[index + 1]
-                - track_boundaries[index]
-                for index in range(sample_count)
-            ],
+        bar_membership = ownership.batch_membership["bar"]
+        track_membership = ownership.batch_membership["track"]
+        unit_offsets = torch.ones(
+            sample_count,
             dtype=torch.long,
             device=pooling.bar_tokens.device,
         )
-        max_length = int(lengths.max().item()) if sample_count else 0
+        bar_counts, bar_ordinals, bar_positions = _coarse_family_layout(
+            bar_membership,
+            sample_count,
+            position_offset_by_sample=unit_offsets,
+        )
+        track_counts, track_ordinals, track_positions = (
+            _coarse_family_layout(
+                track_membership,
+                sample_count,
+                position_offset_by_sample=unit_offsets + bar_counts,
+            )
+        )
+        lengths = unit_offsets + bar_counts + track_counts
+        max_length = _maximum_padded_length(lengths)
         tokens = pooling.bar_tokens.new_zeros(
             (sample_count, max_length, self.hidden_dim)
         )
-        padding = torch.ones(
-            (sample_count, max_length),
-            dtype=torch.bool,
-            device=tokens.device,
+        column_indices = torch.arange(
+            max_length, dtype=torch.long, device=tokens.device
         )
+        padding = column_indices.unsqueeze(0) >= lengths.unsqueeze(1)
         type_codes = torch.full(
             (sample_count, max_length),
             -1,
@@ -618,62 +848,18 @@ class CoarseMusicTransformer(nn.Module):
             device=tokens.device,
         )
         ordinals = torch.full_like(type_codes, -1)
-        bar_positions = torch.empty(
-            pooling.bar_tokens.shape[0],
-            dtype=torch.long,
-            device=tokens.device,
+        sample_indices = torch.arange(
+            sample_count, dtype=torch.long, device=tokens.device
         )
-        track_positions = torch.empty(
-            pooling.track_tokens.shape[0],
-            dtype=torch.long,
-            device=tokens.device,
-        )
-        for sample_index in range(sample_count):
-            bar_start, bar_end = (
-                bar_boundaries[sample_index],
-                bar_boundaries[sample_index + 1],
-            )
-            track_start, track_end = (
-                track_boundaries[sample_index],
-                track_boundaries[sample_index + 1],
-            )
-            bar_count = bar_end - bar_start
-            track_count = track_end - track_start
-            length = 1 + bar_count + track_count
-            tokens[sample_index, 0] = local.embeddings["song"][sample_index]
-            if bar_count:
-                tokens[sample_index, 1 : 1 + bar_count] = (
-                    pooling.bar_tokens[bar_start:bar_end]
-                )
-                bar_positions[bar_start:bar_end] = torch.arange(
-                    1, 1 + bar_count, device=tokens.device
-                )
-                ordinals[sample_index, 1 : 1 + bar_count] = torch.arange(
-                    bar_count, device=tokens.device
-                )
-            if track_count:
-                track_offset = 1 + bar_count
-                tokens[
-                    sample_index,
-                    track_offset : track_offset + track_count,
-                ] = pooling.track_tokens[track_start:track_end]
-                track_positions[track_start:track_end] = torch.arange(
-                    track_offset,
-                    track_offset + track_count,
-                    device=tokens.device,
-                )
-                ordinals[
-                    sample_index,
-                    track_offset : track_offset + track_count,
-                ] = torch.arange(track_count, device=tokens.device)
-            type_codes[sample_index, 0] = 0
-            type_codes[sample_index, 1 : 1 + bar_count] = 1
-            type_codes[
-                sample_index,
-                1 + bar_count : length,
-            ] = 2
-            ordinals[sample_index, 0] = 0
-            padding[sample_index, :length] = False
+        tokens[sample_indices, 0] = local.embeddings["song"]
+        tokens[bar_membership, bar_positions] = pooling.bar_tokens
+        tokens[track_membership, track_positions] = pooling.track_tokens
+        type_codes[sample_indices, 0] = 0
+        type_codes[bar_membership, bar_positions] = 1
+        type_codes[track_membership, track_positions] = 2
+        ordinals[sample_indices, 0] = 0
+        ordinals[bar_membership, bar_positions] = bar_ordinals
+        ordinals[track_membership, track_positions] = track_ordinals
         tokens = tokens + self.type_embedding(type_codes.clamp_min(0))
         positional_rows = ~padding & (type_codes != 0)
         tokens = tokens + torch.where(
@@ -882,15 +1068,31 @@ class HierarchicalContextEncoder(nn.Module):
         ownership: HierarchyOwnership | None = None,
     ) -> ContextualEncoderOutput:
         local = local_encoder.final_output
-        ownership = ownership or extract_hierarchy_ownership(graph, local)
-        for node_type in MANDATORY_NODE_TYPES:
-            if not torch.equal(
-                ownership.batch_membership[node_type],
-                local.batch_membership[node_type],
-            ):
-                raise HierarchyContractError(
-                    f"hierarchy.local_membership_mismatch:{node_type}"
-                )
+        ownership = (
+            extract_hierarchy_ownership(graph, local)
+            if ownership is None
+            else validate_hierarchy_ownership(graph, local, ownership)
+        )
+        return self._encode_with_ownership(local_encoder, ownership)
+
+    def _forward_with_extracted_ownership(
+        self,
+        local_encoder: MultiScaleEncoderOutput,
+        ownership: HierarchyOwnership,
+    ) -> ContextualEncoderOutput:
+        """Internal single-scan path for ownership extracted before Phase 6A."""
+
+        _validate_ownership_local_contract(
+            local_encoder.final_output, ownership
+        )
+        return self._encode_with_ownership(local_encoder, ownership)
+
+    def _encode_with_ownership(
+        self,
+        local_encoder: MultiScaleEncoderOutput,
+        ownership: HierarchyOwnership,
+    ) -> ContextualEncoderOutput:
+        local = local_encoder.final_output
         pooling = self.pooling(local, ownership)
         coarse = self.transformer(local, pooling)
         fused = self.fusion(local, coarse, ownership)
@@ -916,4 +1118,6 @@ __all__ = [
     "HierarchyPoolingOutput",
     "TopDownFusion",
     "extract_hierarchy_ownership",
+    "validate_hierarchy_graph_structure",
+    "validate_hierarchy_ownership",
 ]
