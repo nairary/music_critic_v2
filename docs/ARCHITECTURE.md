@@ -1,6 +1,8 @@
 # Music Critic V2 Architecture
 
-Status: **PROPOSED**. Phase 0 contains no model implementation.
+Status: **INCREMENTAL**. Phase 6A implements the raw feature and local-GNN
+portion; hierarchy, Transformer, SSL, and critic paths below remain future
+phases.
 
 ## System flow
 
@@ -8,8 +10,8 @@ Status: **PROPOSED**. Phase 0 contains no model implementation.
 flowchart LR
     A[Raw MIDI or score-derived symbolic input] --> B[Canonical representation]
     B --> C[Raw heterogeneous graph]
-    C --> D[Local relation-aware GNN]
-    D --> E[Hierarchical pooling]
+    C --> D[Phase 6A feature-only or local relation-aware GNN]
+    D -. Phase 6B .-> E[Hierarchical pooling]
     E --> F[Coarse temporal Transformer]
     F --> G[Top-down fusion]
     G --> H[SSL decoders]
@@ -318,8 +320,12 @@ for supervision or analysis, but cannot be required by raw inference.
 
 ## Representation hierarchy
 
-1. A local heterogeneous GNN models note, onset, beat, bar, and track relations.
-2. Hierarchical pooling produces bar and track tokens without discarding local
+1. Phase 6A encodes every raw feature store and optionally applies a shallow
+   relation-specific local heterogeneous GNN over every Phase 3A relation.
+   Its versioned output retains feature-scale, optional per-layer, and final
+   one-row-per-node representations plus batch membership. Source-native heads
+   gather exact local rows; no head is global-mean-only.
+2. Phase 6B hierarchical pooling produces bar and track tokens without discarding local
    embeddings.
 3. A coarse temporal Transformer models long-range bar-level development and
    cross-track structure.
@@ -329,6 +335,11 @@ for supervision or analysis, but cannot be required by raw inference.
 
 Missing supervised targets always use explicit masks. A missing label is never
 interpreted as a negative example.
+
+Phase 6A implements only visible-input local reconstruction as a plumbing
+check and fully supervised auxiliary semantics. GraphMAE2-style masking begins
+in Phase 7. Phase 6B may add global context but must not use mean-only final
+aggregation; future critic evidence must retain local or top-k worst regions.
 
 ## Incremental research scope
 

@@ -305,11 +305,14 @@ positive `N` coverage spans; both use `positive_unlabeled`, but they are
 different tasks. Missing boundary events, chord spans, uncovered candidates,
 and absent annotations never become synthetic negatives. The one-class
 no-chord representation is not itself a fully-supervised classifier.
-Encoding chooses representation only; Phase 6, not Phase 5B.1, separately
-chooses a PU-compatible objective or disables each task. The project still
+Encoding chooses representation only. Phase 6A disables both PU tasks and
+instantiates only the 14 fully supervised source-native heads; it does not
+create synthetic negatives. A future separately accepted PU experiment may
+choose a compatible objective. The project still
 does not choose or implement:
 
-- a shared cross-source harmonic vocabulary or shared model-head routing;
+- a shared cross-source harmonic vocabulary or shared model-head routing
+  (Phase 6A deliberately has separate HookTheory and POP909-CL heads);
 - whether a joint or factorized bass/inversion head improves on separate heads
   while preserving independent masks;
 - HookTheory pitch-class-set derivation or a chord renderer;
@@ -319,7 +322,8 @@ does not choose or implement:
 - a probabilistic decoder, event factorization, energy model, or PLL API;
 - exact masking/corruption mixtures or likelihood normalization beyond the
   minimum requirements above;
-- a quality/preference model, training run, checkpoint, or inference path.
+- a quality/preference model, production training run/checkpoint, or scoring
+  inference path.
 
 These decisions belong to their named roadmap phases and require tests,
 provenance, leakage checks, and ablations before implementation claims are

@@ -249,3 +249,18 @@ missing-as-negative behavior, HookTheory-specific vocabularies presented as a
 universal ontology, and float/epsilon target alignment. The new registry and
 sample/batch shapes derive solely from current V2 adapters, canonical data,
 raw graph contracts, and versioned bounded evidence.
+
+## Phase 6A trainable local baseline
+
+No legacy runtime file was opened, imported, copied, or modified for Phase 6A.
+The existing audit classification was sufficient. V2 retains only the general
+ideas of per-node-type feature encoders, explicit relation-aware message
+passing, residual local layers, and local prediction/reconstruction hooks.
+
+Phase 6A rejects V1 theory-bearing encoder inputs, mandatory semantic
+chord/section topology, HookTheory-specific graph assumptions, mixed
+unversioned feature layouts, global-only pooling, and graph-score or
+quality-score interpretation. Heads gather current V2 target sidecars through
+explicit local indices, and missing, PU, or open-vocabulary observations do not
+become ordinary negative supervision. Hierarchy, critic, SSL, and likelihood
+work remain owned by their later V2 phases.

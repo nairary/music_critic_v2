@@ -906,3 +906,43 @@ This log is append-only.
   never affect split assignment, quotas, or record choice. Production split,
   mixture weights, models, losses, PU objectives, SSL/corruptions, PDMX, and
   any graph-cache optimization require later evidence-backed decisions.
+
+## 2026-07-26 — ADR-039: Phase 6A preserves local evidence in the first trainable baseline
+
+- Status: Accepted for draft pre-merge implementation.
+- Context: Phase 5B supplies validated raw-only heterogeneous batches and
+  source-native target sidecars. The first learned phase must prove trainable
+  raw graph encoding and auxiliary supervision without prematurely adding
+  hierarchy, SSL, likelihood, or critic semantics. Dense pieces and global
+  averages must not erase isolated-note evidence.
+- Decision: Introduce model, encoder-output, loss, reconstruction, and
+  checkpoint contracts `1.0.0`. One `LocalBaselineConfig` controls a
+  feature-only baseline and a local relation-aware baseline. Both encode every
+  Phase 3A feature column and availability mask for all six node types. The
+  local GNN handles every ordered Phase 3A relation with a distinct projection,
+  sum aggregation, self/residual path, LayerNorm, GELU, and dropout. Feature,
+  optional layer, and final skip-fused embeddings retain one row and exact
+  batch membership for every original node.
+- Decision: Instantiate only the ten HookTheory and four POP909-CL tasks whose
+  versioned encodings are model-ready and `fully_supervised`. Keep source heads
+  separate. Open mode/borrowed and positive-unlabeled boundary/no-chord have no
+  head or ordinary CE/BCE. There is no shared pitch-class-set head. Task rows
+  gather by explicit node type, global entity index, and sample index.
+- Decision: Use unreduced CE for closed categorical targets and unreduced
+  BCE-with-logits for closed multi-label targets. Eligibility additionally
+  requires `fully_supervised`. Mean rows inside task/node-type/sample, mean
+  active groups inside task, then take the configurable weighted mean of active
+  tasks. Empty tasks add no artificial target. Retain every row loss.
+- Decision: Reconstruct one visible inference-safe field per node type only to
+  verify gradient and bounded overfit plumbing. This is not masking, SSL,
+  likelihood, anomaly, corruption, or quality scoring. Bind checkpoints to
+  model/config, canonical/graph/feature, ontology/encoding, and ordered-head
+  metadata before loading.
+- Consequences: Phase 6A can compare feature-only and local message passing and
+  diagnose one-note sensitivity without claiming musical preference or corpus
+  feasibility. Phase 6B owns hierarchy pooling, bar+track Transformer, song
+  embedding, and top-down fusion; it must not make mean-only aggregation the
+  final evidence path. A future critic must compare global context with
+  retained local or top-k worst evidence. SSL begins in Phase 7. Shared
+  pitch-class semantics remain blocked on a versioned lossless
+  renderer/crosswalk.

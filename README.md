@@ -11,7 +11,7 @@ checkout is absent.
 
 ## Current state
 
-Phases 0 through 5B.1 are implemented.
+Phases 0 through 5B.2 and the Phase 6A local baseline are implemented.
 The repository provides an exact immutable
 canonical schema, generic MIDI and HookTheory adapters, diagnostic canonical
 MIDI export, a production POP909-CL adapter, and a versioned raw-only PyG
@@ -25,9 +25,14 @@ input or topology. HookTheory and generic MIDI therefore have graph-schema
 parity; their raw observations and supervision are not expected to have general
 data parity. A versioned source-native target ontology, exact canonical target
 alignment, tensor sidecars, and a production mixed-source PyG collator preserve
-that raw-only boundary. Corpus `Dataset`/sampler/worker loading, neural models,
-SSL objectives, corruption training,
-preference training, and deployable scoring inference are not implemented yet.
+that raw-only boundary. Phase 5B.2 adds portable canonical caching, globally
+manifested splits, a lazy Dataset, deterministic mixture sampling, and
+worker-safe loading. Phase 6A adds comparable feature-only and local
+relation-aware encoders, retained local outputs, 14 source-native
+fully-supervised heads, inspectable losses, local reconstruction plumbing,
+strict checkpoints, and CPU diagnostics. Hierarchy/Transformer Phase 6B, SSL,
+corruption training, preference training, PLL, and deployable scoring
+inference are not implemented yet.
 
 ## Layout
 
@@ -38,7 +43,10 @@ preference training, and deployable scoring inference are not implemented yet.
 - `src/music_critic/graph/`: feature registry, relations, builder, validation,
   and deterministic graph serialization;
 - `src/music_critic/tasks/`: source-native ontology, exact alignment, versioned
-  encodings, target tensorization, mixed-source collator, and statistics;
+  encodings, target tensorization, mixed-source collator, corpus loading, and
+  statistics;
+- `src/music_critic/models/`: Phase 6A raw feature/local-GNN encoders,
+  source-native heads, losses, reconstruction, diagnostics, and checkpoints;
 - `docs/`: authoritative plan, architecture, contracts, decisions, and status;
 - `configs/`: reserved for phase-owned configuration;
 - `scripts/`: audits, rendering/smoke tools, and graph benchmark;
@@ -79,14 +87,16 @@ PYTHONPATH=src python scripts/benchmark_multisource_collator.py \
   --samples 32 --repeats 3
 PYTHONPATH=src python scripts/benchmark_multisource_collator.py \
   --target-heavy --repeats 3
+PYTHONPATH=src python scripts/benchmark_phase6a.py \
+  --larger-repeats 4 --overfit-steps 40
 ```
 
 `build_raw_graph` validates its `CanonicalPiece` by default. Callers that have
 already run canonical validation may opt into the documented
 `assume_valid=True` fast path. Structural timing remains exact rational data
 through graph indexing and becomes `float32` only when feature tensors are
-materialized. PyTorch/PyG imports are isolated to `music_critic.graph` and the
-`music_critic.tasks` tensor/collator boundary; the project already declares
+materialized. PyTorch/PyG imports are isolated to `music_critic.graph`,
+`music_critic.tasks`, and `music_critic.models`; the project already declares
 those packages as global installation dependencies.
 
 An editable installation is optional:
@@ -118,3 +128,5 @@ The Phase 5B.2 portable corpus index/cache, external split manifest, lazy
 Dataset, deterministic mixture sampler, and worker-safe DataLoader contract is
 documented in `docs/MULTISOURCE_DATASET.md`. Full corpus cache builds are
 explicit opt-in commands; default tests use bounded/synthetic artifacts only.
+The learned local baseline and its strict non-critic/non-SSL boundary are in
+`docs/PHASE6A_BASELINE.md`.

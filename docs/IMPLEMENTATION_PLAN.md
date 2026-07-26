@@ -2537,21 +2537,25 @@ structure and is converted to `float32` only at feature-tensor construction.
   accepted PU-compatible objectives in Phase 6; otherwise each corresponding
   task remains disabled.
 
-## Phase 6. MusicCriticV2 baseline architecture
+## Phase 6A. Trainable local baseline
 
 ### Implement
 
-- feature encoder;
-- local relation-aware GNN baseline;
-- hierarchy pooling;
-- bar+track Transformer;
-- song embedding;
-- simple raw reconstruction heads;
-- auxiliary harmonic heads for boundary, root, quality, pitch-class set, bass,
-  inversion, and no-chord, with separate bass and inversion target masks.
+- comparable feature-only and exact-relation local-GNN configurations using
+  one shared implementation;
+- per-feature categorical/continuous encoders with explicit availability;
+- one-row-per-node feature, per-layer, and final local output contracts;
+- source-native heads only for the 14 fully supervised, model-ready tasks;
+- CE/BCE row losses reduced by task/node-type/sample before task weighting;
+- visible-input local reconstruction only as a trainability/overfit check;
+- strict compatibility-bound checkpoints, CPU benchmark, and single-note
+  local-sensitivity diagnostic.
 
 ### Do not yet implement
 
+- hierarchy pooling, bar+track Transformer, song embedding, or top-down fusion;
+- heads/losses for PU boundary/no-chord or open-string mode/borrowed tasks;
+- shared HookTheory/POP or pitch-class-set heads;
 - adaptive masking;
 - aesthetic head;
 - preference head;
@@ -2562,12 +2566,30 @@ structure and is converted to `float32` only at feature-tensor construction.
 - forward pass on mixed batch;
 - no Python loop over every note in score-head computation;
 - gradients flow through all mandatory node types;
-- one-batch overfit test passes for reconstruction.
+- one-batch overfit passes for reconstruction and representative HookTheory
+  categorical/multilabel plus POP categorical supervision;
+- local note/onset/beat rows and unreduced row losses remain inspectable;
+- checkpoint reload reproduces logits.
 - harmonic-head losses are mask-routed and their logits are not called quality
   scores.
 
-Phase 6 remains a baseline encoder plus auxiliary semantics; it does not
-implement the preference/quality critic.
+Phase 6A is a baseline encoder plus auxiliary semantics; it is neither SSL nor
+the preference/quality critic. Its concrete contract is in
+`docs/PHASE6A_BASELINE.md`.
+
+## Phase 6B. Hierarchy and coarse context
+
+### Implement
+
+- deterministic hierarchy pooling into bar and track tokens;
+- bar+track Transformer and song embedding;
+- top-down fusion back into retained local rows;
+- controlled feature-only, local-GNN, and hierarchy/Transformer ablation.
+
+Mean-only final aggregation is forbidden: isolated local evidence must remain
+available, and a future critic must compare global context against local or
+top-k worst evidence. Phase 6B does not add SSL, PLL, preference/quality
+training, or a shared pitch-class-set head.
 
 ## Phase 7. GraphMAE2-style SSL
 

@@ -50,8 +50,7 @@
 - Phase 5B.1: Completed
 - Phase 5B.1 branch: `phase/5b1-target-tensorizer-collator`
 - Target encoding registry version: `1.0.0`
-- Phase 5B.2: Implemented and locally verified; draft PR Required CI is the
-  merge-gate authority
+- Phase 5B.2: Accepted and Completed
 - Phase 5B.2 branch: `phase/5b2-corpus-dataset-loader`
 - Multi-source corpus index version: `1.0.0`
 - Multi-source canonical cache version: `1.0.0`
@@ -61,8 +60,76 @@
 - Documentation branch: `docs/harmonic-supervision-contract`
 - Documentation base commit: `681abbdf331c032e34cc7541224ca98f13e19a86`
 - Pre-merge clarification base: `4f5f1e32f0244cbbfedd3a0cd4dbaa9047a82e51`
-- Next phase after acceptance: Phase 6 — baseline architecture and explicitly
-  configured production split/mixture; Phase 6 has not started
+- Phase 6A: Implemented and locally verified; draft PR Required CI is the
+  merge-gate authority
+- Phase 6A branch: `phase/6a-trainable-local-gnn`
+- Model/encoder/loss/reconstruction/checkpoint contract versions: `1.0.0`
+- Next phase after acceptance: Phase 6B — deterministic hierarchy pooling,
+  bar+track Transformer, song embedding, and top-down fusion
+
+## Phase 6A trainable local baseline result
+
+- `music_critic.models` provides one controlled implementation with
+  `feature_only` and `local_gnn` configurations. Both use the exact Phase 3A
+  six-store feature encoder, source-native heads, losses, reconstruction
+  fields, and data. The GNN adds one distinct projection for each of the 26
+  ordered forward/reverse raw relations and never changes node cardinality.
+- Categorical and continuous columns have per-feature modules and learned
+  availability signals. Continuous inputs use the documented bounded
+  transforms. Encoder output `1.0.0` retains feature-scale, optional layer,
+  and final local rows with exact batch membership; final skip fusion preserves
+  the original feature scale.
+- Exactly 14 fully supervised, model-ready source-native heads are
+  instantiated: ten HookTheory and four POP909-CL tasks. Open mode/borrowed and
+  positive-unlabeled boundary/no-chord have no head or ordinary loss. No shared
+  cross-source or pitch-class-set output exists.
+- Loss contract `1.0.0` exposes unreduced local CE/BCE rows, means within each
+  task/node-type/sample group, means groups within task, then takes a
+  configurable weighted mean of active tasks. Empty tasks add neither targets,
+  zeros, nor NaN.
+- Visible-input reconstruction `1.0.0` predicts one inference-safe local field
+  per mandatory node type with availability-aware CE or Smooth L1. It is only
+  gradient/overfit plumbing and is not SSL, likelihood, anomaly, or quality.
+- Checkpoint `1.0.0` binds all model, canonical, graph, feature, ontology,
+  encoding, and ordered-head contracts before loading weights. A deterministic
+  single-note CPU diagnostic retains the stable note row, neighbor deltas,
+  per-layer pairwise-cosine evidence, and local reconstruction changes without
+  assigning a quality label.
+- Phase 6B hierarchy/Transformer, PU objectives, shared harmonic heads, SSL,
+  PLL, critic/quality, production training/splits, adapters, and manifests are
+  unchanged and were not implemented.
+
+## Phase 6A bounded evidence and verification
+
+- Reference configuration `(hidden_dim=128, gnn_layers=3, dropout=0.1)` has
+  712,581 parameters for `feature_only` and 2,292,357 for `local_gnn`.
+  The bounded benchmark uses `(32, 2, 0.0)` and reports 98,757 and 165,445
+  parameters respectively.
+- The tiny HookTheory + POP909-CL + raw-only batch has 3 graphs, 28 nodes,
+  98 directed edges, 14 active task outputs, and 63 routed logit rows. The
+  larger synthetic batch has 9 graphs, 85 nodes, 302 edges, and 252 logit
+  rows. CPU forward/backward/optimizer totals were 0.0915/0.0672 seconds for
+  feature-only/local-GNN on tiny and 0.1021/0.1138 seconds on larger. These
+  are diagnostic observations without a threshold or corpus-feasibility claim.
+- Forty deterministic local-GNN overfit steps reduced harmonic loss from
+  1.816520 to 0.000000219 and visible-input reconstruction from 2.581742 to
+  0.000221. Every mandatory node feature encoder and every one of the 14
+  active task heads had nonzero gradients. Representative HookTheory
+  categorical/multilabel and POP categorical task losses decreased.
+- A one-semitone pitch-field perturbation retained note L2 deltas 1.2373 at
+  feature scale, 1.9224/1.1474 after the two local layers, and 1.0981 after
+  final skip fusion. Final onset/beat/bar deltas were 0.3640/0.5533/0.8157;
+  the local pitch reconstruction logit delta was 1.8798. This is accessibility
+  evidence only and carries no quality label.
+- Focused model/head/loss/checkpoint/diagnostic/benchmark suite: 18 passed.
+  Graph/leakage/repository regressions: 60 passed. Dataset/collator
+  regressions: 119 passed. Deterministic target audit `--check` passed after
+  updating only the `HARMONIC_SUPERVISION.md` source hash in its audit
+  artifact.
+- Full default suite: 656 passed, 12 skipped, 2 existing upstream PyTorch
+  deprecation warnings. All skips are opt-in real-corpus integrations.
+  `compileall` over `src`, `scripts`, and `tests`, plus `git diff --check`,
+  passed. No corpus scan or full training run was performed.
 
 ## Phase 5B.2 corpus Dataset and loader result
 

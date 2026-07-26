@@ -1,7 +1,7 @@
 {
   "audit_schema_version": "1.1.0",
   "contract_source_sha256": {
-    "docs/HARMONIC_SUPERVISION.md": "78397907a3a85068c034af084da0762194ef24af6da2940ee6d84cf998a30f22",
+    "docs/HARMONIC_SUPERVISION.md": "a652d3cebb4eaca2bbe2c05d91fa3c766ee4c8a4a6eb7123d9ad9aad0fac7e1d",
     "docs/MULTISOURCE_COLLATOR.md": "b5f6bf4fcf48a60c63e898bd8c0512553f084f906950849c855116d2e981bafb",
     "docs/MULTISOURCE_TARGET_CONTRACT.md": "39a78de450ed71b1d793ec65268a5cb7eac1fa173c9d599ba3a0a3f518a2797f",
     "docs/POP909_CL_ADAPTER_CONTRACT.md": "42732a2da34c59dfa407ca4db2b969e78e9aa1506ee2e63a8abeed228c39736f",
