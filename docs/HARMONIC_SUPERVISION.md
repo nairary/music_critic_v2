@@ -1,7 +1,8 @@
 # Harmonic Supervision Contract
 
-Status: **ACCEPTED CONTRACT**. Phase 5A now implements the conservative,
-source-native target ontology and future batching boundary specified in
+Status: **ACCEPTED CONTRACT**. Phase 5A implements the conservative,
+source-native target ontology and Phase 5B.1 implements the exact batching
+boundary specified in
 [`MULTISOURCE_TARGET_CONTRACT.md`](MULTISOURCE_TARGET_CONTRACT.md). This
 document continues to define training and evaluation semantics; it does not
 implement model heads, rendering, probabilistic decoding, scoring, or
@@ -294,10 +295,15 @@ corpus before scaled SSL claims or Phase 11 objective conclusions are made.
 
 ## 10. Explicitly deferred implementation questions
 
-The Phase 5A ontology now chooses source-native task and sidecar contracts, but
-still does not choose or implement:
+The Phase 5A ontology and Phase 5B.1 collator choose source-native task,
+encoding, exact alignment, and sidecar batching contracts. Source availability
+and entity alignment remain independent masks; targets, provenance,
+diagnostics, and confidence never enter raw PyG stores. Open HookTheory
+mode/borrowed strings remain lossless and not model-ready. POP909-CL boundary
+emits positive events without synthetic negatives or ordinary-BCE eligibility.
+The project still does not choose or implement:
 
-- a shared cross-source harmonic vocabulary or target tensor layouts;
+- a shared cross-source harmonic vocabulary or shared model-head routing;
 - whether a joint or factorized bass/inversion head improves on separate heads
   while preserving independent masks;
 - HookTheory pitch-class-set derivation or a chord renderer;

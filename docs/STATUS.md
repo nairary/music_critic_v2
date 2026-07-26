@@ -47,10 +47,74 @@
 - Phase 5A: Accepted and Completed
 - Phase 5A branch: `phase/5a-multisource-contract`
 - Multi-source target ontology version: `1.0.0`
+- Phase 5B.1: Completed
+- Phase 5B.1 branch: `phase/5b1-target-tensorizer-collator`
+- Target encoding registry version: `1.0.0`
 - Documentation branch: `docs/harmonic-supervision-contract`
 - Documentation base commit: `681abbdf331c032e34cc7541224ca98f13e19a86`
 - Pre-merge clarification base: `4f5f1e32f0244cbbfedd3a0cd4dbaa9047a82e51`
-- Next phase: Phase 5B — production multi-source dataset and collator
+- Next phase: Phase 5B.2 — corpus Dataset, deterministic mixture sampler,
+  worker-safe DataLoader, and practical corpus indexing
+
+## Phase 5B.1 exact alignment, tensorizer, and collator result
+
+- `music_critic.tasks` now exposes exact canonical alignment, target encoding
+  registry `1.0.0`, tensorization, a production
+  `collate_multisource_samples`, strict `BatchTarget`/`MultiSourceBatch`
+  validation, deterministic statistics, and a lightweight benchmark.
+- Encoding registry fingerprint:
+  `57515f491fd23246c13b776db5f4085c1c438ffa55d707afbcd9fdf9e9d52931`.
+  Deterministic bounded audit report fingerprint:
+  `75e09a3d130028347cf85186d5a2655abdd50c2728597f39d3eb541acaf6e765`.
+- Notes align by exact entity identity. Region/coverage spans expand to every
+  onset point and beat/bar start anchor under exact half-open containment.
+  Boundary events expand only to exact-time candidates, with no snapping,
+  tolerance, or node-type priority. Equal typed values merge; conflicts are
+  masked with `multisource.alignment_conflict`.
+- Local indices become global through
+  `local_index + batch[node_type].ptr[sample_index]`, then the collator checks
+  `batch[node_type].batch[global_index] == sample_index`. All values, masks,
+  confidence, source identity, provenance, and diagnostics remain outside raw
+  PyG stores.
+- Closed categorical targets are ontology-order `torch.long [N]` with masked
+  sentinel `-1`; closed multilabel targets are `torch.bool [N, C]`; open
+  `theory.local_key.mode` and `theory.chord.borrowed` strings remain lossless
+  CPU tuples with `model_ready=false`. No dynamic vocabulary or Python hash is
+  used.
+- Bounded HookTheory + POP909-CL + raw-only acceptance produces three graphs,
+  all 18 stable task sidecars, 17 source target entries, 76 expanded rows,
+  76 aligned available rows, zero unaligned/masked/conflict rows, 66
+  model-ready rows, and 10 deferred open-string rows. The POP909 boundary
+  fixture produces three typed positive rows and zero synthetic negatives;
+  ordinary BCE eligibility is false.
+- A separate synthetic conflict fixture produces four masked conflicts.
+  Available-but-unaligned boundary and masked-source fixtures each retain one
+  row with `entity_index=-1`; masked entries are never candidate-expanded or
+  converted to negatives.
+- The 32-graph lightweight benchmark (three repeats) produced 640 nodes, 3,456
+  edges, and zero raw-only target rows. On this runner, mean per-repeat exact
+  alignment was `0.0633 s`, PyG construction/validation `0.1288 s`, and full
+  collation `0.3602 s`. This is bounded performance evidence, not corpus
+  acceptance.
+- Target/provenance/diagnostic changes leave raw graph fingerprints and raw
+  PyG store allowlists unchanged. Ontology fingerprint remains
+  `296dc400dee45a21fff589e28c05b88b61d8717e3834285a00343bee97fb213b`.
+- No full HookTheory scan, manual corpus read, or repeated POP909-CL 909-file
+  acceptance was run. Adapters, production manifests, graph semantics,
+  dependencies, and legacy code were unchanged. Phase 5B.2 and Phase 6 were
+  not started.
+
+## Phase 5B.1 verification
+
+- Focused alignment/tensorizer/collator, Phase 5A contract, and deterministic
+  audit suite: `33 passed, 2 warnings in 3.12s`.
+- Focused tasks/graph/audit/POP adapter regression suite:
+  `101 passed, 2 warnings in 3.95s`.
+- Full default suite:
+  `550 passed, 12 skipped, 2 warnings in 5.60s`; skips are opt-in real-corpus
+  integrations and warnings are existing upstream PyTorch deprecations.
+- Compileall, diff, deterministic audit, and GitHub Actions results are
+  recorded in the Phase 5B.1 PR handoff.
 
 ## Phase 5A multi-source target contract result
 
@@ -117,9 +181,11 @@
   tests`, and `git diff --check`: passed.
 - GitHub commit, draft PR, and Actions results are reported in the final Phase
   5A handoff.
-- Phase 5B still owns production loading, exact entity-index tensorization, PyG
-  batching/offset validation, collator, worker seeds, statistics, configurable
-  mixture weights, and any later evidence-backed ontology version.
+- Phase 5B.1 now owns exact entity-index tensorization, PyG batching/offset
+  validation, collation, and statistics. Phase 5B.2 retains production corpus
+  loading/indexing, worker seeds, configurable mixture weights, and split
+  consumption; any changed task semantics require a later evidence-backed
+  ontology version.
 - Final splits, cache, renderer, applied/borrowed crosswalks, models, losses,
   SSL, PLL, quality critic, and PDMX/Dilemmadata adapters were not started.
 

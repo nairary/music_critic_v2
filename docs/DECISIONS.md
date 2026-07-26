@@ -743,3 +743,47 @@ This log is append-only.
   in Phase 5B. Ordinary BCE with implicit `absent=0` is forbidden. Phase 6
   either records and uses an explicit PU-compatible objective or leaves the
   POP909-CL boundary loss disabled.
+
+## 2026-07-26 — ADR-037: Phase 5B.1 uses exact typed alignment and versioned sidecar encodings
+
+- Status: Accepted.
+- Context: Phase 5A fixed source-native semantics and raw-only PyG allowlists
+  but deliberately deferred executable alignment, encodings, offsets, and
+  collation. A mixed batch must distinguish source availability from whether a
+  raw graph entity can be aligned, without reconstructing exact time from
+  float features or leaking supervision into graph stores.
+- Decision: Bind each prepared sample to its validated canonical piece and raw
+  graph. Align notes by exact canonical ID; align onset points and beat/bar
+  start anchors with exact `RationalTime` and half-open containment; align
+  boundary events only at exact time. Expand every allowed typed match with no
+  node-type priority. Retain available-but-unaligned and masked source entries
+  separately, merge equal values, and mask conflicting values with
+  `multisource.alignment_conflict`.
+- Decision: Introduce target encoding registry `1.0.0`. Closed categorical
+  values use ontology-order `torch.long [N]` and unavailable sentinel `-1`.
+  Closed multilabel values use `torch.bool [N, C]`; an all-false row under
+  false availability is a sentinel, not a negative. Open strings remain
+  lossless CPU values with `model_ready=false`; per-batch or per-worker dynamic
+  vocabularies and Python-hash IDs are forbidden.
+- Decision: Keep source availability and entity alignment as independent
+  boolean masks. Future loss eligibility requires both. Nullable confidence
+  remains nullable; partial confidence uses a separate mask. POP909-CL
+  boundary contains annotated positives only and is explicitly ineligible for
+  ordinary BCE until Phase 6 records a PU-compatible objective.
+- Decision: Collate raw graphs with normal PyG `Batch`. Translate a local
+  target index using the explicit node type and
+  `ptr[sample_index]`, then verify that the corresponding `batch` value equals
+  the sample index. Values, masks, sample/dataset identity, confidence,
+  provenance, and diagnostics remain immutable CPU/tensor sidecars and never
+  enter global, node, or edge PyG stores.
+- Evidence: Bounded HookTheory, POP909-CL, and synthetic raw-only fixtures cover
+  all 18 tasks, note/span/boundary alignment, half-open boundaries, duplicate
+  merge/conflict, unaligned and masked rows, encodings, offsets, leakage,
+  malformed tensors/batches, deterministic statistics, and repeated
+  collation. A lightweight dozens-of-graphs benchmark is separate from corpus
+  acceptance. Ontology `1.0.0` and its fingerprint are unchanged.
+- Consequences: Phase 5B.2 owns corpus `Dataset`, indexing, mixture sampler,
+  worker-safe `DataLoader`, and split consumption. Phase 6 owns models, heads,
+  objectives, and the PU decision. No HookTheory/POP909 semantic crosswalk,
+  chord renderer, target-derived notes, adapter change, or graph-schema change
+  is authorized by this ADR.

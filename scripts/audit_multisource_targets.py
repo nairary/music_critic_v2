@@ -19,14 +19,17 @@ from music_critic.data import SCHEMA_VERSION
 from music_critic.graph import GRAPH_BUILDER_VERSION, GRAPH_SCHEMA_VERSION
 from music_critic.tasks import (
     TARGET_FAMILIES,
+    TARGET_ENCODING_REGISTRY_VERSION,
     TARGET_ONTOLOGY_VERSION,
     build_multisource_sample,
     ontology_contract_dict,
     ontology_contract_fingerprint,
+    target_encoding_contract_dict,
+    target_encoding_contract_fingerprint,
 )
 
 
-AUDIT_SCHEMA_VERSION = "1.0.0"
+AUDIT_SCHEMA_VERSION = "1.1.0"
 _HOOK_FIXTURE_MANIFEST = Path("tests/fixtures/hooktheory/golden_manifest.json")
 _HOOK_CASE_ROOT = Path("tests/fixtures/hooktheory/cases")
 _POP_MANIFEST = Path("tests/fixtures/pop909_cl/production_manifest.json")
@@ -37,9 +40,14 @@ _CONTRACT_SOURCES = (
     Path("src/music_critic/graph/builder.py"),
     Path("src/music_critic/graph/validation.py"),
     Path("src/music_critic/tasks/ontology.py"),
+    Path("src/music_critic/tasks/encoding.py"),
+    Path("src/music_critic/tasks/alignment.py"),
+    Path("src/music_critic/tasks/collator.py"),
     Path("src/music_critic/tasks/multisource.py"),
+    Path("scripts/benchmark_multisource_collator.py"),
     Path("scripts/audit_multisource_targets.py"),
     Path("docs/HARMONIC_SUPERVISION.md"),
+    Path("docs/MULTISOURCE_COLLATOR.md"),
     Path("docs/MULTISOURCE_TARGET_CONTRACT.md"),
     Path("docs/POP909_CL_ADAPTER_CONTRACT.md"),
     _HOOK_FIXTURE_MANIFEST,
@@ -251,12 +259,15 @@ def build_report(repo_root: Path) -> dict[str, Any]:
             "graph_schema": GRAPH_SCHEMA_VERSION,
             "graph_builder": GRAPH_BUILDER_VERSION,
             "target_ontology": TARGET_ONTOLOGY_VERSION,
+            "target_encoding_registry": TARGET_ENCODING_REGISTRY_VERSION,
             "hooktheory_adapter": None,
             "hooktheory_contract_phase": "2B.1",
             "pop909_cl_adapter": POP909_CL_ADAPTER_VERSION,
         },
         "ontology_fingerprint": ontology_contract_fingerprint(),
         "ontology": ontology_contract_dict(),
+        "target_encoding_fingerprint": target_encoding_contract_fingerprint(),
+        "target_encoding": target_encoding_contract_dict(),
         "source_inventories": {
             "hooktheory": _hooktheory_inventory(root),
             "pop909_cl": _pop909_cl_inventory(root),

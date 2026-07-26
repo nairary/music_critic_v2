@@ -30,6 +30,10 @@ def test_committed_manifest_matches_deterministic_bounded_audit() -> None:
 
 def test_audit_uses_bounded_evidence_and_preserves_inventory_counts() -> None:
     report = build_report(REPO_ROOT)
+    assert report["audit_schema_version"] == "1.1.0"
+    assert report["versions"]["target_encoding_registry"] == "1.0.0"
+    assert len(report["target_encoding"]["encodings"]) == 18
+    assert report["target_encoding_fingerprint"]
     assert report["scan_policy"] == {
         "manual_corpus_file_reads": False,
         "hooktheory_full_corpus_scan": False,

@@ -180,28 +180,31 @@ ownership and activity calculations use exact rational time. Continuous timing
 is converted to `float32` only at feature-tensor construction, so feature
 precision is lower than canonical structural precision.
 
-PyTorch and PyG imports remain isolated to `music_critic.graph`, while the
-current package dependency declaration installs them globally. Graph schema
-`1.0.0` does not yet define batching/caching metadata or semantic prediction
-stores, and sustained-note output is necessarily proportional to emitted
-note/beat incidence.
+PyTorch and PyG imports remain isolated to `music_critic.graph` and the
+Phase 5B.1 `music_critic.tasks` tensor/collator boundary, while the current
+package dependency declaration installs them globally. Graph schema `1.0.0`
+does not define caching metadata or semantic prediction stores, and
+sustained-note output is necessarily proportional to emitted note/beat
+incidence.
 
-## Phase 5A target-sidecar architecture
+## Phase 5A/5B.1 target-sidecar and collation architecture
 
 Target ontology `1.0.0` is implemented in `music_critic.tasks` and specified by
 `MULTISOURCE_TARGET_CONTRACT.md`. It inventories 12 HookTheory and six
 POP909-CL source-native families. No current cross-source pair is declared
 exact or accepted as a lossless derived subset.
 
-`MultiSourceSample` wraps an opaque raw graph with dataset/piece/group/lineage
-identity and separate target, availability, provenance, confidence, and
-diagnostic sidecars. `MultiSourceBatch` and `BatchTarget` define the future
-Phase 5B shape without implementing a collator. The PyG batch remains raw-only;
-target values and alignment indices never enter graph global, node, or edge
-stores. A batch-aware validator adapts the exact Phase 3A allowlists to normal
-PyG collation: only node-level `batch` and `ptr` are additionally allowed,
-version/raw-only metadata is checked per source graph, and combined shapes,
-offsets, endpoints, and reconstructed graphs must remain valid. HookTheory
+`MultiSourceSample` binds the validated canonical piece and raw graph to
+dataset/piece/group/lineage identity and separate target, availability,
+provenance, confidence, and diagnostic sidecars. Phase 5B.1 implements exact
+alignment, target encoding registry `1.0.0`, tensorization, and production
+collation. The PyG batch remains raw-only; target values and alignment indices
+never enter graph global, node, or edge stores. A batch-aware validator adapts
+the exact Phase 3A allowlists to normal PyG collation: only node-level `batch`
+and `ptr` are additionally allowed, version/raw-only metadata is checked per
+source graph, and combined shapes, offsets, endpoints, and reconstructed
+graphs must remain valid. Local target indices become typed global indices
+through PyG `ptr` and are checked against the typed `batch` vector. HookTheory
 retains melody-conditioned supervision, POP909-CL retains score-conditioned
 recognition, and raw MIDI may have an entirely empty target bundle.
 
@@ -221,6 +224,14 @@ assertion. Ordering operates on atomic transitive components connected by
 source or lineage and is seeded and input-order invariant. Split safety is
 checked on those same transitive components, including paths bridged by an
 unassigned `split=None` record, and every dataset piece has one assignment.
+
+Closed categorical sidecars use ontology-order `torch.long` indices with
+masked sentinel `-1`; closed multilabel sidecars use `torch.bool [N, C]`.
+Open strings remain lossless CPU tuples and are explicitly not model-ready.
+Source availability and successful entity alignment are independent masks, so
+future loss eligibility requires both. Deterministic CPU statistics distinguish
+source annotations from candidate-expanded rows. Corpus indexing, mixture
+sampling, worker-safe loading, models, and losses remain outside Phase 5B.1.
 
 ## Optional semantic predictions
 

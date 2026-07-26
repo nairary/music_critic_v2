@@ -1,6 +1,6 @@
 # Multi-source Target Ontology and Batching Contract
 
-Status: **ACCEPTED PHASE 5A CONTRACT**
+Status: **ACCEPTED PHASE 5A ONTOLOGY; IMPLEMENTED PHASE 5B.1 COLLATION**
 
 Ontology version: `1.0.0`
 
@@ -8,9 +8,10 @@ Implementation: `music_critic.tasks`
 
 ## 1. Scope and semantic layers
 
-Phase 5A defines evidence and interfaces. It does not implement a production
-dataset, sampler, PyG collator, target tensorizer, cache, split assignment,
-model, loss, renderer, or training path.
+Phase 5A defines evidence and source-native semantics. Phase 5B.1 implements
+exact alignment, encoding, tensorization, and a production PyG collator. It
+does not implement a corpus dataset, sampler, worker `DataLoader`, cache,
+split assignment, model, loss, renderer, or training path.
 
 The contract keeps these layers distinct:
 
@@ -42,7 +43,10 @@ output tokens do not erase these contexts or authorize a shared loss.
 - deterministic `ontology_contract_dict`, `dumps_ontology_contract`, and
   `ontology_contract_fingerprint`;
 - `SampleTarget`, `TaskAvailability`, `MultiSourceSample`;
-- future-container contracts `BatchTarget` and `MultiSourceBatch`;
+- production `BatchTarget`, `MultiSourceBatch`, `BatchStatistics`, and
+  `TaskBatchStatistics`;
+- target encoding registry `1.0.0`, exact alignment, tensorization, and
+  `collate_multisource_samples`;
 - `GroupAssignment`, `DatasetSamplingWeight`,
   `validate_group_assignments`, and `deterministic_group_order`;
 - `build_multisource_sample`, which creates target/provenance/diagnostic
@@ -169,21 +173,22 @@ Alignment remains a sidecar operation:
 `pop909_cl.chord.boundary` is a positive-unlabeled event-detection target.
 Observed span starts carry only the class `present`; non-boundary candidates
 remain unlabeled and ontology `1.0.0` defines no synthetic `absent` class or
-derived negative rule. A future Phase 5B loss must preserve that objective or
+derived negative rule. A future Phase 6 loss must preserve that objective or
 introduce a separately versioned, evidence-backed negative policy.
 
-Raw graph stores contain neither alignment indices nor target values. Future
-entity indices, values, masks, confidence, provenance, and diagnostics remain
+Raw graph stores contain neither alignment indices nor target values. Phase
+5B.1 entity indices, values, masks, confidence, provenance, and diagnostics remain
 outside `HeteroData`. Graph construction and fingerprinting therefore stay
 invariant under target, annotation, provenance, group, lineage, and split
 changes.
 
 ## 6. Phase 5B sample and batch API
 
-`MultiSourceSample` is the accepted future sample shape:
+`MultiSourceSample` is the prepared sample shape:
 
 ```text
-raw_graph                    opaque raw-only HeteroData
+canonical_piece              validated exact canonical alignment source
+raw_graph                    corresponding raw-only HeteroData
 dataset_id, piece_id
 source_group_id, lineage_group_id
 target_bundle                sorted source-native SampleTarget sidecars
@@ -197,25 +202,29 @@ values validated against the task value space, availability mask, optional
 finite confidence in `[0, 1]`, source, and provenance IDs. `TaskAvailability`
 requires a registered task, non-negative counts, and zero counts for a family
 declared absent.
-`build_multisource_sample` performs this projection but does not load data,
-align nodes, tensorize, batch, or sample.
+`build_multisource_sample` performs this projection but does not load corpus
+data or sample it. Phase 5B.1 alignment verifies that the canonical piece and
+raw graph are exactly those owned by the prepared sample.
 
-`MultiSourceBatch` is an immutable shape contract only:
+`MultiSourceBatch` is the validated immutable production collator result:
 
 ```text
 raw_graph_batch              PyG Batch containing raw graph stores only
 target_batches               sorted BatchTarget sidecars
 dataset/piece/source/lineage identities
 diagnostics_cpu              per-sample CPU metadata
+statistics                   deterministic CPU batch/task counts
 ```
 
-Each `BatchTarget` reserves separate values, availability mask, entity indices,
-entity-index mask, explicit entity node types, sample indices, optional
-confidence, and CPU provenance/diagnostics. All leading dimensions equal
-`entry_count`; aligned indices are non-negative and typed for the task,
-whereas unaligned retained events use index `-1`, false index mask, and null
-node type. `MultiSourceBatch` rejects empty sample metadata, duplicate or
-unsorted task sidecars, and out-of-range sample indices.
+Each `BatchTarget` contains registry-versioned values, availability mask,
+entity indices, entity-index mask, explicit entity node types, sample indices,
+optional confidence/confidence mask, and CPU provenance/diagnostics. All
+leading dimensions equal `entry_count`; aligned indices are non-negative and
+typed for the task, whereas unaligned retained events use index `-1`, false
+index mask, and null node type. Local indices are offset by
+`batch[node_type].ptr[sample_index]` and checked against the typed `batch`
+vector. Every registry task is present in stable order, including zero-entry
+families.
 
 `validate_raw_graph_batch` validates the actual result of
 `torch_geometric.data.Batch.from_data_list`, not a synthetic marker object.
@@ -251,9 +260,11 @@ its name; there is no supervisory-field denylist.
 family. If a dataset lacks a task in a mixed batch, no negative label and no
 loss entry are created.
 
-Phase 5B must implement and test actual tensor dtypes/shapes, PyG batching,
-worker seeding, mixture weights, and collator performance without changing
-this raw/sidecar boundary.
+Phase 5B.1 implements and tests tensor dtypes/shapes, exact alignment, PyG
+batching/offsets, statistics, and collator performance without changing this
+raw/sidecar boundary. Worker seeding and mixture weights remain Phase 5B.2.
+The concrete encoding and alignment tables are in
+`MULTISOURCE_COLLATOR.md`.
 
 ## 7. Grouping and deterministic sampling
 
@@ -294,25 +305,25 @@ python scripts/audit_multisource_targets.py \
   --check tests/fixtures/multisource/target_contract_manifest.json
 ```
 
-The deterministic artifact records canonical/graph/adapter/ontology versions,
-all target specifications and crosswalk statuses, bounded HookTheory counts,
-accepted POP909-CL manifest counts, vocabularies, contract-source SHA-256
-values, and explicit scan policy. It contains no corpus record, MIDI, cache,
-generated output, or detailed corpus report.
+The deterministic artifact records canonical/graph/adapter/ontology and target
+encoding versions and fingerprints, all target specifications and crosswalk
+statuses, bounded HookTheory counts, accepted POP909-CL manifest counts,
+vocabularies, contract-source SHA-256 values, and explicit scan policy. It
+contains no corpus record, MIDI, cache, generated output, or detailed corpus
+report.
 
 No full corpus scan was needed: bounded real HookTheory excerpts exercise every
 current family and the accepted POP909-CL manifest already contains the
 required family/ambiguity/mask aggregates. Corpus-wide HookTheory target counts
 remain intentionally unclaimed.
 
-## 9. Deferred blockers before Phase 5B
+## 9. Deferred work after Phase 5B.1
 
-Phase 5B still must choose concrete target tensor encodings, implement exact
-entity-index generation for each policy, produce batches that satisfy the
-accepted raw validator, validate target-sidecar offsets, implement the
-dataset/collator and deterministic worker seeds, and define configurable
-dataset mixture weights. It must not promote any deferred crosswalk without a
-separate evidence-backed ontology version.
+Phase 5B.2 still must implement corpus indexing and `Dataset`, source/lineage
+safe split consumption, deterministic mixture sampling, worker-safe
+`DataLoader` behavior, and practical bounded corpus loading. It must reuse the
+Phase 5B.1 prepared-sample collator and must not promote any deferred crosswalk
+without a separate evidence-backed ontology version.
 
 Applied harmony, borrowed-chord cross-source semantics, pitch-class-set
 rendering, actual accompaniment likelihood, final splits, and model head

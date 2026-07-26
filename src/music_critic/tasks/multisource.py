@@ -2,18 +2,23 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections import Counter
 from dataclasses import dataclass
 from hashlib import sha256
 import json
 import math
 from typing import Any
 
+import torch
+
 from music_critic.data import (
     CanonicalPiece,
     ProvenanceRecord,
     QualityFlag,
     TargetArray,
+)
+from music_critic.tasks.encoding import (
+    TARGET_ENCODING_BY_TASK,
 )
 from music_critic.tasks.ontology import TARGET_FAMILIES, TARGET_FAMILY_BY_ID
 
@@ -180,8 +185,9 @@ class TaskAvailability:
 
 @dataclass(frozen=True, slots=True)
 class MultiSourceSample:
-    """Public Phase 5B sample shape; construction does not batch or tensorize."""
+    """Prepared canonical/raw/target sample consumed by the Phase 5B.1 collator."""
 
+    canonical_piece: CanonicalPiece
     raw_graph: Any
     dataset_id: str
     piece_id: str
@@ -203,6 +209,14 @@ class MultiSourceSample:
             )
         ):
             raise MultiSourceContractError("sample identity fields must be non-empty")
+        if (
+            self.canonical_piece.dataset_name != self.dataset_id
+            or self.canonical_piece.piece_id != self.piece_id
+            or self.canonical_piece.source_group_id != self.source_group_id
+        ):
+            raise MultiSourceContractError(
+                "sample identity differs from its canonical piece"
+            )
         tasks = tuple(target.task_id for target in self.target_bundle)
         if tasks != tuple(sorted(tasks)) or len(tasks) != len(set(tasks)):
             raise MultiSourceContractError(
@@ -212,6 +226,23 @@ class MultiSourceSample:
         if self.target_availability != expected_availability:
             raise MultiSourceContractError(
                 "sample target availability differs from target bundle"
+            )
+        expected_targets = tuple(
+            sorted(
+                (
+                    SampleTarget.from_target_array(target)
+                    for target in self.canonical_piece.targets
+                ),
+                key=lambda target: target.task_id,
+            )
+        )
+        if self.target_bundle != expected_targets:
+            raise MultiSourceContractError(
+                "sample target bundle differs from its canonical piece"
+            )
+        if self.diagnostics != self.canonical_piece.quality_flags:
+            raise MultiSourceContractError(
+                "sample diagnostics differ from its canonical piece"
             )
         referenced = {
             provenance_id
@@ -229,25 +260,107 @@ class MultiSourceSample:
 
 
 @dataclass(frozen=True, slots=True)
+class TargetDiagnostic:
+    """Machine-readable CPU-side diagnostic for one tensorized target row."""
+
+    code: str
+    message: str
+    source_entity_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.code or not self.message:
+            raise MultiSourceContractError(
+                "target diagnostics require non-empty code and message"
+            )
+        if not self.source_entity_ids or not all(
+            isinstance(entity_id, str) and entity_id
+            for entity_id in self.source_entity_ids
+        ):
+            raise MultiSourceContractError(
+                "target diagnostics require source entity IDs"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class TargetRowProvenance:
+    """Lossless source references retained outside PyG stores for one row."""
+
+    source_entity_ids: tuple[str, ...]
+    provenance_ids: tuple[str, ...]
+    sources: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.source_entity_ids or not all(
+            isinstance(value, str) and value for value in self.source_entity_ids
+        ):
+            raise MultiSourceContractError(
+                "target row provenance requires source entity IDs"
+            )
+        if not all(
+            isinstance(value, str) and value
+            for values in (self.provenance_ids, self.sources)
+            for value in values
+        ):
+            raise MultiSourceContractError(
+                "target row provenance identifiers must be non-empty strings"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class BatchTarget:
-    """Future Phase 5B tensor sidecar, deliberately independent of PyG stores."""
+    """Versioned tensor/CPU target sidecar, independent of PyG stores."""
 
     task_id: str
+    source_adapter: str
+    supervision_context: str
+    encoding_registry_version: str
+    encoding_kind: str
+    model_ready: bool
+    deferred_reason: str | None
+    standard_bce_eligible: bool
     values: Any
-    availability_mask: Any
-    entity_indices: Any
-    entity_index_mask: Any
+    availability_mask: torch.Tensor
+    entity_indices: torch.Tensor
+    entity_index_mask: torch.Tensor
     entity_node_types: tuple[str | None, ...]
-    sample_indices: Any
-    confidence: Any | None
+    sample_indices: torch.Tensor
+    confidence: torch.Tensor | None
+    confidence_mask: torch.Tensor | None
     entry_count: int
-    provenance_cpu: tuple[object, ...]
-    diagnostics_cpu: tuple[object, ...]
+    source_entry_count: int
+    provenance_cpu: tuple[TargetRowProvenance, ...]
+    diagnostics_cpu: tuple[tuple[TargetDiagnostic, ...], ...]
 
     def __post_init__(self) -> None:
         spec = TARGET_FAMILY_BY_ID.get(self.task_id)
         if spec is None:
             raise MultiSourceContractError("batch task is absent from target ontology")
+        encoding = TARGET_ENCODING_BY_TASK[self.task_id]
+        expected_encoding = (
+            self.encoding_registry_version,
+            self.encoding_kind,
+            self.model_ready,
+            self.deferred_reason,
+            self.standard_bce_eligible,
+        )
+        actual_encoding = (
+            encoding.registry_version,
+            encoding.encoding_kind,
+            encoding.model_ready,
+            encoding.deferred_reason,
+            encoding.standard_bce_eligible,
+        )
+        if expected_encoding != actual_encoding:
+            raise MultiSourceContractError(
+                "batch target encoding metadata differs from registry"
+            )
+        if (
+            self.source_adapter != spec.source_adapter
+            or self.supervision_context != spec.supervision_context
+        ):
+            raise MultiSourceContractError(
+                "batch target source semantics differ from ontology"
+            )
         if (
             isinstance(self.entry_count, bool)
             or not isinstance(self.entry_count, int)
@@ -256,23 +369,81 @@ class BatchTarget:
             raise MultiSourceContractError(
                 "batch target entry_count must be a non-negative integer"
             )
-        dimensions = {
-            name: _leading_dimension(name, value)
-            for name, value in (
-                ("values", self.values),
-                ("availability_mask", self.availability_mask),
-                ("entity_indices", self.entity_indices),
-                ("entity_index_mask", self.entity_index_mask),
-                ("sample_indices", self.sample_indices),
+        if (
+            isinstance(self.source_entry_count, bool)
+            or not isinstance(self.source_entry_count, int)
+            or self.source_entry_count < 0
+        ):
+            raise MultiSourceContractError(
+                "batch target source_entry_count must be non-negative"
             )
-        }
+        dimensions = {}
+        for name, value, dtype in (
+            ("availability_mask", self.availability_mask, torch.bool),
+            ("entity_indices", self.entity_indices, torch.long),
+            ("entity_index_mask", self.entity_index_mask, torch.bool),
+            ("sample_indices", self.sample_indices, torch.long),
+        ):
+            if (
+                not isinstance(value, torch.Tensor)
+                or value.dtype != dtype
+                or value.ndim != 1
+            ):
+                raise MultiSourceContractError(
+                    f"batch target {name} must be a rank-one {dtype} tensor"
+                )
+            dimensions[name] = int(value.shape[0])
         dimensions["entity_node_types"] = len(self.entity_node_types)
         dimensions["provenance_cpu"] = len(self.provenance_cpu)
         dimensions["diagnostics_cpu"] = len(self.diagnostics_cpu)
         if self.confidence is not None:
-            dimensions["confidence"] = _leading_dimension(
-                "confidence", self.confidence
+            if (
+                not isinstance(self.confidence, torch.Tensor)
+                or self.confidence.dtype != torch.float32
+                or self.confidence.ndim != 1
+                or not isinstance(self.confidence_mask, torch.Tensor)
+                or self.confidence_mask.dtype != torch.bool
+                or self.confidence_mask.ndim != 1
+            ):
+                raise MultiSourceContractError(
+                    "batch target confidence requires rank-one float32 values "
+                    "and a rank-one bool mask"
+                )
+            dimensions["confidence"] = int(self.confidence.shape[0])
+            dimensions["confidence_mask"] = int(self.confidence_mask.shape[0])
+        elif self.confidence_mask is not None:
+            raise MultiSourceContractError(
+                "batch target confidence_mask requires confidence values"
             )
+        if encoding.encoding_kind == "closed_categorical_index":
+            if (
+                not isinstance(self.values, torch.Tensor)
+                or self.values.dtype != torch.long
+                or self.values.ndim != 1
+            ):
+                raise MultiSourceContractError(
+                    "closed categorical values must be a rank-one long tensor"
+                )
+            dimensions["values"] = int(self.values.shape[0])
+        elif encoding.encoding_kind == "closed_multilabel":
+            if (
+                not isinstance(self.values, torch.Tensor)
+                or self.values.dtype != torch.bool
+                or self.values.ndim != 2
+                or self.values.shape[1] != len(encoding.vocabulary or ())
+            ):
+                raise MultiSourceContractError(
+                    "closed multilabel values must be a bool [N, C] tensor"
+                )
+            dimensions["values"] = int(self.values.shape[0])
+        else:
+            if not isinstance(self.values, tuple) or not all(
+                value is None or isinstance(value, str) for value in self.values
+            ):
+                raise MultiSourceContractError(
+                    "open string values must be a CPU tuple of strings/nulls"
+                )
+            dimensions["values"] = len(self.values)
         mismatched = {
             name: length
             for name, length in dimensions.items()
@@ -282,67 +453,277 @@ class BatchTarget:
             raise MultiSourceContractError(
                 f"batch target leading dimensions differ from entry_count: {mismatched}"
             )
-        sample_indices = _flat_sequence("sample_indices", self.sample_indices)
-        if sample_indices is not None and any(
-            isinstance(value, bool) or not isinstance(value, int) or value < 0
-            for value in sample_indices
-        ):
+        if self.sample_indices.numel() and self.sample_indices.min().item() < 0:
             raise MultiSourceContractError(
                 "batch target sample indices must be non-negative integers"
             )
-        availability = _flat_sequence(
-            "availability_mask", self.availability_mask
-        )
-        if availability is not None and not all(
-            isinstance(value, bool) for value in availability
+        if torch.any(self.entity_index_mask & (self.entity_indices < 0)) or torch.any(
+            (~self.entity_index_mask) & (self.entity_indices != -1)
         ):
             raise MultiSourceContractError(
-                "batch target availability mask must contain booleans"
+                "entity_index=-1 if and only if entity_index_mask is false"
             )
-        entity_mask = _flat_sequence("entity_index_mask", self.entity_index_mask)
-        if entity_mask is not None and not all(
-            isinstance(value, bool) for value in entity_mask
-        ):
-            raise MultiSourceContractError(
-                "batch target entity-index mask must contain booleans"
-            )
-        entity_indices = _flat_sequence("entity_indices", self.entity_indices)
-        if entity_mask is not None and entity_indices is not None:
-            for index, aligned in enumerate(entity_mask):
-                entity_index = entity_indices[index]
-                node_type = self.entity_node_types[index]
-                if aligned:
-                    if (
-                        isinstance(entity_index, bool)
-                        or not isinstance(entity_index, int)
-                        or entity_index < 0
-                        or node_type not in spec.alignment_policy.candidate_node_types
-                    ):
-                        raise MultiSourceContractError(
-                            "aligned entity indices require a non-negative index "
-                            "and an allowed explicit node type"
-                        )
-                elif entity_index != -1 or node_type is not None:
+        for index, aligned in enumerate(self.entity_index_mask.tolist()):
+            node_type = self.entity_node_types[index]
+            if aligned:
+                if node_type not in spec.alignment_policy.candidate_node_types:
                     raise MultiSourceContractError(
-                        "unaligned entities require index -1 and null node type"
+                        "aligned entity indices require an allowed explicit "
+                        "node type"
                     )
-        if self.entry_count == 0 and self.confidence is not None and (
-            _leading_dimension("confidence", self.confidence) != 0
-        ):
+            elif node_type is not None:
+                raise MultiSourceContractError(
+                    "unaligned entities require a null node type"
+                )
+        unavailable = ~self.availability_mask
+        if encoding.encoding_kind == "closed_categorical_index":
+            if unavailable.any() and not torch.all(self.values[unavailable] == -1):
+                raise MultiSourceContractError(
+                    "masked categorical rows must use sentinel -1"
+                )
+            available_values = self.values[self.availability_mask]
+            class_count = len(encoding.vocabulary or ())
+            if available_values.numel() and (
+                available_values.min().item() < 0
+                or available_values.max().item() >= class_count
+            ):
+                raise MultiSourceContractError(
+                    "available categorical value is outside its vocabulary"
+                )
+        elif encoding.encoding_kind == "closed_multilabel":
+            if unavailable.any() and self.values[unavailable].any():
+                raise MultiSourceContractError(
+                    "masked multilabel rows must use an all-false sentinel row"
+                )
+        else:
+            for available, value in zip(
+                self.availability_mask.tolist(), self.values
+            ):
+                if available != (value is not None):
+                    raise MultiSourceContractError(
+                        "open string availability must match string/null values"
+                    )
+        if self.confidence is not None and self.confidence_mask is not None:
+            if not torch.isfinite(self.confidence).all():
+                raise MultiSourceContractError(
+                    "batch target confidence must be finite"
+                )
+            if self.confidence_mask.any():
+                supplied = self.confidence[self.confidence_mask]
+                if supplied.min().item() < 0 or supplied.max().item() > 1:
+                    raise MultiSourceContractError(
+                        "batch target confidence must lie in [0, 1]"
+                    )
+            if (~self.confidence_mask).any() and not torch.all(
+                self.confidence[~self.confidence_mask] == 0
+            ):
+                raise MultiSourceContractError(
+                    "missing confidence uses zero only under a false confidence mask"
+                )
+
+    @property
+    def supervision_eligibility_mask(self) -> torch.Tensor:
+        """Rows eligible for a future task-specific objective."""
+
+        return self.availability_mask & self.entity_index_mask
+
+    @property
+    def standard_bce_eligibility_mask(self) -> torch.Tensor:
+        """Rows eligible for ordinary BCE, excluding PU/deferred encodings."""
+
+        if not self.standard_bce_eligible or not self.model_ready:
+            return torch.zeros_like(self.availability_mask)
+        return self.supervision_eligibility_mask
+
+
+@dataclass(frozen=True, slots=True)
+class TaskBatchStatistics:
+    """Deterministic CPU-side counts for one source-native task."""
+
+    task_id: str
+    source_entry_count: int
+    target_row_count: int
+    aligned_available_count: int
+    available_unaligned_count: int
+    masked_count: int
+    conflict_count: int
+    node_type_counts: tuple[tuple[str, int], ...]
+    model_ready: bool
+
+    def __post_init__(self) -> None:
+        if self.task_id not in TARGET_FAMILY_BY_ID:
             raise MultiSourceContractError(
-                "an empty family requires empty optional confidence"
+                "task statistics task is absent from target ontology"
             )
-        if self.entry_count == 0 and (
-            self.provenance_cpu or self.diagnostics_cpu or self.entity_node_types
+        counts = (
+            self.source_entry_count,
+            self.target_row_count,
+            self.aligned_available_count,
+            self.available_unaligned_count,
+            self.masked_count,
+            self.conflict_count,
+        )
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in counts
         ):
             raise MultiSourceContractError(
-                "a completely empty task family has no per-entry CPU metadata"
+                "task statistics counts must be non-negative integers"
+            )
+        if (
+            self.aligned_available_count
+            + self.available_unaligned_count
+            + self.masked_count
+            != self.target_row_count
+        ):
+            raise MultiSourceContractError(
+                "task target rows must partition into aligned, unaligned, and masked"
+            )
+        if self.model_ready != TARGET_ENCODING_BY_TASK[self.task_id].model_ready:
+            raise MultiSourceContractError(
+                "task statistics model readiness differs from encoding registry"
+            )
+        if tuple(key for key, _ in self.node_type_counts) != tuple(
+            sorted(key for key, _ in self.node_type_counts)
+        ) or len({key for key, _ in self.node_type_counts}) != len(
+            self.node_type_counts
+        ):
+            raise MultiSourceContractError(
+                "task statistics node types must use unique deterministic order"
+            )
+        if any(
+            not isinstance(node_type, str)
+            or not node_type
+            or isinstance(count, bool)
+            or not isinstance(count, int)
+            or count < 0
+            for node_type, count in self.node_type_counts
+        ):
+            raise MultiSourceContractError(
+                "task statistics node types contain an invalid count"
             )
 
 
 @dataclass(frozen=True, slots=True)
+class BatchStatistics:
+    """Deterministic CPU-side mixed-batch statistics."""
+
+    sample_count: int
+    graph_count: int
+    node_counts: tuple[tuple[str, int], ...]
+    edge_counts: tuple[tuple[str, int], ...]
+    dataset_counts: tuple[tuple[str, int], ...]
+    source_target_entry_count: int
+    target_row_count: int
+    aligned_available_count: int
+    available_unaligned_count: int
+    masked_count: int
+    conflict_count: int
+    node_type_counts: tuple[tuple[str, int], ...]
+    task_counts: tuple[TaskBatchStatistics, ...]
+    model_ready_task_count: int
+    deferred_open_vocabulary_task_count: int
+    model_ready_row_count: int
+    deferred_open_vocabulary_row_count: int
+
+    def __post_init__(self) -> None:
+        counts = (
+            self.sample_count,
+            self.graph_count,
+            self.source_target_entry_count,
+            self.target_row_count,
+            self.aligned_available_count,
+            self.available_unaligned_count,
+            self.masked_count,
+            self.conflict_count,
+            self.model_ready_task_count,
+            self.deferred_open_vocabulary_task_count,
+            self.model_ready_row_count,
+            self.deferred_open_vocabulary_row_count,
+        )
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in counts
+        ):
+            raise MultiSourceContractError(
+                "batch statistics counts must be non-negative integers"
+            )
+        expected_tasks = tuple(spec.task_id for spec in TARGET_FAMILIES)
+        if tuple(item.task_id for item in self.task_counts) != expected_tasks:
+            raise MultiSourceContractError(
+                "batch statistics tasks must follow target registry order"
+            )
+        if self.sample_count != self.graph_count:
+            raise MultiSourceContractError(
+                "batch statistics require one graph per sample"
+            )
+        for name, pairs in (
+            ("node_counts", self.node_counts),
+            ("edge_counts", self.edge_counts),
+            ("dataset_counts", self.dataset_counts),
+            ("node_type_counts", self.node_type_counts),
+        ):
+            if tuple(key for key, _ in pairs) != tuple(
+                sorted(key for key, _ in pairs)
+            ) or len({key for key, _ in pairs}) != len(pairs):
+                raise MultiSourceContractError(
+                    f"batch statistics {name} must use unique deterministic keys"
+                )
+            if any(
+                not isinstance(key, str)
+                or not key
+                or isinstance(value, bool)
+                or not isinstance(value, int)
+                or value < 0
+                for key, value in pairs
+            ):
+                raise MultiSourceContractError(
+                    f"batch statistics {name} contains an invalid count"
+                )
+        totals = {
+            "source_target_entry_count": sum(
+                item.source_entry_count for item in self.task_counts
+            ),
+            "target_row_count": sum(
+                item.target_row_count for item in self.task_counts
+            ),
+            "aligned_available_count": sum(
+                item.aligned_available_count for item in self.task_counts
+            ),
+            "available_unaligned_count": sum(
+                item.available_unaligned_count for item in self.task_counts
+            ),
+            "masked_count": sum(item.masked_count for item in self.task_counts),
+            "conflict_count": sum(
+                item.conflict_count for item in self.task_counts
+            ),
+            "model_ready_task_count": sum(
+                item.model_ready for item in self.task_counts
+            ),
+            "deferred_open_vocabulary_task_count": sum(
+                not item.model_ready for item in self.task_counts
+            ),
+            "model_ready_row_count": sum(
+                item.target_row_count
+                for item in self.task_counts
+                if item.model_ready
+            ),
+            "deferred_open_vocabulary_row_count": sum(
+                item.target_row_count
+                for item in self.task_counts
+                if not item.model_ready
+            ),
+        }
+        for name, expected in totals.items():
+            if getattr(self, name) != expected:
+                raise MultiSourceContractError(
+                    f"batch statistics {name} differs from per-task totals"
+                )
+
+
+@dataclass(frozen=True, slots=True)
 class MultiSourceBatch:
-    """Future Phase 5B batch shape; no collator is implemented in Phase 5A."""
+    """Validated production Phase 5B.1 raw graph plus target sidecars."""
 
     raw_graph_batch: Any
     target_batches: tuple[BatchTarget, ...]
@@ -351,6 +732,7 @@ class MultiSourceBatch:
     source_group_ids: tuple[str, ...]
     lineage_group_ids: tuple[str, ...]
     diagnostics_cpu: tuple[tuple[QualityFlag, ...], ...]
+    statistics: BatchStatistics
 
     def __post_init__(self) -> None:
         sample_lengths = {
@@ -378,9 +760,10 @@ class MultiSourceBatch:
                 "batch sample identity strings must be non-empty"
             )
         tasks = tuple(target.task_id for target in self.target_batches)
-        if tasks != tuple(sorted(tasks)) or len(tasks) != len(set(tasks)):
+        expected_tasks = tuple(spec.task_id for spec in TARGET_FAMILIES)
+        if tasks != expected_tasks:
             raise MultiSourceContractError(
-                "batch target sidecars must be uniquely sorted by task ID"
+                "batch target sidecars must contain every task in registry order"
             )
         sample_count = len(self.piece_ids)
         from music_critic.graph.validation import (
@@ -397,15 +780,110 @@ class MultiSourceBatch:
             raise MultiSourceContractError(
                 f"batch graph violates the exact raw-only contract: {exc}"
             ) from exc
-        for target in self.target_batches:
-            sample_indices = _flat_sequence(
-                "sample_indices", target.sample_indices
+        if (
+            self.statistics.sample_count != sample_count
+            or self.statistics.graph_count != sample_count
+        ):
+            raise MultiSourceContractError(
+                "batch statistics sample/graph count differs from batch metadata"
             )
-            if sample_indices is not None and any(
-                value >= sample_count for value in sample_indices
+        actual_node_counts = tuple(
+            sorted(
+                (
+                    node_type,
+                    int(self.raw_graph_batch[node_type].num_nodes),
+                )
+                for node_type in self.raw_graph_batch.node_types
+            )
+        )
+        actual_edge_counts = tuple(
+            sorted(
+                (
+                    "|".join(edge_type),
+                    int(self.raw_graph_batch[edge_type].edge_index.shape[1]),
+                )
+                for edge_type in self.raw_graph_batch.edge_types
+            )
+        )
+        actual_dataset_counts = tuple(sorted(Counter(self.dataset_ids).items()))
+        if (
+            self.statistics.node_counts != actual_node_counts
+            or self.statistics.edge_counts != actual_edge_counts
+            or self.statistics.dataset_counts != actual_dataset_counts
+        ):
+            raise MultiSourceContractError(
+                "batch statistics graph or dataset counts differ from batch data"
+            )
+        for target, task_statistics in zip(
+            self.target_batches, self.statistics.task_counts
+        ):
+            if target.sample_indices.numel() and (
+                target.sample_indices.max().item() >= sample_count
             ):
                 raise MultiSourceContractError(
                     "batch target sample index is outside the batch"
+                )
+            for row, aligned in enumerate(target.entity_index_mask.tolist()):
+                if not aligned:
+                    continue
+                node_type = target.entity_node_types[row]
+                assert node_type is not None
+                entity_index = int(target.entity_indices[row].item())
+                sample_index = int(target.sample_indices[row].item())
+                if (
+                    entity_index >= self.raw_graph_batch[node_type].num_nodes
+                    or int(
+                        self.raw_graph_batch[node_type].batch[entity_index].item()
+                    )
+                    != sample_index
+                ):
+                    raise MultiSourceContractError(
+                        "batch target global entity index has the wrong sample offset"
+                    )
+            aligned = target.availability_mask & target.entity_index_mask
+            unaligned = target.availability_mask & ~target.entity_index_mask
+            node_type_counts = tuple(
+                sorted(
+                    Counter(
+                        node_type
+                        for node_type, has_index in zip(
+                            target.entity_node_types,
+                            target.entity_index_mask.tolist(),
+                        )
+                        if has_index and node_type is not None
+                    ).items()
+                )
+            )
+            conflict_count = sum(
+                diagnostic.code == "multisource.alignment_conflict"
+                for diagnostics in target.diagnostics_cpu
+                for diagnostic in diagnostics
+            )
+            expected_task_statistics = (
+                target.task_id,
+                target.source_entry_count,
+                target.entry_count,
+                int(aligned.sum().item()),
+                int(unaligned.sum().item()),
+                int((~target.availability_mask).sum().item()),
+                conflict_count,
+                node_type_counts,
+                target.model_ready,
+            )
+            actual_task_statistics = (
+                task_statistics.task_id,
+                task_statistics.source_entry_count,
+                task_statistics.target_row_count,
+                task_statistics.aligned_available_count,
+                task_statistics.available_unaligned_count,
+                task_statistics.masked_count,
+                task_statistics.conflict_count,
+                task_statistics.node_type_counts,
+                task_statistics.model_ready,
+            )
+            if actual_task_statistics != expected_task_statistics:
+                raise MultiSourceContractError(
+                    "batch task statistics differ from tensor sidecar"
                 )
 
 
@@ -513,33 +991,6 @@ def _validate_source_value(spec: Any, value: object) -> None:
         )
 
 
-def _leading_dimension(name: str, value: Any) -> int:
-    shape = getattr(value, "shape", None)
-    if shape is not None:
-        if len(shape) == 0:
-            raise MultiSourceContractError(f"{name} must have a leading dimension")
-        return int(shape[0])
-    if isinstance(value, (str, bytes)) or not hasattr(value, "__len__"):
-        raise MultiSourceContractError(
-            f"{name} must expose a tensor/container leading dimension"
-        )
-    return len(value)
-
-
-def _flat_sequence(name: str, value: Any) -> tuple[Any, ...] | None:
-    converted = value.tolist() if callable(getattr(value, "tolist", None)) else value
-    if not isinstance(converted, Sequence) or isinstance(
-        converted, (str, bytes)
-    ):
-        return None
-    if any(
-        isinstance(item, Sequence) and not isinstance(item, (str, bytes))
-        for item in converted
-    ):
-        raise MultiSourceContractError(f"{name} must be rank one")
-    return tuple(converted)
-
-
 def _authoritative_lineage(piece: CanonicalPiece) -> str | None:
     raw_candidates = [
         value
@@ -624,6 +1075,7 @@ def build_multisource_sample(
         )
     )
     return MultiSourceSample(
+        canonical_piece=piece,
         raw_graph=raw_graph,
         dataset_id=piece.dataset_name,
         piece_id=piece.piece_id,
@@ -766,6 +1218,7 @@ def deterministic_group_order(
 
 
 __all__ = [
+    "BatchStatistics",
     "BatchTarget",
     "DatasetSamplingWeight",
     "GroupAssignment",
@@ -773,6 +1226,9 @@ __all__ = [
     "MultiSourceContractError",
     "MultiSourceSample",
     "SampleTarget",
+    "TargetDiagnostic",
+    "TargetRowProvenance",
+    "TaskBatchStatistics",
     "TaskAvailability",
     "build_multisource_sample",
     "deterministic_group_order",

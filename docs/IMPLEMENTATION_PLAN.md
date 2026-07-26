@@ -2442,38 +2442,53 @@ structure and is converted to `float32` only at feature-tensor construction.
 - Validate actual PyG `Batch` objects against the exact Phase 3A allowlists,
   permitting only PyG-added node `batch`/`ptr`, and enforce split safety over
   the same transitive source/lineage components used for ordering.
-- Boundary candidates not observed as events remain unlabeled. Phase 5B must
+- Boundary candidates not observed as events remain unlabeled. Phase 5B.1 must
   not encode them as negative, and ordinary BCE with implicit `absent=0` is
   forbidden. Phase 6 must select an explicit PU-compatible objective or omit
   the POP909-CL boundary loss.
 - Generate deterministic bounded evidence from real HookTheory fixtures and
   the accepted POP909-CL production manifest.
 
-### Phase 5B. Production dataset and collator
+### Phase 5B.1. Exact alignment, tensorization, and production collator
 
-### Tasks
+- Status: Completed.
+- Bind each prepared sample to its validated canonical piece and raw graph.
+- Align notes by exact entity identity; expand spans to exact onset points and
+  beat/bar start anchors under half-open containment; align boundaries only at
+  exact event time.
+- Retain available-but-unaligned and masked source entries separately. Merge
+  equal typed candidates and mask conflicts with
+  `multisource.alignment_conflict`.
+- Encode all 18 independent tasks through target encoding registry `1.0.0`:
+  closed categorical `long [N]`, closed multilabel `bool [N, C]`, and lossless
+  deferred open-string CPU values.
+- Collate raw graphs with normal PyG `Batch`, translate local indices with the
+  node-type-specific `ptr`, verify the corresponding `batch` vector, and keep
+  every target/provenance/diagnostic field outside PyG stores.
+- Emit strict immutable target/batch contracts and deterministic statistics
+  that distinguish source annotation count from candidate-expanded row count.
+- Preserve POP909-CL boundary as positive-unlabeled positives only, with
+  ordinary BCE explicitly ineligible.
 
-- load canonical files from multiple datasets;
-- consume the Phase 5A source-native ontology, annotation views, supervision
-  contexts, availability masks, per-target provenance, and distinct bass and
-  inversion families;
-- route mixed HookTheory and POP909-CL batches without converting unavailable
-  or ambiguous targets to negative labels;
-- support dataset mixture probabilities;
-- collate graphs, targets, masks, confidence, and provenance;
-- support deterministic worker seeds;
-- implement stats by dataset;
-- preserve source- and lineage-safe grouping before sampling or splitting.
+### Phase 5B.2. Corpus dataset, mixture sampler, and worker-safe loading
 
-### Acceptance criteria
+- Load/index canonical files from multiple datasets without full in-memory
+  materialization.
+- Preserve source- and lineage-safe grouping before sampling or splitting.
+- Implement practical corpus indexing, deterministic mixture probabilities,
+  sampler/epoch behavior, worker seeds, `Dataset`, and `DataLoader`.
+- Route prepared samples through the Phase 5B.1 collator without weakening its
+  target masks, offsets, source semantics, or raw-only allowlists.
 
-- one batch can contain different datasets;
-- missing tasks do not produce loss;
-- PDMX-like no-harmony sample and HookTheory sample collate together;
-- compatible HookTheory and POP909-CL harmonic targets reach shared tasks only
-  where their masks are true.
+### Phase 5B acceptance criteria
+
+- Phase 5B.1: one mixed HookTheory/POP909-CL/raw-only batch contains all stable
+  task sidecars; missing, masked, conflicting, and unaligned entries are not
+  loss-eligible; repeated ordered collation is deterministic.
+- Phase 5B.2: bounded corpus datasets and worker processes reproduce a
+  deterministic, lineage-safe mixture without loading or splitting leakage.
 - POP909-CL boundary loss is enabled only with an explicit PU-compatible
-  objective; otherwise that loss remains disabled.
+  objective in Phase 6; otherwise that loss remains disabled.
 
 ## Phase 6. MusicCriticV2 baseline architecture
 
