@@ -4,6 +4,8 @@ Status: **IMPLEMENTED PHASE 5B.1 CONTRACT**
 
 Target encoding registry version: `1.0.0`
 
+`BatchTarget` contract version: `1.1.0`
+
 Implementation: `music_critic.tasks`
 
 ## Scope
@@ -115,7 +117,8 @@ created.
 
 Each `BatchTarget` carries its task/source semantics, encoding kind and
 version, values, independent availability and entity-index masks, explicit
-node types, global entity indices, sample indices, optional confidence plus
+CPU node types plus matching tensor `entity_node_type_codes`, global entity
+indices, sample indices, optional confidence plus
 confidence mask, CPU provenance/diagnostics, source annotation count,
 candidate-expanded row count, model-readiness metadata, and one semantic
 `supervision_regime`: `fully_supervised`, `positive_unlabeled`, or
@@ -125,6 +128,11 @@ training loss. Supervision eligibility is exactly:
 ```text
 availability_mask & entity_index_mask & model_ready
 ```
+
+The stable code order is `song=0`, `track=1`, `bar=2`, `beat=3`, `onset=4`,
+and `note=5`; null/unaligned rows use `-1`. Constructor validation requires
+exact agreement between codes and CPU node-type sidecars. Phase 6A uses the
+codes for tensorized target-to-candidate joins; they do not enter PyG stores.
 
 An all-false multilabel row is a true negative only when availability is true.
 When availability is false it is a sentinel and is not eligible.

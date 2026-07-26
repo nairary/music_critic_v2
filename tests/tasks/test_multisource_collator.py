@@ -13,6 +13,8 @@ from music_critic.adapters import HookTheoryAdapterConfig, convert_hooktheory_re
 from music_critic.graph import build_raw_graph, graph_fingerprint
 from music_critic.tasks import (
     ALIGNMENT_CONFLICT_DIAGNOSTIC,
+    BATCH_TARGET_CONTRACT_VERSION,
+    ENTITY_NODE_TYPE_TO_CODE,
     TARGET_ENCODINGS,
     TARGET_ENCODING_REGISTRY_VERSION,
     AlignmentOperationCounts,
@@ -241,10 +243,18 @@ def test_note_identity_and_exact_onset_beat_bar_span_expansion() -> None:
     batch = collate_multisource_samples((sample,))
 
     note = _target(batch, "theory.melody.scale_degree")
+    assert note.batch_contract_version == BATCH_TARGET_CONTRACT_VERSION == "1.1.0"
     assert note.entity_node_types == ("note",)
+    assert note.entity_node_type_codes.tolist() == [
+        ENTITY_NODE_TYPE_TO_CODE["note"]
+    ]
     assert note.entity_indices.tolist() == [0]
     root = _target(batch, "theory.chord.root_degree")
     assert root.entity_node_types == ("onset", "beat", "beat", "bar")
+    assert root.entity_node_type_codes.tolist() == [
+        ENTITY_NODE_TYPE_TO_CODE[node_type]
+        for node_type in root.entity_node_types
+    ]
     assert root.entity_indices.tolist() == [0, 0, 1, 0]
     assert root.supervision_eligibility_mask.tolist() == [True] * 4
 

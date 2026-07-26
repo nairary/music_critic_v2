@@ -23,6 +23,7 @@ REQUIRED_DOCS = {
     "POP909_ORIGINAL_ADAPTER_CONTRACT.md",
     "POP909_ORIGINAL_FIELD_AUDIT.md",
     "MULTISOURCE_TARGET_CONTRACT.md",
+    "PHASE6A_BASELINE.md",
     "legacy_snapshot.json",
 }
 
@@ -78,7 +79,7 @@ def test_package_has_no_legacy_or_heavy_imports() -> None:
         allowed_roots = set()
         if relative_parts[0] in {"adapters", "exporters"}:
             allowed_roots.add("mido")
-        if relative_parts[0] == "graph":
+        if relative_parts[0] in {"graph", "models"}:
             allowed_roots.update({"torch", "torch_geometric"})
         if relative_parts[0] == "tasks":
             allowed_roots.update({"torch", "torch_geometric"})

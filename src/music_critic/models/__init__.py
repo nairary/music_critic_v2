@@ -1,1 +1,107 @@
-"""Music Critic model architectures."""
+"""Trainable local raw-graph baselines for Music Critic Phase 6A."""
+
+from music_critic.models.baseline import (
+    BaselineOutput,
+    LocalHeterogeneousBaseline,
+)
+from music_critic.models.checkpoint import (
+    CheckpointContractError,
+    checkpoint_metadata,
+    feature_registry_fingerprint,
+    load_baseline_checkpoint,
+    save_baseline_checkpoint,
+)
+from music_critic.models.contracts import (
+    ACTIVE_TASK_IDS,
+    BASELINE_LOSS_CONTRACT_VERSION,
+    CHECKPOINT_CONTRACT_VERSION,
+    ENCODER_OUTPUT_VERSION,
+    EXCLUDED_TASK_REASONS,
+    MODEL_CONTRACT_VERSION,
+    RAW_RECONSTRUCTION_CONTRACT_VERSION,
+    TASK_PREDICTION_CONTRACT_VERSION,
+    LocalBaselineConfig,
+    TaskHeadSpec,
+    active_task_head_specs,
+)
+from music_critic.models.diagnostics import (
+    EmbeddingDelta,
+    OversmoothingValue,
+    RawFeatureChange,
+    SingleNoteDiagnostic,
+    oversmoothing_by_group,
+    perturb_canonical_note_pitch,
+    single_note_sensitivity,
+)
+from music_critic.models.encoder import (
+    EncoderOutput,
+    LocalHeterogeneousEncoder,
+    LocalRelationLayer,
+    MultiScaleEncoderOutput,
+    RawFeatureEncoder,
+    normalize_continuous,
+)
+from music_critic.models.heads import (
+    BaselineLossReport,
+    RoutingOperationCounts,
+    SourceNativeTaskHeads,
+    TaskLoss,
+    TaskPrediction,
+    TaskSupervision,
+    aggregate_task_losses,
+    join_task_supervision,
+    routing_operation_counts,
+)
+from music_critic.models.reconstruction import (
+    RECONSTRUCTION_FIELDS,
+    RawReconstructionHeads,
+    ReconstructionOutput,
+    reconstruction_loss,
+)
+
+__all__ = [
+    "ACTIVE_TASK_IDS",
+    "BASELINE_LOSS_CONTRACT_VERSION",
+    "BaselineLossReport",
+    "BaselineOutput",
+    "CHECKPOINT_CONTRACT_VERSION",
+    "CheckpointContractError",
+    "ENCODER_OUTPUT_VERSION",
+    "EXCLUDED_TASK_REASONS",
+    "EmbeddingDelta",
+    "EncoderOutput",
+    "LocalBaselineConfig",
+    "LocalHeterogeneousBaseline",
+    "LocalHeterogeneousEncoder",
+    "LocalRelationLayer",
+    "MODEL_CONTRACT_VERSION",
+    "MultiScaleEncoderOutput",
+    "OversmoothingValue",
+    "RawFeatureChange",
+    "RAW_RECONSTRUCTION_CONTRACT_VERSION",
+    "RECONSTRUCTION_FIELDS",
+    "RoutingOperationCounts",
+    "TASK_PREDICTION_CONTRACT_VERSION",
+    "RawFeatureEncoder",
+    "RawReconstructionHeads",
+    "ReconstructionOutput",
+    "SingleNoteDiagnostic",
+    "SourceNativeTaskHeads",
+    "TaskHeadSpec",
+    "TaskLoss",
+    "TaskPrediction",
+    "TaskSupervision",
+    "active_task_head_specs",
+    "aggregate_task_losses",
+    "checkpoint_metadata",
+    "feature_registry_fingerprint",
+    "join_task_supervision",
+    "load_baseline_checkpoint",
+    "normalize_continuous",
+    "oversmoothing_by_group",
+    "perturb_canonical_note_pitch",
+    "reconstruction_loss",
+    "routing_operation_counts",
+    "save_baseline_checkpoint",
+    "single_note_sensitivity",
+]

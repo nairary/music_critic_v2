@@ -319,26 +319,49 @@ The model and training phases remain pending.
 - Acceptance: one mixed batch routes only available targets and preserves
   source/lineage grouping.
 
-## Phase 6 — Baseline local GNN, hierarchy, and bar Transformer
+## Phase 6A — Trainable feature-only and local HeteroGNN baselines
 
-- Goal: implement the minimum hybrid encoder.
+- Goal: establish the first learned, CPU-compatible, raw-only local encoder
+  and auxiliary-harmony baseline.
 - Dependencies: Phase 5.
-- Outputs: feature encoder, local GNN, pooling, bar Transformer, fusion, and
-  auxiliary boundary, root, quality, pitch-class-set, bass, inversion, and
-  no-chord heads. A joint or factorized bass/inversion head remains an ablation
-  and must preserve both masks.
-- Tests: shapes, empty node types, checkpoint round trip, one-batch overfit.
-- Non-goals: GraphMAE2/Hi-GMAE/UGMAE extensions.
-- Acceptance: a small raw graph batch trains end to end with masked harmonic
-  routing; Phase 6 is not described as a quality critic. POP909-CL boundary
-  and no-chord supervision must each use an explicitly accepted
-  PU-compatible objective or be excluded; absence of an observed event/span
-  cannot become an implicit negative.
+- Outputs: comparable feature-only and exact-relation local-GNN variants,
+  one-row-per-node multiscale output, target-independent raw-candidate logits
+  from source-native fully supervised task heads, tensorized supervision joins
+  and group-balanced losses, local visible-input reconstruction,
+  failure-atomic checkpoints, a canonical single-note diagnostic, and bounded
+  CPU evidence.
+- Tests: all node/edge stores, availability, routing and exclusions, local
+  losses, raw-only candidate prediction, target-sidecar invariance,
+  row-scaling operations, leakage, reconstruction/gradient coverage,
+  checkpoint corruption/atomicity and round trip, deterministic one-batch
+  overfit, canonical single-note sensitivity, separated oversmoothing, and
+  benchmark.
+- Non-goals: hierarchy/Transformer, shared cross-source heads, PU objectives,
+  GraphMAE2/Hi-GMAE/UGMAE, PLL, critic, or quality scoring.
+- Acceptance: a small raw graph batch trains end to end with target-independent
+  candidate logits, masked harmonic loss joins, and preserved local rows.
+  Forward/loss routing is tensorized over rows. POP909-CL boundary and no-chord
+  remain excluded; absence of an observed event/span is never an implicit
+  negative.
+
+## Phase 6B — Deterministic hierarchy and bar+track Transformer
+
+- Goal: add coarse context without erasing isolated local evidence.
+- Dependencies: accepted Phase 6A.
+- Outputs: deterministic hierarchy pooling, bar/track tokens, bar+track
+  Transformer, song embedding, top-down fusion, and the controlled
+  feature-only/local-GNN/hierarchical ablation.
+- Tests: deterministic membership and empty groups, no mean-only final path,
+  top-down/local cardinality preservation, and pooling sensitivity.
+- Non-goals: GraphMAE2 SSL, PLL, preference/quality critic, or shared
+  pitch-class-set semantics.
+- Acceptance: global context is available alongside retained note/onset/beat
+  rows and isolated-note evidence remains directly inspectable.
 
 ## Phase 7 — GraphMAE2-style SSL
 
 - Goal: add masked observable-feature representation learning.
-- Dependencies: Phase 6.
+- Dependencies: Phase 6B.
 - Outputs: masking views, remasked representation decoder, latent prediction
   losses, and a design gate before any normalized probabilistic
   masked-note/pitch-set decoder or deterministic PLL protocol.

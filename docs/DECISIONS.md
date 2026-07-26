@@ -906,3 +906,91 @@ This log is append-only.
   never affect split assignment, quotas, or record choice. Production split,
   mixture weights, models, losses, PU objectives, SSL/corruptions, PDMX, and
   any graph-cache optimization require later evidence-backed decisions.
+
+## 2026-07-26 — ADR-039: Phase 6A preserves local evidence in the first trainable baseline
+
+- Status: Accepted for draft pre-merge implementation.
+- Context: Phase 5B supplies validated raw-only heterogeneous batches and
+  source-native target sidecars. The first learned phase must prove trainable
+  raw graph encoding and auxiliary supervision without prematurely adding
+  hierarchy, SSL, likelihood, or critic semantics. Dense pieces and global
+  averages must not erase isolated-note evidence.
+- Decision: Introduce model, encoder-output, loss, reconstruction, and
+  checkpoint contracts `1.0.0`. One `LocalBaselineConfig` controls a
+  feature-only baseline and a local relation-aware baseline. Both encode every
+  Phase 3A feature column and availability mask for all six node types. The
+  local GNN handles every ordered Phase 3A relation with a distinct projection,
+  sum aggregation, self/residual path, LayerNorm, GELU, and dropout. Feature,
+  optional layer, and final skip-fused embeddings retain one row and exact
+  batch membership for every original node.
+- Decision: Instantiate only the ten HookTheory and four POP909-CL tasks whose
+  versioned encodings are model-ready and `fully_supervised`. Keep source heads
+  separate. Open mode/borrowed and positive-unlabeled boundary/no-chord have no
+  head or ordinary CE/BCE. There is no shared pitch-class-set head. Task rows
+  gather by explicit node type, global entity index, and sample index.
+- Decision: Use unreduced CE for closed categorical targets and unreduced
+  BCE-with-logits for closed multi-label targets. Eligibility additionally
+  requires `fully_supervised`. Mean rows inside task/node-type/sample, mean
+  active groups inside task, then take the configurable weighted mean of active
+  tasks. Empty tasks add no artificial target. Retain every row loss.
+- Decision: Reconstruct one visible inference-safe field per node type only to
+  verify gradient and bounded overfit plumbing. This is not masking, SSL,
+  likelihood, anomaly, corruption, or quality scoring. Bind checkpoints to
+  model/config, canonical/graph/feature, ontology/encoding, and ordered-head
+  metadata before loading.
+- Consequences: Phase 6A can compare feature-only and local message passing and
+  diagnose one-note sensitivity without claiming musical preference or corpus
+  feasibility. Phase 6B owns hierarchy pooling, bar+track Transformer, song
+  embedding, and top-down fusion; it must not make mean-only aggregation the
+  final evidence path. A future critic must compare global context with
+  retained local or top-k worst evidence. SSL begins in Phase 7. Shared
+  pitch-class semantics remain blocked on a versioned lossless
+  renderer/crosswalk.
+
+## 2026-07-26 — ADR-040: Phase 6A prediction is candidate-first and checkpoint application is failure-atomic
+
+- Status: Accepted as pre-merge remediation of draft PR #9.
+- Context: Target-routed logits made raw-only output empty and allowed target
+  sidecars to determine which predictions existed. Row-wise host
+  materialization also made forward/loss work scale in Python with supervision
+  rows. The first trainable baseline needs an inference path defined entirely
+  by raw graph candidates and a checkpoint failure boundary that cannot leave
+  partially changed training state.
+- Decision: Patch the model/output and loss contracts to `1.1.0`, introduce
+  candidate prediction `1.0.0`, patch `BatchTarget` to `1.1.0` with validated
+  tensor node-type codes, and patch checkpoint contract to `1.1.0`. Each of
+  the 14 active heads enumerates every allowed raw-graph candidate before any
+  target access. Targets join to those identities only for loss. Replacing,
+  deleting, masking, or adding targets cannot alter candidate identities or
+  eval logits; raw-only batches emit candidate logits and no harmonic loss.
+- Decision: Candidate routing, supervision join, and
+  task/node-type/sample reductions use tensor operations. Python work is
+  bounded by the fixed task/node-type families; model forward/loss performs
+  no per-row host conversion or row list processing.
+- Decision: Single-note evidence changes one validator-clean canonical note
+  pitch while preserving its stable ID, rebuilds and validates both production
+  graphs, requires different fingerprints and identical topology, and reports
+  exact raw-feature and local-embedding changes. Oversmoothing is computed
+  separately for every `(sample, node_type, scale)`. Membership is validated
+  and scanned once per node type to build contiguous `S+1` boundaries; other
+  scales must have identical sample IDs. Basic `start:end` views replace
+  boolean feature indexing, so production creates no `N_group x D` group
+  copies. For normalized rows `u_i`, subtract
+  `sum_i ||u_i||²` from `||sum_i u_i||²`, then divide by `N*(N-1)`. Subtracting
+  `N` is invalid for zero rows because PyTorch normalization leaves them zero.
+  The report records the exact pre-normalization `zero_norm_count`, and remains
+  unavailable for fewer than two nodes. Boundary construction uses
+  `O(sum_t N_t + T*S)` time and `O(T*S)` CPU metadata; cosine work uses
+  `O(K*sum_t N_t*D)` time and `O(D)` temporary accumulator memory per group;
+  report traversal and storage are honestly `O(K*T*S)` time and memory.
+- Decision: Checkpoint load validates metadata, exact model keys/shapes/dtypes,
+  and optimizer groups/state tensors before mutation; an application failure
+  restores complete model and optimizer states. Save uses a same-directory
+  temporary followed by atomic replace.
+- Consequences: Target sidecars now select loss rows, never prediction
+  existence. Model parameters, active tasks, ontology `1.0.1`, encoding
+  registry `1.0.0`, adapters, production manifests, and Phase 6A scientific
+  scope are unchanged. The oversmoothing correction restores the already
+  stated exact diagnostic semantics; no separate versioned diagnostic-policy
+  contract exists, so model/output/loss versions do not change. Phase 6B and
+  Phase 7 remain unstarted.
