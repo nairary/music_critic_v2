@@ -399,13 +399,28 @@ to decrease and a checkpoint reload to reproduce eval logits bit-exactly.
 This is plumbing evidence rather than generalization.
 
 Multi-epoch mode composes the existing global split, lazy datasets,
-deterministic quota sampler, and production collator. Train/validation metrics
-retain per-task availability and dataset-mixture evidence. Training
-checkpoints bind resolved configuration, data/index/split/composition
-fingerprints, and existing model contracts, and contain optimizer, scheduler,
-scaler, epoch, and Python/torch RNG states. Resume is deterministic only at an
-epoch boundary; mid-epoch resume is intentionally not implemented. Full
-commands and artifact semantics are in `TRAINING.md`.
+deterministic quota sampler, and production collator. Only training membership
+is epoch-dependent. Validation is a fixed, fingerprinted, no-replacement full
+view by default or one fixed bounded subset. Per-task and per-dataset epoch
+metrics accumulate loss numerators and exact eligible-row denominators, so the
+explicitly weighted objective does not depend on batch partitioning. The
+supervised preset uses LR `3e-4` and no reconstruction; joint visible
+reconstruction is a named ablation.
+
+Training checkpoints bind resolved objective/configuration,
+data/index/split/composition fingerprints, and existing model contracts. They
+contain optimizer, scheduler, scaler, epoch, best fixed-validation metric,
+committed metric-row count, and Python/torch RNG states. Loading is
+failure-atomic across every live state. Atomic per-epoch records plus the
+checkpoint row count make `metrics.jsonl`/`last.pt` crash-consistent. Resume is
+deterministic only at an epoch boundary; mid-epoch resume is intentionally not
+implemented.
+
+Normal CUDA training validates semantic binding on CPU, performs no
+per-parameter/task/feature-family host synchronization, and transfers packed
+epoch scalars once at metric finalization. Full gradient evidence remains a
+one-batch or explicit diagnostic operation. Commands and artifact semantics
+are in `TRAINING.md`.
 
 ## Incremental research scope
 

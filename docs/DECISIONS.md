@@ -1096,13 +1096,38 @@ This log is append-only.
 - Decision: Treat one-batch loss decrease and bit-exact checkpoint reload as
   optimization-plumbing evidence only. Retain harmonic, reconstruction, and
   total losses separately. A batch without eligible harmonic rows may optimize
-  reconstruction; missing supervision never becomes a negative.
+  reconstruction only under an objective with explicit nonzero reconstruction
+  weight; missing supervision never becomes a negative.
+- Decision: Keep LR `0.02` and joint harmonic plus visible reconstruction only
+  in the one-batch plumbing preset. The production supervised baseline starts
+  at LR `3e-4`, harmonic weight `1`, and reconstruction weight `0`. Joint
+  visible reconstruction is a separately named ablation. Explicit task
+  weights may address only existing fully-supervised active heads;
+  positive-unlabeled and deferred open-vocabulary tasks remain disabled.
+- Decision: Validation membership is immutable across epochs. The default
+  visits the complete validation view exactly once without replacement; an
+  optional bounded subset is selected once and fingerprinted. Best-checkpoint
+  selection uses only this fixed validation evidence.
+- Decision: Aggregate task loss as an epoch numerator divided by its exact
+  eligible-row denominator, then compute the epoch harmonic objective from
+  explicitly weighted task means. Do not average batch means. Emit the same
+  task/count accounting per dataset.
 - Decision: Training checkpoints `1.0.0` bind the existing model contract,
   fully resolved configuration fingerprint, and corpus/index/split/
   composition fingerprints. Store model, optimizer, scheduler, AMP scaler,
   next epoch, best validation metric, and Python/CPU-torch/CUDA-torch RNG.
-  Resume is supported only at deterministic epoch boundaries; mid-epoch resume
-  remains explicitly deferred.
+  Prevalidate the complete payload and auxiliary application where possible;
+  any live application failure rolls back model, optimizer, scheduler, scaler,
+  and all RNG state bit-exactly. An atomic per-epoch metric journal and
+  checkpoint `committed_metric_rows` make `last.pt` and `metrics.jsonl`
+  recoverable across either write-order crash window. Resume is supported only
+  at deterministic epoch boundaries; mid-epoch resume remains explicitly
+  deferred.
+- Decision: Validate raw graph/target semantics on CPU before transfer. Normal
+  CUDA training performs no full gradient-evidence scan and no
+  per-parameter/task/feature-family tensor-to-host conversions. Gradient
+  evidence is restricted to one-batch or explicit diagnostic mode; epoch
+  scalar evidence is packed into one finalization transfer.
 - Decision: Split planning remains target-blind and delegates to
   `plan_group_hash_split`, followed by the existing complete global
   source/lineage validation. CUDA acceptance is optional in CPU CI and must

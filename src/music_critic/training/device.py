@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import fields
+from dataclasses import dataclass, fields
 from typing import Any
 
 import torch
@@ -23,6 +23,13 @@ DEVICE_TRANSFER_CONTRACT_VERSION = "1.0.0"
 
 class DeviceTransferError(ValueError):
     """Structured failure in the Phase 6C device-transfer boundary."""
+
+
+@dataclass(slots=True)
+class TransferInstrumentation:
+    cpu_semantic_validations: int = 0
+    device_semantic_validations: int = 0
+    device_tensor_to_python_syncs: int = 0
 
 
 def _without_post_init(
@@ -231,11 +238,22 @@ def move_multisource_batch(
     device: torch.device | str,
     *,
     non_blocking: bool = False,
+    debug_validate_device: bool = False,
+    instrumentation: TransferInstrumentation | None = None,
 ) -> MultiSourceBatch:
-    """Clone and move model-facing tensors without CUDA row-wise validation."""
+    """Validate on CPU, then move without CUDA semantic revalidation."""
 
     if not isinstance(batch, MultiSourceBatch):
         raise DeviceTransferError("training.device.input_type_invalid")
+    if any(
+        value.device.type != "cpu"
+        for target in batch.target_batches
+        for value in _target_tensors(target)
+    ):
+        raise DeviceTransferError("training.device.source_not_cpu")
+    validate_device_batch(batch, "cpu")
+    if instrumentation is not None:
+        instrumentation.cpu_semantic_validations += 1
     target_device = torch.device(device)
     graph = copy.deepcopy(batch.raw_graph_batch)
     # PyG's recursive ``Data.to`` also rewrites tuple-valued CPU metadata
@@ -264,13 +282,87 @@ def move_multisource_batch(
             "target_batches": targets,
         },
     )
-    validate_device_batch(moved, target_device, source=batch)
+    _validate_moved_structure(moved, target_device, source=batch)
+    if debug_validate_device:
+        validate_device_batch(moved, target_device, source=batch)
+        if instrumentation is not None:
+            instrumentation.device_semantic_validations += 1
     return moved
+
+
+def _validate_moved_structure(
+    batch: MultiSourceBatch,
+    device: torch.device,
+    *,
+    source: MultiSourceBatch,
+) -> None:
+    """Check transfer invariants without data-dependent tensor predicates."""
+
+    expected_tasks = tuple(spec.task_id for spec in TARGET_FAMILIES)
+    if tuple(item.task_id for item in batch.target_batches) != expected_tasks:
+        raise DeviceTransferError("training.device.task_order_mismatch")
+    if (
+        batch.dataset_ids != source.dataset_ids
+        or batch.piece_ids != source.piece_ids
+        or batch.source_group_ids != source.source_group_ids
+        or batch.lineage_group_ids != source.lineage_group_ids
+        or batch.diagnostics_cpu != source.diagnostics_cpu
+        or batch.statistics != source.statistics
+    ):
+        raise DeviceTransferError("training.device.cpu_sidecar_changed")
+    for store in batch.raw_graph_batch.stores:
+        for value in store.values():
+            if isinstance(value, Tensor) and value.device != device:
+                raise DeviceTransferError(
+                    "training.device.graph_tensor_mismatch"
+                )
+    for target, original in zip(
+        batch.target_batches, source.target_batches, strict=True
+    ):
+        if (
+            target.entity_node_types != original.entity_node_types
+            or target.provenance_cpu != original.provenance_cpu
+            or target.diagnostics_cpu != original.diagnostics_cpu
+        ):
+            raise DeviceTransferError(
+                f"training.device.target_cpu_sidecar_changed:{target.task_id}"
+            )
+        for moved, before in zip(
+            _target_tensors(target),
+            _target_tensors(original),
+            strict=True,
+        ):
+            if (
+                moved.device != device
+                or moved.shape != before.shape
+                or moved.dtype != before.dtype
+            ):
+                raise DeviceTransferError(
+                    f"training.device.target_shape_changed:{target.task_id}"
+                )
+    for node_type in batch.raw_graph_batch.node_types:
+        if (
+            int(batch.raw_graph_batch[node_type].num_nodes)
+            != int(source.raw_graph_batch[node_type].num_nodes)
+        ):
+            raise DeviceTransferError(
+                f"training.device.graph_shape_changed:{node_type}"
+            )
+    for edge_type in batch.raw_graph_batch.edge_types:
+        if (
+            batch.raw_graph_batch[edge_type].edge_index.shape
+            != source.raw_graph_batch[edge_type].edge_index.shape
+        ):
+            raise DeviceTransferError(
+                "training.device.graph_shape_changed:"
+                + "|".join(edge_type)
+            )
 
 
 __all__ = [
     "DEVICE_TRANSFER_CONTRACT_VERSION",
     "DeviceTransferError",
+    "TransferInstrumentation",
     "move_multisource_batch",
     "validate_device_batch",
 ]

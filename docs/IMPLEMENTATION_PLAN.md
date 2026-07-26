@@ -2642,9 +2642,20 @@ hardening changes preserve the six serialized/public `1.0.0` semantics.
   evidence, both-objective decrease, checkpoint, and bit-exact eval reload;
 - minimal train/validation epochs over the Phase 5B.2 index/cache/global split,
   lazy Dataset, quota sampler, and collator contracts;
+- epoch-dependent deterministic train sampling beside a fixed fingerprinted
+  validation membership: complete view exactly once by default or one
+  deterministic no-replacement subset;
+- batch-partition-invariant epoch metrics from per-task loss numerators and
+  exact eligible-row denominators, with explicit task/harmonic/reconstruction
+  weights and per-dataset reports;
+- separate fixed presets: one-batch joint overfit at LR `0.02`, supervised
+  harmonic training at LR `3e-4` with reconstruction disabled, and an
+  explicitly named joint visible-reconstruction ablation;
 - epoch-boundary checkpoint/resume with model, optimizer, scheduler, scaler,
   next epoch, best metric, Python/torch RNG, configuration, and
   corpus/index/split/model fingerprints;
+- failure-atomic checkpoint application and a crash-consistent epoch journal
+  binding `last.pt` to the committed metric-row count;
 - a CLI around target-blind `plan_group_hash_split` followed by the existing
   complete global split validation;
 - optional CUDA acceptance with an explicit skip when CUDA is unavailable.
@@ -2652,8 +2663,10 @@ hardening changes preserve the six serialized/public `1.0.0` semantics.
 Mid-epoch resume, full corpus training, SSL, corruption/remasking, PLL, PU
 objectives, preference/quality scoring, and any model/target/adapter/graph/
 corpus semantic change are outside Phase 6C. A batch without harmonic
-supervision uses its active reconstruction objective; missing labels are never
-converted into negatives. Commands and artifact details are in
+supervision is skipped under the supervised preset and may use reconstruction
+only under the named joint ablation; missing labels are never converted into
+negatives. Normal CUDA batches do not run full gradient scans or per-task/
+family host conversions. Commands and artifact details are in
 `docs/TRAINING.md`. Phase 7 has not started.
 
 ## Phase 7. GraphMAE2-style SSL

@@ -32,7 +32,9 @@ class DataConfig:
     batch_size: int = 3
     workers: int = 0
     epoch_size: int = 6
-    validation_epoch_size: int = 3
+    # Zero means the complete validation view exactly once. A positive value
+    # selects one fixed deterministic subset without replacement.
+    validation_epoch_size: int = 0
     mixture_weights: dict[str, float] = field(
         default_factory=lambda: {
             "hooktheory": 1.0,
@@ -44,19 +46,36 @@ class DataConfig:
 @dataclass
 class ExperimentConfig:
     name: str = "one_batch"
+    preset: str = "one_batch"
     steps: int = 40
     epochs: int = 1
     checkpoint_interval: int = 1
     validation_interval: int = 1
     resume_from: str = ""
+    default_learning_rate: float = 0.02
+    default_objective: str = "one_batch_joint"
+    default_harmonic_weight: float = 1.0
+    default_reconstruction_weight: float = 1.0
+    collect_gradient_evidence: bool = True
 
 
 @dataclass
 class OptimizerConfig:
     name: str = "adamw"
-    learning_rate: float = 0.02
+    # ``None`` is resolved from the selected fixed experiment preset before
+    # validation, fingerprinting, or execution.
+    learning_rate: float | None = None
     weight_decay: float = 0.0
     gradient_clip_norm: float = 1.0
+
+
+@dataclass
+class ObjectiveConfig:
+    # The ``preset`` node resolves all three fields from ExperimentConfig.
+    name: str = "preset"
+    harmonic_weight: float | None = None
+    reconstruction_weight: float | None = None
+    task_weights: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -80,6 +99,7 @@ class TrainingConfig:
             {"data": "bounded"},
             {"experiment": "one_batch"},
             {"optimizer": "adamw"},
+            {"objective": "preset"},
             {"scheduler": "none"},
             {"device": "cpu"},
             "_self_",
@@ -91,6 +111,7 @@ class TrainingConfig:
     data: DataConfig = MISSING
     experiment: ExperimentConfig = MISSING
     optimizer: OptimizerConfig = MISSING
+    objective: ObjectiveConfig = MISSING
     scheduler: SchedulerConfig = MISSING
     device: DeviceConfig = MISSING
 
@@ -175,10 +196,16 @@ def register_training_configs() -> None:
         name="one_batch",
         node=ExperimentConfig(
             name="one_batch",
+            preset="one_batch",
             steps=40,
             epochs=1,
             checkpoint_interval=1,
             validation_interval=1,
+            default_learning_rate=0.02,
+            default_objective="one_batch_joint",
+            default_harmonic_weight=1.0,
+            default_reconstruction_weight=1.0,
+            collect_gradient_evidence=True,
         ),
     )
     store.store(
@@ -186,10 +213,16 @@ def register_training_configs() -> None:
         name="smoke",
         node=ExperimentConfig(
             name="smoke",
+            preset="supervised_baseline",
             steps=1,
             epochs=2,
             checkpoint_interval=1,
             validation_interval=1,
+            default_learning_rate=3e-4,
+            default_objective="supervised_harmonic",
+            default_harmonic_weight=1.0,
+            default_reconstruction_weight=0.0,
+            collect_gradient_evidence=False,
         ),
     )
     store.store(
@@ -197,13 +230,81 @@ def register_training_configs() -> None:
         name="train",
         node=ExperimentConfig(
             name="train",
+            preset="supervised_baseline",
             steps=1,
             epochs=20,
             checkpoint_interval=1,
             validation_interval=1,
+            default_learning_rate=3e-4,
+            default_objective="supervised_harmonic",
+            default_harmonic_weight=1.0,
+            default_reconstruction_weight=0.0,
+            collect_gradient_evidence=False,
+        ),
+    )
+    store.store(
+        group="experiment",
+        name="supervised_baseline",
+        node=ExperimentConfig(
+            name="supervised_baseline",
+            preset="supervised_baseline",
+            steps=1,
+            epochs=20,
+            checkpoint_interval=1,
+            validation_interval=1,
+            default_learning_rate=3e-4,
+            default_objective="supervised_harmonic",
+            default_harmonic_weight=1.0,
+            default_reconstruction_weight=0.0,
+            collect_gradient_evidence=False,
+        ),
+    )
+    store.store(
+        group="experiment",
+        name="joint_visible_reconstruction",
+        node=ExperimentConfig(
+            name="joint_visible_reconstruction",
+            preset="joint_visible_reconstruction",
+            steps=1,
+            epochs=20,
+            checkpoint_interval=1,
+            validation_interval=1,
+            default_learning_rate=3e-4,
+            default_objective="joint_visible_reconstruction",
+            default_harmonic_weight=1.0,
+            default_reconstruction_weight=1.0,
+            collect_gradient_evidence=False,
         ),
     )
     store.store(group="optimizer", name="adamw", node=OptimizerConfig())
+    store.store(group="objective", name="preset", node=ObjectiveConfig())
+    store.store(
+        group="objective",
+        name="one_batch_joint",
+        node=ObjectiveConfig(
+            name="one_batch_joint",
+            harmonic_weight=1.0,
+            reconstruction_weight=1.0,
+        ),
+    )
+    store.store(
+        group="objective",
+        name="supervised_harmonic",
+        node=ObjectiveConfig(
+            name="supervised_harmonic",
+            harmonic_weight=1.0,
+            reconstruction_weight=0.0,
+        ),
+    )
+    store.store(
+        group="objective",
+        name="joint_visible_reconstruction",
+        node=ObjectiveConfig(
+            name="joint_visible_reconstruction",
+            harmonic_weight=1.0,
+            reconstruction_weight=1.0,
+        ),
+    )
     store.store(group="scheduler", name="none", node=SchedulerConfig())
     store.store(
         group="scheduler",
@@ -226,6 +327,7 @@ __all__ = [
     "DeviceConfig",
     "ExperimentConfig",
     "ModelConfig",
+    "ObjectiveConfig",
     "OptimizerConfig",
     "SchedulerConfig",
     "TrainingConfig",

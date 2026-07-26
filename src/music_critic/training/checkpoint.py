@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 from hashlib import sha256
 import json
+import math
 import os
 from pathlib import Path
 import random
@@ -104,13 +105,15 @@ def save_training_checkpoint(
     scaler: Any,
     next_epoch: int,
     best_validation_loss: float | None,
+    committed_metric_rows: int,
     resolved_config: dict[str, object],
     data_fingerprints: dict[str, object],
 ) -> None:
-    if next_epoch < 0:
-        raise TrainingCheckpointError(
-            "training.checkpoint.next_epoch_invalid"
-        )
+    _validate_epoch_fields(
+        next_epoch,
+        best_validation_loss,
+        committed_metric_rows,
+    )
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -127,6 +130,7 @@ def save_training_checkpoint(
         "scaler_state": scaler.state_dict(),
         "next_epoch": next_epoch,
         "best_validation_loss": best_validation_loss,
+        "committed_metric_rows": committed_metric_rows,
         "rng_state": capture_rng_state(),
     }
     descriptor, temporary_name = tempfile.mkstemp(
@@ -153,7 +157,7 @@ def load_training_checkpoint(
     scaler: Any,
     resolved_config: dict[str, object],
     data_fingerprints: dict[str, object],
-) -> tuple[int, float | None]:
+) -> tuple[int, float | None, int]:
     try:
         payload = torch.load(
             Path(path), map_location="cpu", weights_only=True
@@ -166,6 +170,21 @@ def load_training_checkpoint(
         raise TrainingCheckpointError(
             "training.checkpoint.payload_invalid"
         )
+    expected_keys = {
+        "metadata",
+        "model_state",
+        "optimizer_state",
+        "scheduler_state",
+        "scaler_state",
+        "next_epoch",
+        "best_validation_loss",
+        "committed_metric_rows",
+        "rng_state",
+    }
+    if set(payload) != expected_keys:
+        raise TrainingCheckpointError(
+            "training.checkpoint.payload_fields_invalid"
+        )
     expected = training_checkpoint_metadata(
         model,
         resolved_config=resolved_config,
@@ -175,15 +194,14 @@ def load_training_checkpoint(
         raise TrainingCheckpointError(
             "training.checkpoint.metadata_mismatch"
         )
-    next_epoch = payload.get("next_epoch")
-    if (
-        isinstance(next_epoch, bool)
-        or not isinstance(next_epoch, int)
-        or next_epoch < 0
-    ):
-        raise TrainingCheckpointError(
-            "training.checkpoint.next_epoch_invalid"
-        )
+    next_epoch = payload["next_epoch"]
+    best = payload["best_validation_loss"]
+    committed_metric_rows = payload["committed_metric_rows"]
+    _validate_epoch_fields(
+        next_epoch,
+        best,
+        committed_metric_rows,
+    )
     try:
         model_state = _validate_model_state(
             payload.get("model_state"), model
@@ -198,14 +216,23 @@ def load_training_checkpoint(
         raise TrainingCheckpointError(
             "training.checkpoint.scheduler_mismatch"
         )
-    if not isinstance(payload.get("scaler_state"), dict):
+    if not isinstance(payload["scaler_state"], dict):
         raise TrainingCheckpointError(
             "training.checkpoint.scaler_state_invalid"
         )
-    if not isinstance(payload.get("rng_state"), dict):
+    _validate_rng_state(payload["rng_state"])
+    # Validate scheduler/scaler application on detached copies before any
+    # mutation of live training state.
+    try:
+        if scheduler is not None:
+            scheduler_probe = copy.deepcopy(scheduler)
+            scheduler_probe.load_state_dict(payload["scheduler_state"])
+        scaler_probe = copy.deepcopy(scaler)
+        scaler_probe.load_state_dict(payload["scaler_state"])
+    except Exception as exc:
         raise TrainingCheckpointError(
-            "training.checkpoint.rng_state_invalid"
-        )
+            f"training.checkpoint.auxiliary_state_invalid:{exc}"
+        ) from exc
     originals = {
         "model": {
             key: value.detach().clone()
@@ -228,21 +255,113 @@ def load_training_checkpoint(
         scaler.load_state_dict(payload["scaler_state"])
         restore_rng_state(payload["rng_state"])
     except Exception as exc:
-        model.load_state_dict(originals["model"], strict=True)
-        optimizer.load_state_dict(originals["optimizer"])
-        if scheduler is not None:
-            scheduler.load_state_dict(originals["scheduler"])
-        scaler.load_state_dict(originals["scaler"])
-        restore_rng_state(originals["rng"])
+        try:
+            model.load_state_dict(originals["model"], strict=True)
+            optimizer.load_state_dict(originals["optimizer"])
+            if scheduler is not None:
+                scheduler.load_state_dict(originals["scheduler"])
+            scaler.load_state_dict(originals["scaler"])
+            restore_rng_state(originals["rng"])
+        except Exception as rollback_exc:
+            raise TrainingCheckpointError(
+                "training.checkpoint.rollback_failed:"
+                f"{rollback_exc}"
+            ) from exc
         raise TrainingCheckpointError(
             f"training.checkpoint.application_failed:{exc}"
         ) from exc
-    best = payload.get("best_validation_loss")
-    if best is not None and not isinstance(best, float):
+    return next_epoch, best, committed_metric_rows
+
+
+def _validate_epoch_fields(
+    next_epoch: object,
+    best_validation_loss: object,
+    committed_metric_rows: object,
+) -> None:
+    if (
+        isinstance(next_epoch, bool)
+        or not isinstance(next_epoch, int)
+        or next_epoch < 0
+    ):
+        raise TrainingCheckpointError(
+            "training.checkpoint.next_epoch_invalid"
+        )
+    if (
+        best_validation_loss is not None
+        and (
+            isinstance(best_validation_loss, bool)
+            or not isinstance(best_validation_loss, float)
+            or not math.isfinite(best_validation_loss)
+        )
+    ):
         raise TrainingCheckpointError(
             "training.checkpoint.best_metric_invalid"
         )
-    return next_epoch, best
+    if (
+        isinstance(committed_metric_rows, bool)
+        or not isinstance(committed_metric_rows, int)
+        or committed_metric_rows < 0
+        or committed_metric_rows != next_epoch
+    ):
+        raise TrainingCheckpointError(
+            "training.checkpoint.metric_rows_invalid"
+        )
+
+
+def _validate_rng_state(state: object) -> None:
+    if not isinstance(state, dict) or set(state) != {
+        "python",
+        "torch_cpu",
+        "torch_cuda",
+    }:
+        raise TrainingCheckpointError(
+            "training.checkpoint.rng_state_invalid"
+        )
+    try:
+        probe = random.Random()
+        probe.setstate(_tuples(state["python"]))
+    except Exception as exc:
+        raise TrainingCheckpointError(
+            "training.checkpoint.python_rng_invalid"
+        ) from exc
+    cpu = state["torch_cpu"]
+    if (
+        not isinstance(cpu, torch.Tensor)
+        or cpu.dtype != torch.uint8
+        or cpu.ndim != 1
+        or cpu.shape != torch.get_rng_state().shape
+    ):
+        raise TrainingCheckpointError(
+            "training.checkpoint.torch_rng_invalid"
+        )
+    cuda = state["torch_cuda"]
+    if not isinstance(cuda, list) or any(
+        not isinstance(item, torch.Tensor)
+        or item.dtype != torch.uint8
+        or item.ndim != 1
+        for item in cuda
+    ):
+        raise TrainingCheckpointError(
+            "training.checkpoint.cuda_rng_invalid"
+        )
+    if cuda and (
+        not torch.cuda.is_available()
+        or len(cuda) != torch.cuda.device_count()
+    ):
+        raise TrainingCheckpointError(
+            "training.checkpoint.cuda_rng_unavailable"
+        )
+    if cuda and any(
+        saved.shape != current.shape
+        for saved, current in zip(
+            cuda,
+            torch.cuda.get_rng_state_all(),
+            strict=True,
+        )
+    ):
+        raise TrainingCheckpointError(
+            "training.checkpoint.cuda_rng_invalid"
+        )
 
 
 __all__ = [

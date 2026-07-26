@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 import json
@@ -13,6 +13,7 @@ from typing import Any
 
 import mido
 import torch
+from torch.utils.data import DataLoader, Sampler
 
 from music_critic.adapters import (
     HookTheoryAdapterConfig,
@@ -33,8 +34,21 @@ from music_critic.tasks import (
     load_split_manifest,
     make_multisource_dataloader,
     prepare_multisource_sample,
+    seed_multisource_worker,
 )
 from music_critic.training.config import DataConfig
+
+
+@dataclass(frozen=True, slots=True)
+class ValidationMembership:
+    """Fixed no-replacement validation membership and evidence."""
+
+    identities: tuple[tuple[str, str], ...]
+    membership_fingerprint: str
+    dataset_counts: dict[str, int]
+    full_view_count: int
+    selected_count: int
+    subset_limit: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,7 +57,8 @@ class DataRuntime:
 
     first_train_batch: MultiSourceBatch
     train_loader: Callable[[int], Iterable[MultiSourceBatch]]
-    validation_loader: Callable[[int], Iterable[MultiSourceBatch]]
+    validation_loader: Callable[[], Iterable[MultiSourceBatch]]
+    validation_membership: ValidationMembership
     fingerprints: dict[str, object]
     mixture_statistics: dict[str, object]
 
@@ -56,6 +71,99 @@ def _fingerprint(value: object) -> str:
         ensure_ascii=False,
     )
     return sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _fixed_validation_indices(
+    identities: Sequence[tuple[str, str]],
+    *,
+    limit: int,
+    seed: int,
+) -> tuple[int, ...]:
+    if (
+        isinstance(limit, bool)
+        or not isinstance(limit, int)
+        or limit < 0
+        or limit > len(identities)
+    ):
+        raise ValueError("training.data.validation_limit_invalid")
+    if limit == 0 or limit == len(identities):
+        return tuple(range(len(identities)))
+    ranked = sorted(
+        range(len(identities)),
+        key=lambda index: (
+            _fingerprint(
+                {
+                    "policy": "fixed_validation_membership_v1",
+                    "seed": seed,
+                    "identity": list(identities[index]),
+                }
+            ),
+            identities[index],
+        ),
+    )
+    # Evaluation order is canonical even when membership is hash-selected.
+    return tuple(sorted(ranked[:limit]))
+
+
+def _validation_membership(
+    identities: Sequence[tuple[str, str]],
+    indices: Sequence[int],
+    *,
+    limit: int,
+    seed: int,
+) -> ValidationMembership:
+    selected = tuple(identities[index] for index in indices)
+    counts = Counter(dataset_id for dataset_id, _ in selected)
+    fingerprint = _fingerprint(
+        {
+            "policy": "fixed_validation_membership_v1",
+            "seed": seed,
+            "subset_limit": limit,
+            "full_view_count": len(identities),
+            "selected_identities": [list(item) for item in selected],
+        }
+    )
+    return ValidationMembership(
+        identities=selected,
+        membership_fingerprint=fingerprint,
+        dataset_counts=dict(sorted(counts.items())),
+        full_view_count=len(identities),
+        selected_count=len(selected),
+        subset_limit=limit,
+    )
+
+
+class _FixedIndexSampler(Sampler[int]):
+    def __init__(self, indices: Sequence[int]) -> None:
+        self.indices = tuple(indices)
+
+    def __iter__(self) -> Iterator[int]:
+        return iter(self.indices)
+
+    def __len__(self) -> int:
+        return len(self.indices)
+
+
+def _fixed_validation_loader(
+    dataset: Any,
+    indices: Sequence[int],
+    *,
+    batch_size: int,
+    workers: int,
+    seed: int,
+) -> DataLoader[Any]:
+    generator = torch.Generator()
+    generator.manual_seed(seed)
+    return DataLoader(
+        dataset=dataset,
+        batch_size=batch_size,
+        sampler=_FixedIndexSampler(indices),
+        num_workers=workers,
+        collate_fn=collate_multisource_samples,
+        worker_init_fn=seed_multisource_worker,
+        generator=generator,
+        persistent_workers=False,
+    )
 
 
 def _hook_piece(piece_id: str, root: int):
@@ -249,6 +357,20 @@ def _bounded_epoch(
 def _bounded_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
     train, validation = _bounded_samples()
     first = collate_multisource_samples(train[: config.batch_size])
+    validation_identities = tuple(
+        (sample.dataset_id, sample.piece_id) for sample in validation
+    )
+    validation_indices = _fixed_validation_indices(
+        validation_identities,
+        limit=config.validation_epoch_size,
+        seed=seed,
+    )
+    membership = _validation_membership(
+        validation_identities,
+        validation_indices,
+        limit=config.validation_epoch_size,
+        seed=seed,
+    )
 
     def train_loader(epoch: int):
         return _bounded_epoch(
@@ -259,13 +381,13 @@ def _bounded_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
             epoch=epoch,
         )
 
-    def validation_loader(epoch: int):
-        return _bounded_epoch(
-            validation,
-            batch_size=config.batch_size,
-            epoch_size=config.validation_epoch_size,
-            seed=seed + 10_000,
-            epoch=epoch,
+    def validation_loader():
+        selected = tuple(validation[index] for index in validation_indices)
+        return tuple(
+            collate_multisource_samples(
+                selected[start : start + config.batch_size]
+            )
+            for start in range(0, len(selected), config.batch_size)
         )
 
     identities = {
@@ -281,10 +403,14 @@ def _bounded_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
         first_train_batch=first,
         train_loader=train_loader,
         validation_loader=validation_loader,
+        validation_membership=membership,
         fingerprints={
             "kind": "bounded",
             "bounded_fixture_fingerprint": _fingerprint(identities),
             "split_fingerprint": _fingerprint(identities),
+            "validation_membership_fingerprint": (
+                membership.membership_fingerprint
+            ),
         },
         mixture_statistics={
             "requested_weights": dict(config.mixture_weights),
@@ -292,12 +418,9 @@ def _bounded_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
                 sorted(Counter(item.dataset_id for item in train).items())
             ),
             "validation_dataset_counts": dict(
-                sorted(
-                    Counter(
-                        item.dataset_id for item in validation
-                    ).items()
-                )
+                membership.dataset_counts
             ),
+            "validation_membership": asdict(membership),
         },
     )
 
@@ -342,6 +465,21 @@ def _corpus_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
     if train_sources & val_sources or train_lineages & val_lineages:
         raise ValueError("training.data.split_isolation_failed")
     weights = dict(config.mixture_weights)
+    validation_identities = tuple(
+        validation.record_identity(index)
+        for index in range(len(validation))
+    )
+    validation_indices = _fixed_validation_indices(
+        validation_identities,
+        limit=config.validation_epoch_size,
+        seed=seed,
+    )
+    membership = _validation_membership(
+        validation_identities,
+        validation_indices,
+        limit=config.validation_epoch_size,
+        seed=seed,
+    )
 
     def loader(dataset, epoch_size: int, epoch: int):
         sampler = DeterministicQuotaSampler(
@@ -364,9 +502,13 @@ def _corpus_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
     def train_loader(epoch: int):
         return loader(train, config.epoch_size, epoch)
 
-    def validation_loader(epoch: int):
-        return loader(
-            validation, config.validation_epoch_size, epoch
+    def validation_loader():
+        return _fixed_validation_loader(
+            validation,
+            validation_indices,
+            batch_size=config.batch_size,
+            workers=config.workers,
+            seed=seed + 10_000,
         )
 
     first = next(iter(train_loader(0)))
@@ -374,6 +516,7 @@ def _corpus_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
         first_train_batch=first,
         train_loader=train_loader,
         validation_loader=validation_loader,
+        validation_membership=membership,
         fingerprints={
             "kind": "corpus_cache",
             "index_fingerprints": [
@@ -387,11 +530,15 @@ def _corpus_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
             "validation_composition_fingerprint": (
                 validation.composition_fingerprint
             ),
+            "validation_membership_fingerprint": (
+                membership.membership_fingerprint
+            ),
         },
         mixture_statistics={
             "requested_weights": weights,
             "train": asdict(dataset_view_report(train)),
             "validation": asdict(dataset_view_report(validation)),
+            "validation_membership": asdict(membership),
         },
     )
 
@@ -408,4 +555,8 @@ def build_data_runtime(
     raise ValueError(f"training.data.unknown:{config.name}")
 
 
-__all__ = ["DataRuntime", "build_data_runtime"]
+__all__ = [
+    "DataRuntime",
+    "ValidationMembership",
+    "build_data_runtime",
+]

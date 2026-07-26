@@ -4,11 +4,12 @@ import json
 from pathlib import Path
 
 from hydra import compose, initialize
+import pytest
 import torch
 
 from music_critic.tasks import collate_multisource_samples
 from music_critic.training.config import register_training_configs
-from music_critic.training.engine import run_training
+from music_critic.training.engine import InjectedTrainingCrash, run_training
 from music_critic.training.models import build_baseline_model
 from music_critic.training.device import move_multisource_batch
 
@@ -26,8 +27,7 @@ def _config(output: Path, experiment: str = "one_batch"):
                 "data=bounded",
                 "data.batch_size=3",
                 "data.epoch_size=3",
-                "data.validation_epoch_size=3",
-                "optimizer.learning_rate=0.02",
+                "data.validation_epoch_size=0",
                 "device=cpu",
                 f"output_dir={output}",
                 *(
@@ -104,6 +104,10 @@ def test_one_batch_repetition_is_deterministic_and_writes_artifacts(
     )
     assert resolved["experiment"]["steps"] == 6
     assert resolved["model"]["name"] == "feature_only"
+    assert resolved["optimizer"]["learning_rate"] == 0.02
+    assert resolved["objective"]["name"] == "one_batch_joint"
+    assert resolved["objective"]["harmonic_weight"] == 1.0
+    assert resolved["objective"]["reconstruction_weight"] == 1.0
 
 
 def test_epoch_boundary_resume_is_bit_exact_in_metrics(
@@ -153,6 +157,7 @@ def test_epoch_boundary_resume_is_bit_exact_in_metrics(
         "scaler_state",
         "next_epoch",
         "best_validation_loss",
+        "committed_metric_rows",
         "rng_state",
     ):
         _assert_state_equal(
@@ -171,6 +176,39 @@ def test_epoch_boundary_resume_is_bit_exact_in_metrics(
         "epoch-0002.pt",
     ):
         assert (resumed_dir / name).is_file()
+    rows = [
+        json.loads(line)
+        for line in (resumed_dir / "metrics.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert [row["epoch"] for row in rows] == [0, 1]
+    for row in rows:
+        assert row["train"]["hot_path_instrumentation"] == {
+            "epoch_finalize_device_to_host_syncs": 1,
+            "gradient_evidence_scans": 0,
+            "per_family_host_syncs": 0,
+            "per_parameter_host_syncs": 0,
+            "per_task_host_syncs": 0,
+        }
+        validation = row["validation"]
+        assert validation["membership"]["selected_count"] == 3
+        assert validation["membership"]["full_view_count"] == 3
+        assert validation["membership"]["subset_limit"] == 0
+        assert validation["dataset_counts"] == {
+            "hooktheory": 2,
+            "pop909_cl": 1,
+        }
+        assert validation["hot_path_instrumentation"] == {
+            "epoch_finalize_device_to_host_syncs": 1,
+            "gradient_evidence_scans": 0,
+            "per_family_host_syncs": 0,
+            "per_parameter_host_syncs": 0,
+            "per_task_host_syncs": 0,
+        }
+        for task in validation["tasks"].values():
+            assert task["eligible_row_count"] > 0
+            assert task["loss_numerator"] >= 0
 
 
 def test_reconstruction_trains_when_batch_has_no_harmonic_rows(
@@ -193,3 +231,68 @@ def test_reconstruction_trains_when_batch_has_no_harmonic_rows(
         and bool(torch.count_nonzero(parameter.grad))
         for parameter in model.parameters()
     )
+
+
+@pytest.mark.parametrize(
+    "crash_after", ("metric_write", "checkpoint_write")
+)
+def test_epoch_commit_recovers_without_duplicate_or_lost_metrics(
+    tmp_path: Path,
+    crash_after: str,
+) -> None:
+    reference_dir = tmp_path / f"reference-{crash_after}"
+    recovered_dir = tmp_path / f"recovered-{crash_after}"
+    run_training(_config(reference_dir, "smoke"))
+    run_training(
+        _config(recovered_dir, "smoke"),
+        stop_after_epoch=1,
+    )
+
+    crash_config = _config(recovered_dir, "smoke")
+    crash_config.experiment.resume_from = str(
+        recovered_dir / "last.pt"
+    )
+    with pytest.raises(InjectedTrainingCrash):
+        run_training(crash_config, crash_after=crash_after)
+
+    before_recovery = torch.load(
+        recovered_dir / "last.pt",
+        map_location="cpu",
+        weights_only=True,
+    )
+    expected_rows = 1 if crash_after == "metric_write" else 2
+    assert before_recovery["committed_metric_rows"] == expected_rows
+    assert len(
+        (recovered_dir / "metrics.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ) == 1
+    assert (recovered_dir / "epoch_metrics" / "pending.json").is_file()
+
+    resume_config = _config(recovered_dir, "smoke")
+    resume_config.experiment.resume_from = str(
+        recovered_dir / "last.pt"
+    )
+    report = run_training(resume_config)
+    assert report["completed_epochs"] == 2
+    assert not (
+        recovered_dir / "epoch_metrics" / "pending.json"
+    ).exists()
+    assert [
+        path.name
+        for path in sorted(
+            (recovered_dir / "epoch_metrics").glob("epoch-*.json")
+        )
+    ] == ["epoch-0001.json", "epoch-0002.json"]
+    assert (
+        reference_dir / "metrics.jsonl"
+    ).read_bytes() == (
+        recovered_dir / "metrics.jsonl"
+    ).read_bytes()
+    rows = [
+        json.loads(line)
+        for line in (recovered_dir / "metrics.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert [row["epoch"] for row in rows] == [0, 1]

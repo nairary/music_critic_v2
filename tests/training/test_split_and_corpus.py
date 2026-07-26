@@ -145,7 +145,7 @@ def test_real_cache_runtime_enforces_train_validation_isolation(
     }
     validation = {
         (dataset, piece)
-        for batch in runtime.validation_loader(0)
+        for batch in runtime.validation_loader()
         for dataset, piece in zip(
             batch.dataset_ids, batch.piece_ids, strict=True
         )

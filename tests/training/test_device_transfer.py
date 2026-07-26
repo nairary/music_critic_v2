@@ -6,6 +6,7 @@ import torch
 
 from music_critic.tasks import TARGET_FAMILIES
 from music_critic.training.device import (
+    TransferInstrumentation,
     move_multisource_batch,
     validate_device_batch,
 )
@@ -93,3 +94,28 @@ def test_transfer_does_not_put_targets_in_raw_graph(
         if not isinstance(target.values, torch.Tensor):
             assert target.values == original.values
         assert target.provenance_cpu is not None
+
+
+def test_normal_transfer_validates_semantics_only_on_cpu(
+    bounded_batch,
+) -> None:
+    evidence = TransferInstrumentation()
+    move_multisource_batch(
+        bounded_batch,
+        "cpu",
+        instrumentation=evidence,
+    )
+    assert evidence.cpu_semantic_validations == 1
+    assert evidence.device_semantic_validations == 0
+    assert evidence.device_tensor_to_python_syncs == 0
+
+    debug_evidence = TransferInstrumentation()
+    move_multisource_batch(
+        bounded_batch,
+        "cpu",
+        debug_validate_device=True,
+        instrumentation=debug_evidence,
+    )
+    assert debug_evidence.cpu_semantic_validations == 1
+    assert debug_evidence.device_semantic_validations == 1
+    assert debug_evidence.device_tensor_to_python_syncs == 0

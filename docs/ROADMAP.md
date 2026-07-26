@@ -380,16 +380,23 @@ The model and training phases remain pending.
   transfer, one-batch overfit evidence, minimal train/validation epochs,
   epoch-boundary resume, JSON/JSONL artifacts, compatibility-bound training
   checkpoints, and a global split-planning CLI.
-- Tests: configuration composition/overrides, all three model selections,
-  device/sidecar/raw-graph boundaries, deterministic one-batch repetition,
-  epoch-boundary replay, split isolation, artifacts/fingerprints, raw-only
-  reconstruction, and optional mixed hierarchical CUDA acceptance.
+- Tests: configuration/preset/objective composition, all three model
+  selections, CPU-first device/sidecar/raw-graph boundaries, deterministic
+  one-batch repetition, fixed no-replacement validation, row-weighted
+  batch-partition-invariant metrics, fully failure-atomic checkpoint load,
+  both epoch-commit crash windows, split isolation, artifacts/fingerprints,
+  normal-hot-path synchronization instrumentation, and actual CLI-driven
+  hierarchical CUDA AMP acceptance.
 - Non-goals: Phase 7 SSL, corruption/remasking, PLL, PU objectives,
   preference/quality scoring, long corpus training, or semantic changes to
   models, targets, adapters, graphs, manifests, and caches.
-- Acceptance: bounded CPU runs reproduce; checkpoint reload reproduces eval
-  logits; uninterrupted and resumed epoch metrics match; CUDA runs report
-  device/VRAM evidence when hardware exists and otherwise skip explicitly.
+- Acceptance: bounded CPU runs reproduce; production training defaults to
+  supervised harmonic LR `3e-4`, while joint visible reconstruction is a
+  named ablation; checkpoint reload and application failure are bit-exact;
+  uninterrupted, resumed, and crash-recovered epoch metrics match without
+  duplicate/lost rows; best selection uses only fixed validation; CUDA runs
+  report device/VRAM evidence when hardware exists and otherwise skip
+  explicitly.
 
 ## Phase 7 — GraphMAE2-style SSL
 

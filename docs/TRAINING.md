@@ -17,8 +17,9 @@ Hydra composes only registered structured groups:
 
 - `model=feature_only|local_gnn|hierarchical`;
 - `data=bounded|hooktheory|pop909_cl|mixed`;
-- `experiment=one_batch|smoke|train`;
+- `experiment=one_batch|smoke|train|supervised_baseline|joint_visible_reconstruction`;
 - `optimizer=adamw`;
+- `objective=preset|one_batch_joint|supervised_harmonic|joint_visible_reconstruction`;
 - `scheduler=none|cosine`;
 - `device=cpu|cuda|auto`.
 
@@ -27,6 +28,22 @@ mixture weights, learning rate, weight decay, gradient clipping, epochs, AMP,
 output directory, checkpoint interval, and validation interval. There are no
 environment-derived or timestamp-derived training defaults. Every run writes
 the fully resolved application configuration to `resolved_config.json`.
+
+The presets are intentionally different:
+
+| experiment | default LR | harmonic weight | reconstruction weight | purpose |
+| --- | ---: | ---: | ---: | --- |
+| `one_batch` | `0.02` | `1` | `1` | bounded overfit/plumbing evidence |
+| `smoke`, `train`, `supervised_baseline` | `3e-4` | `1` | `0` | supervised harmonic baseline |
+| `joint_visible_reconstruction` | `3e-4` | `1` | `1` | separately named visible-input ablation |
+
+`objective.harmonic_weight`, `objective.reconstruction_weight`, and
+`objective.task_weights` are explicit configuration. For example,
+`objective=supervised_harmonic
++objective.task_weights={theory.chord.extent:2.0}` changes one accepted
+fully-supervised task weight. Positive-unlabeled and deferred open-vocabulary
+tasks are rejected. The resolved objective and task weights participate in
+the configuration and model/checkpoint fingerprints.
 
 ## Cache and split preparation
 
@@ -137,6 +154,30 @@ metrics, and learning rate in `metrics.jsonl`. The run also writes resolved
 configuration, mixture statistics, corpus/index/split/composition
 fingerprints, and the existing model-contract fingerprint.
 
+Training membership may change deterministically with epoch through
+`DeterministicQuotaSampler`. Validation never does. By default,
+`data.validation_epoch_size=0` visits the complete validation view exactly
+once in canonical order, without replacement, repetition, or omission. A
+positive value selects one seed-bound hash-ranked subset once, restores its
+canonical order, and records selected identities, full/selected counts,
+per-dataset counts, and a membership fingerprint. `best.pt` is selected only
+from this fixed procedure.
+
+Epoch metrics do not average batch means. Each task records
+`loss_numerator`, exact `eligible_row_count`, and their ratio. The harmonic
+epoch scalar is the task-weighted mean of active epoch task means. The visible
+reconstruction scalar is the mean of active field-level means. The final
+configured objective is:
+
+```text
+harmonic_weight * harmonic_epoch_mean
+  + reconstruction_weight * reconstruction_epoch_mean
+```
+
+Unavailable terms are omitted rather than turned into zero or negative
+examples. The same numerator/denominator accounting is emitted per dataset,
+so validation is invariant to batch size, partitioning, and order.
+
 `last.pt`, `best.pt`, and interval `epoch-NNNN.pt` checkpoints contain model,
 optimizer, scheduler, AMP scaler, next epoch, best validation metric, and
 Python/CPU-torch/CUDA-torch RNG state. Resume is accepted only at an epoch
@@ -155,9 +196,21 @@ python -m music_critic.training.run \
 ```
 
 All contract-bound configuration and data fingerprints must match the saved
-checkpoint. Mid-epoch resume is deliberately unsupported in Phase 6C.
-Batches without eligible harmonic rows train only the active reconstruction
-objective; missing labels never become negative or zero-loss examples.
+checkpoint. Loading prevalidates the complete payload, epoch/best/metric-row
+fields, model/optimizer structure, auxiliary state application, and RNG
+shape/availability as far as possible. If live application still fails,
+model, optimizer, scheduler, scaler, and Python/CPU/CUDA RNG are rolled back
+bit-exactly.
+
+Each epoch is committed through an atomic pending metric, `last.pt` with its
+`committed_metric_rows`, and an atomic per-epoch metric. `metrics.jsonl` is
+deterministically rebuilt from committed records. Resume discards a metric
+staged before a missing checkpoint and replays that epoch, or finalizes a
+pending metric already authorized by `last.pt`; it never duplicates or loses
+an epoch row. Mid-epoch resume is deliberately unsupported. Under the
+supervised preset, a batch without eligible harmonic rows is skipped
+gracefully. It optimizes reconstruction only in the explicitly selected joint
+ablation; missing labels never become negative or zero-loss examples.
 
 ## Device-transfer boundary and CUDA acceptance
 
@@ -166,13 +219,26 @@ non-mutating boundary. It deep-copies the raw PyG batch and transfers only
 tensor attributes, preserving tuple-valued graph metadata. Model-facing target
 tensors move to the same device, while strings, provenance, diagnostics,
 statistics, and other CPU sidecars remain CPU objects. Targets are never added
-to the raw graph. Validation checks device, shape, task order, and graph
-binding through fixed task/node-family tensor operations; it does not replay
-row-wise Python validation on CUDA.
+to the raw graph. Full graph/target binding validation runs on the CPU source
+before transfer. The normal device path performs only structural
+device/shape/task-order checks without data-dependent CUDA predicates. Full
+post-transfer semantic validation is available through
+`debug_validate_device=True`.
 
-`tests/training/test_cuda_acceptance.py` performs full mixed-batch transfer,
-hierarchical forward/backward/step, finite-loss and module-gradient checks,
-checkpoint/logit reproduction, and unrelated-sample isolation. A CPU-only CI
-runner reports an explicit skip. Manual GPU evidence must name the actual
-device and report peak allocated/reserved bytes from `one_batch_report.json`;
-GPU or VRAM results must not be inferred when CUDA hardware is absent.
+Normal multi-epoch training does not collect parameter-by-parameter gradient
+evidence. The default hot path has zero per-parameter, per-task, and
+per-feature-family tensor-to-host conversions; epoch metric finalization packs
+all scalar numerators/denominators into one host transfer. Gradient evidence
+is reserved for one-batch mode or an explicit
+`experiment.collect_gradient_evidence=true` diagnostic run.
+
+`tests/training/test_cuda_acceptance.py` executes the documented CLI itself
+with `device.amp=true`, checks the enabled scaler, backward/optimizer steps,
+finite loss curves, checkpoint save/reload, and reported VRAM. A second test
+perturbs the existing bounded note `x_cont` velocity field while preserving
+dtype/range, requires the changed sample's fused embeddings and logits to
+change, and requires every other sample's logits and fused embeddings to
+remain bit-exact. A CPU-only CI runner reports explicit skips. Manual GPU
+evidence must name the actual device and report peak allocated/reserved bytes
+from `one_batch_report.json`; GPU or VRAM results must not be inferred when
+CUDA hardware is absent.

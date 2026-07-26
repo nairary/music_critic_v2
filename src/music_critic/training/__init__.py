@@ -5,6 +5,7 @@ from music_critic.training.config import (
     DeviceConfig,
     ExperimentConfig,
     ModelConfig,
+    ObjectiveConfig,
     OptimizerConfig,
     SchedulerConfig,
     TrainingConfig,
@@ -13,6 +14,7 @@ from music_critic.training.config import (
 from music_critic.training.device import (
     DEVICE_TRANSFER_CONTRACT_VERSION,
     DeviceTransferError,
+    TransferInstrumentation,
     move_multisource_batch,
     validate_device_batch,
 )
@@ -33,9 +35,11 @@ __all__ = [
     "ExperimentConfig",
     "ModelConfig",
     "OptimizerConfig",
+    "ObjectiveConfig",
     "SchedulerConfig",
     "TrainingConfig",
     "TrainingContractError",
+    "TransferInstrumentation",
     "build_baseline_model",
     "move_multisource_batch",
     "register_training_configs",

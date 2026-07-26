@@ -22,9 +22,14 @@ from music_critic.training.config import ModelConfig
 BaselineModel = LocalHeterogeneousBaseline | HierarchicalHeterogeneousBaseline
 
 
-def build_baseline_model(config: ModelConfig | Any) -> BaselineModel:
+def build_baseline_model(
+    config: ModelConfig | Any,
+    *,
+    task_weights: dict[str, float] | None = None,
+) -> BaselineModel:
     """Select one accepted baseline using its existing configuration."""
 
+    ordered_task_weights = tuple(sorted((task_weights or {}).items()))
     if config.name in {"feature_only", "local_gnn"}:
         return LocalHeterogeneousBaseline(
             LocalBaselineConfig(
@@ -33,6 +38,7 @@ def build_baseline_model(config: ModelConfig | Any) -> BaselineModel:
                 gnn_layers=config.local_gnn_layers,
                 dropout=config.dropout,
                 residual=config.residual,
+                task_weights=ordered_task_weights,
             )
         )
     if config.name == "hierarchical":
@@ -45,6 +51,7 @@ def build_baseline_model(config: ModelConfig | Any) -> BaselineModel:
                 ffn_multiplier=config.ffn_multiplier,
                 dropout=config.dropout,
                 local_residual=config.residual,
+                task_weights=ordered_task_weights,
             )
         )
     raise ValueError(f"training.model.unknown:{config.name}")
