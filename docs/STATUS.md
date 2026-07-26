@@ -90,8 +90,8 @@
 
 - Base `main`: `c56bfaff2bbbb1f2d5ba249327274fa950648034`.
 - Focused dataset/cache/split/sampler/worker plus Phase 5B.1 collator and graph
-  leakage regressions: 113 passed.
-- Full default suite: 603 passed, 12 skipped; skips are opt-in real-corpus
+  leakage regressions: 115 passed.
+- Full default suite: 605 passed, 12 skipped; skips are opt-in real-corpus
   integration tests.
 - Deterministic target-contract audit and bounded corpus index/cache/split
   audit both passed `--check`.

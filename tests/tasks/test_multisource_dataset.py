@@ -5,11 +5,14 @@ from hashlib import sha256
 import json
 import pickle
 from pathlib import Path
+from types import SimpleNamespace
 
 import mido
 import pytest
+import torch
 
 import music_critic.tasks.corpus as corpus_module
+import music_critic.adapters as adapters_module
 from music_critic.adapters import (
     HookTheoryAdapterConfig,
     Pop909ClCorpusRecord,
@@ -30,6 +33,7 @@ from music_critic.tasks import (
     MultiCorpusDataset,
     MultiSourceDataLoaderConfig,
     build_hooktheory_corpus_cache,
+    build_pop909_cl_corpus_cache,
     cache_canonical_corpus,
     collate_multisource_samples,
     corpus_cache_key,
@@ -45,6 +49,7 @@ from music_critic.tasks import (
     prepare_multisource_sample,
     validate_split_manifest,
 )
+from music_critic.graph import graph_to_dict
 
 
 def _hook_piece(
@@ -324,6 +329,12 @@ def test_index_rejects_absolute_artifact_path(tmp_path: Path) -> None:
     index, _, _ = _build_index(tmp_path, "alpha", 1)
     with pytest.raises(CorpusContractError, match="POSIX relative"):
         replace(index.records[0], canonical_relative_path="/cache/piece.json")
+
+
+def test_index_rejects_path_traversal(tmp_path: Path) -> None:
+    index, _, _ = _build_index(tmp_path, "alpha", 1)
+    with pytest.raises(CorpusContractError, match="normalized POSIX"):
+        replace(index.records[0], canonical_relative_path="../escape.json")
 
 
 def test_duplicate_piece_identity_is_rejected(tmp_path: Path) -> None:
@@ -715,7 +726,7 @@ def test_sampler_rejects_zero_or_negative_weights(corpus_pair) -> None:
             )
 
 
-def _loader_piece_ids(mixed, *, workers: int):
+def _loader_evidence(mixed, *, workers: int):
     sampler = DeterministicQuotaSampler(
         mixed, weights={"alpha": 1, "beta": 1}, seed=17, epoch_size=4
     )
@@ -726,13 +737,51 @@ def _loader_piece_ids(mixed, *, workers: int):
         prefetch_factor=2 if workers else None,
         multiprocessing_context="spawn" if workers else None,
     )
-    return tuple(
-        piece_id
-        for batch in make_multisource_dataloader(
-            mixed, sampler=sampler, config=config
+    evidence = []
+    for batch in make_multisource_dataloader(
+        mixed, sampler=sampler, config=config
+    ):
+        def normalized(value):
+            if isinstance(value, torch.Tensor):
+                return value.item() if value.numel() == 1 else value.tolist()
+            if isinstance(value, dict):
+                return {key: normalized(item) for key, item in value.items()}
+            if isinstance(value, list):
+                return [normalized(item) for item in value]
+            return value
+
+        graph_fingerprints = tuple(
+            sha256(
+                json.dumps(
+                    normalized(graph_to_dict(graph)),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode()
+            ).hexdigest()
+            for graph in batch.raw_graph_batch.to_data_list()
         )
-        for piece_id in batch.piece_ids
-    )
+        targets = tuple(
+            (
+                target.task_id,
+                target.values.tolist()
+                if isinstance(target.values, torch.Tensor)
+                else target.values,
+                target.availability_mask.tolist(),
+                target.entity_indices.tolist(),
+                target.entity_index_mask.tolist(),
+            )
+            for target in batch.target_batches
+        )
+        evidence.append(
+            (
+                batch.dataset_ids,
+                batch.piece_ids,
+                graph_fingerprints,
+                targets,
+            )
+        )
+    return tuple(evidence)
 
 
 def test_dataloader_num_workers_zero_and_two_have_schedule_parity(
@@ -740,7 +789,7 @@ def test_dataloader_num_workers_zero_and_two_have_schedule_parity(
 ) -> None:
     *_, alpha_view, beta_view = corpus_pair
     mixed = MultiCorpusDataset((alpha_view, beta_view))
-    assert _loader_piece_ids(mixed, workers=0) == _loader_piece_ids(
+    assert _loader_evidence(mixed, workers=0) == _loader_evidence(
         mixed, workers=2
     )
 
@@ -843,6 +892,65 @@ def test_bounded_pop_piece_uses_dataset_to_loader_path(tmp_path: Path) -> None:
     )
     assert batch.piece_ids == (piece.piece_id,)
     assert report.accepted_count == 1
+    no_chord = next(
+        target
+        for target in batch.target_batches
+        if target.task_id == "pop909_cl.chord.no_chord"
+    )
+    boundary = next(
+        target
+        for target in batch.target_batches
+        if target.task_id == "pop909_cl.chord.boundary"
+    )
+    assert set(no_chord.values.tolist()) <= {0}
+    assert set(boundary.values.tolist()) <= {0}
+
+
+def test_pop_song_172_quarantine_never_becomes_dataset_item(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "172.mid"
+    source.write_bytes(b"bounded-routing-fixture")
+    record = Pop909ClCorpusRecord(
+        song_id="172",
+        path=source,
+        relative_path="POP909_processed/172.mid",
+        corpus_relative_path="172.mid",
+        sha256=sha256(source.read_bytes()).hexdigest(),
+        source_group_id="pop909-cl:172",
+        lineage_group_id="pop909-lineage:172",
+    )
+
+    class FakeQuarantine:
+        category = "midi_adapter.meter_change_inside_bar"
+        source_error = "bounded song 172 quarantine"
+
+    monkeypatch.setattr(
+        adapters_module, "Pop909ClQuarantine", FakeQuarantine
+    )
+    monkeypatch.setattr(
+        adapters_module,
+        "discover_pop909_cl_corpus",
+        lambda _root: SimpleNamespace(
+            records=(record,),
+            corpus_root=tmp_path,
+            content_fingerprint=sha256(b"bounded-discovery").hexdigest(),
+        ),
+    )
+    monkeypatch.setattr(
+        adapters_module,
+        "convert_pop909_cl_file",
+        lambda _record, config: FakeQuarantine(),
+    )
+    index, report = build_pop909_cl_corpus_cache(
+        tmp_path,
+        cache_config=CorpusCacheConfig(tmp_path / "cache"),
+        limit=1,
+    )
+    assert index.records == ()
+    assert report.accepted_count == 0
+    assert report.quarantined_count == 1
+    assert report.quarantine[0].source_identity == "172"
 
 
 def test_mixed_hook_pop_raw_only_dataloader_batch_is_valid(tmp_path: Path) -> None:
