@@ -60,13 +60,80 @@
 - Documentation branch: `docs/harmonic-supervision-contract`
 - Documentation base commit: `681abbdf331c032e34cc7541224ca98f13e19a86`
 - Pre-merge clarification base: `4f5f1e32f0244cbbfedd3a0cd4dbaa9047a82e51`
-- Phase 6A: Implemented and locally verified; draft PR Required CI is the
-  merge-gate authority
+- Phase 6A: Accepted and merged
 - Phase 6A branch: `phase/6a-trainable-local-gnn`
+- Phase 6A merge SHA: `875dac3f83ab1a6cb3b3ece4875a5f55e3751409`
 - Model/output `1.1.0`; encoder/candidate-prediction/reconstruction `1.0.0`;
   loss/checkpoint `1.1.0`; `BatchTarget` `1.1.0`
-- Next phase after acceptance: Phase 6B — deterministic hierarchy pooling,
-  bar+track Transformer, song embedding, and top-down fusion
+- Phase 6B: Implemented and locally verified; draft PR Required CI is the
+  merge-gate authority
+- Phase 6B branch: `phase/6b-hierarchy-transformer`
+- Hierarchy pooling, coarse token sequence, hierarchical encoder output,
+  top-down fusion, hierarchical model/output, and hierarchical checkpoint:
+  `1.0.0`
+- Next phase after acceptance: Phase 7 — GraphMAE2-style SSL
+
+## Phase 6B deterministic hierarchy and coarse-context result
+
+- `HierarchicalHeterogeneousBaseline` composes the unchanged Phase 6A local
+  baseline with additive hierarchy pooling, a coarse per-sample Transformer,
+  and gated top-down fusion. The complete Phase 6A multi-scale output remains
+  present in `ContextualEncoderOutput`; no mean-only final path replaces it.
+- Exact ownership comes only from validated raw beat/onset/note-to-bar,
+  note-to-track, and bar/track-to-song edges. Each child has exactly one owner,
+  reverse edges must transpose the forward mapping, and membership must be
+  cardinality-aligned, monotonic, and cross-sample clean. Malformed hierarchy
+  raises `HierarchyContractError`.
+- Bar pooling uses own+beat/onset/note families and track pooling uses own+note.
+  Each family exposes mean, max, `log1p(count)`, availability, and a learned
+  projection; the parent residual is explicit. Sparse indexed reductions
+  create no dense child/parent membership matrix.
+- Each sample sequence is `[SONG] + canonical bars + canonical tracks` with
+  separate type embeddings, runtime sinusoidal ordinals, and padding masks.
+  The batch-first pre-norm Transformer never attends across samples. Its
+  contextual SONG row is representation evidence, not a quality score.
+- Note fusion receives contextual bar+track+song; onset/beat receive bar+song;
+  bar/track receive their contextual row+song; song receives contextual song.
+  All paths are gated residuals. The existing 14 Phase 6A heads consume fused
+  raw candidates, preserving 237 tiny and 79 isolated raw-only candidate rows,
+  target-only joins, masks, losses, and reconstruction.
+- Hierarchical checkpoint `1.0.0` binds all six Phase 6B contracts plus the
+  unchanged Phase 6A, graph, feature, ontology, encoding, configuration, and
+  ordered-head contracts. Prevalidation and application-time failures restore
+  complete model and optimizer state bit-exactly; save remains atomic.
+- Phase 7, SSL/corruption, PLL, PU objectives, shared harmonic semantics,
+  preference/quality scoring, adapters, manifests, ontology/encoding, and
+  corpus contracts were not changed or started.
+
+## Phase 6B bounded evidence and verification
+
+- Controlled hidden-32/one-local-layer/one-Transformer-layer variants have
+  98,757 feature-only, 132,101 local-GNN, and 189,701 hierarchical parameters;
+  default-config references are 712,581, 2,292,357, and 3,384,581.
+- Tiny forward/backward observations were 0.06806/0.00782 s,
+  0.02017/0.01171 s, and 0.04158/0.01638 s. Larger observations were
+  0.19795/0.01843 s, 0.06036/0.01336 s, and 0.04792/0.01791 s. These are
+  bounded CPU plumbing observations without a speed or quality threshold.
+- Pooling/Transformer/fusion stage observations were
+  0.00146/0.00400/0.00052 s on tiny and 0.00189/0.00164/0.00051 s on larger.
+  Coarse lengths were `[3, 4, 3]` on tiny and padded `[9, 4, 32]` on larger.
+- Every pooler, Transformer attention/feed-forward block, all six fusion
+  modules, every local node encoder, and all 14 heads receive gradients. Thirty
+  bounded steps reduced harmonic loss 1.79136 to 0.00000354 and reconstruction
+  3.11003 to 0.000325.
+- One-note L2 evidence is nonzero at local note (0.42141), pooled bar/track
+  (0.10921/0.23121), contextual bar/track/song
+  (0.13988/0.19839/0.02796), fused note/onset/beat
+  (0.90333/0.21826/0.65703), fused bar/track
+  (0.08809/0.18145), and reconstruction logits (1.37096). Topology, ownership,
+  cardinality, and local retention remain fixed; an unrelated co-batched
+  sample remains bit-exact at every stage.
+- Focused Phase 6B tests: 21 passed. All model tests including Phase 6A:
+  61 passed. Graph/leakage/repository regressions: 63 passed.
+  Dataset/collator regressions: 119 passed. Full default suite: 699 passed,
+  12 skipped. Deterministic target audit, compileall, and diff checks pass.
+  The only warnings are the two pre-existing upstream PyTorch JIT deprecation
+  warnings.
 
 ## Phase 6A trainable local baseline result
 
@@ -104,9 +171,9 @@
   validates original/perturbed production graphs, preserves stable identities
   and topology, reports exact raw-feature/local changes, and separates exact
   linear oversmoothing by sample/node type/scale without assigning quality.
-- Phase 6B hierarchy/Transformer, PU objectives, shared harmonic heads, SSL,
-  PLL, critic/quality, production training/splits, adapters, and manifests are
-  unchanged and were not implemented.
+- Phase 6A itself does not include hierarchy/Transformer, PU objectives, shared
+  harmonic heads, SSL, PLL, critic/quality, production training/splits,
+  adapters, or manifests. Phase 6B composes this output additively.
 
 ## Phase 6A bounded evidence and verification
 

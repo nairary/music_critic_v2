@@ -2589,17 +2589,34 @@ the preference/quality critic. Its concrete contract is in
 
 ## Phase 6B. Hierarchy and coarse context
 
-### Implement
+### Implemented contract
 
-- deterministic hierarchy pooling into bar and track tokens;
-- bar+track Transformer and song embedding;
-- top-down fusion back into retained local rows;
-- controlled feature-only, local-GNN, and hierarchy/Transformer ablation.
+- validate exact one-owner mappings exclusively from the six raw hierarchy
+  forward/reverse relation pairs;
+- deterministically pool own+beat/onset/note evidence into bars and own+note
+  evidence into tracks using mean, max, log-count, availability, projection,
+  and parent residual without dense membership;
+- form one `[SONG] + bars + tracks` sequence per sample with type embeddings,
+  runtime positions, and padding masks, then apply a batch-first pre-norm
+  Transformer;
+- top-down gated residual fusion into retained local rows using only raw-owned
+  parent contexts;
+- preserve all Phase 6A candidates, target-only joins, heads, losses, raw-only
+  behavior, reconstruction, and local outputs;
+- provide strict failure-atomic hierarchical checkpoints and deterministic
+  hierarchical single-note/cross-sample diagnostics;
+- run a controlled feature-only, local-GNN, and hierarchy/Transformer ablation
+  on identical bounded data.
 
 Mean-only final aggregation is forbidden: isolated local evidence must remain
 available, and a future critic must compare global context against local or
 top-k worst evidence. Phase 6B does not add SSL, PLL, preference/quality
 training, or a shared pitch-class-set head.
+
+Pooling, coarse sequence, hierarchical output, fusion, hierarchical
+model/output, and checkpoint contracts begin at `1.0.0`. Their concrete
+semantics and bounded evidence are in `docs/PHASE6B_HIERARCHY.md`. Phase 7 has
+not started.
 
 ## Phase 7. GraphMAE2-style SSL
 

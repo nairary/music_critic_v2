@@ -171,10 +171,12 @@ destination. Checkpoints remain external artifacts.
 
 ## Phase 6B boundary
 
-Phase 6B owns deterministic hierarchy pooling, bar and track tokens, the
-bar+track Transformer, song embedding, and top-down fusion. It must preserve
-local rows and cannot make mean-only aggregation the final evidence path.
-Its ablation must compare feature-only, local GNN, and local GNN plus hierarchy
-on the same data. A future critic must compare global context with retained
-local or top-k worst evidence. A shared pitch-class-set head remains blocked
-until a versioned lossless renderer/crosswalk is accepted.
+Phase 6B now implements deterministic hierarchy pooling, bar and track tokens,
+the bar+track Transformer, contextual song rows, and top-down fusion while
+preserving this complete Phase 6A output unchanged. Its controlled ablation
+compares feature-only, local GNN, and local GNN plus hierarchy on the same
+data. The additive contract is documented in `PHASE6B_HIERARCHY.md`.
+
+A future critic must compare global context with retained local or top-k worst
+evidence. A shared pitch-class-set head remains blocked until a versioned
+lossless renderer/crosswalk is accepted. Phase 6B does not start Phase 7 SSL.

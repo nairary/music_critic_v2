@@ -321,6 +321,8 @@ The model and training phases remain pending.
 
 ## Phase 6A — Trainable feature-only and local HeteroGNN baselines
 
+- Status: Accepted and merged at
+  `875dac3f83ab1a6cb3b3ece4875a5f55e3751409`.
 - Goal: establish the first learned, CPU-compatible, raw-only local encoder
   and auxiliary-harmony baseline.
 - Dependencies: Phase 5.
@@ -346,17 +348,25 @@ The model and training phases remain pending.
 
 ## Phase 6B — Deterministic hierarchy and bar+track Transformer
 
+- Status: Implemented and locally verified on branch
+  `phase/6b-hierarchy-transformer`; draft PR and Required CI are the merge
+  gate.
 - Goal: add coarse context without erasing isolated local evidence.
 - Dependencies: accepted Phase 6A.
 - Outputs: deterministic hierarchy pooling, bar/track tokens, bar+track
   Transformer, song embedding, top-down fusion, and the controlled
   feature-only/local-GNN/hierarchical ablation.
-- Tests: deterministic membership and empty groups, no mean-only final path,
-  top-down/local cardinality preservation, and pooling sensitivity.
+- Tests: exact ownership and malformed hierarchy rejection, deterministic
+  membership and empty groups, sparse pooling, padding and cross-sample
+  isolation, retained local and top-down cardinality, candidate/target
+  invariance, gradients/overfit, strict checkpoint round-trip/atomicity,
+  hierarchical sensitivity, and the controlled three-way benchmark.
 - Non-goals: GraphMAE2 SSL, PLL, preference/quality critic, or shared
   pitch-class-set semantics.
 - Acceptance: global context is available alongside retained note/onset/beat
-  rows and isolated-note evidence remains directly inspectable.
+  rows and isolated-note evidence remains directly inspectable. All six new
+  Phase 6B contracts start at `1.0.0`; the 237 tiny and 79 isolated raw-only
+  candidate counts remain unchanged.
 
 ## Phase 7 — GraphMAE2-style SSL
 

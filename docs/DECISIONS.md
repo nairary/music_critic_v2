@@ -993,4 +993,51 @@ This log is append-only.
   scope are unchanged. The oversmoothing correction restores the already
   stated exact diagnostic semantics; no separate versioned diagnostic-policy
   contract exists, so model/output/loss versions do not change. Phase 6B and
-  Phase 7 remain unstarted.
+  Phase 7 remain unstarted at this remediation point.
+
+## 2026-07-26 — ADR-041: Phase 6B adds raw-owned coarse context while retaining local evidence
+
+- Status: Accepted for draft pre-merge implementation.
+- Context: Accepted Phase 6A provides target-independent raw candidates,
+  one-row-per-node local representations, auxiliary source-native heads, and
+  failure-atomic checkpoints. Phase 6B must add deterministic musical
+  hierarchy and longer-range context without turning target annotations into
+  topology, hiding isolated evidence behind a mean, or introducing critic/SSL
+  semantics.
+- Decision: Introduce separate hierarchy-pooling, coarse-token-sequence,
+  hierarchical-encoder-output, top-down-fusion, hierarchical-model/output, and
+  hierarchical-checkpoint contracts at `1.0.0`. Keep all Phase 6A contracts
+  and public behavior unchanged. Exact ownership is derived only from raw
+  beat/onset/note-to-bar, note-to-track, and bar/track-to-song forward/reverse
+  edges. Every child has one owner; malformed order, cardinality, transpose,
+  range, membership, or sample ownership raises `HierarchyContractError`
+  instead of being repaired.
+- Decision: Pool bar own+beat/onset/note and track own+note families through
+  sparse mean, maximum, log-count, explicit availability, learned projection,
+  and an explicit parent residual. Do not construct dense membership or
+  child-by-parent tensors. Empty families remain explicitly unavailable.
+- Decision: Form one padded `[SONG] + bars + tracks` sequence per sample with
+  distinct type embeddings, runtime sinusoidal ordinal positions, and a
+  key-padding mask. Apply a batch-first pre-norm Transformer. Samples never
+  share an attention sequence. The contextual SONG row is representation
+  evidence, not a quality score.
+- Decision: Fuse contextual bar+track+song into notes, bar+song into
+  onsets/beats, contextual parent+song into bars/tracks, and contextual song
+  into song through node-type-specific gated residuals. Do not invent track
+  ownership for onset or beat. Retain the entire Phase 6A multi-scale output
+  and run the unchanged 14 heads, loss join, and reconstruction over fused raw
+  candidate rows.
+- Decision: Bind hierarchical checkpoints to all six Phase 6B contracts and
+  every inherited Phase 6A/graph/feature/ontology/encoding/configuration/head
+  contract. Validate before mutation and restore full model/optimizer state
+  after any application-time failure. Compare feature-only, local GNN, and
+  hierarchy+Transformer on identical bounded data, and diagnose hierarchical
+  single-note propagation plus unrelated-sample isolation without a quality
+  threshold.
+- Consequences: Phase 6B supplies coarse context alongside directly
+  inspectable local evidence while preserving 237 tiny and 79 isolated
+  raw-only candidate rows. It does not change ontology, encoding, adapters,
+  manifests, corpus contracts, Phase 6A checkpoint compatibility, or
+  production target semantics. SSL, corruption/remasking, latent prediction,
+  PLL, PU objectives, preference learning, and critic/quality scoring remain
+  later work; Phase 7 has not started.
