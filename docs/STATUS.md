@@ -50,11 +50,87 @@
 - Phase 5B.1: Completed
 - Phase 5B.1 branch: `phase/5b1-target-tensorizer-collator`
 - Target encoding registry version: `1.0.0`
+- Phase 5B.2: Implemented and locally verified; draft PR Required CI is the
+  merge-gate authority
+- Phase 5B.2 branch: `phase/5b2-corpus-dataset-loader`
+- Multi-source corpus index version: `1.0.0`
+- Multi-source canonical cache version: `1.0.0`
+- Split manifest version: `1.0.0`
+- Dataset view contract version: `1.0.0`
+- Mixture sampler version: `1.0.0`
 - Documentation branch: `docs/harmonic-supervision-contract`
 - Documentation base commit: `681abbdf331c032e34cc7541224ca98f13e19a86`
 - Pre-merge clarification base: `4f5f1e32f0244cbbfedd3a0cd4dbaa9047a82e51`
-- Next phase: Phase 5B.2 — corpus Dataset, deterministic mixture sampler,
-  worker-safe DataLoader, and practical corpus indexing
+- Next phase after acceptance: Phase 6 — baseline architecture and explicitly
+  configured production split/mixture; Phase 6 has not started
+
+## Phase 5B.2 corpus Dataset and loader result
+
+- Portable deterministic index headers bind source, adapter/config, canonical,
+  graph/feature, ontology, and encoding contracts. Accepted records and
+  structured quarantine are separate; absolute/traversing paths, duplicate
+  piece identities, stale versions, and fingerprint mismatches fail closed.
+- Offline HookTheory streaming and POP909-CL discovery/adapter builders write
+  one SHA-addressed canonical JSON artifact at a time with atomic rename.
+  Partial writes are invalid; graphs and tensors are not cached. HookTheory
+  quarantines only the expected `HookTheoryAdapterError` under stable category
+  `hooktheory.record_conversion_invalid`; unexpected failures propagate and
+  abort. Both builder limits reject zero, negative, bool, float, and string.
+- `IndexedMultiSourceDataset` loads metadata only and reads/verifies one
+  artifact in `__getitem__`, then invokes `prepare_multisource_sample`.
+  Canonical/prepared identity, source/lineage, and recomputed availability
+  must match indexed sidecars. Raw-only canonical pieces and spawn/pickle
+  graph binding are supported.
+- One external global split manifest binds the exact complete constituent
+  indices, all pieces, and transitive source/lineage components across dataset
+  boundaries. It is validated before views are derived; missing, extra,
+  duplicate, stale, or independently manifested constituents fail closed.
+  Suggested source splits are diagnostics only. No production ratios/seed
+  were selected.
+- Every view/composition fingerprint binds manifest, split, constituent index
+  fingerprints, and exact ordered `(dataset_id, piece_id)` membership.
+  Single-split multi-corpus composition, exact largest-remainder quotas,
+  deterministic shuffled local cycles, `set_epoch`, worker seeding, and the
+  unchanged Phase 5B.1 collator provide epoch-level reproducibility without
+  target-dependent split or sampling. Sampler evidence hashes resolved piece
+  identities plus its version/seed/epoch/weights/quotas, not integer offsets.
+- The workers=0/2 regression compares complete graph serialization and
+  fingerprint, all target tensors/masks/indices/routing/confidence/supervision
+  metadata, provenance, diagnostics, identities, and deterministic
+  `BatchStatistics`; no CPU-only contract field is excluded.
+- Default evidence is bounded/synthetic only. No full HookTheory cache build,
+  909-file POP909-CL acceptance rerun, training corpus build, adapter change,
+  production manifest change, or Phase 6 implementation is part of this task.
+
+## Phase 5B.2 verification
+
+- Base `main`: `c56bfaff2bbbb1f2d5ba249327274fa950648034`.
+- Focused corpus/cache/global-split/view/sampler/worker tests: 80 passed.
+- Phase 5B.1 collator and graph-leakage regressions: 28 passed.
+- Full default suite: 638 passed, 12 skipped; skips are opt-in real-corpus
+  integration tests.
+- Deterministic target-contract audit and bounded multi-index
+  corpus/cache/global-split audit both passed `--check`.
+- The bounded synthetic two-index audit produced index fingerprints
+  `7295b01ce8e6517cc311289e084b3b217614a645dc52459cf8a1df25e19992d6`
+  and
+  `b5b7b8ec30d1ec65a84bbb83e247ba65323cc06fc92c119307fa2d419a8945a1`,
+  global manifest fingerprint
+  `3d5581820ed5b9802623b1d2c858d2ad27bdb5615a9e761df43b6e26f66caf6e`,
+  and composition fingerprint
+  `ed469225c644dc785c9c0ed14f416ba3ee6e6fc4d1e1f21448b4822ab7c07467`.
+  Alpha/beta view fingerprints were
+  `925f895998e7e530aaa889bd9763835ad3da06ebfbe3a7797ddbab361353ebfa`
+  and
+  `80beb70be6d6a6a848e5c1d80b060befb82270dd25ade1f434e847b09d630e4f`.
+- A 2:1 explicit bounded mixture at epoch size 6 realized alpha/beta quotas
+  4/2 and emitted six samples, 54 nodes, 180 edges, and 294 target rows. Its
+  resolved-piece schedule fingerprint was
+  `a1faf5009ddf4dd2ed1ccc46e2e12204ee43c782695565e96403846b7c0c4d17`;
+  timing remains diagnostic with no threshold.
+- `compileall` and `git diff --check` passed. No full HookTheory build,
+  909-file POP909-CL acceptance, real cache, adapter/manifest change, legacy
+  inspection, or Phase 6 work was performed during remediation.
 
 ## Phase 5B.1 exact alignment, tensorizer, and collator result
 
@@ -65,7 +141,7 @@
 - Encoding registry fingerprint:
   `386aceef18b6ba7da5e91d406cefdcdc21d46b6839ded873312402940b507e01`.
   Deterministic bounded audit report fingerprint:
-  `f1168939287b26188b9a9c70282f416a808b8f802bc9367b226b77f81ce745af`.
+  `7303164a65d034127bd5e685b582384c3b1462d4d18c142ce356eb9001be3982`.
 - Pre-merge remediation builds one immutable alignment index per piece.
   O(1) note/annotation/exact-time mappings and rational-time bisect span lookup
   have strict complexity `O(P + C log C + T log C + R + F*C)`, including

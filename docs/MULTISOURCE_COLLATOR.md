@@ -204,3 +204,14 @@ is not in default CI; CI uses a small instrumentation-based scaling test with
 no timing threshold. Neither benchmark is a corpus acceptance test. Phase
 5B.1 performs no full HookTheory scan and does not repeat the 909-file
 POP909-CL acceptance.
+
+## Phase 5B.2 loading boundary
+
+The production collator is unchanged. `IndexedMultiSourceDataset` verifies one
+canonical cache artifact and calls `prepare_multisource_sample`; the
+DataLoader supplies only prepared samples to `collate_multisource_samples`.
+Worker serialization reinstates and revalidates the private graph-binding
+token. Bounded tests prove identical dataset/piece order, graph fingerprints,
+tensors, and masks for `num_workers=0` and spawn `num_workers=2`. Index,
+split, cache, sampler, worker, and diagnostic metadata remain outside PyG
+stores. See `MULTISOURCE_DATASET.md`.

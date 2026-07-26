@@ -844,3 +844,65 @@ This log is append-only.
   negative no-chord evidence would be a future versioned ontology/adapter
   experiment with its own evidence contract. Phase 5B.1 selects no concrete
   CE, BCE, focal, or PU loss.
+
+## 2026-07-26 — ADR-038: Phase 5B.2 uses an offline canonical cache and target-blind deterministic loading
+
+- Status: Accepted for draft pre-merge implementation.
+- Context: Re-running production adapters every training epoch is expensive,
+  while loading every canonical piece or graph into memory is not scalable.
+  Dataset splitting and source balancing must preserve proven source/lineage
+  closure and cannot infer labels or scientific configuration.
+- Decision: Introduce portable corpus index and canonical cache contracts
+  `1.0.0`. Cache identity binds source content, adapter version/config,
+  canonical schema, target ontology semantics, and cache version. Artifact
+  identity additionally binds deterministic canonical payload SHA-256. Writes
+  use temporary files plus atomic rename; partial content is invalid, stale
+  namespaces are retained, and PyG/pickle graph or tensor caches are forbidden.
+- Decision: Use an offline HookTheory single-pass record stream and the
+  existing POP909-CL discovery/production adapter. Each accepted
+  `CanonicalPiece` is serialized and released; quarantine remains structured
+  report evidence and never enters an index. Only
+  `HookTheoryAdapterError` is a quarantinable HookTheory record failure, under
+  stable category `hooktheory.record_conversion_invalid`; unexpected runtime,
+  programming, and resource failures abort without a successful index/report.
+  Builder limits are `None` or positive non-bool integers. Production
+  adapters, target values/masks, and manifests are unchanged.
+- Decision: Use a lazy map-style Dataset whose constructor reads metadata only.
+  One indexed item verifies and validates one artifact and calls
+  `prepare_multisource_sample`. Canonical source group, prepared
+  dataset/piece/source/lineage identity, and recomputed target availability
+  must equal the indexed sidecars. These comparisons do not add identity or
+  target fields to PyG stores. Spawn restoration reinstates the private
+  binding token and repeats graph fingerprint verification rather than
+  weakening the binding contract.
+- Decision: Require one versioned external `SplitManifest` for the exact
+  complete multi-corpus index set. `MultiCorpusDataset` validates it once
+  globally before deriving per-dataset views. The manifest covers every piece
+  and binds source group, lineage group, cross-dataset transitive atomic
+  component, seed/policy/config, and unique dataset/index fingerprints.
+  Missing, extra, duplicate, stale, differently manifested, or independently
+  validated constituents are rejected. Source split is only a diagnostic
+  suggestion. No production ratios or seed are selected; fuzzy duplicate
+  discovery remains out of scope.
+- Decision: Bind each derived view to the global manifest fingerprint, split,
+  corpus index fingerprint, and exact ordered record identities. A versioned
+  composition fingerprint additionally binds all constituent fingerprints and
+  memberships. Compose only views of one split. Allocate explicit positive
+  dataset weights with deterministic largest remainder, then use local torch
+  generators for the epoch schedule and no-repeat-before-exhaustion local
+  cycles. Same seed/epoch/contracts replay exactly; `set_epoch` changes the
+  schedule. Epoch evidence carries global manifest/view/composition identity,
+  and its schedule fingerprint hashes resolved `(dataset_id, piece_id)`
+  identities plus sampler version, seed, epoch, weights, and quotas rather than
+  temporary integer offsets. Mid-epoch resume is deferred.
+- Decision: Seed Python and torch from the PyTorch worker seed in a top-level
+  spawn-picklable initializer and retain the Phase 5B.1 collator unchanged.
+  NumPy is not imported because it is not a project dependency. Split,
+  sampling, and worker diagnostics never enter PyG stores. Worker parity
+  compares every raw graph field, target tensor and CPU sidecar, identity,
+  diagnostic, and deterministic statistic; no CPU field is intentionally
+  excluded.
+- Consequences: Targets and availability counts are audit metadata only and
+  never affect split assignment, quotas, or record choice. Production split,
+  mixture weights, models, losses, PU objectives, SSL/corruptions, PDMX, and
+  any graph-cache optimization require later evidence-backed decisions.

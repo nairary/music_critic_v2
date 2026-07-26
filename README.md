@@ -114,3 +114,7 @@ as lineage/possible ablation evidence in
 `docs/POP909_ORIGINAL_FIELD_AUDIT.md`.
 The Phase 5A/5B.1 sidecar and collator contracts are documented in
 `docs/MULTISOURCE_TARGET_CONTRACT.md` and `docs/MULTISOURCE_COLLATOR.md`.
+The Phase 5B.2 portable corpus index/cache, external split manifest, lazy
+Dataset, deterministic mixture sampler, and worker-safe DataLoader contract is
+documented in `docs/MULTISOURCE_DATASET.md`. Full corpus cache builds are
+explicit opt-in commands; default tests use bounded/synthetic artifacts only.

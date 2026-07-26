@@ -349,13 +349,16 @@ current family and the accepted POP909-CL manifest already contains the
 required family/ambiguity/mask aggregates. Corpus-wide HookTheory target counts
 remain intentionally unclaimed.
 
-## 9. Deferred work after Phase 5B.1
+## 9. Phase 5B.2 corpus consumption
 
-Phase 5B.2 still must implement corpus indexing and `Dataset`, source/lineage
-safe split consumption, deterministic mixture sampling, worker-safe
-`DataLoader` behavior, and practical bounded corpus loading. It must reuse the
-Phase 5B.1 prepared-sample collator and must not promote any deferred crosswalk
-without a separate evidence-backed ontology version.
+Phase 5B.2 implements versioned corpus index/cache and external split
+manifests, lazy canonical loading, deterministic target-blind mixture sampling,
+and worker-safe DataLoader behavior. It reuses the Phase 5B.1 prepared-sample
+collator and does not promote any deferred crosswalk. Target availability is
+stored only as audit metadata: labels and availability counts never influence
+split assignment, quotas, or record ordering. Source-provided split remains a
+non-authoritative diagnostic suggestion. The detailed contract is
+`MULTISOURCE_DATASET.md`.
 
 Applied harmony, borrowed-chord cross-source semantics, pitch-class-set
 rendering, actual accompaniment likelihood, final splits, and model head

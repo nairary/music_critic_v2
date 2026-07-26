@@ -251,8 +251,54 @@ turn either PU task into fully-supervised classification. Concrete losses are
 Phase 6 decisions.
 Deterministic CPU statistics distinguish model-encodable from
 supervision-eligible rows and separately count masked, unaligned, conflict,
-and deferred rows. Corpus indexing, mixture sampling, worker-safe loading,
-models, and losses remain outside Phase 5B.1.
+and deferred rows.
+
+## Phase 5B.2 corpus and loading architecture
+
+Phase 5B.2 adds versioned portable corpus index/cache contracts without
+changing canonical, graph, adapter, ontology, or encoding semantics. Offline
+HookTheory and POP909-CL builders serialize one deterministic canonical JSON
+artifact per accepted source. Cache identity binds source content,
+adapter/config, canonical schema, ontology semantics, and cache version;
+artifact identity additionally binds canonical payload SHA-256. Cache writes
+are atomic, partial files are invalid, and stale namespaces are retained.
+Graphs and tensors are never cached.
+
+`IndexedMultiSourceDataset` loads index metadata only. Each item reads and
+verifies exactly one artifact, validates it, and invokes
+`prepare_multisource_sample`. Canonical source grouping, prepared
+dataset/piece/source/lineage identity, and recomputed target availability must
+equal the freshly fingerprinted index sidecars or loading fails closed. None
+of those sidecars enter graph stores. A pickle restoration path reinstates the
+private canonical/raw binding token and revalidates the graph fingerprint, so
+spawn workers do not weaken Phase 5B.1.
+
+Splits are external versioned `SplitManifest` values bound to the exact
+complete constituent index set and transitive source/lineage component
+fingerprints across corpus boundaries. `MultiCorpusDataset` validates one
+global manifest against all indices before deriving any view; separately
+validated per-corpus manifests cannot be composed. Every derived view binds
+manifest, split, its corpus index, and exact ordered record membership.
+Source-provided split is only `suggested_split`; no Dataset applies it
+implicitly. The optional group-hash planner is target-blind and requires
+explicit fixture/user seed and ratios. No production split is selected in
+this phase.
+
+`MultiCorpusDataset` composes one globally validated split in stable dataset-ID
+order. Its versioned composition fingerprint commits to the global manifest,
+constituent indices, and ordered membership of every view.
+The quota sampler uses explicit positive weights, largest-remainder epoch
+quotas, and local torch generators for dataset schedules and shuffled local
+cycles. Epoch evidence carries the composition identity, and the schedule
+fingerprint hashes resolved `(dataset_id, piece_id)` identities plus sampler
+version, seed, epoch, weights, and quotas rather than transient global
+offsets. Epoch replay is deterministic and target-independent. The DataLoader
+factory uses the existing Phase 5B.1 collator and top-level Python/torch worker
+seeding. Worker parity covers complete raw graphs and all target/CPU sidecars
+and deterministic statistics. HookTheory corpus building quarantines only
+`HookTheoryAdapterError`; unexpected failures abort without publishing a
+successful index/report. All cache, split, sampling, and worker diagnostics
+remain CPU-side; models and losses remain outside Phase 5B.2.
 
 ## Optional semantic predictions
 
