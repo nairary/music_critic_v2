@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
 import torch
 from torch.nn import functional as F
-import pytest
 
 from music_critic.data import validate_piece
 from music_critic.graph import (
@@ -22,7 +22,22 @@ from music_critic.models import (
     perturb_canonical_note_pitch,
     single_note_sensitivity,
 )
+from music_critic.models.diagnostics import _linear_mean_pairwise_cosine
 from tests.tasks.test_multisource_contract import _hook_piece
+
+
+def _dense_off_diagonal_cosine_mean(values: torch.Tensor) -> float:
+    """Independent quadratic oracle used only by bounded tests."""
+
+    matrix = F.cosine_similarity(
+        values[:, None, :],
+        values[None, :, :],
+        dim=-1,
+    )
+    off_diagonal = ~torch.eye(
+        values.shape[0], dtype=torch.bool, device=values.device
+    )
+    return float(matrix[off_diagonal].mean().detach())
 
 
 def _task_losses(output):
@@ -30,6 +45,47 @@ def _task_losses(output):
         task.task_id: float(task.mean_loss.detach())
         for task in output.harmonic_loss.task_losses
     }
+
+
+def test_linear_oversmoothing_matches_dense_oracle_for_random_nonzero() -> None:
+    generator = torch.Generator().manual_seed(211)
+    values = torch.randn(17, 11, generator=generator) + 0.125
+    assert torch.linalg.vector_norm(values, dim=-1).count_nonzero() == 17
+    actual, zero_norm_count = _linear_mean_pairwise_cosine(values)
+    assert zero_norm_count == 0
+    assert actual == pytest.approx(
+        _dense_off_diagonal_cosine_mean(values), abs=1e-7
+    )
+
+
+def test_linear_oversmoothing_matches_dense_oracle_with_one_zero() -> None:
+    values = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.0, -2.0, 3.0]],
+        dtype=torch.float32,
+    )
+    actual, zero_norm_count = _linear_mean_pairwise_cosine(values)
+    assert zero_norm_count == 1
+    assert actual == pytest.approx(
+        _dense_off_diagonal_cosine_mean(values), abs=1e-7
+    )
+
+
+def test_linear_oversmoothing_reports_all_zero_collapse() -> None:
+    values = torch.zeros(5, 7)
+    actual, zero_norm_count = _linear_mean_pairwise_cosine(values)
+    assert zero_norm_count == values.shape[0]
+    assert actual == pytest.approx(
+        _dense_off_diagonal_cosine_mean(values), abs=1e-7
+    )
+    assert actual == 0.0
+
+
+def test_linear_oversmoothing_single_row_is_unavailable() -> None:
+    actual, zero_norm_count = _linear_mean_pairwise_cosine(
+        torch.zeros(1, 4)
+    )
+    assert actual is None
+    assert zero_norm_count == 1
 
 
 def test_canonical_single_note_change_rebuilds_both_production_graphs() -> None:
@@ -107,22 +163,33 @@ def test_oversmoothing_never_mixes_samples_or_node_types(mixed_batch) -> None:
         if item.scale == "feature"
     }
     assert feature[(0, "note")].node_count == 1
+    assert feature[(0, "note")].zero_norm_count == 0
     assert feature[(0, "note")].status == "fewer_than_two_nodes"
     assert feature[(0, "note")].mean_pairwise_cosine is None
     assert feature[(1, "song")].status == "fewer_than_two_nodes"
 
-    membership = encoded.feature_output.batch_membership["beat"]
-    values = encoded.feature_output.embeddings["beat"][membership == 0]
-    normalized = F.normalize(values, dim=-1)
-    expected = (
-        normalized.sum(dim=0).square().sum() - values.shape[0]
-    ) / (values.shape[0] * (values.shape[0] - 1))
-    actual = feature[(0, "beat")]
-    assert actual.status == "available"
-    assert actual.policy == "exact_linear_normalized_sum"
-    assert actual.mean_pairwise_cosine == pytest.approx(
-        float(expected.detach())
-    )
+    for sample_index in range(3):
+        for node_type in MANDATORY_NODE_TYPES:
+            membership = encoded.feature_output.batch_membership[node_type]
+            values = encoded.feature_output.embeddings[node_type][
+                membership == sample_index
+            ]
+            actual = feature[(sample_index, node_type)]
+            assert actual.node_count == values.shape[0]
+            assert actual.zero_norm_count == int(
+                (
+                    torch.linalg.vector_norm(values, dim=-1) == 0
+                ).sum()
+            )
+            if values.shape[0] < 2:
+                assert actual.status == "fewer_than_two_nodes"
+                assert actual.mean_pairwise_cosine is None
+            else:
+                assert actual.status == "available"
+                assert actual.policy == "exact_linear_normalized_sum"
+                assert actual.mean_pairwise_cosine == pytest.approx(
+                    _dense_off_diagonal_cosine_mean(values), abs=1e-6
+                )
 
 
 def test_deterministic_one_batch_training_acceptance(mixed_batch) -> None:

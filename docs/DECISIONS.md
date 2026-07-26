@@ -971,8 +971,12 @@ This log is append-only.
   pitch while preserving its stable ID, rebuilds and validates both production
   graphs, requires different fingerprints and identical topology, and reports
   exact raw-feature and local-embedding changes. Oversmoothing is computed
-  separately for every `(sample, node_type, scale)` with the exact linear
-  normalized-sum formula and is unavailable for fewer than two nodes.
+  separately for every `(sample, node_type, scale)` in `O(ND)` time and `O(D)`
+  extra memory. For normalized rows `u_i`, subtract
+  `sum_i ||u_i||²` from `||sum_i u_i||²`, then divide by `N*(N-1)`. Subtracting
+  `N` is invalid for zero rows because PyTorch normalization leaves them zero.
+  The report records the exact pre-normalization `zero_norm_count`, and remains
+  unavailable for fewer than two nodes.
 - Decision: Checkpoint load validates metadata, exact model keys/shapes/dtypes,
   and optimizer groups/state tensors before mutation; an application failure
   restores complete model and optimizer states. Save uses a same-directory
@@ -980,4 +984,7 @@ This log is append-only.
 - Consequences: Target sidecars now select loss rows, never prediction
   existence. Model parameters, active tasks, ontology `1.0.1`, encoding
   registry `1.0.0`, adapters, production manifests, and Phase 6A scientific
-  scope are unchanged. Phase 6B and Phase 7 remain unstarted.
+  scope are unchanged. The oversmoothing correction restores the already
+  stated exact diagnostic semantics; no separate versioned diagnostic-policy
+  contract exists, so model/output/loss versions do not change. Phase 6B and
+  Phase 7 remain unstarted.

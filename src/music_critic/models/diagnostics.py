@@ -54,9 +54,20 @@ class OversmoothingValue:
     sample_index: int
     node_type: str
     node_count: int
+    zero_norm_count: int
     status: Literal["available", "fewer_than_two_nodes"]
     mean_pairwise_cosine: float | None
     policy: str = "exact_linear_normalized_sum"
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.zero_norm_count, bool)
+            or not isinstance(self.zero_norm_count, int)
+            or not 0 <= self.zero_norm_count <= self.node_count
+        ):
+            raise ValueError(
+                "oversmoothing zero_norm_count must lie within node count"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,16 +131,38 @@ def _cosine_delta(left: Tensor, right: Tensor) -> float:
     return float((1.0 - F.cosine_similarity(left[None], right[None])).item())
 
 
-def _linear_mean_pairwise_cosine(values: Tensor) -> float | None:
-    """Compute exact mean off-diagonal cosine in O(ND), not O(N²)."""
+def _linear_mean_pairwise_cosine(
+    values: Tensor,
+) -> tuple[float | None, int]:
+    """Match dense off-diagonal cosine in O(ND) time and O(D) memory."""
 
     count = values.shape[0]
+    total = torch.zeros(
+        values.shape[1],
+        dtype=values.dtype,
+        device=values.device,
+    )
+    diagonal_sum = torch.zeros(
+        (), dtype=values.dtype, device=values.device
+    )
+    zero_norm_count = torch.zeros(
+        (), dtype=torch.long, device=values.device
+    )
+    detached = values.detach()
+    for index in range(count):
+        row = detached[index]
+        zero_norm_count.add_(
+            (torch.linalg.vector_norm(row) == 0).to(torch.long)
+        )
+        normalized_row = F.normalize(row, dim=0)
+        total.add_(normalized_row)
+        diagonal_sum.add_(normalized_row.square().sum())
+    zero_norm_count_value = int(zero_norm_count.item())
     if count < 2:
-        return None
-    normalized = F.normalize(values, dim=-1)
-    total = normalized.sum(dim=0)
-    pair_sum = total.square().sum() - count
-    return float((pair_sum / (count * (count - 1))).item())
+        return None, zero_norm_count_value
+    pair_sum = total.square().sum() - diagonal_sum
+    mean = pair_sum / (count * (count - 1))
+    return float(mean.item()), zero_norm_count_value
 
 
 def _scales(
@@ -164,13 +197,14 @@ def oversmoothing_by_group(
                 group = scale_output.embeddings[node_type][
                     membership == sample_index
                 ]
-                mean = _linear_mean_pairwise_cosine(group)
+                mean, zero_norm_count = _linear_mean_pairwise_cosine(group)
                 values.append(
                     OversmoothingValue(
                         scale=scale,
                         sample_index=sample_index,
                         node_type=node_type,
                         node_count=group.shape[0],
+                        zero_norm_count=zero_norm_count,
                         status=(
                             "available"
                             if mean is not None

@@ -256,3 +256,45 @@ def test_checkpoint_metadata_mismatch_is_failure_atomic(
         incompatible_optimizer,
         match="metadata is incompatible",
     )
+
+
+def test_checkpoint_application_failure_rolls_back_model_and_optimizer(
+    mixed_batch, tmp_path: Path, monkeypatch
+) -> None:
+    torch.manual_seed(43)
+    source_model, source_optimizer = _trained_pair(mixed_batch)
+    path = tmp_path / "application-failure.pt"
+    save_baseline_checkpoint(
+        path, source_model, optimizer=source_optimizer
+    )
+
+    torch.manual_seed(47)
+    model, optimizer = _trained_pair(mixed_batch)
+    snapshot = _snapshot(model, optimizer)
+    assert any(
+        not torch.equal(value, snapshot[0][key])
+        for key, value in source_model.state_dict().items()
+    )
+    original_load = optimizer.load_state_dict
+    call_count = 0
+
+    def fail_after_partial_mutation(state_dict):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            optimizer.param_groups[0]["lr"] = 123.0
+            first_state = next(iter(optimizer.state.values()))
+            first_state["exp_avg"].add_(17.0)
+            raise RuntimeError("injected application-time optimizer failure")
+        return original_load(state_dict)
+
+    monkeypatch.setattr(
+        optimizer, "load_state_dict", fail_after_partial_mutation
+    )
+    with pytest.raises(
+        CheckpointContractError,
+        match="state application failed atomically",
+    ):
+        load_baseline_checkpoint(path, model, optimizer=optimizer)
+    assert call_count == 2
+    _assert_snapshot(model, optimizer, snapshot)

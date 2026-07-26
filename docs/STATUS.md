@@ -119,8 +119,8 @@
   isolated raw-only graph emits 79 candidates over all 14 tasks, zero
   supervision rows, and no harmonic loss. The larger target-heavy synthetic
   batch has 9 graphs, 85 nodes, 302 edges, 711 candidates, and 252 supervised
-  rows. The final CPU observation was 0.0575/0.0505 seconds for
-  feature-only/local-GNN on tiny and 0.0551/0.0650 seconds on larger. These
+  rows. The corrected-evidence CPU observation was 0.0419/0.0474 seconds for
+  feature-only/local-GNN on tiny and 0.0588/0.0606 seconds on larger. These
   are diagnostic observations without a threshold or corpus-feasibility claim.
 - Forty deterministic local-GNN overfit steps reduced harmonic loss from
   1.816520 to 0.000000219 and visible-input reconstruction from 2.581742 to
@@ -133,11 +133,22 @@
   note L2 is 0.600571 at feature scale, 0.382855/0.300158 after two local
   layers, and 0.603081 after final skip; final onset/beat/bar L2 is
   0.132812/0.165358/0.059973 and pitch reconstruction-logit L2 is 0.923962.
-  Oversmoothing evidence never mixes either of the two graphs or node types,
-  and marks one-node groups unavailable. This carries no quality label.
-- Focused model/head/loss/checkpoint/diagnostic/benchmark suite: 27 passed.
+  Oversmoothing evidence never mixes either of the two graphs or node types.
+  For sample 0/1 beat stores, the exact dense-convention means are
+  0.981216/0.981216 at feature scale, 0.800983/0.802777 at layer 1,
+  0.716754/0.699026 at layer 2, and 0.898329/0.894792 at final skip. All 48
+  diagnostic groups have `zero_norm_count=0` in this evidence; one-node groups
+  remain unavailable. Independent tests cover one-zero and all-zero groups so
+  zero collapse remains visible. This carries no quality label.
+- The linear statistic subtracts the actual normalized diagonal
+  `sum_i ||u_i||²`, not `N`, matching an independent dense cosine-matrix oracle
+  for random non-zero, mixed zero/non-zero, and all-zero embeddings. An
+  application-time checkpoint test mutates live Adam state and raises during
+  the first optimizer load; the second load restores the full model and
+  optimizer snapshot bit-for-bit.
+- Focused model/head/loss/checkpoint/diagnostic/benchmark suite: 32 passed.
   Graph/leakage/repository regressions: 63 passed. Dataset/collator
-  regressions: 119 passed. Full default suite: 665 passed, 12 skipped, with
+  regressions: 119 passed. Full default suite: 670 passed, 12 skipped, with
   two existing upstream PyTorch deprecation warnings. Deterministic target
   audit `--check`, `compileall` over `src`, `scripts`, and `tests`, and
   `git diff --check` passed. Required CI remains the remote merge gate. No

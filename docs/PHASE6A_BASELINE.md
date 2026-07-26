@@ -113,10 +113,27 @@ requires different graph fingerprints and identical entity/topology identity,
 reports every changed raw store/feature/entity, local feature/layer/final L2
 and cosine delta, changed-node counts, and pitch-reconstruction logit/loss
 delta. Oversmoothing is computed separately for every
-`(sample, node_type, scale)` using the exact normalized-sum formula in `O(ND)`;
-groups with fewer than two nodes are explicitly unavailable. No statistic
+`(sample, node_type, scale)`. For row-normalized embeddings `u_i`, the exact
+dense-convention off-diagonal sum is computed without an `N x N` matrix:
+
+```text
+diagonal_sum = sum_i ||u_i||²
+pair_sum = ||sum_i u_i||² - diagonal_sum
+mean = pair_sum / (N * (N - 1))
+```
+
+Production streams normalized rows into one D-dimensional sum and one scalar;
+it never materializes a normalized `N x D` copy or a cosine `N x N` matrix.
+This is `O(ND)` time with `O(D)` additional memory and remains exact when
+`F.normalize` leaves a zero vector at zero. `zero_norm_count` is the
+deterministic count of input rows whose L2 norm is exactly zero before
+normalization; it exposes complete or partial zero collapse even though
+PyTorch cosine assigns zero similarity to a zero row. Groups with fewer than
+two nodes are explicitly unavailable but still report the count. No statistic
 mixes graphs or node types. These diagnostics prove only local accessibility,
-not which graph is better.
+not which graph is better. There is no separately versioned diagnostic-policy
+contract, so this formula correction does not change model/output/loss
+versions.
 
 Checkpoint contract `1.1.0` binds model contract/configuration, canonical
 schema, graph schema/builder, feature registry version and fingerprint, target
@@ -124,6 +141,8 @@ ontology version and fingerprint, target encoding version and fingerprint, and
 the exact ordered active-head specifications. Loading validates payload
 structure, metadata, exact model keys/shapes/dtypes, and optimizer groups/state
 tensors before mutation. Any failure leaves model and optimizer unchanged.
+This includes an optimizer application that mutates live state and then raises:
+the already-applied model state and complete optimizer state are restored.
 Saving writes a same-directory temporary and atomically replaces the
 destination. Checkpoints remain external artifacts.
 
