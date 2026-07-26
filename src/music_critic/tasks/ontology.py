@@ -22,11 +22,34 @@ CrossSourceSharing = Literal["forbidden", "conditional", "allowed"]
 
 
 @dataclass(frozen=True, slots=True)
+class CandidateAlignmentRule:
+    """Machine-readable temporal semantics for one raw graph node type."""
+
+    node_type: Literal["song", "track", "bar", "beat", "onset", "note"]
+    geometry: Literal["identity", "point", "anchor"]
+    time_reference: Literal["entity_id", "start_qn"]
+    match_rule: Literal[
+        "exact_entity_id",
+        "half_open_containment",
+        "exact_event_time",
+    ]
+
+
+@dataclass(frozen=True, slots=True)
 class AlignmentPolicy:
     """How a source target may later be aligned without entering raw graph stores."""
 
     policy_id: str
     candidate_node_types: tuple[str, ...]
+    candidate_rules: tuple[CandidateAlignmentRule, ...]
+    multi_span_resolution: Literal["merge_equal_mask_conflicts"]
+    conflict_diagnostic_code: Literal["multisource.alignment_conflict"]
+    node_type_routing: Literal["explicit_per_entry"]
+    unmatched_event_policy: Literal[
+        "not_applicable",
+        "retain_source_mask_alignment",
+        "retain_event_mask_index_no_snap",
+    ]
     ownership: str
     boundary_behavior: str
     empty_family_behavior: str
@@ -46,6 +69,12 @@ class AlignmentPolicy:
             "note",
         }:
             raise ValueError("alignment policy names an unknown raw node type")
+        if tuple(rule.node_type for rule in self.candidate_rules) != (
+            self.candidate_node_types
+        ):
+            raise ValueError("candidate rules must match candidate node ordering")
+        if len(self.candidate_node_types) != len(set(self.candidate_node_types)):
+            raise ValueError("candidate node types must be unique")
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +100,8 @@ class TargetFamilySpec:
     availability_mask_required: bool
     provenance_required: bool
     confidence_policy: str
+    supervision_objective: str
+    negative_example_policy: str
     alignment_policy: AlignmentPolicy
     cross_source_sharing: CrossSourceSharing
 
@@ -134,6 +165,18 @@ class CrosswalkSpec:
 NOTE_IDENTITY_ALIGNMENT = AlignmentPolicy(
     policy_id="note_identity_v1",
     candidate_node_types=("note",),
+    candidate_rules=(
+        CandidateAlignmentRule(
+            node_type="note",
+            geometry="identity",
+            time_reference="entity_id",
+            match_rule="exact_entity_id",
+        ),
+    ),
+    multi_span_resolution="merge_equal_mask_conflicts",
+    conflict_diagnostic_code="multisource.alignment_conflict",
+    node_type_routing="explicit_per_entry",
+    unmatched_event_policy="not_applicable",
     ownership="exact canonical entity_id identity",
     boundary_behavior="not_applicable",
     empty_family_behavior="emit an empty sidecar family with zero entries",
@@ -141,30 +184,81 @@ NOTE_IDENTITY_ALIGNMENT = AlignmentPolicy(
     unsupported_behavior="mask the entry and retain source diagnostics",
 )
 REGION_SPAN_ALIGNMENT = AlignmentPolicy(
-    policy_id="positive_overlap_span_v1",
+    policy_id="half_open_anchor_span_v1",
     candidate_node_types=("onset", "beat", "bar"),
+    candidate_rules=(
+        CandidateAlignmentRule(
+            node_type="onset",
+            geometry="point",
+            time_reference="start_qn",
+            match_rule="half_open_containment",
+        ),
+        CandidateAlignmentRule(
+            node_type="beat",
+            geometry="anchor",
+            time_reference="start_qn",
+            match_rule="half_open_containment",
+        ),
+        CandidateAlignmentRule(
+            node_type="bar",
+            geometry="anchor",
+            time_reference="start_qn",
+            match_rule="half_open_containment",
+        ),
+    ),
+    multi_span_resolution="merge_equal_mask_conflicts",
+    conflict_diagnostic_code="multisource.alignment_conflict",
+    node_type_routing="explicit_per_entry",
+    unmatched_event_policy="retain_source_mask_alignment",
     ownership=(
-        "positive-duration candidates are owned by exact positive intersection "
-        "with the half-open target span; no overlap means no target entry"
+        "onset point time and beat/bar start anchors use exact half-open "
+        "containment: span.start_qn <= candidate_time < span.end_qn"
     ),
     boundary_behavior=(
         "a candidate exactly at span end belongs to the following half-open span; "
         "the terminal piece boundary belongs only to the final raw interval"
     ),
     empty_family_behavior="emit an empty sidecar family with zero entries",
-    ambiguous_behavior="retain candidates or diagnostics and mask unsupported scalar use",
+    ambiguous_behavior=(
+        "equal available values for one typed candidate merge deterministically; "
+        "conflicting available values are masked with a diagnostic"
+    ),
     unsupported_behavior="mask entries; never synthesize a negative label",
 )
 BOUNDARY_EVENT_ALIGNMENT = AlignmentPolicy(
     policy_id="span_start_boundary_v1",
     candidate_node_types=("onset", "beat", "bar"),
+    candidate_rules=(
+        CandidateAlignmentRule(
+            node_type="onset",
+            geometry="point",
+            time_reference="start_qn",
+            match_rule="exact_event_time",
+        ),
+        CandidateAlignmentRule(
+            node_type="beat",
+            geometry="anchor",
+            time_reference="start_qn",
+            match_rule="exact_event_time",
+        ),
+        CandidateAlignmentRule(
+            node_type="bar",
+            geometry="anchor",
+            time_reference="start_qn",
+            match_rule="exact_event_time",
+        ),
+    ),
+    multi_span_resolution="merge_equal_mask_conflicts",
+    conflict_diagnostic_code="multisource.alignment_conflict",
+    node_type_routing="explicit_per_entry",
+    unmatched_event_policy="retain_event_mask_index_no_snap",
     ownership=(
         "the exact span start is the boundary event; Phase 5B may choose only an "
         "exact-time raw candidate or keep the event unaligned"
     ),
     boundary_behavior=(
-        "no nearest-neighbor snapping; coincident candidates use the declared "
-        "per-task candidate-node priority"
+        "no nearest-neighbor snapping and no implicit node-type priority; every "
+        "aligned index carries its raw node type"
     ),
     empty_family_behavior="emit an empty sidecar family with zero entries",
     ambiguous_behavior="mask the boundary-to-node index and retain the event",
@@ -173,8 +267,14 @@ BOUNDARY_EVENT_ALIGNMENT = AlignmentPolicy(
 COVERAGE_SPAN_ALIGNMENT = AlignmentPolicy(
     policy_id="coverage_span_v1",
     candidate_node_types=("onset", "beat", "bar"),
+    candidate_rules=REGION_SPAN_ALIGNMENT.candidate_rules,
+    multi_span_resolution="merge_equal_mask_conflicts",
+    conflict_diagnostic_code="multisource.alignment_conflict",
+    node_type_routing="explicit_per_entry",
+    unmatched_event_policy="retain_source_mask_alignment",
     ownership=(
-        "positive intersection with an explicitly available half-open coverage span"
+        "onset point time and beat/bar start anchors use exact half-open "
+        "containment in an explicitly available coverage span"
     ),
     boundary_behavior=(
         "leading/internal N spans are available; trailing uncovered regions remain "
@@ -201,6 +301,8 @@ def _spec(
     view: str | None,
     missing: str,
     alignment: AlignmentPolicy,
+    supervision_objective: str = "masked_source_native_classification",
+    negative_example_policy: str = "only explicit available source labels are negative",
 ) -> TargetFamilySpec:
     return TargetFamilySpec(
         task_id=task_id,
@@ -230,6 +332,8 @@ def _spec(
         confidence_policy=(
             "nullable numeric confidence; null means not supplied, never zero or one"
         ),
+        supervision_objective=supervision_objective,
+        negative_example_policy=negative_example_policy,
         alignment_policy=alignment,
         cross_source_sharing="forbidden",
     )
@@ -411,6 +515,11 @@ TARGET_FAMILIES = tuple(
                 view="pop909_cl.channel_1",
                 missing="missing chord instrument is unavailable, not no boundary",
                 alignment=BOUNDARY_EVENT_ALIGNMENT,
+                supervision_objective="positive_unlabeled_event_detection",
+                negative_example_policy=(
+                    "no absent class in source-native evidence; non-boundary raw "
+                    "candidates are unlabeled, not negative"
+                ),
             ),
             _spec(
                 "pop909_cl.chord.root",
@@ -668,6 +777,7 @@ def ontology_contract_fingerprint() -> str:
 
 __all__ = [
     "AlignmentPolicy",
+    "CandidateAlignmentRule",
     "CROSSWALKS",
     "CROSSWALK_BY_ID",
     "CrosswalkSpec",

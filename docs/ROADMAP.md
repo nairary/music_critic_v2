@@ -276,9 +276,11 @@ The model and training phases remain pending.
 - Dependencies: adapter and graph phases.
 - Phase 5A result: target ontology `1.0.0`, exact source inventories,
   conservative crosswalk, exact sidecar alignment policies, future
-  sample/batch API, grouping validation, deterministic ordering contract, and
-  machine-readable bounded evidence. No current HookTheory/POP909-CL pair is
-  declared exact-shared or an accepted lossless subset.
+  sample/batch API with structural validation, provenance-authoritative
+  grouping, atomic transitive source/lineage ordering, positive-unlabeled
+  POP909-CL boundary supervision, and machine-readable bounded evidence. No
+  current HookTheory/POP909-CL pair is declared exact-shared or an accepted
+  lossless subset.
 - Phase 5B remaining work: production dataset, tensorization, PyG collator,
   deterministic worker seeds, statistics, and configurable mixture weights.
 - Outputs: datasets, samplers, collator, task routing, the versioned

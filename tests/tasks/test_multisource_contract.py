@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
+from types import SimpleNamespace
 
 import mido
 import pytest
@@ -23,6 +24,7 @@ from music_critic.tasks import (
     MultiSourceBatch,
     MultiSourceContractError,
     SampleTarget,
+    TaskAvailability,
     build_multisource_sample,
     deterministic_group_order,
     dumps_ontology_contract,
@@ -178,6 +180,34 @@ def test_registry_version_ids_value_spaces_and_serialization_are_stable() -> Non
     assert {
         spec.source_alignment_type for spec in TARGET_FAMILIES
     } == {"note", "annotation_span"}
+    region = next(
+        spec for spec in TARGET_FAMILIES
+        if spec.task_id == "theory.chord.root_degree"
+    ).alignment_policy
+    assert [
+        (rule.node_type, rule.geometry, rule.time_reference, rule.match_rule)
+        for rule in region.candidate_rules
+    ] == [
+        ("onset", "point", "start_qn", "half_open_containment"),
+        ("beat", "anchor", "start_qn", "half_open_containment"),
+        ("bar", "anchor", "start_qn", "half_open_containment"),
+    ]
+    assert region.multi_span_resolution == "merge_equal_mask_conflicts"
+    assert region.conflict_diagnostic_code == "multisource.alignment_conflict"
+    assert region.node_type_routing == "explicit_per_entry"
+    boundary = next(
+        spec for spec in TARGET_FAMILIES
+        if spec.task_id == "pop909_cl.chord.boundary"
+    )
+    assert boundary.supervision_objective == "positive_unlabeled_event_detection"
+    assert "no absent class" in boundary.negative_example_policy
+    assert boundary.alignment_policy.unmatched_event_policy == (
+        "retain_event_mask_index_no_snap"
+    )
+    assert all(
+        rule.match_rule == "exact_event_time"
+        for rule in boundary.alignment_policy.candidate_rules
+    )
     for spec in TARGET_FAMILIES:
         if spec.vocabulary is not None:
             assert spec.vocabulary
@@ -188,7 +218,7 @@ def test_registry_version_ids_value_spaces_and_serialization_are_stable() -> Non
     assert payload == dumps_ontology_contract()
     assert ontology_contract_fingerprint() == sha256(payload.encode()).hexdigest()
     assert ontology_contract_fingerprint() == (
-        "7e130f2dc811eece370002a44a05f48369b1f1eb481a0952d5f2052d1dcfe042"
+        "296dc400dee45a21fff589e28c05b88b61d8717e3834285a00343bee97fb213b"
     )
 
 
@@ -205,6 +235,38 @@ def test_actual_adapter_target_structures_match_registry(tmp_path: Path) -> None
     assert pop.dataset_id == "pop909_cl"
     assert pop.source_group_id == "pop909-cl:001"
     assert pop.lineage_group_id == "pop909-lineage:001"
+
+
+def test_authoritative_and_fallback_lineage_cannot_be_overridden(
+    tmp_path: Path,
+) -> None:
+    pop_piece = _pop_piece(tmp_path)
+    graph = build_raw_graph(pop_piece)
+    assert build_multisource_sample(
+        pop_piece,
+        graph,
+        lineage_group_id="pop909-lineage:001",
+    ).lineage_group_id == "pop909-lineage:001"
+    with pytest.raises(MultiSourceContractError, match="assertion differs"):
+        build_multisource_sample(
+            pop_piece,
+            graph,
+            lineage_group_id="pop909-lineage:999",
+        )
+    with pytest.raises(MultiSourceContractError, match="non-empty"):
+        build_multisource_sample(pop_piece, graph, lineage_group_id="")
+
+    hook_piece = _hook_piece()
+    hook_graph = build_raw_graph(hook_piece)
+    assert build_multisource_sample(
+        hook_piece, hook_graph
+    ).lineage_group_id == "hook-source"
+    with pytest.raises(MultiSourceContractError, match="assertion differs"):
+        build_multisource_sample(
+            hook_piece,
+            hook_graph,
+            lineage_group_id="unrelated-hook-lineage",
+        )
 
 
 def test_incompatible_targets_have_no_automatic_mapping() -> None:
@@ -309,6 +371,56 @@ def test_unavailable_entries_cannot_be_converted_to_negative_labels() -> None:
     )
 
 
+def test_direct_sample_target_and_availability_invariants() -> None:
+    base = SampleTarget(
+        task_id="theory.chord.presence",
+        annotation_view_id=None,
+        alignment_type="annotation_span",
+        entity_ids=("span:1",),
+        values=("true",),
+        availability_mask=(True,),
+        confidence=(None,),
+        source=("dataset",),
+        provenance_ids=("prov:annotation",),
+    )
+    assert base.values == ("true",)
+    with pytest.raises(MultiSourceContractError, match="alignment type"):
+        replace(base, alignment_type="note")
+    with pytest.raises(MultiSourceContractError, match="outside vocabulary"):
+        replace(base, values=("present",))
+    with pytest.raises(MultiSourceContractError, match="must be strings"):
+        replace(base, values=(1,))
+    with pytest.raises(MultiSourceContractError, match="mask must contain booleans"):
+        replace(base, availability_mask=(1,))
+    with pytest.raises(MultiSourceContractError, match="non-empty string"):
+        replace(base, source=("",))
+    with pytest.raises(MultiSourceContractError, match="unique"):
+        replace(base, entity_ids=("span:1", "span:1"), values=("true", "true"),
+                availability_mask=(True, True), confidence=(None, None),
+                source=("dataset", "dataset"),
+                provenance_ids=("prov:annotation", "prov:annotation"))
+
+    multi = next(
+        target
+        for target in build_multisource_sample(
+            _hook_piece(), build_raw_graph(_hook_piece())
+        ).target_bundle
+        if target.task_id == "theory.chord.alterations"
+    )
+    with pytest.raises(MultiSourceContractError, match="canonical vocabulary order"):
+        replace(multi, values=(("#5", "b5"),))
+
+    assert TaskAvailability("theory.chord.presence", False, 0, 0)
+    with pytest.raises(MultiSourceContractError, match="absent"):
+        TaskAvailability("unknown.task", False, 0, 0)
+    with pytest.raises(MultiSourceContractError, match="zero counts"):
+        TaskAvailability("theory.chord.presence", False, 1, 0)
+    with pytest.raises(MultiSourceContractError, match="non-negative"):
+        TaskAvailability("theory.chord.presence", True, -1, 0)
+    with pytest.raises(MultiSourceContractError, match="must be boolean"):
+        TaskAvailability("theory.chord.presence", 1, 1, 0)
+
+
 def test_empty_batch_family_and_mixed_batch_api_contract(tmp_path: Path) -> None:
     hook_piece = _hook_piece()
     pop_piece = _pop_piece(tmp_path)
@@ -319,6 +431,8 @@ def test_empty_batch_family_and_mixed_batch_api_contract(tmp_path: Path) -> None
         values=(),
         availability_mask=(),
         entity_indices=(),
+        entity_index_mask=(),
+        entity_node_types=(),
         sample_indices=(),
         confidence=None,
         entry_count=0,
@@ -326,7 +440,7 @@ def test_empty_batch_family_and_mixed_batch_api_contract(tmp_path: Path) -> None
         diagnostics_cpu=(),
     )
     batch = MultiSourceBatch(
-        raw_graph_batch=object(),
+        raw_graph_batch=SimpleNamespace(raw_only=True),
         target_batches=(empty,),
         dataset_ids=(hook.dataset_id, pop.dataset_id),
         piece_ids=(hook.piece_id, pop.piece_id),
@@ -338,22 +452,147 @@ def test_empty_batch_family_and_mixed_batch_api_contract(tmp_path: Path) -> None
     assert batch.dataset_ids == ("hooktheory", "pop909_cl")
 
 
-def test_grouping_is_lineage_safe_and_order_is_deterministic() -> None:
+def test_batch_target_shapes_node_types_indices_and_raw_batch_contract() -> None:
+    aligned = BatchTarget(
+        task_id="pop909_cl.chord.boundary",
+        values=("present",),
+        availability_mask=(True,),
+        entity_indices=(3,),
+        entity_index_mask=(True,),
+        entity_node_types=("onset",),
+        sample_indices=(0,),
+        confidence=(None,),
+        entry_count=1,
+        provenance_cpu=(object(),),
+        diagnostics_cpu=((),),
+    )
+    unaligned = replace(
+        aligned,
+        entity_indices=(-1,),
+        entity_index_mask=(False,),
+        entity_node_types=(None,),
+    )
+    batch = MultiSourceBatch(
+        raw_graph_batch=SimpleNamespace(raw_only=True),
+        target_batches=(unaligned,),
+        dataset_ids=("pop909_cl",),
+        piece_ids=("piece:1",),
+        source_group_ids=("pop909-cl:001",),
+        lineage_group_ids=("pop909-lineage:001",),
+        diagnostics_cpu=((),),
+    )
+    assert batch.target_batches[0].entity_index_mask == (False,)
+    with pytest.raises(MultiSourceContractError, match="leading dimensions"):
+        replace(aligned, sample_indices=())
+    with pytest.raises(MultiSourceContractError, match="non-negative"):
+        replace(aligned, sample_indices=(-1,))
+    with pytest.raises(MultiSourceContractError, match="allowed explicit node type"):
+        replace(aligned, entity_node_types=("note",))
+    with pytest.raises(MultiSourceContractError, match="index -1"):
+        replace(
+            aligned,
+            entity_index_mask=(False,),
+            entity_node_types=(None,),
+        )
+    with pytest.raises(MultiSourceContractError, match="raw_only"):
+        replace(batch, raw_graph_batch=SimpleNamespace(raw_only=False))
+    with pytest.raises(MultiSourceContractError, match="sidecar"):
+        replace(
+            batch,
+            raw_graph_batch=SimpleNamespace(
+                raw_only=True,
+                _global_store={"targets": object()},
+            ),
+        )
+    with pytest.raises(MultiSourceContractError, match="outside the batch"):
+        replace(batch, target_batches=(replace(aligned, sample_indices=(1,)),))
+    with pytest.raises(MultiSourceContractError, match="non-zero"):
+        MultiSourceBatch(
+            raw_graph_batch=SimpleNamespace(raw_only=True),
+            target_batches=(),
+            dataset_ids=(),
+            piece_ids=(),
+            source_group_ids=(),
+            lineage_group_ids=(),
+            diagnostics_cpu=(),
+        )
+
+
+def test_grouping_rejects_duplicates_conflicts_and_split_leakage() -> None:
     safe = (
         GroupAssignment("pop909_cl", "cl-001", "pop909-cl:001", "pop909-lineage:001", "train"),
         GroupAssignment("pop909_original", "original-001", "pop909-original:001", "pop909-lineage:001", "train"),
         GroupAssignment("hooktheory", "clip-a", "song-a", "song-a", None),
     )
     validate_group_assignments(safe)
-    assert deterministic_group_order(safe, seed=17) == deterministic_group_order(
-        tuple(reversed(safe)), seed=17
-    )
-    unsafe = (
+    with pytest.raises(MultiSourceContractError, match="duplicate"):
+        validate_group_assignments((*safe, safe[0]))
+    with pytest.raises(MultiSourceContractError, match="conflicting grouping"):
+        validate_group_assignments(
+            (
+                safe[0],
+                replace(safe[0], source_group_id="pop909-cl:other"),
+            )
+        )
+    split_unsafe = (
         safe[0],
         replace(safe[1], split="val"),
     )
     with pytest.raises(MultiSourceContractError, match="lineage_group_id"):
-        validate_group_assignments(unsafe)
+        validate_group_assignments(split_unsafe)
+
+
+def test_atomic_transitive_group_order_is_seeded_and_input_order_invariant() -> None:
+    transitive = (
+        GroupAssignment("a", "piece-a", "source-1", "lineage-1", None),
+        GroupAssignment("b", "piece-b", "source-2", "lineage-1", None),
+        GroupAssignment("c", "piece-c", "source-2", "lineage-2", None),
+    )
+    pop_versions = (
+        GroupAssignment(
+            "pop909_cl",
+            "cl-001",
+            "pop909-cl:001",
+            "pop909-lineage:001",
+            "train",
+        ),
+        GroupAssignment(
+            "pop909_original",
+            "original-001",
+            "pop909-original:001",
+            "pop909-lineage:001",
+            "train",
+        ),
+    )
+    independent = tuple(
+        GroupAssignment(
+            f"dataset-{index}",
+            f"piece-{index}",
+            f"source-{index + 10}",
+            f"lineage-{index + 10}",
+            None,
+        )
+        for index in range(4)
+    )
+    assignments = (*transitive, *pop_versions, *independent)
+    first = deterministic_group_order(assignments, seed=17)
+    assert first == deterministic_group_order(tuple(reversed(assignments)), seed=17)
+
+    positions = {assignment: index for index, assignment in enumerate(first)}
+    assert max(positions[item] for item in transitive) - min(
+        positions[item] for item in transitive
+    ) == len(transitive) - 1
+    assert abs(positions[pop_versions[0]] - positions[pop_versions[1]]) == 1
+
+    second = deterministic_group_order(assignments, seed=18)
+    assert first != second
+    second_positions = {assignment: index for index, assignment in enumerate(second)}
+    assert max(second_positions[item] for item in transitive) - min(
+        second_positions[item] for item in transitive
+    ) == len(transitive) - 1
+    assert abs(
+        second_positions[pop_versions[0]] - second_positions[pop_versions[1]]
+    ) == 1
 
 
 def test_target_sidecars_do_not_change_raw_graph_or_enter_pyg_stores() -> None:

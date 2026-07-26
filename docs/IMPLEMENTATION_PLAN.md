@@ -2430,6 +2430,15 @@ structure and is converted to `float32` only at feature-tensor construction.
   outside raw PyG stores.
 - Define immutable sample, batch, grouping, and deterministic-order contracts
   without implementing loading, tensorization, sampling, or collation.
+- Pre-merge remediation makes provenance lineage authoritative, rejects
+  duplicate/conflicting assignments, and orders atomic transitive
+  source/lineage components.
+- Specify point/anchor alignment, explicit per-entry node types, masked
+  unmatched boundary indices, deterministic equal-value merge, and stable
+  conflict diagnostics without nearest-neighbor or node-priority behavior.
+- Treat POP909-CL boundaries as positive-unlabeled observed events with no
+  synthesized absent class, and validate all sample/batch sidecar shapes and
+  raw-only separation at construction.
 - Generate deterministic bounded evidence from real HookTheory fixtures and
   the accepted POP909-CL production manifest.
 

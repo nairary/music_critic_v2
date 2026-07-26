@@ -146,13 +146,18 @@ Alignment remains a sidecar operation:
 - all source spans retain exact `RationalTime`; no float equality or
   nearest-neighbor snapping is permitted;
 - `note_identity_v1` maps only an exact canonical note entity ID;
-- `positive_overlap_span_v1` permits raw `onset`, `beat`, or `bar` candidates
-  under exact positive intersection with half-open `[start, end)` spans;
-- an entity exactly at a span end belongs to the following span;
+- `half_open_anchor_span_v1` tests onset point times and beat/bar start anchors
+  with exact half-open containment, `span.start_qn <= candidate_time <
+  span.end_qn`; positive interval intersection is not an alignment rule;
+- a candidate exactly at a span end belongs to the following span;
+- when several source spans address one typed candidate, equal available
+  values merge deterministically; conflicting available values are masked
+  with diagnostic code `multisource.alignment_conflict`;
 - `span_start_boundary_v1` represents a point at the exact span start; Phase
-  5B may use an exact-time raw candidate or leave its entity index masked;
-- coincident candidate types follow explicit per-task priority in Phase 5B,
-  never an implicit nearest match;
+  5B may use only an exact-time raw candidate or retain the source event with
+  entity index `-1`, a false entity-index mask, and null node type;
+- every aligned index carries an explicit node type; coincident node types do
+  not use an implicit priority;
 - `coverage_span_v1` aligns only explicitly available gap spans; trailing
   masked coverage is never converted to `N`;
 - ambiguous and unsupported scalar targets remain masked while raw candidate
@@ -160,6 +165,12 @@ Alignment remains a sidecar operation:
 - an entirely empty task family is represented with zero entries, not a
   fabricated negative;
 - unannotated positions are not enumerated as negatives.
+
+`pop909_cl.chord.boundary` is a positive-unlabeled event-detection target.
+Observed span starts carry only the class `present`; non-boundary candidates
+remain unlabeled and ontology `1.0.0` defines no synthetic `absent` class or
+derived negative rule. A future Phase 5B loss must preserve that objective or
+introduce a separately versioned, evidence-backed negative policy.
 
 Raw graph stores contain neither alignment indices nor target values. Future
 entity indices, values, masks, confidence, provenance, and diagnostics remain
@@ -181,8 +192,11 @@ target_provenance_sidecar    referenced records plus provenance ancestors
 diagnostics                  CPU-side QualityFlag records
 ```
 
-Each `SampleTarget` retains task/view/alignment, entity IDs, values,
-availability mask, optional confidence, source, and provenance IDs.
+Each `SampleTarget` retains task/view/alignment, unique non-empty entity IDs,
+values validated against the task value space, availability mask, optional
+finite confidence in `[0, 1]`, source, and provenance IDs. `TaskAvailability`
+requires a registered task, non-negative counts, and zero counts for a family
+declared absent.
 `build_multisource_sample` performs this projection but does not load data,
 align nodes, tensorize, batch, or sample.
 
@@ -196,7 +210,13 @@ diagnostics_cpu              per-sample CPU metadata
 ```
 
 Each `BatchTarget` reserves separate values, availability mask, entity indices,
-sample indices, optional confidence, and CPU provenance/diagnostics.
+entity-index mask, explicit entity node types, sample indices, optional
+confidence, and CPU provenance/diagnostics. All leading dimensions equal
+`entry_count`; aligned indices are non-negative and typed for the task,
+whereas unaligned retained events use index `-1`, false index mask, and null
+node type. `MultiSourceBatch` rejects empty sample metadata, duplicate or
+unsorted task sidecars, out-of-range sample indices, a false raw-only marker,
+and target/provenance fields embedded in graph stores.
 `entry_count=0` with empty per-entry metadata is the canonical completely empty
 family. If a dataset lacks a task in a mixed batch, no negative label and no
 loss entry are created.
@@ -207,15 +227,25 @@ this raw/sidecar boundary.
 
 ## 7. Grouping and deterministic sampling
 
-- HookTheory uses stable `ori_uid`/source identity when resolved; otherwise the
-  canonical piece fallback group remains stable.
+- Authoritative lineage is read from canonical provenance. A caller-supplied
+  lineage is an assertion: it must be non-empty and exactly match that value.
+  When provenance has no lineage, the explicit fallback is
+  `piece.source_group_id`; no unrelated POP lineage is invented.
+- HookTheory therefore uses provenance `ori_uid` when present and otherwise
+  its stable canonical source-group fallback.
 - POP909-CL uses `pop909-cl:<song-id>` as `source_group_id` and
   `pop909-lineage:<song-id>` as cross-version lineage.
 - Matching CL/original POP909 lineage cannot cross splits.
 - Split assignment occurs at source and lineage group level. Phase 5A
   validates assignments but creates no final project splits.
-- `deterministic_group_order` hashes an explicit integer seed plus stable
-  dataset/group/lineage/piece identity and is input-order invariant.
+- Exact duplicate assignment rows are rejected. Repeated `(dataset_id,
+  piece_id)` identities cannot disagree on source or lineage.
+- `deterministic_group_order` first computes atomic transitive components:
+  pieces connected through either a shared source group or a shared lineage
+  group remain contiguous and cannot be separated by ordering. Components are
+  hashed with an explicit integer seed; pieces within each component use
+  stable identity order. The result is input-order invariant, while a
+  different seed changes component order without changing component contents.
 - `DatasetSamplingWeight` reserves positive future per-dataset weights without
   implementing a sampler.
 - One POP909 song/piece is one sample. Its chord blocks are target entries, not

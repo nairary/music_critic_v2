@@ -202,10 +202,20 @@ stores. HookTheory retains melody-conditioned supervision, POP909-CL retains
 score-conditioned recognition, and raw MIDI may have an entirely empty target
 bundle.
 
-Alignment policies are task-declarative and exact: note identity, positive
-half-open span overlap, exact span-start boundary, and explicitly available
-coverage span. Masked, absent, ambiguous, unsupported, trailing-uncovered, and
-available no-chord states remain distinct.
+Alignment policies are task-declarative and exact: note identity; half-open
+containment of onset points and beat/bar start anchors; exact span-start
+boundary events; and explicitly available coverage spans. Every aligned index
+has an explicit node type. Equal multi-span values merge, conflicts are masked
+with a stable diagnostic, and unmatched boundary events are retained with a
+masked index rather than snapped. POP909-CL boundary supervision is
+positive-unlabeled and defines no synthetic absent class. Masked, absent,
+ambiguous, unsupported, trailing-uncovered, and available no-chord states
+remain distinct.
+
+Grouping resolves authoritative lineage from provenance, using the canonical
+source group only as an explicit fallback. Any override is an equality
+assertion. Ordering operates on atomic transitive components connected by
+source or lineage and is seeded and input-order invariant.
 
 ## Optional semantic predictions
 

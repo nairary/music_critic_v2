@@ -60,7 +60,7 @@
   missing semantics, required masks/provenance, confidence policy, alignment
   policy, and cross-source-sharing permission.
 - Ontology `1.0.0` fingerprint:
-  `7e130f2dc811eece370002a44a05f48369b1f1eb481a0952d5f2052d1dcfe042`.
+  `296dc400dee45a21fff589e28c05b88b61d8717e3834285a00343bee97fb213b`.
   Stable adapter task IDs remain unchanged.
 - No cross-source pair is classified `exact_shared` or accepted as
   `derived_lossless_subset`. Functional versus absolute root, extent versus
@@ -68,19 +68,24 @@
   presence/rest versus `N` are `incompatible`. Absolute-root and
   pitch-class-set renderer paths are `deferred`; unpaired families remain
   `source_specific`.
-- Exact per-task alignment policies cover note identity, positive half-open
-  span overlap, exact span-start boundary events, and explicitly available
-  coverage spans. Missing, absent, masked, ambiguous, unsupported, trailing
-  uncovered, and available no-chord states remain distinct.
+- Exact per-task alignment policies cover note identity; half-open containment
+  of onset points and beat/bar anchors; exact span-start boundary events; and
+  explicitly available coverage spans. Typed candidates have no implicit
+  priority, equal multi-span values merge, conflicts are masked with
+  `multisource.alignment_conflict`, and unmatched boundary events retain a
+  masked index without snapping. POP909-CL boundary supervision is
+  positive-unlabeled and has no synthetic absent class.
 - `MultiSourceSample` defines an opaque raw graph plus source/piece/group/
   lineage identity and separate target, availability, full target-provenance
   ancestor, confidence, and diagnostic sidecars. `BatchTarget` and
   `MultiSourceBatch` reserve future tensor and CPU metadata fields without
   implementing a collator. Completely empty families use zero entries.
-- Group assignments validate both source and lineage split safety.
-  Deterministic group ordering uses an explicit seed plus stable identities;
-  positive future dataset weights are represented without implementing a
-  sampler. One POP909 song remains one sample.
+- Group assignments validate both source and lineage split safety, reject
+  duplicates and conflicting dataset/piece identities, and treat provenance
+  lineage as authoritative with source-group fallback. Deterministic ordering
+  hashes atomic transitive source/lineage components with an explicit seed and
+  stable internal identities; positive future dataset weights are represented
+  without implementing a sampler. One POP909 song remains one sample.
 - The deterministic machine artifact contains registry/crosswalk data,
   contract-source hashes, 18 converted real-source HookTheory fixture excerpts
   from 19 accounted cases, and the accepted POP909-CL production-manifest
@@ -95,9 +100,9 @@
 ## Phase 5A verification
 
 - Expanded focused ontology/audit/adapter/graph/repository suite:
-  `94 passed, 2 warnings in 2.19s`.
+  `98 passed, 2 warnings in 2.25s`.
 - Full default suite:
-  `501 passed, 12 skipped, 2 warnings in 3.43s`; the skips are explicitly
+  `505 passed, 12 skipped, 2 warnings in 3.50s`; the skips are explicitly
   gated real-corpus integrations and warnings are the existing upstream
   PyTorch deprecations.
 - Deterministic audit `--check`, `.venv/bin/python -m compileall -q src scripts

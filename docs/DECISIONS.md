@@ -699,3 +699,28 @@ This log is append-only.
   independent. Applied harmony, borrowed crosswalks, chord rendering, final
   splits, model/loss/SSL/PLL/critic work, and production collation are
   unchanged deferred scope.
+
+### 2026-07-26 pre-merge clarification
+
+- Grouping: canonical provenance lineage is authoritative. A supplied lineage
+  override is a non-empty equality assertion; absent provenance lineage falls
+  back explicitly to `piece.source_group_id`. Duplicate assignment rows and
+  conflicting source/lineage identities for one dataset piece are errors.
+  Deterministic ordering hashes atomic transitive components connected by
+  either source or lineage, then uses stable piece order inside each component.
+- Alignment: notes use exact identity. Onsets use point time and beats/bars use
+  their start anchors under half-open containment. Equal values addressing one
+  typed candidate merge; conflicts are masked with
+  `multisource.alignment_conflict`. Entity node type is explicit, so there is
+  no implicit node priority. Boundary events require exact-time candidates;
+  unmatched events remain present with index `-1`, a false index mask, and
+  null node type, with no nearest-neighbor snapping.
+- Boundary objective: `pop909_cl.chord.boundary` is positive-unlabeled event
+  detection. Only observed span starts are positive. Non-boundary candidates
+  are unlabeled, and ontology `1.0.0` has no `absent` class or derived-negative
+  policy.
+- Containers: sample target values, masks, entity IDs, confidence, task
+  availability, batch leading dimensions, node-type/index consistency,
+  non-empty metadata, sample-index ranges, sorted task sidecars, and raw-only
+  graph separation are constructor invariants. These decisions constrain the
+  future Phase 5B implementation without implementing it.
