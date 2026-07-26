@@ -787,3 +787,33 @@ This log is append-only.
   objectives, and the PU decision. No HookTheory/POP909 semantic crosswalk,
   chord renderer, target-derived notes, adapter change, or graph-schema change
   is authorized by this ADR.
+
+### 2026-07-26 pre-merge remediation
+
+- Alignment is indexed and output-sensitive. One immutable `AlignmentIndex`
+  is built per canonical piece with O(1) note/annotation and exact-time
+  mappings plus sorted rational candidate arrays. Half-open spans use bisect;
+  fixed-registry complexity is
+  `O(piece entities + target entries * log candidates + emitted rows)`.
+  Instrumentation, rather than a timing threshold, guards against repeated
+  full index construction or source-entry candidate scans.
+- Encoding registry `1.0.0` describes value representation and the semantic
+  regimes `fully_supervised`, `positive_unlabeled`, and
+  `deferred_open_vocabulary`; it does not select CE, BCE, focal, or PU loss.
+  POP909-CL boundary remains positive-unlabeled with no synthetic negatives.
+  Phase 6 must choose a PU-compatible objective or disable that task.
+- Production preparation owns canonical-to-graph proof:
+  `prepare_multisource_sample` builds the Phase 3A graph and records a complete
+  fingerprint; the external-graph factory compares against a fresh projection
+  and has no bypass; collation recomputes the fingerprint to catch later
+  categorical, continuous, or topology mutation. Target-only audit projection
+  has no graph, and no binding is added to PyG stores.
+- `model_encodable_row_count` means only that a registry representation
+  exists. `supervision_eligible_row_count` is the exact sum of
+  `availability_mask & entity_index_mask & model_ready`. Masked,
+  available-but-unaligned, conflict, and deferred-open-vocabulary counts are
+  independent explicit statistics, checked per task and in aggregate.
+- The raw-only benchmark remains graph baseline evidence. A separate
+  small/medium/large target-heavy benchmark reports index construction, target
+  lookup, emitted rows, full collation, and operation counts; it is not a
+  default CI or corpus-acceptance job.

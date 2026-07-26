@@ -19,6 +19,11 @@ EncodingKind: TypeAlias = Literal[
     "open_string_cpu",
 ]
 EncodingDType: TypeAlias = Literal["torch.long", "torch.bool", "cpu.str"]
+SupervisionRegime: TypeAlias = Literal[
+    "fully_supervised",
+    "positive_unlabeled",
+    "deferred_open_vocabulary",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,7 +39,7 @@ class TargetEncodingSpec:
     unavailable_sentinel: int | bool | None
     model_ready: bool
     deferred_reason: str | None
-    standard_bce_eligible: bool
+    supervision_regime: SupervisionRegime
 
     def __post_init__(self) -> None:
         if self.registry_version != TARGET_ENCODING_REGISTRY_VERSION:
@@ -45,6 +50,15 @@ class TargetEncodingSpec:
             raise ValueError(
                 "model-ready encodings have no deferred reason and deferred "
                 "encodings require one"
+            )
+        if self.supervision_regime == "deferred_open_vocabulary":
+            if self.model_ready:
+                raise ValueError(
+                    "deferred open-vocabulary supervision cannot be model-ready"
+                )
+        elif not self.model_ready:
+            raise ValueError(
+                "non-deferred supervision regimes require model-ready encodings"
             )
         if self.encoding_kind == "closed_categorical_index":
             if (
@@ -68,7 +82,7 @@ class TargetEncodingSpec:
             or self.unavailable_sentinel is not None
             or self.shape != "[N] CPU"
             or self.model_ready
-            or self.standard_bce_eligible
+            or self.supervision_regime != "deferred_open_vocabulary"
         ):
             raise ValueError("open string encoding contract is invalid")
 
@@ -88,7 +102,7 @@ def _encoding_spec(task: TargetFamilySpec) -> TargetEncodingSpec:
                 "open source vocabulary is preserved losslessly; no dynamic "
                 "batch/worker vocabulary or numeric IDs"
             ),
-            standard_bce_eligible=False,
+            supervision_regime="deferred_open_vocabulary",
         )
     if task.value_type == "multi_label":
         return TargetEncodingSpec(
@@ -101,7 +115,7 @@ def _encoding_spec(task: TargetFamilySpec) -> TargetEncodingSpec:
             unavailable_sentinel=False,
             model_ready=True,
             deferred_reason=None,
-            standard_bce_eligible=True,
+            supervision_regime="fully_supervised",
         )
     return TargetEncodingSpec(
         task_id=task.task_id,
@@ -113,8 +127,11 @@ def _encoding_spec(task: TargetFamilySpec) -> TargetEncodingSpec:
         unavailable_sentinel=-1,
         model_ready=True,
         deferred_reason=None,
-        standard_bce_eligible=(
-            task.supervision_objective != "positive_unlabeled_event_detection"
+        supervision_regime=(
+            "positive_unlabeled"
+            if task.supervision_objective
+            == "positive_unlabeled_event_detection"
+            else "fully_supervised"
         ),
     )
 
@@ -168,6 +185,7 @@ def target_encoding_contract_fingerprint() -> str:
 __all__ = [
     "EncodingDType",
     "EncodingKind",
+    "SupervisionRegime",
     "TARGET_ENCODINGS",
     "TARGET_ENCODING_BY_TASK",
     "TARGET_ENCODING_REGISTRY_VERSION",

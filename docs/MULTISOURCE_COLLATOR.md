@@ -26,23 +26,55 @@ dataset identity, and lineage remain sidecars.
 
 - `align_sample_targets`, `AlignedTargetFamily`, `AlignedTargetRow`, and
   `TargetAlignmentError`;
+- immutable `AlignmentIndex`, `build_alignment_index`,
+  `align_targets_with_index`, and optional `AlignmentOperationCounts`;
 - `TARGET_ENCODING_REGISTRY_VERSION`, `TARGET_ENCODINGS`,
   `TARGET_ENCODING_BY_TASK`, `TargetEncodingSpec`, deterministic serialization,
   and an encoding fingerprint;
 - `tensorize_aligned_targets` and `collate_multisource_samples`;
 - immutable `BatchTarget`, `BatchStatistics`, `TaskBatchStatistics`, and
   `MultiSourceBatch`;
-- `benchmark_multisource_collator` and `CollatorBenchmark`.
+- `prepare_multisource_sample`, verified `build_multisource_sample`, and
+  graph-free `project_multisource_targets` for inventory audits;
+- raw-only `benchmark_multisource_collator`/`CollatorBenchmark` and
+  target-heavy `benchmark_target_alignment`/`TargetAlignmentBenchmark`.
 
-`MultiSourceSample` owns the validated `CanonicalPiece` used for alignment as
-well as its raw graph and source-native target sidecars. This prevents a caller
-from aligning targets against a different canonical piece.
+`prepare_multisource_sample(piece)` builds the Phase 3A raw graph internally
+and stores its complete deterministic fingerprint as an immutable sidecar
+binding. `build_multisource_sample(piece, graph)` is the external-graph
+compatibility path and accepts the graph only when its complete fingerprint
+equals a fresh `build_raw_graph(piece)` projection. There is no public
+verification bypass. The collator recomputes the fingerprint before each use,
+so categorical-feature, continuous-feature, or topology mutation after
+preparation fails with `multisource.raw_graph_binding_mismatch`.
+`project_multisource_targets` deliberately has no raw graph and is restricted
+to inventory/audit work. No binding value is written into PyG stores.
 
 ## Exact alignment
 
 No graph float feature is read to reconstruct canonical time. Alignment uses
 canonical entity IDs, exact `RationalTime`, and the deterministic entity order
 emitted by the graph builder.
+
+One immutable `AlignmentIndex` is built before task rows are processed. It
+contains O(1) note-ID and annotation-ID mappings, O(1) exact-time mappings for
+onset/beat/bar boundary candidates, and sorted rational candidate times with
+corresponding local indices. A half-open span uses
+`[bisect_left(start), bisect_left(end))`; no target-row loop reconstructs an
+index or scans a complete candidate store. For the fixed 18-task registry,
+total alignment work is:
+
+```text
+O(piece entities + target entries * log(candidate count) + emitted rows)
+```
+
+Note identity and annotation lookup are O(1), exact event lookup is O(1) plus
+output, and span lookup is O(log C + output). Deterministic merge walks each
+task's allowed candidate stores in canonical local-index order; across the
+fixed registry this is part of the O(piece entities) term. Optional operation
+counts expose index builds, index entries, lookups, bisections, candidate
+matches, merge candidate-slot visits, and emitted rows for non-timing scaling
+tests.
 
 | Policy | Candidate rule |
 |---|---|
@@ -54,7 +86,8 @@ An available annotation creates one row for every allowed typed candidate.
 The node type is explicit, so the same integer in `onset` and `beat` identifies
 different nodes. An available annotation with no candidate remains one row
 with value and source availability intact, `entity_indices=-1`,
-`entity_index_mask=false`, and null node type. It is not loss-eligible. A
+`entity_index_mask=false`, and null node type. It is not
+supervision-eligible. A
 masked source entry also remains one row, but is not candidate-expanded and
 has a null value.
 
@@ -83,11 +116,13 @@ Each `BatchTarget` carries its task/source semantics, encoding kind and
 version, values, independent availability and entity-index masks, explicit
 node types, global entity indices, sample indices, optional confidence plus
 confidence mask, CPU provenance/diagnostics, source annotation count,
-candidate-expanded row count, and model-readiness metadata. Future
-supervision eligibility is exactly:
+candidate-expanded row count, model-readiness metadata, and one semantic
+`supervision_regime`: `fully_supervised`, `positive_unlabeled`, or
+`deferred_open_vocabulary`. Encoding declares representation, not a concrete
+training loss. Supervision eligibility is exactly:
 
 ```text
-availability_mask & entity_index_mask
+availability_mask & entity_index_mask & model_ready
 ```
 
 An all-false multilabel row is a true negative only when availability is true.
@@ -111,15 +146,22 @@ injected global/node/edge fields are rejected.
 
 ## Boundary and statistics
 
-`pop909_cl.chord.boundary` contains only annotated positive events. The
-collator does not enumerate other candidates or synthesize an absent/negative
-class. Encoding metadata sets ordinary BCE eligibility to false; Phase 6 must
-choose an explicit PU-compatible objective or omit this loss.
+`pop909_cl.chord.boundary` contains only annotated positive events and has
+`supervision_regime=positive_unlabeled`. The collator does not enumerate other
+candidates or synthesize an absent/negative class. Phase 5B.1 exposes no
+CE/BCE/focal/PU choice. Expected Phase 6 decisions are: likely CrossEntropy
+for closed multiclass, likely BCEWithLogits for closed multilabel, CE or BCE
+for binary presence, a PU-compatible objective or disabled task for POP
+boundary, and disabled open-vocabulary tasks until a versioned codec exists.
 
 `BatchStatistics` distinguishes source annotation count from expanded target
-row count and records sample/graph, node, edge, dataset, task, node-type,
-aligned, unaligned, masked, conflict, model-ready, and deferred-open counts.
-It is deterministic CPU metadata and does not mutate graphs or targets.
+row count. Per-task and aggregate records separately count
+`model_encodable_row_count`, `supervision_eligible_row_count`,
+`masked_row_count`, `available_unaligned_row_count`, `conflict_row_count`, and
+`deferred_open_vocabulary_row_count`. Eligibility equals the exact sum of
+each task's `supervision_eligibility_mask`; model-encodable rows may still be
+masked, conflicting, or unaligned. The partition and aggregate/per-task sums
+are constructor invariants.
 
 ## Verification and benchmark policy
 
@@ -128,14 +170,27 @@ sample. They cover typed alignment, half-open/exact boundaries, duplicate
 merge/conflicts, masks and sentinels, open strings, offsets, raw-store leakage,
 malformed batches, deterministic repetition, and mixed-batch statistics.
 
-The lightweight benchmark runs dozens of small prepared graphs:
+The raw-only baseline runs dozens of small prepared graphs:
 
 ```bash
 PYTHONPATH=src python scripts/benchmark_multisource_collator.py \
   --samples 32 --repeats 3
 ```
 
-It reports alignment, PyG graph construction/validation, complete collation,
-and node/edge/target counts. It is not a corpus acceptance test and is not a
-mandatory heavy CI job. Phase 5B.1 performs no full HookTheory scan and does
-not repeat the 909-file POP909-CL acceptance.
+It remains graph/collator baseline evidence and is not evidence for
+target-alignment scaling. The separate target-heavy benchmark contains many
+note-identity targets, annotation spans expanded over onset/beat/bar
+candidates, exact boundary events, a masked entry, and an
+available-but-unaligned entry at small/medium/large sizes:
+
+```bash
+PYTHONPATH=src python scripts/benchmark_multisource_collator.py \
+  --target-heavy --repeats 3
+```
+
+It reports index construction, target lookup, emitted rows, complete
+collation, and deterministic operation counts separately. The heavy command
+is not in default CI; CI uses a small instrumentation-based scaling test with
+no timing threshold. Neither benchmark is a corpus acceptance test. Phase
+5B.1 performs no full HookTheory scan and does not repeat the 909-file
+POP909-CL acceptance.

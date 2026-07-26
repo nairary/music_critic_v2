@@ -77,6 +77,8 @@ PYTHONPATH=src python scripts/benchmark_graph_builder.py \
   --synthetic-suite --repeats 1
 PYTHONPATH=src python scripts/benchmark_multisource_collator.py \
   --samples 32 --repeats 3
+PYTHONPATH=src python scripts/benchmark_multisource_collator.py \
+  --target-heavy --repeats 3
 ```
 
 `build_raw_graph` validates its `CanonicalPiece` by default. Callers that have

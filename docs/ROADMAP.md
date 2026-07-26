@@ -282,11 +282,13 @@ The model and training phases remain pending.
   current HookTheory/POP909-CL pair is declared exact-shared or an accepted
   lossless subset.
 - Phase 5B.1 result: exact canonical-ID/`RationalTime` alignment, target
-  encoding registry `1.0.0`, strict tensor sidecars, production PyG collator,
-  typed local-to-global `ptr` offsets, deterministic batch statistics, and
-  bounded mixed HookTheory/POP909-CL/raw-only acceptance. Open strings remain
-  deferred CPU values, and positive-unlabeled boundary events have no
-  synthetic negatives.
+  encoding registry `1.0.0`, one immutable output-sensitive per-piece index,
+  verified canonical-to-raw-graph fingerprint binding, strict tensor
+  sidecars, production PyG collator, typed local-to-global `ptr` offsets, and
+  deterministic batch statistics that distinguish encodable from
+  supervision-eligible rows. Open strings remain deferred CPU values,
+  positive-unlabeled boundary events have no synthetic negatives, and the
+  encoding registry does not choose a loss.
 - Phase 5B.2 remaining work: practical corpus indexing and `Dataset`,
   source/lineage-safe split consumption, deterministic mixture/epoch sampler,
   worker-safe `DataLoader`, and configurable mixture weights.
@@ -297,7 +299,9 @@ The model and training phases remain pending.
   separate target families with independent masks.
 - Tests: Phase 5B.1 covers exact/half-open alignment, typed offsets, masks,
   empty/conflicting/unaligned tasks, encoding sentinels, open strings, leakage,
-  malformed PyG batches, deterministic collation, and a small benchmark.
+  raw feature/topology mutation, malformed PyG batches, deterministic
+  collation, instrumentation-based scaling, and separate raw-only and
+  target-heavy benchmarks.
   Phase 5B.2 owns dataset balancing, worker determinism, and corpus indexing.
 - Non-goals: advanced SSL.
 - Acceptance: one mixed batch routes only available targets and preserves

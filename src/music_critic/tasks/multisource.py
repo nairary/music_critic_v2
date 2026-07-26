@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import sha256
 import json
 import math
@@ -17,6 +17,11 @@ from music_critic.data import (
     QualityFlag,
     TargetArray,
 )
+from music_critic.graph import (
+    GraphContractError,
+    build_raw_graph,
+    graph_fingerprint,
+)
 from music_critic.tasks.encoding import (
     TARGET_ENCODING_BY_TASK,
 )
@@ -25,6 +30,9 @@ from music_critic.tasks.ontology import TARGET_FAMILIES, TARGET_FAMILY_BY_ID
 
 class MultiSourceContractError(ValueError):
     """Raised when a sample or grouping record violates the Phase 5A contract."""
+
+
+_RAW_GRAPH_BINDING_TOKEN = object()
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,11 +192,10 @@ class TaskAvailability:
 
 
 @dataclass(frozen=True, slots=True)
-class MultiSourceSample:
-    """Prepared canonical/raw/target sample consumed by the Phase 5B.1 collator."""
+class MultiSourceTargetProjection:
+    """Target-only canonical projection for audits that need no raw graph."""
 
     canonical_piece: CanonicalPiece
-    raw_graph: Any
     dataset_id: str
     piece_id: str
     source_group_id: str
@@ -260,6 +267,49 @@ class MultiSourceSample:
 
 
 @dataclass(frozen=True, slots=True)
+class MultiSourceSample(MultiSourceTargetProjection):
+    """Verified canonical/raw binding consumed by the production collator."""
+
+    raw_graph: Any
+    raw_graph_fingerprint: str
+    _binding_token: object | None = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
+
+    def __post_init__(self) -> None:
+        MultiSourceTargetProjection.__post_init__(self)
+        if self._binding_token is not _RAW_GRAPH_BINDING_TOKEN:
+            raise MultiSourceContractError(
+                "MultiSourceSample must be created by a verified preparation "
+                "factory"
+            )
+        if (
+            not isinstance(self.raw_graph_fingerprint, str)
+            or len(self.raw_graph_fingerprint) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in self.raw_graph_fingerprint
+            )
+        ):
+            raise MultiSourceContractError(
+                "sample raw graph fingerprint must be lowercase SHA-256"
+            )
+        try:
+            current = graph_fingerprint(self.raw_graph)
+        except GraphContractError as exc:
+            raise MultiSourceContractError(
+                f"sample raw graph violates the production contract: {exc}"
+            ) from exc
+        if current != self.raw_graph_fingerprint:
+            raise MultiSourceContractError(
+                "multisource.raw_graph_binding_mismatch: sample raw graph "
+                "differs from its immutable preparation fingerprint"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class TargetDiagnostic:
     """Machine-readable CPU-side diagnostic for one tensorized target row."""
 
@@ -317,7 +367,7 @@ class BatchTarget:
     encoding_kind: str
     model_ready: bool
     deferred_reason: str | None
-    standard_bce_eligible: bool
+    supervision_regime: str
     values: Any
     availability_mask: torch.Tensor
     entity_indices: torch.Tensor
@@ -341,14 +391,14 @@ class BatchTarget:
             self.encoding_kind,
             self.model_ready,
             self.deferred_reason,
-            self.standard_bce_eligible,
+            self.supervision_regime,
         )
         actual_encoding = (
             encoding.registry_version,
             encoding.encoding_kind,
             encoding.model_ready,
             encoding.deferred_reason,
-            encoding.standard_bce_eligible,
+            encoding.supervision_regime,
         )
         if expected_encoding != actual_encoding:
             raise MultiSourceContractError(
@@ -525,15 +575,9 @@ class BatchTarget:
     def supervision_eligibility_mask(self) -> torch.Tensor:
         """Rows eligible for a future task-specific objective."""
 
-        return self.availability_mask & self.entity_index_mask
-
-    @property
-    def standard_bce_eligibility_mask(self) -> torch.Tensor:
-        """Rows eligible for ordinary BCE, excluding PU/deferred encodings."""
-
-        if not self.standard_bce_eligible or not self.model_ready:
+        if not self.model_ready:
             return torch.zeros_like(self.availability_mask)
-        return self.supervision_eligibility_mask
+        return self.availability_mask & self.entity_index_mask
 
 
 @dataclass(frozen=True, slots=True)
@@ -544,9 +588,12 @@ class TaskBatchStatistics:
     source_entry_count: int
     target_row_count: int
     aligned_available_count: int
-    available_unaligned_count: int
-    masked_count: int
-    conflict_count: int
+    available_unaligned_row_count: int
+    masked_row_count: int
+    conflict_row_count: int
+    model_encodable_row_count: int
+    supervision_eligible_row_count: int
+    deferred_open_vocabulary_row_count: int
     node_type_counts: tuple[tuple[str, int], ...]
     model_ready: bool
 
@@ -559,9 +606,12 @@ class TaskBatchStatistics:
             self.source_entry_count,
             self.target_row_count,
             self.aligned_available_count,
-            self.available_unaligned_count,
-            self.masked_count,
-            self.conflict_count,
+            self.available_unaligned_row_count,
+            self.masked_row_count,
+            self.conflict_row_count,
+            self.model_encodable_row_count,
+            self.supervision_eligible_row_count,
+            self.deferred_open_vocabulary_row_count,
         )
         if any(
             isinstance(value, bool) or not isinstance(value, int) or value < 0
@@ -572,16 +622,30 @@ class TaskBatchStatistics:
             )
         if (
             self.aligned_available_count
-            + self.available_unaligned_count
-            + self.masked_count
+            + self.available_unaligned_row_count
+            + self.masked_row_count
+            + self.conflict_row_count
             != self.target_row_count
         ):
             raise MultiSourceContractError(
-                "task target rows must partition into aligned, unaligned, and masked"
+                "task target rows must partition into aligned, unaligned, "
+                "masked, and conflict rows"
             )
         if self.model_ready != TARGET_ENCODING_BY_TASK[self.task_id].model_ready:
             raise MultiSourceContractError(
                 "task statistics model readiness differs from encoding registry"
+            )
+        expected_encodable = self.target_row_count if self.model_ready else 0
+        expected_deferred = 0 if self.model_ready else self.target_row_count
+        if (
+            self.model_encodable_row_count != expected_encodable
+            or self.deferred_open_vocabulary_row_count != expected_deferred
+            or self.supervision_eligible_row_count
+            > self.aligned_available_count
+        ):
+            raise MultiSourceContractError(
+                "task encodable, supervision-eligible, or deferred counts "
+                "are inconsistent"
             )
         if tuple(key for key, _ in self.node_type_counts) != tuple(
             sorted(key for key, _ in self.node_type_counts)
@@ -616,14 +680,15 @@ class BatchStatistics:
     source_target_entry_count: int
     target_row_count: int
     aligned_available_count: int
-    available_unaligned_count: int
-    masked_count: int
-    conflict_count: int
+    available_unaligned_row_count: int
+    masked_row_count: int
+    conflict_row_count: int
     node_type_counts: tuple[tuple[str, int], ...]
     task_counts: tuple[TaskBatchStatistics, ...]
     model_ready_task_count: int
     deferred_open_vocabulary_task_count: int
-    model_ready_row_count: int
+    model_encodable_row_count: int
+    supervision_eligible_row_count: int
     deferred_open_vocabulary_row_count: int
 
     def __post_init__(self) -> None:
@@ -633,12 +698,13 @@ class BatchStatistics:
             self.source_target_entry_count,
             self.target_row_count,
             self.aligned_available_count,
-            self.available_unaligned_count,
-            self.masked_count,
-            self.conflict_count,
+            self.available_unaligned_row_count,
+            self.masked_row_count,
+            self.conflict_row_count,
             self.model_ready_task_count,
             self.deferred_open_vocabulary_task_count,
-            self.model_ready_row_count,
+            self.model_encodable_row_count,
+            self.supervision_eligible_row_count,
             self.deferred_open_vocabulary_row_count,
         )
         if any(
@@ -690,12 +756,14 @@ class BatchStatistics:
             "aligned_available_count": sum(
                 item.aligned_available_count for item in self.task_counts
             ),
-            "available_unaligned_count": sum(
-                item.available_unaligned_count for item in self.task_counts
+            "available_unaligned_row_count": sum(
+                item.available_unaligned_row_count for item in self.task_counts
             ),
-            "masked_count": sum(item.masked_count for item in self.task_counts),
-            "conflict_count": sum(
-                item.conflict_count for item in self.task_counts
+            "masked_row_count": sum(
+                item.masked_row_count for item in self.task_counts
+            ),
+            "conflict_row_count": sum(
+                item.conflict_row_count for item in self.task_counts
             ),
             "model_ready_task_count": sum(
                 item.model_ready for item in self.task_counts
@@ -703,15 +771,16 @@ class BatchStatistics:
             "deferred_open_vocabulary_task_count": sum(
                 not item.model_ready for item in self.task_counts
             ),
-            "model_ready_row_count": sum(
-                item.target_row_count
+            "model_encodable_row_count": sum(
+                item.model_encodable_row_count for item in self.task_counts
+            ),
+            "supervision_eligible_row_count": sum(
+                item.supervision_eligible_row_count
                 for item in self.task_counts
-                if item.model_ready
             ),
             "deferred_open_vocabulary_row_count": sum(
-                item.target_row_count
+                item.deferred_open_vocabulary_row_count
                 for item in self.task_counts
-                if not item.model_ready
             ),
         }
         for name, expected in totals.items():
@@ -854,10 +923,19 @@ class MultiSourceBatch:
                     ).items()
                 )
             )
-            conflict_count = sum(
-                diagnostic.code == "multisource.alignment_conflict"
+            conflict_flags = tuple(
+                any(
+                    diagnostic.code == "multisource.alignment_conflict"
+                    for diagnostic in diagnostics
+                )
                 for diagnostics in target.diagnostics_cpu
-                for diagnostic in diagnostics
+            )
+            conflict_count = sum(conflict_flags)
+            masked_count = sum(
+                not available and not conflict
+                for available, conflict in zip(
+                    target.availability_mask.tolist(), conflict_flags
+                )
             )
             expected_task_statistics = (
                 target.task_id,
@@ -865,8 +943,11 @@ class MultiSourceBatch:
                 target.entry_count,
                 int(aligned.sum().item()),
                 int(unaligned.sum().item()),
-                int((~target.availability_mask).sum().item()),
+                masked_count,
                 conflict_count,
+                target.entry_count if target.model_ready else 0,
+                int(target.supervision_eligibility_mask.sum().item()),
+                0 if target.model_ready else target.entry_count,
                 node_type_counts,
                 target.model_ready,
             )
@@ -875,9 +956,12 @@ class MultiSourceBatch:
                 task_statistics.source_entry_count,
                 task_statistics.target_row_count,
                 task_statistics.aligned_available_count,
-                task_statistics.available_unaligned_count,
-                task_statistics.masked_count,
-                task_statistics.conflict_count,
+                task_statistics.available_unaligned_row_count,
+                task_statistics.masked_row_count,
+                task_statistics.conflict_row_count,
+                task_statistics.model_encodable_row_count,
+                task_statistics.supervision_eligible_row_count,
+                task_statistics.deferred_open_vocabulary_row_count,
                 task_statistics.node_type_counts,
                 task_statistics.model_ready,
             )
@@ -1044,13 +1128,12 @@ def _target_provenance(
     )
 
 
-def build_multisource_sample(
+def project_multisource_targets(
     piece: CanonicalPiece,
-    raw_graph: Any,
     *,
     lineage_group_id: str | None = None,
-) -> MultiSourceSample:
-    """Project targets while treating ``lineage_group_id`` as an assertion.
+) -> MultiSourceTargetProjection:
+    """Project target-only audit evidence without constructing a raw graph.
 
     Canonical provenance wins when it supplies lineage. Sources without
     authoritative lineage fall back to ``piece.source_group_id``. An explicit
@@ -1074,9 +1157,8 @@ def build_multisource_sample(
             key=lambda target: target.task_id,
         )
     )
-    return MultiSourceSample(
+    return MultiSourceTargetProjection(
         canonical_piece=piece,
-        raw_graph=raw_graph,
         dataset_id=piece.dataset_name,
         piece_id=piece.piece_id,
         source_group_id=piece.source_group_id,
@@ -1085,6 +1167,84 @@ def build_multisource_sample(
         target_availability=_availability(targets),
         target_provenance_sidecar=_target_provenance(piece, targets),
         diagnostics=piece.quality_flags,
+    )
+
+
+def _sample_from_projection(
+    projection: MultiSourceTargetProjection,
+    *,
+    raw_graph: Any,
+    raw_graph_fingerprint: str,
+) -> MultiSourceSample:
+    return MultiSourceSample(
+        canonical_piece=projection.canonical_piece,
+        dataset_id=projection.dataset_id,
+        piece_id=projection.piece_id,
+        source_group_id=projection.source_group_id,
+        lineage_group_id=projection.lineage_group_id,
+        target_bundle=projection.target_bundle,
+        target_availability=projection.target_availability,
+        target_provenance_sidecar=projection.target_provenance_sidecar,
+        diagnostics=projection.diagnostics,
+        raw_graph=raw_graph,
+        raw_graph_fingerprint=raw_graph_fingerprint,
+        _binding_token=_RAW_GRAPH_BINDING_TOKEN,
+    )
+
+
+def prepare_multisource_sample(
+    piece: CanonicalPiece,
+    *,
+    lineage_group_id: str | None = None,
+) -> MultiSourceSample:
+    """Build and bind the exact Phase 3A raw graph for production collation."""
+
+    projection = project_multisource_targets(
+        piece,
+        lineage_group_id=lineage_group_id,
+    )
+    raw_graph = build_raw_graph(piece)
+    return _sample_from_projection(
+        projection,
+        raw_graph=raw_graph,
+        raw_graph_fingerprint=graph_fingerprint(raw_graph),
+    )
+
+
+def build_multisource_sample(
+    piece: CanonicalPiece,
+    raw_graph: Any,
+    *,
+    lineage_group_id: str | None = None,
+) -> MultiSourceSample:
+    """Verify an externally built graph against a fresh Phase 3A projection.
+
+    Prefer :func:`prepare_multisource_sample` in production. This compatibility
+    factory has no verification bypass: it builds the expected raw graph and
+    compares complete deterministic graph fingerprints before binding.
+    """
+
+    projection = project_multisource_targets(
+        piece,
+        lineage_group_id=lineage_group_id,
+    )
+    expected_graph = build_raw_graph(piece)
+    expected_fingerprint = graph_fingerprint(expected_graph)
+    try:
+        actual_fingerprint = graph_fingerprint(raw_graph)
+    except GraphContractError as exc:
+        raise MultiSourceContractError(
+            f"external raw graph violates the production contract: {exc}"
+        ) from exc
+    if actual_fingerprint != expected_fingerprint:
+        raise MultiSourceContractError(
+            "multisource.raw_graph_binding_mismatch: external raw graph is not "
+            "the exact Phase 3A projection of the canonical piece"
+        )
+    return _sample_from_projection(
+        projection,
+        raw_graph=raw_graph,
+        raw_graph_fingerprint=actual_fingerprint,
     )
 
 
@@ -1225,6 +1385,7 @@ __all__ = [
     "MultiSourceBatch",
     "MultiSourceContractError",
     "MultiSourceSample",
+    "MultiSourceTargetProjection",
     "SampleTarget",
     "TargetDiagnostic",
     "TargetRowProvenance",
@@ -1232,5 +1393,7 @@ __all__ = [
     "TaskAvailability",
     "build_multisource_sample",
     "deterministic_group_order",
+    "prepare_multisource_sample",
+    "project_multisource_targets",
     "validate_group_assignments",
 ]

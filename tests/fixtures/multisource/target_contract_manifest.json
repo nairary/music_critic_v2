@@ -1,21 +1,21 @@
 {
   "audit_schema_version": "1.1.0",
   "contract_source_sha256": {
-    "docs/HARMONIC_SUPERVISION.md": "9e73163f2b2b559e44aebef086ccbdbcae5f9018261a71e5b08a5e331dc92518",
-    "docs/MULTISOURCE_COLLATOR.md": "57285099d9f6bcd5fb19389f5dcd831b01a95a1846d176535a593a282b5186e3",
-    "docs/MULTISOURCE_TARGET_CONTRACT.md": "b3291754dada621b23c7bd6205b32f7f8bc9880e80f83c3c7b01f051e1d88dea",
+    "docs/HARMONIC_SUPERVISION.md": "46cb76dc6630df1a9f86bd6c9b26c77603d7cb1a46a2c624c5bf2970ee7180b1",
+    "docs/MULTISOURCE_COLLATOR.md": "1479d4a918db86f07132341651ca2be611793a22b814590e402783d6ef5adcdf",
+    "docs/MULTISOURCE_TARGET_CONTRACT.md": "3429023f7699639eed925d15b503312bbd4ff4b8b879a2d69a0960c54b099cd8",
     "docs/POP909_CL_ADAPTER_CONTRACT.md": "42732a2da34c59dfa407ca4db2b969e78e9aa1506ee2e63a8abeed228c39736f",
-    "scripts/audit_multisource_targets.py": "956172f8109c1e8b4e8f36bccfbe40ea0344d6a4f4c8af20e2043bfe1512927c",
-    "scripts/benchmark_multisource_collator.py": "26f1a0f8c67fded6a00ed47acd611321868db48fd49da473c46ae57da22dbe00",
+    "scripts/audit_multisource_targets.py": "cda2585659fa6b33269b1eea1c221889aec222696bfccbbf8fdeccf61940ffac",
+    "scripts/benchmark_multisource_collator.py": "5ce320a3f1b634369cec689600e6b0b4d30278890a42b9f778f57efdb6279146",
     "src/music_critic/adapters/hooktheory.py": "5fccd80b7b21656d0aafe69678ec5dac73271e79d4e6f4f24ee79eb9b471c9c2",
     "src/music_critic/adapters/pop909_cl.py": "acd72846531fe83e608d1d963f2fc28c27f58ca892004a7fdb92b5d09e5d7a34",
     "src/music_critic/data/schema.py": "b4abb10bd813bae4c04370fbd5e1d68752a97a9cbd6aa3d7f7a9e9c6f1bc49e8",
     "src/music_critic/graph/builder.py": "ccf423169631d4bb12295b92b4403625902eb1ded9478165f2ebc23d836fab65",
     "src/music_critic/graph/validation.py": "8de80cbf5929507da727293751aaba723d4256a5bc65aa0309b968873ffafa99",
-    "src/music_critic/tasks/alignment.py": "8bc02d16dbe34b38d2cd0a614cb583e93e645e01ef1c860bc3440e1ea8e8d4f0",
-    "src/music_critic/tasks/collator.py": "73bdf8f8b2684545706f33a3e71397686f3cecc2b77c75e4df751091bf275ae9",
-    "src/music_critic/tasks/encoding.py": "177a095899d06d767fab967837452af835b41e1852fa73da409a8c83df95f278",
-    "src/music_critic/tasks/multisource.py": "e975298b8acd484a9333a6c40080132e884c20ec4cdb93e39af95c8fc04c4fe7",
+    "src/music_critic/tasks/alignment.py": "5317711803a398ed6429e7d2a25f755cacfb2ce011b142c5ce78578de2059150",
+    "src/music_critic/tasks/collator.py": "34ce0060cffd7366418052552883d3c250715a200c213ed4b829ecdf5b3e0505",
+    "src/music_critic/tasks/encoding.py": "92bcf3108ab47adccfdac02405662077d44a5f8737f5b8f47278d1348f83a8c0",
+    "src/music_critic/tasks/multisource.py": "4f9ce4fb75387ba8880d86692459367812830aedcc199b4923d802777522eb27",
     "src/music_critic/tasks/ontology.py": "173a37bef55ad404eaafc3ff422b26aeec93b556553af01f68fa78973c14074e",
     "tests/fixtures/hooktheory/golden_manifest.json": "a051f9ddc5ea7047200a1f94b2db6b1d3deb2ab15a2284827c704fb7681b1d0e",
     "tests/fixtures/pop909_cl/production_manifest.json": "631873cac3ae0ff03b1f17a3d933f83954ed0da2a9bcf53e334bf5d7a6cd308a"
@@ -1928,7 +1928,7 @@
         "model_ready": true,
         "registry_version": "1.0.0",
         "shape": "[N]",
-        "standard_bce_eligible": true,
+        "supervision_regime": "fully_supervised",
         "task_id": "pop909_cl.chord.bass",
         "unavailable_sentinel": -1,
         "vocabulary": [
@@ -1953,7 +1953,7 @@
         "model_ready": true,
         "registry_version": "1.0.0",
         "shape": "[N]",
-        "standard_bce_eligible": false,
+        "supervision_regime": "positive_unlabeled",
         "task_id": "pop909_cl.chord.boundary",
         "unavailable_sentinel": -1,
         "vocabulary": [
@@ -1967,7 +1967,7 @@
         "model_ready": true,
         "registry_version": "1.0.0",
         "shape": "[N]",
-        "standard_bce_eligible": true,
+        "supervision_regime": "fully_supervised",
         "task_id": "pop909_cl.chord.inversion",
         "unavailable_sentinel": -1,
         "vocabulary": [
@@ -1992,7 +1992,7 @@
         "model_ready": true,
         "registry_version": "1.0.0",
         "shape": "[N]",
-        "standard_bce_eligible": true,
+        "supervision_regime": "fully_supervised",
         "task_id": "pop909_cl.chord.no_chord",
         "unavailable_sentinel": -1,
         "vocabulary": [
@@ -2006,7 +2006,7 @@
         "model_ready": true,
         "registry_version": "1.0.0",
         "shape": "[N]",
-        "standard_bce_eligible": true,
+        "supervision_regime": "fully_supervised",
         "task_id": "pop909_cl.chord.quality",
         "unavailable_sentinel": -1,
         "vocabulary": [
@@ -2032,7 +2032,7 @@
         "model_ready": true,
         "registry_version": "1.0.0",
         "shape": "[N]",
-        "standard_bce_eligible": true,
+        "supervision_regime": "fully_supervised",
         "task_id": "pop909_cl.chord.root",
         "unavailable_sentinel": -1,
         "vocabulary": [
@@ -2057,7 +2057,7 @@
         "model_ready": true,
         "registry_version": "1.0.0",
         "shape": "[N, C]",
-        "standard_bce_eligible": true,
+        "supervision_regime": "fully_supervised",
         "task_id": "theory.chord.adds",
         "unavailable_sentinel": false,
         "vocabulary": [
@@ -2073,7 +2073,7 @@
         "model_ready": true,
         "registry_version": "1.0.0",
         "shape": "[N, C]",
-        "standard_bce_eligible": true,
+        "supervision_regime": "fully_supervised",
         "task_id": "theory.chord.alterations",
         "unavailable_sentinel": false,
         "vocabulary": [
@@ -2092,7 +2092,7 @@
         "model_ready": false,
         "registry_version": "1.0.0",
         "shape": "[N] CPU",
-        "standard_bce_eligible": false,
+        "supervision_regime": "deferred_open_vocabulary",
         "task_id": "theory.chord.borrowed",
         "unavailable_sentinel": null,
         "vocabulary": null
@@ -2104,7 +2104,7 @@
         "model_ready": true,
         "registry_version": "1.0.0",
         "shape": "[N]",
-        "standard_bce_eligible": true,
+        "supervision_regime": "fully_supervised",
         "task_id": "theory.chord.extent",
         "unavailable_sentinel": -1,
         "vocabulary": [
@@ -2122,7 +2122,7 @@
         "model_ready": true,
         "registry_version": "1.0.0",
         "shape": "[N]",
-        "standard_bce_eligible": true,
+        "supervision_regime": "fully_supervised",
         "task_id": "theory.chord.inversion",
         "unavailable_sentinel": -1,
         "vocabulary": [
@@ -2139,7 +2139,7 @@
         "model_ready": true,
         "registry_version": "1.0.0",
         "shape": "[N, C]",
-        "standard_bce_eligible": true,
+        "supervision_regime": "fully_supervised",
         "task_id": "theory.chord.omits",
         "unavailable_sentinel": false,
         "vocabulary": [
@@ -2154,7 +2154,7 @@
         "model_ready": true,
         "registry_version": "1.0.0",
         "shape": "[N]",
-        "standard_bce_eligible": true,
+        "supervision_regime": "fully_supervised",
         "task_id": "theory.chord.presence",
         "unavailable_sentinel": -1,
         "vocabulary": [
@@ -2169,7 +2169,7 @@
         "model_ready": true,
         "registry_version": "1.0.0",
         "shape": "[N]",
-        "standard_bce_eligible": true,
+        "supervision_regime": "fully_supervised",
         "task_id": "theory.chord.root_degree",
         "unavailable_sentinel": -1,
         "vocabulary": [
@@ -2190,7 +2190,7 @@
         "model_ready": true,
         "registry_version": "1.0.0",
         "shape": "[N, C]",
-        "standard_bce_eligible": true,
+        "supervision_regime": "fully_supervised",
         "task_id": "theory.chord.suspensions",
         "unavailable_sentinel": false,
         "vocabulary": [
@@ -2205,7 +2205,7 @@
         "model_ready": false,
         "registry_version": "1.0.0",
         "shape": "[N] CPU",
-        "standard_bce_eligible": false,
+        "supervision_regime": "deferred_open_vocabulary",
         "task_id": "theory.local_key.mode",
         "unavailable_sentinel": null,
         "vocabulary": null
@@ -2217,7 +2217,7 @@
         "model_ready": true,
         "registry_version": "1.0.0",
         "shape": "[N]",
-        "standard_bce_eligible": true,
+        "supervision_regime": "fully_supervised",
         "task_id": "theory.local_key.tonic_pc",
         "unavailable_sentinel": -1,
         "vocabulary": [
@@ -2242,7 +2242,7 @@
         "model_ready": true,
         "registry_version": "1.0.0",
         "shape": "[N]",
-        "standard_bce_eligible": true,
+        "supervision_regime": "fully_supervised",
         "task_id": "theory.melody.scale_degree",
         "unavailable_sentinel": -1,
         "vocabulary": [
@@ -2286,7 +2286,7 @@
     ],
     "target_encoding_registry_version": "1.0.0"
   },
-  "target_encoding_fingerprint": "57515f491fd23246c13b776db5f4085c1c438ffa55d707afbcd9fdf9e9d52931",
+  "target_encoding_fingerprint": "76896b3f7c1f85be6e7edc6fbdf6103c4ce1b84f2321bade36744fca7097d7d5",
   "versions": {
     "canonical_schema": "2.0.0",
     "graph_builder": "1.0.0",

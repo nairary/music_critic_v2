@@ -194,12 +194,18 @@ Target ontology `1.0.0` is implemented in `music_critic.tasks` and specified by
 POP909-CL source-native families. No current cross-source pair is declared
 exact or accepted as a lossless derived subset.
 
-`MultiSourceSample` binds the validated canonical piece and raw graph to
-dataset/piece/group/lineage identity and separate target, availability,
-provenance, confidence, and diagnostic sidecars. Phase 5B.1 implements exact
-alignment, target encoding registry `1.0.0`, tensorization, and production
-collation. The PyG batch remains raw-only; target values and alignment indices
-never enter graph global, node, or edge stores. A batch-aware validator adapts
+`prepare_multisource_sample` builds the Phase 3A graph from the validated
+canonical piece and stores a complete graph fingerprint in the immutable
+`MultiSourceSample` sidecar. The external-graph factory proves equality to a
+fresh canonical projection and exposes no verification bypass. The collator
+recomputes the fingerprint to reject feature or topology mutation after
+preparation. Graph-free `MultiSourceTargetProjection` is used only for target
+inventory audits. No binding is stored in PyG.
+
+Phase 5B.1 implements indexed exact alignment, target encoding registry
+`1.0.0`, tensorization, and production collation. The PyG batch remains
+raw-only; target values and alignment indices never enter graph global, node,
+or edge stores. A batch-aware validator adapts
 the exact Phase 3A allowlists to normal PyG collation: only node-level `batch`
 and `ptr` are additionally allowed, version/raw-only metadata is checked per
 source graph, and combined shapes, offsets, endpoints, and reconstructed
@@ -208,15 +214,19 @@ through PyG `ptr` and are checked against the typed `batch` vector. HookTheory
 retains melody-conditioned supervision, POP909-CL retains score-conditioned
 recognition, and raw MIDI may have an entirely empty target bundle.
 
-Alignment policies are task-declarative and exact: note identity; half-open
-containment of onset points and beat/bar start anchors; exact span-start
-boundary events; and explicitly available coverage spans. Every aligned index
-has an explicit node type. Equal multi-span values merge, conflicts are masked
-with a stable diagnostic, and unmatched boundary events are retained with a
-masked index rather than snapped. POP909-CL boundary supervision is
-positive-unlabeled and defines no synthetic absent class. Masked, absent,
-ambiguous, unsupported, trailing-uncovered, and available no-chord states
-remain distinct.
+One immutable per-piece `AlignmentIndex` provides O(1) note/annotation and
+exact-time mappings plus sorted rational onset/beat/bar candidates. Half-open
+span lookup uses bisect, so fixed-registry alignment is
+`O(piece entities + target entries * log candidates + emitted rows)`, with no
+repeated complete scans inside a source-entry loop. Alignment policies remain
+task-declarative and exact: note identity; half-open containment of onset
+points and beat/bar start anchors; exact span-start boundary events; and
+explicitly available coverage spans. Every aligned index has an explicit node
+type. Equal multi-span values merge, conflicts are masked with a stable
+diagnostic, and unmatched boundary events are retained with a masked index
+rather than snapped. POP909-CL boundary supervision is positive-unlabeled and
+defines no synthetic absent class. Masked, absent, ambiguous, unsupported,
+trailing-uncovered, and available no-chord states remain distinct.
 
 Grouping resolves authoritative lineage from provenance, using the canonical
 source group only as an explicit fallback. Any override is an equality
@@ -228,10 +238,14 @@ unassigned `split=None` record, and every dataset piece has one assignment.
 Closed categorical sidecars use ontology-order `torch.long` indices with
 masked sentinel `-1`; closed multilabel sidecars use `torch.bool [N, C]`.
 Open strings remain lossless CPU tuples and are explicitly not model-ready.
-Source availability and successful entity alignment are independent masks, so
-future loss eligibility requires both. Deterministic CPU statistics distinguish
-source annotations from candidate-expanded rows. Corpus indexing, mixture
-sampling, worker-safe loading, models, and losses remain outside Phase 5B.1.
+Encoding metadata selects only a value representation, not a loss.
+`supervision_regime` distinguishes fully supervised, positive-unlabeled, and
+deferred open-vocabulary semantics. Source availability, successful entity
+alignment, and model readiness jointly define future supervision eligibility.
+Deterministic CPU statistics distinguish model-encodable from
+supervision-eligible rows and separately count masked, unaligned, conflict,
+and deferred rows. Corpus indexing, mixture sampling, worker-safe loading,
+models, and losses remain outside Phase 5B.1.
 
 ## Optional semantic predictions
 

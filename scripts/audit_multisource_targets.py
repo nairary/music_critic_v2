@@ -21,9 +21,9 @@ from music_critic.tasks import (
     TARGET_FAMILIES,
     TARGET_ENCODING_REGISTRY_VERSION,
     TARGET_ONTOLOGY_VERSION,
-    build_multisource_sample,
     ontology_contract_dict,
     ontology_contract_fingerprint,
+    project_multisource_targets,
     target_encoding_contract_dict,
     target_encoding_contract_fingerprint,
 )
@@ -166,7 +166,7 @@ def _hooktheory_inventory(repo_root: Path) -> dict[str, Any]:
             structure_row=structure_row,
             source_path="4_merged.json",
         )
-        sample = build_multisource_sample(piece, raw_graph=object())
+        sample = project_multisource_targets(piece)
         converted += 1
         diagnostics.update(flag.code for flag in sample.diagnostics)
         for target in sample.target_bundle:

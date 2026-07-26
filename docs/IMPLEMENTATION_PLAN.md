@@ -2452,7 +2452,14 @@ structure and is converted to `float32` only at feature-tensor construction.
 ### Phase 5B.1. Exact alignment, tensorization, and production collator
 
 - Status: Completed.
-- Bind each prepared sample to its validated canonical piece and raw graph.
+- Build one immutable per-piece alignment index with O(1) note/annotation and
+  exact-time mappings plus sorted rational candidate times. Use bisect for
+  half-open spans, for total fixed-registry complexity
+  `O(piece entities + target entries * log candidates + emitted rows)`.
+- Prepare production samples by building the Phase 3A raw graph internally and
+  storing its immutable fingerprint. Verify external graphs against a fresh
+  canonical projection and reject any post-preparation graph mutation during
+  collation; target-only audit projections contain no placeholder graph.
 - Align notes by exact entity identity; expand spans to exact onset points and
   beat/bar start anchors under half-open containment; align boundaries only at
   exact event time.
@@ -2461,14 +2468,22 @@ structure and is converted to `float32` only at feature-tensor construction.
   `multisource.alignment_conflict`.
 - Encode all 18 independent tasks through target encoding registry `1.0.0`:
   closed categorical `long [N]`, closed multilabel `bool [N, C]`, and lossless
-  deferred open-string CPU values.
+  deferred open-string CPU values. The registry records fully supervised,
+  positive-unlabeled, or deferred-open-vocabulary semantics but selects no
+  concrete loss.
 - Collate raw graphs with normal PyG `Batch`, translate local indices with the
   node-type-specific `ptr`, verify the corresponding `batch` vector, and keep
   every target/provenance/diagnostic field outside PyG stores.
 - Emit strict immutable target/batch contracts and deterministic statistics
-  that distinguish source annotation count from candidate-expanded row count.
-- Preserve POP909-CL boundary as positive-unlabeled positives only, with
-  ordinary BCE explicitly ineligible.
+  that distinguish source annotation count, candidate-expanded row count,
+  model-encodable rows, supervision-eligible rows, masked rows, unaligned
+  rows, conflicts, and deferred open-vocabulary rows.
+- Preserve POP909-CL boundary as positive-unlabeled positives only. Phase 6
+  chooses a PU-compatible objective or disables the task.
+- Keep the raw-only benchmark as a separate graph baseline and provide
+  small/medium/large target-heavy evidence with index, lookup, emitted-row,
+  complete-collation, and operation-count measurements. Only the small
+  instrumentation regression belongs in default CI.
 
 ### Phase 5B.2. Corpus dataset, mixture sampler, and worker-safe loading
 
@@ -2484,7 +2499,8 @@ structure and is converted to `float32` only at feature-tensor construction.
 
 - Phase 5B.1: one mixed HookTheory/POP909-CL/raw-only batch contains all stable
   task sidecars; missing, masked, conflicting, and unaligned entries are not
-  loss-eligible; repeated ordered collation is deterministic.
+  supervision-eligible; repeated ordered collation is deterministic and raw
+  graph mutation after preparation is rejected.
 - Phase 5B.2: bounded corpus datasets and worker processes reproduce a
   deterministic, lineage-safe mixture without loading or splitting leakage.
 - POP909-CL boundary loss is enabled only with an explicit PU-compatible

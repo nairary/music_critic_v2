@@ -1,11 +1,20 @@
-"""Exact canonical target alignment for Phase 5B.1."""
+"""Indexed exact canonical target alignment for Phase 5B.1."""
 
 from __future__ import annotations
 
+from bisect import bisect_left
 from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Mapping
+
 from torch_geometric.data import HeteroData
 
-from music_critic.data import CanonicalPiece, RationalTime, validate_piece
+from music_critic.data import (
+    AnnotationSpan,
+    CanonicalPiece,
+    RationalTime,
+    validate_piece,
+)
 from music_critic.graph import GraphContractError, validate_raw_graph
 from music_critic.tasks.multisource import (
     MultiSourceContractError,
@@ -22,6 +31,98 @@ ALIGNMENT_CONFLICT_DIAGNOSTIC = "multisource.alignment_conflict"
 
 class TargetAlignmentError(MultiSourceContractError):
     """Raised when canonical targets cannot be aligned exactly and safely."""
+
+
+@dataclass(slots=True)
+class AlignmentOperationCounts:
+    """Optional non-timing evidence for indexed alignment complexity."""
+
+    index_build_count: int = 0
+    note_index_entry_count: int = 0
+    annotation_index_entry_count: int = 0
+    candidate_index_entry_count: int = 0
+    source_entry_lookup_count: int = 0
+    note_identity_lookup_count: int = 0
+    annotation_lookup_count: int = 0
+    exact_time_lookup_count: int = 0
+    span_bisect_count: int = 0
+    candidate_match_count: int = 0
+    merge_candidate_slot_visit_count: int = 0
+    emitted_row_count: int = 0
+
+    def as_sorted_pairs(self) -> tuple[tuple[str, int], ...]:
+        """Return an immutable deterministic benchmark representation."""
+
+        return tuple(
+            sorted(
+                (name, int(getattr(self, name)))
+                for name in self.__dataclass_fields__
+            )
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateTimeIndex:
+    """Immutable sorted/exact lookup for one temporal raw node store."""
+
+    node_type: str
+    times: tuple[RationalTime, ...]
+    local_indices: tuple[int, ...]
+    exact_indices_by_time: Mapping[RationalTime, tuple[int, ...]]
+
+    def __post_init__(self) -> None:
+        if self.node_type not in {"onset", "beat", "bar"}:
+            raise TargetAlignmentError(
+                "candidate time index has an unsupported node type"
+            )
+        if len(self.times) != len(self.local_indices):
+            raise TargetAlignmentError(
+                "candidate time/index arrays must have equal length"
+            )
+        if tuple(sorted(zip(self.times, self.local_indices))) != tuple(
+            zip(self.times, self.local_indices)
+        ):
+            raise TargetAlignmentError(
+                "candidate time/index arrays must use deterministic sorted order"
+            )
+        if not isinstance(self.exact_indices_by_time, MappingProxyType):
+            raise TargetAlignmentError(
+                "candidate exact-time lookup must be immutable"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class AlignmentIndex:
+    """One immutable, output-sensitive index over a canonical piece."""
+
+    canonical_piece: CanonicalPiece
+    note_index_by_id: Mapping[str, int]
+    annotation_by_id: Mapping[str, AnnotationSpan]
+    candidate_by_node_type: Mapping[str, CandidateTimeIndex]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.note_index_by_id, MappingProxyType):
+            raise TargetAlignmentError("note identity index must be immutable")
+        if not isinstance(self.annotation_by_id, MappingProxyType):
+            raise TargetAlignmentError("annotation index must be immutable")
+        if not isinstance(self.candidate_by_node_type, MappingProxyType):
+            raise TargetAlignmentError("candidate index mapping must be immutable")
+        if tuple(self.candidate_by_node_type) != ("onset", "beat", "bar"):
+            raise TargetAlignmentError(
+                "candidate indices must use onset/beat/bar contract order"
+            )
+
+    def local_indices(self, node_type: str) -> tuple[int, ...]:
+        """Return deterministic local indices for merge/output ordering."""
+
+        if node_type == "note":
+            return tuple(range(len(self.note_index_by_id)))
+        candidate = self.candidate_by_node_type.get(node_type)
+        if candidate is None:
+            raise TargetAlignmentError(
+                f"alignment index has no candidate store {node_type!r}"
+            )
+        return candidate.local_indices
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,11 +197,7 @@ def _expected_graph_entity_ids(
     }
 
 
-def _validate_alignment_inputs(
-    piece: CanonicalPiece,
-    raw_graph: HeteroData,
-    sample: MultiSourceSample,
-) -> None:
+def _validate_piece_for_alignment(piece: CanonicalPiece) -> None:
     report = validate_piece(piece)
     if report.errors:
         summary = ", ".join(
@@ -109,6 +206,14 @@ def _validate_alignment_inputs(
         raise TargetAlignmentError(
             f"exact target alignment requires a validated canonical piece: {summary}"
         )
+
+
+def _validate_alignment_inputs(
+    piece: CanonicalPiece,
+    raw_graph: HeteroData,
+    sample: MultiSourceSample,
+) -> None:
+    _validate_piece_for_alignment(piece)
     if sample.canonical_piece != piece:
         raise TargetAlignmentError(
             "alignment canonical piece differs from prepared sample"
@@ -131,6 +236,88 @@ def _validate_alignment_inputs(
             )
 
 
+def _candidate_time_index(
+    node_type: str,
+    candidates: tuple[tuple[RationalTime, int], ...],
+) -> CandidateTimeIndex:
+    ordered = tuple(sorted(candidates))
+    exact: dict[RationalTime, list[int]] = {}
+    for time, local_index in ordered:
+        exact.setdefault(time, []).append(local_index)
+    return CandidateTimeIndex(
+        node_type=node_type,
+        times=tuple(time for time, _ in ordered),
+        local_indices=tuple(local_index for _, local_index in ordered),
+        exact_indices_by_time=MappingProxyType(
+            {
+                time: tuple(local_indices)
+                for time, local_indices in exact.items()
+            }
+        ),
+    )
+
+
+def _build_alignment_index(
+    piece: CanonicalPiece,
+    *,
+    instrumentation: AlignmentOperationCounts | None,
+) -> AlignmentIndex:
+    note_index = {
+        note.note_id: index for index, note in enumerate(piece.notes)
+    }
+    annotation_index = {
+        annotation.annotation_id: annotation
+        for annotation in piece.annotations
+    }
+    candidates = {
+        "onset": _candidate_time_index(
+            "onset",
+            tuple(
+                (time, index)
+                for index, time in enumerate(_onset_times(piece))
+            ),
+        ),
+        "beat": _candidate_time_index(
+            "beat",
+            tuple(
+                (beat.start_qn, index)
+                for index, beat in enumerate(piece.beats)
+            ),
+        ),
+        "bar": _candidate_time_index(
+            "bar",
+            tuple(
+                (bar.start_qn, index)
+                for index, bar in enumerate(piece.bars)
+            ),
+        ),
+    }
+    if instrumentation is not None:
+        instrumentation.index_build_count += 1
+        instrumentation.note_index_entry_count += len(note_index)
+        instrumentation.annotation_index_entry_count += len(annotation_index)
+        instrumentation.candidate_index_entry_count += sum(
+            len(candidate.times) for candidate in candidates.values()
+        )
+    return AlignmentIndex(
+        canonical_piece=piece,
+        note_index_by_id=MappingProxyType(note_index),
+        annotation_by_id=MappingProxyType(annotation_index),
+        candidate_by_node_type=MappingProxyType(candidates),
+    )
+
+
+def build_alignment_index(
+    piece: CanonicalPiece,
+    *,
+    instrumentation: AlignmentOperationCounts | None = None,
+) -> AlignmentIndex:
+    """Build one validated immutable index in O(piece entities)."""
+
+    _validate_piece_for_alignment(piece)
+    return _build_alignment_index(piece, instrumentation=instrumentation)
+
+
 def _row_provenance(
     *,
     entity_id: str,
@@ -144,87 +331,79 @@ def _row_provenance(
     )
 
 
-def _candidate_maps(
-    piece: CanonicalPiece,
-) -> dict[str, tuple[tuple[RationalTime, int], ...]]:
-    return {
-        "onset": tuple(
-            (time, index) for index, time in enumerate(_onset_times(piece))
-        ),
-        "beat": tuple(
-            (beat.start_qn, index) for index, beat in enumerate(piece.beats)
-        ),
-        "bar": tuple(
-            (bar.start_qn, index) for index, bar in enumerate(piece.bars)
-        ),
-    }
-
-
 def _available_matches(
     *,
-    piece: CanonicalPiece,
+    alignment_index: AlignmentIndex,
     target: SampleTarget,
     source_index: int,
-    candidate_maps: dict[str, tuple[tuple[RationalTime, int], ...]],
+    instrumentation: AlignmentOperationCounts | None,
 ) -> tuple[tuple[str, int], ...]:
     spec = TARGET_FAMILY_BY_ID[target.task_id]
     entity_id = target.entity_ids[source_index]
+    if instrumentation is not None:
+        instrumentation.source_entry_lookup_count += 1
     if target.alignment_type == "note":
-        note_indices = {
-            note.note_id: index for index, note in enumerate(piece.notes)
-        }
-        note_index = note_indices.get(entity_id)
-        return (("note", note_index),) if note_index is not None else ()
+        if instrumentation is not None:
+            instrumentation.note_identity_lookup_count += 1
+        note_index = alignment_index.note_index_by_id.get(entity_id)
+        matches = (("note", note_index),) if note_index is not None else ()
+        if instrumentation is not None:
+            instrumentation.candidate_match_count += len(matches)
+        return matches
 
-    annotations = {
-        annotation.annotation_id: annotation for annotation in piece.annotations
-    }
-    annotation = annotations.get(entity_id)
+    if instrumentation is not None:
+        instrumentation.annotation_lookup_count += 1
+    annotation = alignment_index.annotation_by_id.get(entity_id)
     if annotation is None:
         raise TargetAlignmentError(
             f"available target entity {entity_id!r} has no canonical annotation"
         )
     matches: list[tuple[str, int]] = []
     for rule in spec.alignment_policy.candidate_rules:
-        candidates = candidate_maps.get(rule.node_type, ())
+        candidates = alignment_index.candidate_by_node_type[rule.node_type]
         if rule.match_rule == "exact_event_time":
+            if instrumentation is not None:
+                instrumentation.exact_time_lookup_count += 1
             matches.extend(
                 (rule.node_type, local_index)
-                for time, local_index in candidates
-                if time == annotation.start_qn
+                for local_index in candidates.exact_indices_by_time.get(
+                    annotation.start_qn, ()
+                )
             )
         elif rule.match_rule == "half_open_containment":
+            if instrumentation is not None:
+                instrumentation.span_bisect_count += 2
+            start = bisect_left(candidates.times, annotation.start_qn)
+            end = bisect_left(candidates.times, annotation.end_qn)
             matches.extend(
                 (rule.node_type, local_index)
-                for time, local_index in candidates
-                if annotation.start_qn <= time < annotation.end_qn
+                for local_index in candidates.local_indices[start:end]
             )
         else:
             raise TargetAlignmentError(
                 f"unsupported alignment rule {rule.match_rule!r}"
             )
+    if instrumentation is not None:
+        instrumentation.candidate_match_count += len(matches)
     return tuple(matches)
 
 
 def _merge_provenance(
     rows: tuple[AlignedTargetRow, ...],
 ) -> TargetRowProvenance:
-    ordered = tuple(
-        sorted(rows, key=lambda row: row.provenance.source_entity_ids)
-    )
     return TargetRowProvenance(
         source_entity_ids=tuple(
             entity_id
-            for row in ordered
+            for row in rows
             for entity_id in row.provenance.source_entity_ids
         ),
         provenance_ids=tuple(
             provenance_id
-            for row in ordered
+            for row in rows
             for provenance_id in row.provenance.provenance_ids
         ),
         sources=tuple(
-            source for row in ordered for source in row.provenance.sources
+            source for row in rows for source in row.provenance.sources
         ),
     )
 
@@ -232,14 +411,10 @@ def _merge_provenance(
 def _merge_available_aligned_rows(
     target: SampleTarget,
     rows: tuple[AlignedTargetRow, ...],
+    alignment_index: AlignmentIndex,
+    instrumentation: AlignmentOperationCounts | None,
 ) -> tuple[AlignedTargetRow, ...]:
     spec = TARGET_FAMILY_BY_ID[target.task_id]
-    node_order = {
-        node_type: index
-        for index, node_type in enumerate(
-            spec.alignment_policy.candidate_node_types
-        )
-    }
     aligned: dict[tuple[str, int], list[AlignedTargetRow]] = {}
     retained: list[AlignedTargetRow] = []
     for row in rows:
@@ -255,69 +430,68 @@ def _merge_available_aligned_rows(
             retained.append(row)
 
     merged: list[AlignedTargetRow] = []
-    for (node_type, local_index), candidates in sorted(
-        aligned.items(),
-        key=lambda item: (node_order[item[0][0]], item[0][1]),
-    ):
-        candidate_rows = tuple(candidates)
-        value = candidate_rows[0].value
-        values_equal = all(row.value == value for row in candidate_rows)
-        provenance = _merge_provenance(candidate_rows)
-        diagnostics = tuple(
-            diagnostic
-            for row in candidate_rows
-            for diagnostic in row.diagnostics
-        )
-        if values_equal:
-            confidences = {row.confidence for row in candidate_rows}
+    for node_type in spec.alignment_policy.candidate_node_types:
+        for local_index in alignment_index.local_indices(node_type):
+            if instrumentation is not None:
+                instrumentation.merge_candidate_slot_visit_count += 1
+            candidates = aligned.get((node_type, local_index))
+            if candidates is None:
+                continue
+            candidate_rows = tuple(candidates)
+            value = candidate_rows[0].value
+            values_equal = all(row.value == value for row in candidate_rows)
+            provenance = _merge_provenance(candidate_rows)
+            diagnostics = tuple(
+                diagnostic
+                for row in candidate_rows
+                for diagnostic in row.diagnostics
+            )
+            if values_equal:
+                confidences = {row.confidence for row in candidate_rows}
+                merged.append(
+                    AlignedTargetRow(
+                        value=value,
+                        availability=True,
+                        local_entity_index=local_index,
+                        entity_node_type=node_type,
+                        confidence=(
+                            next(iter(confidences))
+                            if len(confidences) == 1
+                            else None
+                        ),
+                        provenance=provenance,
+                        diagnostics=diagnostics,
+                    )
+                )
+                continue
+            conflict = TargetDiagnostic(
+                code=ALIGNMENT_CONFLICT_DIAGNOSTIC,
+                message=(
+                    f"conflicting available values for {target.task_id} at "
+                    f"{node_type}[{local_index}]"
+                ),
+                source_entity_ids=provenance.source_entity_ids,
+            )
             merged.append(
                 AlignedTargetRow(
-                    value=value,
-                    availability=True,
+                    value=None,
+                    availability=False,
                     local_entity_index=local_index,
                     entity_node_type=node_type,
-                    confidence=(
-                        next(iter(confidences)) if len(confidences) == 1 else None
-                    ),
+                    confidence=None,
                     provenance=provenance,
-                    diagnostics=diagnostics,
+                    diagnostics=(*diagnostics, conflict),
                 )
             )
-            continue
-        conflict = TargetDiagnostic(
-            code=ALIGNMENT_CONFLICT_DIAGNOSTIC,
-            message=(
-                f"conflicting available values for {target.task_id} at "
-                f"{node_type}[{local_index}]"
-            ),
-            source_entity_ids=provenance.source_entity_ids,
-        )
-        merged.append(
-            AlignedTargetRow(
-                value=None,
-                availability=False,
-                local_entity_index=local_index,
-                entity_node_type=node_type,
-                confidence=None,
-                provenance=provenance,
-                diagnostics=(*diagnostics, conflict),
-            )
-        )
 
-    retained.sort(
-        key=lambda row: (
-            row.provenance.source_entity_ids,
-            not row.availability,
-        )
-    )
     return (*merged, *retained)
 
 
 def _align_target(
     *,
-    piece: CanonicalPiece,
+    alignment_index: AlignmentIndex,
     target: SampleTarget,
-    candidate_maps: dict[str, tuple[tuple[RationalTime, int], ...]],
+    instrumentation: AlignmentOperationCounts | None,
 ) -> AlignedTargetFamily:
     rows: list[AlignedTargetRow] = []
     for source_index, entity_id in enumerate(target.entity_ids):
@@ -328,6 +502,8 @@ def _align_target(
             source=target.source[source_index],
         )
         if not available:
+            if instrumentation is not None:
+                instrumentation.source_entry_lookup_count += 1
             rows.append(
                 AlignedTargetRow(
                     value=None,
@@ -341,10 +517,10 @@ def _align_target(
             )
             continue
         matches = _available_matches(
-            piece=piece,
+            alignment_index=alignment_index,
             target=target,
             source_index=source_index,
-            candidate_maps=candidate_maps,
+            instrumentation=instrumentation,
         )
         if not matches:
             rows.append(
@@ -371,29 +547,40 @@ def _align_target(
             )
             for node_type, local_index in matches
         )
-    return AlignedTargetFamily(
+    family = AlignedTargetFamily(
         task_id=target.task_id,
         source_entry_count=len(target.entity_ids),
-        rows=_merge_available_aligned_rows(target, tuple(rows)),
+        rows=_merge_available_aligned_rows(
+            target,
+            tuple(rows),
+            alignment_index,
+            instrumentation,
+        ),
     )
+    if instrumentation is not None:
+        instrumentation.emitted_row_count += len(family.rows)
+    return family
 
 
-def align_sample_targets(
-    piece: CanonicalPiece,
-    raw_graph: HeteroData,
+def align_targets_with_index(
     sample: MultiSourceSample,
+    alignment_index: AlignmentIndex,
+    *,
+    instrumentation: AlignmentOperationCounts | None = None,
 ) -> tuple[AlignedTargetFamily, ...]:
-    """Align every registry task using canonical IDs and exact rational time."""
+    """Align task rows using a previously validated immutable piece index."""
 
-    _validate_alignment_inputs(piece, raw_graph, sample)
-    candidate_maps = _candidate_maps(piece)
+    if sample.canonical_piece != alignment_index.canonical_piece:
+        raise TargetAlignmentError(
+            "alignment index canonical piece differs from prepared sample"
+        )
     by_task = {target.task_id: target for target in sample.target_bundle}
     return tuple(
         (
             _align_target(
-                piece=piece,
+                alignment_index=alignment_index,
                 target=by_task[spec.task_id],
-                candidate_maps=candidate_maps,
+                instrumentation=instrumentation,
             )
             if spec.task_id in by_task
             else AlignedTargetFamily(
@@ -406,10 +593,36 @@ def align_sample_targets(
     )
 
 
+def align_sample_targets(
+    piece: CanonicalPiece,
+    raw_graph: HeteroData,
+    sample: MultiSourceSample,
+    *,
+    instrumentation: AlignmentOperationCounts | None = None,
+) -> tuple[AlignedTargetFamily, ...]:
+    """Align every registry task with one O(piece entities) immutable index."""
+
+    _validate_alignment_inputs(piece, raw_graph, sample)
+    alignment_index = _build_alignment_index(
+        piece,
+        instrumentation=instrumentation,
+    )
+    return align_targets_with_index(
+        sample,
+        alignment_index,
+        instrumentation=instrumentation,
+    )
+
+
 __all__ = [
     "ALIGNMENT_CONFLICT_DIAGNOSTIC",
     "AlignedTargetFamily",
     "AlignedTargetRow",
+    "AlignmentIndex",
+    "AlignmentOperationCounts",
+    "CandidateTimeIndex",
     "TargetAlignmentError",
     "align_sample_targets",
+    "align_targets_with_index",
+    "build_alignment_index",
 ]

@@ -63,9 +63,15 @@
   `collate_multisource_samples`, strict `BatchTarget`/`MultiSourceBatch`
   validation, deterministic statistics, and a lightweight benchmark.
 - Encoding registry fingerprint:
-  `57515f491fd23246c13b776db5f4085c1c438ffa55d707afbcd9fdf9e9d52931`.
+  `76896b3f7c1f85be6e7edc6fbdf6103c4ce1b84f2321bade36744fca7097d7d5`.
   Deterministic bounded audit report fingerprint:
-  `75e09a3d130028347cf85186d5a2655abdd50c2728597f39d3eb541acaf6e765`.
+  `239c56e8ae9d5f3be810ba397b704f3e8b33c4791c2d217e1acdaee8f7083229`.
+- Pre-merge remediation builds one immutable alignment index per piece.
+  O(1) note/annotation/exact-time mappings and rational-time bisect span lookup
+  give fixed-registry complexity
+  `O(piece entities + target entries * log candidates + emitted rows)`.
+  Instrumentation verifies one index build and counts index entries, lookups,
+  bisections, candidate matches, merge visits, and emitted rows.
 - Notes align by exact entity identity. Region/coverage spans expand to every
   onset point and beat/bar start anchor under exact half-open containment.
   Boundary events expand only to exact-time candidates, with no snapping,
@@ -84,9 +90,23 @@
 - Bounded HookTheory + POP909-CL + raw-only acceptance produces three graphs,
   all 18 stable task sidecars, 17 source target entries, 76 expanded rows,
   76 aligned available rows, zero unaligned/masked/conflict rows, 66
-  model-ready rows, and 10 deferred open-string rows. The POP909 boundary
-  fixture produces three typed positive rows and zero synthetic negatives;
-  ordinary BCE eligibility is false.
+  model-encodable and supervision-eligible rows, and 10 deferred open-string
+  rows. The POP909 boundary fixture produces three typed positive rows and
+  zero synthetic negatives under `positive_unlabeled`.
+- Encoding registry `1.0.0` now declares only value representation plus
+  `fully_supervised`, `positive_unlabeled`, or
+  `deferred_open_vocabulary` semantics. It exposes no ordinary-BCE
+  eligibility API and leaves every CE/BCE/focal/PU decision to Phase 6.
+- Production sample preparation builds and fingerprints the exact Phase 3A
+  graph. External graphs must match a fresh canonical projection, and
+  collation rejects categorical-feature, continuous-feature, or topology
+  mutation after preparation with
+  `multisource.raw_graph_binding_mismatch`. Audit inventory uses a graph-free
+  target projection; no binding enters PyG stores.
+- Statistics separately count model-encodable, supervision-eligible, masked,
+  available-but-unaligned, conflict, and deferred-open-vocabulary rows.
+  Aggregate values are validated against the per-task values, and eligibility
+  exactly sums `availability & entity_index & model_ready`.
 - A separate synthetic conflict fixture produces four masked conflicts.
   Available-but-unaligned boundary and masked-source fixtures each retain one
   row with `entity_index=-1`; masked entries are never candidate-expanded or
@@ -96,6 +116,12 @@
   alignment was `0.0633 s`, PyG construction/validation `0.1288 s`, and full
   collation `0.3602 s`. This is bounded performance evidence, not corpus
   acceptance.
+- The separate target-heavy benchmark (three repeats) produced:
+  small `78` source entries / `170` emitted rows, index `0.00133 s`, lookup
+  `0.00115 s`, full collation `0.06295 s`; medium `610` / `1,346`,
+  `0.00911 s`, `0.00878 s`, `0.06736 s`; large `2,434` / `5,378`,
+  `0.03698 s`, `0.06561 s`, `0.23564 s`. Every size recorded exactly one
+  index build. This heavier evidence is excluded from default CI.
 - Target/provenance/diagnostic changes leave raw graph fingerprints and raw
   PyG store allowlists unchanged. Ontology fingerprint remains
   `296dc400dee45a21fff589e28c05b88b61d8717e3834285a00343bee97fb213b`.
@@ -107,12 +133,14 @@
 ## Phase 5B.1 verification
 
 - Focused alignment/tensorizer/collator, Phase 5A contract, and deterministic
-  audit suite: `33 passed, 2 warnings in 3.12s`.
+  contract suite: `38 passed, 2 warnings in 3.55s`.
 - Focused tasks/graph/audit/POP adapter regression suite:
-  `101 passed, 2 warnings in 3.95s`.
+  `108 passed, 2 warnings in 4.62s`.
 - Full default suite:
-  `550 passed, 12 skipped, 2 warnings in 5.60s`; skips are opt-in real-corpus
+  `557 passed, 12 skipped, 2 warnings in 5.79s`; skips are opt-in real-corpus
   integrations and warnings are existing upstream PyTorch deprecations.
+- Deterministic multi-source audit `--check`, compileall over `src`, `scripts`,
+  and `tests`, and `git diff --check` passed.
 - Compileall, diff, deterministic audit, and GitHub Actions results are
   recorded in the Phase 5B.1 PR handoff.
 

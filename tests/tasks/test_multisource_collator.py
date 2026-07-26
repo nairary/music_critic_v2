@@ -15,18 +15,24 @@ from music_critic.tasks import (
     ALIGNMENT_CONFLICT_DIAGNOSTIC,
     TARGET_ENCODINGS,
     TARGET_ENCODING_REGISTRY_VERSION,
+    AlignmentOperationCounts,
     MultiSourceContractError,
     align_sample_targets,
     benchmark_multisource_collator,
+    benchmark_target_alignment,
+    build_alignment_index,
     build_multisource_sample,
     collate_multisource_samples,
+    prepare_multisource_sample,
+    project_multisource_targets,
+    target_encoding_contract_fingerprint,
 )
 from tests.tasks.test_multisource_contract import _hook_piece, _pop_piece
 from scripts.audit_multisource_targets import _hook_record
 
 
 def _sample(piece):
-    return build_multisource_sample(piece, build_raw_graph(piece))
+    return prepare_multisource_sample(piece)
 
 
 def _target(batch, task_id: str):
@@ -92,6 +98,52 @@ def _add_overlapping_root(
     )
 
 
+def _many_equal_root_annotations(piece, count: int):
+    root = next(
+        target
+        for target in piece.targets
+        if target.task == "theory.chord.root_degree"
+    )
+    source_annotation = next(
+        annotation
+        for annotation in piece.annotations
+        if annotation.annotation_id == root.entity_ids[0]
+    )
+    additions = tuple(
+        replace(
+            source_annotation,
+            annotation_id=f"span:phase5b1-scaling-{index:04d}",
+        )
+        for index in range(count)
+    )
+    expanded = replace(
+        root,
+        entity_ids=(
+            *root.entity_ids,
+            *(annotation.annotation_id for annotation in additions),
+        ),
+        values=(*root.values, *((root.values[0],) * count)),
+        mask=(*root.mask, *((True,) * count)),
+        confidence=(*root.confidence, *((root.confidence[0],) * count)),
+        source=(*root.source, *((root.source[0],) * count)),
+        provenance=(*root.provenance, *((root.provenance[0],) * count)),
+    )
+    piece = _replace_target(piece, expanded)
+    return replace(
+        piece,
+        annotations=tuple(
+            sorted(
+                (*piece.annotations, *additions),
+                key=lambda item: (
+                    item.start_qn,
+                    item.end_qn,
+                    item.annotation_id,
+                ),
+            )
+        ),
+    )
+
+
 def test_encoding_registry_is_versioned_complete_and_explicit() -> None:
     assert TARGET_ENCODING_REGISTRY_VERSION == "1.0.0"
     assert len(TARGET_ENCODINGS) == 18
@@ -116,7 +168,19 @@ def test_encoding_registry_is_versioned_complete_and_explicit() -> None:
         if spec.task_id == "pop909_cl.chord.boundary"
     )
     assert boundary.model_ready
-    assert not boundary.standard_bce_eligible
+    assert boundary.supervision_regime == "positive_unlabeled"
+    assert {
+        spec.supervision_regime for spec in open_specs
+    } == {"deferred_open_vocabulary"}
+    assert all(
+        spec.supervision_regime == "fully_supervised"
+        for spec in TARGET_ENCODINGS
+        if spec.model_ready and spec.task_id != boundary.task_id
+    )
+    assert not hasattr(boundary, "standard_bce_eligible")
+    assert target_encoding_contract_fingerprint() == (
+        "76896b3f7c1f85be6e7edc6fbdf6103c4ce1b84f2321bade36744fca7097d7d5"
+    )
 
 
 def test_mixed_hook_pop_raw_only_batch_has_all_tasks_and_exact_statistics(
@@ -135,12 +199,13 @@ def test_mixed_hook_pop_raw_only_batch_has_all_tasks_and_exact_statistics(
     assert batch.statistics.source_target_entry_count == 17
     assert batch.statistics.target_row_count == 76
     assert batch.statistics.aligned_available_count == 76
-    assert batch.statistics.available_unaligned_count == 0
-    assert batch.statistics.masked_count == 0
-    assert batch.statistics.conflict_count == 0
+    assert batch.statistics.available_unaligned_row_count == 0
+    assert batch.statistics.masked_row_count == 0
+    assert batch.statistics.conflict_row_count == 0
     assert batch.statistics.model_ready_task_count == 16
     assert batch.statistics.deferred_open_vocabulary_task_count == 2
-    assert batch.statistics.model_ready_row_count == 66
+    assert batch.statistics.model_encodable_row_count == 66
+    assert batch.statistics.supervision_eligible_row_count == 66
     assert batch.statistics.deferred_open_vocabulary_row_count == 10
     assert _target(batch, "pop909_cl.chord.no_chord").entry_count == 0
 
@@ -175,6 +240,67 @@ def test_note_identity_and_exact_onset_beat_bar_span_expansion() -> None:
     assert root.entity_node_types == ("onset", "beat", "beat", "bar")
     assert root.entity_indices.tolist() == [0, 0, 1, 0]
     assert root.supervision_eligibility_mask.tolist() == [True] * 4
+
+
+def test_alignment_index_is_built_once_and_lookups_scale_with_entries() -> None:
+    small = _sample(_many_equal_root_annotations(_hook_piece(), 8))
+    large = _sample(_many_equal_root_annotations(_hook_piece(), 128))
+    observations = []
+    for sample in (small, large):
+        operations = AlignmentOperationCounts()
+        aligned = align_sample_targets(
+            sample.canonical_piece,
+            sample.raw_graph,
+            sample,
+            instrumentation=operations,
+        )
+        observations.append(operations)
+        assert len(aligned) == 18
+        assert operations.index_build_count == 1
+        assert operations.note_index_entry_count == len(
+            sample.canonical_piece.notes
+        )
+        assert operations.annotation_index_entry_count == len(
+            sample.canonical_piece.annotations
+        )
+        assert operations.source_entry_lookup_count == sum(
+            len(target.entity_ids) for target in sample.target_bundle
+        )
+        assert operations.annotation_lookup_count == sum(
+            sum(target.availability_mask)
+            for target in sample.target_bundle
+            if target.alignment_type == "annotation_span"
+        )
+    assert (
+        observations[0].candidate_index_entry_count
+        == observations[1].candidate_index_entry_count
+    )
+    assert observations[1].annotation_lookup_count > (
+        observations[0].annotation_lookup_count
+    )
+    evidence = benchmark_target_alignment((small,), repeats=1)
+    operation_counts = dict(evidence.operation_counts)
+    assert operation_counts["index_build_count"] == 1
+    assert operation_counts["source_entry_lookup_count"] == (
+        evidence.source_target_entry_count
+    )
+    assert operation_counts["merge_candidate_slot_visit_count"] > 0
+    assert evidence.emitted_row_count > evidence.source_target_entry_count
+
+
+def test_alignment_index_mappings_are_immutable() -> None:
+    piece = _hook_piece()
+    index = build_alignment_index(piece)
+    with pytest.raises(TypeError):
+        index.note_index_by_id["replacement"] = 0  # type: ignore[index]
+    with pytest.raises(TypeError):
+        index.annotation_by_id["replacement"] = (  # type: ignore[index]
+            piece.annotations[0]
+        )
+    with pytest.raises(TypeError):
+        index.candidate_by_node_type["beat"].exact_indices_by_time[
+            RationalTime(0, 1)
+        ] = (0,)  # type: ignore[index]
 
 
 def test_half_open_adjacent_spans_assign_boundary_to_following_span() -> None:
@@ -216,7 +342,9 @@ def test_boundary_exact_event_expands_all_types_without_synthetic_negatives(
     assert boundary.entity_node_types == ("onset", "beat", "bar")
     assert boundary.availability_mask.tolist() == [True, True, True]
     assert boundary.values.tolist() == [0, 0, 0]
-    assert boundary.standard_bce_eligibility_mask.tolist() == [False] * 3
+    assert boundary.supervision_regime == "positive_unlabeled"
+    assert boundary.supervision_eligibility_mask.tolist() == [True] * 3
+    assert not hasattr(boundary, "standard_bce_eligibility_mask")
     assert boundary.entry_count == boundary.source_entry_count * 3
 
 
@@ -248,6 +376,12 @@ def test_available_unaligned_boundary_is_retained_without_snap(
     assert target.entity_indices.tolist() == [-1]
     assert target.entity_index_mask.tolist() == [False]
     assert target.entity_node_types == (None,)
+    assert target.supervision_eligibility_mask.tolist() == [False]
+    assert (
+        collate_multisource_samples((_sample(piece),))
+        .statistics.available_unaligned_row_count
+        == 1
+    )
 
 
 def test_equal_duplicate_spans_merge_and_preserve_both_sources() -> None:
@@ -288,7 +422,15 @@ def test_conflicting_duplicate_spans_are_masked_with_diagnostic() -> None:
     assert target.entry_count == 4
     assert target.availability_mask.tolist() == [False] * 4
     assert target.values.tolist() == [-1] * 4
-    assert batch.statistics.conflict_count == 4
+    assert batch.statistics.conflict_row_count == 4
+    assert batch.statistics.masked_row_count == 0
+    task_statistics = next(
+        statistics
+        for statistics in batch.statistics.task_counts
+        if statistics.task_id == root.task
+    )
+    assert task_statistics.conflict_row_count == 4
+    assert task_statistics.supervision_eligible_row_count == 0
     assert {
         diagnostic.code
         for diagnostics in target.diagnostics_cpu
@@ -306,6 +448,7 @@ def test_masked_source_entry_stays_one_unaligned_row() -> None:
     assert target.entity_indices.tolist() == [-1]
     assert target.entity_index_mask.tolist() == [False]
     assert target.values.tolist() == [-1]
+    assert not target.supervision_eligibility_mask.any()
 
 
 def test_closed_multilabel_and_open_strings_use_declared_encodings() -> None:
@@ -320,9 +463,10 @@ def test_closed_multilabel_and_open_strings_use_declared_encodings() -> None:
     assert not isinstance(mode.values, torch.Tensor)
     assert not mode.model_ready
     assert mode.deferred_reason
+    assert not mode.supervision_eligibility_mask.any()
 
 
-def test_masked_multilabel_all_false_is_not_loss_eligible() -> None:
+def test_masked_multilabel_all_false_is_not_supervision_eligible() -> None:
     piece = _hook_piece()
     alterations = next(
         target
@@ -387,6 +531,18 @@ def test_collator_is_deterministic_and_does_not_mutate_raw_graphs(
             left_target.entity_indices, right_target.entity_indices
         )
         assert left_target.provenance_cpu == right_target.provenance_cpu
+
+
+def test_target_projection_has_no_raw_graph_and_factory_proof_is_required() -> None:
+    piece = _hook_piece()
+    projection = project_multisource_targets(piece)
+    assert not hasattr(projection, "raw_graph")
+    sample = prepare_multisource_sample(piece)
+    with pytest.raises(
+        MultiSourceContractError,
+        match="verified preparation factory",
+    ):
+        replace(sample, _binding_token=None)
 
 
 def test_target_provenance_and_diagnostic_changes_do_not_change_raw_graph() -> None:
@@ -459,6 +615,45 @@ def test_target_provenance_and_diagnostic_changes_do_not_change_raw_graph() -> N
     )
 
 
+@pytest.mark.parametrize(
+    "mutation",
+    ("categorical", "continuous", "topology"),
+)
+def test_prepared_sample_rejects_raw_graph_mutation(mutation: str) -> None:
+    sample = _sample(_hook_piece())
+    graph = sample.raw_graph
+    if mutation == "categorical":
+        graph["note"].x_cat[0, 0] = 61
+    elif mutation == "continuous":
+        graph["note"].x_cont[0, 0] = 0.125
+    else:
+        forward = ("beat", "next_beat", "beat")
+        reverse = ("beat", "previous_beat", "beat")
+        permutation = torch.arange(
+            graph[forward].edge_index.shape[1] - 1,
+            -1,
+            -1,
+        )
+        graph[forward].edge_index = graph[forward].edge_index[:, permutation]
+        graph[reverse].edge_index = graph[forward].edge_index.flip(0)
+    with pytest.raises(
+        MultiSourceContractError,
+        match="multisource.raw_graph_binding_mismatch",
+    ):
+        collate_multisource_samples((sample,))
+
+
+def test_external_graph_factory_has_no_binding_bypass() -> None:
+    piece = _hook_piece()
+    graph = build_raw_graph(piece)
+    graph["note"].x_cat[0, 0] = 61
+    with pytest.raises(
+        MultiSourceContractError,
+        match="multisource.raw_graph_binding_mismatch",
+    ):
+        build_multisource_sample(piece, graph)
+
+
 def test_malformed_inputs_tensors_indices_and_graph_leakage_are_rejected() -> None:
     with pytest.raises(MultiSourceContractError, match="cannot be empty"):
         collate_multisource_samples(())
@@ -477,6 +672,16 @@ def test_malformed_inputs_tensors_indices_and_graph_leakage_are_rejected() -> No
         replace(target, values=target.values.to(torch.float32))
     with pytest.raises(MultiSourceContractError, match="registry order"):
         replace(batch, target_batches=tuple(reversed(batch.target_batches)))
+    with pytest.raises(
+        MultiSourceContractError,
+        match="supervision_eligible_row_count",
+    ):
+        replace(
+            batch.statistics,
+            supervision_eligible_row_count=(
+                batch.statistics.supervision_eligible_row_count + 1
+            ),
+        )
     with pytest.raises(MultiSourceContractError, match="global entity index"):
         replace(
             batch,

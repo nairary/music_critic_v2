@@ -42,15 +42,17 @@ output tokens do not erase these contexts or authorize a shared loss.
 - `AlignmentPolicy`, `TargetFamilySpec`, and `CrosswalkSpec`;
 - deterministic `ontology_contract_dict`, `dumps_ontology_contract`, and
   `ontology_contract_fingerprint`;
-- `SampleTarget`, `TaskAvailability`, `MultiSourceSample`;
+- `SampleTarget`, `TaskAvailability`, `MultiSourceTargetProjection`, and
+  verified `MultiSourceSample`;
 - production `BatchTarget`, `MultiSourceBatch`, `BatchStatistics`, and
   `TaskBatchStatistics`;
 - target encoding registry `1.0.0`, exact alignment, tensorization, and
   `collate_multisource_samples`;
 - `GroupAssignment`, `DatasetSamplingWeight`,
   `validate_group_assignments`, and `deterministic_group_order`;
-- `build_multisource_sample`, which creates target/provenance/diagnostic
-  sidecars around an opaque raw graph without modifying it.
+- `prepare_multisource_sample`, which builds and fingerprints the exact Phase
+  3A graph; verified `build_multisource_sample` for an external graph; and
+  graph-free `project_multisource_targets` for audit inventory.
 
 Every target-family specification records its stable source task ID, registry
 version, semantics, canonical dtype, vocabulary or open value-space rule,
@@ -147,6 +149,12 @@ harmony, borrowed reinterpretation, or target-derived notes.
 
 Alignment remains a sidecar operation:
 
+- one immutable per-piece index owns O(1) note/annotation mappings, exact-time
+  onset/beat/bar mappings, and sorted rational candidate times; no source-entry
+  loop rebuilds these maps or scans complete candidate stores;
+- half-open candidate lookup uses exact rational
+  `[bisect_left(start), bisect_left(end))`, giving total fixed-registry work
+  `O(piece entities + target entries * log candidates + emitted rows)`;
 - all source spans retain exact `RationalTime`; no float equality or
   nearest-neighbor snapping is permitted;
 - `note_identity_v1` maps only an exact canonical note entity ID;
@@ -184,11 +192,12 @@ changes.
 
 ## 6. Phase 5B sample and batch API
 
-`MultiSourceSample` is the prepared sample shape:
+`MultiSourceSample` is the verified production sample shape:
 
 ```text
 canonical_piece              validated exact canonical alignment source
 raw_graph                    corresponding raw-only HeteroData
+raw_graph_fingerprint        immutable full-graph sidecar binding
 dataset_id, piece_id
 source_group_id, lineage_group_id
 target_bundle                sorted source-native SampleTarget sidecars
@@ -202,9 +211,14 @@ values validated against the task value space, availability mask, optional
 finite confidence in `[0, 1]`, source, and provenance IDs. `TaskAvailability`
 requires a registered task, non-negative counts, and zero counts for a family
 declared absent.
-`build_multisource_sample` performs this projection but does not load corpus
-data or sample it. Phase 5B.1 alignment verifies that the canonical piece and
-raw graph are exactly those owned by the prepared sample.
+`prepare_multisource_sample` performs the target projection, builds the raw
+graph through the Phase 3A builder, and records its complete fingerprint.
+`build_multisource_sample` accepts an external graph only after comparing it
+to a fresh `build_raw_graph(piece)` fingerprint; there is no public
+`assume_verified` path. The collator recomputes the stored graph fingerprint
+on every call to detect post-preparation feature or topology mutation.
+`project_multisource_targets` is the separate graph-free audit shape and
+cannot be collated. Binding stays sidecar-only.
 
 `MultiSourceBatch` is the validated immutable production collator result:
 
@@ -225,6 +239,15 @@ index mask, and null node type. Local indices are offset by
 `batch[node_type].ptr[sample_index]` and checked against the typed `batch`
 vector. Every registry task is present in stable order, including zero-entry
 families.
+
+The encoding registry specifies only the representation. Its semantic
+`supervision_regime` is `fully_supervised`, `positive_unlabeled`, or
+`deferred_open_vocabulary`; it does not select CE, BCE, focal, or PU loss.
+`supervision_eligibility_mask` is exactly availability, entity alignment, and
+`model_ready` conjoined. Statistics distinguish rows that are representable
+(`model_encodable_row_count`) from rows eligible for future supervision, plus
+masked, available-but-unaligned, conflict, and deferred-open-vocabulary rows.
+All aggregate values must equal their per-task sums.
 
 `validate_raw_graph_batch` validates the actual result of
 `torch_geometric.data.Batch.from_data_list`, not a synthetic marker object.
@@ -260,9 +283,10 @@ its name; there is no supervisory-field denylist.
 family. If a dataset lacks a task in a mixed batch, no negative label and no
 loss entry are created.
 
-Phase 5B.1 implements and tests tensor dtypes/shapes, exact alignment, PyG
-batching/offsets, statistics, and collator performance without changing this
-raw/sidecar boundary. Worker seeding and mixture weights remain Phase 5B.2.
+Phase 5B.1 implements and tests tensor dtypes/shapes, indexed exact alignment,
+PyG batching/offsets, graph mutation detection, statistics, and target-heavy
+collator performance without changing this raw/sidecar boundary. Worker
+seeding and mixture weights remain Phase 5B.2.
 The concrete encoding and alignment tables are in
 `MULTISOURCE_COLLATOR.md`.
 

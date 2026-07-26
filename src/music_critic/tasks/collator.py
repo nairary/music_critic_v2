@@ -10,12 +10,19 @@ from time import perf_counter
 import torch
 from torch_geometric.data import Batch
 
-from music_critic.graph import validate_raw_graph_batch
+from music_critic.graph import (
+    GraphContractError,
+    graph_fingerprint,
+    validate_raw_graph_batch,
+)
 from music_critic.graph.relations import MANDATORY_EDGE_TYPES, MANDATORY_NODE_TYPES
 from music_critic.tasks.alignment import (
     ALIGNMENT_CONFLICT_DIAGNOSTIC,
     AlignedTargetFamily,
+    AlignmentOperationCounts,
     align_sample_targets,
+    align_targets_with_index,
+    build_alignment_index,
 )
 from music_critic.tasks.encoding import TARGET_ENCODING_BY_TASK
 from music_critic.tasks.multisource import (
@@ -57,6 +64,46 @@ class CollatorBenchmark:
             )
 
 
+@dataclass(frozen=True, slots=True)
+class TargetAlignmentBenchmark:
+    """Target-heavy indexed lookup and complete collation evidence."""
+
+    sample_count: int
+    repeat_count: int
+    source_target_entry_count: int
+    emitted_row_count: int
+    index_construction_seconds_per_repeat: float
+    target_lookup_seconds_per_repeat: float
+    full_collation_seconds_per_repeat: float
+    operation_counts: tuple[tuple[str, int], ...]
+
+    def __post_init__(self) -> None:
+        counts = (
+            self.sample_count,
+            self.repeat_count,
+            self.source_target_entry_count,
+            self.emitted_row_count,
+        )
+        if any(value <= 0 for value in counts):
+            raise MultiSourceContractError(
+                "target alignment benchmark counts must be positive"
+            )
+        if min(
+            self.index_construction_seconds_per_repeat,
+            self.target_lookup_seconds_per_repeat,
+            self.full_collation_seconds_per_repeat,
+        ) < 0:
+            raise MultiSourceContractError(
+                "target alignment benchmark durations must be non-negative"
+            )
+        if tuple(name for name, _ in self.operation_counts) != tuple(
+            sorted(name for name, _ in self.operation_counts)
+        ):
+            raise MultiSourceContractError(
+                "target alignment benchmark operations must be deterministic"
+            )
+
+
 def _validate_samples(
     samples: Sequence[MultiSourceSample],
 ) -> tuple[MultiSourceSample, ...]:
@@ -71,6 +118,18 @@ def _validate_samples(
         raise MultiSourceContractError(
             "collator input contains a value that is not MultiSourceSample"
         )
+    for sample in prepared:
+        try:
+            current_fingerprint = graph_fingerprint(sample.raw_graph)
+        except GraphContractError as exc:
+            raise MultiSourceContractError(
+                f"prepared sample raw graph is invalid: {exc}"
+            ) from exc
+        if current_fingerprint != sample.raw_graph_fingerprint:
+            raise MultiSourceContractError(
+                "multisource.raw_graph_binding_mismatch: raw graph mutated "
+                "after production sample preparation"
+            )
     return prepared
 
 
@@ -189,7 +248,7 @@ def tensorize_aligned_targets(
                 encoding_kind=encoding.encoding_kind,
                 model_ready=encoding.model_ready,
                 deferred_reason=encoding.deferred_reason,
-                standard_bce_eligible=encoding.standard_bce_eligible,
+                supervision_regime=encoding.supervision_regime,
                 values=_encode_values(spec.task_id, families),
                 availability_mask=torch.tensor(
                     [row.availability for _, row in rows_with_sample],
@@ -240,19 +299,37 @@ def _task_statistics(target: BatchTarget) -> TaskBatchStatistics:
         )
         if has_index and node_type is not None
     )
-    conflict_count = sum(
-        diagnostic.code == ALIGNMENT_CONFLICT_DIAGNOSTIC
+    conflict_flags = tuple(
+        any(
+            diagnostic.code == ALIGNMENT_CONFLICT_DIAGNOSTIC
+            for diagnostic in diagnostics
+        )
         for diagnostics in target.diagnostics_cpu
-        for diagnostic in diagnostics
+    )
+    conflict_count = sum(conflict_flags)
+    masked_count = sum(
+        not available and not conflict
+        for available, conflict in zip(
+            target.availability_mask.tolist(), conflict_flags
+        )
     )
     return TaskBatchStatistics(
         task_id=target.task_id,
         source_entry_count=target.source_entry_count,
         target_row_count=target.entry_count,
         aligned_available_count=int(aligned.sum().item()),
-        available_unaligned_count=int(unaligned.sum().item()),
-        masked_count=int((~target.availability_mask).sum().item()),
-        conflict_count=conflict_count,
+        available_unaligned_row_count=int(unaligned.sum().item()),
+        masked_row_count=masked_count,
+        conflict_row_count=conflict_count,
+        model_encodable_row_count=(
+            target.entry_count if target.model_ready else 0
+        ),
+        supervision_eligible_row_count=int(
+            target.supervision_eligibility_mask.sum().item()
+        ),
+        deferred_open_vocabulary_row_count=(
+            0 if target.model_ready else target.entry_count
+        ),
         node_type_counts=tuple(sorted(node_counts.items())),
         model_ready=target.model_ready,
     )
@@ -298,22 +375,28 @@ def _batch_statistics(
         aligned_available_count=sum(
             item.aligned_available_count for item in task_counts
         ),
-        available_unaligned_count=sum(
-            item.available_unaligned_count for item in task_counts
+        available_unaligned_row_count=sum(
+            item.available_unaligned_row_count for item in task_counts
         ),
-        masked_count=sum(item.masked_count for item in task_counts),
-        conflict_count=sum(item.conflict_count for item in task_counts),
+        masked_row_count=sum(item.masked_row_count for item in task_counts),
+        conflict_row_count=sum(
+            item.conflict_row_count for item in task_counts
+        ),
         node_type_counts=tuple(sorted(aggregate_node_types.items())),
         task_counts=task_counts,
         model_ready_task_count=sum(item.model_ready for item in task_counts),
         deferred_open_vocabulary_task_count=sum(
             not item.model_ready for item in task_counts
         ),
-        model_ready_row_count=sum(
-            item.target_row_count for item in task_counts if item.model_ready
+        model_encodable_row_count=sum(
+            item.model_encodable_row_count for item in task_counts
+        ),
+        supervision_eligible_row_count=sum(
+            item.supervision_eligible_row_count for item in task_counts
         ),
         deferred_open_vocabulary_row_count=sum(
-            item.target_row_count for item in task_counts if not item.model_ready
+            item.deferred_open_vocabulary_row_count
+            for item in task_counts
         ),
     )
 
@@ -409,9 +492,78 @@ def benchmark_multisource_collator(
     )
 
 
+def benchmark_target_alignment(
+    samples: Sequence[MultiSourceSample],
+    *,
+    repeats: int = 3,
+) -> TargetAlignmentBenchmark:
+    """Benchmark target-heavy index construction and lookup independently."""
+
+    prepared = _validate_samples(samples)
+    if isinstance(repeats, bool) or not isinstance(repeats, int) or repeats <= 0:
+        raise MultiSourceContractError(
+            "target alignment benchmark repeats must be a positive integer"
+        )
+
+    index_operations: AlignmentOperationCounts | None = None
+    indices = ()
+    started = perf_counter()
+    for _ in range(repeats):
+        index_operations = AlignmentOperationCounts()
+        indices = tuple(
+            build_alignment_index(
+                sample.canonical_piece,
+                instrumentation=index_operations,
+            )
+            for sample in prepared
+        )
+    index_seconds = perf_counter() - started
+    assert index_operations is not None
+
+    lookup_operations: AlignmentOperationCounts | None = None
+    started = perf_counter()
+    for _ in range(repeats):
+        lookup_operations = AlignmentOperationCounts()
+        tuple(
+            align_targets_with_index(
+                sample,
+                alignment_index,
+                instrumentation=lookup_operations,
+            )
+            for sample, alignment_index in zip(prepared, indices)
+        )
+    lookup_seconds = perf_counter() - started
+    assert lookup_operations is not None
+
+    started = perf_counter()
+    result: MultiSourceBatch | None = None
+    for _ in range(repeats):
+        result = collate_multisource_samples(prepared)
+    full_seconds = perf_counter() - started
+    assert result is not None
+
+    operation_counts = {
+        name: value for name, value in index_operations.as_sorted_pairs()
+    }
+    for name, value in lookup_operations.as_sorted_pairs():
+        operation_counts[name] = operation_counts.get(name, 0) + value
+    return TargetAlignmentBenchmark(
+        sample_count=len(prepared),
+        repeat_count=repeats,
+        source_target_entry_count=result.statistics.source_target_entry_count,
+        emitted_row_count=result.statistics.target_row_count,
+        index_construction_seconds_per_repeat=index_seconds / repeats,
+        target_lookup_seconds_per_repeat=lookup_seconds / repeats,
+        full_collation_seconds_per_repeat=full_seconds / repeats,
+        operation_counts=tuple(sorted(operation_counts.items())),
+    )
+
+
 __all__ = [
     "CollatorBenchmark",
+    "TargetAlignmentBenchmark",
     "benchmark_multisource_collator",
+    "benchmark_target_alignment",
     "collate_multisource_samples",
     "tensorize_aligned_targets",
 ]
