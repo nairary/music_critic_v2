@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Iterable, Mapping
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from decimal import Decimal
 from hashlib import sha256
 import json
@@ -157,10 +157,10 @@ class CorpusIndexHeader:
             "index_fingerprint",
         ):
             value = getattr(self, name)
-            if value and not _is_sha256(value):
+            if not _is_sha256(value):
                 raise CorpusContractError(
                     "corpus_index.header_invalid",
-                    f"{name} must be lowercase SHA-256",
+                    f"{name} must be non-empty lowercase SHA-256",
                 )
         if (
             isinstance(self.record_count, bool)
@@ -364,6 +364,11 @@ class CorpusBuildReport:
                 "corpus_build.report_invalid",
                 "accepted/cache/raw-only counts are inconsistent",
             )
+        if not _is_sha256(self.index_fingerprint):
+            raise CorpusContractError(
+                "corpus_build.report_invalid",
+                "index_fingerprint must be non-empty lowercase SHA-256",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -412,6 +417,22 @@ def corpus_cache_key(
     adapter_version: str,
     adapter_config_fingerprint: str,
 ) -> str:
+    if not all(
+        isinstance(value, str) and value
+        for value in (source_identity, adapter_name, adapter_version)
+    ):
+        raise CorpusContractError(
+            "corpus_cache.key_invalid",
+            "cache-key identity and adapter fields must be non-empty strings",
+        )
+    if not _is_sha256(source_sha256) or not _is_sha256(
+        adapter_config_fingerprint
+    ):
+        raise CorpusContractError(
+            "corpus_cache.key_invalid",
+            "cache-key source/config fingerprints must be non-empty lowercase "
+            "SHA-256",
+        )
     return _fingerprint(
         {
             "cache_version": MULTISOURCE_CACHE_VERSION,
@@ -504,34 +525,37 @@ def make_corpus_index(
     records: Iterable[IndexedCorpusRecord],
 ) -> CorpusIndex:
     ordered = tuple(sorted(records, key=lambda row: (row.dataset_id, row.piece_id)))
-    header = CorpusIndexHeader(
-        index_version=MULTISOURCE_CORPUS_INDEX_VERSION,
-        cache_version=MULTISOURCE_CACHE_VERSION,
-        dataset_id=dataset_id,
-        adapter_name=adapter_name,
-        adapter_version=adapter_version,
-        adapter_config_fingerprint=adapter_config_fingerprint,
-        canonical_schema_version=SCHEMA_VERSION,
-        graph_schema_version=GRAPH_SCHEMA_VERSION,
-        graph_builder_version=GRAPH_BUILDER_VERSION,
-        feature_registry_version=FEATURE_REGISTRY_VERSION,
-        target_ontology_version=TARGET_ONTOLOGY_VERSION,
-        target_ontology_fingerprint=ontology_contract_fingerprint(),
-        target_encoding_version=TARGET_ENCODING_REGISTRY_VERSION,
-        target_encoding_fingerprint=target_encoding_contract_fingerprint(),
-        source_identity=source_identity,
-        source_fingerprint=source_fingerprint,
-        creation_policy=creation_policy,
-        record_count=len(ordered),
-        index_fingerprint="",
-    )
+    header_values: dict[str, object] = {
+        "index_version": MULTISOURCE_CORPUS_INDEX_VERSION,
+        "cache_version": MULTISOURCE_CACHE_VERSION,
+        "dataset_id": dataset_id,
+        "adapter_name": adapter_name,
+        "adapter_version": adapter_version,
+        "adapter_config_fingerprint": adapter_config_fingerprint,
+        "canonical_schema_version": SCHEMA_VERSION,
+        "graph_schema_version": GRAPH_SCHEMA_VERSION,
+        "graph_builder_version": GRAPH_BUILDER_VERSION,
+        "feature_registry_version": FEATURE_REGISTRY_VERSION,
+        "target_ontology_version": TARGET_ONTOLOGY_VERSION,
+        "target_ontology_fingerprint": ontology_contract_fingerprint(),
+        "target_encoding_version": TARGET_ENCODING_REGISTRY_VERSION,
+        "target_encoding_fingerprint": target_encoding_contract_fingerprint(),
+        "source_identity": source_identity,
+        "source_fingerprint": source_fingerprint,
+        "creation_policy": creation_policy,
+        "record_count": len(ordered),
+    }
     fingerprint = _fingerprint(
         {
-            "header": _header_core(header),
+            "header": {**header_values, "index_fingerprint": ""},
             "records": [_record_dict(row) for row in ordered],
         }
     )
-    return CorpusIndex(replace(header, index_fingerprint=fingerprint), ordered)
+    header = CorpusIndexHeader(
+        **header_values,
+        index_fingerprint=fingerprint,
+    )
+    return CorpusIndex(header, ordered)
 
 
 def cache_canonical_corpus(
@@ -796,6 +820,13 @@ def load_cached_piece(
             dataset_id=record.dataset_id,
             piece_id=record.piece_id,
         )
+    if piece.source_group_id != record.source_group_id:
+        raise CorpusContractError(
+            "corpus_cache.source_group_mismatch",
+            "canonical artifact source_group_id differs from index",
+            dataset_id=record.dataset_id,
+            piece_id=record.piece_id,
+        )
     return piece
 
 
@@ -812,6 +843,18 @@ def _jsonable_source(value: Any) -> Any:
     return value
 
 
+def _validate_builder_limit(limit: int | None) -> None:
+    if limit is not None and (
+        isinstance(limit, bool)
+        or not isinstance(limit, int)
+        or limit <= 0
+    ):
+        raise CorpusContractError(
+            "corpus_build.limit_invalid",
+            "limit must be None or a positive non-bool integer",
+        )
+
+
 def build_hooktheory_corpus_cache(
     raw_path: str | os.PathLike[str],
     *,
@@ -823,9 +866,14 @@ def build_hooktheory_corpus_cache(
 ) -> tuple[CorpusIndex, CorpusBuildReport]:
     """Stream HookTheory once and build a deterministic offline cache/index."""
 
-    from music_critic.adapters import HookTheoryAdapterConfig, convert_hooktheory_record
+    from music_critic.adapters import (
+        HookTheoryAdapterConfig,
+        HookTheoryAdapterError,
+        convert_hooktheory_record,
+    )
     from music_critic.adapters._json_stream import iter_jsonl, iter_object_records
 
+    _validate_builder_limit(limit)
     raw = Path(raw_path)
     if raw.name != "4_merged.json":
         raise CorpusContractError(
@@ -877,13 +925,13 @@ def build_hooktheory_corpus_cache(
                     source_sha256=row_sha,
                     suggested_split=piece.split,
                 )
-            except Exception as exc:
+            except HookTheoryAdapterError as exc:
                 quarantined.append(
                     CorpusQuarantineRecord(
                         dataset_id=dataset_id,
                         source_identity=clip_id,
                         source_relative_path=relative,
-                        category=f"{type(exc).__module__}.{type(exc).__name__}",
+                        category="hooktheory.record_conversion_invalid",
                         message=" ".join(str(exc).split()) or type(exc).__name__,
                     )
                 )
@@ -922,6 +970,7 @@ def build_pop909_cl_corpus_cache(
         discover_pop909_cl_corpus,
     )
 
+    _validate_builder_limit(limit)
     discovery = discover_pop909_cl_corpus(root)
     config = Pop909ClAdapterConfig(include_targets=include_targets)
     quarantined: list[CorpusQuarantineRecord] = []

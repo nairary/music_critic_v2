@@ -38,6 +38,7 @@ from music_critic.tasks.multisource import (
 
 MIXTURE_SAMPLER_VERSION = "1.0.0"
 SPLIT_MANIFEST_VERSION = "1.0.0"
+DATASET_VIEW_CONTRACT_VERSION = "1.0.0"
 
 
 class DatasetContractError(ValueError):
@@ -70,6 +71,14 @@ def _fingerprint(value: object) -> str:
     return sha256(_canonical_json(value).encode("utf-8")).hexdigest()
 
 
+def _is_sha256(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
 def _stable_seed(*values: object) -> int:
     return int(_fingerprint(list(values))[:16], 16)
 
@@ -78,10 +87,22 @@ def _record_key(record: IndexedCorpusRecord) -> tuple[str, str]:
     return record.dataset_id, record.piece_id
 
 
+def _ordered_indices(indices: Sequence[CorpusIndex]) -> tuple[CorpusIndex, ...]:
+    ordered = tuple(sorted(indices, key=lambda index: index.header.dataset_id))
+    dataset_ids = tuple(index.header.dataset_id for index in ordered)
+    if len(dataset_ids) != len(set(dataset_ids)):
+        raise DatasetContractError(
+            "split_manifest.duplicate_dataset",
+            "constituent indices must have unique dataset IDs",
+        )
+    return ordered
+
+
 def _all_records(indices: Sequence[CorpusIndex]) -> tuple[IndexedCorpusRecord, ...]:
+    ordered_indices = _ordered_indices(indices)
     records = tuple(
         sorted(
-            (record for index in indices for record in index.records),
+            (record for index in ordered_indices for record in index.records),
             key=_record_key,
         )
     )
@@ -156,10 +177,35 @@ class SplitManifest:
             raise DatasetContractError(
                 "split_manifest.policy_invalid", "split policy cannot be empty"
             )
+        if not _is_sha256(self.policy_config_fingerprint):
+            raise DatasetContractError(
+                "split_manifest.fingerprint_invalid",
+                "policy config fingerprint must be non-empty lowercase SHA-256",
+            )
         if self.index_fingerprints != tuple(sorted(self.index_fingerprints)):
             raise DatasetContractError(
                 "split_manifest.order_invalid",
                 "index fingerprints must use deterministic dataset order",
+            )
+        dataset_ids: list[str] = []
+        for row in self.index_fingerprints:
+            if (
+                not isinstance(row, tuple)
+                or len(row) != 2
+                or not isinstance(row[0], str)
+                or not row[0]
+                or not _is_sha256(row[1])
+            ):
+                raise DatasetContractError(
+                    "split_manifest.fingerprint_invalid",
+                    "index fingerprints require dataset IDs and non-empty "
+                    "lowercase SHA-256 values",
+                )
+            dataset_ids.append(row[0])
+        if len(dataset_ids) != len(set(dataset_ids)):
+            raise DatasetContractError(
+                "split_manifest.duplicate_dataset",
+                "index fingerprints must not repeat a dataset ID",
             )
         ordered = tuple(
             sorted(self.assignments, key=lambda row: (row.dataset_id, row.piece_id))
@@ -174,6 +220,11 @@ class SplitManifest:
             raise DatasetContractError(
                 "split_manifest.duplicate_piece",
                 "a piece must have exactly one split assignment",
+            )
+        if not _is_sha256(self.manifest_fingerprint):
+            raise DatasetContractError(
+                "split_manifest.fingerprint_invalid",
+                "manifest fingerprint must be non-empty lowercase SHA-256",
             )
         actual = _split_manifest_fingerprint(self, clear=True)
         if self.manifest_fingerprint != actual:
@@ -312,6 +363,7 @@ def _make_manifest(
     policy: str,
     policy_config: Mapping[str, object],
 ) -> SplitManifest:
+    ordered_indices = _ordered_indices(indices)
     kwargs = {
         "version": SPLIT_MANIFEST_VERSION,
         "seed": seed,
@@ -323,7 +375,7 @@ def _make_manifest(
                     index.header.dataset_id,
                     index.header.index_fingerprint,
                 )
-                for index in indices
+                for index in ordered_indices
             )
         ),
         "assignments": tuple(
@@ -491,11 +543,10 @@ def validate_split_manifest(
     manifest: SplitManifest, indices: Sequence[CorpusIndex]
 ) -> None:
     records = _all_records(indices)
+    ordered_indices = _ordered_indices(indices)
     expected_indices = tuple(
-        sorted(
-            (index.header.dataset_id, index.header.index_fingerprint)
-            for index in indices
-        )
+        (index.header.dataset_id, index.header.index_fingerprint)
+        for index in ordered_indices
     )
     if manifest.index_fingerprints != expected_indices:
         raise DatasetContractError(
@@ -593,9 +644,43 @@ class IndexedMultiSourceDataset(Dataset[MultiSourceSample]):
         record = self.index.records[index]
         try:
             piece = load_cached_piece(record, self.cache_config)
-            return prepare_multisource_sample(
-                piece, lineage_group_id=record.lineage_group_id
+            if piece.source_group_id != record.source_group_id:
+                raise DatasetContractError(
+                    "dataset.source_group_mismatch",
+                    "canonical piece source_group_id differs from index sidecar",
+                    dataset_id=record.dataset_id,
+                    piece_id=record.piece_id,
+                )
+            sample = prepare_multisource_sample(piece)
+            expected_identity = (
+                record.dataset_id,
+                record.piece_id,
+                record.source_group_id,
+                record.lineage_group_id,
             )
+            actual_identity = (
+                sample.dataset_id,
+                sample.piece_id,
+                sample.source_group_id,
+                sample.lineage_group_id,
+            )
+            if actual_identity != expected_identity:
+                raise DatasetContractError(
+                    "dataset.prepared_identity_mismatch",
+                    "prepared sample identity/lineage differs from index sidecar",
+                    dataset_id=record.dataset_id,
+                    piece_id=record.piece_id,
+                )
+            if sample.target_availability != record.target_availability:
+                raise DatasetContractError(
+                    "dataset.target_availability_mismatch",
+                    "recomputed target availability differs from index sidecar",
+                    dataset_id=record.dataset_id,
+                    piece_id=record.piece_id,
+                )
+            return sample
+        except DatasetContractError:
+            raise
         except CorpusContractError as exc:
             raise DatasetContractError(
                 exc.category,
@@ -612,6 +697,9 @@ class IndexedMultiSourceDataset(Dataset[MultiSourceSample]):
             ) from exc
 
 
+_DATASET_VIEW_TOKEN = object()
+
+
 class DatasetView(Dataset[MultiSourceSample]):
     """One validated split view over an indexed corpus."""
 
@@ -621,8 +709,15 @@ class DatasetView(Dataset[MultiSourceSample]):
         manifest: SplitManifest,
         *,
         split: str,
+        global_index_fingerprints: tuple[tuple[str, str], ...] | None = None,
+        _token: object | None = None,
     ) -> None:
-        validate_split_manifest(manifest, (dataset.index,))
+        if _token is not _DATASET_VIEW_TOKEN:
+            raise DatasetContractError(
+                "dataset_view.global_validation_required",
+                "dataset views must be derived by MultiCorpusDataset after "
+                "global split-manifest validation",
+            )
         if not isinstance(split, str) or not split:
             raise DatasetContractError(
                 "dataset_view.split_invalid", "split must be a non-empty string"
@@ -634,10 +729,32 @@ class DatasetView(Dataset[MultiSourceSample]):
         self.dataset = dataset
         self.manifest = manifest
         self.split = split
+        assert global_index_fingerprints is not None
+        self.global_index_fingerprints = global_index_fingerprints
         self.record_indices = tuple(
             index
             for index, record in enumerate(dataset.index.records)
             if by_key[_record_key(record)] == split
+        )
+        self.selected_record_identities = tuple(
+            _record_key(dataset.index.records[index])
+            for index in self.record_indices
+        )
+        self.view_fingerprint = _fingerprint(
+            {
+                "dataset_view_contract_version": DATASET_VIEW_CONTRACT_VERSION,
+                "sampler_version": MIXTURE_SAMPLER_VERSION,
+                "split": split,
+                "global_manifest_fingerprint": manifest.manifest_fingerprint,
+                "constituent_index_fingerprints": [
+                    list(row) for row in global_index_fingerprints
+                ],
+                "dataset_id": self.dataset_id,
+                "corpus_index_fingerprint": self.index_fingerprint,
+                "selected_record_identities": [
+                    list(row) for row in self.selected_record_identities
+                ],
+            }
         )
 
     @property
@@ -667,36 +784,83 @@ class DatasetView(Dataset[MultiSourceSample]):
 
 
 class MultiCorpusDataset(Dataset[MultiSourceSample]):
-    """Stable composition of per-corpus views for exactly one split."""
+    """One globally validated multi-index manifest projected to one split."""
 
-    def __init__(self, views: Sequence[DatasetView]) -> None:
-        if not views:
+    def __init__(
+        self,
+        datasets: Sequence[IndexedMultiSourceDataset],
+        manifest: SplitManifest,
+        *,
+        split: str,
+    ) -> None:
+        if not datasets:
             raise DatasetContractError(
-                "multi_corpus.empty", "at least one dataset view is required"
+                "multi_corpus.empty", "at least one indexed dataset is required"
             )
-        splits = {view.split for view in views}
-        if len(splits) != 1:
+        if not isinstance(split, str) or not split:
             raise DatasetContractError(
-                "multi_corpus.split_mismatch",
-                "all constituent views must use the same validated split",
+                "multi_corpus.split_invalid", "split must be a non-empty string"
             )
-        ordered = tuple(sorted(views, key=lambda view: view.dataset_id))
-        ids = tuple(view.dataset_id for view in ordered)
+        ordered_datasets = tuple(
+            sorted(datasets, key=lambda dataset: dataset.dataset_id)
+        )
+        ids = tuple(dataset.dataset_id for dataset in ordered_datasets)
         if len(ids) != len(set(ids)):
             raise DatasetContractError(
                 "multi_corpus.duplicate_dataset",
                 "constituent dataset IDs must be unique",
             )
+        indices = tuple(dataset.index for dataset in ordered_datasets)
+        validate_split_manifest(manifest, indices)
+        constituent_fingerprints = tuple(
+            (index.header.dataset_id, index.header.index_fingerprint)
+            for index in indices
+        )
+        ordered = tuple(
+            DatasetView(
+                dataset,
+                manifest,
+                split=split,
+                global_index_fingerprints=constituent_fingerprints,
+                _token=_DATASET_VIEW_TOKEN,
+            )
+            for dataset in ordered_datasets
+        )
         self.views = ordered
-        self.split = ordered[0].split
+        self.manifest = manifest
+        self.split = split
         starts: list[tuple[str, int, int]] = []
         cursor = 0
         for view in ordered:
             starts.append((view.dataset_id, cursor, cursor + len(view)))
             cursor += len(view)
         self.global_ranges = tuple(starts)
-        self.constituent_fingerprints = tuple(
-            (view.dataset_id, view.index_fingerprint) for view in ordered
+        self.constituent_fingerprints = constituent_fingerprints
+        self.manifest_fingerprint = manifest.manifest_fingerprint
+        self.view_fingerprints = tuple(
+            (view.dataset_id, view.view_fingerprint) for view in ordered
+        )
+        self.composition_fingerprint = _fingerprint(
+            {
+                "dataset_view_contract_version": DATASET_VIEW_CONTRACT_VERSION,
+                "sampler_version": MIXTURE_SAMPLER_VERSION,
+                "split": split,
+                "global_manifest_fingerprint": manifest.manifest_fingerprint,
+                "constituent_index_fingerprints": [
+                    list(row) for row in constituent_fingerprints
+                ],
+                "views": [
+                    {
+                        "dataset_id": view.dataset_id,
+                        "view_fingerprint": view.view_fingerprint,
+                        "selected_record_identities": [
+                            list(row)
+                            for row in view.selected_record_identities
+                        ],
+                    }
+                    for view in ordered
+                ],
+            }
         )
         self._length = cursor
 
@@ -721,10 +885,33 @@ class MultiCorpusDataset(Dataset[MultiSourceSample]):
                 return view[index - start]
         raise AssertionError("validated global index did not resolve")
 
+    def record_identity(self, index: int) -> tuple[str, str]:
+        if (
+            isinstance(index, bool)
+            or not isinstance(index, int)
+            or index < 0
+            or index >= len(self)
+        ):
+            raise DatasetContractError(
+                "multi_corpus.index_out_of_range",
+                f"global index must lie in [0, {len(self)})",
+            )
+        for view, (_, start, end) in zip(
+            self.views, self.global_ranges, strict=True
+        ):
+            if index < end:
+                return view.selected_record_identities[index - start]
+        raise AssertionError("validated global index did not resolve")
+
 
 @dataclass(frozen=True, slots=True)
 class MixtureEpochEvidence:
     sampler_version: str
+    dataset_view_contract_version: str
+    split: str
+    manifest_fingerprint: str
+    composition_fingerprint: str
+    view_fingerprints: tuple[tuple[str, str], ...]
     epoch: int
     epoch_size: int
     seed: int
@@ -835,8 +1022,35 @@ class DeterministicQuotaSampler(Sampler[int]):
             order = torch.randperm(len(labels), generator=generator).tolist()
             labels = [labels[index] for index in order]
         schedule = tuple(next(pools[dataset_id]) for dataset_id in labels)
+        resolved_schedule = tuple(
+            self.dataset.record_identity(index) for index in schedule
+        )
+        schedule_fingerprint = _fingerprint(
+            {
+                "sampler_version": MIXTURE_SAMPLER_VERSION,
+                "dataset_view_contract_version": DATASET_VIEW_CONTRACT_VERSION,
+                "split": self.dataset.split,
+                "manifest_fingerprint": self.dataset.manifest_fingerprint,
+                "composition_fingerprint": self.dataset.composition_fingerprint,
+                "seed": self.seed,
+                "epoch": self.epoch,
+                "epoch_size": self.epoch_size,
+                "requested_weights": [
+                    list(row) for row in self.weights.items()
+                ],
+                "quotas": [list(row) for row in self.quotas],
+                "resolved_piece_schedule": [
+                    list(row) for row in resolved_schedule
+                ],
+            }
+        )
         self.last_evidence = MixtureEpochEvidence(
             sampler_version=MIXTURE_SAMPLER_VERSION,
+            dataset_view_contract_version=DATASET_VIEW_CONTRACT_VERSION,
+            split=self.dataset.split,
+            manifest_fingerprint=self.dataset.manifest_fingerprint,
+            composition_fingerprint=self.dataset.composition_fingerprint,
+            view_fingerprints=self.dataset.view_fingerprints,
             epoch=self.epoch,
             epoch_size=self.epoch_size,
             seed=self.seed,
@@ -857,7 +1071,7 @@ class DeterministicQuotaSampler(Sampler[int]):
                 )
                 for dataset_id, count in self.quotas
             ),
-            schedule_fingerprint=_fingerprint(schedule),
+            schedule_fingerprint=schedule_fingerprint,
         )
         return iter(schedule)
 
@@ -1009,7 +1223,7 @@ def dataset_view_report(dataset: MultiCorpusDataset) -> DatasetViewReport:
         component_count=len(components),
         index_fingerprints=dataset.constituent_fingerprints,
         split_manifest_fingerprints=tuple(
-            (view.dataset_id, view.manifest.manifest_fingerprint)
+            (view.dataset_id, dataset.manifest_fingerprint)
             for view in dataset.views
         ),
         available_target_counts=tuple(sorted(available.items())),
@@ -1054,6 +1268,12 @@ def benchmark_multisource_dataloader(
             "benchmark requires a positive fixed batch size",
         )
     schedule = tuple(iter(loader.sampler))[: max_batches * batch_size]
+    sampler_evidence = getattr(loader.sampler, "last_evidence", None)
+    if not isinstance(sampler_evidence, MixtureEpochEvidence):
+        raise DatasetContractError(
+            "dataloader.benchmark_invalid",
+            "benchmark sampler did not publish deterministic epoch evidence",
+        )
 
     def record_for_global(
         global_index: int,
@@ -1126,11 +1346,12 @@ def benchmark_multisource_dataloader(
         node_count=node_count,
         edge_count=edge_count,
         target_row_count=target_row_count,
-        schedule_fingerprint=_fingerprint(piece_ids),
+        schedule_fingerprint=sampler_evidence.schedule_fingerprint,
     )
 
 
 __all__ = [
+    "DATASET_VIEW_CONTRACT_VERSION",
     "MIXTURE_SAMPLER_VERSION",
     "SPLIT_MANIFEST_VERSION",
     "DataLoaderBenchmark",

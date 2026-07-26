@@ -11,6 +11,7 @@ The public versions are:
 - `MULTISOURCE_CORPUS_INDEX_VERSION = "1.0.0"`;
 - `MULTISOURCE_CACHE_VERSION = "1.0.0"`;
 - `MIXTURE_SAMPLER_VERSION = "1.0.0"`;
+- `DATASET_VIEW_CONTRACT_VERSION = "1.0.0"`;
 - `SPLIT_MANIFEST_VERSION = "1.0.0"`.
 
 `CorpusIndexHeader` binds the dataset and adapter configuration to the
@@ -32,8 +33,11 @@ raw-only, and target availability/mask counts.
 The HookTheory builder streams `4_merged.json` once through the production
 adapter. It retains only index/report metadata while each accepted
 `CanonicalPiece` is serialized and released. Structure `ori_uid` evidence is
-preserved as its authoritative source grouping. Conversion failures are
-structured report rows. The POP909-CL builder uses
+preserved as its authoritative source grouping. Only the documented
+`HookTheoryAdapterError` record-conversion failure becomes the stable
+`hooktheory.record_conversion_invalid` quarantine category; unexpected
+runtime, programming, and resource failures abort the build. The POP909-CL
+builder uses
 `discover_pop909_cl_corpus` and the Phase 4B adapter; song 172 remains
 quarantined, while the adapter's accepted masked-target behavior is unchanged.
 
@@ -69,17 +73,28 @@ must not be committed.
 index metadata only and opens no persistent handles. `__getitem__` resolves one
 relative artifact under the configured namespace, reads that artifact only,
 checks its SHA-256 and canonical identity/validation, and calls
-`prepare_multisource_sample`. Negative and out-of-range indices are explicit
-structured errors. The Dataset and the private raw-graph binding survive
-spawn/pickle serialization without weakening graph fingerprint validation.
+`prepare_multisource_sample`. It then compares canonical source group,
+prepared dataset/piece/source/lineage identity, and recomputed target
+availability against the indexed sidecars. Any mismatch fails closed with a
+structured category; sidecars are not copied into the PyG graph. Negative and
+out-of-range indices are explicit structured errors. The Dataset and the
+private raw-graph binding survive spawn/pickle serialization without weakening
+graph fingerprint validation.
 
-`suggested_split` is diagnostic evidence only. `DatasetView` requires a
-validated external `SplitManifest`; it never filters directly on the source
-suggestion. A manifest contains exact piece assignments, source/lineage group
-evidence, transitive atomic-component fingerprints, seed, policy/config
-fingerprint, constituent index fingerprints, and its own fingerprint. Missing,
-duplicate, stale, or cross-split assignments are rejected through the existing
-group validation. No production ratios or seed are selected here.
+`suggested_split` is diagnostic evidence only. Production construction passes
+the complete set of `IndexedMultiSourceDataset` values and one external
+`SplitManifest` to `MultiCorpusDataset`. The manifest is validated once
+against exactly that global index set before any `DatasetView` is derived;
+views cannot be independently constructed and later combined. A view never
+filters directly on the source suggestion. A manifest contains exact piece
+assignments, source/lineage group evidence, transitive atomic-component
+fingerprints, seed, policy/config fingerprint, constituent index fingerprints,
+and its own fingerprint. Missing, extra, duplicate-dataset, stale, differently
+manifested, or cross-split assignments/constituents are rejected through the
+existing group validation.
+Transitive components are computed over all corpora together, including
+cross-dataset source/lineage links. No production ratios or seed are selected
+here.
 
 The optional `plan_group_hash_split` is target-blind and requires explicit
 ratios and seed. It sorts and hashes complete source/lineage components, then
@@ -88,10 +103,14 @@ matching and does not infer a scientific production split.
 
 ## Composition, sampling, and workers
 
-`MultiCorpusDataset` accepts unique dataset IDs and views of one validated
-split only. It sorts datasets by stable ID, exposes deterministic global
-ranges and constituent index fingerprints, and maps global to local indices
-without copying canonical pieces.
+`MultiCorpusDataset` accepts unique dataset IDs, one exact global manifest, and
+one split. It sorts datasets by stable ID, validates the manifest against the
+complete indices once, then derives views. Every view binds the manifest
+fingerprint, split, corpus index fingerprint, and exact ordered
+`(dataset_id, piece_id)` membership. The composition fingerprint binds the
+versioned view and sampler contracts, global manifest, all constituent index
+fingerprints, and all ordered view memberships. Global-to-local mapping does
+not copy canonical pieces.
 
 `DeterministicQuotaSampler` requires positive explicit dataset weights, seed,
 epoch, and positive epoch size. Stable-ID largest-remainder allocation produces
@@ -100,8 +119,12 @@ separate deterministic per-dataset cycles. A record is not repeated until its
 local cycle is exhausted. `set_epoch` changes the schedule; the same
 seed/epoch/contracts reproduce it. Epoch evidence records requested and
 normalized weights, exact quotas, constituent fingerprints, repeats after
-cycle exhaustion, and a schedule fingerprint. Mid-epoch resume is deferred;
-epoch-level replay is the Phase 5B.2 guarantee.
+cycle exhaustion, global manifest/view/composition identity, and a schedule
+fingerprint. That fingerprint hashes the resolved ordered
+`(dataset_id, piece_id)` schedule together with sampler/view versions, split,
+manifest/composition, seed, epoch, weights, and quotas; it is not a hash of
+temporary integer offsets. Mid-epoch resume is deferred; epoch-level replay is
+the Phase 5B.2 guarantee.
 
 `make_multisource_dataloader` accepts only a sampler bound to the exact
 single-split composition. Batch size, worker count, seed, persistence,
@@ -109,7 +132,11 @@ prefetch, and multiprocessing context are explicit. Its top-level worker
 initializer derives Python and torch seeds from the PyTorch worker seed.
 NumPy is not a project dependency and is therefore not imported. The existing
 `collate_multisource_samples` remains the only collator, and no target or
-identity metadata is injected into PyG stores.
+identity metadata is injected into PyG stores. The spawn regression compares
+complete raw graph serialization/fingerprints, every target value/mask/index,
+typed routing, sample indices, confidence, supervision metadata, provenance,
+diagnostics, identities, and deterministic `BatchStatistics`; no CPU sidecar
+is intentionally excluded.
 
 ## Commands
 
@@ -132,9 +159,11 @@ Deterministic verification:
 
 ```bash
 python scripts/audit_multisource_dataset.py \
-  --index /explicit/index.json \
+  --index /explicit/hook-index.json \
   --cache-root /explicit/cache \
-  --split-manifest /explicit/split.json \
+  --index /explicit/pop-index.json \
+  --cache-root /explicit/cache \
+  --split-manifest /explicit/global-split.json \
   --check
 ```
 
@@ -142,8 +171,10 @@ Bounded loader benchmark:
 
 ```bash
 python scripts/benchmark_multisource_dataloader.py \
-  --corpus /index.json:/cache:/split.json \
-  --weight hooktheory=1 \
+  --corpus /hook-index.json:/cache \
+  --corpus /pop-index.json:/cache \
+  --split-manifest /global-split.json \
+  --weight hooktheory=1 --weight pop909_cl=1 \
   --split train --epoch-size 16 --max-batches 4 --num-workers 0
 ```
 

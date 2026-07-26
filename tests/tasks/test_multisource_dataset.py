@@ -13,6 +13,7 @@ import torch
 
 import music_critic.tasks.corpus as corpus_module
 import music_critic.adapters as adapters_module
+import scripts.audit_multisource_dataset as dataset_audit_module
 from music_critic.adapters import (
     HookTheoryAdapterConfig,
     Pop909ClCorpusRecord,
@@ -20,6 +21,7 @@ from music_critic.adapters import (
     convert_pop909_cl_file,
 )
 from music_critic.tasks import (
+    DATASET_VIEW_CONTRACT_VERSION,
     MIXTURE_SAMPLER_VERSION,
     MULTISOURCE_CACHE_VERSION,
     MULTISOURCE_CORPUS_INDEX_VERSION,
@@ -43,6 +45,7 @@ from music_critic.tasks import (
     dumps_split_manifest,
     loads_corpus_index,
     loads_split_manifest,
+    make_corpus_index,
     make_multisource_dataloader,
     multisource_worker_seed,
     plan_group_hash_split,
@@ -177,22 +180,40 @@ def _build_index(
     *,
     linked: bool = False,
     include_targets: bool = True,
+    source_groups: tuple[str, ...] | None = None,
+    lineage_groups: tuple[str, ...] | None = None,
 ):
     config = CorpusCacheConfig(root)
     inputs = []
     for ordinal in range(count):
         clip_id = f"{dataset_id}-{ordinal}"
-        source_group = "source:linked" if linked and ordinal < 2 else f"source:{clip_id}"
-        lineage = "lineage:linked" if linked and 1 <= ordinal < 3 else f"lineage:{clip_id}"
+        source_group = (
+            source_groups[ordinal]
+            if source_groups is not None
+            else (
+                "source:linked"
+                if linked and ordinal < 2
+                else f"source:{clip_id}"
+            )
+        )
+        lineage = (
+            lineage_groups[ordinal]
+            if lineage_groups is not None
+            else (
+                "lineage:linked"
+                if linked and 1 <= ordinal < 3
+                else f"lineage:{clip_id}"
+            )
+        )
         piece = _hook_piece(
             clip_id,
             dataset_id=dataset_id,
             source_group_id=source_group,
             include_targets=include_targets,
         )
-        if not linked:
+        if not linked and lineage_groups is None:
             lineage = piece.source_group_id
-        elif lineage != piece.source_group_id:
+        if lineage != piece.source_group_id:
             provenance = piece.provenance[0]
             piece = replace(
                 piece,
@@ -238,37 +259,57 @@ def _build_index(
     )
 
 
+def _reindex(index, records):
+    return make_corpus_index(
+        dataset_id=index.header.dataset_id,
+        adapter_name=index.header.adapter_name,
+        adapter_version=index.header.adapter_version,
+        adapter_config_fingerprint=index.header.adapter_config_fingerprint,
+        source_identity=index.header.source_identity,
+        source_fingerprint=index.header.source_fingerprint,
+        creation_policy=index.header.creation_policy,
+        records=records,
+    )
+
+
 @pytest.fixture()
 def corpus_pair(tmp_path: Path):
     alpha, alpha_report, config = _build_index(tmp_path, "alpha", 3)
     beta, beta_report, _ = _build_index(tmp_path, "beta", 2)
-    alpha_manifest = create_split_manifest(
-        (alpha,),
-        {("alpha", row.piece_id): "train" for row in alpha.records},
+    manifest = create_split_manifest(
+        (alpha, beta),
+        {
+            (row.dataset_id, row.piece_id): "train"
+            for index in (alpha, beta)
+            for row in index.records
+        },
         seed=7,
     )
-    beta_manifest = create_split_manifest(
-        (beta,),
-        {("beta", row.piece_id): "train" for row in beta.records},
-        seed=7,
-    )
-    alpha_view = DatasetView(
-        IndexedMultiSourceDataset(alpha, cache_config=config),
-        alpha_manifest,
+    mixed = MultiCorpusDataset(
+        (
+            IndexedMultiSourceDataset(alpha, cache_config=config),
+            IndexedMultiSourceDataset(beta, cache_config=config),
+        ),
+        manifest,
         split="train",
     )
-    beta_view = DatasetView(
-        IndexedMultiSourceDataset(beta, cache_config=config),
-        beta_manifest,
-        split="train",
-    )
+    alpha_view, beta_view = mixed.views
     return alpha, beta, alpha_report, beta_report, config, alpha_view, beta_view
+
+
+def _mixed(*views: DatasetView) -> MultiCorpusDataset:
+    return MultiCorpusDataset(
+        tuple(view.dataset for view in views),
+        views[0].manifest,
+        split=views[0].split,
+    )
 
 
 def test_contract_versions_are_pinned() -> None:
     assert MULTISOURCE_CORPUS_INDEX_VERSION == "1.0.0"
     assert MULTISOURCE_CACHE_VERSION == "1.0.0"
     assert MIXTURE_SAMPLER_VERSION == "1.0.0"
+    assert DATASET_VIEW_CONTRACT_VERSION == "1.0.0"
 
 
 def test_index_is_deterministic_and_round_trips(tmp_path: Path) -> None:
@@ -335,6 +376,24 @@ def test_index_rejects_path_traversal(tmp_path: Path) -> None:
     index, _, _ = _build_index(tmp_path, "alpha", 1)
     with pytest.raises(CorpusContractError, match="normalized POSIX"):
         replace(index.records[0], canonical_relative_path="../escape.json")
+
+
+@pytest.mark.parametrize(
+    "field",
+    (
+        "adapter_config_fingerprint",
+        "target_ontology_fingerprint",
+        "target_encoding_fingerprint",
+        "source_fingerprint",
+        "index_fingerprint",
+    ),
+)
+def test_index_rejects_empty_persisted_fingerprint(
+    tmp_path: Path, field: str
+) -> None:
+    index, _, _ = _build_index(tmp_path, "alpha", 1)
+    with pytest.raises(CorpusContractError, match="non-empty lowercase SHA-256"):
+        replace(index.header, **{field: ""})
 
 
 def test_duplicate_piece_identity_is_rejected(tmp_path: Path) -> None:
@@ -486,6 +545,51 @@ def test_dataset_reads_one_item_and_prepares_bound_sample(tmp_path: Path) -> Non
     assert repeated.target_bundle == sample.target_bundle
 
 
+@pytest.mark.parametrize(
+    ("field", "category"),
+    (
+        ("source_group_id", "corpus_cache.source_group_mismatch"),
+        ("lineage_group_id", "dataset.prepared_identity_mismatch"),
+    ),
+)
+def test_dataset_rejects_freshly_fingerprinted_forged_identity_sidecar(
+    tmp_path: Path, field: str, category: str
+) -> None:
+    index, _, config = _build_index(tmp_path, "alpha", 1)
+    forged_record = replace(index.records[0], **{field: f"forged:{field}"})
+    forged_index = _reindex(index, (forged_record,))
+    dataset = IndexedMultiSourceDataset(forged_index, cache_config=config)
+    with pytest.raises(DatasetContractError) as caught:
+        dataset[0]
+    assert caught.value.category == category
+
+
+def test_dataset_rejects_freshly_fingerprinted_target_availability_sidecar(
+    tmp_path: Path,
+) -> None:
+    index, _, config = _build_index(tmp_path, "alpha", 1)
+    availability = index.records[0].target_availability
+    changed_index = next(
+        position
+        for position, row in enumerate(availability)
+        if row.family_present
+    )
+    changed = availability[changed_index]
+    forged_availability = (
+        *availability[:changed_index],
+        replace(changed, available_count=changed.available_count + 1),
+        *availability[changed_index + 1 :],
+    )
+    forged_record = replace(
+        index.records[0], target_availability=forged_availability
+    )
+    forged_index = _reindex(index, (forged_record,))
+    dataset = IndexedMultiSourceDataset(forged_index, cache_config=config)
+    with pytest.raises(DatasetContractError) as caught:
+        dataset[0]
+    assert caught.value.category == "dataset.target_availability_mismatch"
+
+
 def test_dataset_rejects_negative_index(tmp_path: Path) -> None:
     index, _, config = _build_index(tmp_path, "alpha", 1)
     with pytest.raises(DatasetContractError, match="must lie"):
@@ -532,6 +636,21 @@ def test_explicit_split_manifest_round_trips(tmp_path: Path) -> None:
     assert loads_split_manifest(dumps_split_manifest(manifest)) == manifest
 
 
+@pytest.mark.parametrize(
+    "field", ("policy_config_fingerprint", "manifest_fingerprint")
+)
+def test_split_manifest_rejects_empty_persisted_fingerprint(
+    tmp_path: Path, field: str
+) -> None:
+    index, _, _ = _build_index(tmp_path, "alpha", 1)
+    manifest = create_split_manifest(
+        (index,), {("alpha", index.records[0].piece_id): "train"}, seed=1
+    )
+    with pytest.raises(DatasetContractError) as caught:
+        replace(manifest, **{field: ""})
+    assert caught.value.category == "split_manifest.fingerprint_invalid"
+
+
 def test_split_manifest_rejects_missing_assignment(tmp_path: Path) -> None:
     index, _, _ = _build_index(tmp_path, "alpha", 2)
     with pytest.raises(DatasetContractError, match="cover every piece"):
@@ -558,6 +677,196 @@ def test_split_manifest_rejects_cross_split_source_lineage_closure(
         )
 
 
+@pytest.mark.parametrize("shared_kind", ("direct", "transitive"))
+def test_global_manifest_rejects_cross_dataset_component_leakage(
+    tmp_path: Path, shared_kind: str
+) -> None:
+    if shared_kind == "direct":
+        alpha_sources = ("source:cross", "source:alpha")
+        alpha_lineages = ("lineage:alpha-0", "lineage:alpha-1")
+        beta_sources = ("source:cross",)
+        beta_lineages = ("lineage:beta",)
+    else:
+        alpha_sources = ("source:bridge", "source:bridge")
+        alpha_lineages = ("lineage:alpha", "lineage:cross")
+        beta_sources = ("source:beta",)
+        beta_lineages = ("lineage:cross",)
+    alpha, _, _ = _build_index(
+        tmp_path,
+        "alpha",
+        2,
+        source_groups=alpha_sources,
+        lineage_groups=alpha_lineages,
+    )
+    beta, _, _ = _build_index(
+        tmp_path,
+        "beta",
+        1,
+        source_groups=beta_sources,
+        lineage_groups=beta_lineages,
+    )
+    split_by_piece = {
+        ("alpha", alpha.records[0].piece_id): "train",
+        ("alpha", alpha.records[1].piece_id): "train",
+        ("beta", beta.records[0].piece_id): "test",
+    }
+    with pytest.raises(DatasetContractError, match="crosses splits"):
+        create_split_manifest(
+            (alpha, beta), split_by_piece, seed=13
+        )
+
+
+def test_one_global_manifest_derives_usable_views_for_all_constituents(
+    corpus_pair,
+) -> None:
+    alpha, beta, *_, alpha_view, beta_view = corpus_pair
+    mixed = _mixed(beta_view, alpha_view)
+    assert mixed.manifest_fingerprint == alpha_view.manifest.manifest_fingerprint
+    assert alpha_view.manifest is beta_view.manifest
+    assert mixed.constituent_fingerprints == (
+        ("alpha", alpha.header.index_fingerprint),
+        ("beta", beta.header.index_fingerprint),
+    )
+    assert alpha_view.selected_record_identities == tuple(
+        ("alpha", row.piece_id) for row in alpha.records
+    )
+    assert beta_view.selected_record_identities == tuple(
+        ("beta", row.piece_id) for row in beta.records
+    )
+    assert {mixed[0].dataset_id, mixed[len(alpha_view)].dataset_id} == {
+        "alpha",
+        "beta",
+    }
+
+
+def test_dataset_audit_consumes_global_manifest_in_stable_order(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    alpha, _, config = _build_index(tmp_path, "alpha", 1)
+    beta, _, _ = _build_index(tmp_path, "beta", 1)
+    manifest = create_split_manifest(
+        (alpha, beta),
+        {
+            ("alpha", alpha.records[0].piece_id): "train",
+            ("beta", beta.records[0].piece_id): "train",
+        },
+        seed=1,
+    )
+    alpha_path = tmp_path / "alpha.index.json"
+    beta_path = tmp_path / "beta.index.json"
+    manifest_path = tmp_path / "global.split.json"
+    alpha_path.write_text(dumps_corpus_index(alpha), encoding="utf-8")
+    beta_path.write_text(dumps_corpus_index(beta), encoding="utf-8")
+    manifest_path.write_text(dumps_split_manifest(manifest), encoding="utf-8")
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "audit_multisource_dataset.py",
+            "--index",
+            str(beta_path),
+            "--cache-root",
+            str(config.root),
+            "--index",
+            str(alpha_path),
+            "--cache-root",
+            str(config.root),
+            "--split-manifest",
+            str(manifest_path),
+            "--check",
+        ],
+    )
+    assert dataset_audit_module.main() == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["dataset_ids"] == ["alpha", "beta"]
+    assert report["manifest_fingerprint"] == manifest.manifest_fingerprint
+
+
+def test_separate_per_corpus_manifests_cannot_bypass_global_contract(
+    tmp_path: Path,
+) -> None:
+    alpha, _, config = _build_index(
+        tmp_path,
+        "alpha",
+        1,
+        source_groups=("source:cross",),
+    )
+    beta, _, _ = _build_index(
+        tmp_path,
+        "beta",
+        1,
+        source_groups=("source:cross",),
+    )
+    alpha_manifest = create_split_manifest(
+        (alpha,), {("alpha", alpha.records[0].piece_id): "train"}, seed=1
+    )
+    beta_manifest = create_split_manifest(
+        (beta,), {("beta", beta.records[0].piece_id): "test"}, seed=1
+    )
+    assert alpha_manifest.manifest_fingerprint != beta_manifest.manifest_fingerprint
+    datasets = (
+        IndexedMultiSourceDataset(alpha, cache_config=config),
+        IndexedMultiSourceDataset(beta, cache_config=config),
+    )
+    for manifest in (alpha_manifest, beta_manifest):
+        with pytest.raises(DatasetContractError, match="different corpus index"):
+            MultiCorpusDataset(datasets, manifest, split="train")
+
+
+def test_global_manifest_rejects_missing_extra_and_stale_constituents(
+    tmp_path: Path,
+) -> None:
+    alpha, _, config = _build_index(tmp_path, "alpha", 1)
+    beta, _, _ = _build_index(tmp_path, "beta", 1)
+    manifest = create_split_manifest(
+        (alpha, beta),
+        {
+            ("alpha", alpha.records[0].piece_id): "train",
+            ("beta", beta.records[0].piece_id): "train",
+        },
+        seed=1,
+    )
+    alpha_dataset = IndexedMultiSourceDataset(alpha, cache_config=config)
+    beta_dataset = IndexedMultiSourceDataset(beta, cache_config=config)
+    gamma, _, _ = _build_index(tmp_path, "gamma", 1)
+    stale_beta, _, _ = _build_index(tmp_path / "stale", "beta", 2)
+    invalid_compositions = (
+        (alpha_dataset,),
+        (
+            alpha_dataset,
+            beta_dataset,
+            IndexedMultiSourceDataset(gamma, cache_config=config),
+        ),
+        (
+            alpha_dataset,
+            IndexedMultiSourceDataset(stale_beta, cache_config=config),
+        ),
+    )
+    for datasets in invalid_compositions:
+        with pytest.raises(DatasetContractError) as caught:
+            MultiCorpusDataset(datasets, manifest, split="train")
+        assert caught.value.category == "split_manifest.index_mismatch"
+
+
+def test_split_manifest_rejects_duplicate_dataset_fingerprints(
+    tmp_path: Path,
+) -> None:
+    index, _, _ = _build_index(tmp_path, "alpha", 1)
+    manifest = create_split_manifest(
+        (index,), {("alpha", index.records[0].piece_id): "train"}, seed=1
+    )
+    with pytest.raises(DatasetContractError) as caught:
+        replace(
+            manifest,
+            index_fingerprints=(
+                manifest.index_fingerprints[0],
+                manifest.index_fingerprints[0],
+            ),
+        )
+    assert caught.value.category == "split_manifest.duplicate_dataset"
+
+
 def test_split_manifest_rejects_index_fingerprint_mismatch(tmp_path: Path) -> None:
     first, _, _ = _build_index(tmp_path / "a", "alpha", 1)
     second, _, _ = _build_index(tmp_path / "b", "alpha", 2)
@@ -573,7 +882,7 @@ def test_split_manifest_rejects_index_fingerprint_mismatch(tmp_path: Path) -> No
 def test_suggested_split_is_not_an_implicit_manifest(tmp_path: Path) -> None:
     index, _, config = _build_index(tmp_path, "alpha", 1)
     dataset = IndexedMultiSourceDataset(index, cache_config=config)
-    with pytest.raises(DatasetContractError):
+    with pytest.raises(DatasetContractError, match="MultiCorpusDataset"):
         DatasetView(
             dataset,
             create_split_manifest(
@@ -623,7 +932,7 @@ def test_group_hash_planner_is_target_blind(tmp_path: Path) -> None:
 
 def test_multi_corpus_uses_stable_dataset_ranges(corpus_pair) -> None:
     *_, alpha_view, beta_view = corpus_pair
-    mixed = MultiCorpusDataset((beta_view, alpha_view))
+    mixed = _mixed(beta_view, alpha_view)
     assert tuple(row[0] for row in mixed.global_ranges) == ("alpha", "beta")
     assert mixed[0].dataset_id == "alpha"
     assert mixed[mixed.global_ranges[1][1]].dataset_id == "beta"
@@ -632,19 +941,19 @@ def test_multi_corpus_uses_stable_dataset_ranges(corpus_pair) -> None:
 def test_multi_corpus_rejects_duplicate_dataset_view(corpus_pair) -> None:
     *_, alpha_view, _ = corpus_pair
     with pytest.raises(DatasetContractError, match="unique"):
-        MultiCorpusDataset((alpha_view, alpha_view))
+        _mixed(alpha_view, alpha_view)
 
 
 def test_dataset_view_report_uses_index_metadata(corpus_pair) -> None:
     *_, alpha_view, beta_view = corpus_pair
-    report = dataset_view_report(MultiCorpusDataset((alpha_view, beta_view)))
+    report = dataset_view_report(_mixed(alpha_view, beta_view))
     assert report.piece_count == 5
     assert report.constituent_counts == (("alpha", 3), ("beta", 2))
 
 
 def test_sampler_largest_remainder_quotas_are_exact(corpus_pair) -> None:
     *_, alpha_view, beta_view = corpus_pair
-    mixed = MultiCorpusDataset((alpha_view, beta_view))
+    mixed = _mixed(alpha_view, beta_view)
     sampler = DeterministicQuotaSampler(
         mixed, weights={"beta": 1, "alpha": 2}, seed=5, epoch_size=10
     )
@@ -654,7 +963,7 @@ def test_sampler_largest_remainder_quotas_are_exact(corpus_pair) -> None:
 
 def test_sampler_same_seed_and_epoch_replay(corpus_pair) -> None:
     *_, alpha_view, beta_view = corpus_pair
-    mixed = MultiCorpusDataset((alpha_view, beta_view))
+    mixed = _mixed(alpha_view, beta_view)
     first = DeterministicQuotaSampler(
         mixed, weights={"alpha": 1, "beta": 1}, seed=9, epoch_size=8
     )
@@ -663,24 +972,151 @@ def test_sampler_same_seed_and_epoch_replay(corpus_pair) -> None:
     )
     assert tuple(first) == tuple(second)
     assert first.last_evidence == second.last_evidence
+    assert first.last_evidence is not None
+    assert (
+        first.last_evidence.composition_fingerprint
+        == mixed.composition_fingerprint
+    )
+    assert first.last_evidence.manifest_fingerprint == mixed.manifest_fingerprint
+
+
+def test_sampler_is_input_order_invariant_for_global_composition(
+    corpus_pair,
+) -> None:
+    *_, alpha_view, beta_view = corpus_pair
+    first_dataset = _mixed(alpha_view, beta_view)
+    second_dataset = _mixed(beta_view, alpha_view)
+    first = DeterministicQuotaSampler(
+        first_dataset,
+        weights={"alpha": 1, "beta": 1},
+        seed=31,
+        epoch_size=6,
+    )
+    second = DeterministicQuotaSampler(
+        second_dataset,
+        weights={"beta": 1, "alpha": 1},
+        seed=31,
+        epoch_size=6,
+    )
+    assert first_dataset.composition_fingerprint == (
+        second_dataset.composition_fingerprint
+    )
+    assert tuple(first) == tuple(second)
+    assert first.last_evidence == second.last_evidence
+
+
+def test_same_size_different_membership_changes_view_and_schedule_evidence(
+    tmp_path: Path,
+) -> None:
+    index, _, config = _build_index(tmp_path, "alpha", 2)
+    first_manifest = create_split_manifest(
+        (index,),
+        {
+            ("alpha", index.records[0].piece_id): "train",
+            ("alpha", index.records[1].piece_id): "test",
+        },
+        seed=1,
+    )
+    second_manifest = create_split_manifest(
+        (index,),
+        {
+            ("alpha", index.records[0].piece_id): "test",
+            ("alpha", index.records[1].piece_id): "train",
+        },
+        seed=1,
+    )
+    indexed = IndexedMultiSourceDataset(index, cache_config=config)
+    first_dataset = MultiCorpusDataset(
+        (indexed,), first_manifest, split="train"
+    )
+    second_dataset = MultiCorpusDataset(
+        (indexed,), second_manifest, split="train"
+    )
+    assert len(first_dataset) == len(second_dataset) == 1
+    assert first_dataset.views[0].view_fingerprint != (
+        second_dataset.views[0].view_fingerprint
+    )
+    first = DeterministicQuotaSampler(
+        first_dataset, weights={"alpha": 1}, seed=4, epoch_size=1
+    )
+    second = DeterministicQuotaSampler(
+        second_dataset, weights={"alpha": 1}, seed=4, epoch_size=1
+    )
+    tuple(first)
+    tuple(second)
+    assert first.last_evidence is not None
+    assert second.last_evidence is not None
+    assert first.last_evidence.schedule_fingerprint != (
+        second.last_evidence.schedule_fingerprint
+    )
+
+
+def test_manifest_and_split_identity_change_sampler_evidence(
+    tmp_path: Path,
+) -> None:
+    index, _, config = _build_index(tmp_path, "alpha", 2)
+    assignments = {
+        ("alpha", index.records[0].piece_id): "train",
+        ("alpha", index.records[1].piece_id): "test",
+    }
+    first_manifest = create_split_manifest((index,), assignments, seed=1)
+    second_manifest = create_split_manifest((index,), assignments, seed=2)
+    indexed = IndexedMultiSourceDataset(index, cache_config=config)
+    train_first = MultiCorpusDataset(
+        (indexed,), first_manifest, split="train"
+    )
+    train_second = MultiCorpusDataset(
+        (indexed,), second_manifest, split="train"
+    )
+    test_first = MultiCorpusDataset(
+        (indexed,), first_manifest, split="test"
+    )
+
+    def evidence(dataset):
+        sampler = DeterministicQuotaSampler(
+            dataset, weights={"alpha": 1}, seed=5, epoch_size=1
+        )
+        tuple(sampler)
+        return sampler.last_evidence
+
+    first = evidence(train_first)
+    second = evidence(train_second)
+    other_split = evidence(test_first)
+    assert first is not None and second is not None and other_split is not None
+    assert len(
+        {
+            first.composition_fingerprint,
+            second.composition_fingerprint,
+            other_split.composition_fingerprint,
+        }
+    ) == 3
+    assert len(
+        {
+            first.schedule_fingerprint,
+            second.schedule_fingerprint,
+            other_split.schedule_fingerprint,
+        }
+    ) == 3
 
 
 def test_sampler_epoch_changes_schedule(corpus_pair) -> None:
     *_, alpha_view, beta_view = corpus_pair
     sampler = DeterministicQuotaSampler(
-        MultiCorpusDataset((alpha_view, beta_view)),
+        _mixed(alpha_view, beta_view),
         weights={"alpha": 1, "beta": 1},
         seed=9,
         epoch_size=8,
     )
     first = tuple(sampler)
+    first_fingerprint = sampler.last_evidence.schedule_fingerprint
     sampler.set_epoch(1)
     assert tuple(sampler) != first
+    assert sampler.last_evidence.schedule_fingerprint != first_fingerprint
 
 
 def test_sampler_does_not_repeat_before_local_exhaustion(corpus_pair) -> None:
     *_, alpha_view, beta_view = corpus_pair
-    mixed = MultiCorpusDataset((alpha_view, beta_view))
+    mixed = _mixed(alpha_view, beta_view)
     sampler = DeterministicQuotaSampler(
         mixed, weights={"alpha": 100, "beta": 1}, seed=3, epoch_size=4
     )
@@ -694,7 +1130,7 @@ def test_sampler_rejects_missing_weight(corpus_pair) -> None:
     *_, alpha_view, beta_view = corpus_pair
     with pytest.raises(DatasetContractError, match="cover"):
         DeterministicQuotaSampler(
-            MultiCorpusDataset((alpha_view, beta_view)),
+            _mixed(alpha_view, beta_view),
             weights={"alpha": 1},
             seed=1,
             epoch_size=3,
@@ -706,7 +1142,7 @@ def test_sampler_rejects_invalid_epoch_size(corpus_pair, epoch_size: int) -> Non
     *_, alpha_view, beta_view = corpus_pair
     with pytest.raises(DatasetContractError, match="epoch_size"):
         DeterministicQuotaSampler(
-            MultiCorpusDataset((alpha_view, beta_view)),
+            _mixed(alpha_view, beta_view),
             weights={"alpha": 1, "beta": 1},
             seed=1,
             epoch_size=epoch_size,
@@ -715,7 +1151,7 @@ def test_sampler_rejects_invalid_epoch_size(corpus_pair, epoch_size: int) -> Non
 
 def test_sampler_rejects_zero_or_negative_weights(corpus_pair) -> None:
     *_, alpha_view, beta_view = corpus_pair
-    mixed = MultiCorpusDataset((alpha_view, beta_view))
+    mixed = _mixed(alpha_view, beta_view)
     for weight in (0, -1):
         with pytest.raises(DatasetContractError, match="positive"):
             DeterministicQuotaSampler(
@@ -750,26 +1186,43 @@ def _loader_evidence(mixed, *, workers: int):
                 return [normalized(item) for item in value]
             return value
 
+        graph_serializations = tuple(
+            normalized(graph_to_dict(graph))
+            for graph in batch.raw_graph_batch.to_data_list()
+        )
         graph_fingerprints = tuple(
             sha256(
                 json.dumps(
-                    normalized(graph_to_dict(graph)),
+                    graph,
                     ensure_ascii=False,
                     sort_keys=True,
                     separators=(",", ":"),
                 ).encode()
             ).hexdigest()
-            for graph in batch.raw_graph_batch.to_data_list()
+            for graph in graph_serializations
         )
         targets = tuple(
             (
                 target.task_id,
-                target.values.tolist()
-                if isinstance(target.values, torch.Tensor)
-                else target.values,
-                target.availability_mask.tolist(),
-                target.entity_indices.tolist(),
-                target.entity_index_mask.tolist(),
+                target.source_adapter,
+                target.supervision_context,
+                target.encoding_registry_version,
+                target.encoding_kind,
+                target.model_ready,
+                target.deferred_reason,
+                target.supervision_regime,
+                normalized(target.values),
+                normalized(target.availability_mask),
+                normalized(target.entity_indices),
+                normalized(target.entity_index_mask),
+                target.entity_node_types,
+                normalized(target.sample_indices),
+                normalized(target.confidence),
+                normalized(target.confidence_mask),
+                target.entry_count,
+                target.source_entry_count,
+                target.provenance_cpu,
+                target.diagnostics_cpu,
             )
             for target in batch.target_batches
         )
@@ -777,8 +1230,13 @@ def _loader_evidence(mixed, *, workers: int):
             (
                 batch.dataset_ids,
                 batch.piece_ids,
+                batch.source_group_ids,
+                batch.lineage_group_ids,
+                batch.diagnostics_cpu,
+                graph_serializations,
                 graph_fingerprints,
                 targets,
+                batch.statistics,
             )
         )
     return tuple(evidence)
@@ -788,7 +1246,7 @@ def test_dataloader_num_workers_zero_and_two_have_schedule_parity(
     corpus_pair,
 ) -> None:
     *_, alpha_view, beta_view = corpus_pair
-    mixed = MultiCorpusDataset((alpha_view, beta_view))
+    mixed = _mixed(alpha_view, beta_view)
     assert _loader_evidence(mixed, workers=0) == _loader_evidence(
         mixed, workers=2
     )
@@ -799,12 +1257,11 @@ def test_worker_exception_retains_structured_category(tmp_path: Path) -> None:
     manifest = create_split_manifest(
         (index,), {("alpha", index.records[0].piece_id): "train"}, seed=1
     )
-    view = DatasetView(
-        IndexedMultiSourceDataset(index, cache_config=config),
+    mixed = MultiCorpusDataset(
+        (IndexedMultiSourceDataset(index, cache_config=config),),
         manifest,
         split="train",
     )
-    mixed = MultiCorpusDataset((view,))
     sampler = DeterministicQuotaSampler(
         mixed, weights={"alpha": 1}, seed=1, epoch_size=1
     )
@@ -870,12 +1327,11 @@ def test_bounded_pop_piece_uses_dataset_to_loader_path(tmp_path: Path) -> None:
     manifest = create_split_manifest(
         (index,), {(piece.dataset_name, piece.piece_id): "train"}, seed=1
     )
-    view = DatasetView(
-        IndexedMultiSourceDataset(index, cache_config=config),
+    mixed = MultiCorpusDataset(
+        (IndexedMultiSourceDataset(index, cache_config=config),),
         manifest,
         split="train",
     )
-    mixed = MultiCorpusDataset((view,))
     sampler = DeterministicQuotaSampler(
         mixed, weights={piece.dataset_name: 1}, seed=1, epoch_size=1
     )
@@ -953,6 +1409,28 @@ def test_pop_song_172_quarantine_never_becomes_dataset_item(
     assert report.quarantine[0].source_identity == "172"
 
 
+@pytest.mark.parametrize("limit", (0, -1, True, False, 1.5, "1"))
+@pytest.mark.parametrize("builder", ("hooktheory", "pop909_cl"))
+def test_corpus_builders_reject_invalid_limit(
+    tmp_path: Path, builder: str, limit: object
+) -> None:
+    config = CorpusCacheConfig(tmp_path / "cache")
+    with pytest.raises(CorpusContractError) as caught:
+        if builder == "hooktheory":
+            build_hooktheory_corpus_cache(
+                tmp_path / "4_merged.json",
+                cache_config=config,
+                limit=limit,
+            )
+        else:
+            build_pop909_cl_corpus_cache(
+                tmp_path / "pop909",
+                cache_config=config,
+                limit=limit,
+            )
+    assert caught.value.category == "corpus_build.limit_invalid"
+
+
 def test_mixed_hook_pop_raw_only_dataloader_batch_is_valid(tmp_path: Path) -> None:
     hook, _, config = _build_index(tmp_path / "cache", "hook", 1)
     raw, _, _ = _build_index(
@@ -978,19 +1456,24 @@ def test_mixed_hook_pop_raw_only_dataloader_batch_is_valid(tmp_path: Path) -> No
         source_fingerprint=sha256(b"mixed-pop-source").hexdigest(),
     )
 
-    def view(index):
-        manifest = create_split_manifest(
-            (index,),
-            {(row.dataset_id, row.piece_id): "train" for row in index.records},
-            seed=1,
-        )
-        return DatasetView(
-            IndexedMultiSourceDataset(index, cache_config=config),
-            manifest,
-            split="train",
-        )
-
-    mixed = MultiCorpusDataset((view(raw), view(pop), view(hook)))
+    indices = (raw, pop, hook)
+    manifest = create_split_manifest(
+        indices,
+        {
+            (row.dataset_id, row.piece_id): "train"
+            for index in indices
+            for row in index.records
+        },
+        seed=1,
+    )
+    mixed = MultiCorpusDataset(
+        tuple(
+            IndexedMultiSourceDataset(index, cache_config=config)
+            for index in indices
+        ),
+        manifest,
+        split="train",
+    )
     sampler = DeterministicQuotaSampler(
         mixed,
         weights={"hook": 1, "pop909_cl": 1, "raw": 1},
@@ -1054,3 +1537,32 @@ def test_hooktheory_stream_builder_reports_unusable_records(tmp_path: Path) -> N
     assert report.accepted_count == 1
     assert report.quarantined_count == 1
     assert valid_piece.dataset_name == index.header.dataset_id
+    assert report.quarantine[0].category == (
+        "hooktheory.record_conversion_invalid"
+    )
+    assert report.failure_category_counts == (
+        ("hooktheory.record_conversion_invalid", 1),
+    )
+
+
+def test_hooktheory_stream_builder_propagates_unexpected_runtime_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    raw = tmp_path / "4_merged.json"
+    raw.write_text(
+        json.dumps({"unexpected": {"hash": "unexpected", "json": {}}}),
+        encoding="utf-8",
+    )
+
+    def fail_unexpectedly(*_args, **_kwargs):
+        raise RuntimeError("injected programming failure")
+
+    monkeypatch.setattr(
+        adapters_module, "convert_hooktheory_record", fail_unexpectedly
+    )
+    with pytest.raises(RuntimeError, match="injected programming failure"):
+        build_hooktheory_corpus_cache(
+            raw,
+            cache_config=CorpusCacheConfig(tmp_path / "cache"),
+            limit=1,
+        )

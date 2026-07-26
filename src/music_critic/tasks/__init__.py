@@ -57,6 +57,7 @@ from music_critic.tasks.corpus import (
     validate_current_corpus_index,
 )
 from music_critic.tasks.loading import (
+    DATASET_VIEW_CONTRACT_VERSION,
     MIXTURE_SAMPLER_VERSION,
     SPLIT_MANIFEST_VERSION,
     DataLoaderBenchmark,
@@ -140,6 +141,7 @@ __all__ = [
     "CorpusIndex",
     "CorpusIndexHeader",
     "CorpusQuarantineRecord",
+    "DATASET_VIEW_CONTRACT_VERSION",
     "CrosswalkSpec",
     "CrosswalkStatus",
     "CollatorBenchmark",

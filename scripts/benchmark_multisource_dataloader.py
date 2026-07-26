@@ -10,7 +10,6 @@ from pathlib import Path
 
 from music_critic.tasks import (
     CorpusCacheConfig,
-    DatasetView,
     DeterministicQuotaSampler,
     IndexedMultiSourceDataset,
     MultiCorpusDataset,
@@ -22,11 +21,11 @@ from music_critic.tasks import (
 )
 
 
-def _corpus(value: str) -> tuple[Path, Path, Path]:
+def _corpus(value: str) -> tuple[Path, Path]:
     parts = value.split(":")
-    if len(parts) != 3 or not all(parts):
+    if len(parts) != 2 or not all(parts):
         raise argparse.ArgumentTypeError(
-            "corpus must be INDEX:CACHE_ROOT:SPLIT_MANIFEST"
+            "corpus must be INDEX:CACHE_ROOT"
         )
     return tuple(Path(part) for part in parts)  # type: ignore[return-value]
 
@@ -45,6 +44,7 @@ def _weight(value: str) -> tuple[str, float]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--corpus", action="append", type=_corpus, required=True)
+    parser.add_argument("--split-manifest", type=Path, required=True)
     parser.add_argument("--weight", action="append", type=_weight, required=True)
     parser.add_argument("--split", required=True)
     parser.add_argument("--seed", type=int, default=0)
@@ -54,20 +54,19 @@ def main() -> int:
     parser.add_argument("--max-batches", type=int, default=10)
     args = parser.parse_args()
 
-    views = []
-    for index_path, cache_root, manifest_path in args.corpus:
+    datasets = []
+    for index_path, cache_root in args.corpus:
         index = load_corpus_index(index_path)
-        dataset = IndexedMultiSourceDataset(
-            index, cache_config=CorpusCacheConfig(cache_root)
-        )
-        views.append(
-            DatasetView(
-                dataset,
-                load_split_manifest(manifest_path),
-                split=args.split,
+        datasets.append(
+            IndexedMultiSourceDataset(
+                index, cache_config=CorpusCacheConfig(cache_root)
             )
         )
-    mixed = MultiCorpusDataset(views)
+    mixed = MultiCorpusDataset(
+        datasets,
+        load_split_manifest(args.split_manifest),
+        split=args.split,
+    )
     sampler = DeterministicQuotaSampler(
         mixed,
         weights=dict(args.weight),

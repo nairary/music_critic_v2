@@ -266,23 +266,39 @@ Graphs and tensors are never cached.
 
 `IndexedMultiSourceDataset` loads index metadata only. Each item reads and
 verifies exactly one artifact, validates it, and invokes
-`prepare_multisource_sample`. A pickle restoration path reinstates the private
-canonical/raw binding token and revalidates the graph fingerprint, so spawn
-workers do not weaken Phase 5B.1.
+`prepare_multisource_sample`. Canonical source grouping, prepared
+dataset/piece/source/lineage identity, and recomputed target availability must
+equal the freshly fingerprinted index sidecars or loading fails closed. None
+of those sidecars enter graph stores. A pickle restoration path reinstates the
+private canonical/raw binding token and revalidates the graph fingerprint, so
+spawn workers do not weaken Phase 5B.1.
 
-Splits are external versioned `SplitManifest` values bound to exact index and
-transitive source/lineage component fingerprints. Source-provided split is
-only `suggested_split`; no Dataset applies it implicitly. The optional
-group-hash planner is target-blind and requires explicit fixture/user seed and
-ratios. No production split is selected in this phase.
+Splits are external versioned `SplitManifest` values bound to the exact
+complete constituent index set and transitive source/lineage component
+fingerprints across corpus boundaries. `MultiCorpusDataset` validates one
+global manifest against all indices before deriving any view; separately
+validated per-corpus manifests cannot be composed. Every derived view binds
+manifest, split, its corpus index, and exact ordered record membership.
+Source-provided split is only `suggested_split`; no Dataset applies it
+implicitly. The optional group-hash planner is target-blind and requires
+explicit fixture/user seed and ratios. No production split is selected in
+this phase.
 
-`MultiCorpusDataset` composes one validated split in stable dataset-ID order.
+`MultiCorpusDataset` composes one globally validated split in stable dataset-ID
+order. Its versioned composition fingerprint commits to the global manifest,
+constituent indices, and ordered membership of every view.
 The quota sampler uses explicit positive weights, largest-remainder epoch
 quotas, and local torch generators for dataset schedules and shuffled local
-cycles. Epoch replay is deterministic and target-independent. The DataLoader
+cycles. Epoch evidence carries the composition identity, and the schedule
+fingerprint hashes resolved `(dataset_id, piece_id)` identities plus sampler
+version, seed, epoch, weights, and quotas rather than transient global
+offsets. Epoch replay is deterministic and target-independent. The DataLoader
 factory uses the existing Phase 5B.1 collator and top-level Python/torch worker
-seeding. All cache, split, sampling, and worker diagnostics remain CPU-side;
-models and losses remain outside Phase 5B.2.
+seeding. Worker parity covers complete raw graphs and all target/CPU sidecars
+and deterministic statistics. HookTheory corpus building quarantines only
+`HookTheoryAdapterError`; unexpected failures abort without publishing a
+successful index/report. All cache, split, sampling, and worker diagnostics
+remain CPU-side; models and losses remain outside Phase 5B.2.
 
 ## Optional semantic predictions
 

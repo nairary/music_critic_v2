@@ -2494,24 +2494,35 @@ structure and is converted to `float32` only at feature-tensor construction.
 ### Phase 5B.2. Corpus dataset, mixture sampler, and worker-safe loading
 
 - Implemented portable corpus index `1.0.0`, canonical cache `1.0.0`, split
-  manifest `1.0.0`, and mixture sampler `1.0.0`.
+  manifest `1.0.0`, dataset-view contract `1.0.0`, and mixture sampler
+  `1.0.0`.
 - Offline builders stream HookTheory records or consume POP909-CL discovery,
   preserve structured quarantine separately, and write one deterministic,
-  SHA-addressed canonical JSON artifact at a time. Raw-only canonical pieces
-  are supported; graphs/tensors are not cached.
+  SHA-addressed canonical JSON artifact at a time. HookTheory quarantines only
+  its documented adapter error; unexpected failures abort. Builder limits are
+  `None` or positive non-bool integers. Raw-only canonical pieces are
+  supported; graphs/tensors are not cached.
 - The lazy map-style Dataset reads/verifies one artifact per item, validates it,
-  prepares the Phase 3A graph, and survives spawn/pickle while retaining the
-  private graph-binding verification.
-- External split manifests cover every indexed piece and bind exact transitive
-  source/lineage components. Suggested source splits are diagnostics only.
-  Production ratios and seed remain unselected.
+  prepares the Phase 3A graph, verifies identity/lineage/availability sidecars,
+  and survives spawn/pickle while retaining the private graph-binding
+  verification.
+- One external split manifest covers every piece in the exact complete
+  multi-index composition and binds transitive source/lineage components
+  across dataset boundaries. It is validated globally before per-dataset
+  views are derived. Missing, extra, duplicate, stale, or independently
+  manifested constituents fail closed. Suggested source splits are diagnostics
+  only. Production ratios and seed remain unselected.
 - Stable multi-corpus ranges plus explicit largest-remainder quotas, local
   torch-generator schedules, shuffled no-repeat-before-exhaustion cycles, and
   `set_epoch` provide epoch-level deterministic mixtures without consulting
-  targets.
+  targets. View/composition fingerprints bind manifest, split, index
+  fingerprints, and exact ordered membership; schedule fingerprints bind the
+  resolved dataset/piece sequence plus sampler configuration.
 - The worker-safe DataLoader exposes batch/worker/persistence/prefetch/context
   config, seeds Python and torch from the PyTorch worker seed, and routes
-  samples through the unchanged Phase 5B.1 collator.
+  samples through the unchanged Phase 5B.1 collator. Worker parity compares
+  the complete raw graph, all target tensors and CPU sidecars, identities,
+  diagnostics, and deterministic statistics.
 
 ### Phase 5B acceptance criteria
 
@@ -2520,7 +2531,8 @@ structure and is converted to `float32` only at feature-tensor construction.
   supervision-eligible; repeated ordered collation is deterministic and raw
   graph mutation after preparation is rejected.
 - Phase 5B.2: bounded corpus datasets and worker processes reproduce a
-  deterministic, lineage-safe mixture without loading or splitting leakage.
+  deterministic, globally manifested, view-bound, lineage-safe mixture without
+  loading or splitting leakage.
 - POP909-CL boundary and no-chord supervision are enabled only with separately
   accepted PU-compatible objectives in Phase 6; otherwise each corresponding
   task remains disabled.
