@@ -113,7 +113,10 @@ def _pop_piece(
     tmp_path: Path,
     *,
     pitches: tuple[int, ...] = (60, 64, 67),
+    leading_gap_ticks: int = 0,
 ):
+    if not 0 <= leading_gap_ticks < 1_920:
+        raise ValueError("leading_gap_ticks must lie in [0, 1920)")
     tmp_path.mkdir(parents=True, exist_ok=True)
     path = tmp_path / "001.mid"
     midi = mido.MidiFile(type=1, ticks_per_beat=480)
@@ -141,9 +144,15 @@ def _pop_piece(
     chord_track = mido.MidiTrack(
         [mido.Message("program_change", channel=1, program=0, time=0)]
     )
-    for pitch in pitches:
+    for index, pitch in enumerate(pitches):
         chord_track.append(
-            mido.Message("note_on", channel=1, note=pitch, velocity=70, time=0)
+            mido.Message(
+                "note_on",
+                channel=1,
+                note=pitch,
+                velocity=70,
+                time=leading_gap_ticks if index == 0 else 0,
+            )
         )
     for index, pitch in enumerate(pitches):
         chord_track.append(
@@ -152,7 +161,7 @@ def _pop_piece(
                 channel=1,
                 note=pitch,
                 velocity=0,
-                time=1_920 if index == 0 else 0,
+                time=1_920 - leading_gap_ticks if index == 0 else 0,
             )
         )
     chord_track.append(mido.MetaMessage("end_of_track", time=0))
@@ -173,7 +182,7 @@ def _pop_piece(
 
 
 def test_registry_version_ids_value_spaces_and_serialization_are_stable() -> None:
-    assert TARGET_ONTOLOGY_VERSION == "1.0.0"
+    assert TARGET_ONTOLOGY_VERSION == "1.0.1"
     assert {spec.task_id for spec in TARGET_FAMILIES} == HOOK_TASKS | POP_TASKS
     assert len(TARGET_FAMILIES) == len({spec.task_id for spec in TARGET_FAMILIES})
     assert all(spec.availability_mask_required for spec in TARGET_FAMILIES)
@@ -210,6 +219,16 @@ def test_registry_version_ids_value_spaces_and_serialization_are_stable() -> Non
         rule.match_rule == "exact_event_time"
         for rule in boundary.alignment_policy.candidate_rules
     )
+    no_chord = next(
+        spec
+        for spec in TARGET_FAMILIES
+        if spec.task_id == "pop909_cl.chord.no_chord"
+    )
+    assert no_chord.vocabulary == ("N",)
+    assert no_chord.supervision_objective == (
+        "positive_unlabeled_coverage_detection"
+    )
+    assert "unlabeled, not negative" in no_chord.negative_example_policy
     for spec in TARGET_FAMILIES:
         if spec.vocabulary is not None:
             assert spec.vocabulary
@@ -220,7 +239,7 @@ def test_registry_version_ids_value_spaces_and_serialization_are_stable() -> Non
     assert payload == dumps_ontology_contract()
     assert ontology_contract_fingerprint() == sha256(payload.encode()).hexdigest()
     assert ontology_contract_fingerprint() == (
-        "296dc400dee45a21fff589e28c05b88b61d8717e3834285a00343bee97fb213b"
+        "86ea17b016eafb7109fe050f9332c57f8e0f3399046debc01f4d8ac5d19d9613"
     )
 
 

@@ -162,24 +162,31 @@ def test_encoding_registry_is_versioned_complete_and_explicit() -> None:
         and spec.deferred_reason
         for spec in open_specs
     )
-    boundary = next(
-        spec
-        for spec in TARGET_ENCODINGS
-        if spec.task_id == "pop909_cl.chord.boundary"
+    by_task = {spec.task_id: spec for spec in TARGET_ENCODINGS}
+    positive_unlabeled_tasks = {
+        "pop909_cl.chord.boundary",
+        "pop909_cl.chord.no_chord",
+    }
+    assert all(
+        by_task[task_id].model_ready
+        and by_task[task_id].supervision_regime == "positive_unlabeled"
+        for task_id in positive_unlabeled_tasks
     )
-    assert boundary.model_ready
-    assert boundary.supervision_regime == "positive_unlabeled"
+    assert by_task["pop909_cl.chord.no_chord"].vocabulary == ("N",)
     assert {
         spec.supervision_regime for spec in open_specs
     } == {"deferred_open_vocabulary"}
     assert all(
         spec.supervision_regime == "fully_supervised"
         for spec in TARGET_ENCODINGS
-        if spec.model_ready and spec.task_id != boundary.task_id
+        if spec.model_ready and spec.task_id not in positive_unlabeled_tasks
     )
-    assert not hasattr(boundary, "standard_bce_eligible")
+    assert not hasattr(
+        by_task["pop909_cl.chord.no_chord"],
+        "standard_bce_eligible",
+    )
     assert target_encoding_contract_fingerprint() == (
-        "76896b3f7c1f85be6e7edc6fbdf6103c4ce1b84f2321bade36744fca7097d7d5"
+        "386aceef18b6ba7da5e91d406cefdcdc21d46b6839ded873312402940b507e01"
     )
 
 
@@ -346,6 +353,28 @@ def test_boundary_exact_event_expands_all_types_without_synthetic_negatives(
     assert boundary.supervision_eligibility_mask.tolist() == [True] * 3
     assert not hasattr(boundary, "standard_bce_eligibility_mask")
     assert boundary.entry_count == boundary.source_entry_count * 3
+
+
+def test_no_chord_is_positive_unlabeled_without_synthetic_negatives(
+    tmp_path: Path,
+) -> None:
+    batch = collate_multisource_samples(
+        (_sample(_pop_piece(tmp_path, leading_gap_ticks=480)),)
+    )
+    no_chord = _target(batch, "pop909_cl.chord.no_chord")
+    assert no_chord.supervision_regime == "positive_unlabeled"
+    assert no_chord.source_entry_count == 1
+    assert no_chord.entry_count == 3
+    assert no_chord.entity_node_types == ("onset", "beat", "bar")
+    assert no_chord.availability_mask.tolist() == [True, True, True]
+    assert no_chord.values.tolist() == [0, 0, 0]
+    assert no_chord.supervision_eligibility_mask.tolist() == [True, True, True]
+    assert not hasattr(no_chord, "standard_bce_eligibility_mask")
+    assert set(no_chord.values.tolist()) == {0}
+    assert no_chord.entry_count < sum(
+        int(batch.raw_graph_batch[node_type].num_nodes)
+        for node_type in ("onset", "beat", "bar")
+    )
 
 
 def test_available_unaligned_boundary_is_retained_without_snap(

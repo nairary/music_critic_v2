@@ -300,9 +300,13 @@ encoding, exact alignment, and sidecar batching contracts. Source availability
 and entity alignment remain independent masks; targets, provenance,
 diagnostics, and confidence never enter raw PyG stores. Open HookTheory
 mode/borrowed strings remain lossless and not model-ready. POP909-CL boundary
-emits positive events without synthetic negatives under the
-`positive_unlabeled` regime. Encoding chooses representation only; Phase 6,
-not Phase 5B.1, chooses or disables every concrete loss. The project still
+emits only positive events, while POP909-CL no-chord emits only explicit
+positive `N` coverage spans; both use `positive_unlabeled`, but they are
+different tasks. Missing boundary events, chord spans, uncovered candidates,
+and absent annotations never become synthetic negatives. The one-class
+no-chord representation is not itself a fully-supervised classifier.
+Encoding chooses representation only; Phase 6, not Phase 5B.1, separately
+chooses a PU-compatible objective or disables each task. The project still
 does not choose or implement:
 
 - a shared cross-source harmonic vocabulary or shared model-head routing;

@@ -312,7 +312,7 @@ def build_alignment_index(
     *,
     instrumentation: AlignmentOperationCounts | None = None,
 ) -> AlignmentIndex:
-    """Build one validated immutable index in O(piece entities)."""
+    """Build one validated immutable index in O(P + C log C)."""
 
     _validate_piece_for_alignment(piece)
     return _build_alignment_index(piece, instrumentation=instrumentation)
@@ -600,7 +600,7 @@ def align_sample_targets(
     *,
     instrumentation: AlignmentOperationCounts | None = None,
 ) -> tuple[AlignedTargetFamily, ...]:
-    """Align every registry task with one O(piece entities) immutable index."""
+    """Align every registry task with one sorted immutable piece index."""
 
     _validate_alignment_inputs(piece, raw_graph, sample)
     alignment_index = _build_alignment_index(

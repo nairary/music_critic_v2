@@ -274,11 +274,12 @@ The model and training phases remain pending.
 
 - Goal: batch heterogeneous task availability across datasets.
 - Dependencies: adapter and graph phases.
-- Phase 5A result: target ontology `1.0.0`, exact source inventories,
+- Phase 5A result: target ontology `1.0.1`, exact source inventories,
   conservative crosswalk, exact sidecar alignment policies, future
   sample/batch API with structural validation, provenance-authoritative
-  grouping, atomic transitive source/lineage ordering, positive-unlabeled
-  POP909-CL boundary supervision, and machine-readable bounded evidence. No
+  grouping, atomic transitive source/lineage ordering, distinct
+  positive-unlabeled POP909-CL boundary-event and no-chord-coverage
+  supervision, and machine-readable bounded evidence. No
   current HookTheory/POP909-CL pair is declared exact-shared or an accepted
   lossless subset.
 - Phase 5B.1 result: exact canonical-ID/`RationalTime` alignment, target
@@ -287,8 +288,9 @@ The model and training phases remain pending.
   sidecars, production PyG collator, typed local-to-global `ptr` offsets, and
   deterministic batch statistics that distinguish encodable from
   supervision-eligible rows. Open strings remain deferred CPU values,
-  positive-unlabeled boundary events have no synthetic negatives, and the
-  encoding registry does not choose a loss.
+  positive-unlabeled boundary events and explicit positive `N` coverage spans
+  have no synthetic negatives, and the encoding registry does not choose a
+  loss.
 - Phase 5B.2 remaining work: practical corpus indexing and `Dataset`,
   source/lineage-safe split consumption, deterministic mixture/epoch sampler,
   worker-safe `DataLoader`, and configurable mixture weights.
@@ -319,8 +321,9 @@ The model and training phases remain pending.
 - Non-goals: GraphMAE2/Hi-GMAE/UGMAE extensions.
 - Acceptance: a small raw graph batch trains end to end with masked harmonic
   routing; Phase 6 is not described as a quality critic. POP909-CL boundary
-  supervision must use an explicitly selected PU-compatible objective or be
-  excluded; ordinary BCE with implicit `absent=0` is forbidden.
+  and no-chord supervision must each use an explicitly accepted
+  PU-compatible objective or be excluded; absence of an observed event/span
+  cannot become an implicit negative.
 
 ## Phase 7 — GraphMAE2-style SSL
 

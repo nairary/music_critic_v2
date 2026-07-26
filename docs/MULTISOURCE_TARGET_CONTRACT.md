@@ -2,7 +2,7 @@
 
 Status: **ACCEPTED PHASE 5A ONTOLOGY; IMPLEMENTED PHASE 5B.1 COLLATION**
 
-Ontology version: `1.0.0`
+Ontology version: `1.0.1`
 
 Implementation: `music_critic.tasks`
 
@@ -113,7 +113,7 @@ explicit derivation provenance. Numeric confidence is not supplied.
 | `pop909_cl.chord.quality` | 13-class categorical quality | 109,800 | 6,257 | ambiguous remains available only if all candidates agree |
 | `pop909_cl.chord.bass` | categorical `C..B` pitch-class names | 116,055 | 2 | directly observed lowest pitch class; independent mask |
 | `pop909_cl.chord.inversion` | categorical semitone distance `0..11` | 109,668 | 6,389 | depends on unambiguous root; independent from bass mask |
-| `pop909_cl.chord.no_chord` | categorical `N` | 947 | 153 | only positive leading/internal gaps are `N`; 151 trailing spans and two missing-instrument spans remain masked |
+| `pop909_cl.chord.no_chord` | categorical one-class `N`; positive-unlabeled coverage | 947 | 153 | only positive leading/internal gaps are `N`; chord spans/uncovered candidates are not negatives, and 151 trailing spans plus two missing-instrument spans remain masked |
 
 The manifest records 5,801 ambiguous blocks and 586 unsupported blocks.
 Boundary and bass remain available for those blocks. `367` and `658` supply
@@ -124,7 +124,7 @@ time, and available `N` are six distinct states.
 ## 4. Conservative crosswalk
 
 There are no accepted `exact_shared` or `derived_lossless_subset` mappings in
-ontology `1.0.0`. A future model may route multiple source-native heads into a
+ontology `1.0.1`. A future model may route multiple source-native heads into a
 shared representation, but that is a model policy, not a claim that labels are
 identical.
 
@@ -153,8 +153,10 @@ Alignment remains a sidecar operation:
   onset/beat/bar mappings, and sorted rational candidate times; no source-entry
   loop rebuilds these maps or scans complete candidate stores;
 - half-open candidate lookup uses exact rational
-  `[bisect_left(start), bisect_left(end))`, giving total fixed-registry work
-  `O(piece entities + target entries * log candidates + emitted rows)`;
+  `[bisect_left(start), bisect_left(end))`; because candidate arrays are
+  sorted, strict work is `O(P + C log C + T log C + R + F*C)`, where `P` is
+  canonical entities, `C` temporal candidates, `T` target entries, `R`
+  emitted rows, and `F` task families; fixed-registry `F*C` is linear in `C`;
 - all source spans retain exact `RationalTime`; no float equality or
   nearest-neighbor snapping is permitted;
 - `note_identity_v1` maps only an exact canonical note entity ID;
@@ -178,11 +180,17 @@ Alignment remains a sidecar operation:
   fabricated negative;
 - unannotated positions are not enumerated as negatives.
 
-`pop909_cl.chord.boundary` is a positive-unlabeled event-detection target.
-Observed span starts carry only the class `present`; non-boundary candidates
-remain unlabeled and ontology `1.0.0` defines no synthetic `absent` class or
-derived negative rule. A future Phase 6 loss must preserve that objective or
-introduce a separately versioned, evidence-backed negative policy.
+`pop909_cl.chord.boundary` and `pop909_cl.chord.no_chord` are distinct
+positive-unlabeled tasks. Boundary is event detection: observed span starts
+carry only `present`, while non-boundary candidates remain unlabeled.
+No-chord is coverage detection: explicitly derived positive leading/internal
+gaps carry only `N`, while chord spans, uncovered candidates, and absent
+annotations remain unlabeled. Ontology `1.0.1` defines neither synthetic
+`absent` nor `not_N`; a one-class `("N",)` representation is not a
+fully-supervised classification task. Phase 6 may use each task only after a
+separate PU-compatible objective is accepted, otherwise it remains disabled.
+Explicit no-chord negatives would require a separately versioned future
+ontology/adapter evidence contract.
 
 Raw graph stores contain neither alignment indices nor target values. Phase
 5B.1 entity indices, values, masks, confidence, provenance, and diagnostics remain

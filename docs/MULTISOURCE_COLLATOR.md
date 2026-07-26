@@ -58,23 +58,24 @@ emitted by the graph builder.
 
 One immutable `AlignmentIndex` is built before task rows are processed. It
 contains O(1) note-ID and annotation-ID mappings, O(1) exact-time mappings for
-onset/beat/bar boundary candidates, and sorted rational candidate times with
-corresponding local indices. A half-open span uses
+onset/beat/bar boundary candidates, and rational candidate times sorted by
+`_candidate_time_index`. A half-open span uses
 `[bisect_left(start), bisect_left(end))`; no target-row loop reconstructs an
-index or scans a complete candidate store. For the fixed 18-task registry,
-total alignment work is:
+index or scans a complete candidate store. The strict total is:
 
 ```text
-O(piece entities + target entries * log(candidate count) + emitted rows)
+O(P + C log C + T log C + R + F*C)
 ```
 
-Note identity and annotation lookup are O(1), exact event lookup is O(1) plus
-output, and span lookup is O(log C + output). Deterministic merge walks each
-task's allowed candidate stores in canonical local-index order; across the
-fixed registry this is part of the O(piece entities) term. Optional operation
-counts expose index builds, index entries, lookups, bisections, candidate
-matches, merge candidate-slot visits, and emitted rows for non-timing scaling
-tests.
+`P` is canonical piece entities, `C` temporal candidates, `T` target entries,
+`R` emitted rows, and `F` task families. Index construction is
+`O(P + C log C)` because candidate arrays are sorted. Note identity and
+annotation lookup are O(1), exact event lookup is O(1) plus output, and span
+lookup is O(log C + output). Deterministic merge walks each task's allowed
+candidate stores in canonical local-index order; `F*C` is linear in candidate
+count for the fixed registry. Optional operation counts expose index builds,
+index entries, lookups, bisections, candidate matches, merge candidate-slot
+visits, and emitted rows for non-timing scaling tests.
 
 | Policy | Candidate rule |
 |---|---|
@@ -144,15 +145,24 @@ allowlists, metadata, shapes/dtypes, `ptr`/`batch`, endpoints, reverse edges,
 cross-graph isolation, and source-graph reconstruction. Malformed offsets and
 injected global/node/edge fields are rejected.
 
-## Boundary and statistics
+## Positive-unlabeled tasks and statistics
 
 `pop909_cl.chord.boundary` contains only annotated positive events and has
 `supervision_regime=positive_unlabeled`. The collator does not enumerate other
-candidates or synthesize an absent/negative class. Phase 5B.1 exposes no
-CE/BCE/focal/PU choice. Expected Phase 6 decisions are: likely CrossEntropy
-for closed multiclass, likely BCEWithLogits for closed multilabel, CE or BCE
-for binary presence, a PU-compatible objective or disabled task for POP
-boundary, and disabled open-vocabulary tasks until a versioned codec exists.
+candidates or synthesize an absent/negative class.
+`pop909_cl.chord.no_chord` is a different positive-unlabeled coverage task:
+its one-class vocabulary remains `("N",)`, only explicit leading/internal
+no-chord spans are positive, and chord spans, uncovered candidates, or absent
+annotations do not create `not_N` rows. A one-class representation is not by
+itself a trainable fully-supervised classifier.
+
+Phase 5B.1 exposes no CE/BCE/focal/PU choice. Expected Phase 6 decisions are:
+likely CrossEntropy for genuinely closed multiclass tasks, likely
+BCEWithLogits for closed multilabel, CE or BCE for binary presence, a
+separately accepted PU-compatible objective or disabled task for each of POP
+boundary and POP no-chord, and disabled open-vocabulary tasks until a
+versioned codec exists. Explicit `not_N` evidence would require a future
+versioned ontology/adapter experiment.
 
 `BatchStatistics` distinguishes source annotation count from expanded target
 row count. Per-task and aggregate records separately count

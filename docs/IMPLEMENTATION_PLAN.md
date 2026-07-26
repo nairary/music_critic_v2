@@ -2422,7 +2422,7 @@ structure and is converted to `float32` only at feature-tensor construction.
 ### Phase 5A. Target ontology and batching contract
 
 - Status: Completed.
-- Define target ontology `1.0.0` over all current HookTheory and POP909-CL
+- Define target ontology `1.0.1` over all current HookTheory and POP909-CL
   source-native task IDs.
 - Classify every plausible cross-source mapping conservatively; accept no
   approximate mapping as exact.
@@ -2436,16 +2436,19 @@ structure and is converted to `float32` only at feature-tensor construction.
 - Specify point/anchor alignment, explicit per-entry node types, masked
   unmatched boundary indices, deterministic equal-value merge, and stable
   conflict diagnostics without nearest-neighbor or node-priority behavior.
-- Treat POP909-CL boundaries as positive-unlabeled observed events with no
-  synthesized absent class, and validate all sample/batch sidecar shapes and
-  raw-only separation at construction.
+- Treat POP909-CL boundary events and no-chord coverage as distinct
+  positive-unlabeled tasks. Boundary has no synthesized absent class;
+  no-chord retains only explicit positive `N` spans and never synthesizes
+  `not_N` from chord spans, uncovered candidates, or absent annotations.
+  Validate all sample/batch sidecar shapes and raw-only separation at
+  construction.
 - Validate actual PyG `Batch` objects against the exact Phase 3A allowlists,
   permitting only PyG-added node `batch`/`ptr`, and enforce split safety over
   the same transitive source/lineage components used for ordering.
-- Boundary candidates not observed as events remain unlabeled. Phase 5B.1 must
-  not encode them as negative, and ordinary BCE with implicit `absent=0` is
-  forbidden. Phase 6 must select an explicit PU-compatible objective or omit
-  the POP909-CL boundary loss.
+- Unobserved boundary and no-chord candidates remain unlabeled. Phase 5B.1
+  must not encode them as negatives. Phase 6 must separately accept a
+  PU-compatible objective for each task or leave that task disabled. Explicit
+  no-chord negatives require a future versioned ontology/adapter experiment.
 - Generate deterministic bounded evidence from real HookTheory fixtures and
   the accepted POP909-CL production manifest.
 
@@ -2454,8 +2457,9 @@ structure and is converted to `float32` only at feature-tensor construction.
 - Status: Completed.
 - Build one immutable per-piece alignment index with O(1) note/annotation and
   exact-time mappings plus sorted rational candidate times. Use bisect for
-  half-open spans, for total fixed-registry complexity
-  `O(piece entities + target entries * log candidates + emitted rows)`.
+  half-open spans. Because index construction sorts candidates, strict
+  complexity is `O(P + C log C + T log C + R + F*C)`; fixed-registry `F*C`
+  is linear in the temporal candidate count.
 - Prepare production samples by building the Phase 3A raw graph internally and
   storing its immutable fingerprint. Verify external graphs against a fresh
   canonical projection and reject any post-preparation graph mutation during
@@ -2478,8 +2482,10 @@ structure and is converted to `float32` only at feature-tensor construction.
   that distinguish source annotation count, candidate-expanded row count,
   model-encodable rows, supervision-eligible rows, masked rows, unaligned
   rows, conflicts, and deferred open-vocabulary rows.
-- Preserve POP909-CL boundary as positive-unlabeled positives only. Phase 6
-  chooses a PU-compatible objective or disables the task.
+- Preserve POP909-CL boundary and no-chord as separate positive-unlabeled
+  tasks. The one-class no-chord encoding is not fully-supervised
+  classification. Phase 6 chooses a separately accepted PU-compatible
+  objective or disables each task.
 - Keep the raw-only benchmark as a separate graph baseline and provide
   small/medium/large target-heavy evidence with index, lookup, emitted-row,
   complete-collation, and operation-count measurements. Only the small
@@ -2503,8 +2509,9 @@ structure and is converted to `float32` only at feature-tensor construction.
   graph mutation after preparation is rejected.
 - Phase 5B.2: bounded corpus datasets and worker processes reproduce a
   deterministic, lineage-safe mixture without loading or splitting leakage.
-- POP909-CL boundary loss is enabled only with an explicit PU-compatible
-  objective in Phase 6; otherwise that loss remains disabled.
+- POP909-CL boundary and no-chord supervision are enabled only with separately
+  accepted PU-compatible objectives in Phase 6; otherwise each corresponding
+  task remains disabled.
 
 ## Phase 6. MusicCriticV2 baseline architecture
 

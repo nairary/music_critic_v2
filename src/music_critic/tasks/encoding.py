@@ -130,7 +130,10 @@ def _encoding_spec(task: TargetFamilySpec) -> TargetEncodingSpec:
         supervision_regime=(
             "positive_unlabeled"
             if task.supervision_objective
-            == "positive_unlabeled_event_detection"
+            in {
+                "positive_unlabeled_event_detection",
+                "positive_unlabeled_coverage_detection",
+            }
             else "fully_supervised"
         ),
     )
