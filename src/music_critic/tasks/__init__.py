@@ -1,1 +1,58 @@
-"""Theory, quality, preference, and aesthetic task definitions."""
+"""Versioned theory-target and future mixed-source batching contracts."""
+
+from music_critic.tasks.multisource import (
+    BatchTarget,
+    DatasetSamplingWeight,
+    GroupAssignment,
+    MultiSourceBatch,
+    MultiSourceContractError,
+    MultiSourceSample,
+    SampleTarget,
+    TaskAvailability,
+    build_multisource_sample,
+    deterministic_group_order,
+    validate_group_assignments,
+)
+from music_critic.tasks.ontology import (
+    CROSSWALKS,
+    CROSSWALK_BY_ID,
+    TARGET_FAMILIES,
+    TARGET_FAMILY_BY_ID,
+    TARGET_ONTOLOGY_VERSION,
+    AlignmentPolicy,
+    CandidateAlignmentRule,
+    CrosswalkSpec,
+    CrosswalkStatus,
+    TargetFamilySpec,
+    dumps_ontology_contract,
+    ontology_contract_dict,
+    ontology_contract_fingerprint,
+)
+
+
+__all__ = [
+    "AlignmentPolicy",
+    "BatchTarget",
+    "CROSSWALKS",
+    "CROSSWALK_BY_ID",
+    "CandidateAlignmentRule",
+    "CrosswalkSpec",
+    "CrosswalkStatus",
+    "DatasetSamplingWeight",
+    "GroupAssignment",
+    "MultiSourceBatch",
+    "MultiSourceContractError",
+    "MultiSourceSample",
+    "SampleTarget",
+    "TARGET_FAMILIES",
+    "TARGET_FAMILY_BY_ID",
+    "TARGET_ONTOLOGY_VERSION",
+    "TargetFamilySpec",
+    "TaskAvailability",
+    "build_multisource_sample",
+    "deterministic_group_order",
+    "dumps_ontology_contract",
+    "ontology_contract_dict",
+    "ontology_contract_fingerprint",
+    "validate_group_assignments",
+]

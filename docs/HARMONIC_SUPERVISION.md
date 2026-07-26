@@ -1,8 +1,10 @@
 # Harmonic Supervision Contract
 
-Status: **ACCEPTED DOCUMENTATION CONTRACT**. This document records future
-training and evaluation boundaries. It does not implement Phase 4B, a target
-ontology, model heads, rendering, probabilistic decoding, scoring, or
+Status: **ACCEPTED CONTRACT**. Phase 5A now implements the conservative,
+source-native target ontology and future batching boundary specified in
+[`MULTISOURCE_TARGET_CONTRACT.md`](MULTISOURCE_TARGET_CONTRACT.md). This
+document continues to define training and evaluation semantics; it does not
+implement model heads, rendering, probabilistic decoding, scoring, or
 inference.
 
 ## 1. Terminology and task boundary
@@ -60,11 +62,12 @@ POP909-CL channel-0 combined-score raw graph
     -> auxiliary harmonic predictions
 ```
 
-HookTheory direct chord annotations and POP909-CL channel-1 chord blocks may be
-normalized into compatible target families. Dataset-specific availability
-masks and `annotation_view_id` values retain differences in coverage,
-ambiguity, and interpretation. Missing or ambiguous supervision is never
-converted to a negative class.
+HookTheory direct chord annotations and POP909-CL channel-1 chord blocks remain
+source-native target families. Ontology `1.0.0` declares no current
+cross-source pair `exact_shared` or `derived_lossless_subset`: dataset-specific
+availability masks, views, and supervision contexts retain differences in
+coverage, ambiguity, and interpretation. Missing or ambiguous supervision is
+never converted to a negative class.
 
 The following flow is forbidden:
 
@@ -113,7 +116,7 @@ corpus merely because its annotation is encoded as MIDI notes.
 
 ## 4. Harmonic target representation and provenance
 
-Future common harmonic target families may include:
+Future normalized harmonic target families may include:
 
 - chord presence, boundary, and span/duration;
 - root;
@@ -127,10 +130,10 @@ Future common harmonic target families may include:
   semantics are supported;
 - multi-candidate or set-valued targets for ambiguity.
 
-HookTheory chord annotations may and should be used analogously to POP909-CL
-chord targets, including derived pitch-class/set targets. This is a future
-extension of the accepted HookTheory target use, not an implementation in this
-documentation change.
+HookTheory chord annotations may later support derived pitch-class/set targets,
+but Phase 5A defers that renderer and crosswalk. Functional root degree,
+extent, ordinal inversion, and presence/rest must not be renamed to POP909-CL
+absolute root, quality, semitone inversion, boundary, or `N`.
 
 Every target entry retains availability, source, provenance, and confidence
 according to the canonical contract. A direct source annotation points to its
@@ -291,9 +294,10 @@ corpus before scaled SSL claims or Phase 11 objective conclusions are made.
 
 ## 10. Explicitly deferred implementation questions
 
-This documentation decision does not choose or implement:
+The Phase 5A ontology now chooses source-native task and sidecar contracts, but
+still does not choose or implement:
 
-- the final common harmonic vocabulary or target tensor layouts;
+- a shared cross-source harmonic vocabulary or target tensor layouts;
 - whether a joint or factorized bass/inversion head improves on separate heads
   while preserving independent masks;
 - HookTheory pitch-class-set derivation or a chord renderer;

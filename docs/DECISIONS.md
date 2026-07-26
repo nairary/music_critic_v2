@@ -664,3 +664,82 @@ This log is append-only.
   readiness record. Phase 5 ontology/collation, models, SSL, training, PLL,
   preference/quality, splits, partial-bar support, other corpus adapters, and
   chord rendering remain deferred.
+
+## 2026-07-26 — ADR-036: Phase 5A preserves source-native target semantics
+
+- Status: Accepted.
+- Context: HookTheory emits functional, melody-conditioned theory annotations,
+  while POP909-CL emits absolute, score-conditioned chord-recognition
+  evidence. Similar field names conceal different semantics. A future mixed
+  collator also needs target/entity indices without weakening the Phase 3A
+  raw-only graph allowlists.
+- Decision: Introduce target ontology `1.0.0` in `music_critic.tasks` with all
+  12 HookTheory and six POP909-CL stable task IDs, required masks/provenance,
+  source view and supervision context, exact per-task alignment policy, and
+  deterministic serialization/fingerprint. Declare no `exact_shared` or
+  accepted `derived_lossless_subset` mapping in this version. Classify
+  functional root versus absolute root, extent versus quality, ordinal versus
+  semitone inversion, presence versus boundary, and presence/rest versus `N`
+  as incompatible. Defer absolute-root and pitch-class-set rendering until
+  applied/borrowed/decorations semantics have a versioned lossless rule.
+  Define immutable sample/batch sidecar shapes and group/lineage validation,
+  but leave dataset, tensorizer, sampler, collator, and splits to Phase 5B.
+- Evidence: A deterministic audit converts 18 usable real-source HookTheory
+  golden excerpts and reads only the accepted POP909-CL production manifest
+  aggregates. No full HookTheory scan or repeated 909-file acceptance is
+  required. Tests prove actual adapter structures match the registry, masked
+  entries remain null, ambiguous/unsupported mappings remain masked, lineage
+  cannot cross splits, and target/group/provenance changes do not enter or
+  change raw graphs.
+- Consequences: Future mixed batches distinguish absent families from masked
+  entries and store values, masks, entity/sample indices, confidence,
+  provenance, and diagnostics outside the PyG batch. HookTheory and POP909-CL
+  may share an encoder, but shared model heads require a later explicit routing
+  decision rather than an ontology-name shortcut. Bass and inversion remain
+  independent. Applied harmony, borrowed crosswalks, chord rendering, final
+  splits, model/loss/SSL/PLL/critic work, and production collation are
+  unchanged deferred scope.
+
+### 2026-07-26 pre-merge clarification
+
+- Grouping: canonical provenance lineage is authoritative. A supplied lineage
+  override is a non-empty equality assertion; absent provenance lineage falls
+  back explicitly to `piece.source_group_id`. Duplicate assignment rows and
+  conflicting source/lineage identities for one dataset piece are errors.
+  Deterministic ordering hashes atomic transitive components connected by
+  either source or lineage, then uses stable piece order inside each component.
+- Alignment: notes use exact identity. Onsets use point time and beats/bars use
+  their start anchors under half-open containment. Equal values addressing one
+  typed candidate merge; conflicts are masked with
+  `multisource.alignment_conflict`. Entity node type is explicit, so there is
+  no implicit node priority. Boundary events require exact-time candidates;
+  unmatched events remain present with index `-1`, a false index mask, and
+  null node type, with no nearest-neighbor snapping.
+- Boundary objective: `pop909_cl.chord.boundary` is positive-unlabeled event
+  detection. Only observed span starts are positive. Non-boundary candidates
+  are unlabeled, and ontology `1.0.0` has no `absent` class or derived-negative
+  policy.
+- Containers: sample target values, masks, entity IDs, confidence, task
+  availability, batch leading dimensions, node-type/index consistency,
+  non-empty metadata, sample-index ranges, sorted task sidecars, and raw-only
+  graph separation are constructor invariants. These decisions constrain the
+  future Phase 5B implementation without implementing it.
+
+### 2026-07-26 final pre-merge clarification
+
+- PyG batches: validate the actual `Batch.from_data_list` representation
+  against the Phase 3A exact allowlists. Global attributes are unchanged.
+  Node stores may add only PyG `batch` and `ptr`; edge stores add nothing.
+  Production metadata and raw-only truth are checked per source graph, and
+  combined shapes/dtypes, offsets, endpoints, reverse relations, cross-graph
+  isolation, and reconstructed source graphs must all validate. Any unknown
+  store field is invalid, independent of a dangerous-name denylist.
+- Split safety: the atomic source/lineage component builder is shared by
+  validation and deterministic ordering. All non-null splits in a transitive
+  component must agree, including components connected through `split=None`.
+  A dataset piece has exactly one assignment; every repeated identity is an
+  error.
+- Boundary objective: unlabeled candidates may not become negative examples
+  in Phase 5B. Ordinary BCE with implicit `absent=0` is forbidden. Phase 6
+  either records and uses an explicit PU-compatible objective or leaves the
+  POP909-CL boundary loss disabled.

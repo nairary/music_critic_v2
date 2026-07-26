@@ -234,3 +234,18 @@ failures, and masked missing targets. Rejected throughout the implementation:
 legacy five-class chord compression, track-order/name/pitch-range routing,
 float snapping, mandatory semantic graph structure, chord-note rendering,
 target-derived raw notes, and missing-as-negative behavior.
+
+## Phase 5A multi-source target contract
+
+No legacy repository file was opened, copied, imported, or modified for Phase
+5A, and no legacy runtime logic was reused. The existing audit classification
+was sufficient. Phase 5A retains only previously accepted general concepts:
+stable vocabularies, deterministic ordering, explicit empty stores/sidecars,
+group-aware splitting, and masked task routing.
+
+Rejected for the production contract remain V1 encoded theory IDs as graph
+features, shared mixed-float target layouts, mandatory chord/section nodes,
+missing-as-negative behavior, HookTheory-specific vocabularies presented as a
+universal ontology, and float/epsilon target alignment. The new registry and
+sample/batch shapes derive solely from current V2 adapters, canonical data,
+raw graph contracts, and versioned bounded evidence.

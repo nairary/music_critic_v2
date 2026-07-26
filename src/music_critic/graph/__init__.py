@@ -26,10 +26,15 @@ from music_critic.graph.serialization import (
 from music_critic.graph.validation import (
     ALLOWED_EDGE_ATTRIBUTES,
     ALLOWED_GLOBAL_ATTRIBUTES,
+    BATCH_BASE_NODE_ATTRIBUTES,
+    BATCH_CANDIDATE_NODE_ATTRIBUTES,
+    BATCH_EDGE_ATTRIBUTES,
+    BATCH_GLOBAL_ATTRIBUTES,
     BASE_NODE_ATTRIBUTES,
     CANDIDATE_NODE_ATTRIBUTES,
     GraphContractError,
     validate_raw_graph,
+    validate_raw_graph_batch,
 )
 
 
@@ -43,6 +48,10 @@ __all__ = [
     "REVERSE_EDGE_TYPES",
     "ALLOWED_EDGE_ATTRIBUTES",
     "ALLOWED_GLOBAL_ATTRIBUTES",
+    "BATCH_BASE_NODE_ATTRIBUTES",
+    "BATCH_CANDIDATE_NODE_ATTRIBUTES",
+    "BATCH_EDGE_ATTRIBUTES",
+    "BATCH_GLOBAL_ATTRIBUTES",
     "BASE_NODE_ATTRIBUTES",
     "CANDIDATE_NODE_ATTRIBUTES",
     "FeatureKind",
@@ -58,4 +67,5 @@ __all__ = [
     "graph_fingerprint",
     "graph_to_dict",
     "validate_raw_graph",
+    "validate_raw_graph_batch",
 ]

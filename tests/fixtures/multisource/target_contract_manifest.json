@@ -1,0 +1,1926 @@
+{
+  "audit_schema_version": "1.0.0",
+  "contract_source_sha256": {
+    "docs/HARMONIC_SUPERVISION.md": "1c9f1a8902857967935998dbcf01a597a82a9f4fb2c6f7ba50dbfccf7a9f6e3a",
+    "docs/MULTISOURCE_TARGET_CONTRACT.md": "c917920ac4d3d04ebcfbb9622016a2df0a3f0dd58160ae1f0c987a75a2240dbe",
+    "docs/POP909_CL_ADAPTER_CONTRACT.md": "42732a2da34c59dfa407ca4db2b969e78e9aa1506ee2e63a8abeed228c39736f",
+    "scripts/audit_multisource_targets.py": "a4e4c5a04d338b6233441547ffd1f5a3b9adae325964f976d4ad0a9e83fcf484",
+    "src/music_critic/adapters/hooktheory.py": "5fccd80b7b21656d0aafe69678ec5dac73271e79d4e6f4f24ee79eb9b471c9c2",
+    "src/music_critic/adapters/pop909_cl.py": "acd72846531fe83e608d1d963f2fc28c27f58ca892004a7fdb92b5d09e5d7a34",
+    "src/music_critic/data/schema.py": "b4abb10bd813bae4c04370fbd5e1d68752a97a9cbd6aa3d7f7a9e9c6f1bc49e8",
+    "src/music_critic/graph/builder.py": "ccf423169631d4bb12295b92b4403625902eb1ded9478165f2ebc23d836fab65",
+    "src/music_critic/graph/validation.py": "8de80cbf5929507da727293751aaba723d4256a5bc65aa0309b968873ffafa99",
+    "src/music_critic/tasks/multisource.py": "dbd3c9cc1049a362186e487a3106f5dbc0e3bb9b5d8665dab4912355d769578c",
+    "src/music_critic/tasks/ontology.py": "173a37bef55ad404eaafc3ff422b26aeec93b556553af01f68fa78973c14074e",
+    "tests/fixtures/hooktheory/golden_manifest.json": "a051f9ddc5ea7047200a1f94b2db6b1d3deb2ab15a2284827c704fb7681b1d0e",
+    "tests/fixtures/pop909_cl/production_manifest.json": "631873cac3ae0ff03b1f17a3d933f83954ed0da2a9bcf53e334bf5d7a6cd308a"
+  },
+  "ontology": {
+    "crosswalks": [
+      {
+        "algorithm": null,
+        "crosswalk_id": "future_absolute_root_renderer",
+        "left_task_id": "theory.chord.root_degree",
+        "prerequisites": [
+          "versioned applied-harmony semantics",
+          "versioned borrowed-chord semantics",
+          "lossless local-key/root-degree crosswalk"
+        ],
+        "provenance_policy": "future derivation must reference all source target provenance",
+        "rationale": "current HookTheory fields do not support a proven lossless absolute root",
+        "right_task_id": "pop909_cl.chord.root",
+        "status": "deferred",
+        "unavailable_policy": "mask every unsupported or ambiguous HookTheory chord"
+      },
+      {
+        "algorithm": null,
+        "crosswalk_id": "future_pitch_class_set_renderer",
+        "left_task_id": "theory.chord.extent",
+        "prerequisites": [
+          "versioned source-chord renderer",
+          "applied and borrowed semantics",
+          "decoration handling"
+        ],
+        "provenance_policy": "future derived target must identify renderer and source parents",
+        "rationale": "Phase 5A does not synthesize or infer target-derived chord tones",
+        "right_task_id": "pop909_cl.chord.quality",
+        "status": "deferred",
+        "unavailable_policy": "mask unsupported or multi-candidate renderings"
+      },
+      {
+        "algorithm": null,
+        "crosswalk_id": "hooktheory_extent__pop909_cl_quality",
+        "left_task_id": "theory.chord.extent",
+        "prerequisites": [],
+        "provenance_policy": "source-native provenance remains unchanged",
+        "rationale": "extent does not losslessly determine pitch-class-set quality",
+        "right_task_id": "pop909_cl.chord.quality",
+        "status": "incompatible",
+        "unavailable_policy": "no automatic mapping; preserve both native masks"
+      },
+      {
+        "algorithm": null,
+        "crosswalk_id": "hooktheory_ordinal_inversion__pop909_cl_semitones",
+        "left_task_id": "theory.chord.inversion",
+        "prerequisites": [],
+        "provenance_policy": "source-native provenance remains unchanged",
+        "rationale": "ordinal inversion and root-to-bass semitone distance are not equivalent",
+        "right_task_id": "pop909_cl.chord.inversion",
+        "status": "incompatible",
+        "unavailable_policy": "no automatic mapping; bass and inversion masks stay independent"
+      },
+      {
+        "algorithm": null,
+        "crosswalk_id": "hooktheory_presence__pop909_cl_boundary",
+        "left_task_id": "theory.chord.presence",
+        "prerequisites": [],
+        "provenance_policy": "source-native provenance remains unchanged",
+        "rationale": "span presence and a chord-block boundary event answer different questions",
+        "right_task_id": "pop909_cl.chord.boundary",
+        "status": "incompatible",
+        "unavailable_policy": "absence of annotation never becomes a negative boundary label"
+      },
+      {
+        "algorithm": null,
+        "crosswalk_id": "hooktheory_presence__pop909_cl_no_chord",
+        "left_task_id": "theory.chord.presence",
+        "prerequisites": [],
+        "provenance_policy": "source-native provenance remains unchanged",
+        "rationale": "HookTheory rest/presence semantics do not prove a POP909-CL gap-rule N",
+        "right_task_id": "pop909_cl.chord.no_chord",
+        "status": "incompatible",
+        "unavailable_policy": "missing, rest, trailing masked, and N remain distinct"
+      },
+      {
+        "algorithm": null,
+        "crosswalk_id": "hooktheory_root_degree__pop909_cl_absolute_root",
+        "left_task_id": "theory.chord.root_degree",
+        "prerequisites": [],
+        "provenance_policy": "source-native provenance remains unchanged",
+        "rationale": "functional degree and absolute pitch-class root are different semantics; applied and borrowed harmony are unresolved",
+        "right_task_id": "pop909_cl.chord.root",
+        "status": "incompatible",
+        "unavailable_policy": "no automatic mapping; preserve both native masks"
+      },
+      {
+        "algorithm": null,
+        "crosswalk_id": "source_specific__pop909_cl_chord_bass",
+        "left_task_id": null,
+        "prerequisites": [],
+        "provenance_policy": "retain the source-native target provenance",
+        "rationale": "no current production target has proven equivalent semantics",
+        "right_task_id": "pop909_cl.chord.bass",
+        "status": "source_specific",
+        "unavailable_policy": "absent from the other source; never emit a negative label"
+      },
+      {
+        "algorithm": null,
+        "crosswalk_id": "source_specific__theory_chord_adds",
+        "left_task_id": "theory.chord.adds",
+        "prerequisites": [],
+        "provenance_policy": "retain the source-native target provenance",
+        "rationale": "no current production target has proven equivalent semantics",
+        "right_task_id": null,
+        "status": "source_specific",
+        "unavailable_policy": "absent from the other source; never emit a negative label"
+      },
+      {
+        "algorithm": null,
+        "crosswalk_id": "source_specific__theory_chord_alterations",
+        "left_task_id": "theory.chord.alterations",
+        "prerequisites": [],
+        "provenance_policy": "retain the source-native target provenance",
+        "rationale": "no current production target has proven equivalent semantics",
+        "right_task_id": null,
+        "status": "source_specific",
+        "unavailable_policy": "absent from the other source; never emit a negative label"
+      },
+      {
+        "algorithm": null,
+        "crosswalk_id": "source_specific__theory_chord_borrowed",
+        "left_task_id": "theory.chord.borrowed",
+        "prerequisites": [],
+        "provenance_policy": "retain the source-native target provenance",
+        "rationale": "no current production target has proven equivalent semantics",
+        "right_task_id": null,
+        "status": "source_specific",
+        "unavailable_policy": "absent from the other source; never emit a negative label"
+      },
+      {
+        "algorithm": null,
+        "crosswalk_id": "source_specific__theory_chord_omits",
+        "left_task_id": "theory.chord.omits",
+        "prerequisites": [],
+        "provenance_policy": "retain the source-native target provenance",
+        "rationale": "no current production target has proven equivalent semantics",
+        "right_task_id": null,
+        "status": "source_specific",
+        "unavailable_policy": "absent from the other source; never emit a negative label"
+      },
+      {
+        "algorithm": null,
+        "crosswalk_id": "source_specific__theory_chord_suspensions",
+        "left_task_id": "theory.chord.suspensions",
+        "prerequisites": [],
+        "provenance_policy": "retain the source-native target provenance",
+        "rationale": "no current production target has proven equivalent semantics",
+        "right_task_id": null,
+        "status": "source_specific",
+        "unavailable_policy": "absent from the other source; never emit a negative label"
+      },
+      {
+        "algorithm": null,
+        "crosswalk_id": "source_specific__theory_local_key_mode",
+        "left_task_id": "theory.local_key.mode",
+        "prerequisites": [],
+        "provenance_policy": "retain the source-native target provenance",
+        "rationale": "no current production target has proven equivalent semantics",
+        "right_task_id": null,
+        "status": "source_specific",
+        "unavailable_policy": "absent from the other source; never emit a negative label"
+      },
+      {
+        "algorithm": null,
+        "crosswalk_id": "source_specific__theory_local_key_tonic_pc",
+        "left_task_id": "theory.local_key.tonic_pc",
+        "prerequisites": [],
+        "provenance_policy": "retain the source-native target provenance",
+        "rationale": "no current production target has proven equivalent semantics",
+        "right_task_id": null,
+        "status": "source_specific",
+        "unavailable_policy": "absent from the other source; never emit a negative label"
+      },
+      {
+        "algorithm": null,
+        "crosswalk_id": "source_specific__theory_melody_scale_degree",
+        "left_task_id": "theory.melody.scale_degree",
+        "prerequisites": [],
+        "provenance_policy": "retain the source-native target provenance",
+        "rationale": "no current production target has proven equivalent semantics",
+        "right_task_id": null,
+        "status": "source_specific",
+        "unavailable_policy": "absent from the other source; never emit a negative label"
+      }
+    ],
+    "ontology_version": "1.0.0",
+    "target_families": [
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "equal available values for one typed candidate merge deterministically; conflicting available values are masked with a diagnostic",
+          "boundary_behavior": "a candidate exactly at span end belongs to the following half-open span; the terminal piece boundary belongs only to the final raw interval",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "half_open_containment",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "onset point time and beat/bar start anchors use exact half-open containment: span.start_qn <= candidate_time < span.end_qn",
+          "policy_id": "half_open_anchor_span_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_source_mask_alignment",
+          "unsupported_behavior": "mask entries; never synthesize a negative label"
+        },
+        "annotation_view_id": "pop909_cl.channel_1",
+        "availability_mask_required": true,
+        "canonical_dtype": "str",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "chord_span",
+        "interval_semantics": "half-open [start_qn, end_qn), clipped only for raw duration",
+        "missing_value_semantics": "missing chord instrument is unavailable; bass has its own mask",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": null,
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "Directly observed lowest-note pitch class of a POP909-CL block.",
+        "source_adapter": "music_critic.adapters.pop909_cl@1.0.0",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "score_conditioned_harmony_recognition",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "target-alignment chord span",
+        "task_id": "pop909_cl.chord.bass",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "categorical",
+        "vocabulary": [
+          "C",
+          "C#",
+          "D",
+          "D#",
+          "E",
+          "F",
+          "F#",
+          "G",
+          "G#",
+          "A",
+          "A#",
+          "B"
+        ]
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "mask the boundary-to-node index and retain the event",
+          "boundary_behavior": "no nearest-neighbor snapping and no implicit node-type priority; every aligned index carries its raw node type",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "exact_event_time",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "exact_event_time",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "exact_event_time",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "the exact span start is the boundary event; Phase 5B may choose only an exact-time raw candidate or keep the event unaligned",
+          "policy_id": "span_start_boundary_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_event_mask_index_no_snap",
+          "unsupported_behavior": "mask the boundary-to-node index and retain the event"
+        },
+        "annotation_view_id": "pop909_cl.channel_1",
+        "availability_mask_required": true,
+        "canonical_dtype": "str",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "boundary_event",
+        "interval_semantics": "point event at exact chord-span start",
+        "missing_value_semantics": "missing chord instrument is unavailable, not no boundary",
+        "negative_example_policy": "no absent class in source-native evidence; non-boundary raw candidates are unlabeled, not negative",
+        "open_vocabulary": null,
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "Directly observed POP909-CL channel-1 chord-block start.",
+        "source_adapter": "music_critic.adapters.pop909_cl@1.0.0",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "score_conditioned_harmony_recognition",
+        "supervision_objective": "positive_unlabeled_event_detection",
+        "target_entity": "target-alignment chord span start",
+        "task_id": "pop909_cl.chord.boundary",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "categorical",
+        "vocabulary": [
+          "present"
+        ]
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "equal available values for one typed candidate merge deterministically; conflicting available values are masked with a diagnostic",
+          "boundary_behavior": "a candidate exactly at span end belongs to the following half-open span; the terminal piece boundary belongs only to the final raw interval",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "half_open_containment",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "onset point time and beat/bar start anchors use exact half-open containment: span.start_qn <= candidate_time < span.end_qn",
+          "policy_id": "half_open_anchor_span_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_source_mask_alignment",
+          "unsupported_behavior": "mask entries; never synthesize a negative label"
+        },
+        "annotation_view_id": "pop909_cl.channel_1",
+        "availability_mask_required": true,
+        "canonical_dtype": "str",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "chord_span",
+        "interval_semantics": "half-open [start_qn, end_qn), clipped only for raw duration",
+        "missing_value_semantics": "ambiguous or unsupported root leaves inversion unavailable",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": null,
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "Derived semitone distance from root to observed bass.",
+        "source_adapter": "music_critic.adapters.pop909_cl@1.0.0",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "score_conditioned_harmony_recognition",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "target-alignment chord span",
+        "task_id": "pop909_cl.chord.inversion",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "categorical",
+        "vocabulary": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "10",
+          "11"
+        ]
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "mask the entry; ambiguity is not no-chord",
+          "boundary_behavior": "leading/internal N spans are available; trailing uncovered regions remain masked and are not relabeled N",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "half_open_containment",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "onset point time and beat/bar start anchors use exact half-open containment in an explicitly available coverage span",
+          "policy_id": "coverage_span_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_source_mask_alignment",
+          "unsupported_behavior": "mask the entry; unsupported is not no-chord"
+        },
+        "annotation_view_id": "pop909_cl.channel_1",
+        "availability_mask_required": true,
+        "canonical_dtype": "str",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "coverage_span",
+        "interval_semantics": "half-open [start_qn, end_qn)",
+        "missing_value_semantics": "trailing uncovered and missing-instrument spans stay unavailable",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": null,
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "Derived positive-duration leading/internal POP909-CL gap.",
+        "source_adapter": "music_critic.adapters.pop909_cl@1.0.0",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "score_conditioned_harmony_recognition",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "target-alignment coverage span",
+        "task_id": "pop909_cl.chord.no_chord",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "categorical",
+        "vocabulary": [
+          "N"
+        ]
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "equal available values for one typed candidate merge deterministically; conflicting available values are masked with a diagnostic",
+          "boundary_behavior": "a candidate exactly at span end belongs to the following half-open span; the terminal piece boundary belongs only to the final raw interval",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "half_open_containment",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "onset point time and beat/bar start anchors use exact half-open containment: span.start_qn <= candidate_time < span.end_qn",
+          "policy_id": "half_open_anchor_span_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_source_mask_alignment",
+          "unsupported_behavior": "mask entries; never synthesize a negative label"
+        },
+        "annotation_view_id": "pop909_cl.channel_1",
+        "availability_mask_required": true,
+        "canonical_dtype": "str",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "chord_span",
+        "interval_semantics": "half-open [start_qn, end_qn), clipped only for raw duration",
+        "missing_value_semantics": "unsupported or quality-disagreeing ambiguity is unavailable",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": null,
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "Derived POP909-CL exact pitch-class-set quality.",
+        "source_adapter": "music_critic.adapters.pop909_cl@1.0.0",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "score_conditioned_harmony_recognition",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "target-alignment chord span",
+        "task_id": "pop909_cl.chord.quality",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "categorical",
+        "vocabulary": [
+          "M",
+          "m",
+          "o",
+          "+",
+          "sus2",
+          "sus4",
+          "D7",
+          "M7",
+          "m7",
+          "/o7",
+          "o7",
+          "mM7",
+          "+7"
+        ]
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "equal available values for one typed candidate merge deterministically; conflicting available values are masked with a diagnostic",
+          "boundary_behavior": "a candidate exactly at span end belongs to the following half-open span; the terminal piece boundary belongs only to the final raw interval",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "half_open_containment",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "onset point time and beat/bar start anchors use exact half-open containment: span.start_qn <= candidate_time < span.end_qn",
+          "policy_id": "half_open_anchor_span_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_source_mask_alignment",
+          "unsupported_behavior": "mask entries; never synthesize a negative label"
+        },
+        "annotation_view_id": "pop909_cl.channel_1",
+        "availability_mask_required": true,
+        "canonical_dtype": "str",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "chord_span",
+        "interval_semantics": "half-open [start_qn, end_qn), clipped only for raw duration",
+        "missing_value_semantics": "ambiguous or unsupported normalization remains unavailable",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": null,
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "Derived absolute pitch-class root of a POP909-CL chord block.",
+        "source_adapter": "music_critic.adapters.pop909_cl@1.0.0",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "score_conditioned_harmony_recognition",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "target-alignment chord span",
+        "task_id": "pop909_cl.chord.root",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "categorical",
+        "vocabulary": [
+          "C",
+          "C#",
+          "D",
+          "D#",
+          "E",
+          "F",
+          "F#",
+          "G",
+          "G#",
+          "A",
+          "A#",
+          "B"
+        ]
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "equal available values for one typed candidate merge deterministically; conflicting available values are masked with a diagnostic",
+          "boundary_behavior": "a candidate exactly at span end belongs to the following half-open span; the terminal piece boundary belongs only to the final raw interval",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "half_open_containment",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "onset point time and beat/bar start anchors use exact half-open containment: span.start_qn <= candidate_time < span.end_qn",
+          "policy_id": "half_open_anchor_span_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_source_mask_alignment",
+          "unsupported_behavior": "mask entries; never synthesize a negative label"
+        },
+        "annotation_view_id": null,
+        "availability_mask_required": true,
+        "canonical_dtype": "tuple[str, ...]",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "chord_span",
+        "interval_semantics": "half-open [start_qn, end_qn)",
+        "missing_value_semantics": "rests and invalid adds fields are unavailable",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": null,
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "HookTheory source-native chord adds tokens.",
+        "source_adapter": "music_critic.adapters.hooktheory",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "melody_conditioned_harmony",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "target-alignment chord span",
+        "task_id": "theory.chord.adds",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "multi_label",
+        "vocabulary": [
+          "4",
+          "6",
+          "9"
+        ]
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "equal available values for one typed candidate merge deterministically; conflicting available values are masked with a diagnostic",
+          "boundary_behavior": "a candidate exactly at span end belongs to the following half-open span; the terminal piece boundary belongs only to the final raw interval",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "half_open_containment",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "onset point time and beat/bar start anchors use exact half-open containment: span.start_qn <= candidate_time < span.end_qn",
+          "policy_id": "half_open_anchor_span_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_source_mask_alignment",
+          "unsupported_behavior": "mask entries; never synthesize a negative label"
+        },
+        "annotation_view_id": null,
+        "availability_mask_required": true,
+        "canonical_dtype": "tuple[str, ...]",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "chord_span",
+        "interval_semantics": "half-open [start_qn, end_qn)",
+        "missing_value_semantics": "rests and invalid alterations fields are unavailable",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": null,
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "HookTheory source-native chord alterations tokens.",
+        "source_adapter": "music_critic.adapters.hooktheory",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "melody_conditioned_harmony",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "target-alignment chord span",
+        "task_id": "theory.chord.alterations",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "multi_label",
+        "vocabulary": [
+          "b5",
+          "#5",
+          "b9",
+          "#9",
+          "#11",
+          "b13"
+        ]
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "equal available values for one typed candidate merge deterministically; conflicting available values are masked with a diagnostic",
+          "boundary_behavior": "a candidate exactly at span end belongs to the following half-open span; the terminal piece boundary belongs only to the final raw interval",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "half_open_containment",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "onset point time and beat/bar start anchors use exact half-open containment: span.start_qn <= candidate_time < span.end_qn",
+          "policy_id": "half_open_anchor_span_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_source_mask_alignment",
+          "unsupported_behavior": "mask entries; never synthesize a negative label"
+        },
+        "annotation_view_id": null,
+        "availability_mask_required": true,
+        "canonical_dtype": "str",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "chord_span",
+        "interval_semantics": "half-open [start_qn, end_qn)",
+        "missing_value_semantics": "rests and structurally invalid borrowed values are unavailable",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": "none, mode:<mode>, pcset:<pcs>, or preserved unknown:<text>",
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "HookTheory source-native borrowed-chord status.",
+        "source_adapter": "music_critic.adapters.hooktheory",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "melody_conditioned_harmony",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "target-alignment chord span",
+        "task_id": "theory.chord.borrowed",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "categorical",
+        "vocabulary": null
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "equal available values for one typed candidate merge deterministically; conflicting available values are masked with a diagnostic",
+          "boundary_behavior": "a candidate exactly at span end belongs to the following half-open span; the terminal piece boundary belongs only to the final raw interval",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "half_open_containment",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "onset point time and beat/bar start anchors use exact half-open containment: span.start_qn <= candidate_time < span.end_qn",
+          "policy_id": "half_open_anchor_span_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_source_mask_alignment",
+          "unsupported_behavior": "mask entries; never synthesize a negative label"
+        },
+        "annotation_view_id": null,
+        "availability_mask_required": true,
+        "canonical_dtype": "str",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "chord_span",
+        "interval_semantics": "half-open [start_qn, end_qn)",
+        "missing_value_semantics": "rests and unsupported extents are unavailable",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": null,
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "HookTheory source chord extent token.",
+        "source_adapter": "music_critic.adapters.hooktheory",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "melody_conditioned_harmony",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "target-alignment chord span",
+        "task_id": "theory.chord.extent",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "categorical",
+        "vocabulary": [
+          "5",
+          "7",
+          "9",
+          "11",
+          "13"
+        ]
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "equal available values for one typed candidate merge deterministically; conflicting available values are masked with a diagnostic",
+          "boundary_behavior": "a candidate exactly at span end belongs to the following half-open span; the terminal piece boundary belongs only to the final raw interval",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "half_open_containment",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "onset point time and beat/bar start anchors use exact half-open containment: span.start_qn <= candidate_time < span.end_qn",
+          "policy_id": "half_open_anchor_span_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_source_mask_alignment",
+          "unsupported_behavior": "mask entries; never synthesize a negative label"
+        },
+        "annotation_view_id": null,
+        "availability_mask_required": true,
+        "canonical_dtype": "str",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "chord_span",
+        "interval_semantics": "half-open [start_qn, end_qn)",
+        "missing_value_semantics": "rests and unsupported ordinal inversions are unavailable",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": null,
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "HookTheory ordinal inversion index.",
+        "source_adapter": "music_critic.adapters.hooktheory",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "melody_conditioned_harmony",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "target-alignment chord span",
+        "task_id": "theory.chord.inversion",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "categorical",
+        "vocabulary": [
+          "0",
+          "1",
+          "2",
+          "3"
+        ]
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "equal available values for one typed candidate merge deterministically; conflicting available values are masked with a diagnostic",
+          "boundary_behavior": "a candidate exactly at span end belongs to the following half-open span; the terminal piece boundary belongs only to the final raw interval",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "half_open_containment",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "onset point time and beat/bar start anchors use exact half-open containment: span.start_qn <= candidate_time < span.end_qn",
+          "policy_id": "half_open_anchor_span_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_source_mask_alignment",
+          "unsupported_behavior": "mask entries; never synthesize a negative label"
+        },
+        "annotation_view_id": null,
+        "availability_mask_required": true,
+        "canonical_dtype": "tuple[str, ...]",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "chord_span",
+        "interval_semantics": "half-open [start_qn, end_qn)",
+        "missing_value_semantics": "rests and invalid omits fields are unavailable",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": null,
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "HookTheory source-native chord omits tokens.",
+        "source_adapter": "music_critic.adapters.hooktheory",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "melody_conditioned_harmony",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "target-alignment chord span",
+        "task_id": "theory.chord.omits",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "multi_label",
+        "vocabulary": [
+          "3",
+          "5"
+        ]
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "equal available values for one typed candidate merge deterministically; conflicting available values are masked with a diagnostic",
+          "boundary_behavior": "a candidate exactly at span end belongs to the following half-open span; the terminal piece boundary belongs only to the final raw interval",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "half_open_containment",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "onset point time and beat/bar start anchors use exact half-open containment: span.start_qn <= candidate_time < span.end_qn",
+          "policy_id": "half_open_anchor_span_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_source_mask_alignment",
+          "unsupported_behavior": "mask entries; never synthesize a negative label"
+        },
+        "annotation_view_id": null,
+        "availability_mask_required": true,
+        "canonical_dtype": "str",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "chord_span",
+        "interval_semantics": "half-open [start_qn, end_qn)",
+        "missing_value_semantics": "absence of a chord annotation is unavailable, not false",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": null,
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "Whether the HookTheory chord span is a chord or an explicit rest.",
+        "source_adapter": "music_critic.adapters.hooktheory",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "melody_conditioned_harmony",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "target-alignment chord span",
+        "task_id": "theory.chord.presence",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "categorical",
+        "vocabulary": [
+          "false",
+          "true"
+        ]
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "equal available values for one typed candidate merge deterministically; conflicting available values are masked with a diagnostic",
+          "boundary_behavior": "a candidate exactly at span end belongs to the following half-open span; the terminal piece boundary belongs only to the final raw interval",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "half_open_containment",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "onset point time and beat/bar start anchors use exact half-open containment: span.start_qn <= candidate_time < span.end_qn",
+          "policy_id": "half_open_anchor_span_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_source_mask_alignment",
+          "unsupported_behavior": "mask entries; never synthesize a negative label"
+        },
+        "annotation_view_id": null,
+        "availability_mask_required": true,
+        "canonical_dtype": "str",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "chord_span",
+        "interval_semantics": "half-open [start_qn, end_qn)",
+        "missing_value_semantics": "rests, zero/invalid roots, and unresolved function are unavailable",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": null,
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "HookTheory functional chord-root degree relative to local key.",
+        "source_adapter": "music_critic.adapters.hooktheory",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "melody_conditioned_harmony",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "target-alignment chord span",
+        "task_id": "theory.chord.root_degree",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "categorical",
+        "vocabulary": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "bVII"
+        ]
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "equal available values for one typed candidate merge deterministically; conflicting available values are masked with a diagnostic",
+          "boundary_behavior": "a candidate exactly at span end belongs to the following half-open span; the terminal piece boundary belongs only to the final raw interval",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "half_open_containment",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "onset point time and beat/bar start anchors use exact half-open containment: span.start_qn <= candidate_time < span.end_qn",
+          "policy_id": "half_open_anchor_span_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_source_mask_alignment",
+          "unsupported_behavior": "mask entries; never synthesize a negative label"
+        },
+        "annotation_view_id": null,
+        "availability_mask_required": true,
+        "canonical_dtype": "tuple[str, ...]",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "chord_span",
+        "interval_semantics": "half-open [start_qn, end_qn)",
+        "missing_value_semantics": "rests and invalid suspensions fields are unavailable",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": null,
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "HookTheory source-native chord suspensions tokens.",
+        "source_adapter": "music_critic.adapters.hooktheory",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "melody_conditioned_harmony",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "target-alignment chord span",
+        "task_id": "theory.chord.suspensions",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "multi_label",
+        "vocabulary": [
+          "2",
+          "4"
+        ]
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "equal available values for one typed candidate merge deterministically; conflicting available values are masked with a diagnostic",
+          "boundary_behavior": "a candidate exactly at span end belongs to the following half-open span; the terminal piece boundary belongs only to the final raw interval",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "half_open_containment",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "onset point time and beat/bar start anchors use exact half-open containment: span.start_qn <= candidate_time < span.end_qn",
+          "policy_id": "half_open_anchor_span_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_source_mask_alignment",
+          "unsupported_behavior": "mask entries; never synthesize a negative label"
+        },
+        "annotation_view_id": null,
+        "availability_mask_required": true,
+        "canonical_dtype": "str",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "local_key_region",
+        "interval_semantics": "half-open [start_qn, end_qn)",
+        "missing_value_semantics": "unresolved mode is unavailable, not an unknown-mode label",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": "normalized mode string accepted by the adapter",
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "HookTheory normalized local-key mode.",
+        "source_adapter": "music_critic.adapters.hooktheory",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "melody_conditioned_harmony",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "target-alignment key span",
+        "task_id": "theory.local_key.mode",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "categorical",
+        "vocabulary": null
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "equal available values for one typed candidate merge deterministically; conflicting available values are masked with a diagnostic",
+          "boundary_behavior": "a candidate exactly at span end belongs to the following half-open span; the terminal piece boundary belongs only to the final raw interval",
+          "candidate_node_types": [
+            "onset",
+            "beat",
+            "bar"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "point",
+              "match_rule": "half_open_containment",
+              "node_type": "onset",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "beat",
+              "time_reference": "start_qn"
+            },
+            {
+              "geometry": "anchor",
+              "match_rule": "half_open_containment",
+              "node_type": "bar",
+              "time_reference": "start_qn"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "onset point time and beat/bar start anchors use exact half-open containment: span.start_qn <= candidate_time < span.end_qn",
+          "policy_id": "half_open_anchor_span_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "retain_source_mask_alignment",
+          "unsupported_behavior": "mask entries; never synthesize a negative label"
+        },
+        "annotation_view_id": null,
+        "availability_mask_required": true,
+        "canonical_dtype": "str",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "local_key_region",
+        "interval_semantics": "half-open [start_qn, end_qn)",
+        "missing_value_semantics": "unresolved tonic is unavailable, not a tonic class",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": null,
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "HookTheory local-key tonic as an absolute pitch class.",
+        "source_adapter": "music_critic.adapters.hooktheory",
+        "source_alignment_type": "annotation_span",
+        "supervision_context": "melody_conditioned_harmony",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "target-alignment key span",
+        "task_id": "theory.local_key.tonic_pc",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "categorical",
+        "vocabulary": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "10",
+          "11"
+        ]
+      },
+      {
+        "alignment_policy": {
+          "ambiguous_behavior": "mask the entry and retain source diagnostics",
+          "boundary_behavior": "not_applicable",
+          "candidate_node_types": [
+            "note"
+          ],
+          "candidate_rules": [
+            {
+              "geometry": "identity",
+              "match_rule": "exact_entity_id",
+              "node_type": "note",
+              "time_reference": "entity_id"
+            }
+          ],
+          "conflict_diagnostic_code": "multisource.alignment_conflict",
+          "empty_family_behavior": "emit an empty sidecar family with zero entries",
+          "multi_span_resolution": "merge_equal_mask_conflicts",
+          "node_type_routing": "explicit_per_entry",
+          "ownership": "exact canonical entity_id identity",
+          "policy_id": "note_identity_v1",
+          "storage": "sidecar_only",
+          "unmatched_event_policy": "not_applicable",
+          "unsupported_behavior": "mask the entry and retain source diagnostics"
+        },
+        "annotation_view_id": null,
+        "availability_mask_required": true,
+        "canonical_dtype": "str",
+        "confidence_policy": "nullable numeric confidence; null means not supplied, never zero or one",
+        "cross_source_sharing": "forbidden",
+        "granularity": "note",
+        "interval_semantics": "exact note identity; note timing remains canonical",
+        "missing_value_semantics": "invalid, resting, or unresolved notes do not become negatives",
+        "negative_example_policy": "only explicit available source labels are negative",
+        "open_vocabulary": null,
+        "provenance_required": true,
+        "registry_version": "1.0.0",
+        "semantic_description": "HookTheory melody scale degree in the active local key.",
+        "source_adapter": "music_critic.adapters.hooktheory",
+        "source_alignment_type": "note",
+        "supervision_context": "melody_conditioned_harmony",
+        "supervision_objective": "masked_source_native_classification",
+        "target_entity": "canonical note",
+        "task_id": "theory.melody.scale_degree",
+        "time_unit": "exact rational quarter notes",
+        "value_type": "categorical",
+        "vocabulary": [
+          "1",
+          "b1",
+          "#1",
+          "bb1",
+          "##1",
+          "2",
+          "b2",
+          "#2",
+          "bb2",
+          "##2",
+          "3",
+          "b3",
+          "#3",
+          "bb3",
+          "##3",
+          "4",
+          "b4",
+          "#4",
+          "bb4",
+          "##4",
+          "5",
+          "b5",
+          "#5",
+          "bb5",
+          "##5",
+          "6",
+          "b6",
+          "#6",
+          "bb6",
+          "##6",
+          "7",
+          "b7",
+          "#7",
+          "bb7",
+          "##7"
+        ]
+      }
+    ]
+  },
+  "ontology_fingerprint": "296dc400dee45a21fff589e28c05b88b61d8717e3834285a00343bee97fb213b",
+  "scan_policy": {
+    "hooktheory_full_corpus_scan": false,
+    "manual_corpus_file_reads": false,
+    "pop909_cl_full_acceptance_rerun": false
+  },
+  "source_inventories": {
+    "hooktheory": {
+      "converted_cases": 18,
+      "diagnostic_counts": {
+        "hooktheory.alternate_unresolved": 1,
+        "hooktheory.applied_deferred": 2,
+        "hooktheory.chord_timing_invalid": 7,
+        "hooktheory.default_tempo": 6,
+        "hooktheory.duration_derived": 4,
+        "hooktheory.duration_extended": 3,
+        "hooktheory.note_timing_invalid": 11,
+        "hooktheory.pitch_active_key_unresolved": 1,
+        "hooktheory.structure_alignment_unresolved": 6,
+        "hooktheory.structure_unmatched_symbolic_clip": 12
+      },
+      "evidence_scope": "19 bounded real-source golden excerpts; no corpus scan",
+      "fixture_cases": 19,
+      "fixture_schema_version": "hooktheory_golden_v1",
+      "skipped_unusable_cases": [
+        "missing_payload"
+      ],
+      "target_inventory": [
+        {
+          "available": 10,
+          "canonical_dtype": "tuple[str, ...]",
+          "interval_semantics": "half-open [start_qn, end_qn)",
+          "masked": 1,
+          "observed_values": [],
+          "open_vocabulary": null,
+          "provenance_required": true,
+          "task_id": "theory.chord.adds",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "multi_label",
+          "vocabulary": [
+            "4",
+            "6",
+            "9"
+          ]
+        },
+        {
+          "available": 10,
+          "canonical_dtype": "tuple[str, ...]",
+          "interval_semantics": "half-open [start_qn, end_qn)",
+          "masked": 1,
+          "observed_values": [],
+          "open_vocabulary": null,
+          "provenance_required": true,
+          "task_id": "theory.chord.alterations",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "multi_label",
+          "vocabulary": [
+            "b5",
+            "#5",
+            "b9",
+            "#9",
+            "#11",
+            "b13"
+          ]
+        },
+        {
+          "available": 10,
+          "canonical_dtype": "str",
+          "interval_semantics": "half-open [start_qn, end_qn)",
+          "masked": 1,
+          "observed_values": [
+            "mode:minor",
+            "none"
+          ],
+          "open_vocabulary": "none, mode:<mode>, pcset:<pcs>, or preserved unknown:<text>",
+          "provenance_required": true,
+          "task_id": "theory.chord.borrowed",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "categorical",
+          "vocabulary": null
+        },
+        {
+          "available": 10,
+          "canonical_dtype": "str",
+          "interval_semantics": "half-open [start_qn, end_qn)",
+          "masked": 1,
+          "observed_values": [
+            "11",
+            "5",
+            "7"
+          ],
+          "open_vocabulary": null,
+          "provenance_required": true,
+          "task_id": "theory.chord.extent",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "categorical",
+          "vocabulary": [
+            "5",
+            "7",
+            "9",
+            "11",
+            "13"
+          ]
+        },
+        {
+          "available": 10,
+          "canonical_dtype": "str",
+          "interval_semantics": "half-open [start_qn, end_qn)",
+          "masked": 1,
+          "observed_values": [
+            "0",
+            "1"
+          ],
+          "open_vocabulary": null,
+          "provenance_required": true,
+          "task_id": "theory.chord.inversion",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "categorical",
+          "vocabulary": [
+            "0",
+            "1",
+            "2",
+            "3"
+          ]
+        },
+        {
+          "available": 10,
+          "canonical_dtype": "tuple[str, ...]",
+          "interval_semantics": "half-open [start_qn, end_qn)",
+          "masked": 1,
+          "observed_values": [],
+          "open_vocabulary": null,
+          "provenance_required": true,
+          "task_id": "theory.chord.omits",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "multi_label",
+          "vocabulary": [
+            "3",
+            "5"
+          ]
+        },
+        {
+          "available": 11,
+          "canonical_dtype": "str",
+          "interval_semantics": "half-open [start_qn, end_qn)",
+          "masked": 0,
+          "observed_values": [
+            "false",
+            "true"
+          ],
+          "open_vocabulary": null,
+          "provenance_required": true,
+          "task_id": "theory.chord.presence",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "categorical",
+          "vocabulary": [
+            "false",
+            "true"
+          ]
+        },
+        {
+          "available": 10,
+          "canonical_dtype": "str",
+          "interval_semantics": "half-open [start_qn, end_qn)",
+          "masked": 1,
+          "observed_values": [
+            "0",
+            "3",
+            "4",
+            "5"
+          ],
+          "open_vocabulary": null,
+          "provenance_required": true,
+          "task_id": "theory.chord.root_degree",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "categorical",
+          "vocabulary": [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "bVII"
+          ]
+        },
+        {
+          "available": 10,
+          "canonical_dtype": "tuple[str, ...]",
+          "interval_semantics": "half-open [start_qn, end_qn)",
+          "masked": 1,
+          "observed_values": [
+            "4"
+          ],
+          "open_vocabulary": null,
+          "provenance_required": true,
+          "task_id": "theory.chord.suspensions",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "multi_label",
+          "vocabulary": [
+            "2",
+            "4"
+          ]
+        },
+        {
+          "available": 21,
+          "canonical_dtype": "str",
+          "interval_semantics": "half-open [start_qn, end_qn)",
+          "masked": 0,
+          "observed_values": [
+            "dorian",
+            "major",
+            "minor"
+          ],
+          "open_vocabulary": "normalized mode string accepted by the adapter",
+          "provenance_required": true,
+          "task_id": "theory.local_key.mode",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "categorical",
+          "vocabulary": null
+        },
+        {
+          "available": 21,
+          "canonical_dtype": "str",
+          "interval_semantics": "half-open [start_qn, end_qn)",
+          "masked": 0,
+          "observed_values": [
+            "0",
+            "10",
+            "11",
+            "2",
+            "3",
+            "4",
+            "6",
+            "8",
+            "9"
+          ],
+          "open_vocabulary": null,
+          "provenance_required": true,
+          "task_id": "theory.local_key.tonic_pc",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "categorical",
+          "vocabulary": [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "10",
+            "11"
+          ]
+        },
+        {
+          "available": 3,
+          "canonical_dtype": "str",
+          "interval_semantics": "exact note identity; note timing remains canonical",
+          "masked": 0,
+          "observed_values": [
+            "1",
+            "5"
+          ],
+          "open_vocabulary": null,
+          "provenance_required": true,
+          "task_id": "theory.melody.scale_degree",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "categorical",
+          "vocabulary": [
+            "1",
+            "b1",
+            "#1",
+            "bb1",
+            "##1",
+            "2",
+            "b2",
+            "#2",
+            "bb2",
+            "##2",
+            "3",
+            "b3",
+            "#3",
+            "bb3",
+            "##3",
+            "4",
+            "b4",
+            "#4",
+            "bb4",
+            "##4",
+            "5",
+            "b5",
+            "#5",
+            "bb5",
+            "##5",
+            "6",
+            "b6",
+            "#6",
+            "bb6",
+            "##6",
+            "7",
+            "b7",
+            "#7",
+            "bb7",
+            "##7"
+          ]
+        }
+      ]
+    },
+    "pop909_cl": {
+      "accepted": 908,
+      "adapter_version": "1.0.0",
+      "ambiguous_blocks": 5801,
+      "evidence_scope": "accepted production manifest aggregates from the prior streaming 909-file acceptance; no Phase 5A corpus rescan",
+      "logical_files": 909,
+      "manifest_version": "1.0.0",
+      "quarantined": 1,
+      "target_inventory": [
+        {
+          "available": 116055,
+          "canonical_dtype": "str",
+          "interval_semantics": "half-open [start_qn, end_qn), clipped only for raw duration",
+          "masked": 2,
+          "observed_values": null,
+          "open_vocabulary": null,
+          "provenance_required": true,
+          "task_id": "pop909_cl.chord.bass",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "categorical",
+          "vocabulary": [
+            "C",
+            "C#",
+            "D",
+            "D#",
+            "E",
+            "F",
+            "F#",
+            "G",
+            "G#",
+            "A",
+            "A#",
+            "B"
+          ]
+        },
+        {
+          "available": 116055,
+          "canonical_dtype": "str",
+          "interval_semantics": "point event at exact chord-span start",
+          "masked": 2,
+          "observed_values": null,
+          "open_vocabulary": null,
+          "provenance_required": true,
+          "task_id": "pop909_cl.chord.boundary",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "categorical",
+          "vocabulary": [
+            "present"
+          ]
+        },
+        {
+          "available": 109668,
+          "canonical_dtype": "str",
+          "interval_semantics": "half-open [start_qn, end_qn), clipped only for raw duration",
+          "masked": 6389,
+          "observed_values": null,
+          "open_vocabulary": null,
+          "provenance_required": true,
+          "task_id": "pop909_cl.chord.inversion",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "categorical",
+          "vocabulary": [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "10",
+            "11"
+          ]
+        },
+        {
+          "available": 947,
+          "canonical_dtype": "str",
+          "interval_semantics": "half-open [start_qn, end_qn)",
+          "masked": 153,
+          "observed_values": null,
+          "open_vocabulary": null,
+          "provenance_required": true,
+          "task_id": "pop909_cl.chord.no_chord",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "categorical",
+          "vocabulary": [
+            "N"
+          ]
+        },
+        {
+          "available": 109800,
+          "canonical_dtype": "str",
+          "interval_semantics": "half-open [start_qn, end_qn), clipped only for raw duration",
+          "masked": 6257,
+          "observed_values": null,
+          "open_vocabulary": null,
+          "provenance_required": true,
+          "task_id": "pop909_cl.chord.quality",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "categorical",
+          "vocabulary": [
+            "M",
+            "m",
+            "o",
+            "+",
+            "sus2",
+            "sus4",
+            "D7",
+            "M7",
+            "m7",
+            "/o7",
+            "o7",
+            "mM7",
+            "+7"
+          ]
+        },
+        {
+          "available": 109668,
+          "canonical_dtype": "str",
+          "interval_semantics": "half-open [start_qn, end_qn), clipped only for raw duration",
+          "masked": 6389,
+          "observed_values": null,
+          "open_vocabulary": null,
+          "provenance_required": true,
+          "task_id": "pop909_cl.chord.root",
+          "time_unit": "exact rational quarter notes",
+          "value_type": "categorical",
+          "vocabulary": [
+            "C",
+            "C#",
+            "D",
+            "D#",
+            "E",
+            "F",
+            "F#",
+            "G",
+            "G#",
+            "A",
+            "A#",
+            "B"
+          ]
+        }
+      ],
+      "unsupported_blocks": 586
+    }
+  },
+  "versions": {
+    "canonical_schema": "2.0.0",
+    "graph_builder": "1.0.0",
+    "graph_schema": "1.0.0",
+    "hooktheory_adapter": null,
+    "hooktheory_contract_phase": "2B.1",
+    "pop909_cl_adapter": "1.0.0",
+    "target_ontology": "1.0.0"
+  }
+}

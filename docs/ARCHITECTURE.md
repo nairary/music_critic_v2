@@ -186,6 +186,42 @@ current package dependency declaration installs them globally. Graph schema
 stores, and sustained-note output is necessarily proportional to emitted
 note/beat incidence.
 
+## Phase 5A target-sidecar architecture
+
+Target ontology `1.0.0` is implemented in `music_critic.tasks` and specified by
+`MULTISOURCE_TARGET_CONTRACT.md`. It inventories 12 HookTheory and six
+POP909-CL source-native families. No current cross-source pair is declared
+exact or accepted as a lossless derived subset.
+
+`MultiSourceSample` wraps an opaque raw graph with dataset/piece/group/lineage
+identity and separate target, availability, provenance, confidence, and
+diagnostic sidecars. `MultiSourceBatch` and `BatchTarget` define the future
+Phase 5B shape without implementing a collator. The PyG batch remains raw-only;
+target values and alignment indices never enter graph global, node, or edge
+stores. A batch-aware validator adapts the exact Phase 3A allowlists to normal
+PyG collation: only node-level `batch` and `ptr` are additionally allowed,
+version/raw-only metadata is checked per source graph, and combined shapes,
+offsets, endpoints, and reconstructed graphs must remain valid. HookTheory
+retains melody-conditioned supervision, POP909-CL retains score-conditioned
+recognition, and raw MIDI may have an entirely empty target bundle.
+
+Alignment policies are task-declarative and exact: note identity; half-open
+containment of onset points and beat/bar start anchors; exact span-start
+boundary events; and explicitly available coverage spans. Every aligned index
+has an explicit node type. Equal multi-span values merge, conflicts are masked
+with a stable diagnostic, and unmatched boundary events are retained with a
+masked index rather than snapped. POP909-CL boundary supervision is
+positive-unlabeled and defines no synthetic absent class. Masked, absent,
+ambiguous, unsupported, trailing-uncovered, and available no-chord states
+remain distinct.
+
+Grouping resolves authoritative lineage from provenance, using the canonical
+source group only as an explicit fallback. Any override is an equality
+assertion. Ordering operates on atomic transitive components connected by
+source or lineage and is seeded and input-order invariant. Split safety is
+checked on those same transitive components, including paths bridged by an
+unassigned `split=None` record, and every dataset piece has one assignment.
+
 ## Optional semantic predictions
 
 The system may predict:
