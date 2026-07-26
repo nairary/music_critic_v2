@@ -47,9 +47,14 @@ scale, so the deepest GNN layer is not the only surviving evidence.
 
 Encoder output contract `1.0.0` retains one final row and batch membership per
 original node, plus the feature scale and optional per-layer local embeddings.
-There is no song-only or mean-pooled head in Phase 6A. Task heads gather by
-explicit node type, validated global entity index, and sample index. A learned
-node-type embedding disambiguates tasks routed from onset, beat, or bar rows.
+There is no song-only or mean-pooled head in Phase 6A. Task heads enumerate
+every candidate in each task's allowed raw node stores before consulting any
+target sidecar. Candidate identity is the tensor tuple
+`(node_type_code, global_entity_index, sample_index)` and candidate logits are
+therefore present for raw-only inference. A learned node-type embedding
+disambiguates onset, beat, and bar candidates. Targets join to those existing
+identities only to compute training losses; replacing, deleting, masking, or
+adding target rows cannot change candidate identities or eval logits.
 
 Exactly these source-native fully supervised heads exist:
 
@@ -66,9 +71,18 @@ There are no shared HookTheory/POP heads or pitch-class-set head. Open-string
 `pop909_cl.chord.boundary` and `pop909_cl.chord.no_chord`, have no instantiated
 head and contribute no loss. No absent event/span becomes a negative.
 
-## Loss and reconstruction
+## Candidate prediction, loss, and reconstruction
 
-Loss contract `1.0.0` uses unreduced cross entropy for closed categorical
+Model/output contract `1.1.0`, candidate prediction contract `1.0.0`, loss
+contract `1.1.0`, and `BatchTarget` contract `1.1.0` make this split explicit.
+`BatchTarget.entity_node_type_codes` is the tensor routing key; CPU node-type
+strings remain validation/provenance sidecars. Candidate enumeration, target
+join, and task/node-type/sample grouping use tensor indexing, `torch.unique`,
+and `index_add_`. Python work is bounded by fixed task and node-type
+registries; model forward/loss has no per-target-row or per-candidate-row host
+materialization or row list comprehension.
+
+Loss uses unreduced cross entropy for closed categorical
 tasks and unreduced BCE-with-logits, averaged across classes per row, for
 closed multi-label tasks. Eligibility is exactly availability, valid entity
 index, model readiness, and `fully_supervised` regime. Reduction is:
@@ -78,8 +92,10 @@ index, model readiness, and `fully_supervised` regime. Reduction is:
 3. configurable weighted mean over active tasks.
 
 A task with no eligible row is absent from the aggregate rather than receiving
-an artificial target or producing NaN. Every task output retains row indices,
-node types, sample indices, logits, eligibility, and unreduced local losses.
+an artificial target or producing NaN. Predictions retain all raw candidate
+identities and logits; the separate supervision join retains target-row and
+candidate indices plus unreduced local losses. A raw-only batch has non-empty
+candidate logits and no harmonic loss.
 
 Raw reconstruction contract `1.0.0` predicts one existing inference-safe local
 field per mandatory node type: song duration, track program, bar meter
@@ -90,17 +106,26 @@ objective.
 
 ## Diagnostics and checkpoints
 
-The deterministic single-note diagnostic reports the changed stable note ID,
-feature/final/per-layer L2 and cosine deltas, affected onset/beat/bar rows,
-changed-node counts, pitch-reconstruction logit/loss delta, and mean pairwise
-cosine per scale. It proves only that local evidence remains accessible; it
-does not decide which graph is better.
+The deterministic single-note diagnostic changes one pitch in a validator-clean
+`CanonicalPiece`, preserves its stable note ID, and sends both original and
+perturbed pieces through the production graph builder and validator. It
+requires different graph fingerprints and identical entity/topology identity,
+reports every changed raw store/feature/entity, local feature/layer/final L2
+and cosine delta, changed-node counts, and pitch-reconstruction logit/loss
+delta. Oversmoothing is computed separately for every
+`(sample, node_type, scale)` using the exact normalized-sum formula in `O(ND)`;
+groups with fewer than two nodes are explicitly unavailable. No statistic
+mixes graphs or node types. These diagnostics prove only local accessibility,
+not which graph is better.
 
-Checkpoint contract `1.0.0` binds model contract/configuration, canonical
+Checkpoint contract `1.1.0` binds model contract/configuration, canonical
 schema, graph schema/builder, feature registry version and fingerprint, target
 ontology version and fingerprint, target encoding version and fingerprint, and
-the exact ordered active-head specifications. Compatibility is checked before
-weights or optimizer state are loaded. Checkpoints remain external artifacts.
+the exact ordered active-head specifications. Loading validates payload
+structure, metadata, exact model keys/shapes/dtypes, and optimizer groups/state
+tensors before mutation. Any failure leaves model and optimizer unchanged.
+Saving writes a same-directory temporary and atomically replaces the
+destination. Checkpoints remain external artifacts.
 
 ## Phase 6B boundary
 

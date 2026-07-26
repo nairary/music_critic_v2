@@ -308,8 +308,16 @@ no-chord representation is not itself a fully-supervised classifier.
 Encoding chooses representation only. Phase 6A disables both PU tasks and
 instantiates only the 14 fully supervised source-native heads; it does not
 create synthetic negatives. A future separately accepted PU experiment may
-choose a compatible objective. The project still
-does not choose or implement:
+choose a compatible objective.
+
+Phase 6A head prediction is candidate-first: each active source-native task
+emits logits for every allowed raw `note`, `onset`, `beat`, or `bar` candidate
+without reading target values, masks, spans, or availability. Targets join to
+those stable tensor identities only for a fully-supervised loss. Consequently,
+raw-only inputs still receive predictions, and target replacement, deletion,
+masking, or addition cannot change candidate identities or eval logits. This
+does not enable the PU boundary/no-chord tasks and does not turn unlabeled
+candidates into negatives. The project still does not choose or implement:
 
 - a shared cross-source harmonic vocabulary or shared model-head routing
   (Phase 6A deliberately has separate HookTheory and POP909-CL heads);

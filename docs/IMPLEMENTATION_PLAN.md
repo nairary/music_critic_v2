@@ -2545,11 +2545,14 @@ structure and is converted to `float32` only at feature-tensor construction.
   one shared implementation;
 - per-feature categorical/continuous encoders with explicit availability;
 - one-row-per-node feature, per-layer, and final local output contracts;
-- source-native heads only for the 14 fully supervised, model-ready tasks;
-- CE/BCE row losses reduced by task/node-type/sample before task weighting;
+- candidate-first source-native heads for all raw nodes allowed by the 14 fully
+  supervised, model-ready tasks, independent of target sidecars;
+- tensor-only target-to-candidate joins and CE/BCE row losses reduced by
+  task/node-type/sample before task weighting, without per-row Python routing;
 - visible-input local reconstruction only as a trainability/overfit check;
-- strict compatibility-bound checkpoints, CPU benchmark, and single-note
-  local-sensitivity diagnostic.
+- failure-atomic compatibility-bound checkpoints, candidate/supervision-aware
+  CPU benchmark, and canonical single-note local-sensitivity diagnostic with
+  per-sample/node-type/scale linear oversmoothing.
 
 ### Do not yet implement
 
@@ -2564,12 +2567,19 @@ structure and is converted to `float32` only at feature-tensor construction.
 ### Acceptance criteria
 
 - forward pass on mixed batch;
-- no Python loop over every note in score-head computation;
+- raw-only inference emits non-empty candidate logits and zero harmonic loss;
+- target replace/delete/mask/add preserves candidate identities and eval logits;
+- no Python loop or host materialization over target/candidate rows in
+  forward/loss, with operation counts bounded by fixed task/node families;
 - gradients flow through all mandatory node types;
 - one-batch overfit passes for reconstruction and representative HookTheory
   categorical/multilabel plus POP categorical supervision;
 - local note/onset/beat rows and unreduced row losses remain inspectable;
-- checkpoint reload reproduces logits.
+- checkpoint reload reproduces logits, malformed model/optimizer states are
+  failure-atomic, and saves replace atomically;
+- canonical original/perturbed pieces build validator-clean graphs with stable
+  note identity, different fingerprints, unchanged topology, and locally
+  observable deltas;
 - harmonic-head losses are mask-routed and their logits are not called quality
   scores.
 

@@ -325,17 +325,24 @@ The model and training phases remain pending.
   and auxiliary-harmony baseline.
 - Dependencies: Phase 5.
 - Outputs: comparable feature-only and exact-relation local-GNN variants,
-  one-row-per-node multiscale output, source-native fully supervised task
-  heads, group-balanced losses, local visible-input reconstruction, strict
-  checkpoints, a single-note diagnostic, and bounded CPU evidence.
+  one-row-per-node multiscale output, target-independent raw-candidate logits
+  from source-native fully supervised task heads, tensorized supervision joins
+  and group-balanced losses, local visible-input reconstruction,
+  failure-atomic checkpoints, a canonical single-note diagnostic, and bounded
+  CPU evidence.
 - Tests: all node/edge stores, availability, routing and exclusions, local
-  losses, leakage, reconstruction/gradient coverage, checkpoint round trip,
-  deterministic one-batch overfit, single-note sensitivity, and benchmark.
+  losses, raw-only candidate prediction, target-sidecar invariance,
+  row-scaling operations, leakage, reconstruction/gradient coverage,
+  checkpoint corruption/atomicity and round trip, deterministic one-batch
+  overfit, canonical single-note sensitivity, separated oversmoothing, and
+  benchmark.
 - Non-goals: hierarchy/Transformer, shared cross-source heads, PU objectives,
   GraphMAE2/Hi-GMAE/UGMAE, PLL, critic, or quality scoring.
-- Acceptance: a small raw graph batch trains end to end with masked harmonic
-  routing and preserved local rows. POP909-CL boundary and no-chord remain
-  excluded; absence of an observed event/span is never an implicit negative.
+- Acceptance: a small raw graph batch trains end to end with target-independent
+  candidate logits, masked harmonic loss joins, and preserved local rows.
+  Forward/loss routing is tensorized over rows. POP909-CL boundary and no-chord
+  remain excluded; absence of an observed event/span is never an implicit
+  negative.
 
 ## Phase 6B — Deterministic hierarchy and bar+track Transformer
 

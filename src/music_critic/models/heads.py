@@ -1,4 +1,4 @@
-"""Source-native local task heads and inspectable loss reduction."""
+"""Candidate-first harmonic prediction and tensorized supervision losses."""
 
 from __future__ import annotations
 
@@ -12,77 +12,127 @@ from torch.nn import functional as F
 from music_critic.graph import MANDATORY_NODE_TYPES
 from music_critic.models.contracts import (
     BASELINE_LOSS_CONTRACT_VERSION,
+    TASK_PREDICTION_CONTRACT_VERSION,
     TaskHeadSpec,
 )
 from music_critic.models.encoder import EncoderOutput
-from music_critic.tasks import BatchTarget
+from music_critic.tasks import BatchTarget, ENTITY_NODE_TYPE_TO_CODE
 
 
 @dataclass(frozen=True, slots=True)
-class TaskOutput:
-    """Local logits and row-level supervision evidence for one active task."""
+class TaskPrediction:
+    """Target-independent logits for every raw-graph candidate of one task."""
 
+    contract_version: str
     task_id: str
     source_adapter: str
-    node_types: tuple[str, ...]
-    batch_row_indices: Tensor
+    allowed_node_types: tuple[str, ...]
+    candidate_node_type_codes: Tensor
     global_entity_indices: Tensor
     sample_indices: Tensor
-    eligibility_mask: Tensor
+    candidate_offsets_by_node_type: Tensor
+    candidate_counts_by_node_type: Tensor
     logits: Tensor
-    per_row_loss: Tensor | None
 
     def __post_init__(self) -> None:
-        row_count = int(self.batch_row_indices.shape[0])
+        if self.contract_version != TASK_PREDICTION_CONTRACT_VERSION:
+            raise ValueError("task prediction contract version is incompatible")
+        row_count = self.logits.shape[0]
         if (
-            self.batch_row_indices.dtype != torch.long
+            self.candidate_node_type_codes.dtype != torch.long
             or self.global_entity_indices.dtype != torch.long
             or self.sample_indices.dtype != torch.long
-            or self.eligibility_mask.dtype != torch.bool
             or self.logits.ndim != 2
             or any(
-                int(value.shape[0]) != row_count
+                value.ndim != 1 or value.shape[0] != row_count
                 for value in (
+                    self.candidate_node_type_codes,
                     self.global_entity_indices,
                     self.sample_indices,
-                    self.eligibility_mask,
-                    self.logits,
                 )
             )
-            or len(self.node_types) != row_count
+            or self.candidate_offsets_by_node_type.dtype != torch.long
+            or self.candidate_counts_by_node_type.dtype != torch.long
+            or self.candidate_offsets_by_node_type.shape
+            != (len(MANDATORY_NODE_TYPES),)
+            or self.candidate_counts_by_node_type.shape
+            != (len(MANDATORY_NODE_TYPES),)
         ):
-            raise ValueError("task output rows are inconsistent")
-        if self.per_row_loss is not None and (
-            self.per_row_loss.ndim != 1
-            or int(self.per_row_loss.shape[0]) != row_count
-        ):
-            raise ValueError("task output row loss is inconsistent")
+            raise ValueError("task prediction candidate tensors are inconsistent")
 
 
 @dataclass(frozen=True, slots=True)
-class LossGroup:
-    """Mean eligible row loss for one task/node-type/sample group."""
+class TaskSupervision:
+    """Tensorized join from eligible BatchTarget rows to raw candidates."""
 
     task_id: str
-    node_type: str
-    sample_index: int
-    row_count: int
-    mean_loss: Tensor
+    target_row_indices: Tensor
+    candidate_indices: Tensor
+    node_type_codes: Tensor
+    global_entity_indices: Tensor
+    sample_indices: Tensor
+    per_row_loss: Tensor
+
+    def __post_init__(self) -> None:
+        row_count = self.target_row_indices.shape[0]
+        if any(
+            value.ndim != 1 or value.shape[0] != row_count
+            for value in (
+                self.target_row_indices,
+                self.candidate_indices,
+                self.node_type_codes,
+                self.global_entity_indices,
+                self.sample_indices,
+                self.per_row_loss,
+            )
+        ) or any(
+            value.dtype != torch.long
+            for value in (
+                self.target_row_indices,
+                self.candidate_indices,
+                self.node_type_codes,
+                self.global_entity_indices,
+                self.sample_indices,
+            )
+        ):
+            raise ValueError("task supervision tensors are inconsistent")
 
 
 @dataclass(frozen=True, slots=True)
 class TaskLoss:
-    """Mean of active local groups for one task."""
+    """Tensorized task/node-type/sample group report."""
 
     task_id: str
     weight: float
-    groups: tuple[LossGroup, ...]
+    group_node_type_codes: Tensor
+    group_sample_indices: Tensor
+    group_row_counts: Tensor
+    group_mean_losses: Tensor
     mean_loss: Tensor
+
+    def __post_init__(self) -> None:
+        group_count = self.group_mean_losses.shape[0]
+        if (
+            self.group_node_type_codes.dtype != torch.long
+            or self.group_sample_indices.dtype != torch.long
+            or self.group_row_counts.dtype != torch.long
+            or any(
+                value.ndim != 1 or value.shape[0] != group_count
+                for value in (
+                    self.group_node_type_codes,
+                    self.group_sample_indices,
+                    self.group_row_counts,
+                    self.group_mean_losses,
+                )
+            )
+            or self.mean_loss.ndim != 0
+        ):
+            raise ValueError("task loss group tensors are inconsistent")
 
 
 @dataclass(frozen=True, slots=True)
 class BaselineLossReport:
-    """Versioned deterministic task -> local group -> row reduction."""
+    """Versioned deterministic task -> tensorized group -> row reduction."""
 
     contract_version: str
     task_losses: tuple[TaskLoss, ...]
@@ -95,12 +145,22 @@ class BaselineLossReport:
             raise ValueError("total loss exists exactly when active task groups exist")
 
 
+@dataclass(frozen=True, slots=True)
+class RoutingOperationCounts:
+    """Python work bounded by fixed task/node-type registries."""
+
+    prediction_task_visits: int
+    candidate_node_type_visits: int
+    supervision_task_visits: int
+    tensor_group_reductions: int
+
+
 def _head_key(index: int) -> str:
     return f"task_{index:02d}"
 
 
 class SourceNativeTaskHeads(nn.Module):
-    """One actual MLP per accepted Phase 6A task; no unused output heads."""
+    """One candidate-first MLP per accepted Phase 6A task."""
 
     def __init__(
         self,
@@ -111,9 +171,6 @@ class SourceNativeTaskHeads(nn.Module):
     ) -> None:
         super().__init__()
         self.specs = specs
-        self.task_to_index = {
-            spec.task_id: index for index, spec in enumerate(specs)
-        }
         self.heads = nn.ModuleDict(
             {
                 _head_key(index): nn.Sequential(
@@ -134,185 +191,187 @@ class SourceNativeTaskHeads(nn.Module):
                 if len(spec.node_types) > 1
             }
         )
-        self.node_type_index = {
-            node_type: index
-            for index, node_type in enumerate(MANDATORY_NODE_TYPES)
-        }
 
     def forward(
         self,
         encoder_output: EncoderOutput,
-        targets: tuple[BatchTarget, ...] | None,
-    ) -> tuple[TaskOutput, ...]:
-        if targets is None:
-            return ()
-        targets_by_task = {target.task_id: target for target in targets}
-        outputs = []
+    ) -> tuple[TaskPrediction, ...]:
+        """Enumerate candidates from raw embeddings, independent of targets."""
+
+        predictions = []
         for spec_index, spec in enumerate(self.specs):
-            target = targets_by_task[spec.task_id]
-            if (
-                not target.model_ready
-                or target.supervision_regime != "fully_supervised"
-            ):
-                raise ValueError("active task target changed supervision semantics")
-            aligned_rows = torch.nonzero(
-                target.entity_index_mask, as_tuple=False
-            ).flatten()
-            device = encoder_output.embeddings[
-                spec.node_types[0]
-            ].device
-            aligned_rows = aligned_rows.to(device)
-            node_types = tuple(
-                target.entity_node_types[int(row)]
-                for row in aligned_rows.cpu().tolist()
-            )
-            node_type_codes = torch.tensor(
-                [self.node_type_index[node_type] for node_type in node_types],
+            embeddings = []
+            node_type_codes = []
+            entity_indices = []
+            sample_indices = []
+            reference = encoder_output.embeddings[spec.node_types[0]]
+            offsets = torch.full(
+                (len(MANDATORY_NODE_TYPES),),
+                -1,
                 dtype=torch.long,
-                device=device,
+                device=reference.device,
             )
-            routed = torch.empty(
-                (int(aligned_rows.shape[0]), next(iter(
-                    encoder_output.embeddings.values()
-                )).shape[1]),
-                device=device,
-            )
-            global_indices = target.entity_indices.to(device).index_select(
-                0, aligned_rows
-            )
-            sample_indices = target.sample_indices.to(device).index_select(
-                0, aligned_rows
-            )
+            counts = torch.zeros_like(offsets)
+            candidate_offset = 0
             for node_type in spec.node_types:
-                positions = torch.nonzero(
-                    node_type_codes == self.node_type_index[node_type],
-                    as_tuple=False,
-                ).flatten()
-                if positions.numel() == 0:
-                    continue
-                indices = global_indices.index_select(0, positions)
-                values = encoder_output.embeddings[node_type].index_select(
-                    0, indices
+                node_type_code = ENTITY_NODE_TYPE_TO_CODE[node_type]
+                values = encoder_output.embeddings[node_type]
+                count = values.shape[0]
+                offsets[node_type_code] = candidate_offset
+                counts[node_type_code] = count
+                indices = torch.arange(
+                    count, dtype=torch.long, device=values.device
                 )
+                type_codes = torch.full_like(indices, node_type_code)
                 if len(spec.node_types) > 1:
-                    type_ids = torch.full(
-                        (positions.shape[0],),
-                        self.node_type_index[node_type],
-                        dtype=torch.long,
-                        device=device,
-                    )
                     values = values + self.node_type_embeddings[
                         _head_key(spec_index)
-                    ](type_ids)
-                routed.index_copy_(0, positions, values)
-            logits = self.heads[_head_key(spec_index)](routed)
-            eligibility = (
-                target.availability_mask
-                & target.entity_index_mask
-                & bool(target.model_ready)
-            ).to(device).index_select(0, aligned_rows)
-            per_row_loss = torch.zeros(
-                int(aligned_rows.shape[0]), device=device
-            )
-            eligible_positions = torch.nonzero(
-                eligibility, as_tuple=False
-            ).flatten()
-            if eligible_positions.numel():
-                batch_rows = aligned_rows.index_select(
-                    0, eligible_positions
+                    ](type_codes)
+                embeddings.append(values)
+                node_type_codes.append(type_codes)
+                entity_indices.append(indices)
+                sample_indices.append(
+                    encoder_output.batch_membership[node_type]
                 )
-                if spec.encoding_kind == "closed_categorical_index":
-                    values = target.values.to(device).index_select(
-                        0, batch_rows
-                    )
-                    losses = F.cross_entropy(
-                        logits.index_select(0, eligible_positions),
-                        values,
-                        reduction="none",
-                    )
-                elif spec.encoding_kind == "closed_multilabel":
-                    values = target.values.to(device).index_select(
-                        0, batch_rows
-                    ).float()
-                    losses = F.binary_cross_entropy_with_logits(
-                        logits.index_select(0, eligible_positions),
-                        values,
-                        reduction="none",
-                    ).mean(dim=-1)
-                else:
-                    raise ValueError("active task has no baseline loss")
-                per_row_loss.index_copy_(0, eligible_positions, losses)
-            outputs.append(
-                TaskOutput(
+                candidate_offset += count
+            routed = torch.cat(embeddings, dim=0)
+            predictions.append(
+                TaskPrediction(
+                    contract_version=TASK_PREDICTION_CONTRACT_VERSION,
                     task_id=spec.task_id,
                     source_adapter=spec.source_adapter,
-                    node_types=tuple(str(value) for value in node_types),
-                    batch_row_indices=aligned_rows,
-                    global_entity_indices=global_indices,
-                    sample_indices=sample_indices,
-                    eligibility_mask=eligibility,
-                    logits=logits,
-                    per_row_loss=per_row_loss,
+                    allowed_node_types=spec.node_types,
+                    candidate_node_type_codes=torch.cat(
+                        node_type_codes, dim=0
+                    ),
+                    global_entity_indices=torch.cat(entity_indices, dim=0),
+                    sample_indices=torch.cat(sample_indices, dim=0),
+                    candidate_offsets_by_node_type=offsets,
+                    candidate_counts_by_node_type=counts,
+                    logits=self.heads[_head_key(spec_index)](routed),
                 )
             )
-        return tuple(outputs)
+        return tuple(predictions)
+
+
+def join_task_supervision(
+    predictions: tuple[TaskPrediction, ...],
+    targets: tuple[BatchTarget, ...],
+) -> tuple[TaskSupervision, ...]:
+    """Join eligible targets to existing candidates using tensors only."""
+
+    targets_by_task = {target.task_id: target for target in targets}
+    supervisions = []
+    for prediction in predictions:
+        target = targets_by_task[prediction.task_id]
+        if (
+            not target.model_ready
+            or target.supervision_regime != "fully_supervised"
+        ):
+            raise ValueError("active task target changed supervision semantics")
+        device = prediction.logits.device
+        eligibility = (
+            target.availability_mask
+            & target.entity_index_mask
+            & target.model_ready
+        ).to(device)
+        target_rows = torch.nonzero(eligibility, as_tuple=False).flatten()
+        if target_rows.numel() == 0:
+            continue
+        node_type_codes = target.entity_node_type_codes.to(device).index_select(
+            0, target_rows
+        )
+        entity_indices = target.entity_indices.to(device).index_select(
+            0, target_rows
+        )
+        sample_indices = target.sample_indices.to(device).index_select(
+            0, target_rows
+        )
+        candidate_indices = (
+            prediction.candidate_offsets_by_node_type.index_select(
+                0, node_type_codes
+            )
+            + entity_indices
+        )
+        if (
+            not torch.equal(
+                prediction.candidate_node_type_codes.index_select(
+                    0, candidate_indices
+                ),
+                node_type_codes,
+            )
+            or not torch.equal(
+                prediction.global_entity_indices.index_select(
+                    0, candidate_indices
+                ),
+                entity_indices,
+            )
+            or not torch.equal(
+                prediction.sample_indices.index_select(0, candidate_indices),
+                sample_indices,
+            )
+        ):
+            raise ValueError("target-to-candidate mapping is inconsistent")
+        logits = prediction.logits.index_select(0, candidate_indices)
+        values = target.values.to(device).index_select(0, target_rows)
+        if target.encoding_kind == "closed_categorical_index":
+            losses = F.cross_entropy(logits, values, reduction="none")
+        elif target.encoding_kind == "closed_multilabel":
+            losses = F.binary_cross_entropy_with_logits(
+                logits, values.float(), reduction="none"
+            ).mean(dim=-1)
+        else:
+            raise ValueError("active task has no baseline loss")
+        supervisions.append(
+            TaskSupervision(
+                task_id=prediction.task_id,
+                target_row_indices=target_rows,
+                candidate_indices=candidate_indices,
+                node_type_codes=node_type_codes,
+                global_entity_indices=entity_indices,
+                sample_indices=sample_indices,
+                per_row_loss=losses,
+            )
+        )
+    return tuple(supervisions)
 
 
 def aggregate_task_losses(
-    outputs: tuple[TaskOutput, ...],
+    supervisions: tuple[TaskSupervision, ...],
     *,
     task_weights: Mapping[str, float] | None = None,
 ) -> BaselineLossReport:
-    """Reduce rows without letting dense samples dominate automatically."""
+    """Vectorize row -> task/node-type/sample -> task reduction."""
 
     task_weights = task_weights or {}
     task_losses = []
-    for output in outputs:
-        if output.per_row_loss is None or not output.eligibility_mask.any():
-            continue
-        groups = []
-        group_keys = sorted(
-            {
-                (output.node_types[row], int(output.sample_indices[row].item()))
-                for row in torch.nonzero(
-                    output.eligibility_mask, as_tuple=False
-                ).flatten().tolist()
-            }
+    for supervision in supervisions:
+        group_keys = torch.stack(
+            (supervision.node_type_codes, supervision.sample_indices), dim=1
         )
-        for node_type, sample_index in group_keys:
-            positions = torch.tensor(
-                [
-                    row
-                    for row, (row_node_type, eligible) in enumerate(
-                        zip(
-                            output.node_types,
-                            output.eligibility_mask.tolist(),
-                        )
-                    )
-                    if eligible
-                    and row_node_type == node_type
-                    and int(output.sample_indices[row].item()) == sample_index
-                ],
-                dtype=torch.long,
-                device=output.logits.device,
-            )
-            group_loss = output.per_row_loss.index_select(0, positions).mean()
-            groups.append(
-                LossGroup(
-                    task_id=output.task_id,
-                    node_type=node_type,
-                    sample_index=sample_index,
-                    row_count=int(positions.numel()),
-                    mean_loss=group_loss,
-                )
-            )
-        mean_loss = torch.stack([group.mean_loss for group in groups]).mean()
+        unique_groups, inverse, counts = torch.unique(
+            group_keys,
+            dim=0,
+            sorted=True,
+            return_inverse=True,
+            return_counts=True,
+        )
+        sums = torch.zeros(
+            unique_groups.shape[0],
+            dtype=supervision.per_row_loss.dtype,
+            device=supervision.per_row_loss.device,
+        )
+        sums.index_add_(0, inverse, supervision.per_row_loss)
+        group_means = sums / counts.to(sums.dtype)
         task_losses.append(
             TaskLoss(
-                task_id=output.task_id,
-                weight=float(task_weights.get(output.task_id, 1.0)),
-                groups=tuple(groups),
-                mean_loss=mean_loss,
+                task_id=supervision.task_id,
+                weight=float(task_weights.get(supervision.task_id, 1.0)),
+                group_node_type_codes=unique_groups[:, 0],
+                group_sample_indices=unique_groups[:, 1],
+                group_row_counts=counts,
+                group_mean_losses=group_means,
+                mean_loss=group_means.mean(),
             )
         )
     total = None
@@ -328,11 +387,28 @@ def aggregate_task_losses(
     )
 
 
+def routing_operation_counts(
+    specs: tuple[TaskHeadSpec, ...],
+    supervisions: tuple[TaskSupervision, ...],
+) -> RoutingOperationCounts:
+    """Return fixed-registry Python operation evidence."""
+
+    return RoutingOperationCounts(
+        prediction_task_visits=len(specs),
+        candidate_node_type_visits=sum(len(spec.node_types) for spec in specs),
+        supervision_task_visits=len(specs),
+        tensor_group_reductions=len(supervisions),
+    )
+
+
 __all__ = [
     "BaselineLossReport",
-    "LossGroup",
+    "RoutingOperationCounts",
     "SourceNativeTaskHeads",
     "TaskLoss",
-    "TaskOutput",
+    "TaskPrediction",
+    "TaskSupervision",
     "aggregate_task_losses",
+    "join_task_supervision",
+    "routing_operation_counts",
 ]

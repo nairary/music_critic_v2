@@ -26,6 +26,8 @@ from music_critic.tasks.alignment import (
 )
 from music_critic.tasks.encoding import TARGET_ENCODING_BY_TASK
 from music_critic.tasks.multisource import (
+    BATCH_TARGET_CONTRACT_VERSION,
+    ENTITY_NODE_TYPE_TO_CODE,
     BatchStatistics,
     BatchTarget,
     MultiSourceBatch,
@@ -241,6 +243,7 @@ def tensorize_aligned_targets(
         encoding = TARGET_ENCODING_BY_TASK[spec.task_id]
         target_batches.append(
             BatchTarget(
+                batch_contract_version=BATCH_TARGET_CONTRACT_VERSION,
                 task_id=spec.task_id,
                 source_adapter=spec.source_adapter,
                 supervision_context=spec.supervision_context,
@@ -261,6 +264,17 @@ def tensorize_aligned_targets(
                         for _, row in rows_with_sample
                     ],
                     dtype=torch.bool,
+                ),
+                entity_node_type_codes=torch.tensor(
+                    [
+                        (
+                            ENTITY_NODE_TYPE_TO_CODE[row.entity_node_type]
+                            if row.entity_node_type is not None
+                            else -1
+                        )
+                        for _, row in rows_with_sample
+                    ],
+                    dtype=torch.long,
                 ),
                 entity_node_types=tuple(
                     row.entity_node_type for _, row in rows_with_sample

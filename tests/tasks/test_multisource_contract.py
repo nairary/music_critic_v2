@@ -479,11 +479,18 @@ def test_batch_target_shapes_node_types_indices_and_raw_batch_contract() -> None
         replace(
             aligned,
             entity_node_types=tuple("note" for _ in aligned.entity_node_types),
+            entity_node_type_codes=aligned.entity_node_type_codes.clone().fill_(5),
+        )
+    with pytest.raises(MultiSourceContractError, match="node-type codes"):
+        replace(
+            aligned,
+            entity_node_type_codes=aligned.entity_node_type_codes.clone().fill_(5),
         )
     with pytest.raises(MultiSourceContractError, match="index.*-1"):
         replace(
             aligned,
             entity_index_mask=aligned.entity_index_mask.clone().fill_(False),
+            entity_node_type_codes=aligned.entity_node_type_codes.clone().fill_(-1),
             entity_node_types=tuple(None for _ in aligned.entity_node_types),
         )
     false_graph = build_raw_graph(_hook_piece())

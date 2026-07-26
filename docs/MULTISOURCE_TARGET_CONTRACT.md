@@ -46,7 +46,8 @@ output tokens do not erase these contexts or authorize a shared loss.
   verified `MultiSourceSample`;
 - production `BatchTarget`, `MultiSourceBatch`, `BatchStatistics`, and
   `TaskBatchStatistics`;
-- target encoding registry `1.0.0`, exact alignment, tensorization, and
+- target encoding registry `1.0.0`, `BatchTarget` contract `1.1.0`, exact
+  alignment, tensor node-type routing codes, and
   `collate_multisource_samples`;
 - `GroupAssignment`, `DatasetSamplingWeight`,
   `validate_group_assignments`, and `deterministic_group_order`;

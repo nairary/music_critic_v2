@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import asdict
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
+import tempfile
+from collections.abc import Mapping
 from typing import Any
 
 import torch
@@ -78,15 +82,126 @@ def save_baseline_checkpoint(
     *,
     optimizer: torch.optim.Optimizer | None = None,
 ) -> None:
-    """Write a checkpoint; callers own artifact location and retention."""
+    """Atomically write a same-directory checkpoint."""
 
+    destination = Path(path)
     payload: dict[str, Any] = {
         "metadata": checkpoint_metadata(model),
         "model_state": model.state_dict(),
     }
     if optimizer is not None:
         payload["optimizer_state"] = optimizer.state_dict()
-    torch.save(payload, Path(path))
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{destination.name}.",
+        suffix=".tmp",
+        dir=destination.parent,
+    )
+    os.close(descriptor)
+    temporary = Path(temporary_name)
+    try:
+        torch.save(payload, temporary)
+        os.replace(temporary, destination)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def _validate_model_state(
+    payload: object,
+    model: LocalHeterogeneousBaseline,
+) -> Mapping[str, torch.Tensor]:
+    if not isinstance(payload, Mapping):
+        raise CheckpointContractError("checkpoint model state is missing or malformed")
+    expected = model.state_dict()
+    if set(payload) != set(expected):
+        missing = sorted(set(expected) - set(payload))
+        extra = sorted(set(payload) - set(expected))
+        raise CheckpointContractError(
+            f"checkpoint model-state keys are incompatible: "
+            f"missing={missing}, extra={extra}"
+        )
+    for key, expected_value in expected.items():
+        value = payload[key]
+        if (
+            not isinstance(value, torch.Tensor)
+            or value.shape != expected_value.shape
+            or value.dtype != expected_value.dtype
+        ):
+            raise CheckpointContractError(
+                f"checkpoint model tensor {key!r} has incompatible shape or dtype"
+            )
+    return payload
+
+
+def _validate_optimizer_state(
+    payload: object,
+    optimizer: torch.optim.Optimizer,
+) -> Mapping[str, object]:
+    if not isinstance(payload, Mapping):
+        raise CheckpointContractError(
+            "checkpoint optimizer state is missing or malformed"
+        )
+    state = payload.get("state")
+    saved_groups = payload.get("param_groups")
+    if not isinstance(state, Mapping) or not isinstance(saved_groups, list):
+        raise CheckpointContractError("checkpoint optimizer structure is malformed")
+    current_groups = optimizer.state_dict()["param_groups"]
+    if len(saved_groups) != len(current_groups) or len(saved_groups) != len(
+        optimizer.param_groups
+    ):
+        raise CheckpointContractError(
+            "checkpoint optimizer parameter-group count is incompatible"
+        )
+    parameter_by_saved_id: dict[object, torch.Tensor] = {}
+    all_saved_ids = set()
+    for saved_group, current_group, live_group in zip(
+        saved_groups, current_groups, optimizer.param_groups
+    ):
+        if not isinstance(saved_group, Mapping):
+            raise CheckpointContractError(
+                "checkpoint optimizer parameter group is malformed"
+            )
+        saved_ids = saved_group.get("params")
+        current_ids = current_group.get("params")
+        live_parameters = live_group.get("params")
+        if (
+            not isinstance(saved_ids, list)
+            or not isinstance(current_ids, list)
+            or not isinstance(live_parameters, list)
+            or len(saved_ids) != len(current_ids)
+            or len(saved_ids) != len(live_parameters)
+            or set(saved_group) != set(current_group)
+        ):
+            raise CheckpointContractError(
+                "checkpoint optimizer parameter group is incompatible"
+            )
+        for saved_id, parameter in zip(saved_ids, live_parameters):
+            if saved_id in all_saved_ids or not isinstance(
+                parameter, torch.Tensor
+            ):
+                raise CheckpointContractError(
+                    "checkpoint optimizer parameter mapping is incompatible"
+                )
+            all_saved_ids.add(saved_id)
+            parameter_by_saved_id[saved_id] = parameter
+    if not set(state) <= all_saved_ids:
+        raise CheckpointContractError(
+            "checkpoint optimizer state references an unknown parameter"
+        )
+    for parameter_id, parameter_state in state.items():
+        if not isinstance(parameter_state, Mapping):
+            raise CheckpointContractError(
+                "checkpoint optimizer per-parameter state is malformed"
+            )
+        parameter = parameter_by_saved_id[parameter_id]
+        for value in parameter_state.values():
+            if not isinstance(value, torch.Tensor) or value.ndim == 0:
+                continue
+            if value.shape != parameter.shape or value.dtype != parameter.dtype:
+                raise CheckpointContractError(
+                    "checkpoint optimizer tensor shape or dtype is incompatible"
+                )
+    return payload
 
 
 def load_baseline_checkpoint(
@@ -97,7 +212,12 @@ def load_baseline_checkpoint(
 ) -> dict[str, object]:
     """Reject incompatible metadata before mutating model/optimizer state."""
 
-    payload = torch.load(Path(path), map_location="cpu", weights_only=True)
+    try:
+        payload = torch.load(Path(path), map_location="cpu", weights_only=True)
+    except Exception as exc:
+        raise CheckpointContractError(
+            f"checkpoint payload cannot be loaded: {exc}"
+        ) from exc
     if not isinstance(payload, dict) or not isinstance(
         payload.get("metadata"), dict
     ):
@@ -113,13 +233,42 @@ def load_baseline_checkpoint(
         raise CheckpointContractError(
             f"checkpoint metadata is incompatible: differing={keys}"
         )
-    model.load_state_dict(payload["model_state"], strict=True)
-    if optimizer is not None:
-        if "optimizer_state" not in payload:
-            raise CheckpointContractError(
-                "checkpoint has no requested optimizer state"
+    try:
+        model_state = _validate_model_state(
+            payload.get("model_state"), model
+        )
+        optimizer_state = None
+        if optimizer is not None:
+            optimizer_state = _validate_optimizer_state(
+                payload.get("optimizer_state"), optimizer
             )
-        optimizer.load_state_dict(payload["optimizer_state"])
+    except CheckpointContractError:
+        raise
+    except Exception as exc:
+        raise CheckpointContractError(
+            f"checkpoint state structure is malformed: {exc}"
+        ) from exc
+    original_model_state = {
+        key: value.detach().clone()
+        for key, value in model.state_dict().items()
+    }
+    original_optimizer_state = (
+        copy.deepcopy(optimizer.state_dict())
+        if optimizer is not None
+        else None
+    )
+    try:
+        model.load_state_dict(model_state, strict=True)
+        if optimizer is not None:
+            assert optimizer_state is not None
+            optimizer.load_state_dict(optimizer_state)
+    except Exception as exc:
+        model.load_state_dict(original_model_state, strict=True)
+        if optimizer is not None and original_optimizer_state is not None:
+            optimizer.load_state_dict(original_optimizer_state)
+        raise CheckpointContractError(
+            f"checkpoint state application failed atomically: {exc}"
+        ) from exc
     return actual
 
 

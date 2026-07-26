@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 import json
 import math
+from types import MappingProxyType
 from typing import Any
 
 import torch
@@ -19,6 +20,7 @@ from music_critic.data import (
 )
 from music_critic.graph import (
     GraphContractError,
+    MANDATORY_NODE_TYPES,
     build_raw_graph,
     graph_fingerprint,
 )
@@ -33,6 +35,13 @@ class MultiSourceContractError(ValueError):
 
 
 _RAW_GRAPH_BINDING_TOKEN = object()
+BATCH_TARGET_CONTRACT_VERSION = "1.1.0"
+ENTITY_NODE_TYPE_TO_CODE = MappingProxyType(
+    {
+        node_type: index
+        for index, node_type in enumerate(MANDATORY_NODE_TYPES)
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -379,6 +388,7 @@ class TargetRowProvenance:
 class BatchTarget:
     """Versioned tensor/CPU target sidecar, independent of PyG stores."""
 
+    batch_contract_version: str
     task_id: str
     source_adapter: str
     supervision_context: str
@@ -391,6 +401,7 @@ class BatchTarget:
     availability_mask: torch.Tensor
     entity_indices: torch.Tensor
     entity_index_mask: torch.Tensor
+    entity_node_type_codes: torch.Tensor
     entity_node_types: tuple[str | None, ...]
     sample_indices: torch.Tensor
     confidence: torch.Tensor | None
@@ -401,6 +412,10 @@ class BatchTarget:
     diagnostics_cpu: tuple[tuple[TargetDiagnostic, ...], ...]
 
     def __post_init__(self) -> None:
+        if self.batch_contract_version != BATCH_TARGET_CONTRACT_VERSION:
+            raise MultiSourceContractError(
+                "batch target contract version is incompatible"
+            )
         spec = TARGET_FAMILY_BY_ID.get(self.task_id)
         if spec is None:
             raise MultiSourceContractError("batch task is absent from target ontology")
@@ -451,6 +466,11 @@ class BatchTarget:
             ("availability_mask", self.availability_mask, torch.bool),
             ("entity_indices", self.entity_indices, torch.long),
             ("entity_index_mask", self.entity_index_mask, torch.bool),
+            (
+                "entity_node_type_codes",
+                self.entity_node_type_codes,
+                torch.long,
+            ),
             ("sample_indices", self.sample_indices, torch.long),
         ):
             if (
@@ -534,6 +554,15 @@ class BatchTarget:
             )
         for index, aligned in enumerate(self.entity_index_mask.tolist()):
             node_type = self.entity_node_types[index]
+            expected_code = (
+                ENTITY_NODE_TYPE_TO_CODE[node_type]
+                if node_type is not None
+                else -1
+            )
+            if int(self.entity_node_type_codes[index]) != expected_code:
+                raise MultiSourceContractError(
+                    "batch target node-type codes differ from CPU node types"
+                )
             if aligned:
                 if node_type not in spec.alignment_policy.candidate_node_types:
                     raise MultiSourceContractError(

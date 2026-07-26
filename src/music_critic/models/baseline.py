@@ -17,9 +17,13 @@ from music_critic.models.encoder import (
 )
 from music_critic.models.heads import (
     BaselineLossReport,
+    RoutingOperationCounts,
     SourceNativeTaskHeads,
-    TaskOutput,
+    TaskPrediction,
+    TaskSupervision,
     aggregate_task_losses,
+    join_task_supervision,
+    routing_operation_counts,
 )
 from music_critic.models.reconstruction import (
     RawReconstructionHeads,
@@ -35,8 +39,10 @@ class BaselineOutput:
 
     model_contract_version: str
     encoder: MultiScaleEncoderOutput
-    tasks: tuple[TaskOutput, ...]
+    predictions: tuple[TaskPrediction, ...]
+    supervisions: tuple[TaskSupervision, ...]
     harmonic_loss: BaselineLossReport
+    routing_operations: RoutingOperationCounts
     reconstruction: tuple[ReconstructionOutput, ...]
     reconstruction_loss: Tensor | None
 
@@ -85,12 +91,13 @@ class LocalHeterogeneousBaseline(nn.Module):
         encoded = self.encode(
             batch.raw_graph_batch, return_layers=return_layers
         )
-        task_outputs = self.task_heads(
-            encoded.final_output, batch.target_batches
+        predictions = self.task_heads(encoded.final_output)
+        supervisions = join_task_supervision(
+            predictions, batch.target_batches
         )
         task_weights = dict(self.config.task_weights)
         harmonic = aggregate_task_losses(
-            task_outputs, task_weights=task_weights
+            supervisions, task_weights=task_weights
         )
         reconstruction = (
             self.reconstruction_heads(
@@ -102,11 +109,28 @@ class LocalHeterogeneousBaseline(nn.Module):
         return BaselineOutput(
             model_contract_version=MODEL_CONTRACT_VERSION,
             encoder=encoded,
-            tasks=task_outputs,
+            predictions=predictions,
+            supervisions=supervisions,
             harmonic_loss=harmonic,
+            routing_operations=routing_operation_counts(
+                self.task_specs, supervisions
+            ),
             reconstruction=reconstruction,
             reconstruction_loss=reconstruction_loss(reconstruction),
         )
+
+    def predict(
+        self,
+        raw_graph_batch: object,
+        *,
+        return_layers: bool = False,
+    ) -> tuple[MultiScaleEncoderOutput, tuple[TaskPrediction, ...]]:
+        """Emit raw-graph candidate logits without any target sidecar."""
+
+        encoded = self.encode(
+            raw_graph_batch, return_layers=return_layers
+        )
+        return encoded, self.task_heads(encoded.final_output)
 
 
 __all__ = [

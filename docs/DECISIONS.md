@@ -946,3 +946,38 @@ This log is append-only.
   retained local or top-k worst evidence. SSL begins in Phase 7. Shared
   pitch-class semantics remain blocked on a versioned lossless
   renderer/crosswalk.
+
+## 2026-07-26 — ADR-040: Phase 6A prediction is candidate-first and checkpoint application is failure-atomic
+
+- Status: Accepted as pre-merge remediation of draft PR #9.
+- Context: Target-routed logits made raw-only output empty and allowed target
+  sidecars to determine which predictions existed. Row-wise host
+  materialization also made forward/loss work scale in Python with supervision
+  rows. The first trainable baseline needs an inference path defined entirely
+  by raw graph candidates and a checkpoint failure boundary that cannot leave
+  partially changed training state.
+- Decision: Patch the model/output and loss contracts to `1.1.0`, introduce
+  candidate prediction `1.0.0`, patch `BatchTarget` to `1.1.0` with validated
+  tensor node-type codes, and patch checkpoint contract to `1.1.0`. Each of
+  the 14 active heads enumerates every allowed raw-graph candidate before any
+  target access. Targets join to those identities only for loss. Replacing,
+  deleting, masking, or adding targets cannot alter candidate identities or
+  eval logits; raw-only batches emit candidate logits and no harmonic loss.
+- Decision: Candidate routing, supervision join, and
+  task/node-type/sample reductions use tensor operations. Python work is
+  bounded by the fixed task/node-type families; model forward/loss performs
+  no per-row host conversion or row list processing.
+- Decision: Single-note evidence changes one validator-clean canonical note
+  pitch while preserving its stable ID, rebuilds and validates both production
+  graphs, requires different fingerprints and identical topology, and reports
+  exact raw-feature and local-embedding changes. Oversmoothing is computed
+  separately for every `(sample, node_type, scale)` with the exact linear
+  normalized-sum formula and is unavailable for fewer than two nodes.
+- Decision: Checkpoint load validates metadata, exact model keys/shapes/dtypes,
+  and optimizer groups/state tensors before mutation; an application failure
+  restores complete model and optimizer states. Save uses a same-directory
+  temporary followed by atomic replace.
+- Consequences: Target sidecars now select loss rows, never prediction
+  existence. Model parameters, active tasks, ontology `1.0.1`, encoding
+  registry `1.0.0`, adapters, production manifests, and Phase 6A scientific
+  scope are unchanged. Phase 6B and Phase 7 remain unstarted.

@@ -85,6 +85,8 @@ from music_critic.tasks.loading import (
     validate_split_manifest,
 )
 from music_critic.tasks.multisource import (
+    BATCH_TARGET_CONTRACT_VERSION,
+    ENTITY_NODE_TYPE_TO_CODE,
     BatchStatistics,
     BatchTarget,
     DatasetSamplingWeight,
@@ -130,6 +132,7 @@ __all__ = [
     "AlignmentPolicy",
     "BatchStatistics",
     "BatchTarget",
+    "BATCH_TARGET_CONTRACT_VERSION",
     "CROSSWALKS",
     "CROSSWALK_BY_ID",
     "CandidateAlignmentRule",
@@ -153,6 +156,7 @@ __all__ = [
     "DeterministicQuotaSampler",
     "EncodingDType",
     "EncodingKind",
+    "ENTITY_NODE_TYPE_TO_CODE",
     "GroupAssignment",
     "IndexedCorpusRecord",
     "IndexedMultiSourceDataset",

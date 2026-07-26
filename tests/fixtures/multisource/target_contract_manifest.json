@@ -1,9 +1,9 @@
 {
   "audit_schema_version": "1.1.0",
   "contract_source_sha256": {
-    "docs/HARMONIC_SUPERVISION.md": "a652d3cebb4eaca2bbe2c05d91fa3c766ee4c8a4a6eb7123d9ad9aad0fac7e1d",
-    "docs/MULTISOURCE_COLLATOR.md": "b5f6bf4fcf48a60c63e898bd8c0512553f084f906950849c855116d2e981bafb",
-    "docs/MULTISOURCE_TARGET_CONTRACT.md": "39a78de450ed71b1d793ec65268a5cb7eac1fa173c9d599ba3a0a3f518a2797f",
+    "docs/HARMONIC_SUPERVISION.md": "f72f5648d719938f188977f73ec3e7e96da0ef2f2d293de82ee56294d9a1c40a",
+    "docs/MULTISOURCE_COLLATOR.md": "0b39b98ded041824d131476da158b643d38ec8ff14062b7c50e61383bed9918c",
+    "docs/MULTISOURCE_TARGET_CONTRACT.md": "14d705dd2a65fcbff6735e56569bd93b32af0345d5fe531628a25a53eee204c0",
     "docs/POP909_CL_ADAPTER_CONTRACT.md": "42732a2da34c59dfa407ca4db2b969e78e9aa1506ee2e63a8abeed228c39736f",
     "scripts/audit_multisource_targets.py": "cda2585659fa6b33269b1eea1c221889aec222696bfccbbf8fdeccf61940ffac",
     "scripts/benchmark_multisource_collator.py": "5ce320a3f1b634369cec689600e6b0b4d30278890a42b9f778f57efdb6279146",
@@ -13,9 +13,9 @@
     "src/music_critic/graph/builder.py": "ccf423169631d4bb12295b92b4403625902eb1ded9478165f2ebc23d836fab65",
     "src/music_critic/graph/validation.py": "8de80cbf5929507da727293751aaba723d4256a5bc65aa0309b968873ffafa99",
     "src/music_critic/tasks/alignment.py": "1ccb87d2b65d4e2053f89e2d2eb1a2de8a39dd1449e8cc93583cfce5484e05dd",
-    "src/music_critic/tasks/collator.py": "34ce0060cffd7366418052552883d3c250715a200c213ed4b829ecdf5b3e0505",
+    "src/music_critic/tasks/collator.py": "5ed0300f2bcb67e3c657aa50f6739c39b0084dae4f939b3a3989a349b19dd3e2",
     "src/music_critic/tasks/encoding.py": "de5199ffc1ea6034b860109967a8c931b813d68a4cffd5209072d45b02add4af",
-    "src/music_critic/tasks/multisource.py": "beb319f5d32562c0a08712de8ba02a8e0649f03463a2242b1668ce52f8679ae4",
+    "src/music_critic/tasks/multisource.py": "99dbbbb8c500ea46007f449cc35a9ccde3dcacf412c5b83bc5cd4050a149f775",
     "src/music_critic/tasks/ontology.py": "06a7201d6ca94b4ff898a273ea39ff669f5dcaa11b1e7c2047b9803896755d8c",
     "tests/fixtures/hooktheory/golden_manifest.json": "a051f9ddc5ea7047200a1f94b2db6b1d3deb2ab15a2284827c704fb7681b1d0e",
     "tests/fixtures/pop909_cl/production_manifest.json": "631873cac3ae0ff03b1f17a3d933f83954ed0da2a9bcf53e334bf5d7a6cd308a"

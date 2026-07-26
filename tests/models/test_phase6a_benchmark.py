@@ -19,7 +19,8 @@ def test_cpu_benchmark_reports_both_controlled_variants(mixed_batch) -> None:
         assert report["edges"] > 0
         assert report["parameter_count"] > 0
         assert report["active_task_count"] == 14
-        assert report["task_output_count"] == 14
-        assert report["logit_rows"] > 0
+        assert report["prediction_task_count"] == 14
+        assert report["candidate_logit_rows"] > report["supervision_rows"] > 0
+        assert report["routing_operations"]["prediction_task_visits"] == 14
         assert report["total_step_seconds"] >= 0
     assert reports[1]["parameter_count"] > reports[0]["parameter_count"]

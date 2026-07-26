@@ -1204,6 +1204,7 @@ def _loader_evidence(mixed, *, workers: int):
         targets = tuple(
             (
                 target.task_id,
+                target.batch_contract_version,
                 target.source_adapter,
                 target.supervision_context,
                 target.encoding_registry_version,
@@ -1215,6 +1216,7 @@ def _loader_evidence(mixed, *, workers: int):
                 normalized(target.availability_mask),
                 normalized(target.entity_indices),
                 normalized(target.entity_index_mask),
+                normalized(target.entity_node_type_codes),
                 target.entity_node_types,
                 normalized(target.sample_indices),
                 normalized(target.confidence),

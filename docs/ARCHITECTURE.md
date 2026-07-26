@@ -324,7 +324,10 @@ for supervision or analysis, but cannot be required by raw inference.
    relation-specific local heterogeneous GNN over every Phase 3A relation.
    Its versioned output retains feature-scale, optional per-layer, and final
    one-row-per-node representations plus batch membership. Source-native heads
-   gather exact local rows; no head is global-mean-only.
+   emit logits for every allowed raw candidate before targets are joined for
+   loss; raw-only inference therefore uses the same candidate path. Target
+   replacement, deletion, masking, or addition cannot change candidate
+   identity or eval logits. No head is global-mean-only.
 2. Phase 6B hierarchical pooling produces bar and track tokens without discarding local
    embeddings.
 3. A coarse temporal Transformer models long-range bar-level development and
@@ -340,6 +343,16 @@ Phase 6A implements only visible-input local reconstruction as a plumbing
 check and fully supervised auxiliary semantics. GraphMAE2-style masking begins
 in Phase 7. Phase 6B may add global context but must not use mean-only final
 aggregation; future critic evidence must retain local or top-k worst regions.
+
+Phase 6A model/output and loss contracts are `1.1.0`; candidate prediction is
+`1.0.0`. Tensor node-type codes in `BatchTarget` contract `1.1.0` permit the
+candidate join and task/node-type/sample reductions to stay tensorized, with
+Python work bounded by the fixed task/node-family registry. Checkpoints
+`1.1.0` validate metadata and complete model/optimizer structure before an
+atomic state application; saves use atomic same-directory replacement.
+Canonical one-note sensitivity rebuilds and validates both graphs. Its
+oversmoothing statistic is separate per sample/node type/scale, unavailable
+below two nodes, and exact linear `O(ND)`.
 
 ## Incremental research scope
 
