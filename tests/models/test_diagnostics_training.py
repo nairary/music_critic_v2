@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import ast
 from dataclasses import replace
+import inspect
+import textwrap
 
 import pytest
 import torch
@@ -22,7 +25,11 @@ from music_critic.models import (
     perturb_canonical_note_pitch,
     single_note_sensitivity,
 )
-from music_critic.models.diagnostics import _linear_mean_pairwise_cosine
+from music_critic.models.diagnostics import (
+    OversmoothingContractError,
+    _contiguous_sample_boundaries,
+    _linear_mean_pairwise_cosine,
+)
 from tests.tasks.test_multisource_contract import _hook_piece
 
 
@@ -45,6 +52,47 @@ def _task_losses(output):
         task.task_id: float(task.mean_loss.detach())
         for task in output.harmonic_loss.task_losses
     }
+
+
+def _replace_membership(output, node_type: str, membership: torch.Tensor):
+    batch_membership = dict(output.batch_membership)
+    batch_membership[node_type] = membership
+    return replace(output, batch_membership=batch_membership)
+
+
+def test_contiguous_boundaries_cover_four_samples_once() -> None:
+    membership = torch.tensor(
+        [0, 0, 1, 1, 1, 2, 3, 3], dtype=torch.long
+    )
+    assert _contiguous_sample_boundaries(
+        membership, membership.shape[0], sample_count=4
+    ) == (0, 2, 5, 6, 8)
+    assert _contiguous_sample_boundaries(
+        torch.tensor([0, 0, 2], dtype=torch.long),
+        3,
+        sample_count=4,
+    ) == (0, 2, 2, 3, 3)
+
+
+@pytest.mark.parametrize(
+    ("membership", "message"),
+    (
+        (torch.tensor([[0, 1]], dtype=torch.long), "membership_invalid"),
+        (torch.tensor([0, 1], dtype=torch.int32), "membership_invalid"),
+        (torch.tensor([0, -1], dtype=torch.long), "membership_negative"),
+        (
+            torch.tensor([0, 2, 1], dtype=torch.long),
+            "membership_not_monotonic",
+        ),
+    ),
+)
+def test_contiguous_boundaries_reject_malformed_membership(
+    membership: torch.Tensor, message: str
+) -> None:
+    with pytest.raises(OversmoothingContractError, match=message):
+        _contiguous_sample_boundaries(
+            membership, membership.numel(), sample_count=3
+        )
 
 
 def test_linear_oversmoothing_matches_dense_oracle_for_random_nonzero() -> None:
@@ -168,12 +216,25 @@ def test_oversmoothing_never_mixes_samples_or_node_types(mixed_batch) -> None:
     assert feature[(0, "note")].mean_pairwise_cosine is None
     assert feature[(1, "song")].status == "fewer_than_two_nodes"
 
+    boundaries_by_node_type = {
+        node_type: _contiguous_sample_boundaries(
+            encoded.feature_output.batch_membership[node_type],
+            encoded.feature_output.embeddings[node_type].shape[0],
+            sample_count=3,
+        )
+        for node_type in MANDATORY_NODE_TYPES
+    }
     for sample_index in range(3):
         for node_type in MANDATORY_NODE_TYPES:
-            membership = encoded.feature_output.batch_membership[node_type]
-            values = encoded.feature_output.embeddings[node_type][
-                membership == sample_index
+            embeddings = encoded.feature_output.embeddings[node_type]
+            boundaries = boundaries_by_node_type[node_type]
+            values = embeddings[
+                boundaries[sample_index] : boundaries[sample_index + 1]
             ]
+            assert (
+                values.untyped_storage().data_ptr()
+                == embeddings.untyped_storage().data_ptr()
+            )
             actual = feature[(sample_index, node_type)]
             assert actual.node_count == values.shape[0]
             assert actual.zero_norm_count == int(
@@ -190,6 +251,81 @@ def test_oversmoothing_never_mixes_samples_or_node_types(mixed_batch) -> None:
                 assert actual.mean_pairwise_cosine == pytest.approx(
                     _dense_off_diagonal_cosine_mean(values), abs=1e-6
                 )
+
+
+def test_oversmoothing_reports_zero_rows_through_production_path(
+    mixed_batch,
+) -> None:
+    model = LocalHeterogeneousBaseline(
+        LocalBaselineConfig(hidden_dim=16, gnn_layers=1, dropout=0.0)
+    )
+    encoded = model.encode(mixed_batch.raw_graph_batch, return_layers=True)
+    boundaries = _contiguous_sample_boundaries(
+        encoded.feature_output.batch_membership["beat"],
+        encoded.feature_output.embeddings["beat"].shape[0],
+        sample_count=3,
+    )
+    feature_embeddings = dict(encoded.feature_output.embeddings)
+    beat_values = feature_embeddings["beat"].clone()
+    beat_values[boundaries[0] : boundaries[1]] = 0
+    feature_embeddings["beat"] = beat_values
+    mutated_feature = replace(
+        encoded.feature_output, embeddings=feature_embeddings
+    )
+    mutated = replace(encoded, feature_output=mutated_feature)
+    item = next(
+        value
+        for value in oversmoothing_by_group(mutated)
+        if (
+            value.scale,
+            value.sample_index,
+            value.node_type,
+        )
+        == ("feature", 0, "beat")
+    )
+    assert item.node_count == boundaries[1] - boundaries[0] == 4
+    assert item.zero_norm_count == item.node_count
+    assert item.mean_pairwise_cosine == 0.0
+
+
+def test_oversmoothing_rejects_noncontiguous_membership(mixed_batch) -> None:
+    model = LocalHeterogeneousBaseline(
+        LocalBaselineConfig(hidden_dim=16, gnn_layers=1, dropout=0.0)
+    )
+    encoded = model.encode(mixed_batch.raw_graph_batch, return_layers=True)
+    membership = encoded.feature_output.batch_membership["beat"].clone()
+    membership[4] = 2
+    membership[5] = 1
+    malformed = replace(
+        encoded,
+        feature_output=_replace_membership(
+            encoded.feature_output, "beat", membership
+        ),
+        layer_outputs=tuple(
+            _replace_membership(output, "beat", membership)
+            for output in encoded.layer_outputs
+        ),
+        final_output=_replace_membership(
+            encoded.final_output, "beat", membership
+        ),
+    )
+    with pytest.raises(
+        OversmoothingContractError, match="membership_not_monotonic"
+    ):
+        oversmoothing_by_group(malformed)
+
+
+def test_production_oversmoothing_uses_only_basic_embedding_slices() -> None:
+    source = textwrap.dedent(inspect.getsource(oversmoothing_by_group))
+    tree = ast.parse(source)
+    assert not any(
+        isinstance(node, ast.Subscript)
+        and isinstance(node.slice, (ast.Compare, ast.BoolOp))
+        for node in ast.walk(tree)
+    )
+    assert "masked_select" not in source
+    assert "index_select" not in source
+    assert "scale_embeddings[node_type][start:end]" in source
 
 
 def test_deterministic_one_batch_training_acceptance(mixed_batch) -> None:

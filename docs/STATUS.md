@@ -146,9 +146,17 @@
   application-time checkpoint test mutates live Adam state and raises during
   the first optimizer load; the second load restores the full model and
   optimizer snapshot bit-for-bit.
-- Focused model/head/loss/checkpoint/diagnostic/benchmark suite: 32 passed.
+- Final complexity remediation validates monotonic rank-one long membership
+  and builds contiguous boundaries once per node type. Every group is a basic
+  slice view, every embedding row is processed once per scale, and production
+  creates no boolean-selected `N_group x D` copy or `N x N` cosine matrix.
+  Boundaries use `O(T*S)` CPU metadata, cosine accumulation uses `O(D)`
+  temporary memory per non-trivial group, and report traversal/storage use
+  `O(K*T*S)` time/memory. Malformed non-monotonic membership fails with
+  `OversmoothingContractError`.
+- Focused model/head/loss/checkpoint/diagnostic/benchmark suite: 40 passed.
   Graph/leakage/repository regressions: 63 passed. Dataset/collator
-  regressions: 119 passed. Full default suite: 670 passed, 12 skipped, with
+  regressions: 119 passed. Full default suite: 678 passed, 12 skipped, with
   two existing upstream PyTorch deprecation warnings. Deterministic target
   audit `--check`, `compileall` over `src`, `scripts`, and `tests`, and
   `git diff --check` passed. Required CI remains the remote merge gate. No

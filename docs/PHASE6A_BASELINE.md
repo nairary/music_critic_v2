@@ -122,9 +122,20 @@ pair_sum = ||sum_i u_i||² - diagonal_sum
 mean = pair_sum / (N * (N - 1))
 ```
 
-Production streams normalized rows into one D-dimensional sum and one scalar;
-it never materializes a normalized `N x D` copy or a cosine `N x N` matrix.
-This is `O(ND)` time with `O(D)` additional memory and remains exact when
+Production first validates the feature-scale rank-one `torch.long` membership
+for non-negative, non-decreasing sample IDs and exact embedding cardinality.
+It scans membership once per node type to create `S+1` deterministic
+contiguous boundaries, including equal adjacent boundaries for an empty
+sample. Other scales must have exactly the same membership before their
+embeddings are read; malformed or non-contiguous membership raises
+`OversmoothingContractError` rather than being regrouped.
+
+Each group is selected with the basic slice `embeddings[start:end]`, which is
+a view. Production therefore creates no boolean mask-selected
+`N_group x D` feature copy. Each embedding row is streamed exactly once per
+scale into one D-dimensional sum and one scalar; neither a normalized `N x D`
+copy nor a cosine `N x N` matrix is materialized. Per group this is `O(ND)`
+time and `O(D)` accumulator memory and remains exact when
 `F.normalize` leaves a zero vector at zero. `zero_norm_count` is the
 deterministic count of input rows whose L2 norm is exactly zero before
 normalization; it exposes complete or partial zero collapse even though
@@ -134,6 +145,18 @@ mixes graphs or node types. These diagnostics prove only local accessibility,
 not which graph is better. There is no separately versioned diagnostic-policy
 contract, so this formula correction does not change model/output/loss
 versions.
+
+For `T` node types, `S` samples, `K` encoder scales, hidden size `D`, and
+`N_t` rows in node type `t`, boundary construction is
+`O(sum_t N_t + T*S)` time once and `O(T*S)` CPU metadata. Cross-scale
+membership validation is `O(K*sum_t N_t)`. Cosine work is
+`O(K*sum_t N_t*D)` because every embedding row is processed exactly once per
+scale. Traversing and constructing every requested group record adds
+`O(K*T*S)` time, and the returned report necessarily stores `O(K*T*S)`
+records. Empty and one-row groups do not allocate a D-dimensional
+accumulator; temporary cosine accumulation for a non-trivial group remains
+`O(D)`. These metadata/output terms are separate from feature memory, and no
+production step allocates an `N_group x D` group copy.
 
 Checkpoint contract `1.1.0` binds model contract/configuration, canonical
 schema, graph schema/builder, feature registry version and fingerprint, target

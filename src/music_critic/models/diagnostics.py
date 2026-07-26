@@ -22,6 +22,10 @@ from music_critic.models.baseline import LocalHeterogeneousBaseline
 from music_critic.models.encoder import MultiScaleEncoderOutput
 
 
+class OversmoothingContractError(ValueError):
+    """Raised when diagnostic batch membership cannot define safe views."""
+
+
 @dataclass(frozen=True, slots=True)
 class EmbeddingDelta:
     scale: str
@@ -131,12 +135,123 @@ def _cosine_delta(left: Tensor, right: Tensor) -> float:
     return float((1.0 - F.cosine_similarity(left[None], right[None])).item())
 
 
+def _contiguous_sample_boundaries(
+    membership: object,
+    row_count: int,
+    *,
+    sample_count: int | None = None,
+) -> tuple[int, ...]:
+    """Validate one membership vector and return S+1 slice boundaries."""
+
+    if (
+        not isinstance(membership, Tensor)
+        or membership.dtype != torch.long
+        or membership.ndim != 1
+    ):
+        raise OversmoothingContractError(
+            "oversmoothing.membership_invalid: expected rank-one torch.long"
+        )
+    if membership.shape[0] != row_count:
+        raise OversmoothingContractError(
+            "oversmoothing.membership_row_count_mismatch"
+        )
+    if sample_count is not None and (
+        isinstance(sample_count, bool)
+        or not isinstance(sample_count, int)
+        or sample_count < 0
+    ):
+        raise OversmoothingContractError(
+            "oversmoothing.sample_count_invalid"
+        )
+
+    boundaries = [0]
+    previous = -1
+    detached = membership.detach()
+    for row_index in range(row_count):
+        current = int(detached[row_index].item())
+        if current < 0:
+            raise OversmoothingContractError(
+                "oversmoothing.membership_negative"
+            )
+        if current < previous:
+            raise OversmoothingContractError(
+                "oversmoothing.membership_not_monotonic"
+            )
+        if sample_count is not None and current >= sample_count:
+            raise OversmoothingContractError(
+                "oversmoothing.membership_sample_out_of_range"
+            )
+        if current >= len(boundaries):
+            boundaries.extend(
+                row_index for _ in range(current + 1 - len(boundaries))
+            )
+        previous = current
+
+    resolved_sample_count = (
+        previous + 1 if sample_count is None else sample_count
+    )
+    boundaries.extend(
+        row_count
+        for _ in range(resolved_sample_count + 1 - len(boundaries))
+    )
+    if (
+        len(boundaries) != resolved_sample_count + 1
+        or boundaries[0] != 0
+        or boundaries[-1] != row_count
+    ):
+        raise OversmoothingContractError(
+            "oversmoothing.boundaries_inconsistent"
+        )
+    return tuple(boundaries)
+
+
+def _validate_scale_store(
+    values: object,
+    membership: object,
+    reference_membership: Tensor,
+    row_count: int,
+) -> Tensor:
+    """Validate scale identity without rebuilding sample boundaries."""
+
+    if not isinstance(values, Tensor) or values.ndim != 2:
+        raise OversmoothingContractError(
+            "oversmoothing.embeddings_invalid"
+        )
+    if values.shape[0] != row_count:
+        raise OversmoothingContractError(
+            "oversmoothing.embedding_row_count_mismatch"
+        )
+    if (
+        not isinstance(membership, Tensor)
+        or membership.dtype != torch.long
+        or membership.ndim != 1
+        or membership.shape[0] != row_count
+    ):
+        raise OversmoothingContractError(
+            "oversmoothing.scale_membership_invalid"
+        )
+    if not torch.equal(membership, reference_membership):
+        raise OversmoothingContractError(
+            "oversmoothing.membership_scale_mismatch"
+        )
+    return values
+
+
 def _linear_mean_pairwise_cosine(
     values: Tensor,
 ) -> tuple[float | None, int]:
     """Match dense off-diagonal cosine in O(ND) time and O(D) memory."""
 
     count = values.shape[0]
+    detached = values.detach()
+    if count == 0:
+        return None, 0
+    if count == 1:
+        zero_norm_count = int(
+            (torch.linalg.vector_norm(detached[0]) == 0).item()
+        )
+        return None, zero_norm_count
+
     total = torch.zeros(
         values.shape[1],
         dtype=values.dtype,
@@ -148,7 +263,6 @@ def _linear_mean_pairwise_cosine(
     zero_norm_count = torch.zeros(
         (), dtype=torch.long, device=values.device
     )
-    detached = values.detach()
     for index in range(count):
         row = detached[index]
         zero_norm_count.add_(
@@ -158,8 +272,6 @@ def _linear_mean_pairwise_cosine(
         total.add_(normalized_row)
         diagonal_sum.add_(normalized_row.square().sum())
     zero_norm_count_value = int(zero_norm_count.item())
-    if count < 2:
-        return None, zero_norm_count_value
     pair_sum = total.square().sum() - diagonal_sum
     mean = pair_sum / (count * (count - 1))
     return float(mean.item()), zero_norm_count_value
@@ -181,22 +293,43 @@ def _scales(
 def oversmoothing_by_group(
     output: MultiScaleEncoderOutput,
 ) -> tuple[OversmoothingValue, ...]:
-    """Report only within-sample and within-node-type cosine statistics."""
+    """Use validated contiguous views for sample/node-type cosine reports."""
 
-    song_membership = output.final_output.batch_membership["song"]
-    sample_count = (
-        int(song_membership.max().item()) + 1
-        if song_membership.numel()
-        else 0
+    reference = output.feature_output
+    song_membership = reference.batch_membership["song"]
+    song_row_count = reference.embeddings["song"].shape[0]
+    song_boundaries = _contiguous_sample_boundaries(
+        song_membership, song_row_count
     )
+    sample_count = len(song_boundaries) - 1
+    boundaries_by_node_type = {"song": song_boundaries}
+    for node_type in MANDATORY_NODE_TYPES[1:]:
+        reference_values = reference.embeddings[node_type]
+        boundaries_by_node_type[node_type] = (
+            _contiguous_sample_boundaries(
+                reference.batch_membership[node_type],
+                reference_values.shape[0],
+                sample_count=sample_count,
+            )
+        )
+
     values = []
     for scale, scale_output in _scales(output):
+        scale_embeddings = {}
+        for node_type in MANDATORY_NODE_TYPES:
+            reference_membership = reference.batch_membership[node_type]
+            scale_embeddings[node_type] = _validate_scale_store(
+                scale_output.embeddings[node_type],
+                scale_output.batch_membership[node_type],
+                reference_membership,
+                reference_membership.shape[0],
+            )
         for sample_index in range(sample_count):
             for node_type in MANDATORY_NODE_TYPES:
-                membership = scale_output.batch_membership[node_type]
-                group = scale_output.embeddings[node_type][
-                    membership == sample_index
-                ]
+                boundaries = boundaries_by_node_type[node_type]
+                start = boundaries[sample_index]
+                end = boundaries[sample_index + 1]
+                group = scale_embeddings[node_type][start:end]
                 mean, zero_norm_count = _linear_mean_pairwise_cosine(group)
                 values.append(
                     OversmoothingValue(
@@ -397,6 +530,7 @@ def single_note_sensitivity(
 
 __all__ = [
     "EmbeddingDelta",
+    "OversmoothingContractError",
     "OversmoothingValue",
     "RawFeatureChange",
     "SingleNoteDiagnostic",

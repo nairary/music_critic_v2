@@ -971,12 +971,18 @@ This log is append-only.
   pitch while preserving its stable ID, rebuilds and validates both production
   graphs, requires different fingerprints and identical topology, and reports
   exact raw-feature and local-embedding changes. Oversmoothing is computed
-  separately for every `(sample, node_type, scale)` in `O(ND)` time and `O(D)`
-  extra memory. For normalized rows `u_i`, subtract
+  separately for every `(sample, node_type, scale)`. Membership is validated
+  and scanned once per node type to build contiguous `S+1` boundaries; other
+  scales must have identical sample IDs. Basic `start:end` views replace
+  boolean feature indexing, so production creates no `N_group x D` group
+  copies. For normalized rows `u_i`, subtract
   `sum_i ||u_i||²` from `||sum_i u_i||²`, then divide by `N*(N-1)`. Subtracting
   `N` is invalid for zero rows because PyTorch normalization leaves them zero.
   The report records the exact pre-normalization `zero_norm_count`, and remains
-  unavailable for fewer than two nodes.
+  unavailable for fewer than two nodes. Boundary construction uses
+  `O(sum_t N_t + T*S)` time and `O(T*S)` CPU metadata; cosine work uses
+  `O(K*sum_t N_t*D)` time and `O(D)` temporary accumulator memory per group;
+  report traversal and storage are honestly `O(K*T*S)` time and memory.
 - Decision: Checkpoint load validates metadata, exact model keys/shapes/dtypes,
   and optimizer groups/state tensors before mutation; an application failure
   restores complete model and optimizer states. Save uses a same-directory
