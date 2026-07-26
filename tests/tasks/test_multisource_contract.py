@@ -27,6 +27,7 @@ from music_critic.tasks import (
     SampleTarget,
     TaskAvailability,
     build_multisource_sample,
+    collate_multisource_samples,
     deterministic_group_order,
     dumps_ontology_contract,
     ontology_contract_fingerprint,
@@ -112,7 +113,10 @@ def _pop_piece(
     tmp_path: Path,
     *,
     pitches: tuple[int, ...] = (60, 64, 67),
+    leading_gap_ticks: int = 0,
 ):
+    if not 0 <= leading_gap_ticks < 1_920:
+        raise ValueError("leading_gap_ticks must lie in [0, 1920)")
     tmp_path.mkdir(parents=True, exist_ok=True)
     path = tmp_path / "001.mid"
     midi = mido.MidiFile(type=1, ticks_per_beat=480)
@@ -140,9 +144,15 @@ def _pop_piece(
     chord_track = mido.MidiTrack(
         [mido.Message("program_change", channel=1, program=0, time=0)]
     )
-    for pitch in pitches:
+    for index, pitch in enumerate(pitches):
         chord_track.append(
-            mido.Message("note_on", channel=1, note=pitch, velocity=70, time=0)
+            mido.Message(
+                "note_on",
+                channel=1,
+                note=pitch,
+                velocity=70,
+                time=leading_gap_ticks if index == 0 else 0,
+            )
         )
     for index, pitch in enumerate(pitches):
         chord_track.append(
@@ -151,7 +161,7 @@ def _pop_piece(
                 channel=1,
                 note=pitch,
                 velocity=0,
-                time=1_920 if index == 0 else 0,
+                time=1_920 - leading_gap_ticks if index == 0 else 0,
             )
         )
     chord_track.append(mido.MetaMessage("end_of_track", time=0))
@@ -172,7 +182,7 @@ def _pop_piece(
 
 
 def test_registry_version_ids_value_spaces_and_serialization_are_stable() -> None:
-    assert TARGET_ONTOLOGY_VERSION == "1.0.0"
+    assert TARGET_ONTOLOGY_VERSION == "1.0.1"
     assert {spec.task_id for spec in TARGET_FAMILIES} == HOOK_TASKS | POP_TASKS
     assert len(TARGET_FAMILIES) == len({spec.task_id for spec in TARGET_FAMILIES})
     assert all(spec.availability_mask_required for spec in TARGET_FAMILIES)
@@ -209,6 +219,16 @@ def test_registry_version_ids_value_spaces_and_serialization_are_stable() -> Non
         rule.match_rule == "exact_event_time"
         for rule in boundary.alignment_policy.candidate_rules
     )
+    no_chord = next(
+        spec
+        for spec in TARGET_FAMILIES
+        if spec.task_id == "pop909_cl.chord.no_chord"
+    )
+    assert no_chord.vocabulary == ("N",)
+    assert no_chord.supervision_objective == (
+        "positive_unlabeled_coverage_detection"
+    )
+    assert "unlabeled, not negative" in no_chord.negative_example_policy
     for spec in TARGET_FAMILIES:
         if spec.vocabulary is not None:
             assert spec.vocabulary
@@ -219,7 +239,7 @@ def test_registry_version_ids_value_spaces_and_serialization_are_stable() -> Non
     assert payload == dumps_ontology_contract()
     assert ontology_contract_fingerprint() == sha256(payload.encode()).hexdigest()
     assert ontology_contract_fingerprint() == (
-        "296dc400dee45a21fff589e28c05b88b61d8717e3834285a00343bee97fb213b"
+        "86ea17b016eafb7109fe050f9332c57f8e0f3399046debc01f4d8ac5d19d9613"
     )
 
 
@@ -427,77 +447,44 @@ def test_empty_batch_family_and_mixed_batch_api_contract(tmp_path: Path) -> None
     pop_piece = _pop_piece(tmp_path)
     hook = build_multisource_sample(hook_piece, build_raw_graph(hook_piece))
     pop = build_multisource_sample(pop_piece, build_raw_graph(pop_piece))
-    empty = BatchTarget(
-        task_id="pop909_cl.chord.no_chord",
-        values=(),
-        availability_mask=(),
-        entity_indices=(),
-        entity_index_mask=(),
-        entity_node_types=(),
-        sample_indices=(),
-        confidence=None,
-        entry_count=0,
-        provenance_cpu=(),
-        diagnostics_cpu=(),
-    )
-    batch = MultiSourceBatch(
-        raw_graph_batch=Batch.from_data_list([hook.raw_graph, pop.raw_graph]),
-        target_batches=(empty,),
-        dataset_ids=(hook.dataset_id, pop.dataset_id),
-        piece_ids=(hook.piece_id, pop.piece_id),
-        source_group_ids=(hook.source_group_id, pop.source_group_id),
-        lineage_group_ids=(hook.lineage_group_id, pop.lineage_group_id),
-        diagnostics_cpu=(hook.diagnostics, pop.diagnostics),
+    batch = collate_multisource_samples((hook, pop))
+    empty = next(
+        target
+        for target in batch.target_batches
+        if target.task_id == "pop909_cl.chord.no_chord"
     )
     assert batch.raw_graph_batch.num_graphs == 2
     assert batch.raw_graph_batch.raw_only.tolist() == [True, True]
-    assert batch.target_batches[0].entry_count == 0
+    assert empty.entry_count == 0
     assert batch.dataset_ids == ("hooktheory", "pop909_cl")
 
 
 def test_batch_target_shapes_node_types_indices_and_raw_batch_contract() -> None:
-    aligned = BatchTarget(
-        task_id="pop909_cl.chord.boundary",
-        values=("present",),
-        availability_mask=(True,),
-        entity_indices=(3,),
-        entity_index_mask=(True,),
-        entity_node_types=("onset",),
-        sample_indices=(0,),
-        confidence=(None,),
-        entry_count=1,
-        provenance_cpu=(object(),),
-        diagnostics_cpu=((),),
+    piece = _hook_piece()
+    sample = build_multisource_sample(piece, build_raw_graph(piece))
+    batch = collate_multisource_samples((sample,))
+    aligned = next(
+        target
+        for target in batch.target_batches
+        if target.task_id == "theory.chord.presence"
     )
-    unaligned = replace(
-        aligned,
-        entity_indices=(-1,),
-        entity_index_mask=(False,),
-        entity_node_types=(None,),
-    )
-    raw_graph = build_raw_graph(_hook_piece())
-    raw_batch = Batch.from_data_list([raw_graph])
-    batch = MultiSourceBatch(
-        raw_graph_batch=raw_batch,
-        target_batches=(unaligned,),
-        dataset_ids=("pop909_cl",),
-        piece_ids=("piece:1",),
-        source_group_ids=("pop909-cl:001",),
-        lineage_group_ids=("pop909-lineage:001",),
-        diagnostics_cpu=((),),
-    )
-    assert batch.target_batches[0].entity_index_mask == (False,)
     with pytest.raises(MultiSourceContractError, match="leading dimensions"):
-        replace(aligned, sample_indices=())
+        replace(aligned, sample_indices=aligned.sample_indices[:0])
     with pytest.raises(MultiSourceContractError, match="non-negative"):
-        replace(aligned, sample_indices=(-1,))
-    with pytest.raises(MultiSourceContractError, match="allowed explicit node type"):
-        replace(aligned, entity_node_types=("note",))
-    with pytest.raises(MultiSourceContractError, match="index -1"):
         replace(
             aligned,
-            entity_index_mask=(False,),
-            entity_node_types=(None,),
+            sample_indices=aligned.sample_indices.clone().fill_(-1),
+        )
+    with pytest.raises(MultiSourceContractError, match="allowed explicit node type"):
+        replace(
+            aligned,
+            entity_node_types=tuple("note" for _ in aligned.entity_node_types),
+        )
+    with pytest.raises(MultiSourceContractError, match="index.*-1"):
+        replace(
+            aligned,
+            entity_index_mask=aligned.entity_index_mask.clone().fill_(False),
+            entity_node_types=tuple(None for _ in aligned.entity_node_types),
         )
     false_graph = build_raw_graph(_hook_piece())
     false_graph.raw_only = False
@@ -506,21 +493,22 @@ def test_batch_target_shapes_node_types_indices_and_raw_batch_contract() -> None
             batch,
             raw_graph_batch=Batch.from_data_list([false_graph]),
         )
-    leaked_batch = Batch.from_data_list([build_raw_graph(_hook_piece())])
+    leaked_batch = Batch.from_data_list([build_raw_graph(piece)])
     leaked_batch.targets = object()
     with pytest.raises(MultiSourceContractError, match="attributes differ"):
         replace(batch, raw_graph_batch=leaked_batch)
     with pytest.raises(MultiSourceContractError, match="outside the batch"):
-        replace(batch, target_batches=(replace(aligned, sample_indices=(1,)),))
-    with pytest.raises(MultiSourceContractError, match="non-zero"):
-        MultiSourceBatch(
-            raw_graph_batch=raw_batch,
-            target_batches=(),
-            dataset_ids=(),
-            piece_ids=(),
-            source_group_ids=(),
-            lineage_group_ids=(),
-            diagnostics_cpu=(),
+        replace(
+            batch,
+            target_batches=tuple(
+                replace(
+                    target,
+                    sample_indices=target.sample_indices.clone().fill_(1),
+                )
+                if target.task_id == aligned.task_id
+                else target
+                for target in batch.target_batches
+            ),
         )
 
 

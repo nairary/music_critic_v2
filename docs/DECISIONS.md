@@ -739,7 +739,108 @@ This log is append-only.
   component must agree, including components connected through `split=None`.
   A dataset piece has exactly one assignment; every repeated identity is an
   error.
-- Boundary objective: unlabeled candidates may not become negative examples
-  in Phase 5B. Ordinary BCE with implicit `absent=0` is forbidden. Phase 6
-  either records and uses an explicit PU-compatible objective or leaves the
-  POP909-CL boundary loss disabled.
+- PU objectives: unobserved boundary events and no-chord coverage may not
+  become negative examples in Phase 5B. Phase 6 either records and uses a
+  separately accepted PU-compatible objective for each task or leaves that
+  task disabled.
+
+## 2026-07-26 — ADR-037: Phase 5B.1 uses exact typed alignment and versioned sidecar encodings
+
+- Status: Accepted.
+- Context: Phase 5A fixed source-native semantics and raw-only PyG allowlists
+  but deliberately deferred executable alignment, encodings, offsets, and
+  collation. A mixed batch must distinguish source availability from whether a
+  raw graph entity can be aligned, without reconstructing exact time from
+  float features or leaking supervision into graph stores.
+- Decision: Bind each prepared sample to its validated canonical piece and raw
+  graph. Align notes by exact canonical ID; align onset points and beat/bar
+  start anchors with exact `RationalTime` and half-open containment; align
+  boundary events only at exact time. Expand every allowed typed match with no
+  node-type priority. Retain available-but-unaligned and masked source entries
+  separately, merge equal values, and mask conflicting values with
+  `multisource.alignment_conflict`.
+- Decision: Introduce target encoding registry `1.0.0`. Closed categorical
+  values use ontology-order `torch.long [N]` and unavailable sentinel `-1`.
+  Closed multilabel values use `torch.bool [N, C]`; an all-false row under
+  false availability is a sentinel, not a negative. Open strings remain
+  lossless CPU values with `model_ready=false`; per-batch or per-worker dynamic
+  vocabularies and Python-hash IDs are forbidden.
+- Decision: Keep source availability and entity alignment as independent
+  boolean masks. Future supervision eligibility requires both plus model
+  readiness, but selects no concrete loss. Nullable confidence remains
+  nullable; partial confidence uses a separate mask. POP909-CL boundary and
+  no-chord contain annotated positives only; Phase 6 must separately accept a
+  PU-compatible objective or disable each task.
+- Decision: Collate raw graphs with normal PyG `Batch`. Translate a local
+  target index using the explicit node type and
+  `ptr[sample_index]`, then verify that the corresponding `batch` value equals
+  the sample index. Values, masks, sample/dataset identity, confidence,
+  provenance, and diagnostics remain immutable CPU/tensor sidecars and never
+  enter global, node, or edge PyG stores.
+- Evidence: Bounded HookTheory, POP909-CL, and synthetic raw-only fixtures cover
+  all 18 tasks, note/span/boundary alignment, half-open boundaries, duplicate
+  merge/conflict, unaligned and masked rows, encodings, offsets, leakage,
+  malformed tensors/batches, deterministic statistics, and repeated
+  collation. A lightweight dozens-of-graphs benchmark is separate from corpus
+  acceptance. The final semantic remediation patches ontology to `1.0.1`
+  without changing adapter targets or production manifests.
+- Consequences: Phase 5B.2 owns corpus `Dataset`, indexing, mixture sampler,
+  worker-safe `DataLoader`, and split consumption. Phase 6 owns models, heads,
+  objectives, and the PU decision. No HookTheory/POP909 semantic crosswalk,
+  chord renderer, target-derived notes, adapter change, or graph-schema change
+  is authorized by this ADR.
+
+### 2026-07-26 pre-merge remediation
+
+- Alignment is indexed and output-sensitive. One immutable `AlignmentIndex`
+  is built per canonical piece with O(1) note/annotation and exact-time
+  mappings plus sorted rational candidate arrays. Half-open spans use bisect;
+  because index construction sorts temporal candidates, strict complexity is
+  `O(P + C log C + T log C + R + F*C)`. For the fixed task registry, `F*C`
+  is linear in candidate count.
+  Instrumentation, rather than a timing threshold, guards against repeated
+  full index construction or source-entry candidate scans.
+- Encoding registry `1.0.0` describes value representation and the semantic
+  regimes `fully_supervised`, `positive_unlabeled`, and
+  `deferred_open_vocabulary`; it does not select CE, BCE, focal, or PU loss.
+  POP909-CL boundary and no-chord remain distinct positive-unlabeled tasks with
+  no synthetic negatives. Phase 6 must separately choose a PU-compatible
+  objective or disable each task.
+- Production preparation owns canonical-to-graph proof:
+  `prepare_multisource_sample` builds the Phase 3A graph and records a complete
+  fingerprint; the external-graph factory compares against a fresh projection
+  and has no bypass; collation recomputes the fingerprint to catch later
+  categorical, continuous, or topology mutation. Target-only audit projection
+  has no graph, and no binding is added to PyG stores.
+- `model_encodable_row_count` means only that a registry representation
+  exists. `supervision_eligible_row_count` is the exact sum of
+  `availability_mask & entity_index_mask & model_ready`. Masked,
+  available-but-unaligned, conflict, and deferred-open-vocabulary counts are
+  independent explicit statistics, checked per task and in aggregate.
+- The raw-only benchmark remains graph baseline evidence. A separate
+  small/medium/large target-heavy benchmark reports index construction, target
+  lookup, emitted rows, full collation, and operation counts; it is not a
+  default CI or corpus-acceptance job.
+
+### 2026-07-26 final semantic remediation
+
+- Patch target ontology `1.0.0` to `1.0.1`. Stable task IDs, adapters,
+  production target values, vocabularies, masks, and provenance remain
+  unchanged; the patch corrects the declared semantics of
+  `pop909_cl.chord.no_chord`.
+- `pop909_cl.chord.boundary` and `pop909_cl.chord.no_chord` are distinct
+  positive-unlabeled tasks. Boundary is observed event detection with only
+  `present` positives. No-chord is observed coverage detection with the
+  one-class vocabulary `("N",)` and only explicit leading/internal positive
+  spans. Absence of an observed boundary/span, chord spans, uncovered
+  candidates, and absent annotations create no synthetic negative.
+- A one-class no-chord representation is not a trainable fully-supervised
+  classification task by itself. `supervision_eligibility_mask` means only
+  that a represented row may be routed to a future task-specific objective;
+  it does not imply ordinary classification. Phase 6 must separately accept a
+  PU-compatible objective for boundary and no-chord or leave the corresponding
+  task disabled.
+- No `not_N` class or derived-negative policy is introduced. Explicit
+  negative no-chord evidence would be a future versioned ontology/adapter
+  experiment with its own evidence contract. Phase 5B.1 selects no concrete
+  CE, BCE, focal, or PU loss.

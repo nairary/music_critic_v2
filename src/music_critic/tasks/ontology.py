@@ -9,7 +9,7 @@ from types import MappingProxyType
 from typing import Literal
 
 
-TARGET_ONTOLOGY_VERSION = "1.0.0"
+TARGET_ONTOLOGY_VERSION = "1.0.1"
 
 CrosswalkStatus = Literal[
     "exact_shared",
@@ -593,7 +593,10 @@ TARGET_FAMILIES = tuple(
             ),
             _spec(
                 "pop909_cl.chord.no_chord",
-                description="Derived positive-duration leading/internal POP909-CL gap.",
+                description=(
+                    "Derived positive-only leading/internal POP909-CL no-chord "
+                    "coverage span."
+                ),
                 value_type="categorical",
                 vocabulary=("N",),
                 entity="target-alignment coverage span",
@@ -604,6 +607,14 @@ TARGET_FAMILIES = tuple(
                 view="pop909_cl.channel_1",
                 missing="trailing uncovered and missing-instrument spans stay unavailable",
                 alignment=COVERAGE_SPAN_ALIGNMENT,
+                supervision_objective=(
+                    "positive_unlabeled_coverage_detection"
+                ),
+                negative_example_policy=(
+                    "only explicit available N coverage spans are positive; "
+                    "chord spans, uncovered candidates, and absent annotations "
+                    "are unlabeled, not negative"
+                ),
             ),
         ),
         key=lambda item: item.task_id,

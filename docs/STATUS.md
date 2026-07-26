@@ -46,11 +46,111 @@
 - POP909-CL production manifest version: `1.0.0`
 - Phase 5A: Accepted and Completed
 - Phase 5A branch: `phase/5a-multisource-contract`
-- Multi-source target ontology version: `1.0.0`
+- Multi-source target ontology version: `1.0.1`
+- Phase 5B.1: Completed
+- Phase 5B.1 branch: `phase/5b1-target-tensorizer-collator`
+- Target encoding registry version: `1.0.0`
 - Documentation branch: `docs/harmonic-supervision-contract`
 - Documentation base commit: `681abbdf331c032e34cc7541224ca98f13e19a86`
 - Pre-merge clarification base: `4f5f1e32f0244cbbfedd3a0cd4dbaa9047a82e51`
-- Next phase: Phase 5B — production multi-source dataset and collator
+- Next phase: Phase 5B.2 — corpus Dataset, deterministic mixture sampler,
+  worker-safe DataLoader, and practical corpus indexing
+
+## Phase 5B.1 exact alignment, tensorizer, and collator result
+
+- `music_critic.tasks` now exposes exact canonical alignment, target encoding
+  registry `1.0.0`, tensorization, a production
+  `collate_multisource_samples`, strict `BatchTarget`/`MultiSourceBatch`
+  validation, deterministic statistics, and a lightweight benchmark.
+- Encoding registry fingerprint:
+  `386aceef18b6ba7da5e91d406cefdcdc21d46b6839ded873312402940b507e01`.
+  Deterministic bounded audit report fingerprint:
+  `f1168939287b26188b9a9c70282f416a808b8f802bc9367b226b77f81ce745af`.
+- Pre-merge remediation builds one immutable alignment index per piece.
+  O(1) note/annotation/exact-time mappings and rational-time bisect span lookup
+  have strict complexity `O(P + C log C + T log C + R + F*C)`, including
+  candidate sorting during index construction. For the fixed registry, `F*C`
+  is linear in temporal candidate count.
+  Instrumentation verifies one index build and counts index entries, lookups,
+  bisections, candidate matches, merge visits, and emitted rows.
+- Notes align by exact entity identity. Region/coverage spans expand to every
+  onset point and beat/bar start anchor under exact half-open containment.
+  Boundary events expand only to exact-time candidates, with no snapping,
+  tolerance, or node-type priority. Equal typed values merge; conflicts are
+  masked with `multisource.alignment_conflict`.
+- Local indices become global through
+  `local_index + batch[node_type].ptr[sample_index]`, then the collator checks
+  `batch[node_type].batch[global_index] == sample_index`. All values, masks,
+  confidence, source identity, provenance, and diagnostics remain outside raw
+  PyG stores.
+- Closed categorical targets are ontology-order `torch.long [N]` with masked
+  sentinel `-1`; closed multilabel targets are `torch.bool [N, C]`; open
+  `theory.local_key.mode` and `theory.chord.borrowed` strings remain lossless
+  CPU tuples with `model_ready=false`. No dynamic vocabulary or Python hash is
+  used.
+- Bounded HookTheory + POP909-CL + raw-only acceptance produces three graphs,
+  all 18 stable task sidecars, 17 source target entries, 76 expanded rows,
+  76 aligned available rows, zero unaligned/masked/conflict rows, 66
+  model-encodable and supervision-eligible rows, and 10 deferred open-string
+  rows. POP909 boundary event detection and no-chord coverage detection are
+  distinct `positive_unlabeled` tasks. Bounded fixtures produce only explicit
+  `present` or `N` rows and zero synthetic negatives.
+- Encoding registry `1.0.0` now declares only value representation plus
+  `fully_supervised`, `positive_unlabeled`, or
+  `deferred_open_vocabulary` semantics. It exposes no ordinary-BCE
+  eligibility API and leaves every CE/BCE/focal/PU decision to Phase 6.
+- Target ontology `1.0.1` corrects `pop909_cl.chord.no_chord` to
+  `positive_unlabeled_coverage_detection` while preserving vocabulary
+  `("N",)`, adapter targets, masks, and production manifest counts. A one-class
+  representation is not fully-supervised classification. Chord spans,
+  uncovered candidates, and absent annotations remain unlabeled; Phase 6 must
+  accept a no-chord-specific PU objective or leave the task disabled.
+- Production sample preparation builds and fingerprints the exact Phase 3A
+  graph. External graphs must match a fresh canonical projection, and
+  collation rejects categorical-feature, continuous-feature, or topology
+  mutation after preparation with
+  `multisource.raw_graph_binding_mismatch`. Audit inventory uses a graph-free
+  target projection; no binding enters PyG stores.
+- Statistics separately count model-encodable, supervision-eligible, masked,
+  available-but-unaligned, conflict, and deferred-open-vocabulary rows.
+  Aggregate values are validated against the per-task values, and eligibility
+  exactly sums `availability & entity_index & model_ready`.
+- A separate synthetic conflict fixture produces four masked conflicts.
+  Available-but-unaligned boundary and masked-source fixtures each retain one
+  row with `entity_index=-1`; masked entries are never candidate-expanded or
+  converted to negatives.
+- The 32-graph lightweight benchmark (three repeats) produced 640 nodes, 3,456
+  edges, and zero raw-only target rows. On this runner, mean per-repeat exact
+  alignment was `0.0633 s`, PyG construction/validation `0.1288 s`, and full
+  collation `0.3602 s`. This is bounded performance evidence, not corpus
+  acceptance.
+- The separate target-heavy benchmark (three repeats) produced:
+  small `78` source entries / `170` emitted rows, index `0.00133 s`, lookup
+  `0.00115 s`, full collation `0.06295 s`; medium `610` / `1,346`,
+  `0.00911 s`, `0.00878 s`, `0.06736 s`; large `2,434` / `5,378`,
+  `0.03698 s`, `0.06561 s`, `0.23564 s`. Every size recorded exactly one
+  index build. This heavier evidence is excluded from default CI.
+- Target/provenance/diagnostic changes leave raw graph fingerprints and raw
+  PyG store allowlists unchanged. Ontology `1.0.1` fingerprint is
+  `86ea17b016eafb7109fe050f9332c57f8e0f3399046debc01f4d8ac5d19d9613`.
+- No full HookTheory scan, manual corpus read, or repeated POP909-CL 909-file
+  acceptance was run. Adapters, production manifests, graph semantics,
+  dependencies, and legacy code were unchanged. Phase 5B.2 and Phase 6 were
+  not started.
+
+## Phase 5B.1 verification
+
+- Focused alignment/tensorizer/collator, Phase 5A contract, and deterministic
+  contract suite: `39 passed, 2 warnings in 3.50s`.
+- Focused tasks/graph/leakage/audit regression suite:
+  `96 passed, 2 warnings in 4.63s`.
+- Full default suite:
+  `558 passed, 12 skipped, 2 warnings in 5.66s`; skips are opt-in real-corpus
+  integrations and warnings are existing upstream PyTorch deprecations.
+- Deterministic multi-source audit `--check`, compileall over `src`, `scripts`,
+  and `tests`, and `git diff --check` passed.
+- Compileall, diff, deterministic audit, and GitHub Actions results are
+  recorded in the Phase 5B.1 PR handoff.
 
 ## Phase 5A multi-source target contract result
 
@@ -59,8 +159,8 @@
   spaces, exact entity/time semantics, supervision context, adapter/view,
   missing semantics, required masks/provenance, confidence policy, alignment
   policy, and cross-source-sharing permission.
-- Ontology `1.0.0` fingerprint:
-  `296dc400dee45a21fff589e28c05b88b61d8717e3834285a00343bee97fb213b`.
+- Ontology `1.0.1` fingerprint:
+  `86ea17b016eafb7109fe050f9332c57f8e0f3399046debc01f4d8ac5d19d9613`.
   Stable adapter task IDs remain unchanged.
 - No cross-source pair is classified `exact_shared` or accepted as
   `derived_lossless_subset`. Functional versus absolute root, extent versus
@@ -73,8 +173,9 @@
   explicitly available coverage spans. Typed candidates have no implicit
   priority, equal multi-span values merge, conflicts are masked with
   `multisource.alignment_conflict`, and unmatched boundary events retain a
-  masked index without snapping. POP909-CL boundary supervision is
-  positive-unlabeled and has no synthetic absent class.
+  masked index without snapping. POP909-CL boundary event detection and
+  no-chord coverage detection are distinct positive-unlabeled tasks with no
+  synthetic absent/not-N classes.
 - `MultiSourceSample` defines an opaque raw graph plus source/piece/group/
   lineage identity and separate target, availability, full target-provenance
   ancestor, confidence, and diagnostic sidecars. `BatchTarget` and
@@ -117,9 +218,11 @@
   tests`, and `git diff --check`: passed.
 - GitHub commit, draft PR, and Actions results are reported in the final Phase
   5A handoff.
-- Phase 5B still owns production loading, exact entity-index tensorization, PyG
-  batching/offset validation, collator, worker seeds, statistics, configurable
-  mixture weights, and any later evidence-backed ontology version.
+- Phase 5B.1 now owns exact entity-index tensorization, PyG batching/offset
+  validation, collation, and statistics. Phase 5B.2 retains production corpus
+  loading/indexing, worker seeds, configurable mixture weights, and split
+  consumption; any changed task semantics require a later evidence-backed
+  ontology version.
 - Final splits, cache, renderer, applied/borrowed crosswalks, models, losses,
   SSL, PLL, quality critic, and PDMX/Dilemmadata adapters were not started.
 

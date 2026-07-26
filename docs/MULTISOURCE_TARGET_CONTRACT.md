@@ -1,16 +1,17 @@
 # Multi-source Target Ontology and Batching Contract
 
-Status: **ACCEPTED PHASE 5A CONTRACT**
+Status: **ACCEPTED PHASE 5A ONTOLOGY; IMPLEMENTED PHASE 5B.1 COLLATION**
 
-Ontology version: `1.0.0`
+Ontology version: `1.0.1`
 
 Implementation: `music_critic.tasks`
 
 ## 1. Scope and semantic layers
 
-Phase 5A defines evidence and interfaces. It does not implement a production
-dataset, sampler, PyG collator, target tensorizer, cache, split assignment,
-model, loss, renderer, or training path.
+Phase 5A defines evidence and source-native semantics. Phase 5B.1 implements
+exact alignment, encoding, tensorization, and a production PyG collator. It
+does not implement a corpus dataset, sampler, worker `DataLoader`, cache,
+split assignment, model, loss, renderer, or training path.
 
 The contract keeps these layers distinct:
 
@@ -41,12 +42,17 @@ output tokens do not erase these contexts or authorize a shared loss.
 - `AlignmentPolicy`, `TargetFamilySpec`, and `CrosswalkSpec`;
 - deterministic `ontology_contract_dict`, `dumps_ontology_contract`, and
   `ontology_contract_fingerprint`;
-- `SampleTarget`, `TaskAvailability`, `MultiSourceSample`;
-- future-container contracts `BatchTarget` and `MultiSourceBatch`;
+- `SampleTarget`, `TaskAvailability`, `MultiSourceTargetProjection`, and
+  verified `MultiSourceSample`;
+- production `BatchTarget`, `MultiSourceBatch`, `BatchStatistics`, and
+  `TaskBatchStatistics`;
+- target encoding registry `1.0.0`, exact alignment, tensorization, and
+  `collate_multisource_samples`;
 - `GroupAssignment`, `DatasetSamplingWeight`,
   `validate_group_assignments`, and `deterministic_group_order`;
-- `build_multisource_sample`, which creates target/provenance/diagnostic
-  sidecars around an opaque raw graph without modifying it.
+- `prepare_multisource_sample`, which builds and fingerprints the exact Phase
+  3A graph; verified `build_multisource_sample` for an external graph; and
+  graph-free `project_multisource_targets` for audit inventory.
 
 Every target-family specification records its stable source task ID, registry
 version, semantics, canonical dtype, vocabulary or open value-space rule,
@@ -107,7 +113,7 @@ explicit derivation provenance. Numeric confidence is not supplied.
 | `pop909_cl.chord.quality` | 13-class categorical quality | 109,800 | 6,257 | ambiguous remains available only if all candidates agree |
 | `pop909_cl.chord.bass` | categorical `C..B` pitch-class names | 116,055 | 2 | directly observed lowest pitch class; independent mask |
 | `pop909_cl.chord.inversion` | categorical semitone distance `0..11` | 109,668 | 6,389 | depends on unambiguous root; independent from bass mask |
-| `pop909_cl.chord.no_chord` | categorical `N` | 947 | 153 | only positive leading/internal gaps are `N`; 151 trailing spans and two missing-instrument spans remain masked |
+| `pop909_cl.chord.no_chord` | categorical one-class `N`; positive-unlabeled coverage | 947 | 153 | only positive leading/internal gaps are `N`; chord spans/uncovered candidates are not negatives, and 151 trailing spans plus two missing-instrument spans remain masked |
 
 The manifest records 5,801 ambiguous blocks and 586 unsupported blocks.
 Boundary and bass remain available for those blocks. `367` and `658` supply
@@ -118,7 +124,7 @@ time, and available `N` are six distinct states.
 ## 4. Conservative crosswalk
 
 There are no accepted `exact_shared` or `derived_lossless_subset` mappings in
-ontology `1.0.0`. A future model may route multiple source-native heads into a
+ontology `1.0.1`. A future model may route multiple source-native heads into a
 shared representation, but that is a model policy, not a claim that labels are
 identical.
 
@@ -143,6 +149,14 @@ harmony, borrowed reinterpretation, or target-derived notes.
 
 Alignment remains a sidecar operation:
 
+- one immutable per-piece index owns O(1) note/annotation mappings, exact-time
+  onset/beat/bar mappings, and sorted rational candidate times; no source-entry
+  loop rebuilds these maps or scans complete candidate stores;
+- half-open candidate lookup uses exact rational
+  `[bisect_left(start), bisect_left(end))`; because candidate arrays are
+  sorted, strict work is `O(P + C log C + T log C + R + F*C)`, where `P` is
+  canonical entities, `C` temporal candidates, `T` target entries, `R`
+  emitted rows, and `F` task families; fixed-registry `F*C` is linear in `C`;
 - all source spans retain exact `RationalTime`; no float equality or
   nearest-neighbor snapping is permitted;
 - `note_identity_v1` maps only an exact canonical note entity ID;
@@ -166,24 +180,32 @@ Alignment remains a sidecar operation:
   fabricated negative;
 - unannotated positions are not enumerated as negatives.
 
-`pop909_cl.chord.boundary` is a positive-unlabeled event-detection target.
-Observed span starts carry only the class `present`; non-boundary candidates
-remain unlabeled and ontology `1.0.0` defines no synthetic `absent` class or
-derived negative rule. A future Phase 5B loss must preserve that objective or
-introduce a separately versioned, evidence-backed negative policy.
+`pop909_cl.chord.boundary` and `pop909_cl.chord.no_chord` are distinct
+positive-unlabeled tasks. Boundary is event detection: observed span starts
+carry only `present`, while non-boundary candidates remain unlabeled.
+No-chord is coverage detection: explicitly derived positive leading/internal
+gaps carry only `N`, while chord spans, uncovered candidates, and absent
+annotations remain unlabeled. Ontology `1.0.1` defines neither synthetic
+`absent` nor `not_N`; a one-class `("N",)` representation is not a
+fully-supervised classification task. Phase 6 may use each task only after a
+separate PU-compatible objective is accepted, otherwise it remains disabled.
+Explicit no-chord negatives would require a separately versioned future
+ontology/adapter evidence contract.
 
-Raw graph stores contain neither alignment indices nor target values. Future
-entity indices, values, masks, confidence, provenance, and diagnostics remain
+Raw graph stores contain neither alignment indices nor target values. Phase
+5B.1 entity indices, values, masks, confidence, provenance, and diagnostics remain
 outside `HeteroData`. Graph construction and fingerprinting therefore stay
 invariant under target, annotation, provenance, group, lineage, and split
 changes.
 
 ## 6. Phase 5B sample and batch API
 
-`MultiSourceSample` is the accepted future sample shape:
+`MultiSourceSample` is the verified production sample shape:
 
 ```text
-raw_graph                    opaque raw-only HeteroData
+canonical_piece              validated exact canonical alignment source
+raw_graph                    corresponding raw-only HeteroData
+raw_graph_fingerprint        immutable full-graph sidecar binding
 dataset_id, piece_id
 source_group_id, lineage_group_id
 target_bundle                sorted source-native SampleTarget sidecars
@@ -197,25 +219,43 @@ values validated against the task value space, availability mask, optional
 finite confidence in `[0, 1]`, source, and provenance IDs. `TaskAvailability`
 requires a registered task, non-negative counts, and zero counts for a family
 declared absent.
-`build_multisource_sample` performs this projection but does not load data,
-align nodes, tensorize, batch, or sample.
+`prepare_multisource_sample` performs the target projection, builds the raw
+graph through the Phase 3A builder, and records its complete fingerprint.
+`build_multisource_sample` accepts an external graph only after comparing it
+to a fresh `build_raw_graph(piece)` fingerprint; there is no public
+`assume_verified` path. The collator recomputes the stored graph fingerprint
+on every call to detect post-preparation feature or topology mutation.
+`project_multisource_targets` is the separate graph-free audit shape and
+cannot be collated. Binding stays sidecar-only.
 
-`MultiSourceBatch` is an immutable shape contract only:
+`MultiSourceBatch` is the validated immutable production collator result:
 
 ```text
 raw_graph_batch              PyG Batch containing raw graph stores only
 target_batches               sorted BatchTarget sidecars
 dataset/piece/source/lineage identities
 diagnostics_cpu              per-sample CPU metadata
+statistics                   deterministic CPU batch/task counts
 ```
 
-Each `BatchTarget` reserves separate values, availability mask, entity indices,
-entity-index mask, explicit entity node types, sample indices, optional
-confidence, and CPU provenance/diagnostics. All leading dimensions equal
-`entry_count`; aligned indices are non-negative and typed for the task,
-whereas unaligned retained events use index `-1`, false index mask, and null
-node type. `MultiSourceBatch` rejects empty sample metadata, duplicate or
-unsorted task sidecars, and out-of-range sample indices.
+Each `BatchTarget` contains registry-versioned values, availability mask,
+entity indices, entity-index mask, explicit entity node types, sample indices,
+optional confidence/confidence mask, and CPU provenance/diagnostics. All
+leading dimensions equal `entry_count`; aligned indices are non-negative and
+typed for the task, whereas unaligned retained events use index `-1`, false
+index mask, and null node type. Local indices are offset by
+`batch[node_type].ptr[sample_index]` and checked against the typed `batch`
+vector. Every registry task is present in stable order, including zero-entry
+families.
+
+The encoding registry specifies only the representation. Its semantic
+`supervision_regime` is `fully_supervised`, `positive_unlabeled`, or
+`deferred_open_vocabulary`; it does not select CE, BCE, focal, or PU loss.
+`supervision_eligibility_mask` is exactly availability, entity alignment, and
+`model_ready` conjoined. Statistics distinguish rows that are representable
+(`model_encodable_row_count`) from rows eligible for future supervision, plus
+masked, available-but-unaligned, conflict, and deferred-open-vocabulary rows.
+All aggregate values must equal their per-task sums.
 
 `validate_raw_graph_batch` validates the actual result of
 `torch_geometric.data.Batch.from_data_list`, not a synthetic marker object.
@@ -251,9 +291,12 @@ its name; there is no supervisory-field denylist.
 family. If a dataset lacks a task in a mixed batch, no negative label and no
 loss entry are created.
 
-Phase 5B must implement and test actual tensor dtypes/shapes, PyG batching,
-worker seeding, mixture weights, and collator performance without changing
-this raw/sidecar boundary.
+Phase 5B.1 implements and tests tensor dtypes/shapes, indexed exact alignment,
+PyG batching/offsets, graph mutation detection, statistics, and target-heavy
+collator performance without changing this raw/sidecar boundary. Worker
+seeding and mixture weights remain Phase 5B.2.
+The concrete encoding and alignment tables are in
+`MULTISOURCE_COLLATOR.md`.
 
 ## 7. Grouping and deterministic sampling
 
@@ -294,25 +337,25 @@ python scripts/audit_multisource_targets.py \
   --check tests/fixtures/multisource/target_contract_manifest.json
 ```
 
-The deterministic artifact records canonical/graph/adapter/ontology versions,
-all target specifications and crosswalk statuses, bounded HookTheory counts,
-accepted POP909-CL manifest counts, vocabularies, contract-source SHA-256
-values, and explicit scan policy. It contains no corpus record, MIDI, cache,
-generated output, or detailed corpus report.
+The deterministic artifact records canonical/graph/adapter/ontology and target
+encoding versions and fingerprints, all target specifications and crosswalk
+statuses, bounded HookTheory counts, accepted POP909-CL manifest counts,
+vocabularies, contract-source SHA-256 values, and explicit scan policy. It
+contains no corpus record, MIDI, cache, generated output, or detailed corpus
+report.
 
 No full corpus scan was needed: bounded real HookTheory excerpts exercise every
 current family and the accepted POP909-CL manifest already contains the
 required family/ambiguity/mask aggregates. Corpus-wide HookTheory target counts
 remain intentionally unclaimed.
 
-## 9. Deferred blockers before Phase 5B
+## 9. Deferred work after Phase 5B.1
 
-Phase 5B still must choose concrete target tensor encodings, implement exact
-entity-index generation for each policy, produce batches that satisfy the
-accepted raw validator, validate target-sidecar offsets, implement the
-dataset/collator and deterministic worker seeds, and define configurable
-dataset mixture weights. It must not promote any deferred crosswalk without a
-separate evidence-backed ontology version.
+Phase 5B.2 still must implement corpus indexing and `Dataset`, source/lineage
+safe split consumption, deterministic mixture sampling, worker-safe
+`DataLoader` behavior, and practical bounded corpus loading. It must reuse the
+Phase 5B.1 prepared-sample collator and must not promote any deferred crosswalk
+without a separate evidence-backed ontology version.
 
 Applied harmony, borrowed-chord cross-source semantics, pitch-class-set
 rendering, actual accompaniment likelihood, final splits, and model head
