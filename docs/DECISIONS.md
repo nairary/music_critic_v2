@@ -724,3 +724,22 @@ This log is append-only.
   non-empty metadata, sample-index ranges, sorted task sidecars, and raw-only
   graph separation are constructor invariants. These decisions constrain the
   future Phase 5B implementation without implementing it.
+
+### 2026-07-26 final pre-merge clarification
+
+- PyG batches: validate the actual `Batch.from_data_list` representation
+  against the Phase 3A exact allowlists. Global attributes are unchanged.
+  Node stores may add only PyG `batch` and `ptr`; edge stores add nothing.
+  Production metadata and raw-only truth are checked per source graph, and
+  combined shapes/dtypes, offsets, endpoints, reverse relations, cross-graph
+  isolation, and reconstructed source graphs must all validate. Any unknown
+  store field is invalid, independent of a dangerous-name denylist.
+- Split safety: the atomic source/lineage component builder is shared by
+  validation and deterministic ordering. All non-null splits in a transitive
+  component must agree, including components connected through `split=None`.
+  A dataset piece has exactly one assignment; every repeated identity is an
+  error.
+- Boundary objective: unlabeled candidates may not become negative examples
+  in Phase 5B. Ordinary BCE with implicit `absent=0` is forbidden. Phase 6
+  either records and uses an explicit PU-compatible objective or leaves the
+  POP909-CL boundary loss disabled.

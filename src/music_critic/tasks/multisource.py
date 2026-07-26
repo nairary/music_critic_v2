@@ -382,17 +382,21 @@ class MultiSourceBatch:
             raise MultiSourceContractError(
                 "batch target sidecars must be uniquely sorted by task ID"
             )
-        if getattr(self.raw_graph_batch, "raw_only", None) is not True:
-            raise MultiSourceContractError(
-                "batch graph must carry the raw_only=True contract marker"
-            )
-        forbidden_sidecars = _raw_graph_sidecar_fields(self.raw_graph_batch)
-        if forbidden_sidecars:
-            raise MultiSourceContractError(
-                "batch graph must remain raw-only; target/provenance sidecar "
-                f"fields found: {sorted(forbidden_sidecars)}"
-            )
         sample_count = len(self.piece_ids)
+        from music_critic.graph.validation import (
+            GraphContractError,
+            validate_raw_graph_batch,
+        )
+
+        try:
+            validate_raw_graph_batch(
+                self.raw_graph_batch,
+                sample_count=sample_count,
+            )
+        except GraphContractError as exc:
+            raise MultiSourceContractError(
+                f"batch graph violates the exact raw-only contract: {exc}"
+            ) from exc
         for target in self.target_batches:
             sample_indices = _flat_sequence(
                 "sample_indices", target.sample_indices
@@ -444,9 +448,18 @@ class DatasetSamplingWeight:
     weight: float
 
     def __post_init__(self) -> None:
-        if not self.dataset_id or not math.isfinite(self.weight) or self.weight <= 0:
+        if not isinstance(self.dataset_id, str) or not self.dataset_id:
             raise MultiSourceContractError(
-                "dataset sampling weights require an ID and positive weight"
+                "dataset sampling weight requires a non-empty string dataset ID"
+            )
+        if (
+            isinstance(self.weight, bool)
+            or not isinstance(self.weight, (int, float))
+            or not math.isfinite(self.weight)
+            or self.weight <= 0
+        ):
+            raise MultiSourceContractError(
+                "dataset sampling weight must be a finite positive number"
             )
 
 
@@ -525,54 +538,6 @@ def _flat_sequence(name: str, value: Any) -> tuple[Any, ...] | None:
     ):
         raise MultiSourceContractError(f"{name} must be rank one")
     return tuple(converted)
-
-
-_RAW_GRAPH_SIDECAR_FIELDS = frozenset(
-    {
-        "annotations",
-        "availability_mask",
-        "confidence",
-        "dataset_ids",
-        "entity_index_mask",
-        "entity_indices",
-        "entity_node_types",
-        "lineage_group_ids",
-        "piece_ids",
-        "provenance",
-        "provenance_cpu",
-        "source_group_ids",
-        "split",
-        "target_availability",
-        "target_batches",
-        "target_bundle",
-        "target_provenance_sidecar",
-        "targets",
-    }
-)
-
-
-def _raw_graph_sidecar_fields(raw_graph_batch: Any) -> frozenset[str]:
-    """Return forbidden supervisory keys found anywhere in a graph batch."""
-
-    stores: list[Any] = [raw_graph_batch]
-    for attribute in ("_global_store", "node_stores", "edge_stores"):
-        value = getattr(raw_graph_batch, attribute, None)
-        if value is None:
-            continue
-        if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
-            stores.extend(value)
-        else:
-            stores.append(value)
-
-    keys: set[str] = set()
-    for store in stores:
-        key_method = getattr(store, "keys", None)
-        if callable(key_method):
-            keys.update(key for key in key_method() if isinstance(key, str))
-        namespace = getattr(store, "__dict__", None)
-        if isinstance(namespace, dict):
-            keys.update(key for key in namespace if isinstance(key, str))
-    return frozenset(keys & _RAW_GRAPH_SIDECAR_FIELDS)
 
 
 def _authoritative_lineage(piece: CanonicalPiece) -> str | None:
@@ -674,52 +639,43 @@ def build_multisource_sample(
 def validate_group_assignments(
     assignments: tuple[GroupAssignment, ...],
 ) -> None:
-    """Reject duplicates, piece identity conflicts, and split-crossing groups."""
+    """Reject duplicate pieces and split-crossing atomic group components."""
 
     if len(assignments) != len(set(assignments)):
         raise MultiSourceContractError(
             "duplicate group assignments are rejected; callers must deduplicate explicitly"
         )
-    piece_groups: dict[tuple[str, str], tuple[str, str]] = {}
+    piece_assignments: set[tuple[str, str]] = set()
     for assignment in assignments:
         piece_key = (assignment.dataset_id, assignment.piece_id)
-        grouping = (assignment.source_group_id, assignment.lineage_group_id)
-        previous = piece_groups.setdefault(piece_key, grouping)
-        if previous != grouping:
+        if piece_key in piece_assignments:
             raise MultiSourceContractError(
-                f"piece {piece_key!r} has conflicting grouping IDs"
+                f"piece {piece_key!r} must have exactly one GroupAssignment"
             )
+        piece_assignments.add(piece_key)
 
-    for attribute in ("source_group_id", "lineage_group_id"):
-        observed: dict[str, set[str]] = {}
-        for assignment in assignments:
-            if assignment.split is not None:
-                observed.setdefault(getattr(assignment, attribute), set()).add(
+    for component in _atomic_group_components(assignments):
+        splits = tuple(
+            sorted(
+                {
                     assignment.split
-                )
-        conflicts = {
-            group_id: tuple(sorted(splits))
-            for group_id, splits in observed.items()
-            if len(splits) > 1
-        }
-        if conflicts:
+                    for assignment in component
+                    if assignment.split is not None
+                }
+            )
+        )
+        if len(splits) > 1:
+            identity = tuple(_assignment_key(assignment) for assignment in component)
             raise MultiSourceContractError(
-                f"{attribute} values cross splits: {conflicts}"
+                f"atomic source/lineage component {identity!r} crosses splits "
+                f"{splits!r}"
             )
 
 
-def deterministic_group_order(
+def _atomic_group_components(
     assignments: tuple[GroupAssignment, ...],
-    *,
-    seed: int,
-) -> tuple[GroupAssignment, ...]:
-    """Order transitive source/lineage components as indivisible blocks."""
-
-    if isinstance(seed, bool) or not isinstance(seed, int):
-        raise MultiSourceContractError("deterministic group seed must be an integer")
-    validate_group_assignments(assignments)
-    if not assignments:
-        return ()
+) -> tuple[tuple[GroupAssignment, ...], ...]:
+    """Build deterministic transitive components over source and lineage IDs."""
 
     parent = list(range(len(assignments)))
 
@@ -751,26 +707,49 @@ def deterministic_group_order(
     for index, assignment in enumerate(assignments):
         components.setdefault(find(index), []).append(assignment)
 
-    def assignment_key(
-        assignment: GroupAssignment,
-    ) -> tuple[str, str, str, str, str]:
-        return (
-            assignment.dataset_id,
-            assignment.piece_id,
-            assignment.source_group_id,
-            assignment.lineage_group_id,
-            assignment.split or "",
+    return tuple(
+        sorted(
+            (
+                tuple(sorted(component, key=_assignment_key))
+                for component in components.values()
+            ),
+            key=lambda component: tuple(
+                _assignment_key(assignment) for assignment in component
+            ),
         )
+    )
 
-    blocks = [
-        tuple(sorted(component, key=assignment_key))
-        for component in components.values()
-    ]
+
+def _assignment_key(
+    assignment: GroupAssignment,
+) -> tuple[str, str, str, str, str]:
+    return (
+        assignment.dataset_id,
+        assignment.piece_id,
+        assignment.source_group_id,
+        assignment.lineage_group_id,
+        assignment.split or "",
+    )
+
+
+def deterministic_group_order(
+    assignments: tuple[GroupAssignment, ...],
+    *,
+    seed: int,
+) -> tuple[GroupAssignment, ...]:
+    """Order transitive source/lineage components as indivisible blocks."""
+
+    if isinstance(seed, bool) or not isinstance(seed, int):
+        raise MultiSourceContractError("deterministic group seed must be an integer")
+    validate_group_assignments(assignments)
+    if not assignments:
+        return ()
+    blocks = _atomic_group_components(assignments)
 
     def block_key(
         block: tuple[GroupAssignment, ...],
     ) -> tuple[str, tuple[tuple[str, str, str, str, str], ...]]:
-        identity = tuple(assignment_key(assignment) for assignment in block)
+        identity = tuple(_assignment_key(assignment) for assignment in block)
         payload = json.dumps(
             {"seed": seed, "group": identity},
             ensure_ascii=False,

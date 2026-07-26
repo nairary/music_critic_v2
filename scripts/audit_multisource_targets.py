@@ -35,6 +35,7 @@ _CONTRACT_SOURCES = (
     Path("src/music_critic/adapters/pop909_cl.py"),
     Path("src/music_critic/data/schema.py"),
     Path("src/music_critic/graph/builder.py"),
+    Path("src/music_critic/graph/validation.py"),
     Path("src/music_critic/tasks/ontology.py"),
     Path("src/music_critic/tasks/multisource.py"),
     Path("scripts/audit_multisource_targets.py"),

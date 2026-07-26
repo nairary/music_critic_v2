@@ -79,17 +79,25 @@
   lineage identity and separate target, availability, full target-provenance
   ancestor, confidence, and diagnostic sidecars. `BatchTarget` and
   `MultiSourceBatch` reserve future tensor and CPU metadata fields without
-  implementing a collator. Completely empty families use zero entries.
+  implementing a collator. Completely empty families use zero entries. A real
+  two-graph `Batch.from_data_list` now passes an exact batch-aware Phase 3A
+  validator; only node `batch`/`ptr` are added to the raw allowlists, while
+  production metadata, shapes/dtypes, offsets, endpoints, and reconstructed
+  source graphs are checked.
 - Group assignments validate both source and lineage split safety, reject
-  duplicates and conflicting dataset/piece identities, and treat provenance
-  lineage as authoritative with source-group fallback. Deterministic ordering
-  hashes atomic transitive source/lineage components with an explicit seed and
-  stable internal identities; positive future dataset weights are represented
-  without implementing a sampler. One POP909 song remains one sample.
+  every repeated dataset/piece identity, and treat provenance lineage as
+  authoritative with source-group fallback. Validation and ordering share the
+  same atomic transitive component builder, so a train/`None`/validation bridge
+  is rejected. Deterministic ordering hashes components with an explicit seed
+  and stable internal identities; future dataset weights require a non-empty
+  ID and finite positive non-boolean number. One POP909 song remains one
+  sample.
 - The deterministic machine artifact contains registry/crosswalk data,
   contract-source hashes, 18 converted real-source HookTheory fixture excerpts
   from 19 accounted cases, and the accepted POP909-CL production-manifest
-  counts. HookTheory corpus-wide target totals are not claimed.
+  counts. Its report fingerprint is
+  `fff45335e789f5a28acc8d2ec342970dc47a653dc7a5a63619f8bd61f41c73f8`.
+  HookTheory corpus-wide target totals are not claimed.
 - No manual corpus reads, full HookTheory corpus scan, or repeated 909-file
   acceptance was run. Existing bounded fixtures and accepted manifest
   aggregates supplied every Phase 5A-required field/count.
@@ -100,9 +108,9 @@
 ## Phase 5A verification
 
 - Expanded focused ontology/audit/adapter/graph/repository suite:
-  `98 passed, 2 warnings in 2.25s`.
+  `142 passed, 2 warnings in 3.11s`.
 - Full default suite:
-  `505 passed, 12 skipped, 2 warnings in 3.50s`; the skips are explicitly
+  `533 passed, 12 skipped, 2 warnings in 4.10s`; the skips are explicitly
   gated real-corpus integrations and warnings are the existing upstream
   PyTorch deprecations.
 - Deterministic audit `--check`, `.venv/bin/python -m compileall -q src scripts

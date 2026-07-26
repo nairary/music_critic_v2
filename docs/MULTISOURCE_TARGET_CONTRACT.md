@@ -215,8 +215,38 @@ confidence, and CPU provenance/diagnostics. All leading dimensions equal
 `entry_count`; aligned indices are non-negative and typed for the task,
 whereas unaligned retained events use index `-1`, false index mask, and null
 node type. `MultiSourceBatch` rejects empty sample metadata, duplicate or
-unsorted task sidecars, out-of-range sample indices, a false raw-only marker,
-and target/provenance fields embedded in graph stores.
+unsorted task sidecars, and out-of-range sample indices.
+
+`validate_raw_graph_batch` validates the actual result of
+`torch_geometric.data.Batch.from_data_list`, not a synthetic marker object.
+Its exact allowlists are:
+
+```text
+global:
+  schema_version, graph_schema_version, feature_registry_version,
+  graph_builder_version, raw_only
+
+song/track/bar/note node stores:
+  num_nodes, x_cat, x_cat_available, x_cont, x_cont_available,
+  entity_id, cat_feature_names, cont_feature_names, batch, ptr
+
+beat/onset node stores:
+  the same attributes plus candidate_slot
+
+every edge store:
+  edge_index
+```
+
+Version metadata contains one production-contract value per source graph.
+`raw_only` is a rank-one boolean tensor of sample count and every element must
+be true. Node `batch` and `ptr` tensors must be mutually consistent, cover the
+combined node count, and retain one metadata tuple per source graph. Combined
+feature shapes/dtypes, candidate slots, edge endpoints, reverse relations, and
+the absence of cross-graph edges are checked. Each reconstructed source graph
+must also pass the Phase 3A `validate_raw_graph` contract. Any additional
+global, node, or edge attribute is rejected by exact allowlist, regardless of
+its name; there is no supervisory-field denylist.
+
 `entry_count=0` with empty per-entry metadata is the canonical completely empty
 family. If a dataset lacks a task in a mixed batch, no negative label and no
 loss entry are created.
@@ -238,16 +268,20 @@ this raw/sidecar boundary.
 - Matching CL/original POP909 lineage cannot cross splits.
 - Split assignment occurs at source and lineage group level. Phase 5A
   validates assignments but creates no final project splits.
-- Exact duplicate assignment rows are rejected. Repeated `(dataset_id,
-  piece_id)` identities cannot disagree on source or lineage.
+- Exact duplicate assignment rows are rejected. Every `(dataset_id, piece_id)`
+  has exactly one `GroupAssignment`; repetition is invalid even when grouping
+  matches and only `split=None` versus a named split differs.
 - `deterministic_group_order` first computes atomic transitive components:
   pieces connected through either a shared source group or a shared lineage
   group remain contiguous and cannot be separated by ordering. Components are
   hashed with an explicit integer seed; pieces within each component use
   stable identity order. The result is input-order invariant, while a
   different seed changes component order without changing component contents.
-- `DatasetSamplingWeight` reserves positive future per-dataset weights without
-  implementing a sampler.
+- The same atomic-component helper enforces split safety. All non-null splits
+  in one transitive component must agree; a `split=None` record still bridges
+  connected train/validation/test records and cannot hide leakage.
+- `DatasetSamplingWeight` accepts a non-empty string dataset ID and a finite
+  positive non-boolean integer/float without implementing a sampler.
 - One POP909 song/piece is one sample. Its chord blocks are target entries, not
   116,055 independent training samples.
 
@@ -274,8 +308,9 @@ remain intentionally unclaimed.
 ## 9. Deferred blockers before Phase 5B
 
 Phase 5B still must choose concrete target tensor encodings, implement exact
-entity-index generation for each policy, validate PyG batch offsets, implement
-the dataset/collator and deterministic worker seeds, and define configurable
+entity-index generation for each policy, produce batches that satisfy the
+accepted raw validator, validate target-sidecar offsets, implement the
+dataset/collator and deterministic worker seeds, and define configurable
 dataset mixture weights. It must not promote any deferred crosswalk without a
 separate evidence-backed ontology version.
 

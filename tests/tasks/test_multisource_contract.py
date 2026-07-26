@@ -3,10 +3,10 @@ from __future__ import annotations
 from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
-from types import SimpleNamespace
 
 import mido
 import pytest
+from torch_geometric.data import Batch
 
 from music_critic.adapters import (
     HookTheoryAdapterConfig,
@@ -20,6 +20,7 @@ from music_critic.tasks import (
     TARGET_FAMILIES,
     TARGET_ONTOLOGY_VERSION,
     BatchTarget,
+    DatasetSamplingWeight,
     GroupAssignment,
     MultiSourceBatch,
     MultiSourceContractError,
@@ -440,7 +441,7 @@ def test_empty_batch_family_and_mixed_batch_api_contract(tmp_path: Path) -> None
         diagnostics_cpu=(),
     )
     batch = MultiSourceBatch(
-        raw_graph_batch=SimpleNamespace(raw_only=True),
+        raw_graph_batch=Batch.from_data_list([hook.raw_graph, pop.raw_graph]),
         target_batches=(empty,),
         dataset_ids=(hook.dataset_id, pop.dataset_id),
         piece_ids=(hook.piece_id, pop.piece_id),
@@ -448,6 +449,8 @@ def test_empty_batch_family_and_mixed_batch_api_contract(tmp_path: Path) -> None
         lineage_group_ids=(hook.lineage_group_id, pop.lineage_group_id),
         diagnostics_cpu=(hook.diagnostics, pop.diagnostics),
     )
+    assert batch.raw_graph_batch.num_graphs == 2
+    assert batch.raw_graph_batch.raw_only.tolist() == [True, True]
     assert batch.target_batches[0].entry_count == 0
     assert batch.dataset_ids == ("hooktheory", "pop909_cl")
 
@@ -472,8 +475,10 @@ def test_batch_target_shapes_node_types_indices_and_raw_batch_contract() -> None
         entity_index_mask=(False,),
         entity_node_types=(None,),
     )
+    raw_graph = build_raw_graph(_hook_piece())
+    raw_batch = Batch.from_data_list([raw_graph])
     batch = MultiSourceBatch(
-        raw_graph_batch=SimpleNamespace(raw_only=True),
+        raw_graph_batch=raw_batch,
         target_batches=(unaligned,),
         dataset_ids=("pop909_cl",),
         piece_ids=("piece:1",),
@@ -494,21 +499,22 @@ def test_batch_target_shapes_node_types_indices_and_raw_batch_contract() -> None
             entity_index_mask=(False,),
             entity_node_types=(None,),
         )
+    false_graph = build_raw_graph(_hook_piece())
+    false_graph.raw_only = False
     with pytest.raises(MultiSourceContractError, match="raw_only"):
-        replace(batch, raw_graph_batch=SimpleNamespace(raw_only=False))
-    with pytest.raises(MultiSourceContractError, match="sidecar"):
         replace(
             batch,
-            raw_graph_batch=SimpleNamespace(
-                raw_only=True,
-                _global_store={"targets": object()},
-            ),
+            raw_graph_batch=Batch.from_data_list([false_graph]),
         )
+    leaked_batch = Batch.from_data_list([build_raw_graph(_hook_piece())])
+    leaked_batch.targets = object()
+    with pytest.raises(MultiSourceContractError, match="attributes differ"):
+        replace(batch, raw_graph_batch=leaked_batch)
     with pytest.raises(MultiSourceContractError, match="outside the batch"):
         replace(batch, target_batches=(replace(aligned, sample_indices=(1,)),))
     with pytest.raises(MultiSourceContractError, match="non-zero"):
         MultiSourceBatch(
-            raw_graph_batch=SimpleNamespace(raw_only=True),
+            raw_graph_batch=raw_batch,
             target_batches=(),
             dataset_ids=(),
             piece_ids=(),
@@ -527,7 +533,7 @@ def test_grouping_rejects_duplicates_conflicts_and_split_leakage() -> None:
     validate_group_assignments(safe)
     with pytest.raises(MultiSourceContractError, match="duplicate"):
         validate_group_assignments((*safe, safe[0]))
-    with pytest.raises(MultiSourceContractError, match="conflicting grouping"):
+    with pytest.raises(MultiSourceContractError, match="one GroupAssignment"):
         validate_group_assignments(
             (
                 safe[0],
@@ -538,8 +544,42 @@ def test_grouping_rejects_duplicates_conflicts_and_split_leakage() -> None:
         safe[0],
         replace(safe[1], split="val"),
     )
-    with pytest.raises(MultiSourceContractError, match="lineage_group_id"):
+    with pytest.raises(MultiSourceContractError, match="atomic source/lineage"):
         validate_group_assignments(split_unsafe)
+    with pytest.raises(MultiSourceContractError, match="one GroupAssignment"):
+        validate_group_assignments(
+            (
+                safe[0],
+                replace(safe[0], split="val"),
+            )
+        )
+    with pytest.raises(MultiSourceContractError, match="one GroupAssignment"):
+        validate_group_assignments(
+            (
+                replace(safe[0], split=None),
+                safe[0],
+            )
+        )
+
+
+def test_transitive_train_none_val_component_is_split_unsafe() -> None:
+    transitive_conflict = (
+        GroupAssignment("a", "piece-a", "source-1", "lineage-1", "train"),
+        GroupAssignment("b", "piece-b", "source-2", "lineage-1", None),
+        GroupAssignment("c", "piece-c", "source-2", "lineage-2", "val"),
+    )
+    with pytest.raises(
+        MultiSourceContractError,
+        match=r"atomic source/lineage component.*\('train', 'val'\)",
+    ) as error:
+        validate_group_assignments(transitive_conflict)
+    with pytest.raises(MultiSourceContractError) as reversed_error:
+        validate_group_assignments(tuple(reversed(transitive_conflict)))
+    assert str(reversed_error.value) == str(error.value)
+    assert all(
+        piece_id in str(error.value)
+        for piece_id in ("piece-a", "piece-b", "piece-c")
+    )
 
 
 def test_atomic_transitive_group_order_is_seeded_and_input_order_invariant() -> None:
@@ -593,6 +633,17 @@ def test_atomic_transitive_group_order_is_seeded_and_input_order_invariant() -> 
     assert abs(
         second_positions[pop_versions[0]] - second_positions[pop_versions[1]]
     ) == 1
+
+
+def test_dataset_sampling_weight_validation_is_stable() -> None:
+    assert DatasetSamplingWeight("hooktheory", 1)
+    assert DatasetSamplingWeight("pop909_cl", 0.5)
+    for invalid in (True, "1", None, float("nan"), float("inf"), 0, -1):
+        with pytest.raises(MultiSourceContractError, match="finite positive number"):
+            DatasetSamplingWeight("hooktheory", invalid)
+    for dataset_id in ("", None, 1):
+        with pytest.raises(MultiSourceContractError, match="non-empty string"):
+            DatasetSamplingWeight(dataset_id, 1)
 
 
 def test_target_sidecars_do_not_change_raw_graph_or_enter_pyg_stores() -> None:

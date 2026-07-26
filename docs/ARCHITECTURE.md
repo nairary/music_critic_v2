@@ -198,9 +198,12 @@ identity and separate target, availability, provenance, confidence, and
 diagnostic sidecars. `MultiSourceBatch` and `BatchTarget` define the future
 Phase 5B shape without implementing a collator. The PyG batch remains raw-only;
 target values and alignment indices never enter graph global, node, or edge
-stores. HookTheory retains melody-conditioned supervision, POP909-CL retains
-score-conditioned recognition, and raw MIDI may have an entirely empty target
-bundle.
+stores. A batch-aware validator adapts the exact Phase 3A allowlists to normal
+PyG collation: only node-level `batch` and `ptr` are additionally allowed,
+version/raw-only metadata is checked per source graph, and combined shapes,
+offsets, endpoints, and reconstructed graphs must remain valid. HookTheory
+retains melody-conditioned supervision, POP909-CL retains score-conditioned
+recognition, and raw MIDI may have an entirely empty target bundle.
 
 Alignment policies are task-declarative and exact: note identity; half-open
 containment of onset points and beat/bar start anchors; exact span-start
@@ -215,7 +218,9 @@ remain distinct.
 Grouping resolves authoritative lineage from provenance, using the canonical
 source group only as an explicit fallback. Any override is an equality
 assertion. Ordering operates on atomic transitive components connected by
-source or lineage and is seeded and input-order invariant.
+source or lineage and is seeded and input-order invariant. Split safety is
+checked on those same transitive components, including paths bridged by an
+unassigned `split=None` record, and every dataset piece has one assignment.
 
 ## Optional semantic predictions
 

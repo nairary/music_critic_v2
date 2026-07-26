@@ -2439,6 +2439,13 @@ structure and is converted to `float32` only at feature-tensor construction.
 - Treat POP909-CL boundaries as positive-unlabeled observed events with no
   synthesized absent class, and validate all sample/batch sidecar shapes and
   raw-only separation at construction.
+- Validate actual PyG `Batch` objects against the exact Phase 3A allowlists,
+  permitting only PyG-added node `batch`/`ptr`, and enforce split safety over
+  the same transitive source/lineage components used for ordering.
+- Boundary candidates not observed as events remain unlabeled. Phase 5B must
+  not encode them as negative, and ordinary BCE with implicit `absent=0` is
+  forbidden. Phase 6 must select an explicit PU-compatible objective or omit
+  the POP909-CL boundary loss.
 - Generate deterministic bounded evidence from real HookTheory fixtures and
   the accepted POP909-CL production manifest.
 
@@ -2465,6 +2472,8 @@ structure and is converted to `float32` only at feature-tensor construction.
 - PDMX-like no-harmony sample and HookTheory sample collate together;
 - compatible HookTheory and POP909-CL harmonic targets reach shared tasks only
   where their masks are true.
+- POP909-CL boundary loss is enabled only with an explicit PU-compatible
+  objective; otherwise that loss remains disabled.
 
 ## Phase 6. MusicCriticV2 baseline architecture
 

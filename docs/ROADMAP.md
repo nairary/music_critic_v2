@@ -305,7 +305,9 @@ The model and training phases remain pending.
 - Tests: shapes, empty node types, checkpoint round trip, one-batch overfit.
 - Non-goals: GraphMAE2/Hi-GMAE/UGMAE extensions.
 - Acceptance: a small raw graph batch trains end to end with masked harmonic
-  routing; Phase 6 is not described as a quality critic.
+  routing; Phase 6 is not described as a quality critic. POP909-CL boundary
+  supervision must use an explicitly selected PU-compatible objective or be
+  excluded; ordinary BCE with implicit `absent=0` is forbidden.
 
 ## Phase 7 — GraphMAE2-style SSL
 

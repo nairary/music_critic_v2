@@ -2,14 +2,15 @@
   "audit_schema_version": "1.0.0",
   "contract_source_sha256": {
     "docs/HARMONIC_SUPERVISION.md": "1c9f1a8902857967935998dbcf01a597a82a9f4fb2c6f7ba50dbfccf7a9f6e3a",
-    "docs/MULTISOURCE_TARGET_CONTRACT.md": "ea33511b2c5bc3f6865992e8cf481cf03563d16fdda1204cf9cd59baae4e3cb1",
+    "docs/MULTISOURCE_TARGET_CONTRACT.md": "c917920ac4d3d04ebcfbb9622016a2df0a3f0dd58160ae1f0c987a75a2240dbe",
     "docs/POP909_CL_ADAPTER_CONTRACT.md": "42732a2da34c59dfa407ca4db2b969e78e9aa1506ee2e63a8abeed228c39736f",
-    "scripts/audit_multisource_targets.py": "7af8f1ba6b7ad99be9da71cf1fe44a1ce2518b39fb05f0ec14f4900283e634fd",
+    "scripts/audit_multisource_targets.py": "a4e4c5a04d338b6233441547ffd1f5a3b9adae325964f976d4ad0a9e83fcf484",
     "src/music_critic/adapters/hooktheory.py": "5fccd80b7b21656d0aafe69678ec5dac73271e79d4e6f4f24ee79eb9b471c9c2",
     "src/music_critic/adapters/pop909_cl.py": "acd72846531fe83e608d1d963f2fc28c27f58ca892004a7fdb92b5d09e5d7a34",
     "src/music_critic/data/schema.py": "b4abb10bd813bae4c04370fbd5e1d68752a97a9cbd6aa3d7f7a9e9c6f1bc49e8",
     "src/music_critic/graph/builder.py": "ccf423169631d4bb12295b92b4403625902eb1ded9478165f2ebc23d836fab65",
-    "src/music_critic/tasks/multisource.py": "a7732776c560118b95db223bd04d3bb88578d2083d0315dc12d3d6cc28e1f7b4",
+    "src/music_critic/graph/validation.py": "8de80cbf5929507da727293751aaba723d4256a5bc65aa0309b968873ffafa99",
+    "src/music_critic/tasks/multisource.py": "dbd3c9cc1049a362186e487a3106f5dbc0e3bb9b5d8665dab4912355d769578c",
     "src/music_critic/tasks/ontology.py": "173a37bef55ad404eaafc3ff422b26aeec93b556553af01f68fa78973c14074e",
     "tests/fixtures/hooktheory/golden_manifest.json": "a051f9ddc5ea7047200a1f94b2db6b1d3deb2ab15a2284827c704fb7681b1d0e",
     "tests/fixtures/pop909_cl/production_manifest.json": "631873cac3ae0ff03b1f17a3d933f83954ed0da2a9bcf53e334bf5d7a6cd308a"
