@@ -2625,6 +2625,37 @@ removes coarse-row Python/host scans. The single remaining host synchronization
 determines the padded allocation maximum once per batch. These implementation
 hardening changes preserve the six serialized/public `1.0.0` semantics.
 
+## Phase 6C. Reproducible baseline training harness
+
+### Implemented contract
+
+- structured Hydra groups for the three accepted baselines, bounded and
+  versioned-cache data paths, one-batch/smoke/train experiments, AdamW,
+  none/cosine scheduling, and CPU/CUDA/auto device selection;
+- explicit deterministic seed, data, optimization, interval, AMP, and output
+  fields, with the complete resolved configuration saved as evidence;
+- official non-mutating `MultiSourceBatch` device transfer that moves raw graph
+  and model-facing target tensors while retaining CPU sidecars and the raw-only
+  graph boundary;
+- exact-one-batch optimization with separate harmonic/reconstruction/total
+  curves, finite gradient checks, clipping, candidate/availability/gradient
+  evidence, both-objective decrease, checkpoint, and bit-exact eval reload;
+- minimal train/validation epochs over the Phase 5B.2 index/cache/global split,
+  lazy Dataset, quota sampler, and collator contracts;
+- epoch-boundary checkpoint/resume with model, optimizer, scheduler, scaler,
+  next epoch, best metric, Python/torch RNG, configuration, and
+  corpus/index/split/model fingerprints;
+- a CLI around target-blind `plan_group_hash_split` followed by the existing
+  complete global split validation;
+- optional CUDA acceptance with an explicit skip when CUDA is unavailable.
+
+Mid-epoch resume, full corpus training, SSL, corruption/remasking, PLL, PU
+objectives, preference/quality scoring, and any model/target/adapter/graph/
+corpus semantic change are outside Phase 6C. A batch without harmonic
+supervision uses its active reconstruction objective; missing labels are never
+converted into negatives. Commands and artifact details are in
+`docs/TRAINING.md`. Phase 7 has not started.
+
 ## Phase 7. GraphMAE2-style SSL
 
 ### Implement

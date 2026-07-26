@@ -1073,3 +1073,42 @@ This log is append-only.
   contracts, and all Phase 6A semantics remain unchanged, so the six versions
   remain `1.0.0`. No graph/canonical/ontology/encoding/adapter/manifest/corpus
   semantics change. Phase 7 remains unstarted.
+
+## 2026-07-27 — ADR-043: Phase 6C owns reproducible execution, not new learning semantics
+
+- Status: Accepted for draft pre-merge implementation.
+- Context: Phase 6A/6B provide trainable feature-only, local-GNN, and
+  hierarchical baselines, while Phase 5B.2 provides versioned caches, global
+  splits, lazy datasets, deterministic quota sampling, and worker-safe
+  collation. A separate execution contract is needed before SSL work so
+  one-batch optimization, ordinary supervised epochs, device movement, and
+  resume evidence do not become ad hoc scripts.
+- Decision: Use Hydra structured groups with explicit deterministic fields and
+  persist the fully resolved application configuration. Select existing
+  model/data/loss paths only; Phase 6C does not add or reinterpret heads,
+  targets, reconstruction, graph inputs, or corpus artifacts.
+- Decision: Make `move_multisource_batch` the official non-mutating device
+  boundary. Move raw-graph tensors and model-facing target tensors together,
+  keep provenance/diagnostics/strings/statistics as CPU sidecars, preserve
+  tuple-valued PyG metadata, and never insert a target into the graph.
+  Validate device, shape, task order, and graph binding through fixed registry
+  tensor operations rather than replaying per-row Python validation on CUDA.
+- Decision: Treat one-batch loss decrease and bit-exact checkpoint reload as
+  optimization-plumbing evidence only. Retain harmonic, reconstruction, and
+  total losses separately. A batch without eligible harmonic rows may optimize
+  reconstruction; missing supervision never becomes a negative.
+- Decision: Training checkpoints `1.0.0` bind the existing model contract,
+  fully resolved configuration fingerprint, and corpus/index/split/
+  composition fingerprints. Store model, optimizer, scheduler, AMP scaler,
+  next epoch, best validation metric, and Python/CPU-torch/CUDA-torch RNG.
+  Resume is supported only at deterministic epoch boundaries; mid-epoch resume
+  remains explicitly deferred.
+- Decision: Split planning remains target-blind and delegates to
+  `plan_group_hash_split`, followed by the existing complete global
+  source/lineage validation. CUDA acceptance is optional in CPU CI and must
+  skip explicitly; hardware identity and VRAM are reported only from an actual
+  CUDA run.
+- Consequences: Device-transfer and training-checkpoint contracts begin at
+  `1.0.0`. Phase 6A/6B model/output/loss/checkpoint versions, ontology,
+  encoding, adapters, production manifests, canonical/graph semantics, and
+  corpus contracts do not change. Phase 7 and SSL have not started.

@@ -2,8 +2,9 @@
 
 Status: **INCREMENTAL**. Phase 6A implements raw feature and local-GNN
 representations; Phase 6B implements deterministic hierarchy, coarse
-Transformer context, and top-down fusion. SSL and critic paths below remain
-future phases.
+Transformer context, and top-down fusion; Phase 6C supplies reproducible
+supervised execution without changing those semantics. SSL and critic paths
+below remain future phases.
 
 ## System flow
 
@@ -374,6 +375,37 @@ Phase 6B pooling, coarse-sequence, hierarchical-output, top-down-fusion,
 hierarchical-model/output, and hierarchical-checkpoint contracts are each
 `1.0.0`. Phase 6A versions remain unchanged. The full additive contract is in
 `PHASE6B_HIERARCHY.md`.
+
+## Phase 6C training boundary
+
+Hydra structured configuration selects only the existing feature-only,
+local-GNN, or hierarchical model and the existing bounded or versioned-cache
+data paths. Fully resolved configuration is an artifact and participates in
+training-checkpoint compatibility. The harness adds no model feature, head,
+loss, target family, graph relation, or cache field.
+
+The official `MultiSourceBatch` transfer deep-copies the raw PyG batch and
+moves its tensor attributes plus every model-facing target tensor. It preserves
+tuple/string metadata and keeps provenance, diagnostics, statistics, and other
+CPU sidecars off device. The original batch is not mutated and targets never
+enter graph stores. Fixed task/node-family tensor checks prove device, shape,
+task ordering, and graph binding without replaying row-wise Python validation
+on CUDA.
+
+One-batch mode repeats exactly one bounded or first real cached train batch,
+reports harmonic/reconstruction/total losses, finite gradients, clipping,
+candidate counts, and gradient coverage, then requires both active objectives
+to decrease and a checkpoint reload to reproduce eval logits bit-exactly.
+This is plumbing evidence rather than generalization.
+
+Multi-epoch mode composes the existing global split, lazy datasets,
+deterministic quota sampler, and production collator. Train/validation metrics
+retain per-task availability and dataset-mixture evidence. Training
+checkpoints bind resolved configuration, data/index/split/composition
+fingerprints, and existing model contracts, and contain optimizer, scheduler,
+scaler, epoch, and Python/torch RNG states. Resume is deterministic only at an
+epoch boundary; mid-epoch resume is intentionally not implemented. Full
+commands and artifact semantics are in `TRAINING.md`.
 
 ## Incremental research scope
 
