@@ -274,10 +274,18 @@ The model and training phases remain pending.
 
 - Goal: batch heterogeneous task availability across datasets.
 - Dependencies: adapter and graph phases.
-- Outputs: datasets, samplers, collator, task routing, a common harmonic target
-  ontology, dataset-specific annotation views, availability masks, and
-  per-target provenance for mixed HookTheory/POP909-CL batches; bass and
-  inversion are separate target families with independent masks.
+- Phase 5A result: target ontology `1.0.0`, exact source inventories,
+  conservative crosswalk, exact sidecar alignment policies, future
+  sample/batch API, grouping validation, deterministic ordering contract, and
+  machine-readable bounded evidence. No current HookTheory/POP909-CL pair is
+  declared exact-shared or an accepted lossless subset.
+- Phase 5B remaining work: production dataset, tensorization, PyG collator,
+  deterministic worker seeds, statistics, and configurable mixture weights.
+- Outputs: datasets, samplers, collator, task routing, the versioned
+  source-native target ontology plus any future evidence-backed normalized
+  views, dataset-specific annotation views, availability masks, and per-target
+  provenance for mixed HookTheory/POP909-CL batches; bass and inversion are
+  separate target families with independent masks.
 - Tests: masks, empty/ambiguous tasks, no unavailable-as-negative conversion,
   lineage-safe grouping, dataset balancing, deterministic sampling.
 - Non-goals: advanced SSL.

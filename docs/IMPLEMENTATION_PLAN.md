@@ -2419,12 +2419,28 @@ structure and is converted to `float32` only at feature-tensor construction.
 
 ## Phase 5. Multi-source dataset and collator
 
+### Phase 5A. Target ontology and batching contract
+
+- Status: Completed.
+- Define target ontology `1.0.0` over all current HookTheory and POP909-CL
+  source-native task IDs.
+- Classify every plausible cross-source mapping conservatively; accept no
+  approximate mapping as exact.
+- Define exact per-task alignment policies and keep target/entity indices
+  outside raw PyG stores.
+- Define immutable sample, batch, grouping, and deterministic-order contracts
+  without implementing loading, tensorization, sampling, or collation.
+- Generate deterministic bounded evidence from real HookTheory fixtures and
+  the accepted POP909-CL production manifest.
+
+### Phase 5B. Production dataset and collator
+
 ### Tasks
 
 - load canonical files from multiple datasets;
-- define a common harmonic target ontology with dataset-specific annotation
-  views, availability masks, and per-target provenance, including distinct
-  bass and inversion families with independent masks;
+- consume the Phase 5A source-native ontology, annotation views, supervision
+  contexts, availability masks, per-target provenance, and distinct bass and
+  inversion families;
 - route mixed HookTheory and POP909-CL batches without converting unavailable
   or ambiguous targets to negative labels;
 - support dataset mixture probabilities;

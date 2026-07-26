@@ -2,7 +2,7 @@
 
 ## Current phase
 
-- Date: 2026-07-25
+- Date: 2026-07-26
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -44,10 +44,71 @@
 - Phase 4B branch: `phase/4b-pop909-cl-adapter`
 - POP909-CL adapter version: `1.0.0`
 - POP909-CL production manifest version: `1.0.0`
+- Phase 5A: Accepted and Completed
+- Phase 5A branch: `phase/5a-multisource-contract`
+- Multi-source target ontology version: `1.0.0`
 - Documentation branch: `docs/harmonic-supervision-contract`
 - Documentation base commit: `681abbdf331c032e34cc7541224ca98f13e19a86`
 - Pre-merge clarification base: `4f5f1e32f0244cbbfedd3a0cd4dbaa9047a82e51`
-- Next phase: Phase 5 — multi-source dataset and collator
+- Next phase: Phase 5B — production multi-source dataset and collator
+
+## Phase 5A multi-source target contract result
+
+- `music_critic.tasks` now exposes a versioned immutable registry for all 12
+  HookTheory and six POP909-CL source-native target families, including value
+  spaces, exact entity/time semantics, supervision context, adapter/view,
+  missing semantics, required masks/provenance, confidence policy, alignment
+  policy, and cross-source-sharing permission.
+- Ontology `1.0.0` fingerprint:
+  `7e130f2dc811eece370002a44a05f48369b1f1eb481a0952d5f2052d1dcfe042`.
+  Stable adapter task IDs remain unchanged.
+- No cross-source pair is classified `exact_shared` or accepted as
+  `derived_lossless_subset`. Functional versus absolute root, extent versus
+  quality, ordinal versus semitone inversion, presence versus boundary, and
+  presence/rest versus `N` are `incompatible`. Absolute-root and
+  pitch-class-set renderer paths are `deferred`; unpaired families remain
+  `source_specific`.
+- Exact per-task alignment policies cover note identity, positive half-open
+  span overlap, exact span-start boundary events, and explicitly available
+  coverage spans. Missing, absent, masked, ambiguous, unsupported, trailing
+  uncovered, and available no-chord states remain distinct.
+- `MultiSourceSample` defines an opaque raw graph plus source/piece/group/
+  lineage identity and separate target, availability, full target-provenance
+  ancestor, confidence, and diagnostic sidecars. `BatchTarget` and
+  `MultiSourceBatch` reserve future tensor and CPU metadata fields without
+  implementing a collator. Completely empty families use zero entries.
+- Group assignments validate both source and lineage split safety.
+  Deterministic group ordering uses an explicit seed plus stable identities;
+  positive future dataset weights are represented without implementing a
+  sampler. One POP909 song remains one sample.
+- The deterministic machine artifact contains registry/crosswalk data,
+  contract-source hashes, 18 converted real-source HookTheory fixture excerpts
+  from 19 accounted cases, and the accepted POP909-CL production-manifest
+  counts. HookTheory corpus-wide target totals are not claimed.
+- No manual corpus reads, full HookTheory corpus scan, or repeated 909-file
+  acceptance was run. Existing bounded fixtures and accepted manifest
+  aggregates supplied every Phase 5A-required field/count.
+- Canonical schema `2.0.0`, graph schema/builder `1.0.0`, both adapters,
+  targets, manifests, raw graphs, and inference behavior remain unchanged.
+  No dependency was added.
+
+## Phase 5A verification
+
+- Expanded focused ontology/audit/adapter/graph/repository suite:
+  `94 passed, 2 warnings in 2.19s`.
+- Full default suite:
+  `501 passed, 12 skipped, 2 warnings in 3.43s`; the skips are explicitly
+  gated real-corpus integrations and warnings are the existing upstream
+  PyTorch deprecations.
+- Deterministic audit `--check`, `.venv/bin/python -m compileall -q src scripts
+  tests`, and `git diff --check`: passed.
+- GitHub commit, draft PR, and Actions results are reported in the final Phase
+  5A handoff.
+- Phase 5B still owns production loading, exact entity-index tensorization, PyG
+  batching/offset validation, collator, worker seeds, statistics, configurable
+  mixture weights, and any later evidence-backed ontology version.
+- Final splits, cache, renderer, applied/borrowed crosswalks, models, losses,
+  SSL, PLL, quality critic, and PDMX/Dilemmadata adapters were not started.
 
 ## Phase 4B production POP909-CL adapter result
 

@@ -664,3 +664,38 @@ This log is append-only.
   readiness record. Phase 5 ontology/collation, models, SSL, training, PLL,
   preference/quality, splits, partial-bar support, other corpus adapters, and
   chord rendering remain deferred.
+
+## 2026-07-26 — ADR-036: Phase 5A preserves source-native target semantics
+
+- Status: Accepted.
+- Context: HookTheory emits functional, melody-conditioned theory annotations,
+  while POP909-CL emits absolute, score-conditioned chord-recognition
+  evidence. Similar field names conceal different semantics. A future mixed
+  collator also needs target/entity indices without weakening the Phase 3A
+  raw-only graph allowlists.
+- Decision: Introduce target ontology `1.0.0` in `music_critic.tasks` with all
+  12 HookTheory and six POP909-CL stable task IDs, required masks/provenance,
+  source view and supervision context, exact per-task alignment policy, and
+  deterministic serialization/fingerprint. Declare no `exact_shared` or
+  accepted `derived_lossless_subset` mapping in this version. Classify
+  functional root versus absolute root, extent versus quality, ordinal versus
+  semitone inversion, presence versus boundary, and presence/rest versus `N`
+  as incompatible. Defer absolute-root and pitch-class-set rendering until
+  applied/borrowed/decorations semantics have a versioned lossless rule.
+  Define immutable sample/batch sidecar shapes and group/lineage validation,
+  but leave dataset, tensorizer, sampler, collator, and splits to Phase 5B.
+- Evidence: A deterministic audit converts 18 usable real-source HookTheory
+  golden excerpts and reads only the accepted POP909-CL production manifest
+  aggregates. No full HookTheory scan or repeated 909-file acceptance is
+  required. Tests prove actual adapter structures match the registry, masked
+  entries remain null, ambiguous/unsupported mappings remain masked, lineage
+  cannot cross splits, and target/group/provenance changes do not enter or
+  change raw graphs.
+- Consequences: Future mixed batches distinguish absent families from masked
+  entries and store values, masks, entity/sample indices, confidence,
+  provenance, and diagnostics outside the PyG batch. HookTheory and POP909-CL
+  may share an encoder, but shared model heads require a later explicit routing
+  decision rather than an ontology-name shortcut. Bass and inversion remain
+  independent. Applied harmony, borrowed crosswalks, chord rendering, final
+  splits, model/loss/SSL/PLL/critic work, and production collation are
+  unchanged deferred scope.

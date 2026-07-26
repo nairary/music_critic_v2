@@ -186,6 +186,27 @@ current package dependency declaration installs them globally. Graph schema
 stores, and sustained-note output is necessarily proportional to emitted
 note/beat incidence.
 
+## Phase 5A target-sidecar architecture
+
+Target ontology `1.0.0` is implemented in `music_critic.tasks` and specified by
+`MULTISOURCE_TARGET_CONTRACT.md`. It inventories 12 HookTheory and six
+POP909-CL source-native families. No current cross-source pair is declared
+exact or accepted as a lossless derived subset.
+
+`MultiSourceSample` wraps an opaque raw graph with dataset/piece/group/lineage
+identity and separate target, availability, provenance, confidence, and
+diagnostic sidecars. `MultiSourceBatch` and `BatchTarget` define the future
+Phase 5B shape without implementing a collator. The PyG batch remains raw-only;
+target values and alignment indices never enter graph global, node, or edge
+stores. HookTheory retains melody-conditioned supervision, POP909-CL retains
+score-conditioned recognition, and raw MIDI may have an entirely empty target
+bundle.
+
+Alignment policies are task-declarative and exact: note identity, positive
+half-open span overlap, exact span-start boundary, and explicitly available
+coverage span. Masked, absent, ambiguous, unsupported, trailing-uncovered, and
+available no-chord states remain distinct.
+
 ## Optional semantic predictions
 
 The system may predict:
