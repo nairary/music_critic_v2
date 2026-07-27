@@ -10,11 +10,18 @@ from torch_geometric.data import Batch
 
 from music_critic.adapters import (
     HookTheoryAdapterConfig,
+    POP909_CL_ADAPTER_VERSION,
+    POP909_CL_TARGET_SEMANTICS_VERSION,
     Pop909ClCorpusRecord,
     convert_hooktheory_record,
     convert_pop909_cl_file,
 )
-from music_critic.graph import build_raw_graph, graph_fingerprint, validate_raw_graph
+from music_critic.graph import (
+    build_raw_graph,
+    graph_fingerprint,
+    model_input_fingerprint,
+    validate_raw_graph,
+)
 from music_critic.tasks import (
     CROSSWALKS,
     TARGET_FAMILIES,
@@ -183,6 +190,13 @@ def _pop_piece(
 
 def test_registry_version_ids_value_spaces_and_serialization_are_stable() -> None:
     assert TARGET_ONTOLOGY_VERSION == "1.0.1"
+    assert POP909_CL_ADAPTER_VERSION == "2.0.0"
+    assert POP909_CL_TARGET_SEMANTICS_VERSION == "1.0.0"
+    assert {
+        target.source_adapter
+        for target in TARGET_FAMILIES
+        if target.task_id.startswith("pop909_cl.")
+    } == {"music_critic.adapters.pop909_cl@1.0.0"}
     assert {spec.task_id for spec in TARGET_FAMILIES} == HOOK_TASKS | POP_TASKS
     assert len(TARGET_FAMILIES) == len({spec.task_id for spec in TARGET_FAMILIES})
     assert all(spec.availability_mask_required for spec in TARGET_FAMILIES)
@@ -660,6 +674,9 @@ def test_target_sidecars_do_not_change_raw_graph_or_enter_pyg_stores() -> None:
     )
     changed_graph = build_raw_graph(changed_piece)
     assert graph_fingerprint(changed_graph) == fingerprint
+    assert model_input_fingerprint(changed_graph) == model_input_fingerprint(
+        graph
+    )
     validate_raw_graph(changed_graph)
     forbidden = {
         "target",

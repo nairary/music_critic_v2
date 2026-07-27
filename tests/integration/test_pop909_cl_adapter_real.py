@@ -10,7 +10,11 @@ from music_critic.adapters import (
     convert_pop909_cl_file,
     discover_pop909_cl_corpus,
 )
-from music_critic.graph import build_raw_graph, graph_fingerprint
+from music_critic.graph import (
+    build_raw_graph,
+    graph_fingerprint,
+    model_input_fingerprint,
+)
 from music_critic.tasks import (
     load_corpus_index,
     load_split_manifest,
@@ -72,9 +76,12 @@ def test_real_543_553_raw_equivalence_and_target_difference() -> None:
     assert left.score_projection_sha256 == right.score_projection_sha256
     assert left.record.source_group_id == right.record.source_group_id
     assert left.piece.piece_id != right.piece.piece_id
-    assert graph_fingerprint(
-        build_raw_graph(left.piece)
-    ) == graph_fingerprint(build_raw_graph(right.piece))
+    left_graph = build_raw_graph(left.piece)
+    right_graph = build_raw_graph(right.piece)
+    assert graph_fingerprint(left_graph) != graph_fingerprint(right_graph)
+    assert model_input_fingerprint(left_graph) == model_input_fingerprint(
+        right_graph
+    )
     left_targets = {target.task: target for target in left.piece.targets}
     right_targets = {
         target.task: target for target in right.piece.targets

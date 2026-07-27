@@ -20,10 +20,14 @@ from music_critic.adapters import (
     discover_pop909_cl_corpus,
 )
 from music_critic.data import dumps_piece, loads_piece, piece_to_dict
-from music_critic.graph import build_raw_graph, graph_fingerprint
+from music_critic.graph import (
+    build_raw_graph,
+    graph_fingerprint,
+    model_input_fingerprint,
+)
 
 
-ACCEPTANCE_SCHEMA_VERSION = "1.0.1"
+ACCEPTANCE_SCHEMA_VERSION = "2.0.0"
 
 
 def _raw_piece(piece: Any) -> Any:
@@ -44,7 +48,11 @@ def _raw_piece(piece: Any) -> Any:
     )
 
 
-def _anomaly_row(anomaly: Any) -> dict[str, Any]:
+def _anomaly_row(
+    anomaly: Any,
+    *,
+    corpus_relative_path: str,
+) -> dict[str, Any]:
     return {
         "anomaly_id": anomaly.anomaly_id,
         "category": anomaly.category,
@@ -55,7 +63,7 @@ def _anomaly_row(anomaly: Any) -> dict[str, Any]:
         "message_type": anomaly.message_type,
         "ordinal": anomaly.ordinal,
         "source_track_index": anomaly.source_track_index,
-        "source_path": anomaly.source_path,
+        "source_path": corpus_relative_path,
         "source_sha256": anomaly.source_sha256,
         "affected_block_onsets": list(anomaly.affected_block_onsets),
         "affected_span_ids": list(anomaly.affected_span_ids),
@@ -183,7 +191,11 @@ def build_acceptance_report(root: Path, expectations: dict[str, Any]) -> dict[st
                 block.inversion_available for block in evidence.blocks
             )
             anomaly_rows.extend(
-                _anomaly_row(anomaly) for anomaly in evidence.pairing_anomalies
+                _anomaly_row(
+                    anomaly,
+                    corpus_relative_path=record.corpus_relative_path,
+                )
+                for anomaly in evidence.pairing_anomalies
             )
             if visible.status == "quarantined":
                 if hidden.status != "quarantined":
@@ -250,12 +262,14 @@ def build_acceptance_report(root: Path, expectations: dict[str, Any]) -> dict[st
                 )
                 continue
             raw_equal += 1
-            visible_fingerprint = graph_fingerprint(
-                build_raw_graph(visible.piece, assume_valid=True)
+            visible_graph = build_raw_graph(
+                visible.piece, assume_valid=True
             )
-            hidden_fingerprint = graph_fingerprint(
-                build_raw_graph(hidden.piece, assume_valid=True)
+            hidden_graph = build_raw_graph(
+                hidden.piece, assume_valid=True
             )
+            visible_fingerprint = graph_fingerprint(visible_graph)
+            hidden_fingerprint = graph_fingerprint(hidden_graph)
             if visible_fingerprint != hidden_fingerprint:
                 fatal_rows.append(
                     {
@@ -265,9 +279,7 @@ def build_acceptance_report(root: Path, expectations: dict[str, Any]) -> dict[st
                 )
                 continue
             graph_equal += 1
-            graph = build_raw_graph(
-                visible.piece, assume_valid=True
-            )
+            graph = visible_graph
             accepted_identity_rows.append(
                 {
                     "song_id": visible.record.song_id,
@@ -283,6 +295,9 @@ def build_acceptance_report(root: Path, expectations: dict[str, Any]) -> dict[st
                         _raw_canonical_fingerprint(visible.piece)
                     ),
                     "graph_fingerprint": graph_fingerprint(graph),
+                    "model_input_fingerprint": (
+                        model_input_fingerprint(graph)
+                    ),
                     "node_counts": {
                         node_type: int(graph[node_type].num_nodes)
                         for node_type in graph.node_types
@@ -402,6 +417,17 @@ def build_acceptance_report(root: Path, expectations: dict[str, Any]) -> dict[st
                     }
                 )
                 == 1,
+                "model_input_fingerprints": [
+                    row["model_input_fingerprint"]
+                    for row in ordered_rows
+                ],
+                "model_input_fingerprints_equal": len(
+                    {
+                        row["model_input_fingerprint"]
+                        for row in ordered_rows
+                    }
+                )
+                == 1,
                 "node_counts": [
                     row["node_counts"] for row in ordered_rows
                 ],
@@ -509,6 +535,14 @@ def build_acceptance_report(root: Path, expectations: dict[str, Any]) -> dict[st
         ),
         "raw_input_duplicate_record_count": sum(
             len(row["song_ids"]) for row in duplicate_clusters
+        ),
+        "raw_input_duplicate_strict_graph_fingerprint_count": sum(
+            len(set(row["graph_fingerprints"]))
+            for row in duplicate_clusters
+        ),
+        "raw_input_duplicate_model_input_fingerprint_count": sum(
+            len(set(row["model_input_fingerprints"]))
+            for row in duplicate_clusters
         ),
         "duplicate_cluster_song_ids": [
             row["song_ids"] for row in duplicate_clusters

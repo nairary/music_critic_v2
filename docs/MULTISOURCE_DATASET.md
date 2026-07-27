@@ -99,7 +99,7 @@ Transitive components are computed over all corpora together, including
 cross-dataset source/lineage links. No production ratios or seed are selected
 here.
 
-For POP909-CL adapter `1.0.1`, `piece_id` is the source record
+For POP909-CL runtime adapter `2.0.0`, `piece_id` is the source record
 (`piece:pop909-cl-<song-id>`), `source_group_id` is score-only raw-input
 equivalence, and `lineage_group_id` remains song lineage. Thus records 543 and
 553 remain two Dataset samples but form one split-atomic component. No new
@@ -113,11 +113,11 @@ matching and does not infer a scientific production split.
 
 The accepted full POP index has 908 unique record piece IDs, 907 unique source
 groups, one `[543, 553]` raw-equivalence cluster, and fingerprint
-`0c1fe4cf8d326fa083dfa34635e014ca7334f03e44fb0b67a678d2b10258cecb`.
+`b2008221fa59ddd0df31289561b22341db9c2eac527e1a503eac57b74da27daf`.
 Together with the unchanged HookTheory index
 `77a1a146e6ed2f3a8af4762ef2e5ada82323b6865a09903c335814d3cc3cfd4f`,
 the seed-42 80/10/10 manifest fingerprint is
-`1b20444ecf47c8481a30fca92af512b5a68a6eea5f1463443468741dce670310`.
+`b0546316acb225bb95439dab78fab95232b0a7a758316b69b85dc87f733c384d`.
 All 27,083 artifacts pass the joint audit; 543/553 are both in `train`.
 
 ## Composition, sampling, and workers

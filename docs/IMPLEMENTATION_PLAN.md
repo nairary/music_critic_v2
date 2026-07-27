@@ -2679,13 +2679,13 @@ family host conversions. Commands and artifact details are in
 `docs/TRAINING.md`. Phase 7 has not started.
 
 The full-corpus POP909-CL blocker remediation is part of Phase 6C data
-readiness, not a new learning phase. Adapter `1.0.1` supplies unique
+readiness, not a new learning phase. Runtime adapter `2.0.0` supplies unique
 source-record piece IDs and score-only split grouping. The accepted POP index
 fingerprint is
-`0c1fe4cf8d326fa083dfa34635e014ca7334f03e44fb0b67a678d2b10258cecb`;
+`b2008221fa59ddd0df31289561b22341db9c2eac527e1a503eac57b74da27daf`;
 the unchanged full HookTheory index and POP index pass one global 27,083-item
 audit under manifest fingerprint
-`1b20444ecf47c8481a30fca92af512b5a68a6eea5f1463443468741dce670310`.
+`b0546316acb225bb95439dab78fab95232b0a7a758316b69b85dc87f733c384d`.
 
 ## Phase 7. GraphMAE2-style SSL
 

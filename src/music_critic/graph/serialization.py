@@ -15,6 +15,9 @@ from music_critic.graph.relations import MANDATORY_EDGE_TYPES, MANDATORY_NODE_TY
 from music_critic.graph.validation import validate_raw_graph
 
 
+MODEL_INPUT_FINGERPRINT_VERSION = "1.0.0"
+
+
 def graph_to_dict(
     graph: HeteroData,
     *,
@@ -96,12 +99,26 @@ def graph_fingerprint(
     *,
     registry: FeatureRegistry = RAW_FEATURE_REGISTRY,
 ) -> str:
-    """Fingerprint raw model input while excluding source-record identity."""
+    """Fingerprint the complete validated deterministic graph serialization."""
+
+    return hashlib.sha256(
+        dumps_graph(graph, registry=registry).encode("utf-8")
+    ).hexdigest()
+
+
+def model_input_fingerprint(
+    graph: HeteroData,
+    *,
+    registry: FeatureRegistry = RAW_FEATURE_REGISTRY,
+) -> str:
+    """Fingerprint validated numerical model input without record identity."""
 
     value = graph_to_dict(graph, registry=registry)
     for node in value["nodes"]:
-        if node["node_type"] == "song":
-            node["entity_id"] = ["piece:<raw-input>"]
+        node.pop("entity_id")
+    value["model_input_fingerprint_version"] = (
+        MODEL_INPUT_FINGERPRINT_VERSION
+    )
     return hashlib.sha256(
         json.dumps(
             value,
@@ -113,4 +130,11 @@ def graph_fingerprint(
     ).hexdigest()
 
 
-__all__ = ["dump_graph", "dumps_graph", "graph_fingerprint", "graph_to_dict"]
+__all__ = [
+    "MODEL_INPUT_FINGERPRINT_VERSION",
+    "dump_graph",
+    "dumps_graph",
+    "graph_fingerprint",
+    "graph_to_dict",
+    "model_input_fingerprint",
+]

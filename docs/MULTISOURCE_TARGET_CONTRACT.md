@@ -307,10 +307,15 @@ The concrete encoding and alignment tables are in
   `piece.source_group_id`; no unrelated POP lineage is invented.
 - HookTheory therefore uses provenance `ori_uid` when present and otherwise
   its stable canonical source-group fallback.
-- POP909-CL adapter `1.0.1` uses
+- POP909-CL runtime adapter `2.0.0` uses
   `pop909-cl-score:<score-projection-sha256>` as `source_group_id`,
   `piece:pop909-cl-<song-id>` as source-record identity, and
   `pop909-lineage:<song-id>` as cross-version lineage.
+- A POP target family's serialized
+  `source_adapter=music_critic.adapters.pop909_cl@1.0.0` identifies the
+  unchanged target-extraction semantics, not the current runtime adapter
+  release. Record/group/cache identity changes therefore do not alter target
+  ontology `1.0.1` or its task semantics.
 - Matching CL/original POP909 lineage cannot cross splits.
 - Split assignment occurs at source and lineage group level. Phase 5A
   validates assignments but creates no final project splits.

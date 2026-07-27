@@ -1200,3 +1200,35 @@ This log is append-only.
   immutable artifacts. Corpus index/split structures, canonical schema, graph
   schema/features/topology, ontology, encoding, model, output, loss, and
   checkpoint contracts do not change. Phase 7/SSL remains unstarted.
+
+## 2026-07-27 — ADR-045: Strict graph identity and numerical model-input equivalence are separate
+
+- Status: Accepted as the post-merge correction to ADR-044. The ADR-044
+  statement that `graph_fingerprint` excludes song identity is superseded.
+- Context: Canonical piece ↔ raw graph binding, external graph validation,
+  collator mutation detection, and integrity diagnostics require the complete
+  deterministic graph serialization, including every entity ID. Reusing that
+  fingerprint for cross-record numerical equivalence weakened those exact
+  identity boundaries.
+- Decision: Restore `graph_fingerprint` as SHA-256 of the complete validated
+  `dumps_graph` serialization. A song entity-ID-only change changes the strict
+  fingerprint and fails sample/collator binding.
+- Decision: Introduce `model_input_fingerprint@1.0.0` for validated numerical
+  model input. It commits to schema/feature/builder versions, `raw_only`,
+  ordered feature names, feature and availability tensors, candidate slots,
+  ordered edge types, and topology. It excludes entity IDs and all
+  targets/provenance/path/group/split sidecars. It is evidence only and cannot
+  authorize canonical/graph binding.
+- Decision: POP909-CL score-projection `source_group_id` is the authoritative
+  raw-equivalence and split-closure identity. Record `piece_id`, independent
+  song lineage, strict graph fingerprint, model-input fingerprint, and target
+  bundle fingerprint remain distinct contracts.
+- Decision: Runtime POP909-CL identity/grouping API is a breaking change from
+  `1.0.0`; runtime adapter and corpus/production manifest therefore become
+  `2.0.0`. The unchanged target-extraction semantics remain version `1.0.0`;
+  ontology `source_adapter=music_critic.adapters.pop909_cl@1.0.0` explicitly
+  names that target-semantic contract, not the runtime adapter version.
+- Consequences: Corpus index/split structures, canonical schema, graph
+  schema/features/topology, ontology `1.0.1`, encoding, model, loss, output,
+  and checkpoint contracts remain unchanged. Existing cache artifacts are not
+  deleted. Phase 7/SSL remains unstarted.

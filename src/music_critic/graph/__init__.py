@@ -18,10 +18,12 @@ from music_critic.graph.relations import (
     REVERSE_EDGE_TYPES,
 )
 from music_critic.graph.serialization import (
+    MODEL_INPUT_FINGERPRINT_VERSION,
     dump_graph,
     dumps_graph,
     graph_fingerprint,
     graph_to_dict,
+    model_input_fingerprint,
 )
 from music_critic.graph.validation import (
     ALLOWED_EDGE_ATTRIBUTES,
@@ -44,6 +46,7 @@ __all__ = [
     "GRAPH_SCHEMA_VERSION",
     "MANDATORY_EDGE_TYPES",
     "MANDATORY_NODE_TYPES",
+    "MODEL_INPUT_FINGERPRINT_VERSION",
     "RAW_FEATURE_REGISTRY",
     "REVERSE_EDGE_TYPES",
     "ALLOWED_EDGE_ATTRIBUTES",
@@ -66,6 +69,7 @@ __all__ = [
     "dumps_graph",
     "graph_fingerprint",
     "graph_to_dict",
+    "model_input_fingerprint",
     "validate_raw_graph",
     "validate_raw_graph_batch",
 ]

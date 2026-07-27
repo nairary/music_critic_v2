@@ -16,7 +16,7 @@ weaken provenance when the complete content comparison succeeds.
 
 ## Production API
 
-Adapter version `1.0.1` is implemented in
+Runtime adapter version `2.0.0` is implemented in
 `music_critic.adapters.pop909_cl` and exposed minimally through
 `music_critic.adapters`.
 
@@ -36,8 +36,8 @@ The primary API is:
 
 The module also exposes typed chord-block, candidate, coverage, pairing, track,
 and instrument evidence records. Production code does not import
-`scripts/audit_pop909_cl.py`. Corpus manifest version `1.0.1` and acceptance
-schema `1.0.1`, including bounded raw-duplicate evidence, are implemented by
+`scripts/audit_pop909_cl.py`. Corpus manifest version `2.0.0` and acceptance
+schema `2.0.0`, including bounded raw-duplicate evidence, are implemented by
 the opt-in streaming acceptance in
 `scripts/accept_pop909_cl_adapter.py` and
 `tests/fixtures/pop909_cl/production_manifest.json`.
@@ -104,11 +104,18 @@ Raw graph leakage tests must compare identical score projections after chord
 mutation and require identical canonical score tracks/notes and graph
 fingerprints. Annotation evidence must change independently.
 
-Graph fingerprints deliberately normalize the song node's source-record
-entity ID. Canonical serialization still preserves the exact record
-`piece_id`, while graph fingerprints identify model-facing raw score content.
-Targets, source paths, source/lineage grouping, and provenance remain outside
-the graph fingerprint.
+Strict `graph_fingerprint` hashes the complete validated deterministic graph
+serialization, including every `entity_id`. It is authoritative for canonical
+piece ↔ graph binding, external-graph verification, post-preparation mutation
+detection, and integrity diagnostics.
+
+`model_input_fingerprint` contract `1.0.0` separately hashes the validated
+numerical model input: global schema/feature/builder versions and `raw_only`;
+ordered feature names; categorical/continuous values and availability;
+candidate slots; and ordered edge types/indices. It excludes all entity IDs,
+targets, provenance, source paths, grouping, and split. It must never replace
+the strict binding fingerprint. POP split closure is authoritative only from
+the score-projection `source_group_id`.
 
 For downstream use alongside HookTheory, the shared auxiliary-target,
 actual-accompaniment, role-agnostic inference, and future PLL boundaries are
@@ -240,9 +247,14 @@ and
 `618b99761e750edfaffb4053cc3ad073661fd5c969bfea840481f466a03ec07a`,
 but their score-only projections are byte-identical with SHA-256
 `4585134e3f7a70c105a3bb678a04ab2bc4522c04e11183f6fd6c59046be25286`.
-Their canonical raw content, node/edge counts, and raw graph fingerprint
-`ba48a410581a317d2eee81f65fc15bc8a03a450f7194b38255e7f0ad8ca65ed9`
-match after excluding record identity/path/lineage/provenance/targets.
+Their canonical raw content and node/edge counts match after excluding record
+identity/path/lineage/provenance/targets. Strict graph fingerprints differ:
+543 is
+`0a4fa698ed7748ebee855424f38c967bd04cf6b10e792b8b6a4e0aceb9230ed6`
+and 553 is
+`605072317c4029380d14d73a45be8f506a8edc45b6dca841ebb5b6e5d8920531`.
+Their common model-input fingerprint is
+`2c03b1a37a722173a72ce6fd0ce74a58f3a03627907ac4fd04702ddee07b9c7f`.
 
 They are not a full corpus duplicate. Both have 163 chord blocks. Boundary
 and empty no-chord values and masks agree. Bass values differ while its
@@ -257,7 +269,7 @@ their distinct song lineage IDs, and must be assigned to one split. Production
 evidence is 908 accepted record IDs, 907 raw-input-equivalence groups, one
 two-record duplicate cluster `[543, 553]`, and the unchanged quarantine
 `["172"]`. The resulting full index fingerprint is
-`0c1fe4cf8d326fa083dfa34635e014ca7334f03e44fb0b67a678d2b10258cecb`.
+`b2008221fa59ddd0df31289561b22341db9c2eac527e1a503eac57b74da27daf`.
 
 Phase 4B does not authorize model, SSL, training, preference, or inference
 implementation.

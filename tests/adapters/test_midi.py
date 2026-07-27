@@ -24,7 +24,11 @@ from music_critic.data import (
     loads_piece,
     validate_piece,
 )
-from music_critic.graph import build_raw_graph, graph_fingerprint
+from music_critic.graph import (
+    build_raw_graph,
+    graph_fingerprint,
+    model_input_fingerprint,
+)
 
 
 CONFIG = MidiAdapterConfig(dataset_name="test-midi")
@@ -526,9 +530,12 @@ def test_default_and_explicit_piece_identity_contract(
         flag.entity_ids == (explicit_a.piece_id,)
         for flag in explicit_a.quality_flags
     )
-    assert graph_fingerprint(
-        build_raw_graph(explicit_a)
-    ) == graph_fingerprint(build_raw_graph(explicit_b))
+    graph_a = build_raw_graph(explicit_a)
+    graph_b = build_raw_graph(explicit_b)
+    assert graph_fingerprint(graph_a) != graph_fingerprint(graph_b)
+    assert model_input_fingerprint(graph_a) == model_input_fingerprint(
+        graph_b
+    )
 
 
 @pytest.mark.parametrize(

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import replace
 import json
 from pathlib import Path
 
 import mido
+import pytest
 import torch
 from torch_geometric.data import Batch, HeteroData
 
@@ -27,10 +29,13 @@ from music_critic.graph import (
     GRAPH_SCHEMA_VERSION,
     MANDATORY_EDGE_TYPES,
     MANDATORY_NODE_TYPES,
+    MODEL_INPUT_FINGERPRINT_VERSION,
     REVERSE_EDGE_TYPES,
+    GraphContractError,
     build_raw_graph,
     dumps_graph,
     graph_fingerprint,
+    model_input_fingerprint,
     validate_raw_graph,
 )
 
@@ -282,6 +287,89 @@ def test_deterministic_ordering_and_json_serialization(
         MANDATORY_NODE_TYPES
     )
     assert [(e["source_type"], e["relation"], e["destination_type"]) for e in payload["edges"]] == list(MANDATORY_EDGE_TYPES)
+
+
+def test_strict_and_model_input_fingerprint_identity_boundaries(
+    canonical_piece: CanonicalPiece,
+) -> None:
+    graph = build_raw_graph(canonical_piece)
+    entity_changed = deepcopy(graph)
+    entity_changed["song"].entity_id = ("piece:another-record",)
+
+    assert MODEL_INPUT_FINGERPRINT_VERSION == "1.0.0"
+    assert graph_fingerprint(entity_changed) != graph_fingerprint(graph)
+    assert model_input_fingerprint(
+        entity_changed
+    ) == model_input_fingerprint(graph)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ("feature", "availability", "topology"),
+)
+def test_numerical_or_topology_changes_affect_both_fingerprints(
+    canonical_piece: CanonicalPiece,
+    mutation: str,
+) -> None:
+    original = build_raw_graph(canonical_piece)
+    changed = deepcopy(original)
+    if mutation == "feature":
+        velocity = tuple(changed["note"].cont_feature_names).index(
+            "velocity"
+        )
+        changed["note"].x_cont[0, velocity] += 0.125
+    elif mutation == "availability":
+        index = tuple(changed["bar"].cont_feature_names).index("index")
+        assert changed["bar"].x_cont[0, index].item() == 0.0
+        changed["bar"].x_cont_available[0, index] = False
+    else:
+        forward = ("beat", "next_beat", "beat")
+        reverse = ("beat", "previous_beat", "beat")
+        order = torch.arange(
+            changed[forward].edge_index.shape[1] - 1,
+            -1,
+            -1,
+        )
+        changed[forward].edge_index = changed[forward].edge_index[:, order]
+        changed[reverse].edge_index = changed[forward].edge_index.flip(0)
+
+    validate_raw_graph(changed)
+    assert graph_fingerprint(changed) != graph_fingerprint(original)
+    assert model_input_fingerprint(changed) != model_input_fingerprint(
+        original
+    )
+
+
+def test_candidate_slot_mutation_is_rejected_before_fingerprinting(
+    canonical_piece: CanonicalPiece,
+) -> None:
+    graph = build_raw_graph(canonical_piece)
+    graph["beat"].candidate_slot[0] = False
+    with pytest.raises(GraphContractError, match="candidate_slot"):
+        graph_fingerprint(graph)
+    with pytest.raises(GraphContractError, match="candidate_slot"):
+        model_input_fingerprint(graph)
+
+
+def test_valid_candidate_slot_cardinality_changes_both_fingerprints(
+    canonical_piece: CanonicalPiece,
+    tmp_path: Path,
+) -> None:
+    left = build_raw_graph(canonical_piece)
+    midi_piece = load_midi_piece(
+        _write_multitrack_midi(tmp_path / "candidate-cardinality.mid"),
+        config=MidiAdapterConfig("candidate-cardinality"),
+    )
+    right = build_raw_graph(midi_piece)
+
+    assert (
+        left["beat"].candidate_slot.shape
+        != right["beat"].candidate_slot.shape
+        or left["onset"].candidate_slot.shape
+        != right["onset"].candidate_slot.shape
+    )
+    assert graph_fingerprint(left) != graph_fingerprint(right)
+    assert model_input_fingerprint(left) != model_input_fingerprint(right)
 
 
 def test_generic_midi_and_hooktheory_share_model_facing_schema(tmp_path: Path) -> None:

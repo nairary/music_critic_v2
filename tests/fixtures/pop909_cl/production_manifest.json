@@ -1,6 +1,6 @@
 {
-  "acceptance_schema_version": "1.0.1",
-  "adapter_version": "1.0.1",
+  "acceptance_schema_version": "2.0.0",
+  "adapter_version": "2.0.0",
   "corpus": {
     "content_fingerprint": "b34f07d9a2678abdb6f0dcf5db1c3aec3f35caca813f1fac80c0717cfc8e0c65",
     "dataset_name": "pop909_cl",
@@ -14,7 +14,7 @@
     "accepted_record_count": 908,
     "accepted_missing_targets": 2,
     "ambiguous_blocks": 5801,
-    "anomaly_evidence_fingerprint": "d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051",
+    "anomaly_evidence_fingerprint": "603ca5eb9fa248ef3e718b0f5d6ddce166b310860473e89e7e35be0a1158662b",
     "bass_available": 116055,
     "boundary_available": 116055,
     "chord_blocks": 116055,
@@ -40,7 +40,9 @@
     "quarantine_count": 1,
     "quarantined": 1,
     "raw_input_duplicate_cluster_count": 1,
+    "raw_input_duplicate_model_input_fingerprint_count": 1,
     "raw_input_duplicate_record_count": 2,
+    "raw_input_duplicate_strict_graph_fingerprint_count": 2,
     "root_available": 109668,
     "target_hidden_graph_equal": 908,
     "target_hidden_raw_equal": 908,
@@ -109,7 +111,7 @@
       "track|belongs_to_song|song": 2,
       "track|contains_note|note": 1607
     },
-    "common_graph_fingerprint": "ba48a410581a317d2eee81f65fc15bc8a03a450f7194b38255e7f0ad8ca65ed9",
+    "common_model_input_fingerprint": "2c03b1a37a722173a72ce6fd0ce74a58f3a03627907ac4fd04702ddee07b9c7f",
     "common_node_counts": {
       "bar": 76,
       "beat": 301,
@@ -151,6 +153,10 @@
       "7dc63700fb5e58d2d12b580aa53614413317232caa151920d6079ad2440b662b",
       "618b99761e750edfaffb4053cc3ad073661fd5c969bfea840481f466a03ec07a"
     ],
+    "strict_graph_fingerprints": {
+      "543": "0a4fa698ed7748ebee855424f38c967bd04cf6b10e792b8b6a4e0aceb9230ed6",
+      "553": "605072317c4029380d14d73a45be8f506a8edc45b6dca841ebb5b6e5d8920531"
+    },
     "target_bundle_fingerprints": [
       "9962345d2a47e6c412c05a83c38c59b7f38b5901df6c19ce41079510ac77ea5b",
       "eac8f6d2e1b616375343a9de71108efb84b9fee80e9a89ff75cf5cd6076e57d0"

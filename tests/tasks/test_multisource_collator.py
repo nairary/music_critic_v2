@@ -10,7 +10,11 @@ import torch
 
 from music_critic.data import RationalTime, TargetArray
 from music_critic.adapters import HookTheoryAdapterConfig, convert_hooktheory_record
-from music_critic.graph import build_raw_graph, graph_fingerprint
+from music_critic.graph import (
+    build_raw_graph,
+    graph_fingerprint,
+    model_input_fingerprint,
+)
 from music_critic.tasks import (
     ALIGNMENT_CONFLICT_DIAGNOSTIC,
     BATCH_TARGET_CONTRACT_VERSION,
@@ -623,6 +627,9 @@ def test_target_provenance_and_diagnostic_changes_do_not_change_raw_graph() -> N
     original_graph = build_raw_graph(piece)
     changed_graph = build_raw_graph(changed)
     assert graph_fingerprint(original_graph) == graph_fingerprint(changed_graph)
+    assert model_input_fingerprint(
+        original_graph
+    ) == model_input_fingerprint(changed_graph)
     original_batch = collate_multisource_samples(
         (build_multisource_sample(piece, original_graph),)
     )
@@ -680,6 +687,29 @@ def test_prepared_sample_rejects_raw_graph_mutation(mutation: str) -> None:
         match="multisource.raw_graph_binding_mismatch",
     ):
         collate_multisource_samples((sample,))
+
+
+def test_song_entity_mutation_breaks_strict_binding_but_not_model_input() -> None:
+    piece = _hook_piece()
+    graph = build_raw_graph(piece)
+    changed = deepcopy(graph)
+    changed["song"].entity_id = ("piece:forged-record",)
+
+    assert graph_fingerprint(changed) != graph_fingerprint(graph)
+    assert model_input_fingerprint(changed) == model_input_fingerprint(graph)
+    with pytest.raises(
+        MultiSourceContractError,
+        match="multisource.raw_graph_binding_mismatch",
+    ):
+        build_multisource_sample(piece, changed)
+
+    prepared = prepare_multisource_sample(piece)
+    prepared.raw_graph["song"].entity_id = ("piece:post-prepare-forgery",)
+    with pytest.raises(
+        MultiSourceContractError,
+        match="multisource.raw_graph_binding_mismatch",
+    ):
+        collate_multisource_samples((prepared,))
 
 
 def test_external_graph_factory_has_no_binding_bypass() -> None:

@@ -42,8 +42,9 @@
 - Harmonic supervision documentation contract: Accepted in ADR-034
 - Phase 4B: Accepted and Completed
 - Phase 4B branch: `phase/4b-pop909-cl-adapter`
-- POP909-CL adapter version: `1.0.1`
-- POP909-CL corpus/production manifest version: `1.0.1`
+- POP909-CL runtime adapter version: `2.0.0`
+- POP909-CL corpus/production manifest version: `2.0.0`
+- Model-input fingerprint contract: `1.0.0`
 - Phase 5A: Accepted and Completed
 - Phase 5A branch: `phase/5a-multisource-contract`
 - Multi-source target ontology version: `1.0.1`
@@ -164,8 +165,8 @@
   match bit-exactly.
 - Focused Phase 6C training tests pass `45 passed, 4 optional CUDA skips`; the
   direct CUDA acceptance invocation reports the same four honest skips on this
-  CPU-only host. After the POP909-CL identity remediation, the full default
-  suite passes `777 passed, 19 skipped`, with
+  CPU-only host. After the POP909-CL identity hotfix, the full default suite
+  passes `784 passed, 19 skipped`, with
   two existing upstream PyTorch JIT deprecation warnings. New coverage
   includes 1,000 synthetic metric batches with constant retained device
   tensors/bytes, fresh collision, explicit overwrite,
@@ -192,8 +193,12 @@
   `618b99761e750edfaffb4053cc3ad073661fd5c969bfea840481f466a03ec07a`
   for 553. Their score projection bytes, canonical raw projection after
   excluding record/path/lineage/provenance/targets, node counts, and all edge
-  counts are equal. Their common raw graph fingerprint is
-  `ba48a410581a317d2eee81f65fc15bc8a03a450f7194b38255e7f0ad8ca65ed9`.
+  counts are equal. Their strict graph fingerprints differ:
+  `0a4fa698ed7748ebee855424f38c967bd04cf6b10e792b8b6a4e0aceb9230ed6`
+  and
+  `605072317c4029380d14d73a45be8f506a8edc45b6dca841ebb5b6e5d8920531`.
+  Their common model-input fingerprint is
+  `2c03b1a37a722173a72ce6fd0ce74a58f3a03627907ac4fd04702ddee07b9c7f`.
 - Both records contain 163 chord blocks. Their target bundle fingerprints are
   `9962345d2a47e6c412c05a83c38c59b7f38b5901df6c19ce41079510ac77ea5b`
   and
@@ -209,27 +214,29 @@
   emits deterministic cluster size plus portable source identity/relative-path
   evidence. Exact score equivalents instead close transitively through
   `source_group_id`, so both records are kept as separate samples but are
-  split-atomic. Raw graph fingerprints exclude the song record ID while exact
-  serialized graph entity references remain unchanged.
-- POP909-CL adapter and corpus/production manifest versions are `1.0.1`.
+  split-atomic. Strict graph fingerprints retain the song record ID;
+  `model_input_fingerprint@1.0.0` excludes entity identity. The score-only
+  source group, not either fingerprint, is authoritative for split closure.
+- POP909-CL adapter and corpus/production manifest versions are `2.0.0`.
   Corpus index, cache, split, canonical, graph schema/feature/topology,
   ontology, encoding, model, output, loss, and checkpoint versions are
   unchanged.
-- The single material full POP909-CL build accepted 908 records and quarantined
+- The runtime-2.0 full POP909-CL build accepted 908 records and quarantined
   only song 172. It produced 908 unique record piece IDs, 907 raw-input groups,
   exactly one two-record raw-equivalence cluster `[543, 553]`, and index
   fingerprint
-  `0c1fe4cf8d326fa083dfa34635e014ca7334f03e44fb0b67a678d2b10258cecb`.
-  Its required deterministic rerun retained the same fingerprint and reported
-  908 cache hits with zero misses. Older immutable artifacts were left on
-  disk.
+  `b2008221fa59ddd0df31289561b22341db9c2eac527e1a503eac57b74da27daf`.
+  The first build after the breaking adapter-version change reported zero hits
+  and 908 misses. Its required deterministic rerun retained the same
+  fingerprint and reported 908 hits with zero misses. Artifact count grew from
+  1,816 to 2,724 (~3.0 GB), so both older immutable generations remain.
 - The pre-existing complete HookTheory index remained byte-identical with
   fingerprint
   `77a1a146e6ed2f3a8af4762ef2e5ada82323b6865a09903c335814d3cc3cfd4f`.
   The deterministic seed-42 joint split has manifest fingerprint
-  `1b20444ecf47c8481a30fca92af512b5a68a6eea5f1463443468741dce670310`
+  `b0546316acb225bb95439dab78fab95232b0a7a758316b69b85dc87f733c384d`
   and file SHA-256
-  `94fa766083abab3555d0453560dd9398014af15a269851d37ca4feb51a845b0a`.
+  `a5b49cd7f48f87c66ed6656a223e576629373158b9f64b783c47d65e512e5385`.
   Records 543 and 553 share component
   `1e16b6a3d471ebd411cd49b57f6fdad8ac0030f43fb525570744d0178d53f41a`
   and both land in `train`. The audited split contains HookTheory
@@ -237,13 +244,15 @@
   train/validation/test, with no source, lineage, or raw-equivalence leakage.
   Generated cache, index, split, reports, and training outputs are not
   committed. Phase 7/SSL has not started.
-- Final remediation verification passes `92 passed, 3 opt-in skips` for
-  MIDI/POP adapters plus target/production audits and
-  `194 passed, 4 CUDA skips` for corpus/cache/split/leakage/training
-  regressions. The real 543/553 evidence test and the full-cache/joint-split
-  test each pass independently under their opt-in gates. Full default pytest
-  passes `777 passed, 19 skipped`; deterministic target audit `--check`,
-  compileall, and diff checks pass.
+- Final post-merge hotfix verification passes `232 passed, 3 opt-in skips` for
+  focused MIDI/POP/graph-binding/corpus/split regressions. Fresh 909-file
+  streaming acceptance is `ready=true` with zero mismatches/fatal failures;
+  its eight pairing-anomaly rows use stable corpus-relative paths and evidence
+  fingerprint
+  `603ca5eb9fa248ef3e718b0f5d6ddce166b310860473e89e7e35be0a1158662b`.
+  The real 543/553 evidence and full-cache/joint-split opt-in tests pass
+  `2 passed`. Full default pytest passes `784 passed, 19 skipped`;
+  deterministic target audit `--check`, compileall, and diff checks pass.
 
 ## Phase 6B deterministic hierarchy and coarse-context result
 

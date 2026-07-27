@@ -26,7 +26,11 @@ from music_critic.adapters.pop909_cl import (
     project_pop909_cl_score_bytes,
 )
 from music_critic.data import dumps_piece, loads_piece
-from music_critic.graph import build_raw_graph, graph_fingerprint
+from music_critic.graph import (
+    build_raw_graph,
+    graph_fingerprint,
+    model_input_fingerprint,
+)
 from music_critic.tasks import (
     CanonicalCorpusInput,
     CorpusCacheConfig,
@@ -569,9 +573,12 @@ def test_source_record_identity_and_raw_equivalence_are_separate(
     assert right.piece.source_group_id == expected_group
     assert left.record.lineage_group_id == "pop909-lineage:543"
     assert right.record.lineage_group_id == "pop909-lineage:553"
-    assert graph_fingerprint(
-        build_raw_graph(left.piece)
-    ) == graph_fingerprint(build_raw_graph(right.piece))
+    left_graph = build_raw_graph(left.piece)
+    right_graph = build_raw_graph(right.piece)
+    assert graph_fingerprint(left_graph) != graph_fingerprint(right_graph)
+    assert model_input_fingerprint(left_graph) == model_input_fingerprint(
+        right_graph
+    )
     assert left.piece.targets != right.piece.targets
 
     index, _ = cache_canonical_corpus(
@@ -783,6 +790,18 @@ def test_versioned_production_manifest_and_unreadable_source(
     assert manifest["expected"][
         "duplicate_cluster_song_ids"
     ] == [["543", "553"]]
+    evidence = manifest["raw_input_duplicate_evidence"]
+    assert evidence["common_model_input_fingerprint"] == (
+        "2c03b1a37a722173a72ce6fd0ce74a58f3a03627907ac4fd04702ddee07b9c7f"
+    )
+    assert evidence["strict_graph_fingerprints"] == {
+        "543": (
+            "0a4fa698ed7748ebee855424f38c967bd04cf6b10e792b8b6a4e0aceb9230ed6"
+        ),
+        "553": (
+            "605072317c4029380d14d73a45be8f506a8edc45b6dca841ebb5b6e5d8920531"
+        ),
+    }
     missing = Pop909ClCorpusRecord(
         song_id="001",
         path=tmp_path / "missing.mid",

@@ -263,7 +263,7 @@ The model and training phases remain pending.
 - Acceptance: all accepted CL scores convert or fail under a documented
   general rule, channel-1 annotation cannot affect raw graphs, and leakage-safe
   POP909-CL graphs pass validation.
-- Result: adapter `1.0.1` and corpus manifest `1.0.1` reproduce 909 logical
+- Result: runtime adapter `2.0.0` and corpus manifest `2.0.0` reproduce 909 logical
   files, 908 accepted pieces, only song `172` quarantined, and fully masked
   targets for `367`/`658`. All 908 accepted visible/hidden pieces validate,
   round-trip deterministically, preserve equal raw projections, and have equal
@@ -273,6 +273,10 @@ The model and training phases remain pending.
   `piece_id`; score-only equivalence has 907 groups with exactly one
   `[543, 553]` cluster. Both target views are retained and forced into one
   split component. Corpus-index/split versions remain unchanged.
+- Integrity remediation: strict graph fingerprints retain all entity IDs;
+  numerical-equivalence evidence uses separate
+  `model_input_fingerprint@1.0.0`. Score-projection `source_group_id`, not a
+  graph fingerprint, remains authoritative for split closure.
 
 ## Phase 5 — Multi-source dataset and collator
 
