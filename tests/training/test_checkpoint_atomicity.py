@@ -112,13 +112,22 @@ def _save(path: Path, model, optimizer, scheduler, scaler) -> None:
     )
 
 
-def _load(path: Path, model, optimizer, scheduler, scaler):
+def _load(
+    path: Path,
+    model,
+    optimizer,
+    scheduler,
+    scaler,
+    *,
+    maximum_next_epoch: int = 2,
+):
     return load_training_checkpoint(
         path,
         model,
         optimizer,
         scheduler=scheduler,
         scaler=scaler,
+        maximum_next_epoch=maximum_next_epoch,
         resolved_config={"contract": "atomicity-test"},
         data_fingerprints={"data": "bounded"},
     )
@@ -172,6 +181,39 @@ def test_epoch_metadata_is_rejected_before_any_live_mutation(
 
     with pytest.raises(TrainingCheckpointError, match=category):
         _load(malformed, model, optimizer, scheduler, scaler)
+
+    _assert_state_equal(
+        _snapshot(model, optimizer, scheduler, scaler),
+        before,
+    )
+
+
+def test_next_epoch_beyond_configured_is_rejected_before_mutation(
+    tmp_path: Path,
+) -> None:
+    model, optimizer, scheduler, scaler = _training_objects()
+    valid = tmp_path / "valid.pt"
+    _save(valid, model, optimizer, scheduler, scaler)
+    payload = torch.load(valid, map_location="cpu", weights_only=True)
+    payload["next_epoch"] = 3
+    payload["committed_metric_rows"] = 3
+    corrupted = tmp_path / "future.pt"
+    torch.save(payload, corrupted)
+    _mutate_live_state(model, optimizer, scheduler, scaler)
+    before = _snapshot(model, optimizer, scheduler, scaler)
+
+    with pytest.raises(
+        TrainingCheckpointError,
+        match="training.checkpoint.next_epoch_beyond_configured",
+    ):
+        _load(
+            corrupted,
+            model,
+            optimizer,
+            scheduler,
+            scaler,
+            maximum_next_epoch=2,
+        )
 
     _assert_state_equal(
         _snapshot(model, optimizer, scheduler, scaler),

@@ -5,13 +5,16 @@ from __future__ import annotations
 from collections import Counter
 import copy
 from dataclasses import asdict, is_dataclass
+from hashlib import sha256
 import json
 import math
 import os
 from pathlib import Path
 import random
+import re
 import shutil
 import tempfile
+import time
 from typing import Any, Iterable
 
 import torch
@@ -21,7 +24,9 @@ from music_critic.models import ACTIVE_TASK_IDS
 from music_critic.tasks import MultiSourceBatch
 from music_critic.training.checkpoint import (
     TRAINING_CHECKPOINT_VERSION,
+    capture_rng_state,
     load_training_checkpoint,
+    restore_rng_state,
     save_training_checkpoint,
     training_checkpoint_metadata,
 )
@@ -43,6 +48,23 @@ class InjectedTrainingCrash(RuntimeError):
     """Bounded-test crash at a named epoch-commit boundary."""
 
 
+RUN_MANIFEST_VERSION = "1.0.0"
+_MANAGED_FILENAMES = (
+    "resolved_config.json",
+    "fingerprints.json",
+    "mixture_statistics.json",
+    "run_manifest.json",
+    "one_batch_report.json",
+    "one_batch.pt",
+    "metrics.jsonl",
+    "training_report.json",
+    "last.pt",
+    "best.pt",
+)
+_INTERVAL_CHECKPOINT_PATTERN = re.compile(r"epoch-[0-9]{4,}\.pt")
+_EPOCH_METRIC_PATTERN = re.compile(r"epoch-[0-9]{4,}\.json")
+
+
 def _plain_config(config: object) -> dict[str, Any]:
     if isinstance(config, DictConfig):
         value = OmegaConf.to_container(config, resolve=True)
@@ -59,10 +81,11 @@ def _plain_config(config: object) -> dict[str, Any]:
 
 
 def _checkpoint_config(config: dict[str, Any]) -> dict[str, Any]:
-    """Exclude only the location used to request an otherwise exact resume."""
+    """Exclude operational lifecycle flags from compatibility binding."""
 
     result = copy.deepcopy(config)
     result["experiment"]["resume_from"] = ""
+    result["experiment"]["overwrite_output"] = False
     return result
 
 
@@ -141,6 +164,97 @@ def _write_text_atomic(path: Path, value: str) -> None:
         raise
 
 
+def _json_fingerprint(value: object) -> str:
+    payload = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    return sha256(payload).hexdigest()
+
+
+def _managed_artifacts(output: Path) -> tuple[Path, ...]:
+    if not output.exists():
+        return ()
+    result = [
+        output / name
+        for name in _MANAGED_FILENAMES
+        if (output / name).exists()
+    ]
+    result.extend(
+        path
+        for path in output.glob("epoch-*.pt")
+        if _INTERVAL_CHECKPOINT_PATTERN.fullmatch(path.name)
+    )
+    metric_directory = _metric_directory(output)
+    if metric_directory.is_dir():
+        pending = metric_directory / "pending.json"
+        if pending.exists():
+            result.append(pending)
+        result.extend(
+            path
+            for path in metric_directory.glob("epoch-*.json")
+            if _EPOCH_METRIC_PATTERN.fullmatch(path.name)
+        )
+    return tuple(sorted(set(result)))
+
+
+def _preflight_output_lifecycle(config: dict[str, Any]) -> Path:
+    output = Path(config["output_dir"]).resolve()
+    resume = bool(config["experiment"]["resume_from"])
+    overwrite = bool(config["experiment"]["overwrite_output"])
+    if resume:
+        if overwrite:
+            raise TrainingContractError(
+                "training.output.resume_overwrite_conflict"
+            )
+        if not output.is_dir():
+            raise TrainingContractError(
+                "training.output.resume_directory_missing"
+            )
+        return output
+    managed = _managed_artifacts(output)
+    if managed and not overwrite:
+        raise TrainingContractError(
+            "training.output.managed_artifact_collision"
+        )
+    return output
+
+
+def _initialize_fresh_output(
+    output: Path,
+    *,
+    overwrite: bool,
+) -> None:
+    if output.exists() and not output.is_dir():
+        raise TrainingContractError(
+            "training.output.path_not_directory"
+        )
+    output.mkdir(parents=True, exist_ok=True)
+    if not overwrite:
+        return
+    for name in _MANAGED_FILENAMES:
+        (output / name).unlink(missing_ok=True)
+    for path in output.glob("epoch-*.pt"):
+        if _INTERVAL_CHECKPOINT_PATTERN.fullmatch(path.name):
+            path.unlink()
+    metric_directory = _metric_directory(output)
+    if metric_directory.is_dir():
+        (metric_directory / "pending.json").unlink(
+            missing_ok=True
+        )
+        for path in metric_directory.glob("epoch-*.json"):
+            if _EPOCH_METRIC_PATTERN.fullmatch(path.name):
+                path.unlink()
+        try:
+            metric_directory.rmdir()
+        except OSError:
+            # Unknown user files are deliberately preserved.
+            pass
+
+
 def _validate_config(config: dict[str, Any]) -> None:
     accepted = {
         "model": {"feature_only", "local_gnn", "hierarchical"},
@@ -166,6 +280,21 @@ def _validate_config(config: dict[str, Any]) -> None:
             raise TrainingContractError(
                 f"training.config.{group}_invalid"
             )
+    for name in (
+        "overwrite_output",
+        "collect_gradient_evidence",
+    ):
+        if not isinstance(config["experiment"][name], bool):
+            raise TrainingContractError(
+                f"training.config.{name}_invalid"
+            )
+    if (
+        config["experiment"]["name"] == "one_batch"
+        and config["experiment"]["resume_from"]
+    ):
+        raise TrainingContractError(
+            "training.one_batch.resume_unsupported"
+        )
     integers = (
         ("seed", config["seed"], 0),
         ("batch_size", config["data"]["batch_size"], 1),
@@ -542,8 +671,16 @@ def _validation_epoch(
 
 
 def _device_evidence(device: torch.device) -> dict[str, object]:
+    common = {
+        "torch_version": torch.__version__,
+        "cuda_runtime_version": torch.version.cuda,
+        "deterministic_algorithms_enabled": (
+            torch.are_deterministic_algorithms_enabled()
+        ),
+    }
     if device.type != "cuda":
         return {
+            **common,
             "resolved_device": str(device),
             "cuda_available": torch.cuda.is_available(),
             "cuda_device_name": None,
@@ -551,6 +688,7 @@ def _device_evidence(device: torch.device) -> dict[str, object]:
             "peak_reserved_bytes": None,
         }
     return {
+        **common,
         "resolved_device": str(device),
         "cuda_available": True,
         "cuda_device_name": torch.cuda.get_device_name(device),
@@ -593,38 +731,130 @@ def _prepare(
         enabled=bool(config["device"]["amp"]),
     )
     output = Path(config["output_dir"]).resolve()
-    output.mkdir(parents=True, exist_ok=True)
     return output, device, runtime, model, optimizer, scheduler, scaler
 
 
-def _artifacts(
+def _artifact_payloads(
+    output: Path,
+    config: dict[str, Any],
+    runtime: DataRuntime,
+    model: BaselineModel,
+) -> dict[str, object]:
+    del output
+    resolved = copy.deepcopy(config)
+    fingerprints = {
+        "data": runtime.fingerprints,
+        "model_contract_fingerprint": model_contract_fingerprint(
+            model
+        ),
+        "checkpoint_binding": training_checkpoint_metadata(
+            model,
+            resolved_config=_checkpoint_config(config),
+            data_fingerprints=runtime.fingerprints,
+        ),
+    }
+    mixture = runtime.mixture_statistics
+    return {
+        "resolved_config.json": resolved,
+        "fingerprints.json": fingerprints,
+        "mixture_statistics.json": mixture,
+        "run_manifest.json": {
+            "run_manifest_version": RUN_MANIFEST_VERSION,
+            "checkpoint_binding": fingerprints[
+                "checkpoint_binding"
+            ],
+            "artifact_fingerprints": {
+                "resolved_config.json": _json_fingerprint(resolved),
+                "fingerprints.json": _json_fingerprint(
+                    fingerprints
+                ),
+                "mixture_statistics.json": _json_fingerprint(
+                    mixture
+                ),
+            },
+        },
+    }
+
+
+def _write_initial_artifacts(
     output: Path,
     config: dict[str, Any],
     runtime: DataRuntime,
     model: BaselineModel,
 ) -> None:
-    _write_json(output / "resolved_config.json", config)
-    _write_json(
-        output / "fingerprints.json",
-        {
-            "data": runtime.fingerprints,
-            "model_contract_fingerprint": model_contract_fingerprint(
-                model
-            ),
-            "checkpoint_binding": training_checkpoint_metadata(
-                model,
-                resolved_config=_checkpoint_config(config),
-                data_fingerprints=runtime.fingerprints,
-            ),
-        },
+    payloads = _artifact_payloads(output, config, runtime, model)
+    for name in (
+        "resolved_config.json",
+        "fingerprints.json",
+        "mixture_statistics.json",
+        "run_manifest.json",
+    ):
+        _write_json_atomic(output / name, payloads[name])
+
+
+def _read_evidence_artifact(path: Path) -> object:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise TrainingContractError(
+            f"training.output.evidence_unreadable:{path.name}"
+        ) from exc
+
+
+def _validate_resume_artifacts(
+    output: Path,
+    config: dict[str, Any],
+    runtime: DataRuntime,
+    model: BaselineModel,
+) -> None:
+    manifest_path = output / "run_manifest.json"
+    manifest = _read_evidence_artifact(manifest_path)
+    if not isinstance(manifest, dict) or set(manifest) != {
+        "run_manifest_version",
+        "checkpoint_binding",
+        "artifact_fingerprints",
+    }:
+        raise TrainingContractError(
+            "training.output.run_manifest_invalid"
+        )
+    if manifest["run_manifest_version"] != RUN_MANIFEST_VERSION:
+        raise TrainingContractError(
+            "training.output.run_manifest_version_mismatch"
+        )
+    expected_binding = training_checkpoint_metadata(
+        model,
+        resolved_config=_checkpoint_config(config),
+        data_fingerprints=runtime.fingerprints,
     )
-    _write_json(
-        output / "mixture_statistics.json",
-        runtime.mixture_statistics,
-    )
+    if _json_fingerprint(
+        manifest["checkpoint_binding"]
+    ) != _json_fingerprint(expected_binding):
+        raise TrainingContractError(
+            "training.output.run_manifest_binding_mismatch"
+        )
+    artifact_fingerprints = manifest["artifact_fingerprints"]
+    expected_names = {
+        "resolved_config.json",
+        "fingerprints.json",
+        "mixture_statistics.json",
+    }
+    if (
+        not isinstance(artifact_fingerprints, dict)
+        or set(artifact_fingerprints) != expected_names
+    ):
+        raise TrainingContractError(
+            "training.output.run_manifest_artifacts_invalid"
+        )
+    for name in sorted(expected_names):
+        actual = _read_evidence_artifact(output / name)
+        if _json_fingerprint(actual) != artifact_fingerprints[name]:
+            raise TrainingContractError(
+                f"training.output.evidence_fingerprint_mismatch:{name}"
+            )
 
 
 def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
+    started_at = time.perf_counter()
     (
         output_dir,
         device,
@@ -634,7 +864,13 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         scheduler,
         scaler,
     ) = _prepare(config)
-    _artifacts(output_dir, config, runtime, model)
+    _initialize_fresh_output(
+        output_dir,
+        overwrite=config["experiment"]["overwrite_output"],
+    )
+    _write_initial_artifacts(
+        output_dir, config, runtime, model
+    )
     batch = move_multisource_batch(
         runtime.first_train_batch,
         device,
@@ -659,6 +895,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
     final_gradient = None
     for step in range(config["experiment"]["steps"]):
         model.train()
+        learning_rate_used = optimizer.param_groups[0]["lr"]
         _, metric, skipped = _optimize_batch(
             model,
             batch,
@@ -673,11 +910,14 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
                 "training.one_batch.objective_unavailable"
             )
         metric["step"] = step
-        metric["learning_rate"] = optimizer.param_groups[0]["lr"]
-        curve.append(metric)
+        metric["learning_rate_used"] = learning_rate_used
         final_gradient = metric["gradient_coverage"]
         if scheduler is not None:
             scheduler.step()
+        metric["next_learning_rate"] = optimizer.param_groups[0][
+            "lr"
+        ]
+        curve.append(metric)
     final_logits = _eval_logits(model, batch)
     model.eval()
     with torch.no_grad():
@@ -740,6 +980,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         reloaded_optimizer,
         scheduler=reloaded_scheduler,
         scaler=reloaded_scaler,
+        maximum_next_epoch=0,
         resolved_config=_checkpoint_config(config),
         data_fingerprints=runtime.fingerprints,
     )
@@ -765,6 +1006,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         "amp_enabled": bool(config["device"]["amp"]),
         "scaler_enabled": scaler.is_enabled(),
         "optimizer_step_count": config["experiment"]["steps"],
+        "duration_seconds": time.perf_counter() - started_at,
         "device": _device_evidence(device),
         "fingerprints": runtime.fingerprints,
     }
@@ -806,7 +1048,6 @@ def _committed_metric_envelopes(
     output_dir: Path,
 ) -> list[dict[str, Any]]:
     directory = _metric_directory(output_dir)
-    directory.mkdir(parents=True, exist_ok=True)
     files = sorted(directory.glob("epoch-*.json"))
     envelopes = []
     for expected, path in enumerate(files, start=1):
@@ -975,46 +1216,67 @@ def _run_epochs(
     stop_after_epoch: int | None,
     crash_after: str | None,
 ) -> dict[str, object]:
-    (
-        output_dir,
-        device,
-        runtime,
-        model,
-        optimizer,
-        scheduler,
-        scaler,
-    ) = _prepare(config)
-    _artifacts(output_dir, config, runtime, model)
+    started_at = time.perf_counter()
     resume = config["experiment"]["resume_from"]
+    entry_rng = capture_rng_state() if resume else None
+    try:
+        (
+            output_dir,
+            device,
+            runtime,
+            model,
+            optimizer,
+            scheduler,
+            scaler,
+        ) = _prepare(config)
+    except Exception:
+        if entry_rng is not None:
+            restore_rng_state(entry_rng)
+        raise
     start_epoch = 0
     best: float | None = None
     if resume:
-        (
-            start_epoch,
-            best,
-            committed_metric_rows,
-        ) = load_training_checkpoint(
-            resume,
-            model,
-            optimizer,
-            scheduler=scheduler,
-            scaler=scaler,
-            resolved_config=_checkpoint_config(config),
-            data_fingerprints=runtime.fingerprints,
-        )
-        _recover_metric_journal(
-            output_dir,
-            committed_metric_rows=committed_metric_rows,
-        )
+        try:
+            _validate_resume_artifacts(
+                output_dir, config, runtime, model
+            )
+            (
+                start_epoch,
+                best,
+                committed_metric_rows,
+            ) = load_training_checkpoint(
+                resume,
+                model,
+                optimizer,
+                scheduler=scheduler,
+                scaler=scaler,
+                maximum_next_epoch=int(
+                    config["experiment"]["epochs"]
+                ),
+                resolved_config=_checkpoint_config(config),
+                data_fingerprints=runtime.fingerprints,
+            )
+            _recover_metric_journal(
+                output_dir,
+                committed_metric_rows=committed_metric_rows,
+            )
+        except Exception:
+            if entry_rng is not None:
+                restore_rng_state(entry_rng)
+            raise
     else:
+        _initialize_fresh_output(
+            output_dir,
+            overwrite=config["experiment"]["overwrite_output"],
+        )
+        _write_initial_artifacts(
+            output_dir, config, runtime, model
+        )
         _reset_metric_journal(output_dir)
     epochs = int(config["experiment"]["epochs"])
-    if start_epoch > epochs:
-        raise TrainingContractError(
-            "training.resume.epoch_beyond_config"
-        )
     completed = start_epoch
     for epoch in range(start_epoch, epochs):
+        learning_rate_used = optimizer.param_groups[0]["lr"]
         model.train()
         train_accumulator = EpochMetricAccumulator(
             harmonic_weight=config["objective"]["harmonic_weight"],
@@ -1051,6 +1313,7 @@ def _run_epochs(
             raise TrainingContractError("training.epoch.empty")
         if scheduler is not None:
             scheduler.step()
+        next_learning_rate = optimizer.param_groups[0]["lr"]
         validation = None
         if (
             (epoch + 1)
@@ -1070,7 +1333,8 @@ def _run_epochs(
         row = {
             "epoch": epoch,
             "next_epoch": epoch + 1,
-            "learning_rate": optimizer.param_groups[0]["lr"],
+            "learning_rate_used": learning_rate_used,
+            "next_learning_rate": next_learning_rate,
             "train": train_metric,
             "validation": validation,
         }
@@ -1121,6 +1385,9 @@ def _run_epochs(
         "metrics": str(output_dir / "metrics.jsonl"),
         "last_checkpoint": str(output_dir / "last.pt"),
         "best_checkpoint": str(output_dir / "best.pt"),
+        "amp_enabled": bool(config["device"]["amp"]),
+        "scaler_enabled": scaler.is_enabled(),
+        "duration_seconds": time.perf_counter() - started_at,
         "device": _device_evidence(device),
         "fingerprints": runtime.fingerprints,
         "validation_membership": asdict(
@@ -1128,7 +1395,7 @@ def _run_epochs(
         ),
         "objective": config["objective"],
     }
-    _write_json(output_dir / "training_report.json", report)
+    _write_json_atomic(output_dir / "training_report.json", report)
     return report
 
 
@@ -1147,6 +1414,8 @@ def run_training(
 
     plain = _plain_config(config)
     _resolve_presets(plain)
+    _validate_config(plain)
+    _preflight_output_lifecycle(plain)
     if crash_after not in {
         None,
         "metric_write",

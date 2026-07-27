@@ -8,8 +8,13 @@ import pytest
 import torch
 
 from music_critic.tasks import collate_multisource_samples
+from music_critic.training.checkpoint import capture_rng_state
 from music_critic.training.config import register_training_configs
-from music_critic.training.engine import InjectedTrainingCrash, run_training
+from music_critic.training.engine import (
+    InjectedTrainingCrash,
+    TrainingContractError,
+    run_training,
+)
 from music_critic.training.models import build_baseline_model
 from music_critic.training.device import move_multisource_batch
 
@@ -57,6 +62,17 @@ def _assert_state_equal(left, right) -> None:
         assert left == right
 
 
+def _artifact_snapshot(root: Path):
+    return {
+        path.relative_to(root).as_posix(): (
+            path.read_bytes(),
+            path.stat().st_mtime_ns,
+        )
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
+
+
 def test_one_batch_repetition_is_deterministic_and_writes_artifacts(
     tmp_path: Path,
 ) -> None:
@@ -95,6 +111,7 @@ def test_one_batch_repetition_is_deterministic_and_writes_artifacts(
         "resolved_config.json",
         "fingerprints.json",
         "mixture_statistics.json",
+        "run_manifest.json",
         "one_batch_report.json",
         "one_batch.pt",
     ):
@@ -184,13 +201,21 @@ def test_epoch_boundary_resume_is_bit_exact_in_metrics(
     ]
     assert [row["epoch"] for row in rows] == [0, 1]
     for row in rows:
-        assert row["train"]["hot_path_instrumentation"] == {
-            "epoch_finalize_device_to_host_syncs": 1,
-            "gradient_evidence_scans": 0,
-            "per_family_host_syncs": 0,
-            "per_parameter_host_syncs": 0,
-            "per_task_host_syncs": 0,
-        }
+        train_transfers = row["train"]["runtime_transfer_evidence"]
+        assert train_transfers["gradient_evidence_scans"] == 0
+        assert (
+            train_transfers[
+                "metric_packed_device_to_host_transfers"
+            ]
+            <= row["train"]["batch_count"]
+        )
+        assert (
+            train_transfers["metric_packed_host_materializations"]
+            <= row["train"]["batch_count"]
+        )
+        assert train_transfers["retained_tensor_count"] == 0
+        assert train_transfers["retained_device_tensor_count"] == 0
+        assert train_transfers["retained_device_tensor_bytes"] == 0
         validation = row["validation"]
         assert validation["membership"]["selected_count"] == 3
         assert validation["membership"]["full_view_count"] == 3
@@ -199,13 +224,29 @@ def test_epoch_boundary_resume_is_bit_exact_in_metrics(
             "hooktheory": 2,
             "pop909_cl": 1,
         }
-        assert validation["hot_path_instrumentation"] == {
-            "epoch_finalize_device_to_host_syncs": 1,
-            "gradient_evidence_scans": 0,
-            "per_family_host_syncs": 0,
-            "per_parameter_host_syncs": 0,
-            "per_task_host_syncs": 0,
-        }
+        validation_transfers = validation[
+            "runtime_transfer_evidence"
+        ]
+        assert validation_transfers["gradient_evidence_scans"] == 0
+        assert (
+            validation_transfers[
+                "metric_packed_device_to_host_transfers"
+            ]
+            <= validation["batch_count"]
+        )
+        assert (
+            validation_transfers[
+                "metric_packed_host_materializations"
+            ]
+            <= validation["batch_count"]
+        )
+        assert validation_transfers["retained_tensor_count"] == 0
+        assert (
+            validation_transfers["retained_device_tensor_count"] == 0
+        )
+        assert (
+            validation_transfers["retained_device_tensor_bytes"] == 0
+        )
         for task in validation["tasks"].values():
             assert task["eligible_row_count"] > 0
             assert task["loss_numerator"] >= 0
@@ -296,3 +337,101 @@ def test_epoch_commit_recovers_without_duplicate_or_lost_metrics(
         .splitlines()
     ]
     assert [row["epoch"] for row in rows] == [0, 1]
+
+
+def test_fresh_run_rejects_managed_artifact_collision(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "collision"
+    run_training(_config(output))
+    before = _artifact_snapshot(output)
+
+    with pytest.raises(
+        TrainingContractError,
+        match="training.output.managed_artifact_collision",
+    ):
+        run_training(_config(output))
+
+    assert _artifact_snapshot(output) == before
+
+
+def test_explicit_overwrite_cleans_only_managed_artifacts(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "overwrite"
+    run_training(_config(output, "smoke"))
+    unknown_root = output / "user-notes.txt"
+    unknown_root.write_text("preserve me", encoding="utf-8")
+    unknown_journal = output / "epoch_metrics" / "user-data.txt"
+    unknown_journal.write_text("preserve me too", encoding="utf-8")
+
+    config = _config(output)
+    config.experiment.overwrite_output = True
+    report = run_training(config)
+
+    assert report["checkpoint_reload_bit_exact"] is True
+    assert unknown_root.read_text(encoding="utf-8") == "preserve me"
+    assert (
+        unknown_journal.read_text(encoding="utf-8")
+        == "preserve me too"
+    )
+    for name in (
+        "metrics.jsonl",
+        "training_report.json",
+        "last.pt",
+        "best.pt",
+        "epoch-0001.pt",
+        "epoch-0002.pt",
+    ):
+        assert not (output / name).exists()
+    assert (output / "one_batch.pt").is_file()
+    assert (output / "run_manifest.json").is_file()
+
+
+def test_incompatible_resume_preserves_rng_and_all_artifacts(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "incompatible-resume"
+    run_training(
+        _config(output, "smoke"),
+        stop_after_epoch=1,
+    )
+    before_artifacts = _artifact_snapshot(output)
+    before_rng = capture_rng_state()
+    config = _config(output, "smoke")
+    config.experiment.resume_from = str(output / "last.pt")
+    config.optimizer.learning_rate = 0.123
+
+    with pytest.raises(
+        TrainingContractError,
+        match="training.output.run_manifest_binding_mismatch",
+    ):
+        run_training(config)
+
+    _assert_state_equal(capture_rng_state(), before_rng)
+    assert _artifact_snapshot(output) == before_artifacts
+
+
+def test_cosine_epoch_rows_distinguish_used_and_next_lr(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "cosine"
+    config = _config(output, "smoke")
+    config.experiment.epochs = 3
+    config.scheduler.name = "cosine"
+    run_training(config)
+    rows = [
+        json.loads(line)
+        for line in (output / "metrics.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+
+    assert all("learning_rate" not in row for row in rows)
+    assert [row["learning_rate_used"] for row in rows] == pytest.approx(
+        [3e-4, 2.25e-4, 7.5e-5]
+    )
+    assert [row["next_learning_rate"] for row in rows] == pytest.approx(
+        [2.25e-4, 7.5e-5, 0.0],
+        abs=1e-12,
+    )

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
 import torch
 
 from music_critic.tasks import collate_multisource_samples
@@ -121,6 +122,18 @@ def _aggregate(groups):
     return accumulator.finalize()
 
 
+def _assert_close(left, right) -> None:
+    if isinstance(right, dict):
+        assert isinstance(left, dict)
+        assert left.keys() == right.keys()
+        for key in right:
+            _assert_close(left[key], right[key])
+    elif isinstance(right, float):
+        assert left == pytest.approx(right, rel=1e-7, abs=1e-9)
+    else:
+        assert left == right
+
+
 def test_epoch_metrics_and_best_scalar_ignore_batch_size_and_order() -> None:
     _, validation = _bounded_samples()
     together = _aggregate((validation,))
@@ -131,14 +144,24 @@ def test_epoch_metrics_and_best_scalar_ignore_batch_size_and_order() -> None:
         ((validation[2],), (validation[1],), (validation[0],))
     )
     for result in (split, reversed_order):
-        assert result["tasks"] == together["tasks"]
-        assert result["reconstruction"] == together["reconstruction"]
-        assert result["harmonic_loss"] == together["harmonic_loss"]
-        assert result["reconstruction_loss"] == together[
-            "reconstruction_loss"
-        ]
-        assert result["objective_loss"] == together["objective_loss"]
-        assert result["per_dataset"] == together["per_dataset"]
+        _assert_close(result["tasks"], together["tasks"])
+        _assert_close(
+            result["reconstruction"],
+            together["reconstruction"],
+        )
+        _assert_close(
+            result["harmonic_loss"], together["harmonic_loss"]
+        )
+        _assert_close(
+            result["reconstruction_loss"],
+            together["reconstruction_loss"],
+        )
+        _assert_close(
+            result["objective_loss"], together["objective_loss"]
+        )
+        _assert_close(
+            result["per_dataset"], together["per_dataset"]
+        )
     task = together["tasks"]["theory.chord.extent"]
     assert task == {
         "loss_numerator": 1.75,
@@ -153,10 +176,43 @@ def test_epoch_metrics_and_best_scalar_ignore_batch_size_and_order() -> None:
         "hooktheory",
         "pop909_cl",
     }
-    assert together["hot_path_instrumentation"] == {
+    assert together["runtime_transfer_evidence"] == {
         "gradient_evidence_scans": 0,
-        "per_parameter_host_syncs": 0,
-        "per_task_host_syncs": 0,
-        "per_family_host_syncs": 0,
-        "epoch_finalize_device_to_host_syncs": 1,
+        "metric_packed_device_to_host_transfers": 0,
+        "metric_packed_host_materializations": 1,
+        "metric_packed_host_scalars": 8,
+        "aggregate_bucket_count": 4,
+        "retained_tensor_count": 0,
+        "retained_device_tensor_count": 0,
+        "retained_device_tensor_bytes": 0,
+    }
+
+
+def test_metric_storage_does_not_grow_with_synthetic_epoch_size() -> None:
+    _, validation = _bounded_samples()
+    batch = collate_multisource_samples(validation)
+    output = _synthetic_output(batch)
+    accumulator = EpochMetricAccumulator(
+        harmonic_weight=1.0,
+        reconstruction_weight=1.0,
+        task_weights={},
+    )
+    observed_bucket_counts = set()
+    for _ in range(1_000):
+        accumulator.add(output, batch)
+        evidence = accumulator.storage_evidence()
+        observed_bucket_counts.add(evidence["aggregate_bucket_count"])
+        assert evidence["retained_tensor_count"] == 0
+        assert evidence["retained_device_tensor_count"] == 0
+        assert evidence["retained_device_tensor_bytes"] == 0
+
+    assert observed_bucket_counts == {4}
+    result = accumulator.finalize()
+    transfers = result["runtime_transfer_evidence"]
+    assert transfers["metric_packed_device_to_host_transfers"] == 0
+    assert transfers["metric_packed_host_materializations"] == 1_000
+    assert transfers["aggregate_bucket_count"] == 4
+    assert result["dataset_counts"] == {
+        "hooktheory": 2_000,
+        "pop909_cl": 1_000,
     }

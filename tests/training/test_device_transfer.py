@@ -105,9 +105,8 @@ def test_normal_transfer_validates_semantics_only_on_cpu(
         "cpu",
         instrumentation=evidence,
     )
-    assert evidence.cpu_semantic_validations == 1
-    assert evidence.device_semantic_validations == 0
-    assert evidence.device_tensor_to_python_syncs == 0
+    assert evidence.source_cpu_semantic_validation_calls == 1
+    assert evidence.post_transfer_debug_validation_calls == 0
 
     debug_evidence = TransferInstrumentation()
     move_multisource_batch(
@@ -116,6 +115,9 @@ def test_normal_transfer_validates_semantics_only_on_cpu(
         debug_validate_device=True,
         instrumentation=debug_evidence,
     )
-    assert debug_evidence.cpu_semantic_validations == 1
-    assert debug_evidence.device_semantic_validations == 1
-    assert debug_evidence.device_tensor_to_python_syncs == 0
+    assert (
+        debug_evidence.source_cpu_semantic_validation_calls == 1
+    )
+    assert (
+        debug_evidence.post_transfer_debug_validation_calls == 1
+    )

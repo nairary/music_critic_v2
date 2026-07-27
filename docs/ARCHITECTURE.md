@@ -403,9 +403,14 @@ deterministic quota sampler, and production collator. Only training membership
 is epoch-dependent. Validation is a fixed, fingerprinted, no-replacement full
 view by default or one fixed bounded subset. Per-task and per-dataset epoch
 metrics accumulate loss numerators and exact eligible-row denominators, so the
-explicitly weighted objective does not depend on batch partitioning. The
-supervised preset uses LR `3e-4` and no reconstruction; joint visible
-reconstruction is a named ablation.
+explicitly weighted objective is independent of batch partitioning within a
+documented floating-point tolerance. Each batch reduces to
+dataset/task-or-field scalars, performs at most one packed device-to-host
+transfer, and folds into bounded CPU buckets; no prior-batch tensor view is
+retained. Persistent device metric memory is zero, while CPU aggregate storage
+is `O(dataset_count * task_or_field_count)`. The supervised preset uses LR
+`3e-4` and no reconstruction; joint visible reconstruction is a named
+ablation.
 
 Training checkpoints bind resolved objective/configuration,
 data/index/split/composition fingerprints, and existing model contracts. They
@@ -416,11 +421,20 @@ checkpoint row count make `metrics.jsonl`/`last.pt` crash-consistent. Resume is
 deterministic only at an epoch boundary; mid-epoch resume is intentionally not
 implemented.
 
-Normal CUDA training validates semantic binding on CPU, performs no
-per-parameter/task/feature-family host synchronization, and transfers packed
-epoch scalars once at metric finalization. Full gradient evidence remains a
-one-batch or explicit diagnostic operation. Commands and artifact semantics
-are in `TRAINING.md`.
+Fresh runs reject managed-artifact collisions unless explicit overwrite is
+enabled; overwrite removes only the known managed set. A versioned run
+manifest binds evidence artifacts and the checkpoint contract. Resume
+validates this manifest and `next_epoch <= configured epochs` before live-state
+mutation or artifact/journal writes.
+
+Normal CUDA training validates semantic binding on CPU. The engine/device hot
+path has no tensor-to-Python conversion, and joint reconstruction has no
+per-feature-family data-dependent host predicate. Metrics perform one explicit
+packed transfer per non-empty batch; reports expose actual transfer and
+retained-storage counters. Full gradient evidence remains a one-batch or
+explicit diagnostic operation. Epoch rows distinguish
+`learning_rate_used` from post-scheduler `next_learning_rate`. Commands and
+artifact semantics are in `TRAINING.md`.
 
 ## Incremental research scope
 

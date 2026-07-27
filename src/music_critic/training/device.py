@@ -27,9 +27,8 @@ class DeviceTransferError(ValueError):
 
 @dataclass(slots=True)
 class TransferInstrumentation:
-    cpu_semantic_validations: int = 0
-    device_semantic_validations: int = 0
-    device_tensor_to_python_syncs: int = 0
+    source_cpu_semantic_validation_calls: int = 0
+    post_transfer_debug_validation_calls: int = 0
 
 
 def _without_post_init(
@@ -253,7 +252,7 @@ def move_multisource_batch(
         raise DeviceTransferError("training.device.source_not_cpu")
     validate_device_batch(batch, "cpu")
     if instrumentation is not None:
-        instrumentation.cpu_semantic_validations += 1
+        instrumentation.source_cpu_semantic_validation_calls += 1
     target_device = torch.device(device)
     graph = copy.deepcopy(batch.raw_graph_batch)
     # PyG's recursive ``Data.to`` also rewrites tuple-valued CPU metadata
@@ -286,7 +285,7 @@ def move_multisource_batch(
     if debug_validate_device:
         validate_device_batch(moved, target_device, source=batch)
         if instrumentation is not None:
-            instrumentation.device_semantic_validations += 1
+            instrumentation.post_transfer_debug_validation_calls += 1
     return moved
 
 

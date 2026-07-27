@@ -155,9 +155,18 @@ def load_training_checkpoint(
     *,
     scheduler: Any,
     scaler: Any,
+    maximum_next_epoch: int,
     resolved_config: dict[str, object],
     data_fingerprints: dict[str, object],
 ) -> tuple[int, float | None, int]:
+    if (
+        isinstance(maximum_next_epoch, bool)
+        or not isinstance(maximum_next_epoch, int)
+        or maximum_next_epoch < 0
+    ):
+        raise TrainingCheckpointError(
+            "training.checkpoint.maximum_next_epoch_invalid"
+        )
     try:
         payload = torch.load(
             Path(path), map_location="cpu", weights_only=True
@@ -201,6 +210,7 @@ def load_training_checkpoint(
         next_epoch,
         best,
         committed_metric_rows,
+        maximum_next_epoch=maximum_next_epoch,
     )
     try:
         model_state = _validate_model_state(
@@ -277,6 +287,8 @@ def _validate_epoch_fields(
     next_epoch: object,
     best_validation_loss: object,
     committed_metric_rows: object,
+    *,
+    maximum_next_epoch: int | None = None,
 ) -> None:
     if (
         isinstance(next_epoch, bool)
@@ -285,6 +297,13 @@ def _validate_epoch_fields(
     ):
         raise TrainingCheckpointError(
             "training.checkpoint.next_epoch_invalid"
+        )
+    if (
+        maximum_next_epoch is not None
+        and next_epoch > maximum_next_epoch
+    ):
+        raise TrainingCheckpointError(
+            "training.checkpoint.next_epoch_beyond_configured"
         )
     if (
         best_validation_loss is not None

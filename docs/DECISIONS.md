@@ -1111,7 +1111,13 @@ This log is append-only.
 - Decision: Aggregate task loss as an epoch numerator divided by its exact
   eligible-row denominator, then compute the epoch harmonic objective from
   explicitly weighted task means. Do not average batch means. Emit the same
-  task/count accounting per dataset.
+  task/count accounting per dataset. Reduce each batch to dataset/task-or-field
+  scalars on device, use at most one packed host transfer, and immediately fold
+  into CPU aggregates. Retain no device tensor from earlier batches;
+  persistent GPU metric memory is zero and CPU aggregate memory is
+  `O(dataset_count * task_or_field_count)`. Floating-point aggregation is
+  batch/order independent within the documented numerical tolerance, not
+  claimed bit-exact under arbitrary reduction orders.
 - Decision: Training checkpoints `1.0.0` bind the existing model contract,
   fully resolved configuration fingerprint, and corpus/index/split/
   composition fingerprints. Store model, optimizer, scheduler, AMP scaler,
@@ -1122,12 +1128,26 @@ This log is append-only.
   checkpoint `committed_metric_rows` make `last.pt` and `metrics.jsonl`
   recoverable across either write-order crash window. Resume is supported only
   at deterministic epoch boundaries; mid-epoch resume remains explicitly
-  deferred.
+  deferred. Require the checkpoint loader to reject
+  `next_epoch > configured epochs` during prevalidation, before any live-state
+  mutation.
+- Decision: A fresh run rejects an output directory containing managed
+  training artifacts. Explicit `experiment.overwrite_output=true` removes the
+  complete known managed set but never unknown user files. Resume cannot use
+  overwrite; it validates a versioned run manifest and existing evidence
+  fingerprints before journal recovery or any artifact write. An incompatible
+  resume leaves both live state and artifacts unchanged.
+- Decision: Epoch evidence records `learning_rate_used` before optimizer
+  steps and `next_learning_rate` after scheduler advancement. Do not emit the
+  prior ambiguous `learning_rate` field.
 - Decision: Validate raw graph/target semantics on CPU before transfer. Normal
-  CUDA training performs no full gradient-evidence scan and no
-  per-parameter/task/feature-family tensor-to-host conversions. Gradient
-  evidence is restricted to one-batch or explicit diagnostic mode; epoch
-  scalar evidence is packed into one finalization transfer.
+  CUDA training performs no full gradient-evidence scan. Engine/device
+  hot-path functions contain no tensor-to-Python conversion, joint
+  reconstruction avoids per-feature-family data-dependent host predicates,
+  and metric transfers are explicitly counted at their single packed
+  per-batch site. Retained device tensors/bytes are measured from accumulator
+  state. Gradient evidence is restricted to one-batch or explicit diagnostic
+  mode.
 - Decision: Split planning remains target-blind and delegates to
   `plan_group_hash_split`, followed by the existing complete global
   source/lineage validation. CUDA acceptance is optional in CPU CI and must

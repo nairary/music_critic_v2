@@ -28,6 +28,10 @@ mixture weights, learning rate, weight decay, gradient clipping, epochs, AMP,
 output directory, checkpoint interval, and validation interval. There are no
 environment-derived or timestamp-derived training defaults. Every run writes
 the fully resolved application configuration to `resolved_config.json`.
+Fresh runs reject an output directory that already contains managed training
+artifacts. Set `experiment.overwrite_output=true` to remove the complete
+managed artifact set before starting; unknown files are preserved. Resume and
+overwrite are mutually exclusive.
 
 The presets are intentionally different:
 
@@ -150,7 +154,9 @@ Training uses the existing `CorpusIndex`, `CorpusCacheConfig`,
 `SplitManifest`, `MultiCorpusDataset`, `DeterministicQuotaSampler`, and
 `make_multisource_dataloader` contracts. Each epoch records per-task losses,
 availability counts, realized dataset counts, aggregate losses, validation
-metrics, and learning rate in `metrics.jsonl`. The run also writes resolved
+metrics, `learning_rate_used` for optimizer steps in that epoch, and
+`next_learning_rate` after `scheduler.step()` in `metrics.jsonl`. There is no
+ambiguous `learning_rate` field. The run also writes resolved
 configuration, mixture statistics, corpus/index/split/composition
 fingerprints, and the existing model-contract fingerprint.
 
@@ -176,7 +182,16 @@ harmonic_weight * harmonic_epoch_mean
 
 Unavailable terms are omitted rather than turned into zero or negative
 examples. The same numerator/denominator accounting is emitted per dataset,
-so validation is invariant to batch size, partitioning, and order.
+so validation is independent of batch size, partitioning, and order within
+the documented floating-point tolerance. Each batch reduces all task and
+reconstruction values into dataset/field scalars on device, packs them, and
+performs at most one device-to-host transfer. Only CPU numerator/denominator
+buckets are retained across batches. Persistent GPU metric storage is
+therefore zero (and in particular bounded by
+`O(dataset_count * task_or_field_count)`); transient device storage is bounded
+by the current batch. The report distinguishes actual CUDA-to-host transfers
+from packed host materializations, and records actual packed scalar and
+retained tensor/byte counts.
 
 `last.pt`, `best.pt`, and interval `epoch-NNNN.pt` checkpoints contain model,
 optimizer, scheduler, AMP scaler, next epoch, best validation metric, and
@@ -196,8 +211,11 @@ python -m music_critic.training.run \
 ```
 
 All contract-bound configuration and data fingerprints must match the saved
-checkpoint. Loading prevalidates the complete payload, epoch/best/metric-row
-fields, model/optimizer structure, auxiliary state application, and RNG
+checkpoint and the existing `run_manifest.json`. Resume validates the
+manifest and fingerprints before writing or journal recovery. Loading
+prevalidates the complete payload, requires
+`0 <= next_epoch <= experiment.epochs`, validates the matching committed-row
+count, model/optimizer structure, auxiliary state application, and RNG
 shape/availability as far as possible. If live application still fails,
 model, optimizer, scheduler, scaler, and Python/CPU/CUDA RNG are rolled back
 bit-exactly.
@@ -226,10 +244,13 @@ post-transfer semantic validation is available through
 `debug_validate_device=True`.
 
 Normal multi-epoch training does not collect parameter-by-parameter gradient
-evidence. The default hot path has zero per-parameter, per-task, and
-per-feature-family tensor-to-host conversions; epoch metric finalization packs
-all scalar numerators/denominators into one host transfer. Gradient evidence
-is reserved for one-batch mode or an explicit
+evidence. The default engine/device hot path has no tensor-to-Python
+conversion. Joint visible reconstruction computes field availability
+device-side without one data-dependent host predicate per family. Metrics use
+one explicit packed device-to-host transfer per non-empty batch and retain no
+device tensors afterward; these are runtime counters, while static
+source-contract tests guard the prohibited conversion sites. Gradient
+evidence is reserved for one-batch mode or an explicit
 `experiment.collect_gradient_evidence=true` diagnostic run.
 
 `tests/training/test_cuda_acceptance.py` executes the documented CLI itself
@@ -241,4 +262,7 @@ change, and requires every other sample's logits and fused embeddings to
 remain bit-exact. A CPU-only CI runner reports explicit skips. Manual GPU
 evidence must name the actual device and report peak allocated/reserved bytes
 from `one_batch_report.json`; GPU or VRAM results must not be inferred when
-CUDA hardware is absent.
+CUDA hardware is absent. Additional optional tests exercise a real
+hierarchical supervised train/validation path with AMP, fixed validation,
+uninterrupted versus epoch-boundary-resumed equivalence, finite losses and
+gradient scans, checkpoint reload, and bounded retained metric VRAM.

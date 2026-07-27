@@ -52,6 +52,7 @@ class ExperimentConfig:
     checkpoint_interval: int = 1
     validation_interval: int = 1
     resume_from: str = ""
+    overwrite_output: bool = False
     default_learning_rate: float = 0.02
     default_objective: str = "one_batch_joint"
     default_harmonic_weight: float = 1.0

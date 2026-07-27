@@ -106,9 +106,12 @@
   fingerprinted, no-replacement full view by default or one fixed bounded
   subset. Metrics accumulate per-task loss numerators and exact eligible-row
   denominators, recompute the weighted objective from epoch task means, and
-  emit per-dataset counts/metrics. Under the supervised preset, batches without
-  harmonic rows skip; reconstruction is active only in the named joint
-  ablation. Missing labels never become negatives.
+  emit per-dataset counts/metrics. Each non-empty batch makes at most one
+  packed metric device-to-host transfer and folds into bounded CPU buckets;
+  the accumulator retains zero device tensors/bytes regardless of epoch
+  length. Under the supervised preset, batches without harmonic rows skip;
+  reconstruction is active only in the named joint ablation. Missing labels
+  never become negatives.
 - Training checkpoints contain model, optimizer, scheduler, scaler, next
   epoch, best fixed-validation metric, committed metric-row count,
   Python/CPU-torch/CUDA-torch RNG, resolved-config
@@ -117,7 +120,19 @@
   prevalidated; any live optimizer/scheduler/application failure rolls back
   model, optimizer, scheduler, scaler, and RNG bit-exactly. Atomic per-epoch
   records plus `committed_metric_rows` recover either epoch write-order crash
-  without duplicate/lost metric rows. Resume is epoch-boundary only.
+  without duplicate/lost metric rows. `next_epoch` is bounded by configured
+  epochs before live mutation. Resume is epoch-boundary only.
+- Fresh runs reject managed output collisions. Explicit overwrite removes the
+  known journal, metric, report, last/best, and interval checkpoint set while
+  preserving unknown files. Resume validates the run manifest and existing
+  evidence before any write or journal recovery; incompatible resume preserves
+  RNG and every existing artifact byte/mtime.
+- Epoch rows now record the LR actually used as `learning_rate_used` and the
+  post-scheduler value as `next_learning_rate`; the ambiguous old field is not
+  emitted. Runtime evidence distinguishes actual CUDA-to-host metric transfers
+  from packed host materializations, and counts packed scalars and retained
+  tensor storage. Static guards cover engine/device tensor-to-Python
+  conversions and joint-reconstruction per-family host predicates.
 - The split CLI wraps target-blind `plan_group_hash_split` and then performs
   existing complete global source/lineage validation before atomic output.
 - This environment has CPU-only PyTorch `2.13.0+cpu`, no CUDA runtime, and no
@@ -133,7 +148,9 @@
 - The exact default hierarchical CPU command used seed 42, hidden size 128,
   three local layers, two Transformer layers, four heads, batch size 3, 40
   AdamW steps at learning rate 0.02, clipping at 1.0, no AMP, and no scheduler.
-  Its resolved configuration is stored with the run.
+  Its resolved configuration was stored with the temporary run. On the final
+  remediation tree it completed in `4.81744 s` under PyTorch `2.13.0+cpu`
+  with deterministic algorithms enabled.
 - The bounded mixed batch contained three graphs and 237 candidates.
   Eval harmonic loss decreased from `1.7528455257` to `0.0`; visible-input
   reconstruction decreased from `2.5410101414` to `0.0010602905`. The saved
@@ -145,16 +162,17 @@
   checkpointed stop after epoch one plus resume. `metrics.jsonl` and complete
   final model, optimizer, scheduler, scaler, RNG, epoch, and best-metric states
   match bit-exactly.
-- Focused Phase 6C tests pass `36 passed, 2 optional CUDA skips`.
-  They cover fixed validation, batch-partition-invariant numerator/denominator
-  metrics, preset/task eligibility, full live-state rollback after partial
-  optimizer and scheduler mutation, both crash windows, and normal-hot-path
-  synchronization instrumentation. The full default suite passes `759 passed,
-  15 skipped`; the remaining skips are explicitly gated real-data/CUDA tests.
-  The deterministic target audit `--check`, compileall over `src`, `scripts`,
-  and `tests`, and `git diff --check` pass. The only warnings are the two
-  existing upstream PyTorch JIT deprecations. Required GitHub CI remains the
-  remote merge gate.
+- Final focused Phase 6C tests pass `45 passed, 4 optional CUDA skips`; the
+  direct CUDA acceptance invocation reports the same four honest skips on this
+  CPU-only host. The full default suite passes `768 passed, 17 skipped`, with
+  two existing upstream PyTorch JIT deprecation warnings. New coverage
+  includes 1,000 synthetic metric batches with constant retained device
+  tensors/bytes, fresh collision, explicit overwrite,
+  artifact/RNG-atomic incompatible resume, cosine used/next LR evidence,
+  pre-mutation future-epoch rejection, and static synchronization guards.
+  Deterministic target audit `--check`, compileall over `src`, `scripts`, and
+  `tests`, and `git diff --check` pass. Required GitHub CI remains the remote
+  merge gate.
 
 ## Phase 6B deterministic hierarchy and coarse-context result
 
