@@ -288,6 +288,15 @@ implicitly. The optional group-hash planner is target-blind and requires
 explicit fixture/user seed and ratios. No production split is selected in
 this phase.
 
+POP909-CL adapter `1.0.1` separates source-record identity
+(`piece:pop909-cl-<song-id>`), target-independent score-only equivalence
+(`source_group_id`), and cross-corpus song lineage (`lineage_group_id`).
+Canonical serialization preserves record identity. Raw graph fingerprints
+normalize the song entity ID and represent model-facing score
+structure/features, while target-bundle identity remains a separate sidecar.
+The unchanged transitive source/lineage algorithm therefore keeps exact score
+duplicates split-atomic without collapsing distinct target observations.
+
 `MultiCorpusDataset` composes one globally validated split in stable dataset-ID
 order. Its versioned composition fingerprint commits to the global manifest,
 constituent indices, and ordered membership of every view.

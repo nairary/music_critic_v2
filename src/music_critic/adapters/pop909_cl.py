@@ -33,8 +33,8 @@ from music_critic.data import (
 )
 
 
-POP909_CL_ADAPTER_VERSION = "1.0.0"
-POP909_CL_CORPUS_MANIFEST_VERSION = "1.0.0"
+POP909_CL_ADAPTER_VERSION = "1.0.1"
+POP909_CL_CORPUS_MANIFEST_VERSION = "1.0.1"
 POP909_CL_DATASET_NAME = "pop909_cl"
 POP909_CL_UPSTREAM_REPOSITORY = (
     "https://github.com/AndyWeasley2004/POP909-CL-Dataset"
@@ -72,6 +72,7 @@ POP909_CL_TASKS = (
 _SCORE_CHANNEL = 0
 _CHORD_CHANNEL = 1
 _SONG_ID_RE = re.compile(r"^[0-9]{3}$")
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _MIDI_SUFFIXES = frozenset({".mid", ".midi"})
 _PITCH_CLASS_NAMES = (
     "C",
@@ -356,7 +357,7 @@ Pop909ClConversionResult = (
 )
 
 
-def pop909_cl_source_group_id(song_id: str) -> str:
+def pop909_cl_piece_id(song_id: str) -> str:
     normalized = song_id.strip()
     if not _SONG_ID_RE.fullmatch(normalized):
         raise Pop909ClAdapterError(
@@ -364,7 +365,32 @@ def pop909_cl_source_group_id(song_id: str) -> str:
             category="pop909_cl.song_id_invalid",
             song_id=None,
         )
-    return f"pop909-cl:{normalized}"
+    return f"piece:pop909-cl-{normalized}"
+
+
+def pop909_cl_raw_input_group_id(
+    score_projection_sha256: str,
+) -> str:
+    if (
+        not isinstance(score_projection_sha256, str)
+        or _SHA256_RE.fullmatch(score_projection_sha256) is None
+    ):
+        raise Pop909ClAdapterError(
+            "invalid POP909-CL score projection SHA-256",
+            category="pop909_cl.score_projection_fingerprint_invalid",
+            song_id=None,
+        )
+    return f"pop909-cl-score:{score_projection_sha256}"
+
+
+def pop909_cl_source_group_id(
+    score_projection_sha256: str,
+) -> str:
+    """Return the split-atomic score-equivalence identity."""
+
+    return pop909_cl_raw_input_group_id(
+        score_projection_sha256
+    )
 
 
 def pop909_lineage_group_id(song_id: str) -> str:
@@ -542,14 +568,45 @@ def discover_pop909_cl_corpus(
         if len(paths) != 1:
             continue
         path = paths[0]
+        try:
+            payload = path.read_bytes()
+            midi = mido.MidiFile(file=BytesIO(payload))
+            resolution = inspect_pop909_cl_instruments(midi)
+            projection = project_pop909_cl_score_bytes(
+                midi, resolution
+            )
+        except (
+            EOFError,
+            KeyError,
+            OSError,
+            ValueError,
+            Pop909ClAdapterError,
+        ) as exc:
+            issues.append(
+                Pop909ClCorpusIssue(
+                    category="score_projection_unavailable",
+                    song_id=song_id,
+                    paths=(
+                        path.relative_to(root_path).as_posix(),
+                    ),
+                    message=(
+                        "cannot establish target-independent raw-input "
+                        f"equivalence: {type(exc).__name__}"
+                    ),
+                )
+            )
+            continue
+        projection_sha256 = sha256(projection).hexdigest()
         records.append(
             Pop909ClCorpusRecord(
                 song_id=song_id,
                 path=path.resolve(),
                 relative_path=path.relative_to(root_path).as_posix(),
                 corpus_relative_path=path.relative_to(corpus_root).as_posix(),
-                sha256=_file_sha256(path),
-                source_group_id=pop909_cl_source_group_id(song_id),
+                sha256=sha256(payload).hexdigest(),
+                source_group_id=pop909_cl_source_group_id(
+                    projection_sha256
+                ),
                 lineage_group_id=pop909_lineage_group_id(song_id),
             )
         )
@@ -1515,6 +1572,7 @@ def _convert_score_projection(
                 dataset_name=POP909_CL_DATASET_NAME,
                 source_group_id=record.source_group_id,
                 split=None,
+                piece_id=pop909_cl_piece_id(record.song_id),
             ),
         )
     except MidiAdapterError as exc:
@@ -1582,6 +1640,12 @@ def convert_pop909_cl_file(
         )
     projection = project_pop909_cl_score_bytes(midi, resolution)
     projection_sha256 = sha256(projection).hexdigest()
+    record = replace(
+        record,
+        source_group_id=pop909_cl_raw_input_group_id(
+            projection_sha256
+        ),
+    )
     evidence = _extract_chord_evidence(midi, resolution, record)
     try:
         piece = _convert_score_projection(projection, record)
@@ -1701,6 +1765,8 @@ __all__ = [
     "discover_pop909_cl_corpus",
     "inspect_pop909_cl_instruments",
     "iter_pop909_cl_corpus",
+    "pop909_cl_piece_id",
+    "pop909_cl_raw_input_group_id",
     "pop909_cl_source_group_id",
     "pop909_lineage_group_id",
     "project_pop909_cl_score_bytes",

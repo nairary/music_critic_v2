@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from hashlib import sha256
 from pathlib import Path
 import subprocess
 import sys
@@ -23,6 +24,7 @@ from music_critic.data import (
     loads_piece,
     validate_piece,
 )
+from music_critic.graph import build_raw_graph, graph_fingerprint
 
 
 CONFIG = MidiAdapterConfig(dataset_name="test-midi")
@@ -485,6 +487,76 @@ def test_deterministic_ids_do_not_depend_on_absolute_path(tmp_path: Path) -> Non
     assert [note.note_id for note in piece_a.notes] == [note.note_id for note in piece_b.notes]
     assert [bar.bar_id for bar in piece_a.bars] == [bar.bar_id for bar in piece_b.bars]
     assert [beat.beat_id for beat in piece_a.beats] == [beat.beat_id for beat in piece_b.beats]
+
+
+def test_default_and_explicit_piece_identity_contract(
+    tmp_path: Path,
+) -> None:
+    path = _write_midi(
+        tmp_path,
+        [[
+            mido.Message(
+                "note_off", note=60, velocity=0, time=0
+            )
+        ]],
+    )
+    default = _load(path)
+    explicit_a = _load(
+        path,
+        config=MidiAdapterConfig(
+            dataset_name="test-midi",
+            piece_id="piece:source-record-a",
+        ),
+    )
+    explicit_b = _load(
+        path,
+        config=MidiAdapterConfig(
+            dataset_name="test-midi",
+            piece_id="piece:source-record-b",
+        ),
+    )
+
+    assert default.piece_id == (
+        f"piece:midi-{sha256(path.read_bytes()).hexdigest()}"
+    )
+    assert explicit_a.piece_id == "piece:source-record-a"
+    assert explicit_b.piece_id == "piece:source-record-b"
+    assert explicit_a.source_group_id == explicit_a.piece_id
+    assert all(
+        flag.entity_ids == (explicit_a.piece_id,)
+        for flag in explicit_a.quality_flags
+    )
+    assert graph_fingerprint(
+        build_raw_graph(explicit_a)
+    ) == graph_fingerprint(build_raw_graph(explicit_b))
+
+
+@pytest.mark.parametrize(
+    "piece_id",
+    (
+        "",
+        "not-a-piece-id",
+        "piece:",
+        "piece:contains space",
+        "track:wrong-prefix",
+    ),
+)
+def test_invalid_explicit_piece_identity_is_rejected(
+    tmp_path: Path,
+    piece_id: str,
+) -> None:
+    path = _write_midi(tmp_path, [_basic_note_messages()])
+    with pytest.raises(
+        MidiAdapterError,
+        match="explicit MIDI piece_id",
+    ):
+        _load(
+            path,
+            config=MidiAdapterConfig(
+                dataset_name="test-midi",
+                piece_id=piece_id,
+            ),
+        )
 
 
 def test_repeated_conversion_is_deterministic(tmp_path: Path) -> None:

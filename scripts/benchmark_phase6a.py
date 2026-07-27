@@ -25,6 +25,9 @@ from music_critic.adapters import (
     Pop909ClCorpusRecord,
     convert_hooktheory_record,
     convert_pop909_cl_file,
+    inspect_pop909_cl_instruments,
+    pop909_cl_raw_input_group_id,
+    project_pop909_cl_score_bytes,
 )
 from music_critic.graph import MANDATORY_EDGE_TYPES, MANDATORY_NODE_TYPES
 from music_critic.models import (
@@ -145,6 +148,12 @@ def _pop_piece(root: Path, index: int):
     chord.append(mido.MetaMessage("end_of_track", time=0))
     midi.tracks.append(chord)
     midi.save(path)
+    resolution = inspect_pop909_cl_instruments(midi)
+    source_group_id = pop909_cl_raw_input_group_id(
+        sha256(
+            project_pop909_cl_score_bytes(midi, resolution)
+        ).hexdigest()
+    )
     result = convert_pop909_cl_file(
         Pop909ClCorpusRecord(
             song_id=song_id,
@@ -152,7 +161,7 @@ def _pop_piece(root: Path, index: int):
             relative_path=f"POP909_processed/{song_id}.mid",
             corpus_relative_path=f"{song_id}.mid",
             sha256=sha256(path.read_bytes()).hexdigest(),
-            source_group_id=f"pop909-cl:{song_id}",
+            source_group_id=source_group_id,
             lineage_group_id=f"pop909-lineage:{song_id}",
         )
     )

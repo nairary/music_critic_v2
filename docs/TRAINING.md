@@ -5,6 +5,11 @@ feature-only, local-GNN, and hierarchical baselines. It does not change model,
 loss, target, adapter, graph, canonical, or corpus semantics. It does not
 implement SSL, corruption/remasking, preference learning, PLL, or Phase 7.
 
+POP909-CL adapter `1.0.1` separates source-record piece identity from
+score-only raw-input equivalence. The splitter therefore keeps exact score
+duplicates atomic without collapsing their distinct target observations into
+one Dataset sample.
+
 Install the optional training dependency:
 
 ```bash
@@ -85,6 +90,17 @@ python -m music_critic.training.make_split \
   --seed 42 \
   --output /data/cache/global.split.json
 ```
+
+The accepted local full-corpus run retained all 908 POP samples and one
+quarantine (`172`), produced 907 raw-equivalence groups and POP index
+fingerprint
+`0c1fe4cf8d326fa083dfa34635e014ca7334f03e44fb0b67a678d2b10258cecb`.
+The unchanged 26,175-record HookTheory index plus POP index produced manifest
+fingerprint
+`1b20444ecf47c8481a30fca92af512b5a68a6eea5f1463443468741dce670310`.
+The complete 27,083-artifact audit passed; records 543 and 553 share one
+component and are both in `train`. Generated cache/index/report/split files
+remain local and ignored.
 
 ## One-batch optimization evidence
 

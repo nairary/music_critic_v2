@@ -42,8 +42,8 @@
 - Harmonic supervision documentation contract: Accepted in ADR-034
 - Phase 4B: Accepted and Completed
 - Phase 4B branch: `phase/4b-pop909-cl-adapter`
-- POP909-CL adapter version: `1.0.0`
-- POP909-CL production manifest version: `1.0.0`
+- POP909-CL adapter version: `1.0.1`
+- POP909-CL corpus/production manifest version: `1.0.1`
 - Phase 5A: Accepted and Completed
 - Phase 5A branch: `phase/5a-multisource-contract`
 - Multi-source target ontology version: `1.0.1`
@@ -162,9 +162,10 @@
   checkpointed stop after epoch one plus resume. `metrics.jsonl` and complete
   final model, optimizer, scheduler, scaler, RNG, epoch, and best-metric states
   match bit-exactly.
-- Final focused Phase 6C tests pass `45 passed, 4 optional CUDA skips`; the
+- Focused Phase 6C training tests pass `45 passed, 4 optional CUDA skips`; the
   direct CUDA acceptance invocation reports the same four honest skips on this
-  CPU-only host. The full default suite passes `768 passed, 17 skipped`, with
+  CPU-only host. After the POP909-CL identity remediation, the full default
+  suite passes `777 passed, 19 skipped`, with
   two existing upstream PyTorch JIT deprecation warnings. New coverage
   includes 1,000 synthetic metric batches with constant retained device
   tensors/bytes, fresh collision, explicit overwrite,
@@ -173,6 +174,76 @@
   Deterministic target audit `--check`, compileall over `src`, `scripts`, and
   `tests`, and `git diff --check` pass. Required GitHub CI remains the remote
   merge gate.
+
+## Phase 6C full-corpus POP909-CL identity remediation
+
+- The full POP909-CL cache blocker was a collision between source-record
+  identity and content identity. The generic MIDI adapter correctly used the
+  score-only payload hash for its default piece ID, but POP909-CL records 543
+  and 553 have byte-identical score projections and distinct source files.
+  POP909-CL now supplies deterministic record IDs
+  `piece:pop909-cl-<song-id>` while preserving the common score-only
+  equivalence group
+  `pop909-cl-score:4585134e3f7a70c105a3bb678a04ab2bc4522c04e11183f6fd6c59046be25286`.
+  The independent lineage groups remain `pop909-lineage:<song-id>`.
+- Source SHA-256 values are
+  `7dc63700fb5e58d2d12b580aa53614413317232caa151920d6079ad2440b662b`
+  for 543 and
+  `618b99761e750edfaffb4053cc3ad073661fd5c969bfea840481f466a03ec07a`
+  for 553. Their score projection bytes, canonical raw projection after
+  excluding record/path/lineage/provenance/targets, node counts, and all edge
+  counts are equal. Their common raw graph fingerprint is
+  `ba48a410581a317d2eee81f65fc15bc8a03a450f7194b38255e7f0ad8ca65ed9`.
+- Both records contain 163 chord blocks. Their target bundle fingerprints are
+  `9962345d2a47e6c412c05a83c38c59b7f38b5901df6c19ce41079510ac77ea5b`
+  and
+  `eac8f6d2e1b616375343a9de71108efb84b9fee80e9a89ff75cf5cd6076e57d0`.
+  Boundary and no-chord values/masks are equal. Bass values differ while its
+  all-available mask agrees; root, quality, and inversion values/masks differ
+  with 154 versus 152 available rows. Pairing, repeated-pitch, mixed-end,
+  overlap, and unsupported counts are zero for both, while ambiguous-block
+  counts are 9 and 11. This is therefore recorded conservatively as multiple
+  observed target views for one score input, not as a full duplicate and not
+  as a proven alternative-harmonization relationship.
+- Strict duplicate `(dataset_id, piece_id)` rejection remains in force and now
+  emits deterministic cluster size plus portable source identity/relative-path
+  evidence. Exact score equivalents instead close transitively through
+  `source_group_id`, so both records are kept as separate samples but are
+  split-atomic. Raw graph fingerprints exclude the song record ID while exact
+  serialized graph entity references remain unchanged.
+- POP909-CL adapter and corpus/production manifest versions are `1.0.1`.
+  Corpus index, cache, split, canonical, graph schema/feature/topology,
+  ontology, encoding, model, output, loss, and checkpoint versions are
+  unchanged.
+- The single material full POP909-CL build accepted 908 records and quarantined
+  only song 172. It produced 908 unique record piece IDs, 907 raw-input groups,
+  exactly one two-record raw-equivalence cluster `[543, 553]`, and index
+  fingerprint
+  `0c1fe4cf8d326fa083dfa34635e014ca7334f03e44fb0b67a678d2b10258cecb`.
+  Its required deterministic rerun retained the same fingerprint and reported
+  908 cache hits with zero misses. Older immutable artifacts were left on
+  disk.
+- The pre-existing complete HookTheory index remained byte-identical with
+  fingerprint
+  `77a1a146e6ed2f3a8af4762ef2e5ada82323b6865a09903c335814d3cc3cfd4f`.
+  The deterministic seed-42 joint split has manifest fingerprint
+  `1b20444ecf47c8481a30fca92af512b5a68a6eea5f1463443468741dce670310`
+  and file SHA-256
+  `94fa766083abab3555d0453560dd9398014af15a269851d37ca4feb51a845b0a`.
+  Records 543 and 553 share component
+  `1e16b6a3d471ebd411cd49b57f6fdad8ac0030f43fb525570744d0178d53f41a`
+  and both land in `train`. The audited split contains HookTheory
+  20,993/2,577/2,605 and POP909-CL 701/101/106 records in
+  train/validation/test, with no source, lineage, or raw-equivalence leakage.
+  Generated cache, index, split, reports, and training outputs are not
+  committed. Phase 7/SSL has not started.
+- Final remediation verification passes `92 passed, 3 opt-in skips` for
+  MIDI/POP adapters plus target/production audits and
+  `194 passed, 4 CUDA skips` for corpus/cache/split/leakage/training
+  regressions. The real 543/553 evidence test and the full-cache/joint-split
+  test each pass independently under their opt-in gates. Full default pytest
+  passes `777 passed, 19 skipped`; deterministic target audit `--check`,
+  compileall, and diff checks pass.
 
 ## Phase 6B deterministic hierarchy and coarse-context result
 

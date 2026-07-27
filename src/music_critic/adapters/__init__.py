@@ -29,9 +29,13 @@ from music_critic.adapters.pop909_cl import (
     Pop909ClQuarantine,
     convert_pop909_cl_file,
     discover_pop909_cl_corpus,
+    inspect_pop909_cl_instruments,
     iter_pop909_cl_corpus,
     pop909_cl_source_group_id,
+    pop909_cl_piece_id,
+    pop909_cl_raw_input_group_id,
     pop909_lineage_group_id,
+    project_pop909_cl_score_bytes,
 )
 
 __all__ = [
@@ -57,9 +61,13 @@ __all__ = [
     "convert_hooktheory_record",
     "convert_pop909_cl_file",
     "discover_pop909_cl_corpus",
+    "inspect_pop909_cl_instruments",
     "iter_pop909_cl_corpus",
     "load_hooktheory_piece",
     "load_midi_piece",
     "pop909_cl_source_group_id",
+    "pop909_cl_piece_id",
+    "pop909_cl_raw_input_group_id",
     "pop909_lineage_group_id",
+    "project_pop909_cl_score_bytes",
 ]

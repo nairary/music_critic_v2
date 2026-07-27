@@ -405,6 +405,38 @@ def test_duplicate_piece_identity_is_rejected(tmp_path: Path) -> None:
         loads_corpus_index(json.dumps(value), require_current=False)
 
 
+def test_duplicate_piece_diagnostics_are_deterministic_and_portable(
+    tmp_path: Path,
+) -> None:
+    index, _, _ = _build_index(tmp_path, "alpha", 1)
+    first = replace(
+        index.records[0],
+        source_identity="source-a",
+        source_relative_path="records/a.json",
+    )
+    second = replace(
+        index.records[0],
+        source_identity="source-b",
+        source_relative_path="records/b.json",
+    )
+
+    with pytest.raises(CorpusContractError) as caught:
+        replace(
+            index,
+            header=replace(index.header, record_count=2),
+            records=(first, second),
+        )
+
+    error = caught.value
+    assert error.category == "corpus_index.duplicate_piece"
+    assert error.dataset_id == "alpha"
+    assert error.piece_id == first.piece_id
+    assert "'cluster_size': 2" in str(error)
+    assert "('source-a', 'records/a.json')" in str(error)
+    assert "('source-b', 'records/b.json')" in str(error)
+    assert str(tmp_path) not in str(error)
+
+
 def test_tampered_index_fingerprint_is_rejected(tmp_path: Path) -> None:
     index, _, _ = _build_index(tmp_path, "alpha", 1)
     value = json.loads(dumps_corpus_index(index))

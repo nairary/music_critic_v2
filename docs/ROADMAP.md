@@ -263,12 +263,16 @@ The model and training phases remain pending.
 - Acceptance: all accepted CL scores convert or fail under a documented
   general rule, channel-1 annotation cannot affect raw graphs, and leakage-safe
   POP909-CL graphs pass validation.
-- Result: adapter `1.0.0` and corpus manifest `1.0.0` reproduce 909 logical
+- Result: adapter `1.0.1` and corpus manifest `1.0.1` reproduce 909 logical
   files, 908 accepted pieces, only song `172` quarantined, and fully masked
   targets for `367`/`658`. All 908 accepted visible/hidden pieces validate,
   round-trip deterministically, preserve equal raw projections, and have equal
   raw graph fingerprints. The complete pinned block/mask/anomaly aggregates
   match Phase 4A.
+- Full-corpus remediation: all 908 accepted source records have unique
+  `piece_id`; score-only equivalence has 907 groups with exactly one
+  `[543, 553]` cluster. Both target views are retained and forced into one
+  split component. Corpus-index/split versions remain unchanged.
 
 ## Phase 5 — Multi-source dataset and collator
 
@@ -397,6 +401,9 @@ The model and training phases remain pending.
   duplicate/lost rows; best selection uses only fixed validation; CUDA runs
   report device/VRAM evidence when hardware exists and otherwise skip
   explicitly.
+- Full-corpus data gate: the 908-record POP index and unchanged 26,175-record
+  HookTheory index pass one complete cache/split audit; the only exact score
+  duplicate cluster is split-atomic and no full-corpus training is implied.
 
 ## Phase 7 — GraphMAE2-style SSL
 

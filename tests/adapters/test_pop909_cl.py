@@ -9,6 +9,7 @@ import mido
 import pytest
 
 from music_critic.adapters import (
+    POP909_CL_ADAPTER_VERSION,
     Pop909ClAdapterConfig,
     Pop909ClConversionError,
     Pop909ClCorpusIdentity,
@@ -16,6 +17,8 @@ from music_critic.adapters import (
     Pop909ClCorpusRecord,
     convert_pop909_cl_file,
     discover_pop909_cl_corpus,
+    pop909_cl_piece_id,
+    pop909_cl_raw_input_group_id,
 )
 from music_critic.adapters.pop909_cl import (
     POP909_CL_TASKS,
@@ -24,6 +27,14 @@ from music_critic.adapters.pop909_cl import (
 )
 from music_critic.data import dumps_piece, loads_piece
 from music_critic.graph import build_raw_graph, graph_fingerprint
+from music_critic.tasks import (
+    CanonicalCorpusInput,
+    CorpusCacheConfig,
+    DatasetContractError,
+    cache_canonical_corpus,
+    create_split_manifest,
+    plan_group_hash_split,
+)
 from scripts.accept_pop909_cl_adapter import _load_expectations
 
 
@@ -60,16 +71,29 @@ def _conductor(*, quarantine_meter: bool = False) -> mido.MidiTrack:
     return track
 
 
-def _score_track(*, name: str = "piano", channel: int = 0) -> mido.MidiTrack:
+def _score_track(
+    *,
+    name: str = "piano",
+    channel: int = 0,
+    first_pitch: int = 60,
+) -> mido.MidiTrack:
     return mido.MidiTrack(
         [
             mido.MetaMessage("track_name", name=name, time=0),
             mido.Message("program_change", channel=channel, program=0, time=0),
             mido.Message(
-                "note_on", channel=channel, note=60, velocity=80, time=0
+                "note_on",
+                channel=channel,
+                note=first_pitch,
+                velocity=80,
+                time=0,
             ),
             mido.Message(
-                "note_off", channel=channel, note=60, velocity=0, time=480
+                "note_off",
+                channel=channel,
+                note=first_pitch,
+                velocity=0,
+                time=480,
             ),
             mido.Message(
                 "note_on", channel=channel, note=64, velocity=80, time=0
@@ -152,6 +176,7 @@ def _write_midi(
     include_chords: bool = True,
     chord_first: tuple[int, ...] = (60, 64, 67),
     score_name: str = "piano",
+    score_first_pitch: int = 60,
     quarantine_meter: bool = False,
     repeated: bool = False,
     mixed_end: bool = False,
@@ -161,7 +186,10 @@ def _write_midi(
     midi.tracks.extend(
         [
             _conductor(quarantine_meter=quarantine_meter),
-            _score_track(name=score_name),
+            _score_track(
+                name=score_name,
+                first_pitch=score_first_pitch,
+            ),
         ]
     )
     if include_chords:
@@ -176,13 +204,20 @@ def _write_midi(
     path.parent.mkdir(parents=True, exist_ok=True)
     midi.save(path)
     checksum = sha256(path.read_bytes()).hexdigest()
+    loaded = mido.MidiFile(path)
+    resolution = inspect_pop909_cl_instruments(loaded)
+    projection_sha256 = sha256(
+        project_pop909_cl_score_bytes(loaded, resolution)
+    ).hexdigest()
     return Pop909ClCorpusRecord(
         song_id=song_id,
         path=path,
         relative_path=f"POP909_processed/{path.name}",
         corpus_relative_path=path.name,
         sha256=checksum,
-        source_group_id=f"pop909-cl:{song_id}",
+        source_group_id=pop909_cl_raw_input_group_id(
+            projection_sha256
+        ),
         lineage_group_id=f"pop909-lineage:{song_id}",
     )
 
@@ -241,7 +276,9 @@ def test_direct_and_nested_discovery_preserve_043_and_exclude_noise(
     assert discovery.records[1].corpus_relative_path == "043 .mid"
     assert discovery.records[1].relative_path.endswith("043 .mid")
     assert discovery.noise_paths == ("__MACOSX/._001.mid",)
-    assert discovery.records[0].source_group_id == "pop909-cl:001"
+    assert discovery.records[0].source_group_id.startswith(
+        "pop909-cl-score:"
+    )
     assert discovery.records[0].lineage_group_id == "pop909-lineage:001"
 
 
@@ -482,6 +519,12 @@ def test_target_hidden_and_chord_mutations_leave_raw_and_graph_invariant(
     ]
     assert projections[0] == projections[1] == projections[2]
     assert len({result.score_projection_sha256 for result in converted}) == 1
+    assert len({result.piece.piece_id for result in converted}) == 1
+    assert len({result.record.source_group_id for result in converted}) == 1
+    assert converted[0].piece.piece_id == "piece:pop909-cl-001"
+    assert converted[0].piece.source_group_id == (
+        converted[0].record.source_group_id
+    )
     assert converted[0].piece.tracks == converted[1].piece.tracks == converted[2].piece.tracks
     assert converted[0].piece.notes == converted[1].piece.notes == converted[2].piece.notes
     assert converted[0].chord_evidence.blocks[0].midi_pitch_multiset != (
@@ -497,6 +540,192 @@ def test_target_hidden_and_chord_mutations_leave_raw_and_graph_invariant(
     ) == 1
 
 
+def test_source_record_identity_and_raw_equivalence_are_separate(
+    tmp_path: Path,
+) -> None:
+    first = _write_midi(
+        tmp_path / "543.mid",
+        song_id="543",
+        chord_first=(60, 64, 67),
+    )
+    second = _write_midi(
+        tmp_path / "553.mid",
+        song_id="553",
+        chord_first=(62, 65, 69),
+    )
+    left = convert_pop909_cl_file(first)
+    right = convert_pop909_cl_file(second)
+
+    assert left.piece.piece_id == pop909_cl_piece_id("543")
+    assert right.piece.piece_id == pop909_cl_piece_id("553")
+    assert left.piece.piece_id != right.piece.piece_id
+    assert left.score_projection_sha256 == right.score_projection_sha256
+    expected_group = pop909_cl_raw_input_group_id(
+        left.score_projection_sha256
+    )
+    assert left.record.source_group_id == expected_group
+    assert right.record.source_group_id == expected_group
+    assert left.piece.source_group_id == expected_group
+    assert right.piece.source_group_id == expected_group
+    assert left.record.lineage_group_id == "pop909-lineage:543"
+    assert right.record.lineage_group_id == "pop909-lineage:553"
+    assert graph_fingerprint(
+        build_raw_graph(left.piece)
+    ) == graph_fingerprint(build_raw_graph(right.piece))
+    assert left.piece.targets != right.piece.targets
+
+    index, _ = cache_canonical_corpus(
+        (
+            CanonicalCorpusInput(
+                piece=result.piece,
+                lineage_group_id=result.record.lineage_group_id,
+                source_identity=result.record.song_id,
+                source_relative_path=result.record.relative_path,
+                source_sha256=result.record.sha256,
+            )
+            for result in (left, right)
+        ),
+        cache_config=CorpusCacheConfig(tmp_path / "cache"),
+        dataset_id="pop909_cl",
+        adapter_name="pop909_cl_test",
+        adapter_version=POP909_CL_ADAPTER_VERSION,
+        adapter_config={"include_targets": True},
+        source_identity="synthetic-pop909-cl",
+        source_fingerprint=sha256(b"synthetic").hexdigest(),
+    )
+    assert len(index.records) == 2
+    manifest = plan_group_hash_split(
+        (index,),
+        seed=42,
+        ratios={"train": 1.0},
+    )
+    assert {
+        row.split for row in manifest.assignments
+    } == {"train"}
+    assert len(
+        {
+            row.component_fingerprint
+            for row in manifest.assignments
+        }
+    ) == 1
+    split_by_piece = {
+        ("pop909_cl", left.piece.piece_id): "train",
+        ("pop909_cl", right.piece.piece_id): "validation",
+    }
+    with pytest.raises(
+        DatasetContractError,
+        match="split_manifest.group_leakage",
+    ):
+        create_split_manifest(
+            (index,),
+            split_by_piece,
+            seed=42,
+        )
+
+    different_score = convert_pop909_cl_file(
+        _write_midi(
+            tmp_path / "554.mid",
+            song_id="554",
+            score_first_pitch=61,
+            chord_first=(60, 64, 67),
+        )
+    )
+    separate_index, _ = cache_canonical_corpus(
+        (
+            CanonicalCorpusInput(
+                piece=result.piece,
+                lineage_group_id=result.record.lineage_group_id,
+                source_identity=result.record.song_id,
+                source_relative_path=result.record.relative_path,
+                source_sha256=result.record.sha256,
+            )
+            for result in (left, different_score)
+        ),
+        cache_config=CorpusCacheConfig(
+            tmp_path / "separate-cache"
+        ),
+        dataset_id="pop909_cl",
+        adapter_name="pop909_cl_test",
+        adapter_version=POP909_CL_ADAPTER_VERSION,
+        adapter_config={"include_targets": True},
+        source_identity="synthetic-separate-scores",
+        source_fingerprint=sha256(
+            b"synthetic-separate"
+        ).hexdigest(),
+    )
+    separate_manifest = plan_group_hash_split(
+        (separate_index,),
+        seed=42,
+        ratios={"train": 0.5, "validation": 0.5},
+    )
+    assert len(
+        {
+            row.component_fingerprint
+            for row in separate_manifest.assignments
+        }
+    ) == 2
+    assert {
+        row.split for row in separate_manifest.assignments
+    } == {"train", "validation"}
+
+
+def test_record_path_score_and_song_mutations_have_independent_identity(
+    tmp_path: Path,
+) -> None:
+    original = _write_midi(
+        tmp_path / "origin" / "001.mid",
+        song_id="001",
+    )
+    relocated_path = tmp_path / "relocated" / "copy.mid"
+    relocated_path.parent.mkdir(parents=True)
+    relocated_path.write_bytes(original.path.read_bytes())
+    relocated = replace(
+        original,
+        path=relocated_path,
+        relative_path="elsewhere/copy.mid",
+        corpus_relative_path="copy.mid",
+    )
+    base = convert_pop909_cl_file(original)
+    moved = convert_pop909_cl_file(relocated)
+    assert base.piece.piece_id == moved.piece.piece_id
+    assert base.record.source_group_id == moved.record.source_group_id
+
+    changed_path = tmp_path / "score-changed.mid"
+    changed_path.write_bytes(original.path.read_bytes())
+    midi = mido.MidiFile(changed_path)
+    note_on = next(
+        message
+        for message in midi.tracks[1]
+        if message.type == "note_on" and message.velocity > 0
+    )
+    note_on.note += 1
+    midi.save(changed_path)
+    changed_record = replace(
+        original,
+        path=changed_path,
+        relative_path="score-changed.mid",
+        corpus_relative_path="score-changed.mid",
+        sha256=sha256(changed_path.read_bytes()).hexdigest(),
+    )
+    changed = convert_pop909_cl_file(changed_record)
+    assert changed.piece.piece_id == base.piece.piece_id
+    assert changed.record.source_group_id != base.record.source_group_id
+    assert graph_fingerprint(
+        build_raw_graph(changed.piece)
+    ) != graph_fingerprint(build_raw_graph(base.piece))
+
+    renumbered = replace(
+        original,
+        song_id="002",
+        source_group_id=original.source_group_id,
+        lineage_group_id="pop909-lineage:002",
+    )
+    renamed = convert_pop909_cl_file(renumbered)
+    assert renamed.piece.piece_id == "piece:pop909-cl-002"
+    assert renamed.piece.piece_id != base.piece.piece_id
+    assert renamed.record.source_group_id == base.record.source_group_id
+
+
 def test_song_172_is_quarantined_only_for_actual_generic_meter_error(
     tmp_path: Path,
 ) -> None:
@@ -508,7 +737,9 @@ def test_song_172_is_quarantined_only_for_actual_generic_meter_error(
     result = convert_pop909_cl_file(record)
     assert result.status == "quarantined"
     assert result.category == "midi_adapter.meter_change_inside_bar"
-    assert result.record.source_group_id == "pop909-cl:172"
+    assert result.record.source_group_id.startswith(
+        "pop909-cl-score:"
+    )
     assert result.record.lineage_group_id == "pop909-lineage:172"
     assert "172.mid" in result.source_error
     assert "music-critic-pop909-cl-" not in result.source_error
@@ -541,8 +772,17 @@ def test_versioned_production_manifest_and_unreadable_source(
     manifest = _load_expectations(
         Path("tests/fixtures/pop909_cl/production_manifest.json")
     )
-    assert manifest["adapter_version"] == "1.0.0"
+    assert manifest["adapter_version"] == POP909_CL_ADAPTER_VERSION
     assert manifest["expected"]["accepted"] == 908
+    assert manifest["expected"][
+        "unique_record_piece_id_count"
+    ] == 908
+    assert manifest["expected"][
+        "unique_raw_input_equivalence_count"
+    ] == 907
+    assert manifest["expected"][
+        "duplicate_cluster_song_ids"
+    ] == [["543", "553"]]
     missing = Pop909ClCorpusRecord(
         song_id="001",
         path=tmp_path / "missing.mid",

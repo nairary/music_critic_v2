@@ -235,6 +235,14 @@ legacy five-class chord compression, track-order/name/pitch-range routing,
 float snapping, mandatory semantic graph structure, chord-note rendering,
 target-derived raw notes, and missing-as-negative behavior.
 
+### Phase 6C POP909-CL identity remediation
+
+No legacy repository file was opened, copied, imported, or modified for this
+remediation, and no legacy runtime logic was reused. The source-record,
+score-projection equivalence, lineage, graph-fingerprint, and target-bundle
+identity policy derives only from the current V2 contracts and programmatic
+full-corpus evidence for POP909-CL records 543 and 553.
+
 ## Phase 5A multi-source target contract
 
 No legacy repository file was opened, copied, imported, or modified for Phase

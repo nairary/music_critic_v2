@@ -96,8 +96,20 @@ def graph_fingerprint(
     *,
     registry: FeatureRegistry = RAW_FEATURE_REGISTRY,
 ) -> str:
+    """Fingerprint raw model input while excluding source-record identity."""
+
+    value = graph_to_dict(graph, registry=registry)
+    for node in value["nodes"]:
+        if node["node_type"] == "song":
+            node["entity_id"] = ["piece:<raw-input>"]
     return hashlib.sha256(
-        dumps_graph(graph, registry=registry).encode("utf-8")
+        json.dumps(
+            value,
+            ensure_ascii=False,
+            allow_nan=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
     ).hexdigest()
 
 

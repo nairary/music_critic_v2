@@ -210,10 +210,19 @@ song-172 readiness question for the MVP.
 
 ## Grouping and golden evidence
 
-Each CL song uses `pop909-cl:<song-id>`. Original POP909 uses
-`pop909-original:<song-id>`. A later multi-corpus splitter must additionally
-bind matching derivatives with `pop909-lineage:<song-id>` so they share one
-split. Phase 4A assigns no final split.
+Each CL source record now uses `piece:pop909-cl-<song-id>` as canonical
+identity. `source_group_id` is target-independent score equivalence,
+`pop909-cl-score:<score-projection-sha256>`. Original POP909 retains its own
+record identity, while `pop909-lineage:<song-id>` separately binds matching
+song derivatives. Split construction closes transitively over score
+equivalence and song lineage.
+
+The full-corpus follow-up found exactly one raw-equivalence cluster,
+`["543", "553"]`: distinct full-file hashes, byte-identical score projection,
+equal raw canonical/graph structure, and differing root/quality/bass/inversion
+target views and masks. Both records are kept and split atomically. The
+production manifest records only bounded IDs, counts, statuses, and
+fingerprints, never the full target payload.
 
 `tests/fixtures/pop909_cl/audit_manifest.json` pins corpus/installation hashes,
 the complete upstream comparison, aggregate warning/chord diagnostics, the
