@@ -2,7 +2,7 @@
 
 ## Current phase
 
-- Date: 2026-07-26
+- Date: 2026-07-27
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -65,13 +65,114 @@
 - Phase 6A merge SHA: `875dac3f83ab1a6cb3b3ece4875a5f55e3751409`
 - Model/output `1.1.0`; encoder/candidate-prediction/reconstruction `1.0.0`;
   loss/checkpoint `1.1.0`; `BatchTarget` `1.1.0`
-- Phase 6B: Implemented and locally verified; draft PR Required CI is the
-  merge-gate authority
+- Phase 6B: Accepted and merged
 - Phase 6B branch: `phase/6b-hierarchy-transformer`
+- Phase 6B merge SHA: `b0e8e05ea0b11a06769475468af75b8438b4d45c`
 - Hierarchy pooling, coarse token sequence, hierarchical encoder output,
   top-down fusion, hierarchical model/output, and hierarchical checkpoint:
   `1.0.0`
+- Phase 6C: Implemented on branch `phase/6c-training-harness`; draft PR and
+  Required CI are the merge gate
+- Device-transfer contract: `1.0.0`
+- Training-checkpoint contract: `1.0.0`
 - Next phase after acceptance: Phase 7 — GraphMAE2-style SSL
+
+## Phase 6C reproducible baseline training result
+
+- Registered Hydra configuration groups select feature-only, local-GNN, or
+  hierarchical models; bounded, HookTheory, POP909-CL, or mixed data;
+  one-batch, smoke, supervised, train, or named joint-visible-reconstruction
+  experiments; explicit objective weights; AdamW; no/cosine scheduling; and
+  CPU/CUDA/auto devices. One-batch alone defaults to LR `0.02` and joint loss;
+  supervised training defaults to LR `3e-4`, harmonic weight `1`, and
+  reconstruction weight `0`. Each run writes the resolved configuration, and
+  objective/task weights enter model and checkpoint fingerprints. PU and
+  open-vocabulary tasks cannot be enabled.
+- `move_multisource_batch` is non-mutating. It deep-copies PyG, transfers only
+  graph tensors and model-facing target tensors, preserves tuple/string graph
+  metadata, and keeps provenance/diagnostics/statistics/strings on CPU.
+  Full semantic graph binding is validated on CPU before transfer. The normal
+  device path checks structure without data-dependent CUDA predicates; full
+  post-transfer validation is an explicit debug option. Targets remain outside
+  graph stores.
+- One-batch mode repeats exactly one bounded or first cached train batch,
+  separately reports harmonic/reconstruction/total loss, proves finite
+  gradients and clipping, records candidates/availability/gradient coverage,
+  requires both active losses to decrease, and requires checkpoint reload to
+  reproduce eval logits bit-exactly. It is not generalization evidence.
+- Multi-epoch mode uses the existing Phase 5B.2 cache/index/global split,
+  lazy multi-corpus Dataset, deterministic quota sampler, and collator.
+  Train membership remains epoch-dependent. Validation is a fixed,
+  fingerprinted, no-replacement full view by default or one fixed bounded
+  subset. Metrics accumulate per-task loss numerators and exact eligible-row
+  denominators, recompute the weighted objective from epoch task means, and
+  emit per-dataset counts/metrics. Each non-empty batch makes at most one
+  packed metric device-to-host transfer and folds into bounded CPU buckets;
+  the accumulator retains zero device tensors/bytes regardless of epoch
+  length. Under the supervised preset, batches without harmonic rows skip;
+  reconstruction is active only in the named joint ablation. Missing labels
+  never become negatives.
+- Training checkpoints contain model, optimizer, scheduler, scaler, next
+  epoch, best fixed-validation metric, committed metric-row count,
+  Python/CPU-torch/CUDA-torch RNG, resolved-config
+  fingerprint, data/index/split/composition fingerprints, and the existing
+  model contract. Payload fields and detached auxiliary application are
+  prevalidated; any live optimizer/scheduler/application failure rolls back
+  model, optimizer, scheduler, scaler, and RNG bit-exactly. Atomic per-epoch
+  records plus `committed_metric_rows` recover either epoch write-order crash
+  without duplicate/lost metric rows. `next_epoch` is bounded by configured
+  epochs before live mutation. Resume is epoch-boundary only.
+- Fresh runs reject managed output collisions. Explicit overwrite removes the
+  known journal, metric, report, last/best, and interval checkpoint set while
+  preserving unknown files. Resume validates the run manifest and existing
+  evidence before any write or journal recovery; incompatible resume preserves
+  RNG and every existing artifact byte/mtime.
+- Epoch rows now record the LR actually used as `learning_rate_used` and the
+  post-scheduler value as `next_learning_rate`; the ambiguous old field is not
+  emitted. Runtime evidence distinguishes actual CUDA-to-host metric transfers
+  from packed host materializations, and counts packed scalars and retained
+  tensor storage. Static guards cover engine/device tensor-to-Python
+  conversions and joint-reconstruction per-family host predicates.
+- The split CLI wraps target-blind `plan_group_hash_split` and then performs
+  existing complete global source/lineage validation before atomic output.
+- This environment has CPU-only PyTorch `2.13.0+cpu`, no CUDA runtime, and no
+  `nvidia-smi`; the optional CUDA acceptance therefore skips. No RTX 3090
+  loss/VRAM evidence is claimed. No production cache/index/split artifacts
+  were present, so only bounded generated caches were exercised and no full
+  corpus scan/build/training was run.
+- Phase 7/SSL, model/loss semantics, ontology/encoding, adapters, production
+  manifests, canonical/graph semantics, and corpus contracts are unchanged.
+
+## Phase 6C bounded evidence and verification
+
+- The exact default hierarchical CPU command used seed 42, hidden size 128,
+  three local layers, two Transformer layers, four heads, batch size 3, 40
+  AdamW steps at learning rate 0.02, clipping at 1.0, no AMP, and no scheduler.
+  Its resolved configuration was stored with the temporary run. On the final
+  remediation tree it completed in `4.81744 s` under PyTorch `2.13.0+cpu`
+  with deterministic algorithms enabled.
+- The bounded mixed batch contained three graphs and 237 candidates.
+  Eval harmonic loss decreased from `1.7528455257` to `0.0`; visible-input
+  reconstruction decreased from `2.5410101414` to `0.0010602905`. The saved
+  checkpoint reproduced all eval logits bit-exactly. Final-step nonzero finite
+  gradients covered 487/551 trainable parameters across both
+  `local_baseline` and `context_encoder`; zero-gradient parameters remain
+  explicitly listed in the report.
+- The bounded two-epoch regression compares an uninterrupted run with a
+  checkpointed stop after epoch one plus resume. `metrics.jsonl` and complete
+  final model, optimizer, scheduler, scaler, RNG, epoch, and best-metric states
+  match bit-exactly.
+- Final focused Phase 6C tests pass `45 passed, 4 optional CUDA skips`; the
+  direct CUDA acceptance invocation reports the same four honest skips on this
+  CPU-only host. The full default suite passes `768 passed, 17 skipped`, with
+  two existing upstream PyTorch JIT deprecation warnings. New coverage
+  includes 1,000 synthetic metric batches with constant retained device
+  tensors/bytes, fresh collision, explicit overwrite,
+  artifact/RNG-atomic incompatible resume, cosine used/next LR evidence,
+  pre-mutation future-epoch rejection, and static synchronization guards.
+  Deterministic target audit `--check`, compileall over `src`, `scripts`, and
+  `tests`, and `git diff --check` pass. Required GitHub CI remains the remote
+  merge gate.
 
 ## Phase 6B deterministic hierarchy and coarse-context result
 

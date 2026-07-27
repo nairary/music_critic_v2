@@ -141,12 +141,33 @@ def reconstruction_loss(
 ) -> Tensor | None:
     """Mean active-field loss; missing fields contribute no artificial target."""
 
-    active = [
-        output.per_node_loss[output.availability_mask].mean()
-        for output in outputs
-        if output.availability_mask.any()
-    ]
-    return torch.stack(active).mean() if active else None
+    if not outputs:
+        return None
+    counts = torch.stack(
+        [
+            output.availability_mask.count_nonzero()
+            for output in outputs
+        ]
+    )
+    active = counts > 0
+    active_count = active.count_nonzero()
+    # Every valid raw graph has an available song.duration_qn field. Keep the
+    # guarantee device-side so joint reconstruction does not synchronize once
+    # per feature family through ``availability.any()``.
+    torch._assert_async(
+        active_count > 0,
+        "raw reconstruction requires one available field",
+    )
+    means = torch.stack(
+        [
+            output.per_node_loss.sum()
+            / count.clamp_min(1).to(output.per_node_loss.dtype)
+            for output, count in zip(outputs, counts, strict=True)
+        ]
+    )
+    return (
+        means * active.to(means.dtype)
+    ).sum() / active_count.to(means.dtype)
 
 
 __all__ = [

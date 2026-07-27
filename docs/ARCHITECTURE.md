@@ -2,8 +2,9 @@
 
 Status: **INCREMENTAL**. Phase 6A implements raw feature and local-GNN
 representations; Phase 6B implements deterministic hierarchy, coarse
-Transformer context, and top-down fusion. SSL and critic paths below remain
-future phases.
+Transformer context, and top-down fusion; Phase 6C supplies reproducible
+supervised execution without changing those semantics. SSL and critic paths
+below remain future phases.
 
 ## System flow
 
@@ -374,6 +375,66 @@ Phase 6B pooling, coarse-sequence, hierarchical-output, top-down-fusion,
 hierarchical-model/output, and hierarchical-checkpoint contracts are each
 `1.0.0`. Phase 6A versions remain unchanged. The full additive contract is in
 `PHASE6B_HIERARCHY.md`.
+
+## Phase 6C training boundary
+
+Hydra structured configuration selects only the existing feature-only,
+local-GNN, or hierarchical model and the existing bounded or versioned-cache
+data paths. Fully resolved configuration is an artifact and participates in
+training-checkpoint compatibility. The harness adds no model feature, head,
+loss, target family, graph relation, or cache field.
+
+The official `MultiSourceBatch` transfer deep-copies the raw PyG batch and
+moves its tensor attributes plus every model-facing target tensor. It preserves
+tuple/string metadata and keeps provenance, diagnostics, statistics, and other
+CPU sidecars off device. The original batch is not mutated and targets never
+enter graph stores. Fixed task/node-family tensor checks prove device, shape,
+task ordering, and graph binding without replaying row-wise Python validation
+on CUDA.
+
+One-batch mode repeats exactly one bounded or first real cached train batch,
+reports harmonic/reconstruction/total losses, finite gradients, clipping,
+candidate counts, and gradient coverage, then requires both active objectives
+to decrease and a checkpoint reload to reproduce eval logits bit-exactly.
+This is plumbing evidence rather than generalization.
+
+Multi-epoch mode composes the existing global split, lazy datasets,
+deterministic quota sampler, and production collator. Only training membership
+is epoch-dependent. Validation is a fixed, fingerprinted, no-replacement full
+view by default or one fixed bounded subset. Per-task and per-dataset epoch
+metrics accumulate loss numerators and exact eligible-row denominators, so the
+explicitly weighted objective is independent of batch partitioning within a
+documented floating-point tolerance. Each batch reduces to
+dataset/task-or-field scalars, performs at most one packed device-to-host
+transfer, and folds into bounded CPU buckets; no prior-batch tensor view is
+retained. Persistent device metric memory is zero, while CPU aggregate storage
+is `O(dataset_count * task_or_field_count)`. The supervised preset uses LR
+`3e-4` and no reconstruction; joint visible reconstruction is a named
+ablation.
+
+Training checkpoints bind resolved objective/configuration,
+data/index/split/composition fingerprints, and existing model contracts. They
+contain optimizer, scheduler, scaler, epoch, best fixed-validation metric,
+committed metric-row count, and Python/torch RNG states. Loading is
+failure-atomic across every live state. Atomic per-epoch records plus the
+checkpoint row count make `metrics.jsonl`/`last.pt` crash-consistent. Resume is
+deterministic only at an epoch boundary; mid-epoch resume is intentionally not
+implemented.
+
+Fresh runs reject managed-artifact collisions unless explicit overwrite is
+enabled; overwrite removes only the known managed set. A versioned run
+manifest binds evidence artifacts and the checkpoint contract. Resume
+validates this manifest and `next_epoch <= configured epochs` before live-state
+mutation or artifact/journal writes.
+
+Normal CUDA training validates semantic binding on CPU. The engine/device hot
+path has no tensor-to-Python conversion, and joint reconstruction has no
+per-feature-family data-dependent host predicate. Metrics perform one explicit
+packed transfer per non-empty batch; reports expose actual transfer and
+retained-storage counters. Full gradient evidence remains a one-batch or
+explicit diagnostic operation. Epoch rows distinguish
+`learning_rate_used` from post-scheduler `next_learning_rate`. Commands and
+artifact semantics are in `TRAINING.md`.
 
 ## Incremental research scope
 

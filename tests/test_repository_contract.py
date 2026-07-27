@@ -83,6 +83,10 @@ def test_package_has_no_legacy_or_heavy_imports() -> None:
             allowed_roots.update({"torch", "torch_geometric"})
         if relative_parts[0] == "tasks":
             allowed_roots.update({"torch", "torch_geometric"})
+        if relative_parts[0] == "training":
+            allowed_roots.update(
+                {"hydra", "mido", "torch", "torch_geometric"}
+            )
         disallowed_roots = forbidden_roots - allowed_roots
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(path))

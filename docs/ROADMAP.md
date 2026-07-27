@@ -348,9 +348,8 @@ The model and training phases remain pending.
 
 ## Phase 6B — Deterministic hierarchy and bar+track Transformer
 
-- Status: Implemented and locally verified on branch
-  `phase/6b-hierarchy-transformer`; draft PR and Required CI are the merge
-  gate.
+- Status: Accepted and merged at
+  `b0e8e05ea0b11a06769475468af75b8438b4d45c`.
 - Goal: add coarse context without erasing isolated local evidence.
 - Dependencies: accepted Phase 6A.
 - Outputs: deterministic hierarchy pooling, bar/track tokens, bar+track
@@ -370,10 +369,39 @@ The model and training phases remain pending.
   Phase 6B contracts start at `1.0.0`; the 237 tiny and 79 isolated raw-only
   candidate counts remain unchanged.
 
+## Phase 6C — Reproducible baseline training harness
+
+- Status: Implemented on branch `phase/6c-training-harness`; draft PR and
+  Required CI are the merge gate.
+- Goal: make the three unchanged Phase 6A/6B baselines reproducibly trainable
+  on bounded fixtures and existing versioned corpus caches on CPU or CUDA.
+- Dependencies: accepted and merged Phase 6B.
+- Outputs: structured Hydra groups, official non-mutating batch device
+  transfer, one-batch overfit evidence, minimal train/validation epochs,
+  epoch-boundary resume, JSON/JSONL artifacts, compatibility-bound training
+  checkpoints, and a global split-planning CLI.
+- Tests: configuration/preset/objective composition, all three model
+  selections, CPU-first device/sidecar/raw-graph boundaries, deterministic
+  one-batch repetition, fixed no-replacement validation, row-weighted
+  batch-partition-invariant metrics, fully failure-atomic checkpoint load,
+  both epoch-commit crash windows, split isolation, artifacts/fingerprints,
+  normal-hot-path synchronization instrumentation, and actual CLI-driven
+  hierarchical CUDA AMP acceptance.
+- Non-goals: Phase 7 SSL, corruption/remasking, PLL, PU objectives,
+  preference/quality scoring, long corpus training, or semantic changes to
+  models, targets, adapters, graphs, manifests, and caches.
+- Acceptance: bounded CPU runs reproduce; production training defaults to
+  supervised harmonic LR `3e-4`, while joint visible reconstruction is a
+  named ablation; checkpoint reload and application failure are bit-exact;
+  uninterrupted, resumed, and crash-recovered epoch metrics match without
+  duplicate/lost rows; best selection uses only fixed validation; CUDA runs
+  report device/VRAM evidence when hardware exists and otherwise skip
+  explicitly.
+
 ## Phase 7 — GraphMAE2-style SSL
 
 - Goal: add masked observable-feature representation learning.
-- Dependencies: Phase 6B.
+- Dependencies: Phase 6C.
 - Outputs: masking views, remasked representation decoder, latent prediction
   losses, and a design gate before any normalized probabilistic
   masked-note/pitch-set decoder or deterministic PLL protocol.

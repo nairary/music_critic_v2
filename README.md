@@ -12,7 +12,8 @@ checkout is absent.
 ## Current state
 
 Phases 0 through 5B.2 and the Phase 6A/6B representation baselines are
-implemented.
+implemented. Phase 6C adds a reproducible supervised training harness for
+those unchanged baselines.
 The repository provides an exact immutable
 canonical schema, generic MIDI and HookTheory adapters, diagnostic canonical
 MIDI export, a production POP909-CL adapter, and a versioned raw-only PyG
@@ -51,6 +52,8 @@ PLL, and deployable scoring inference are not implemented yet.
 - `src/music_critic/models/`: Phase 6A raw feature/local-GNN encoders and the
   Phase 6B deterministic hierarchy, coarse Transformer, top-down fusion,
   source-native heads, losses, reconstruction, diagnostics, and checkpoints;
+- `src/music_critic/training/`: Hydra configuration, non-mutating batch device
+  transfer, split CLI, deterministic runners, metrics, and epoch checkpoints;
 - `docs/`: authoritative plan, architecture, contracts, decisions, and status;
 - `configs/`: reserved for phase-owned configuration;
 - `scripts/`: audits, rendering/smoke tools, and graph benchmark;
@@ -109,6 +112,7 @@ An editable installation is optional:
 
 ```bash
 python -m pip install -e .
+python -m pip install -e '.[training]'
 ```
 
 See `docs/ROADMAP.md` for staged implementation work and
@@ -139,3 +143,6 @@ The learned local baseline and its strict non-critic/non-SSL boundary are in
 The deterministic hierarchy, bar+track Transformer, contextual song row,
 top-down fusion, and controlled three-way ablation are in
 `docs/PHASE6B_HIERARCHY.md`.
+Phase 6C cache/split preparation, one-batch acceptance, ordinary training,
+device transfer, artifacts, and epoch-boundary resume are in
+`docs/TRAINING.md`.

@@ -1073,3 +1073,87 @@ This log is append-only.
   contracts, and all Phase 6A semantics remain unchanged, so the six versions
   remain `1.0.0`. No graph/canonical/ontology/encoding/adapter/manifest/corpus
   semantics change. Phase 7 remains unstarted.
+
+## 2026-07-27 — ADR-043: Phase 6C owns reproducible execution, not new learning semantics
+
+- Status: Accepted for draft pre-merge implementation.
+- Context: Phase 6A/6B provide trainable feature-only, local-GNN, and
+  hierarchical baselines, while Phase 5B.2 provides versioned caches, global
+  splits, lazy datasets, deterministic quota sampling, and worker-safe
+  collation. A separate execution contract is needed before SSL work so
+  one-batch optimization, ordinary supervised epochs, device movement, and
+  resume evidence do not become ad hoc scripts.
+- Decision: Use Hydra structured groups with explicit deterministic fields and
+  persist the fully resolved application configuration. Select existing
+  model/data/loss paths only; Phase 6C does not add or reinterpret heads,
+  targets, reconstruction, graph inputs, or corpus artifacts.
+- Decision: Make `move_multisource_batch` the official non-mutating device
+  boundary. Move raw-graph tensors and model-facing target tensors together,
+  keep provenance/diagnostics/strings/statistics as CPU sidecars, preserve
+  tuple-valued PyG metadata, and never insert a target into the graph.
+  Validate device, shape, task order, and graph binding through fixed registry
+  tensor operations rather than replaying per-row Python validation on CUDA.
+- Decision: Treat one-batch loss decrease and bit-exact checkpoint reload as
+  optimization-plumbing evidence only. Retain harmonic, reconstruction, and
+  total losses separately. A batch without eligible harmonic rows may optimize
+  reconstruction only under an objective with explicit nonzero reconstruction
+  weight; missing supervision never becomes a negative.
+- Decision: Keep LR `0.02` and joint harmonic plus visible reconstruction only
+  in the one-batch plumbing preset. The production supervised baseline starts
+  at LR `3e-4`, harmonic weight `1`, and reconstruction weight `0`. Joint
+  visible reconstruction is a separately named ablation. Explicit task
+  weights may address only existing fully-supervised active heads;
+  positive-unlabeled and deferred open-vocabulary tasks remain disabled.
+- Decision: Validation membership is immutable across epochs. The default
+  visits the complete validation view exactly once without replacement; an
+  optional bounded subset is selected once and fingerprinted. Best-checkpoint
+  selection uses only this fixed validation evidence.
+- Decision: Aggregate task loss as an epoch numerator divided by its exact
+  eligible-row denominator, then compute the epoch harmonic objective from
+  explicitly weighted task means. Do not average batch means. Emit the same
+  task/count accounting per dataset. Reduce each batch to dataset/task-or-field
+  scalars on device, use at most one packed host transfer, and immediately fold
+  into CPU aggregates. Retain no device tensor from earlier batches;
+  persistent GPU metric memory is zero and CPU aggregate memory is
+  `O(dataset_count * task_or_field_count)`. Floating-point aggregation is
+  batch/order independent within the documented numerical tolerance, not
+  claimed bit-exact under arbitrary reduction orders.
+- Decision: Training checkpoints `1.0.0` bind the existing model contract,
+  fully resolved configuration fingerprint, and corpus/index/split/
+  composition fingerprints. Store model, optimizer, scheduler, AMP scaler,
+  next epoch, best validation metric, and Python/CPU-torch/CUDA-torch RNG.
+  Prevalidate the complete payload and auxiliary application where possible;
+  any live application failure rolls back model, optimizer, scheduler, scaler,
+  and all RNG state bit-exactly. An atomic per-epoch metric journal and
+  checkpoint `committed_metric_rows` make `last.pt` and `metrics.jsonl`
+  recoverable across either write-order crash window. Resume is supported only
+  at deterministic epoch boundaries; mid-epoch resume remains explicitly
+  deferred. Require the checkpoint loader to reject
+  `next_epoch > configured epochs` during prevalidation, before any live-state
+  mutation.
+- Decision: A fresh run rejects an output directory containing managed
+  training artifacts. Explicit `experiment.overwrite_output=true` removes the
+  complete known managed set but never unknown user files. Resume cannot use
+  overwrite; it validates a versioned run manifest and existing evidence
+  fingerprints before journal recovery or any artifact write. An incompatible
+  resume leaves both live state and artifacts unchanged.
+- Decision: Epoch evidence records `learning_rate_used` before optimizer
+  steps and `next_learning_rate` after scheduler advancement. Do not emit the
+  prior ambiguous `learning_rate` field.
+- Decision: Validate raw graph/target semantics on CPU before transfer. Normal
+  CUDA training performs no full gradient-evidence scan. Engine/device
+  hot-path functions contain no tensor-to-Python conversion, joint
+  reconstruction avoids per-feature-family data-dependent host predicates,
+  and metric transfers are explicitly counted at their single packed
+  per-batch site. Retained device tensors/bytes are measured from accumulator
+  state. Gradient evidence is restricted to one-batch or explicit diagnostic
+  mode.
+- Decision: Split planning remains target-blind and delegates to
+  `plan_group_hash_split`, followed by the existing complete global
+  source/lineage validation. CUDA acceptance is optional in CPU CI and must
+  skip explicitly; hardware identity and VRAM are reported only from an actual
+  CUDA run.
+- Consequences: Device-transfer and training-checkpoint contracts begin at
+  `1.0.0`. Phase 6A/6B model/output/loss/checkpoint versions, ontology,
+  encoding, adapters, production manifests, canonical/graph semantics, and
+  corpus contracts do not change. Phase 7 and SSL have not started.
