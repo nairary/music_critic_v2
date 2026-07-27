@@ -1157,3 +1157,46 @@ This log is append-only.
   `1.0.0`. Phase 6A/6B model/output/loss/checkpoint versions, ontology,
   encoding, adapters, production manifests, canonical/graph semantics, and
   corpus contracts do not change. Phase 7 and SSL have not started.
+
+## 2026-07-27 — ADR-044: POP909-CL separates record, raw-input, lineage, graph, and target identity
+
+- Status: Accepted as a Phase 6C pre-merge full-corpus blocker remediation.
+- Context: POP909-CL source records 543 and 553 have different source-file
+  SHA-256 values but byte-identical score-only projections. Reusing the generic
+  MIDI content-addressed piece ID therefore collapsed two corpus records into
+  one `(dataset_id, piece_id)`. Weakening duplicate validation, deleting one
+  record, or allowing the identical raw input across splits would either lose
+  observed target evidence or create leakage.
+- Decision: A POP909-CL canonical/source-record identity is
+  `piece:pop909-cl-<song-id>`. It is deterministic, path/order/split
+  independent, and target independent. The generic MIDI adapter retains its
+  existing `piece:midi-<payload-sha256>` default but accepts a validated
+  explicit ID before conversion so all canonical entity references are
+  consistent.
+- Decision: `source_group_id` means target-independent raw-input equivalence
+  for POP909-CL and is
+  `pop909-cl-score:<score-projection-sha256>`. It participates in the existing
+  transitive split closure. `lineage_group_id` remains independently
+  `pop909-lineage:<song-id>`; it is not replaced with a raw hash.
+- Decision: Canonical serialization preserves the record-specific piece ID.
+  Raw graph serialization preserves exact canonical entity references.
+  `graph_fingerprint` excludes only the record-specific song entity ID, so
+  identical model inputs have identical fingerprints without changing graph
+  schema, features, topology, or model-facing tensors. Target bundles retain
+  their own identity and never enter raw grouping or graph fingerprints.
+- Decision: Keep both 543 and 553 as separate samples in one split-atomic
+  component. Their target bundle fingerprints differ: boundary and no-chord
+  values/masks agree; bass values differ with equal availability masks; root,
+  quality, and inversion values and availability masks differ.
+  The bounded evidence classification is “multiple observed target views for
+  one score input.” It does not assert an alternative-harmonization semantic
+  relation that the source contract does not establish.
+- Decision: Preserve strict duplicate `(dataset_id, piece_id)` rejection.
+  Diagnostics list every duplicate cluster deterministically with dataset,
+  piece, cluster size, source identity, and relative path; absolute temporary
+  paths are excluded.
+- Consequences: POP909-CL adapter and corpus/production manifest versions
+  patch-bump to `1.0.1`, which invalidates old cache hits without deleting old
+  immutable artifacts. Corpus index/split structures, canonical schema, graph
+  schema/features/topology, ontology, encoding, model, output, loss, and
+  checkpoint contracts do not change. Phase 7/SSL remains unstarted.

@@ -262,9 +262,39 @@ class CorpusIndex:
             )
         keys = tuple((row.dataset_id, row.piece_id) for row in self.records)
         if len(keys) != len(set(keys)):
+            clusters: dict[
+                tuple[str, str], list[IndexedCorpusRecord]
+            ] = {}
+            for row in self.records:
+                clusters.setdefault(
+                    (row.dataset_id, row.piece_id), []
+                ).append(row)
+            duplicates = tuple(
+                {
+                    "dataset_id": dataset_id,
+                    "piece_id": piece_id,
+                    "cluster_size": len(rows),
+                    "sources": tuple(
+                        sorted(
+                            (
+                                row.source_identity,
+                                row.source_relative_path,
+                            )
+                            for row in rows
+                        )
+                    ),
+                }
+                for (dataset_id, piece_id), rows in sorted(
+                    clusters.items()
+                )
+                if len(rows) > 1
+            )
             raise CorpusContractError(
                 "corpus_index.duplicate_piece",
-                "duplicate dataset/piece identities are rejected",
+                "duplicate dataset/piece identities are rejected; "
+                f"clusters={duplicates!r}",
+                dataset_id=duplicates[0]["dataset_id"],
+                piece_id=duplicates[0]["piece_id"],
             )
         if any(row.dataset_id != self.header.dataset_id for row in self.records):
             raise CorpusContractError(

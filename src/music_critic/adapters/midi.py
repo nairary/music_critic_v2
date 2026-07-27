@@ -9,6 +9,7 @@ from io import BytesIO
 import os
 from os import PathLike
 from pathlib import Path
+import re
 from typing import Any, Iterable
 
 import mido
@@ -38,6 +39,7 @@ _DEFAULT_TEMPO = 500_000
 _DEFAULT_NUMERATOR = 4
 _DEFAULT_DENOMINATOR = 4
 _MAX_METRIC_GRID_RECORDS = 1_000_000
+_PIECE_ID_RE = re.compile(r"^piece:[A-Za-z0-9][A-Za-z0-9._~-]*$")
 
 _MAJOR_FIFTHS = {
     "Cb": -7,
@@ -80,6 +82,7 @@ class MidiAdapterConfig:
     dataset_name: str
     source_group_id: str | None = None
     split: str | None = None
+    piece_id: str | None = None
 
 
 class MidiAdapterError(Exception):
@@ -931,6 +934,14 @@ def load_midi_piece(
     path_value = os.fspath(path)
     if not isinstance(path_value, str):
         raise MidiAdapterError("MIDI source path must resolve to a string")
+    if config.piece_id is not None and (
+        not isinstance(config.piece_id, str)
+        or _PIECE_ID_RE.fullmatch(config.piece_id) is None
+    ):
+        raise MidiAdapterError(
+            "explicit MIDI piece_id must have a valid "
+            "'piece:<local-id>' form"
+        )
     payload, midi_file = _read_midi(path_value)
     if midi_file.type == 2:
         raise MidiAdapterError(f"{path_value}: MIDI type 2 is unsupported")
@@ -944,7 +955,11 @@ def load_midi_piece(
         raise MidiAdapterError(f"{path_value}: {reason} is unsupported")
 
     checksum = sha256(payload).hexdigest()
-    piece_id = f"piece:midi-{checksum}"
+    piece_id = (
+        config.piece_id
+        if config.piece_id is not None
+        else f"piece:midi-{checksum}"
+    )
     messages, source_end_tick = _collect_messages(midi_file, path_value)
 
     tempo, flags = _select_global_events(

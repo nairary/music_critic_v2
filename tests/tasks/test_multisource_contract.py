@@ -254,7 +254,7 @@ def test_actual_adapter_target_structures_match_registry(tmp_path: Path) -> None
     assert hook.dataset_id == "hooktheory"
     assert hook.lineage_group_id == "hook-source"
     assert pop.dataset_id == "pop909_cl"
-    assert pop.source_group_id == "pop909-cl:001"
+    assert pop.source_group_id.startswith("pop909-cl-score:")
     assert pop.lineage_group_id == "pop909-lineage:001"
 
 
