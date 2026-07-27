@@ -655,6 +655,10 @@ This log is append-only.
   ambiguous, 586 unsupported, 947 derived `N`, 151 trailing masked spans, and
   anomaly fingerprint
   `d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`.
+  This value is the historical Phase 4A/Phase 4B-v1 evidence fingerprint:
+  its anomaly rows used the earlier source-path representation. It remains
+  part of the historical acceptance record and is not the current portable
+  POP909-CL `2.0.0` production contract.
   All 908 accepted visible/hidden pieces validated, round-tripped
   deterministically, retained equal raw content, and produced equal raw graph
   fingerprints.
@@ -1157,3 +1161,102 @@ This log is append-only.
   `1.0.0`. Phase 6A/6B model/output/loss/checkpoint versions, ontology,
   encoding, adapters, production manifests, canonical/graph semantics, and
   corpus contracts do not change. Phase 7 and SSL have not started.
+
+## 2026-07-27 — ADR-044: POP909-CL separates record, raw-input, lineage, graph, and target identity
+
+- Status: Accepted as a Phase 6C pre-merge full-corpus blocker remediation.
+- Context: POP909-CL source records 543 and 553 have different source-file
+  SHA-256 values but byte-identical score-only projections. Reusing the generic
+  MIDI content-addressed piece ID therefore collapsed two corpus records into
+  one `(dataset_id, piece_id)`. Weakening duplicate validation, deleting one
+  record, or allowing the identical raw input across splits would either lose
+  observed target evidence or create leakage.
+- Decision: A POP909-CL canonical/source-record identity is
+  `piece:pop909-cl-<song-id>`. It is deterministic, path/order/split
+  independent, and target independent. The generic MIDI adapter retains its
+  existing `piece:midi-<payload-sha256>` default but accepts a validated
+  explicit ID before conversion so all canonical entity references are
+  consistent.
+- Decision: `source_group_id` means target-independent raw-input equivalence
+  for POP909-CL and is
+  `pop909-cl-score:<score-projection-sha256>`. It participates in the existing
+  transitive split closure. `lineage_group_id` remains independently
+  `pop909-lineage:<song-id>`; it is not replaced with a raw hash.
+- Decision: Canonical serialization preserves the record-specific piece ID.
+  Raw graph serialization preserves exact canonical entity references.
+  `graph_fingerprint` excludes only the record-specific song entity ID, so
+  identical model inputs have identical fingerprints without changing graph
+  schema, features, topology, or model-facing tensors. Target bundles retain
+  their own identity and never enter raw grouping or graph fingerprints.
+- Decision: Keep both 543 and 553 as separate samples in one split-atomic
+  component. Their target bundle fingerprints differ: boundary and no-chord
+  values/masks agree; bass values differ with equal availability masks; root,
+  quality, and inversion values and availability masks differ.
+  The bounded evidence classification is “multiple observed target views for
+  one score input.” It does not assert an alternative-harmonization semantic
+  relation that the source contract does not establish.
+- Decision: Preserve strict duplicate `(dataset_id, piece_id)` rejection.
+  Diagnostics list every duplicate cluster deterministically with dataset,
+  piece, cluster size, source identity, and relative path; absolute temporary
+  paths are excluded.
+- Consequences: POP909-CL adapter and corpus/production manifest versions
+  patch-bump to `1.0.1`, which invalidates old cache hits without deleting old
+  immutable artifacts. Corpus index/split structures, canonical schema, graph
+  schema/features/topology, ontology, encoding, model, output, loss, and
+  checkpoint contracts do not change. Phase 7/SSL remains unstarted.
+
+## 2026-07-27 — ADR-045: Strict graph identity and numerical model-input equivalence are separate
+
+- Status: Accepted as the post-merge correction to ADR-044. The ADR-044
+  statement that `graph_fingerprint` excludes song identity is superseded.
+- Context: Canonical piece ↔ raw graph binding, external graph validation,
+  collator mutation detection, and integrity diagnostics require the complete
+  deterministic graph serialization, including every entity ID. Reusing that
+  fingerprint for cross-record numerical equivalence weakened those exact
+  identity boundaries.
+- Decision: Restore `graph_fingerprint` as SHA-256 of the complete validated
+  `dumps_graph` serialization. A song entity-ID-only change changes the strict
+  fingerprint and fails sample/collator binding.
+- Decision: Introduce `model_input_fingerprint@1.0.0` for validated numerical
+  model input. It commits to schema/feature/builder versions, `raw_only`,
+  ordered feature names, feature and availability tensors, candidate slots,
+  ordered edge types, and topology. It excludes entity IDs and all
+  targets/provenance/path/group/split sidecars. It is evidence only and cannot
+  authorize canonical/graph binding.
+- Decision: POP909-CL score-projection `source_group_id` is the authoritative
+  raw-equivalence and split-closure identity. Record `piece_id`, independent
+  song lineage, strict graph fingerprint, model-input fingerprint, and target
+  bundle fingerprint remain distinct contracts.
+- Decision: Runtime POP909-CL identity/grouping API is a breaking change from
+  `1.0.0`; runtime adapter and corpus/production manifest therefore become
+  `2.0.0`. The unchanged target-extraction semantics remain version `1.0.0`;
+  ontology `source_adapter=music_critic.adapters.pop909_cl@1.0.0` explicitly
+  names that target-semantic contract, not the runtime adapter version.
+- Consequences: Corpus index/split structures, canonical schema, graph
+  schema/features/topology, ontology `1.0.1`, encoding, model, loss, output,
+  and checkpoint contracts remain unchanged. Existing cache artifacts are not
+  deleted. Phase 7/SSL remains unstarted.
+
+## 2026-07-27 — ADR-046: POP909-CL anomaly evidence is installation-portable
+
+- Status: Accepted as the final evidence-only remediation for the `2.0.0`
+  POP909-CL hotfix.
+- Context: Historical Phase 4A/v1 anomaly rows retained the former
+  source-path representation and produced
+  `d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`.
+  That remains valid historical evidence, but an absolute or installation-root
+  component is not portable corpus evidence.
+- Decision: The current `POP909_CL_ANOMALY_FINGERPRINT` is
+  `603ca5eb9fa248ef3e718b0f5d6ddce166b310860473e89e7e35be0a1158662b`.
+  It hashes the same eight semantic anomaly rows with corpus-relative paths,
+  independent of the supported direct or nested installation layout.
+  The old value is exposed only as the explicitly historical
+  `POP909_CL_ANOMALY_FINGERPRINT_V1`.
+- Decision: Production acceptance independently binds its calculated anomaly
+  fingerprint to both the public current constant and the production
+  manifest. Public-contract and manifest-contract mismatches have separate
+  stable categories and either makes `ready=false`.
+- Consequences: This closes evidence linkage only. Record identity, raw-input
+  grouping, lineage, strict graph/model-input fingerprints, targets, cache
+  keys, split assignments, and all `2.0.0` versions remain unchanged. Existing
+  immutable cache artifacts are retained; Phase 7/SSL remains unstarted.

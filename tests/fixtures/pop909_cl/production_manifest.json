@@ -1,6 +1,6 @@
 {
-  "acceptance_schema_version": "1.0.0",
-  "adapter_version": "1.0.0",
+  "acceptance_schema_version": "2.0.0",
+  "adapter_version": "2.0.0",
   "corpus": {
     "content_fingerprint": "b34f07d9a2678abdb6f0dcf5db1c3aec3f35caca813f1fac80c0717cfc8e0c65",
     "dataset_name": "pop909_cl",
@@ -11,15 +11,22 @@
   },
   "expected": {
     "accepted": 908,
+    "accepted_record_count": 908,
     "accepted_missing_targets": 2,
     "ambiguous_blocks": 5801,
-    "anomaly_evidence_fingerprint": "d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051",
+    "anomaly_evidence_fingerprint": "603ca5eb9fa248ef3e718b0f5d6ddce166b310860473e89e7e35be0a1158662b",
     "bass_available": 116055,
     "boundary_available": 116055,
     "chord_blocks": 116055,
     "chord_instruments": 907,
     "derived_n_spans": 947,
     "deterministic_round_trips": 908,
+    "duplicate_cluster_song_ids": [
+      [
+        "543",
+        "553"
+      ]
+    ],
     "inversion_available": 109668,
     "logical_files": 909,
     "missing_target_song_ids": [
@@ -30,12 +37,19 @@
     "quarantine_song_ids": [
       "172"
     ],
+    "quarantine_count": 1,
     "quarantined": 1,
+    "raw_input_duplicate_cluster_count": 1,
+    "raw_input_duplicate_model_input_fingerprint_count": 1,
+    "raw_input_duplicate_record_count": 2,
+    "raw_input_duplicate_strict_graph_fingerprint_count": 2,
     "root_available": 109668,
     "target_hidden_graph_equal": 908,
     "target_hidden_raw_equal": 908,
     "trailing_masked_spans": 151,
     "unsupported_blocks": 586,
+    "unique_raw_input_equivalence_count": 907,
+    "unique_record_piece_id_count": 908,
     "validated_pieces": 908
   },
   "golden_cases": [
@@ -61,5 +75,115 @@
       "song_id": "658",
       "status": "accepted_missing_targets"
     }
-  ]
+  ],
+  "raw_input_duplicate_evidence": {
+    "canonical_raw_equal_excluding_record_identity_path_lineage_provenance_targets": true,
+    "chord_block_counts": [
+      163,
+      163
+    ],
+    "classification": "multiple_observed_target_views_for_one_score_input",
+    "common_edge_counts": {
+      "bar|belongs_to_song|song": 76,
+      "bar|contains_beat|beat": 301,
+      "bar|contains_note|note": 1607,
+      "bar|contains_onset|onset": 806,
+      "bar|next_bar|bar": 75,
+      "bar|previous_bar|bar": 75,
+      "beat|belongs_to_bar|bar": 301,
+      "beat|contains_onset|onset": 806,
+      "beat|has_active_note|note": 1402,
+      "beat|next_beat|beat": 300,
+      "beat|previous_beat|beat": 300,
+      "note|active_at|beat": 1402,
+      "note|belongs_to_bar|bar": 1607,
+      "note|belongs_to_track|track": 1607,
+      "note|in_onset|onset": 1607,
+      "note|next_in_track|note": 1606,
+      "note|previous_in_track|note": 1606,
+      "onset|belongs_to_bar|bar": 806,
+      "onset|belongs_to_beat|beat": 806,
+      "onset|next_onset|onset": 805,
+      "onset|previous_onset|onset": 805,
+      "onset|starts_note|note": 1607,
+      "song|contains_bar|bar": 76,
+      "song|contains_track|track": 2,
+      "track|belongs_to_song|song": 2,
+      "track|contains_note|note": 1607
+    },
+    "common_model_input_fingerprint": "2c03b1a37a722173a72ce6fd0ce74a58f3a03627907ac4fd04702ddee07b9c7f",
+    "common_node_counts": {
+      "bar": 76,
+      "beat": 301,
+      "note": 1607,
+      "onset": 806,
+      "song": 1,
+      "track": 2
+    },
+    "diagnostics": {
+      "543": {
+        "ambiguous_blocks": 9,
+        "mixed_end_blocks": 0,
+        "overlaps": 0,
+        "pairing_anomalies": 0,
+        "repeated_pitch_blocks": 0,
+        "unsupported_blocks": 0
+      },
+      "553": {
+        "ambiguous_blocks": 11,
+        "mixed_end_blocks": 0,
+        "overlaps": 0,
+        "pairing_anomalies": 0,
+        "repeated_pitch_blocks": 0,
+        "unsupported_blocks": 0
+      }
+    },
+    "piece_ids": [
+      "piece:pop909-cl-543",
+      "piece:pop909-cl-553"
+    ],
+    "raw_input_equivalence_id": "pop909-cl-score:4585134e3f7a70c105a3bb678a04ab2bc4522c04e11183f6fd6c59046be25286",
+    "score_projection_byte_equal": true,
+    "score_projection_sha256": "4585134e3f7a70c105a3bb678a04ab2bc4522c04e11183f6fd6c59046be25286",
+    "song_ids": [
+      "543",
+      "553"
+    ],
+    "source_sha256": [
+      "7dc63700fb5e58d2d12b580aa53614413317232caa151920d6079ad2440b662b",
+      "618b99761e750edfaffb4053cc3ad073661fd5c969bfea840481f466a03ec07a"
+    ],
+    "strict_graph_fingerprints": {
+      "543": "0a4fa698ed7748ebee855424f38c967bd04cf6b10e792b8b6a4e0aceb9230ed6",
+      "553": "605072317c4029380d14d73a45be8f506a8edc45b6dca841ebb5b6e5d8920531"
+    },
+    "target_bundle_fingerprints": [
+      "9962345d2a47e6c412c05a83c38c59b7f38b5901df6c19ce41079510ac77ea5b",
+      "eac8f6d2e1b616375343a9de71108efb84b9fee80e9a89ff75cf5cd6076e57d0"
+    ],
+    "availability_masks_equal": {
+      "pop909_cl.chord.bass": true,
+      "pop909_cl.chord.boundary": true,
+      "pop909_cl.chord.inversion": false,
+      "pop909_cl.chord.no_chord": true,
+      "pop909_cl.chord.quality": false,
+      "pop909_cl.chord.root": false
+    },
+    "target_values_equal": {
+      "pop909_cl.chord.bass": false,
+      "pop909_cl.chord.boundary": true,
+      "pop909_cl.chord.inversion": false,
+      "pop909_cl.chord.no_chord": true,
+      "pop909_cl.chord.quality": false,
+      "pop909_cl.chord.root": false
+    },
+    "target_values_and_masks_equal": {
+      "pop909_cl.chord.bass": false,
+      "pop909_cl.chord.boundary": true,
+      "pop909_cl.chord.inversion": false,
+      "pop909_cl.chord.no_chord": true,
+      "pop909_cl.chord.quality": false,
+      "pop909_cl.chord.root": false
+    }
+  }
 }

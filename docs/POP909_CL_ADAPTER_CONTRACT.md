@@ -16,7 +16,7 @@ weaken provenance when the complete content comparison succeeds.
 
 ## Production API
 
-Adapter version `1.0.0` is implemented in
+Runtime adapter version `2.0.0` is implemented in
 `music_critic.adapters.pop909_cl` and exposed minimally through
 `music_critic.adapters`.
 
@@ -31,12 +31,14 @@ The primary API is:
   `Pop909ClQuarantine`;
 - `Pop909ClAdapterError`, `Pop909ClCorpusIdentityError`, and
   `Pop909ClConversionError`;
-- `pop909_cl_source_group_id` and `pop909_lineage_group_id`.
+- `pop909_cl_piece_id`, `pop909_cl_raw_input_group_id`,
+  `pop909_cl_source_group_id`, and `pop909_lineage_group_id`.
 
 The module also exposes typed chord-block, candidate, coverage, pairing, track,
 and instrument evidence records. Production code does not import
-`scripts/audit_pop909_cl.py`. Corpus manifest version `1.0.0` and the opt-in
-streaming acceptance are implemented by
+`scripts/audit_pop909_cl.py`. Corpus manifest version `2.0.0` and acceptance
+schema `2.0.0`, including bounded raw-duplicate evidence, are implemented by
+the opt-in streaming acceptance in
 `scripts/accept_pop909_cl_adapter.py` and
 `tests/fixtures/pop909_cl/production_manifest.json`.
 
@@ -52,8 +54,10 @@ streaming acceptance are implemented by
   `043 .mid`, alongside the logical ID.
 - Missing, duplicate, malformed, and unexpected identifiers are structured
   failures. Do not silently choose among duplicate logical IDs.
-- Use dataset identity `pop909_cl`, source group
-  `pop909-cl:<three-digit-song-id>`, and cross-corpus lineage group
+- Use dataset identity `pop909_cl`. Source-record identity is
+  `piece:pop909-cl-<three-digit-song-id>`. Split-atomic raw-input equivalence
+  is `pop909-cl-score:<score-projection-sha256>` and is computed only from the
+  score-only projection. Cross-corpus song lineage remains
   `pop909-lineage:<three-digit-song-id>`.
 - Assign no final split. A later group splitter must keep a CL song together
   and, if original POP909 is also used, keep matching lineage IDs in the same
@@ -99,6 +103,19 @@ That path is diagnostic only and cannot be used for training or inference.
 Raw graph leakage tests must compare identical score projections after chord
 mutation and require identical canonical score tracks/notes and graph
 fingerprints. Annotation evidence must change independently.
+
+Strict `graph_fingerprint` hashes the complete validated deterministic graph
+serialization, including every `entity_id`. It is authoritative for canonical
+piece ↔ graph binding, external-graph verification, post-preparation mutation
+detection, and integrity diagnostics.
+
+`model_input_fingerprint` contract `1.0.0` separately hashes the validated
+numerical model input: global schema/feature/builder versions and `raw_only`;
+ordered feature names; categorical/continuous values and availability;
+candidate slots; and ordered edge types/indices. It excludes all entity IDs,
+targets, provenance, source paths, grouping, and split. It must never replace
+the strict binding fingerprint. POP split closure is authoritative only from
+the score-projection `source_group_id`.
 
 For downstream use alongside HookTheory, the shared auxiliary-target,
 actual-accompaniment, role-agnostic inference, and future PLL boundaries are
@@ -218,8 +235,52 @@ quarantined, 907 chord instruments, `367` and `658` explicitly masked,
 116,055 boundary/bass targets, 5,801 ambiguous blocks, 586 unsupported blocks,
 947 derived `N` spans, and 151 trailing masked spans. All 908 accepted pieces
 passed deterministic visible/hidden canonical round trips, raw equality, and
-raw graph fingerprint equality. The anomaly fingerprint is
-`d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`.
+raw graph fingerprint equality. The anomaly fingerprint recorded by that
+historical Phase 4A/Phase 4B-v1 evidence run was
+`d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`;
+it included the former source-path representation and is intentionally
+preserved as history.
+
+The current POP909-CL `2.0.0` portable anomaly contract hashes corpus-relative
+paths and is independent of direct versus supported nested installation
+layout. Its fingerprint is
+`603ca5eb9fa248ef3e718b0f5d6ddce166b310860473e89e7e35be0a1158662b`.
+Production acceptance checks the calculated value independently against both
+the public current constant and `expected.anomaly_evidence_fingerprint` in the
+production manifest; either mismatch makes the report not ready.
+
+## Full-corpus identity remediation
+
+The Phase 6C full-cache build exposed one score-content collision: source
+records `543` and `553` have distinct source file SHA-256 values
+`7dc63700fb5e58d2d12b580aa53614413317232caa151920d6079ad2440b662b`
+and
+`618b99761e750edfaffb4053cc3ad073661fd5c969bfea840481f466a03ec07a`,
+but their score-only projections are byte-identical with SHA-256
+`4585134e3f7a70c105a3bb678a04ab2bc4522c04e11183f6fd6c59046be25286`.
+Their canonical raw content and node/edge counts match after excluding record
+identity/path/lineage/provenance/targets. Strict graph fingerprints differ:
+543 is
+`0a4fa698ed7748ebee855424f38c967bd04cf6b10e792b8b6a4e0aceb9230ed6`
+and 553 is
+`605072317c4029380d14d73a45be8f506a8edc45b6dca841ebb5b6e5d8920531`.
+Their common model-input fingerprint is
+`2c03b1a37a722173a72ce6fd0ce74a58f3a03627907ac4fd04702ddee07b9c7f`.
+
+They are not a full corpus duplicate. Both have 163 chord blocks. Boundary
+and empty no-chord values and masks agree. Bass values differ while its
+all-available mask agrees; root, quality, and inversion values and masks
+differ (154 versus 152 available rows). Target-bundle fingerprints therefore
+differ. The accepted description is “multiple observed target views for one
+score input,” not an unproven alternative-harmonization claim.
+
+Both records are retained as `piece:pop909-cl-543` and
+`piece:pop909-cl-553`, share one `pop909-cl-score:...` source group, retain
+their distinct song lineage IDs, and must be assigned to one split. Production
+evidence is 908 accepted record IDs, 907 raw-input-equivalence groups, one
+two-record duplicate cluster `[543, 553]`, and the unchanged quarantine
+`["172"]`. The resulting full index fingerprint is
+`b2008221fa59ddd0df31289561b22341db9c2eac527e1a503eac57b74da27daf`.
 
 Phase 4B does not authorize model, SSL, training, preference, or inference
 implementation.

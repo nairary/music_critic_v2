@@ -846,8 +846,10 @@ without becoming raw/graph identity or inference input.
     ambiguous quality is available only on candidate agreement; unsupported
     root/quality/inversion are unavailable. Bass and inversion remain separate
     target families with independent masks.
-11. Use `pop909-cl:<song-id>` as the CL source group and
-    `pop909-lineage:<song-id>` to bind original/CL derivatives in later splits.
+11. Use `piece:pop909-cl-<song-id>` as the CL source-record identity,
+    `pop909-cl-score:<score-projection-sha256>` as target-independent raw-input
+    equivalence, and `pop909-lineage:<song-id>` to bind original/CL
+    derivatives in later splits.
 
 ### 16.4 Do not overcompress chord vocabulary
 
@@ -2390,6 +2392,8 @@ structure and is converted to `float32` only at feature-tensor construction.
 - preserve and normalize chord blocks at exact ticks/PPQN;
 - generate score-warning and chord-structure reports separately;
 - group CL/original derivatives safely.
+- keep source-record identity, score-only raw equivalence, and song lineage as
+  three separate deterministic identities;
 
 ### Tests
 
@@ -2400,6 +2404,8 @@ structure and is converted to `float32` only at feature-tensor construction.
   and exact pairing-anomaly evidence;
 - time/key meta-event retention and song-172 meter evidence;
 - source and lineage grouping with no split leakage.
+- exact raw-input duplicates retained as distinct records in one transitive
+  split component, with deterministic duplicate diagnostics;
 
 ### Acceptance criteria
 
@@ -2416,6 +2422,9 @@ structure and is converted to `float32` only at feature-tensor construction.
   only the `172` quarantine, the `367`/`658` masked absence, every pinned
   target-family count, deterministic visible/hidden round trips, and raw-graph
   fingerprint invariance.
+- production cache acceptance retains 908 unique POP record IDs, 907
+  score-equivalence groups, the sole `[543, 553]` duplicate cluster, and the
+  unchanged `172` quarantine.
 
 ## Phase 5. Multi-source dataset and collator
 
@@ -2668,6 +2677,15 @@ only under the named joint ablation; missing labels are never converted into
 negatives. Normal CUDA batches do not run full gradient scans or per-task/
 family host conversions. Commands and artifact details are in
 `docs/TRAINING.md`. Phase 7 has not started.
+
+The full-corpus POP909-CL blocker remediation is part of Phase 6C data
+readiness, not a new learning phase. Runtime adapter `2.0.0` supplies unique
+source-record piece IDs and score-only split grouping. The accepted POP index
+fingerprint is
+`b2008221fa59ddd0df31289561b22341db9c2eac527e1a503eac57b74da27daf`;
+the unchanged full HookTheory index and POP index pass one global 27,083-item
+audit under manifest fingerprint
+`b0546316acb225bb95439dab78fab95232b0a7a758316b69b85dc87f733c384d`.
 
 ## Phase 7. GraphMAE2-style SSL
 

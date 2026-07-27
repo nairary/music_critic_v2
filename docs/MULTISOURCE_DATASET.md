@@ -22,6 +22,9 @@ source evidence, source and lineage groups, a suggested source split,
 target-availability counts, and the relative cache artifact path/SHA-256.
 Absolute paths, path traversal, duplicate `(dataset_id, piece_id)` identities,
 non-canonical ordering, and fingerprint/version mismatches are rejected.
+Duplicate diagnostics retain the strict rejection and deterministically report
+each duplicate dataset/piece key, cluster size, and portable source
+identity/relative-path pairs; absolute temporary paths are never exposed.
 
 Accepted records and `CorpusQuarantineRecord` values are separate. Quarantine
 never becomes a Dataset item. `CorpusBuildReport` provides CPU-side accepted,
@@ -96,10 +99,28 @@ Transitive components are computed over all corpora together, including
 cross-dataset source/lineage links. No production ratios or seed are selected
 here.
 
+For POP909-CL runtime adapter `2.0.0`, `piece_id` is the source record
+(`piece:pop909-cl-<song-id>`), `source_group_id` is score-only raw-input
+equivalence, and `lineage_group_id` remains song lineage. Thus records 543 and
+553 remain two Dataset samples but form one split-atomic component. No new
+index or split field is needed, so corpus-index, cache, Dataset-view, sampler,
+and split-manifest versions remain `1.0.0`.
+
 The optional `plan_group_hash_split` is target-blind and requires explicit
 ratios and seed. It sorts and hashes complete source/lineage components, then
 uses largest-remainder component quotas. It performs no fuzzy duplicate
 matching and does not infer a scientific production split.
+
+The accepted full POP index has 908 unique record piece IDs, 907 unique source
+groups, one `[543, 553]` raw-equivalence cluster, and fingerprint
+`b2008221fa59ddd0df31289561b22341db9c2eac527e1a503eac57b74da27daf`.
+Together with the unchanged HookTheory index
+`77a1a146e6ed2f3a8af4762ef2e5ada82323b6865a09903c335814d3cc3cfd4f`,
+the seed-42 80/10/10 manifest fingerprint is
+`b0546316acb225bb95439dab78fab95232b0a7a758316b69b85dc87f733c384d`.
+All 27,083 active indexed records pass the joint audit; 543/553 are both in
+`train`. Physical immutable cache artifacts are more numerous because cache
+generations from older adapter versions remain retained.
 
 ## Composition, sampling, and workers
 

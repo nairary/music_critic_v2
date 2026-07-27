@@ -13,8 +13,11 @@ from music_critic.adapters.midi import (
 )
 from music_critic.adapters.pop909_cl import (
     POP909_CL_ADAPTER_VERSION,
+    POP909_CL_ANOMALY_FINGERPRINT,
+    POP909_CL_ANOMALY_FINGERPRINT_V1,
     POP909_CL_CONTENT_FINGERPRINT,
     POP909_CL_DATASET_NAME,
+    POP909_CL_TARGET_SEMANTICS_VERSION,
     POP909_CL_TASKS,
     Pop909ClAccepted,
     Pop909ClAdapterConfig,
@@ -29,9 +32,13 @@ from music_critic.adapters.pop909_cl import (
     Pop909ClQuarantine,
     convert_pop909_cl_file,
     discover_pop909_cl_corpus,
+    inspect_pop909_cl_instruments,
     iter_pop909_cl_corpus,
     pop909_cl_source_group_id,
+    pop909_cl_piece_id,
+    pop909_cl_raw_input_group_id,
     pop909_lineage_group_id,
+    project_pop909_cl_score_bytes,
 )
 
 __all__ = [
@@ -40,8 +47,11 @@ __all__ = [
     "MidiAdapterConfig",
     "MidiAdapterError",
     "POP909_CL_ADAPTER_VERSION",
+    "POP909_CL_ANOMALY_FINGERPRINT",
+    "POP909_CL_ANOMALY_FINGERPRINT_V1",
     "POP909_CL_CONTENT_FINGERPRINT",
     "POP909_CL_DATASET_NAME",
+    "POP909_CL_TARGET_SEMANTICS_VERSION",
     "POP909_CL_TASKS",
     "Pop909ClAccepted",
     "Pop909ClAdapterConfig",
@@ -57,9 +67,13 @@ __all__ = [
     "convert_hooktheory_record",
     "convert_pop909_cl_file",
     "discover_pop909_cl_corpus",
+    "inspect_pop909_cl_instruments",
     "iter_pop909_cl_corpus",
     "load_hooktheory_piece",
     "load_midi_piece",
     "pop909_cl_source_group_id",
+    "pop909_cl_piece_id",
+    "pop909_cl_raw_input_group_id",
     "pop909_lineage_group_id",
+    "project_pop909_cl_score_bytes",
 ]

@@ -8,6 +8,9 @@ import json
 from types import MappingProxyType
 from typing import Literal
 
+from music_critic.adapters.pop909_cl import (
+    POP909_CL_TARGET_SEMANTICS_VERSION,
+)
 
 TARGET_ONTOLOGY_VERSION = "1.0.1"
 
@@ -342,7 +345,12 @@ def _spec(
 _HT_CONTEXT = "melody_conditioned_harmony"
 _POP_CONTEXT = "score_conditioned_harmony_recognition"
 _HT_ADAPTER = "music_critic.adapters.hooktheory"
-_POP_ADAPTER = "music_critic.adapters.pop909_cl@1.0.0"
+# ``source_adapter`` identifies immutable target-extraction semantics, not the
+# current runtime/corpus-identity adapter release.
+_POP_ADAPTER = (
+    "music_critic.adapters.pop909_cl@"
+    f"{POP909_CL_TARGET_SEMANTICS_VERSION}"
+)
 _PC_NAMES = (
     "C",
     "C#",

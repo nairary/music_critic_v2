@@ -3,12 +3,12 @@
   "contract_source_sha256": {
     "docs/HARMONIC_SUPERVISION.md": "f72f5648d719938f188977f73ec3e7e96da0ef2f2d293de82ee56294d9a1c40a",
     "docs/MULTISOURCE_COLLATOR.md": "0b39b98ded041824d131476da158b643d38ec8ff14062b7c50e61383bed9918c",
-    "docs/MULTISOURCE_TARGET_CONTRACT.md": "14d705dd2a65fcbff6735e56569bd93b32af0345d5fe531628a25a53eee204c0",
-    "docs/POP909_CL_ADAPTER_CONTRACT.md": "42732a2da34c59dfa407ca4db2b969e78e9aa1506ee2e63a8abeed228c39736f",
+    "docs/MULTISOURCE_TARGET_CONTRACT.md": "c8832e650f24b53d7f5d9c03cd2fe14b5cf070650f1e411bec37a52689d79ea5",
+    "docs/POP909_CL_ADAPTER_CONTRACT.md": "8634422b359e547f2d7ec24d6f853c2194f6561e2d8078b7d0d308846ade7e1b",
     "scripts/audit_multisource_targets.py": "cda2585659fa6b33269b1eea1c221889aec222696bfccbbf8fdeccf61940ffac",
     "scripts/benchmark_multisource_collator.py": "5ce320a3f1b634369cec689600e6b0b4d30278890a42b9f778f57efdb6279146",
     "src/music_critic/adapters/hooktheory.py": "5fccd80b7b21656d0aafe69678ec5dac73271e79d4e6f4f24ee79eb9b471c9c2",
-    "src/music_critic/adapters/pop909_cl.py": "acd72846531fe83e608d1d963f2fc28c27f58ca892004a7fdb92b5d09e5d7a34",
+    "src/music_critic/adapters/pop909_cl.py": "3172f1d4286bb540fe217289ab3a1afc8b8a309d1a5f0cb00ffa44743b7b6dc9",
     "src/music_critic/data/schema.py": "b4abb10bd813bae4c04370fbd5e1d68752a97a9cbd6aa3d7f7a9e9c6f1bc49e8",
     "src/music_critic/graph/builder.py": "ccf423169631d4bb12295b92b4403625902eb1ded9478165f2ebc23d836fab65",
     "src/music_critic/graph/validation.py": "8de80cbf5929507da727293751aaba723d4256a5bc65aa0309b968873ffafa99",
@@ -16,9 +16,9 @@
     "src/music_critic/tasks/collator.py": "5ed0300f2bcb67e3c657aa50f6739c39b0084dae4f939b3a3989a349b19dd3e2",
     "src/music_critic/tasks/encoding.py": "de5199ffc1ea6034b860109967a8c931b813d68a4cffd5209072d45b02add4af",
     "src/music_critic/tasks/multisource.py": "99dbbbb8c500ea46007f449cc35a9ccde3dcacf412c5b83bc5cd4050a149f775",
-    "src/music_critic/tasks/ontology.py": "06a7201d6ca94b4ff898a273ea39ff669f5dcaa11b1e7c2047b9803896755d8c",
+    "src/music_critic/tasks/ontology.py": "369ddafa7f1d80643a95d680c9b9c7daa8aa228c4436f8fce61a413d3766b638",
     "tests/fixtures/hooktheory/golden_manifest.json": "a051f9ddc5ea7047200a1f94b2db6b1d3deb2ab15a2284827c704fb7681b1d0e",
-    "tests/fixtures/pop909_cl/production_manifest.json": "631873cac3ae0ff03b1f17a3d933f83954ed0da2a9bcf53e334bf5d7a6cd308a"
+    "tests/fixtures/pop909_cl/production_manifest.json": "bc9c4118c72cb39bc1393fd2d250db577835a837fc53f8fe8c1238c7b13a8031"
   },
   "ontology": {
     "crosswalks": [
@@ -1773,11 +1773,11 @@
     },
     "pop909_cl": {
       "accepted": 908,
-      "adapter_version": "1.0.0",
+      "adapter_version": "2.0.0",
       "ambiguous_blocks": 5801,
       "evidence_scope": "accepted production manifest aggregates from the prior streaming 909-file acceptance; no Phase 5A corpus rescan",
       "logical_files": 909,
-      "manifest_version": "1.0.0",
+      "manifest_version": "2.0.0",
       "quarantined": 1,
       "target_inventory": [
         {
@@ -2293,7 +2293,7 @@
     "graph_schema": "1.0.0",
     "hooktheory_adapter": null,
     "hooktheory_contract_phase": "2B.1",
-    "pop909_cl_adapter": "1.0.0",
+    "pop909_cl_adapter": "2.0.0",
     "target_encoding_registry": "1.0.0",
     "target_ontology": "1.0.1"
   }
