@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from hashlib import sha256
 from io import BytesIO
+import json
 from pathlib import Path
 
 import mido
@@ -10,6 +11,9 @@ import pytest
 
 from music_critic.adapters import (
     POP909_CL_ADAPTER_VERSION,
+    POP909_CL_ANOMALY_FINGERPRINT,
+    POP909_CL_ANOMALY_FINGERPRINT_V1,
+    POP909_CL_CONTENT_FINGERPRINT,
     Pop909ClAdapterConfig,
     Pop909ClConversionError,
     Pop909ClCorpusIdentity,
@@ -39,7 +43,13 @@ from music_critic.tasks import (
     create_split_manifest,
     plan_group_hash_split,
 )
-from scripts.accept_pop909_cl_adapter import _load_expectations
+from scripts.accept_pop909_cl_adapter import (
+    _acceptance_ready,
+    _anomaly_contract_mismatches,
+    _anomaly_fingerprint,
+    _anomaly_row,
+    _load_expectations,
+)
 
 
 def _conductor(*, quarantine_meter: bool = False) -> mido.MidiTrack:
@@ -284,6 +294,108 @@ def test_direct_and_nested_discovery_preserve_043_and_exclude_noise(
         "pop909-cl-score:"
     )
     assert discovery.records[0].lineage_group_id == "pop909-lineage:001"
+
+
+def test_portable_anomaly_fingerprint_ignores_supported_install_layouts(
+    tmp_path: Path,
+) -> None:
+    direct_root = tmp_path / "direct-install"
+    nested_root = tmp_path / "external" / "nested-install"
+    direct_path = direct_root / "POP909_processed" / "001.mid"
+    nested_path = (
+        nested_root
+        / "POP909_processed"
+        / "POP909_processed"
+        / "001.mid"
+    )
+    _write_midi(direct_path, anomalies=True)
+    _write_midi(nested_path, anomalies=True)
+
+    records = []
+    for root, path in (
+        (direct_root, direct_path),
+        (nested_root, nested_path),
+    ):
+        identity = Pop909ClCorpusIdentity(
+            expected_song_ids=("001",),
+            expected_content_fingerprint=_fingerprint([path]),
+        )
+        discovery = discover_pop909_cl_corpus(root, identity=identity)
+        records.append(discovery.records[0])
+
+    rows = []
+    for record in records:
+        result = convert_pop909_cl_file(record)
+        rows.append(
+            [
+                _anomaly_row(
+                    anomaly,
+                    corpus_relative_path=record.corpus_relative_path,
+                )
+                for anomaly in result.chord_evidence.pairing_anomalies
+            ]
+        )
+
+    assert records[0].relative_path != records[1].relative_path
+    assert records[0].corpus_relative_path == "001.mid"
+    assert records[1].corpus_relative_path == "001.mid"
+    assert rows[0] == rows[1]
+    assert _anomaly_fingerprint(rows[0]) == _anomaly_fingerprint(rows[1])
+    serialized = json.dumps(rows[0], sort_keys=True)
+    assert str(direct_root) not in serialized
+    assert str(nested_root) not in serialized
+    assert {row["source_path"] for row in rows[0]} == {"001.mid"}
+
+    changed = [dict(row) for row in rows[0]]
+    changed[0]["pitch"] = int(changed[0]["pitch"]) + 1
+    assert _anomaly_fingerprint(changed) != _anomaly_fingerprint(rows[0])
+
+
+def test_anomaly_acceptance_checks_public_and_manifest_contracts() -> None:
+    matching = {
+        "expected": {
+            "anomaly_evidence_fingerprint": POP909_CL_ANOMALY_FINGERPRINT
+        }
+    }
+    assert (
+        _anomaly_contract_mismatches(
+            POP909_CL_ANOMALY_FINGERPRINT,
+            matching,
+        )
+        == {}
+    )
+    assert _acceptance_ready(
+        fatal_rows=[],
+        mismatches={},
+        corpus_content_fingerprint=POP909_CL_CONTENT_FINGERPRINT,
+    )
+
+    mismatches = _anomaly_contract_mismatches("0" * 64, matching)
+    assert set(mismatches) == {
+        "anomaly_fingerprint_manifest_contract",
+        "anomaly_fingerprint_public_contract",
+    }
+    assert not _acceptance_ready(
+        fatal_rows=[],
+        mismatches=mismatches,
+        corpus_content_fingerprint=POP909_CL_CONTENT_FINGERPRINT,
+    )
+
+    stale_manifest = {
+        "expected": {"anomaly_evidence_fingerprint": "1" * 64}
+    }
+    manifest_only = _anomaly_contract_mismatches(
+        POP909_CL_ANOMALY_FINGERPRINT,
+        stale_manifest,
+    )
+    assert set(manifest_only) == {
+        "anomaly_fingerprint_manifest_contract"
+    }
+    public_only = _anomaly_contract_mismatches(
+        "1" * 64,
+        stale_manifest,
+    )
+    assert set(public_only) == {"anomaly_fingerprint_public_contract"}
 
 
 def test_discovery_diagnoses_missing_duplicate_malformed_and_fingerprint(
@@ -780,6 +892,22 @@ def test_versioned_production_manifest_and_unreadable_source(
         Path("tests/fixtures/pop909_cl/production_manifest.json")
     )
     assert manifest["adapter_version"] == POP909_CL_ADAPTER_VERSION
+    assert (
+        manifest["expected"]["anomaly_evidence_fingerprint"]
+        == POP909_CL_ANOMALY_FINGERPRINT
+    )
+    historical_manifest = json.loads(
+        Path("tests/fixtures/pop909_cl/audit_manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert (
+        historical_manifest["aggregates"]["chord_annotation_inventory"][
+            "pairing_anomaly_evidence_sha256"
+        ]
+        == POP909_CL_ANOMALY_FINGERPRINT_V1
+    )
+    assert POP909_CL_ANOMALY_FINGERPRINT_V1 != POP909_CL_ANOMALY_FINGERPRINT
     assert manifest["expected"]["accepted"] == 908
     assert manifest["expected"][
         "unique_record_piece_id_count"

@@ -98,9 +98,10 @@ fingerprint
 The unchanged 26,175-record HookTheory index plus POP index produced manifest
 fingerprint
 `b0546316acb225bb95439dab78fab95232b0a7a758316b69b85dc87f733c384d`.
-The complete 27,083-artifact audit passed; records 543 and 553 share one
-component and are both in `train`. Generated cache/index/report/split files
-remain local and ignored.
+The complete audit of 27,083 active corpus records passed; records 543 and 553
+share one component and are both in `train`. Physical immutable cache artifacts
+are more numerous because generations from older adapter versions remain
+retained. Generated cache/index/report/split files remain local and ignored.
 
 ## One-batch optimization evidence
 

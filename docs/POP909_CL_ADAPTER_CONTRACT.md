@@ -235,8 +235,19 @@ quarantined, 907 chord instruments, `367` and `658` explicitly masked,
 116,055 boundary/bass targets, 5,801 ambiguous blocks, 586 unsupported blocks,
 947 derived `N` spans, and 151 trailing masked spans. All 908 accepted pieces
 passed deterministic visible/hidden canonical round trips, raw equality, and
-raw graph fingerprint equality. The anomaly fingerprint is
-`d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`.
+raw graph fingerprint equality. The anomaly fingerprint recorded by that
+historical Phase 4A/Phase 4B-v1 evidence run was
+`d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`;
+it included the former source-path representation and is intentionally
+preserved as history.
+
+The current POP909-CL `2.0.0` portable anomaly contract hashes corpus-relative
+paths and is independent of direct versus supported nested installation
+layout. Its fingerprint is
+`603ca5eb9fa248ef3e718b0f5d6ddce166b310860473e89e7e35be0a1158662b`.
+Production acceptance checks the calculated value independently against both
+the public current constant and `expected.anomaly_evidence_fingerprint` in the
+production manifest; either mismatch makes the report not ready.
 
 ## Full-corpus identity remediation
 

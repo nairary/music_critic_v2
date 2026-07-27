@@ -244,15 +244,24 @@
   train/validation/test, with no source, lineage, or raw-equivalence leakage.
   Generated cache, index, split, reports, and training outputs are not
   committed. Phase 7/SSL has not started.
-- Final post-merge hotfix verification passes `232 passed, 3 opt-in skips` for
-  focused MIDI/POP/graph-binding/corpus/split regressions. Fresh 909-file
-  streaming acceptance is `ready=true` with zero mismatches/fatal failures;
-  its eight pairing-anomaly rows use stable corpus-relative paths and evidence
-  fingerprint
+- Final post-merge identity hotfix verification passed
+  `232 passed, 3 opt-in skips` for focused
+  MIDI/POP/graph-binding/corpus/split regressions.
+- The final evidence remediation passes `24 passed, 3 opt-in skips` for
+  focused POP audit/adapter/acceptance tests and `786 passed, 19 skipped` for
+  full default pytest. Deterministic target audit `--check`, compileall, and
+  diff checks pass. The saved fresh 909-file streaming report was revalidated
+  without a cache rebuild or corpus rescan: `ready=true`, 908 accepted, only
+  `172` quarantined, and zero mismatches/fatal failures. Its eight
+  pairing-anomaly rows use stable corpus-relative paths and evidence fingerprint
   `603ca5eb9fa248ef3e718b0f5d6ddce166b310860473e89e7e35be0a1158662b`.
+  This value is now shared by the public current constant and production
+  manifest, and acceptance checks its calculated value against both with
+  separate mismatch categories. The historical Phase 4A/v1 source-path
+  representation remains recorded as
+  `d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`.
   The real 543/553 evidence and full-cache/joint-split opt-in tests pass
-  `2 passed`. Full default pytest passes `784 passed, 19 skipped`;
-  deterministic target audit `--check`, compileall, and diff checks pass.
+  `2 passed` from the identity hotfix; those scans/builds were not repeated.
 
 ## Phase 6B deterministic hierarchy and coarse-context result
 
@@ -726,8 +735,10 @@
   derived `N`; 151 trailing masked spans.
 - All 908 accepted pieces passed canonical validation, deterministic
   target-visible and target-hidden JSON round trips, raw equality, and graph
-  fingerprint equality. Pairing anomaly evidence reproduced
-  `d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`.
+  fingerprint equality. Pairing anomaly evidence reproduced the historical
+  Phase 4A/v1 source-path fingerprint
+  `d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`;
+  this is not the current portable `2.0.0` production fingerprint.
 - Full default suite: `491 passed, 12 skipped, 2 warnings in 3.46s`; all skips
   are explicitly gated real-corpus integrations and both warnings are the
   existing upstream PyTorch deprecations.
@@ -853,7 +864,8 @@
   unavailable; `N` 947 available with 151 trailing spans unavailable.
 - Preserved the four dangling note-ons and four unmatched note-offs as exact
   event evidence with tick, pitch, velocity/channel, ordinal, path/hash, and
-  affected block/span markers. Manifest evidence SHA-256:
+  affected block/span markers. Historical Phase 4A/v1 manifest evidence
+  SHA-256 using its former source-path representation:
   `d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`.
 - Strict readiness now reports `evidence_contract_ready=true` separately from
   `production_adapter_ready=false`; the unimplemented Phase 4B adapter is the

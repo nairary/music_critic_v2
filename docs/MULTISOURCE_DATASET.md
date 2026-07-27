@@ -118,7 +118,9 @@ Together with the unchanged HookTheory index
 `77a1a146e6ed2f3a8af4762ef2e5ada82323b6865a09903c335814d3cc3cfd4f`,
 the seed-42 80/10/10 manifest fingerprint is
 `b0546316acb225bb95439dab78fab95232b0a7a758316b69b85dc87f733c384d`.
-All 27,083 artifacts pass the joint audit; 543/553 are both in `train`.
+All 27,083 active indexed records pass the joint audit; 543/553 are both in
+`train`. Physical immutable cache artifacts are more numerous because cache
+generations from older adapter versions remain retained.
 
 ## Composition, sampling, and workers
 

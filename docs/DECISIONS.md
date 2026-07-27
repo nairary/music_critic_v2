@@ -655,6 +655,10 @@ This log is append-only.
   ambiguous, 586 unsupported, 947 derived `N`, 151 trailing masked spans, and
   anomaly fingerprint
   `d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`.
+  This value is the historical Phase 4A/Phase 4B-v1 evidence fingerprint:
+  its anomaly rows used the earlier source-path representation. It remains
+  part of the historical acceptance record and is not the current portable
+  POP909-CL `2.0.0` production contract.
   All 908 accepted visible/hidden pieces validated, round-tripped
   deterministically, retained equal raw content, and produced equal raw graph
   fingerprints.
@@ -1232,3 +1236,27 @@ This log is append-only.
   schema/features/topology, ontology `1.0.1`, encoding, model, loss, output,
   and checkpoint contracts remain unchanged. Existing cache artifacts are not
   deleted. Phase 7/SSL remains unstarted.
+
+## 2026-07-27 — ADR-046: POP909-CL anomaly evidence is installation-portable
+
+- Status: Accepted as the final evidence-only remediation for the `2.0.0`
+  POP909-CL hotfix.
+- Context: Historical Phase 4A/v1 anomaly rows retained the former
+  source-path representation and produced
+  `d1aee48a2bade9d545794a16e327c8304b718a30699e4b5328e9393d961e4051`.
+  That remains valid historical evidence, but an absolute or installation-root
+  component is not portable corpus evidence.
+- Decision: The current `POP909_CL_ANOMALY_FINGERPRINT` is
+  `603ca5eb9fa248ef3e718b0f5d6ddce166b310860473e89e7e35be0a1158662b`.
+  It hashes the same eight semantic anomaly rows with corpus-relative paths,
+  independent of the supported direct or nested installation layout.
+  The old value is exposed only as the explicitly historical
+  `POP909_CL_ANOMALY_FINGERPRINT_V1`.
+- Decision: Production acceptance independently binds its calculated anomaly
+  fingerprint to both the public current constant and the production
+  manifest. Public-contract and manifest-contract mismatches have separate
+  stable categories and either makes `ready=false`.
+- Consequences: This closes evidence linkage only. Record identity, raw-input
+  grouping, lineage, strict graph/model-input fingerprints, targets, cache
+  keys, split assignments, and all `2.0.0` versions remain unchanged. Existing
+  immutable cache artifacts are retained; Phase 7/SSL remains unstarted.

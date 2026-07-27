@@ -14,6 +14,7 @@ from typing import Any
 
 from music_critic.adapters import (
     POP909_CL_ADAPTER_VERSION,
+    POP909_CL_ANOMALY_FINGERPRINT,
     POP909_CL_CONTENT_FINGERPRINT,
     Pop909ClAdapterConfig,
     convert_pop909_cl_file,
@@ -85,6 +86,53 @@ def _fingerprint(value: object) -> str:
             separators=(",", ":"),
         ).encode("utf-8")
     ).hexdigest()
+
+
+def _anomaly_fingerprint(rows: list[dict[str, Any]]) -> str:
+    portable_rows = sorted(
+        rows,
+        key=lambda row: (
+            row["source_path"],
+            row["tick"],
+            row["ordinal"],
+            row["category"],
+        ),
+    )
+    return _fingerprint(portable_rows)
+
+
+def _anomaly_contract_mismatches(
+    calculated: str,
+    expectations: dict[str, Any],
+) -> dict[str, dict[str, object]]:
+    mismatches: dict[str, dict[str, object]] = {}
+    if calculated != POP909_CL_ANOMALY_FINGERPRINT:
+        mismatches["anomaly_fingerprint_public_contract"] = {
+            "expected": POP909_CL_ANOMALY_FINGERPRINT,
+            "observed": calculated,
+        }
+    manifest_fingerprint = expectations["expected"].get(
+        "anomaly_evidence_fingerprint"
+    )
+    if calculated != manifest_fingerprint:
+        mismatches["anomaly_fingerprint_manifest_contract"] = {
+            "expected": manifest_fingerprint,
+            "observed": calculated,
+        }
+    return mismatches
+
+
+def _acceptance_ready(
+    *,
+    fatal_rows: list[dict[str, Any]],
+    mismatches: dict[str, dict[str, object]],
+    corpus_content_fingerprint: str,
+) -> bool:
+    return (
+        not fatal_rows
+        and not mismatches
+        and corpus_content_fingerprint == POP909_CL_CONTENT_FINGERPRINT
+    )
 
 
 def _raw_canonical_fingerprint(piece: Any) -> str:
@@ -344,23 +392,7 @@ def build_acceptance_report(root: Path, expectations: dict[str, Any]) -> dict[st
                 }
             )
 
-    anomaly_rows.sort(
-        key=lambda row: (
-            row["source_path"],
-            row["tick"],
-            row["ordinal"],
-            row["category"],
-        )
-    )
-    anomaly_fingerprint = sha256(
-        json.dumps(
-            anomaly_rows,
-            ensure_ascii=False,
-            allow_nan=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("utf-8")
-    ).hexdigest()
+    anomaly_fingerprint = _anomaly_fingerprint(anomaly_rows)
     by_raw_input: dict[str, list[dict[str, Any]]] = {}
     for row in accepted_identity_rows:
         by_raw_input.setdefault(
@@ -553,8 +585,12 @@ def build_acceptance_report(root: Path, expectations: dict[str, Any]) -> dict[st
     mismatches = {
         key: {"expected": value, "observed": observed.get(key)}
         for key, value in expected.items()
+        if key != "anomaly_evidence_fingerprint"
         if observed.get(key) != value
     }
+    mismatches.update(
+        _anomaly_contract_mismatches(anomaly_fingerprint, expectations)
+    )
     manifest_adapter_version = expectations.get("adapter_version")
     if manifest_adapter_version != POP909_CL_ADAPTER_VERSION:
         mismatches["adapter_version"] = {
@@ -574,10 +610,10 @@ def build_acceptance_report(root: Path, expectations: dict[str, Any]) -> dict[st
         "adapter_version": POP909_CL_ADAPTER_VERSION,
         "corpus_content_fingerprint": discovery.content_fingerprint,
         "expected_corpus_content_fingerprint": POP909_CL_CONTENT_FINGERPRINT,
-        "ready": (
-            not fatal_rows
-            and not mismatches
-            and discovery.content_fingerprint == POP909_CL_CONTENT_FINGERPRINT
+        "ready": _acceptance_ready(
+            fatal_rows=fatal_rows,
+            mismatches=mismatches,
+            corpus_content_fingerprint=discovery.content_fingerprint,
         ),
         "observed": observed,
         "mismatches": mismatches,
