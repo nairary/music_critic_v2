@@ -148,8 +148,9 @@
   manifest paths. Results remained dataset-isolated. Historical data
   verification was correctly `false` because a Phase 6A model-only checkpoint
   has no Phase 6C data binding.
-- Required GitHub CI and draft-PR publication remain remote follow-up; no merge
-  was attempted.
+- Draft PR #13 was opened from `phase/6d-supervised-evaluation` into `main`.
+  Both Required GitHub `full-suite` checks passed in `1m41s`; the PR remains
+  draft and no merge was attempted.
 
 ## Phase 6C reproducible baseline training result
 
