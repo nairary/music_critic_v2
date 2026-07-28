@@ -1260,3 +1260,45 @@ This log is append-only.
   grouping, lineage, strict graph/model-input fingerprints, targets, cache
   keys, split assignments, and all `2.0.0` versions remain unchanged. Existing
   immutable cache artifacts are retained; Phase 7/SSL remains unstarted.
+
+## 2026-07-28 — ADR-047: Supervised evaluation is candidate-first, train-prior-bound, and timing-isolated
+
+- Status: Accepted for Phase 6D-A implementation.
+- Context: Phase 6C reports row-weighted loss but cannot show whether an
+  imbalanced supervised head beats a majority or empirical-prior baseline.
+  Adding held-out metrics must not expose targets to candidate generation,
+  combine source-incompatible heads, use test for selection, or weaken
+  checkpoint/resume determinism. Real wall-clock observations are inherently
+  nondeterministic and therefore cannot be embedded in the byte-exact
+  deterministic epoch journal.
+- Decision: Reconstruct a fresh accepted baseline from its complete model
+  contract and load model weights only while preserving caller RNG. Phase 6C
+  data fingerprints are checked against fixed validation evidence; older
+  model-only checkpoints state that historical data binding is unavailable.
+  Current index/cache/split/composition/membership and ontology/encoding
+  evidence is always retained.
+- Decision: Call `predict(raw_graph_batch)` before any target-sidecar join.
+  Stream only available, aligned, model-ready rows after the join. Conflict
+  rows remain unavailable. Key every accumulator by exact dataset and task,
+  admit a task only for its ontology-declared source adapter, and never average
+  HookTheory and POP909-CL heads together.
+- Decision: Build majority, empirical-prior, prevalence, and fixed
+  0.5-threshold evidence from the train split only, in a separate
+  provenance-bearing artifact. Validation/test labels cannot choose priors or
+  thresholds. Metrics with no defined denominator are `null` with a stable
+  category/reason rather than a fabricated zero.
+- Decision: Test evaluation is fail-closed without explicit acknowledgement
+  and never participates in checkpoint selection. Evaluation artifacts are
+  deterministic; accumulators retain only fixed registry-sized counts and
+  exact likelihood sums.
+- Decision: Detailed performance timing is an explicitly enabled bounded
+  profiler, never the normal hot path. Normal training records only epoch
+  train/validation wall time and throughput in
+  `epoch_performance.jsonl`. That nondeterministic sidecar does not participate
+  in checkpoint compatibility or the crash-consistent deterministic
+  `metrics.jsonl` journal. No CUDA synchronization or unbounded per-batch
+  timing history is added.
+- Consequences: Evaluation, artifact, train-prior, and profiler contracts begin
+  at `1.0.0`. Model, graph, adapter, target, ontology, encoding, cache,
+  manifest, corpus, loss, and checkpoint semantics do not change. Raw
+  unlabeled inference remains possible; Phase 7/SSL remains unstarted.

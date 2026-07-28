@@ -449,6 +449,48 @@ explicit diagnostic operation. Epoch rows distinguish
 `learning_rate_used` from post-scheduler `next_learning_rate`. Commands and
 artifact semantics are in `TRAINING.md`.
 
+## Phase 6D-A evaluation boundary
+
+Evaluation reconstructs a fresh feature-only, local-GNN, or hierarchical model
+from the checkpoint's complete model contract and loads only `model_state`.
+It validates the contract against current canonical/graph/feature/ontology/
+encoding/head metadata before applying weights. Phase 6C data bindings are
+matched to the selected index, split manifest, train/evaluation composition,
+and fixed validation membership. Each selected cached piece is still checked
+against its index-bound canonical SHA-256 while loading. Older Phase 6A/6B
+model-only checkpoints remain evaluable, but their lack of historical
+Phase 6C data binding is reported rather than silently claimed as verified.
+Optimizer, scheduler, scaler, checkpoint RNG, and caller RNG are not applied.
+
+The inference boundary is candidate-first:
+
+```text
+raw graph -> encoder + source-native candidate logits
+          -> target-sidecar join
+          -> eligible-row streaming metrics
+```
+
+Targets are unavailable to `predict`. The later join admits only available,
+aligned, fully supervised rows; conflict rows are unavailable by construction.
+Metrics are keyed by exact `(dataset_id, task_id)`, and a task is admitted only
+for its ontology-declared source adapter. HookTheory and POP909-CL heads
+therefore never share a bucket or macro average. Streaming accumulators retain
+fixed confusion/TP/FP/FN/TN and exact binary64 likelihood sums, not prediction
+tensors.
+
+Trivial baselines are constructed in a separate pass over the train split
+only. Their artifact binds train membership, index/cache/split, ontology, and
+encoding evidence. Held-out labels are joined only after fixed majority,
+empirical-prior, prevalence, and 0.5-threshold decisions exist. Undefined
+metrics use JSON `null` plus a stable category and explanation.
+
+Detailed timing is a separate, explicitly enabled, bounded synthetic profiler.
+Normal training contains no per-batch timing histories or CUDA synchronization.
+Per-epoch train/validation wall time and throughput live in the non-binding
+`epoch_performance.jsonl` sidecar. The deterministic `metrics.jsonl` journal
+and checkpoint contract remain byte-exact across epoch-boundary resume.
+The complete contract is in `EVALUATION.md`.
+
 ## Incremental research scope
 
 GraphMAE2-inspired decoder remasking, Hi-GMAE-inspired hierarchical masking, and

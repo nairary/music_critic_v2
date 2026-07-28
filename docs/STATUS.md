@@ -72,11 +72,84 @@
 - Hierarchy pooling, coarse token sequence, hierarchical encoder output,
   top-down fusion, hierarchical model/output, and hierarchical checkpoint:
   `1.0.0`
-- Phase 6C: Implemented on branch `phase/6c-training-harness`; draft PR and
-  Required CI are the merge gate
+- Phase 6C: Accepted and merged in PR #11 at
+  `05501d8247f60d540e79841f89da42988a76b3e3`
+- POP909-CL identity hotfix: Accepted and merged in PR #12 at
+  `d3590d18550ba4a47bb8386786295d4905544fb5`
 - Device-transfer contract: `1.0.0`
 - Training-checkpoint contract: `1.0.0`
-- Next phase after acceptance: Phase 7 — GraphMAE2-style SSL
+- Phase 6D-A: Implemented on branch
+  `phase/6d-supervised-evaluation`; local/Required CI are the merge gate
+- Evaluation/artifact/train-prior/profiler contracts: `1.0.0`
+- Next phase after Phase 6D-A acceptance: Phase 7 — GraphMAE2-style SSL
+
+## Phase 6D-A supervised evaluation result
+
+- Existing Phase 6A/6B model-only and Phase 6C training checkpoints load into
+  a fresh model from their strict model contract. Only model weights are
+  applied; optimizer, scheduler, scaler, checkpoint RNG, and caller RNG remain
+  untouched. Checkpoint SHA-256, model contract, current ontology/encoding, and
+  current data bindings are reported.
+- The evaluator defaults to fixed validation. Test requires
+  `acknowledge_test_evaluation=true` and is explicitly marked unavailable for
+  checkpoint selection. Phase 6C validation checkpoints are matched against
+  index, split, composition, and membership evidence; cache artifacts remain
+  index-SHA-validated on read.
+- Raw graphs reach `model.predict` before target sidecars are joined. Only
+  available, aligned, conflict-free, fully supervised rows enter streaming
+  metrics. Results remain keyed by dataset and exact source-native task;
+  HookTheory and POP909-CL heads never share metric or macro buckets.
+- Categorical and multilabel metrics, class evidence, counts, undefined-value
+  reasons, train-only trivial baselines, and model-minus-baseline comparisons
+  are fixed-memory. Train priors are a separate artifact bound to train
+  membership and index/cache/split/ontology/encoding evidence; held-out label
+  mutation cannot change their fingerprint.
+- The explicitly enabled bounded profiler covers the required ten stages and
+  reports sample/batch/node/edge/eligible-row rates, mean/percentile batch
+  times, peak RSS, and dataset/model/batch/worker fingerprints. It defaults to
+  the requested three datasets, three models, batch sizes 1/2/4, and workers
+  0/2. Normal training never enables it.
+- Ordinary training writes bounded per-epoch train/validation wall time and
+  sample/batch throughput to `epoch_performance.jsonl`. This sidecar is
+  deliberately excluded from the deterministic checkpoint and metric journal,
+  so existing byte-exact Phase 6C resume evidence is preserved.
+- No production cache, active pilot checkpoint, or `metrics.jsonl` was written,
+  rebuilt, or deleted. The active pilot checkpoint was not read. Synthetic
+  fixtures and temporary directories supplied default acceptance; the only
+  production-cache access was an explicit read-only smoke of 2 train plus
+  2 validation artifacts per dataset through absolute paths. No full corpus
+  scan/evaluation/training ran. Legacy code was not inspected or reused.
+  Phase 7 has not started.
+
+## Phase 6D-A verification
+
+- Focused evaluation tests: `17 passed`; they cover hand-computed categorical
+  and multilabel evidence, exact partition/order invariance, mask exclusion,
+  target-independent logits, held-out mutation/prior isolation, repeated
+  checkpoint evaluation, explicit test acknowledgement, source-native
+  dataset/task isolation, undefined metrics, fixed storage, global-manifest
+  single-dataset views, and the tiny profiler.
+- Combined evaluation/training regression before the final data-view test:
+  `61 passed, 4 skipped`; all skips require CUDA. The existing raw-byte
+  `metrics.jsonl` resume comparison and checkpoint/RNG bit-exact comparisons
+  pass unchanged.
+- Final default suite on the completed tree: `804 passed, 19 skipped` in
+  `734.96 s`; skips are existing opt-in real-data/CUDA guards. The only
+  warnings are the two existing PyTorch JIT deprecations.
+- `python -m compileall -q src tests`: passed.
+- `git diff --check`: passed.
+- Bounded CLI acceptance wrote all five required evaluation artifacts for
+  3 validation samples across both datasets, evaluated 63 eligible rows,
+  retained zero prediction tensors, and completed one profiler cell with all
+  ten required stage summaries.
+- Optional read-only production smoke used a temporary model-only checkpoint
+  and temporary outputs. HookTheory and POP909-CL each loaded exactly 2 train
+  and 2 validation cache artifacts through explicit absolute index/cache/
+  manifest paths. Results remained dataset-isolated. Historical data
+  verification was correctly `false` because a Phase 6A model-only checkpoint
+  has no Phase 6C data binding.
+- Required GitHub CI and draft-PR publication remain remote follow-up; no merge
+  was attempted.
 
 ## Phase 6C reproducible baseline training result
 
@@ -173,8 +246,8 @@
   artifact/RNG-atomic incompatible resume, cosine used/next LR evidence,
   pre-mutation future-epoch rejection, and static synchronization guards.
   Deterministic target audit `--check`, compileall over `src`, `scripts`, and
-  `tests`, and `git diff --check` pass. Required GitHub CI remains the remote
-  merge gate.
+  `tests`, and `git diff --check` passed. Required GitHub CI subsequently
+  passed before Phase 6C merged in PR #11.
 
 ## Phase 6C full-corpus POP909-CL identity remediation
 

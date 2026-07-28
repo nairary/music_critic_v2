@@ -11,9 +11,11 @@ checkout is absent.
 
 ## Current state
 
-Phases 0 through 5B.2 and the Phase 6A/6B representation baselines are
-implemented. Phase 6C adds a reproducible supervised training harness for
-those unchanged baselines.
+Phases 0 through 5B.2, the Phase 6A/6B representation baselines, and the
+Phase 6C reproducible supervised training harness are implemented and merged.
+Phase 6D-A adds deterministic supervised checkpoint evaluation, train-only
+trivial baselines, and bounded performance evidence for those unchanged
+baselines.
 The repository provides an exact immutable
 canonical schema, generic MIDI and HookTheory adapters, diagnostic canonical
 MIDI export, a production POP909-CL adapter, and a versioned raw-only PyG
@@ -54,6 +56,8 @@ PLL, and deployable scoring inference are not implemented yet.
   source-native heads, losses, reconstruction, diagnostics, and checkpoints;
 - `src/music_critic/training/`: Hydra configuration, non-mutating batch device
   transfer, split CLI, deterministic runners, metrics, and epoch checkpoints;
+- `src/music_critic/evaluation/`: candidate-first checkpoint evaluation,
+  streaming metrics, train-only priors, and the opt-in bounded profiler;
 - `docs/`: authoritative plan, architecture, contracts, decisions, and status;
 - `configs/`: reserved for phase-owned configuration;
 - `scripts/`: audits, rendering/smoke tools, and graph benchmark;
@@ -146,3 +150,25 @@ top-down fusion, and controlled three-way ablation are in
 Phase 6C cache/split preparation, one-batch acceptance, ordinary training,
 device transfer, artifacts, and epoch-boundary resume are in
 `docs/TRAINING.md`.
+Phase 6D-A evaluation metrics, baseline provenance, fingerprint checks,
+artifacts, test-split acknowledgement, and profiling are in
+`docs/EVALUATION.md`.
+
+Evaluate a checkpoint on fixed validation:
+
+```bash
+PYTHONPATH=src python -m music_critic.evaluation.run \
+  checkpoint=/absolute/path/to/best.pt \
+  data=mixed \
+  data.index_paths='[/absolute/path/hooktheory.index.json,/absolute/path/pop909_cl.index.json]' \
+  data.cache_roots='[/absolute/path/hooktheory,/absolute/path/pop909_cl]' \
+  data.split_manifest=/absolute/path/global.split.json \
+  split=validation \
+  output_dir=/absolute/path/to/evaluation
+```
+
+Test evaluation additionally requires
+`acknowledge_test_evaluation=true`. The detailed synthetic profiler is
+disabled unless `enabled=true`; see `docs/EVALUATION.md` for its bounded
+matrix command. Production cache paths are read-only inputs: evaluation never
+rebuilds or mutates canonical artifacts.
