@@ -46,11 +46,44 @@ def normalize_continuous(values: Tensor, spec: FeatureSpec) -> Tensor:
     return values / (1.0 + torch.abs(values))
 
 
-def _validate_input_graph(graph: HeteroData) -> None:
+_ENCODER_INPUT_TOKEN_SEAL = object()
+
+
+@dataclass(frozen=True, slots=True)
+class _ValidatedRawEncoderInput:
+    graph: HeteroData
+    _seal: object
+
+
+def _validate_input_graph(
+    graph: HeteroData,
+) -> _ValidatedRawEncoderInput:
     if isinstance(graph, Batch):
         validate_raw_graph_batch(graph, sample_count=int(graph.num_graphs))
     else:
         validate_raw_graph(graph)
+    return _ValidatedRawEncoderInput(
+        graph=graph,
+        _seal=_ENCODER_INPUT_TOKEN_SEAL,
+    )
+
+
+def _verify_encoder_input_token(
+    graph: HeteroData,
+    token: object,
+) -> None:
+    if type(token) is _ValidatedRawEncoderInput:
+        if (
+            token.graph is not graph
+            or token._seal is not _ENCODER_INPUT_TOKEN_SEAL
+        ):
+            raise ValueError("encoder validated-input token is invalid")
+        return
+    from music_critic.ssl.masking import (
+        _verify_prepared_input_token,
+    )
+
+    _verify_prepared_input_token(graph, token)
 
 
 def _batch_membership(graph: HeteroData, node_type: str) -> Tensor:
@@ -227,10 +260,35 @@ class RawFeatureEncoder(nn.Module):
         graph: HeteroData,
         *,
         feature_overlay: _FeatureContributionOverlay | None = None,
-        _prevalidated_input: bool = False,
     ) -> EncoderOutput:
-        if not _prevalidated_input:
-            _validate_input_graph(graph)
+        validated_input_token = _validate_input_graph(graph)
+        return self._forward_validated(
+            graph,
+            validated_input_token=validated_input_token,
+            feature_overlay=feature_overlay,
+        )
+
+    def _forward_prepared(
+        self,
+        graph: HeteroData,
+        *,
+        prepared_input_token: object,
+        feature_overlay: _FeatureContributionOverlay | None = None,
+    ) -> EncoderOutput:
+        return self._forward_validated(
+            graph,
+            validated_input_token=prepared_input_token,
+            feature_overlay=feature_overlay,
+        )
+
+    def _forward_validated(
+        self,
+        graph: HeteroData,
+        *,
+        validated_input_token: object,
+        feature_overlay: _FeatureContributionOverlay | None,
+    ) -> EncoderOutput:
+        _verify_encoder_input_token(graph, validated_input_token)
         embeddings = {
             node_type: self.node_encoders[node_type](
                 graph[node_type],
@@ -357,12 +415,43 @@ class LocalHeterogeneousEncoder(nn.Module):
         *,
         return_layers: bool = False,
         feature_overlay: _FeatureContributionOverlay | None = None,
-        _prevalidated_input: bool = False,
     ) -> MultiScaleEncoderOutput:
-        feature_output = self.feature_encoder(
+        validated_input_token = _validate_input_graph(graph)
+        return self._forward_validated(
             graph,
+            validated_input_token=validated_input_token,
+            return_layers=return_layers,
             feature_overlay=feature_overlay,
-            _prevalidated_input=_prevalidated_input,
+        )
+
+    def _forward_prepared(
+        self,
+        graph: HeteroData,
+        *,
+        prepared_input_token: object,
+        return_layers: bool = False,
+        feature_overlay: _FeatureContributionOverlay | None = None,
+    ) -> MultiScaleEncoderOutput:
+        return self._forward_validated(
+            graph,
+            validated_input_token=prepared_input_token,
+            return_layers=return_layers,
+            feature_overlay=feature_overlay,
+        )
+
+    def _forward_validated(
+        self,
+        graph: HeteroData,
+        *,
+        validated_input_token: object,
+        return_layers: bool,
+        feature_overlay: _FeatureContributionOverlay | None,
+    ) -> MultiScaleEncoderOutput:
+        _verify_encoder_input_token(graph, validated_input_token)
+        feature_output = self.feature_encoder._forward_validated(
+            graph,
+            validated_input_token=validated_input_token,
+            feature_overlay=feature_overlay,
         )
         current = dict(feature_output.embeddings)
         layer_outputs = []

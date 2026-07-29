@@ -46,7 +46,7 @@ def _journal_row(
     validation_loss: float | None = 0.75,
 ) -> dict[str, object]:
     return {
-        "metric_row_version": "1.1.0",
+        "metric_row_version": "1.2.0",
         "epoch": epoch,
         "next_epoch": epoch + 1,
         "learning_rate_used": 0.01,
@@ -271,6 +271,40 @@ def test_ssl_checkpoint_round_trip_restores_every_deterministic_state(
     _assert_state_equal(scheduler.state_dict(), payload["scheduler_state"])
     _assert_state_equal(scaler.state_dict(), payload["scaler_state"])
     _assert_state_equal(capture_rng_state(), payload["rng_state"])
+
+
+def test_ssl_checkpoint_rejects_previous_contract_version_atomically(
+    tmp_path: Path,
+) -> None:
+    model, optimizer, scheduler, scaler = _checkpoint_objects()
+    current = tmp_path / "current.pt"
+    outdated = tmp_path / "outdated.pt"
+    _save_checkpoint(current, model, optimizer, scheduler, scaler)
+    payload = torch.load(
+        current,
+        map_location="cpu",
+        weights_only=True,
+    )
+    payload["metadata"]["ssl_checkpoint_contract_version"] = "1.1.0"
+    torch.save(payload, outdated)
+    before = _snapshot(model, optimizer, scheduler, scaler)
+
+    with pytest.raises(
+        SSLCheckpointError,
+        match="ssl.checkpoint.metadata_mismatch",
+    ):
+        _load_checkpoint(
+            outdated,
+            model,
+            optimizer,
+            scheduler,
+            scaler,
+        )
+
+    _assert_state_equal(
+        _snapshot(model, optimizer, scheduler, scaler),
+        before,
+    )
 
 
 @pytest.mark.parametrize(

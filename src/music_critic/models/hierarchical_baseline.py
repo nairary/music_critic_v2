@@ -79,7 +79,6 @@ class HierarchicalHeterogeneousBaseline(nn.Module):
         *,
         return_layers: bool = False,
         feature_overlay=None,
-        _prevalidated_input: bool = False,
     ) -> ContextualEncoderOutput:
         # Extract before Phase 6A validation so every malformed ownership path
         # has a structured Phase 6B error. The internal handoff validates local
@@ -89,7 +88,35 @@ class HierarchicalHeterogeneousBaseline(nn.Module):
             raw_graph_batch,
             return_layers=return_layers,
             feature_overlay=feature_overlay,
-            _prevalidated_input=_prevalidated_input,
+        )
+        return self.context_encoder._forward_with_extracted_ownership(
+            local, ownership
+        )
+
+    def _encode_prepared(
+        self,
+        raw_graph_batch: object,
+        *,
+        prepared_input_token: object,
+        return_layers: bool = False,
+        feature_overlay=None,
+    ) -> ContextualEncoderOutput:
+        """Internal hierarchy entry gated before raw ownership is read."""
+
+        from music_critic.ssl.masking import (
+            _verify_prepared_input_token,
+        )
+
+        _verify_prepared_input_token(
+            raw_graph_batch,
+            prepared_input_token,
+        )
+        ownership = extract_hierarchy_ownership(raw_graph_batch)
+        local = self.local_baseline._encode_prepared(
+            raw_graph_batch,
+            prepared_input_token=prepared_input_token,
+            return_layers=return_layers,
+            feature_overlay=feature_overlay,
         )
         return self.context_encoder._forward_with_extracted_ownership(
             local, ownership

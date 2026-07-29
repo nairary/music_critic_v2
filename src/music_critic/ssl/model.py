@@ -66,8 +66,8 @@ from music_critic.ssl.views import (
 )
 
 
-SSL_MODEL_CONTRACT_VERSION = "1.1.0"
-SSL_MODEL_OUTPUT_CONTRACT_VERSION = "1.1.0"
+SSL_MODEL_CONTRACT_VERSION = "1.2.0"
+SSL_MODEL_OUTPUT_CONTRACT_VERSION = "1.2.0"
 SSL_REPRESENTATION_TARGET_CONTRACT_VERSION = "1.0.0"
 TARGET_MODE = "shared_stop_gradient_full_view"
 DECODER_CONTEXT_MODE = (
@@ -316,14 +316,19 @@ class MaskedGraphSSLModel(nn.Module):
             "ema_target_encoder": False,
         }
 
-    def _full_view_targets(self, graph: object) -> RepresentationTargets:
+    def _full_view_targets(
+        self,
+        graph: object,
+        *,
+        prepared_input_token: object,
+    ) -> RepresentationTargets:
         was_training = self.encoder.training
         self.encoder.eval()
         try:
             with torch.no_grad():
-                encoded = self.encoder.encode(
+                encoded = self.encoder._encode_prepared(
                     graph,
-                    _prevalidated_input=True,
+                    prepared_input_token=prepared_input_token,
                 )
                 targets = RepresentationTargets(
                     contract_version=(
@@ -494,21 +499,29 @@ class MaskedGraphSSLModel(nn.Module):
     ) -> SSLForwardOutput:
         if not isinstance(batch, SSLBatch):
             raise TypeError("MaskedGraphSSLModel requires a raw-only SSLBatch")
-        validate_prepared_mask_binding(
+        target_input_token = validate_prepared_mask_binding(
             batch,
             prepared_mask_binding,
             expected_mask_rate=self.ssl_config.mask_rate,
         )
         plans = prepared_mask_binding.mask_plans
-        full_targets = self._full_view_targets(batch.raw_graph_batch)
+        full_targets = self._full_view_targets(
+            batch.raw_graph_batch,
+            prepared_input_token=target_input_token,
+        )
         feature_overlay = prepared_mask_binding.feature_overlay
         bound_overlay: BoundFeatureMaskOverlay = feature_overlay.bind(
             self.feature_mask_token
         )
-        online = self.encoder.encode(
+        online_input_token = validate_prepared_mask_binding(
+            batch,
+            prepared_mask_binding,
+            expected_mask_rate=self.ssl_config.mask_rate,
+        )
+        online = self.encoder._encode_prepared(
             batch.raw_graph_batch,
+            prepared_input_token=online_input_token,
             feature_overlay=bound_overlay,
-            _prevalidated_input=True,
         )
         selected_indices = (
             prepared_mask_binding.selected_global_note_indices_tensor

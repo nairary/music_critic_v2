@@ -6,13 +6,17 @@ from dataclasses import dataclass, field, replace
 import hmac
 import math
 import secrets
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import torch
 from torch import Tensor
 from torch_geometric.data import Batch, HeteroData
 
 from music_critic.graph import (
+    BATCH_BASE_NODE_ATTRIBUTES,
+    BATCH_CANDIDATE_NODE_ATTRIBUTES,
+    BATCH_EDGE_ATTRIBUTES,
+    BATCH_GLOBAL_ATTRIBUTES,
     MANDATORY_EDGE_TYPES,
     MANDATORY_NODE_TYPES,
     validate_raw_graph,
@@ -297,69 +301,414 @@ def _semantic_attestation(fingerprint: str) -> str:
     ).hexdigest()
 
 
-def _runtime_graph_tensor_evidence(
+def _runtime_error(detail: str) -> SSLContractError:
+    return SSLContractError(
+        f"ssl.prepared_binding.runtime_input_changed:{detail}"
+    )
+
+
+def _typed_metadata(value: object, *, location: str) -> object:
+    """Return a type-preserving JSON value without inspecting tensor data."""
+
+    if value is None:
+        return {"type": "none"}
+    if isinstance(value, bool):
+        return {"type": "bool", "value": value}
+    if isinstance(value, int):
+        return {"type": "int", "value": value}
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise _runtime_error(
+                f"metadata_non_finite:{location}"
+            )
+        return {"type": "float", "value": value}
+    if isinstance(value, str):
+        return {"type": "str", "value": value}
+    if isinstance(value, tuple):
+        return {
+            "type": "tuple",
+            "value": [
+                _typed_metadata(
+                    item,
+                    location=f"{location}[{index}]",
+                )
+                for index, item in enumerate(value)
+            ],
+        }
+    if isinstance(value, list):
+        return {
+            "type": "list",
+            "value": [
+                _typed_metadata(
+                    item,
+                    location=f"{location}[{index}]",
+                )
+                for index, item in enumerate(value)
+            ],
+        }
+    if isinstance(value, Mapping):
+        items: list[list[object]] = []
+        keys = tuple(value)
+        if not all(isinstance(key, str) for key in keys):
+            raise _runtime_error(
+                f"metadata_key_type:{location}"
+            )
+        for key in sorted(keys):
+            items.append(
+                [
+                    key,
+                    _typed_metadata(
+                        value[key],
+                        location=f"{location}.{key}",
+                    ),
+                ]
+            )
+        return {"type": "mapping", "value": items}
+    raise _runtime_error(
+        f"metadata_type:{location}:{type(value).__name__}"
+    )
+
+
+def _attribute_names(
+    store: object,
+    *,
+    location: str,
+) -> tuple[str, ...]:
+    keys = tuple(store.keys())
+    if not all(isinstance(key, str) for key in keys):
+        raise _runtime_error(f"attribute_name_type:{location}")
+    return tuple(sorted(keys))
+
+
+@dataclass(frozen=True, slots=True)
+class _StoreRuntimeEvidence:
+    location: str
+    store: object = field(repr=False, compare=False)
+    object_id: int
+    store_type: str
+    attributes: tuple[str, ...]
+
+    def private_payload(self) -> dict[str, object]:
+        return {
+            "location": self.location,
+            "object_id": self.object_id,
+            "store_type": self.store_type,
+            "attributes": list(self.attributes),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class _TensorRuntimeEvidence:
+    location: str
+    tensor: Tensor = field(repr=False, compare=False)
+    object_id: int
+    version: int
+    shape: tuple[int, ...]
+    dtype: str
+    device_type: str
+    device_index: int | None
+
+    @classmethod
+    def capture(
+        cls,
+        tensor: Tensor,
+        *,
+        location: str,
+    ) -> _TensorRuntimeEvidence:
+        return cls(
+            location=location,
+            tensor=tensor,
+            object_id=id(tensor),
+            version=int(tensor._version),
+            shape=tuple(int(size) for size in tensor.shape),
+            dtype=str(tensor.dtype),
+            device_type=tensor.device.type,
+            device_index=tensor.device.index,
+        )
+
+    def private_payload(self) -> dict[str, object]:
+        return {
+            "location": self.location,
+            "object_id": self.object_id,
+            "version": self.version,
+            "shape": list(self.shape),
+            "dtype": self.dtype,
+            "device": {
+                "type": self.device_type,
+                "index": self.device_index,
+            },
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class _RuntimeGraphEvidence:
+    graph: HeteroData = field(repr=False, compare=False)
+    graph_object_id: int
+    graph_type: str
+    sample_count: int
+    node_types: tuple[str, ...]
+    edge_types: tuple[tuple[str, str, str], ...]
+    stores: tuple[_StoreRuntimeEvidence, ...]
+    tensors: tuple[_TensorRuntimeEvidence, ...]
+    non_tensor_metadata_sha256: str
+
+    def private_payload(self) -> dict[str, object]:
+        return {
+            "graph_object_id": self.graph_object_id,
+            "graph_type": self.graph_type,
+            "sample_count": self.sample_count,
+            "node_types": list(self.node_types),
+            "edge_types": [list(value) for value in self.edge_types],
+            "stores": [
+                value.private_payload() for value in self.stores
+            ],
+            "tensors": [
+                value.private_payload() for value in self.tensors
+            ],
+            "non_tensor_metadata_sha256": (
+                self.non_tensor_metadata_sha256
+            ),
+        }
+
+
+def _capture_runtime_graph_evidence(
     graph: HeteroData,
-) -> tuple[tuple[str, int, int], ...]:
-    evidence: list[tuple[str, int, int]] = []
-    for node_type in MANDATORY_NODE_TYPES:
-        ptr = graph[node_type].ptr
-        if not isinstance(ptr, Tensor):
-            raise SSLContractError(
-                f"prepared binding requires tensor {node_type}.ptr"
+) -> _RuntimeGraphEvidence:
+    """Capture live metadata only; never materialize tensor values."""
+
+    if not isinstance(graph, Batch):
+        raise _runtime_error("graph_type")
+    node_items = tuple(graph.node_items())
+    edge_items = tuple(graph.edge_items())
+    node_types = tuple(key for key, _ in node_items)
+    edge_types = tuple(key for key, _ in edge_items)
+    if not all(isinstance(value, str) for value in node_types):
+        raise _runtime_error("node_type_value")
+    if not all(
+        isinstance(value, tuple)
+        and len(value) == 3
+        and all(isinstance(part, str) for part in value)
+        for value in edge_types
+    ):
+        raise _runtime_error("edge_type_value")
+    if node_types != MANDATORY_NODE_TYPES:
+        raise _runtime_error("node_types")
+    if edge_types != MANDATORY_EDGE_TYPES:
+        raise _runtime_error("edge_types")
+
+    global_attributes = _attribute_names(
+        graph._global_store,
+        location="global",
+    )
+    if set(global_attributes) != BATCH_GLOBAL_ATTRIBUTES:
+        raise _runtime_error("attribute_set:global")
+    for node_type, store in node_items:
+        attributes = _attribute_names(
+            store,
+            location=f"node:{node_type}",
+        )
+        expected_attributes = (
+            BATCH_CANDIDATE_NODE_ATTRIBUTES
+            if node_type in {"beat", "onset"}
+            else BATCH_BASE_NODE_ATTRIBUTES
+        )
+        if set(attributes) != expected_attributes:
+            raise _runtime_error(
+                f"attribute_set:node:{node_type}"
             )
-        evidence.append(
-            (
-                f"node:{node_type}:ptr",
-                id(ptr),
-                int(ptr._version),
+    for edge_type, store in edge_items:
+        attributes = _attribute_names(
+            store,
+            location="edge:" + "|".join(edge_type),
+        )
+        if set(attributes) != BATCH_EDGE_ATTRIBUTES:
+            raise _runtime_error(
+                "attribute_set:edge:" + "|".join(edge_type)
+            )
+
+    stores_with_locations: list[tuple[str, object]] = [
+        ("global", graph._global_store)
+    ]
+    stores_with_locations.extend(
+        (f"node:{node_type}", store)
+        for node_type, store in node_items
+    )
+    stores_with_locations.extend(
+        ("edge:" + "|".join(edge_type), store)
+        for edge_type, store in edge_items
+    )
+    stores: list[_StoreRuntimeEvidence] = []
+    tensors: list[_TensorRuntimeEvidence] = []
+    metadata: list[list[object]] = []
+    for location, store in stores_with_locations:
+        attributes = _attribute_names(store, location=location)
+        stores.append(
+            _StoreRuntimeEvidence(
+                location=location,
+                store=store,
+                object_id=id(store),
+                store_type=(
+                    f"{type(store).__module__}."
+                    f"{type(store).__qualname__}"
+                ),
+                attributes=attributes,
             )
         )
-        batch_membership = graph[node_type].batch
-        if not isinstance(batch_membership, Tensor):
-            raise SSLContractError(
-                f"prepared binding requires tensor {node_type}.batch"
+        for name in attributes:
+            value = store[name]
+            value_location = f"{location}:{name}"
+            if isinstance(value, Tensor):
+                tensors.append(
+                    _TensorRuntimeEvidence.capture(
+                        value,
+                        location=value_location,
+                    )
+                )
+            else:
+                metadata.append(
+                    [
+                        value_location,
+                        _typed_metadata(
+                            value,
+                            location=value_location,
+                        ),
+                    ]
+                )
+    return _RuntimeGraphEvidence(
+        graph=graph,
+        graph_object_id=id(graph),
+        graph_type=(
+            f"{type(graph).__module__}.{type(graph).__qualname__}"
+        ),
+        sample_count=int(graph.num_graphs),
+        node_types=node_types,
+        edge_types=edge_types,
+        stores=tuple(stores),
+        tensors=tuple(tensors),
+        non_tensor_metadata_sha256=canonical_sha256(metadata),
+    )
+
+
+def _validate_runtime_graph_evidence(
+    graph: HeteroData,
+    expected: _RuntimeGraphEvidence,
+) -> None:
+    if graph is not expected.graph or id(graph) != expected.graph_object_id:
+        raise _runtime_error("graph_object_identity")
+    current = _capture_runtime_graph_evidence(graph)
+    for name in (
+        "graph_type",
+        "sample_count",
+        "node_types",
+        "edge_types",
+    ):
+        if getattr(current, name) != getattr(expected, name):
+            raise _runtime_error(name)
+    if len(current.stores) != len(expected.stores):
+        raise _runtime_error("store_count")
+    for actual_store, expected_store in zip(
+        current.stores,
+        expected.stores,
+        strict=True,
+    ):
+        if actual_store.location != expected_store.location:
+            raise _runtime_error("store_locations")
+        if actual_store.attributes != expected_store.attributes:
+            raise _runtime_error(
+                f"attribute_set:{expected_store.location}"
             )
-        evidence.append(
-            (
-                f"node:{node_type}:batch",
-                id(batch_membership),
-                int(batch_membership._version),
+        if actual_store.store_type != expected_store.store_type:
+            raise _runtime_error(
+                f"store_type:{expected_store.location}"
             )
-        )
-    for edge_type in MANDATORY_EDGE_TYPES:
-        edge_index = graph[edge_type].edge_index
-        if not isinstance(edge_index, Tensor):
-            raise SSLContractError(
-                "prepared binding requires tensor edge_index for "
-                + "|".join(edge_type)
+        if (
+            actual_store.store is not expected_store.store
+            or actual_store.object_id != expected_store.object_id
+        ):
+            raise _runtime_error(
+                f"store_object_identity:{expected_store.location}"
             )
-        evidence.append(
-            (
-                "edge:" + "|".join(edge_type),
-                id(edge_index),
-                int(edge_index._version),
+    if (
+        current.non_tensor_metadata_sha256
+        != expected.non_tensor_metadata_sha256
+    ):
+        raise _runtime_error("non_tensor_metadata")
+    if len(current.tensors) != len(expected.tensors):
+        raise _runtime_error("tensor_count")
+    for actual, captured in zip(
+        current.tensors,
+        expected.tensors,
+        strict=True,
+    ):
+        if actual.location != captured.location:
+            raise _runtime_error("tensor_locations")
+        if actual.tensor is not captured.tensor:
+            raise _runtime_error(
+                f"tensor_object_identity:{captured.location}"
             )
-        )
-    return tuple(evidence)
+        for name in (
+            "object_id",
+            "version",
+            "shape",
+            "dtype",
+            "device_type",
+            "device_index",
+        ):
+            if getattr(actual, name) != getattr(captured, name):
+                raise _runtime_error(
+                    f"tensor_{name}:{captured.location}"
+                )
+
+
+def _validate_transferred_runtime_evidence(
+    source: _RuntimeGraphEvidence,
+    moved: _RuntimeGraphEvidence,
+) -> None:
+    """Require transfer to preserve the validated semantic input surface."""
+
+    for name in (
+        "graph_type",
+        "sample_count",
+        "node_types",
+        "edge_types",
+        "non_tensor_metadata_sha256",
+    ):
+        if getattr(moved, name) != getattr(source, name):
+            raise _runtime_error(f"transfer_{name}")
+    source_store_surface = tuple(
+        (store.location, store.store_type, store.attributes)
+        for store in source.stores
+    )
+    moved_store_surface = tuple(
+        (store.location, store.store_type, store.attributes)
+        for store in moved.stores
+    )
+    if moved_store_surface != source_store_surface:
+        raise _runtime_error("transfer_store_surface")
+    source_tensor_surface = tuple(
+        (tensor.location, tensor.shape, tensor.dtype)
+        for tensor in source.tensors
+    )
+    moved_tensor_surface = tuple(
+        (tensor.location, tensor.shape, tensor.dtype)
+        for tensor in moved.tensors
+    )
+    if moved_tensor_surface != source_tensor_surface:
+        raise _runtime_error("transfer_tensor_surface")
 
 
 def _runtime_attestation(
     *,
     fingerprint: str,
-    graph: HeteroData,
-    selected_indices: Tensor,
+    graph_evidence: _RuntimeGraphEvidence,
+    selected_indices_evidence: _TensorRuntimeEvidence,
 ) -> str:
     payload = {
         "binding_fingerprint": fingerprint,
-        "bound_graph_object": id(graph),
-        "selected_index_tensor_object": id(selected_indices),
-        "selected_index_tensor_version": int(selected_indices._version),
-        "structure_tensor_evidence": [
-            [label, object_id, version]
-            for label, object_id, version in (
-                _runtime_graph_tensor_evidence(graph)
-            )
-        ],
+        "graph_evidence": graph_evidence.private_payload(),
+        "selected_indices_evidence": (
+            selected_indices_evidence.private_payload()
+        ),
     }
     message = canonical_sha256(payload).encode("ascii")
     return hmac.new(
@@ -398,6 +747,14 @@ class PreparedMaskBinding:
     fingerprint: str
     _bound_graph: HeteroData = field(repr=False, compare=False)
     _semantic_attestation: str = field(repr=False, compare=False)
+    _runtime_graph_evidence: _RuntimeGraphEvidence = field(
+        repr=False,
+        compare=False,
+    )
+    _selected_indices_evidence: _TensorRuntimeEvidence = field(
+        repr=False,
+        compare=False,
+    )
     _runtime_attestation: str = field(repr=False, compare=False)
 
     @classmethod
@@ -511,6 +868,13 @@ class PreparedMaskBinding:
             dtype=torch.long,
             device="cpu",
         )
+        runtime_graph_evidence = _capture_runtime_graph_evidence(
+            bound_graph
+        )
+        selected_indices_evidence = _TensorRuntimeEvidence.capture(
+            selected_tensor,
+            location="binding:selected_global_note_indices_tensor",
+        )
         return cls(
             contract_version=PREPARED_MASK_BINDING_CONTRACT_VERSION,
             dataset_ids=dataset_ids,
@@ -538,10 +902,12 @@ class PreparedMaskBinding:
             fingerprint=fingerprint,
             _bound_graph=bound_graph,
             _semantic_attestation=_semantic_attestation(fingerprint),
+            _runtime_graph_evidence=runtime_graph_evidence,
+            _selected_indices_evidence=selected_indices_evidence,
             _runtime_attestation=_runtime_attestation(
                 fingerprint=fingerprint,
-                graph=bound_graph,
-                selected_indices=selected_tensor,
+                graph_evidence=runtime_graph_evidence,
+                selected_indices_evidence=selected_indices_evidence,
             ),
         )
 
@@ -821,10 +1187,50 @@ def _validate_prepared_mask_binding_contract(
         raise SSLContractError(
             "prepared mask binding runtime attestation is invalid"
         )
+    if not isinstance(
+        binding._runtime_graph_evidence,
+        _RuntimeGraphEvidence,
+    ):
+        raise SSLContractError(
+            "prepared mask binding runtime evidence is invalid"
+        )
+    if not isinstance(
+        binding._selected_indices_evidence,
+        _TensorRuntimeEvidence,
+    ):
+        raise SSLContractError(
+            "prepared binding selected-index evidence is invalid"
+        )
+    _validate_runtime_graph_evidence(
+        binding._bound_graph,
+        binding._runtime_graph_evidence,
+    )
+    selected_evidence = _TensorRuntimeEvidence.capture(
+        selected_tensor,
+        location="binding:selected_global_note_indices_tensor",
+    )
+    captured_selected_evidence = binding._selected_indices_evidence
+    if selected_evidence.location != captured_selected_evidence.location:
+        raise _runtime_error("selected_indices_location")
+    if selected_evidence.tensor is not captured_selected_evidence.tensor:
+        raise _runtime_error("selected_indices_object_identity")
+    for name in (
+        "object_id",
+        "version",
+        "shape",
+        "dtype",
+        "device_type",
+        "device_index",
+    ):
+        if getattr(selected_evidence, name) != getattr(
+            captured_selected_evidence,
+            name,
+        ):
+            raise _runtime_error(f"selected_indices_{name}")
     expected_runtime_attestation = _runtime_attestation(
         fingerprint=binding.fingerprint,
-        graph=binding._bound_graph,
-        selected_indices=selected_tensor,
+        graph_evidence=binding._runtime_graph_evidence,
+        selected_indices_evidence=binding._selected_indices_evidence,
     )
     if not hmac.compare_digest(
         binding._runtime_attestation,
@@ -1237,7 +1643,7 @@ def prepare_mask_binding(
     )
 
 
-def validate_prepared_mask_binding(
+def _validate_prepared_mask_binding_runtime(
     batch: object,
     binding: PreparedMaskBinding,
     *,
@@ -1319,6 +1725,108 @@ def validate_prepared_mask_binding(
             )
 
 
+def _prepared_input_token_attestation(
+    *,
+    batch: object,
+    graph: object,
+    binding: PreparedMaskBinding,
+    expected_mask_rate: float | None,
+) -> str:
+    message = canonical_sha256(
+        {
+            "batch_object": id(batch),
+            "graph_object": id(graph),
+            "binding_object": id(binding),
+            "binding_fingerprint": binding.fingerprint,
+            "binding_runtime_attestation": (
+                binding._runtime_attestation
+            ),
+            "expected_mask_rate": expected_mask_rate,
+        }
+    ).encode("ascii")
+    return hmac.new(
+        _PREPARED_BINDING_ATTESTATION_KEY,
+        message,
+        digestmod="sha256",
+    ).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class _ValidatedPreparedInput:
+    """Opaque, process-local capability for one attested prepared input."""
+
+    batch: object = field(repr=False, compare=False)
+    graph: HeteroData = field(repr=False, compare=False)
+    binding: PreparedMaskBinding = field(repr=False, compare=False)
+    expected_mask_rate: float | None
+    _attestation: str = field(repr=False, compare=False)
+
+
+def validate_prepared_mask_binding(
+    batch: object,
+    binding: PreparedMaskBinding,
+    *,
+    expected_mask_rate: float | None = None,
+) -> _ValidatedPreparedInput:
+    """Validate live evidence and issue one opaque prepared-input capability."""
+
+    _validate_prepared_mask_binding_runtime(
+        batch,
+        binding,
+        expected_mask_rate=expected_mask_rate,
+    )
+    graph = batch.raw_graph_batch
+    return _ValidatedPreparedInput(
+        batch=batch,
+        graph=graph,
+        binding=binding,
+        expected_mask_rate=expected_mask_rate,
+        _attestation=_prepared_input_token_attestation(
+            batch=batch,
+            graph=graph,
+            binding=binding,
+            expected_mask_rate=expected_mask_rate,
+        ),
+    )
+
+
+def _verify_prepared_input_token(
+    graph: object,
+    token: object,
+) -> None:
+    """Re-attest a private capability immediately before encoder work."""
+
+    if type(token) is not _ValidatedPreparedInput:
+        raise SSLContractError(
+            "ssl.prepared_binding.validated_token_invalid:type"
+        )
+    if graph is not token.graph:
+        raise SSLContractError(
+            "ssl.prepared_binding.validated_token_invalid:graph"
+        )
+    expected_attestation = _prepared_input_token_attestation(
+        batch=token.batch,
+        graph=token.graph,
+        binding=token.binding,
+        expected_mask_rate=token.expected_mask_rate,
+    )
+    if (
+        not isinstance(token._attestation, str)
+        or not hmac.compare_digest(
+            token._attestation,
+            expected_attestation,
+        )
+    ):
+        raise SSLContractError(
+            "ssl.prepared_binding.validated_token_invalid:attestation"
+        )
+    _validate_prepared_mask_binding_runtime(
+        token.batch,
+        token.binding,
+        expected_mask_rate=token.expected_mask_rate,
+    )
+
+
 def move_ssl_batch_with_prepared_binding(
     batch: object,
     binding: PreparedMaskBinding,
@@ -1339,15 +1847,29 @@ def move_ssl_batch_with_prepared_binding(
     moved_indices = binding.selected_global_note_indices_tensor.to(
         device=torch.device(device),
         non_blocking=non_blocking,
+        copy=True,
+    )
+    moved_runtime_graph_evidence = _capture_runtime_graph_evidence(
+        moved_batch.raw_graph_batch
+    )
+    _validate_transferred_runtime_evidence(
+        binding._runtime_graph_evidence,
+        moved_runtime_graph_evidence,
+    )
+    moved_selected_indices_evidence = _TensorRuntimeEvidence.capture(
+        moved_indices,
+        location="binding:selected_global_note_indices_tensor",
     )
     moved_binding = replace(
         binding,
         selected_global_note_indices_tensor=moved_indices,
         _bound_graph=moved_batch.raw_graph_batch,
+        _runtime_graph_evidence=moved_runtime_graph_evidence,
+        _selected_indices_evidence=moved_selected_indices_evidence,
         _runtime_attestation=_runtime_attestation(
             fingerprint=binding.fingerprint,
-            graph=moved_batch.raw_graph_batch,
-            selected_indices=moved_indices,
+            graph_evidence=moved_runtime_graph_evidence,
+            selected_indices_evidence=moved_selected_indices_evidence,
         ),
     )
     validate_prepared_mask_binding(moved_batch, moved_binding)
