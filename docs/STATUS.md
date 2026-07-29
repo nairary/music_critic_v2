@@ -169,6 +169,10 @@
 - The Phase 6C-writer/Phase 6D-evaluator deterministic artifact regression was
   rerun alone after the full suite: `1 passed`.
 - `python -m compileall -q src tests` and `git diff --check`: passed.
+- Draft PR #14 targets `main` from
+  `hotfix/phase6d-validation-membership-parity`. Both `full-suite` checks
+  passed at code commit `28c42fb` in `1m48s` and `1m54s`; no merge was
+  attempted.
 
 - Remediation metric/summary/checkpoint oracle tests: `15 passed`. The direct
   confusion-count oracle covers categorical and multilabel supported misses,
