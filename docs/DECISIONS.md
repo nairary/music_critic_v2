@@ -1730,3 +1730,106 @@ This log is append-only.
   historical diagnostics. PR #17 remains draft until Required CI and an
   independent RTX 3090 rerun pass on the exact final commit with exact
   passed/skipped counts and bounded-smoke peak allocated/reserved VRAM.
+## 2026-07-30 — ADR-055: Phase 8A adds start-anchored hierarchy views without new objectives
+
+- Status: Accepted for implementation on the Phase 8A draft branch. Merge
+  still requires maintainer review and both final-head Required workflow runs.
+  This ADR does not start Phase 8B or authorize production training.
+- Context: Accepted Phase 7A masks independent note-pitch rows. Musical events
+  also have raw onset, beat, bar, and track ownership that can define coherent
+  views without adding theory labels or changing the graph. The increment must
+  preserve Phase 7A artifacts/checkpoints and its complete prepared-input
+  security boundary.
+- Decision: Define exactly five Phase 8A policy names. Control
+  `independent_note_pitch` dispatches directly to the unchanged Phase 7A
+  `uniform_note_without_replacement` builder. New
+  `onset_pitch_descendants` follows `onset -> starts_note -> note`;
+  `beat_pitch_descendants` follows
+  `beat -> contains_onset -> onset -> starts_note -> note`;
+  `contiguous_bar_pitch_span` follows
+  `bar -> contains_onset -> onset -> starts_note -> note` over one contiguous
+  bounded bar range; and `track_bar_pitch_span` intersects that range with one
+  raw `track -> contains_note -> note` ownership set. No melody/chord/bass/
+  voice role is accepted.
+- Decision: Span semantics are start-anchored. A note beginning before a
+  selected span is not primary merely because it remains active inside it.
+  `active_at`/`has_active_note` remain visible encoder topology and are never
+  traversed by the planner.
+- Decision: Every new policy is pitch-only. Primary rows mask note `pitch`,
+  `pitch_class`, `octave`, and `track_relative_pitch`, including availability.
+  The unchanged Phase 7A closure also masks relative pitch/availability on
+  unselected affected-track peers and mean/std/min/max pitch/availability on
+  affected tracks. Rhythm, velocity, membership, and topology remain visible;
+  collateral rows are not reconstruction targets.
+- Decision: The fail-closed audit pins all 68 raw feature identities and raw
+  registry fingerprint
+  `567a5fdbb0d132010af4716c5988686c2bdf998cf6f1b2eec897f8af3ca8c0e2`.
+  It serializes the four primary fields, four unique owner-track collateral
+  fields, and the exact ordered 60-field visible remainder; the peer-note
+  relative-pitch field is already one of the primary identities but applies
+  to a different row population. The resulting leakage-audit fingerprint is
+  `27fc135b61649e5b892036dd0aacc92f679493ff671320c8235d33396a7c9949`.
+  The eight unique note/track fields above are the only current exact pitch
+  values, duplicates, or aggregates. Same-track simultaneous-note topology
+  can expose relative rank because canonical ordering uses a pitch tie-break;
+  it is deliberately visible and is not described as pitch-information-free.
+- Decision: Build one target-blind CPU sparse hierarchy index. It rejects
+  duplicate/missing note-onset, onset-beat/bar, beat-bar, and note-track
+  ownership, disagreement between an onset's direct bar and its owning beat's
+  bar, duplicate relevant edges, cross-sample endpoints, disagreement between
+  direct and composed start-bar ownership, and malformed bar continuity.
+  Its portable structure fingerprint contains local counts/endpoints, never
+  batch position, feature values, entity IDs, targets, provenance, or
+  diagnostics.
+- Decision: For onset/beat policies, apply a versioned linear deterministic
+  permutation, visit units once, deduplicate descendants, and compare valid
+  prefixes immediately before/after crossing the requested hidden-note
+  budget. For spans, enforce
+  `1 <= min_span_bars <= max_span_bars <= 8`, enumerate bounded contiguous
+  candidates, and use stable seed evidence for equal-distance ties.
+  Track/bar enumeration is sparse around occupied cells rather than dense
+  tracks-by-bars. Every available hierarchy plan masks at least one note and
+  leaves at least one pitched note visible.
+- Decision: An impossible or disabled policy produces a versioned structured
+  reason and never silently falls back. A versioned configuration records all
+  ordered weights and span bounds. Mixture resolution explicitly records the
+  eligible set, deterministic renormalized weights, resolution seed, selected
+  policy, and report-level realized frequencies.
+- Decision: Introduce a distinct portable
+  `PreparedHierarchyMaskBinding@1.0.0` envelope and
+  `Phase8AHierarchySSLForwardOutput@1.0.0` instead of changing the existing
+  Phase 7A binding/output shapes. The hierarchy binding reuses the exact
+  `PreparedMaskBinding@1.1.0` graph/store/tensor runtime-evidence kernel, HMAC,
+  opaque token, transfer renewal, and private prepared encoder, and
+  additionally binds configuration and ordered resolution fingerprints.
+  There is no parallel validator or public bypass. The portable Phase 7A
+  `to_dict()`/fingerprint is the compatibility boundary even though the
+  internal shared dataclass has hierarchy-only optional fields used by its
+  strict subclass. An independent-only configuration delegates to the old
+  preparation function, preserving old plan, overlay, binding, and numerical
+  artifacts exactly.
+- Decision: Phase 8A adds no model parameter, head, objective, Hydra root
+  field, checkpoint metadata field, or training-engine artifact. Existing
+  Phase 7A note/bar/song objectives are bounded integration smoke only.
+  Phase 8B owns future onset/beat/bar/track objectives, held-out comparison,
+  and ablations.
+- Decision: Phase 8A is mechanics evidence, not likelihood, PLL, critic,
+  quality, representation-improvement, or scaled-effectiveness evidence.
+  No HookTheory/POP909 full scan, PDMX projection, production cache rebuild, or
+  production/full-corpus SSL training is authorized.
+- Consequences: New hierarchical plan, policy, configuration, mixture,
+  unit/descendant evidence, unavailable reason, prepared hierarchy binding,
+  hierarchy output, profile, leakage-audit, fixture, acceptance, and benchmark
+  contracts start at `1.0.0`. The policy contract fingerprint is
+  `b188e90a60d3ec6184dfdb3233ef37b1a0ea133cd5957a10fad3eddf58d77ccd`.
+  Existing MaskPlan/policy/overlay, `PreparedMaskBinding@1.1.0`,
+  `SSLForwardOutput@1.2.0`, SSL model/checkpoint/config, graph/canonical/cache/
+  split, target, and Phase 6 contracts do not change.
+- Consequences: Planner/index work is
+  `O(nodes + relevant edges + emitted candidate/mask entries)` for the
+  contract-fixed span bound. Fixed-width stable radix ordering avoids
+  comparison sorts on node-sized planner inputs. No dense node-unit/note-note
+  matrix, clique, full `O(B²)` spans, or all-note-pairs loop is constructed.
+  Benchmark
+  retained JSON bytes are not Python/CUDA/total peak-memory evidence, and no
+  GPU performance claim is made.

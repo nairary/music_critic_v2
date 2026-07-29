@@ -21,6 +21,7 @@ from music_critic.ssl.contracts import (
     PREPARED_MASK_BINDING_CONTRACT_VERSION,
     SSL_CONTRACT_VERSION,
     MaskPlan,
+    SSLContractError,
     is_sha256,
 )
 from music_critic.ssl.data import SSLBatch
@@ -68,6 +69,7 @@ from music_critic.ssl.views import (
 
 SSL_MODEL_CONTRACT_VERSION = "1.2.0"
 SSL_MODEL_OUTPUT_CONTRACT_VERSION = "1.2.0"
+PHASE8A_HIERARCHY_SSL_OUTPUT_CONTRACT_VERSION = "1.0.0"
 SSL_REPRESENTATION_TARGET_CONTRACT_VERSION = "1.0.0"
 TARGET_MODE = "shared_stop_gradient_full_view"
 DECODER_CONTEXT_MODE = (
@@ -215,6 +217,62 @@ class SSLForwardOutput:
             not is_sha256(
                 self.prepared_mask_binding_fingerprint
             )
+        ):
+            raise ValueError(
+                "prepared mask binding fingerprint is incompatible"
+            )
+        if len(self.decoder_predictions) != len(
+            self.decoder_remask_plans
+        ):
+            raise ValueError("decoder prediction/view counts differ")
+        if self.selected_global_note_indices.dtype != torch.long:
+            raise ValueError("selected note indices must use torch.long")
+
+
+@dataclass(frozen=True, slots=True)
+class Phase8AHierarchySSLForwardOutput:
+    """Phase 8A integration envelope over unchanged Phase 7A objectives."""
+
+    contract_version: str
+    prepared_mask_binding_fingerprint: str
+    mask_plans: tuple[object, ...]
+    feature_overlay: FeatureMaskOverlay
+    online_encoder: ContextualEncoderOutput
+    targets: RepresentationTargets
+    selected_global_note_indices: Tensor
+    decoder_remask_plans: tuple[tuple[DecoderRemaskPlan, ...], ...]
+    decoder_predictions: tuple[Tensor, ...]
+    note_loss: MultiViewRepresentationLoss
+    note_diagnostics: AntiCollapseDiagnostics
+    bar_latent: LatentPrediction
+    song_latent: LatentPrediction
+    objective: SSLObjectiveLoss
+
+    def __post_init__(self) -> None:
+        if (
+            self.contract_version
+            != PHASE8A_HIERARCHY_SSL_OUTPUT_CONTRACT_VERSION
+        ):
+            raise ValueError(
+                "Phase 8A hierarchy SSL output contract is incompatible"
+            )
+        from music_critic.ssl.hierarchical_masking import (
+            HierarchicalMaskPlan,
+        )
+
+        if (
+            type(self.mask_plans) is not tuple
+            or not self.mask_plans
+            or not all(
+                type(plan) in {MaskPlan, HierarchicalMaskPlan}
+                for plan in self.mask_plans
+            )
+        ):
+            raise ValueError(
+                "Phase 8A hierarchy output plans are incompatible"
+            )
+        if not is_sha256(
+            self.prepared_mask_binding_fingerprint
         ):
             raise ValueError(
                 "prepared mask binding fingerprint is incompatible"
@@ -491,12 +549,13 @@ class MaskedGraphSSLModel(nn.Module):
             selected_global_note_indices,
         )
 
-    def forward(
+    def _forward_prepared(
         self,
         batch: SSLBatch,
         *,
         prepared_mask_binding: PreparedMaskBinding,
-    ) -> SSLForwardOutput:
+        hierarchy_output: bool,
+    ) -> SSLForwardOutput | Phase8AHierarchySSLForwardOutput:
         if not isinstance(batch, SSLBatch):
             raise TypeError("MaskedGraphSSLModel requires a raw-only SSLBatch")
         target_input_token = validate_prepared_mask_binding(
@@ -598,8 +657,18 @@ class MaskedGraphSSLModel(nn.Module):
             song_loss,
             weights=self.ssl_config.weights(),
         )
-        return SSLForwardOutput(
-            contract_version=SSL_MODEL_OUTPUT_CONTRACT_VERSION,
+        output_type = (
+            Phase8AHierarchySSLForwardOutput
+            if hierarchy_output
+            else SSLForwardOutput
+        )
+        output_version = (
+            PHASE8A_HIERARCHY_SSL_OUTPUT_CONTRACT_VERSION
+            if hierarchy_output
+            else SSL_MODEL_OUTPUT_CONTRACT_VERSION
+        )
+        return output_type(
+            contract_version=output_version,
             prepared_mask_binding_fingerprint=(
                 prepared_mask_binding.fingerprint
             ),
@@ -616,6 +685,46 @@ class MaskedGraphSSLModel(nn.Module):
             song_latent=song_latent,
             objective=objective,
         )
+
+    def forward(
+        self,
+        batch: SSLBatch,
+        *,
+        prepared_mask_binding: PreparedMaskBinding,
+    ) -> SSLForwardOutput:
+        """Run the unchanged public Phase 7A independent-note path."""
+
+        if (
+            isinstance(prepared_mask_binding, PreparedMaskBinding)
+            and prepared_mask_binding.hierarchy_profile_version
+            is not None
+        ):
+            raise SSLContractError(
+                "phase8a.hierarchy.use_forward_hierarchy"
+            )
+        output = self._forward_prepared(
+            batch,
+            prepared_mask_binding=prepared_mask_binding,
+            hierarchy_output=False,
+        )
+        assert type(output) is SSLForwardOutput
+        return output
+
+    def forward_hierarchy(
+        self,
+        batch: SSLBatch,
+        *,
+        prepared_mask_binding: PreparedMaskBinding,
+    ) -> Phase8AHierarchySSLForwardOutput:
+        """Run a Phase 8A plan through the existing Phase 7A objectives."""
+
+        output = self._forward_prepared(
+            batch,
+            prepared_mask_binding=prepared_mask_binding,
+            hierarchy_output=True,
+        )
+        assert type(output) is Phase8AHierarchySSLForwardOutput
+        return output
 
 
 def build_ssl_model(
@@ -654,6 +763,7 @@ def build_ssl_model(
 __all__ = [
     "SSL_MODEL_CONTRACT_VERSION",
     "SSL_MODEL_OUTPUT_CONTRACT_VERSION",
+    "PHASE8A_HIERARCHY_SSL_OUTPUT_CONTRACT_VERSION",
     "SSL_REPRESENTATION_TARGET_CONTRACT_VERSION",
     "TARGET_MODE",
     "DECODER_CONTEXT_MODE",
@@ -661,6 +771,7 @@ __all__ = [
     "MaskedGraphSSLConfig",
     "MaskedGraphSSLModel",
     "RepresentationTargets",
+    "Phase8AHierarchySSLForwardOutput",
     "SSLForwardOutput",
     "build_ssl_model",
 ]

@@ -5,8 +5,9 @@ representations; Phase 6B implements deterministic hierarchy, coarse
 Transformer context, and top-down fusion; Phase 6C supplies reproducible
 supervised execution without changing those semantics. Phase 7A adds a
 deterministic GraphMAE2-inspired masked representation baseline over that
-unchanged encoder. Hierarchical/adaptive SSL and critic paths remain future
-phases.
+unchanged encoder. Phase 8A adds deterministic hierarchy-aware mask planning
+and views over the same encoder/security boundary. Phase 8B objectives,
+adaptive SSL, and critic paths remain future phases.
 
 ## System flow
 
@@ -715,11 +716,64 @@ and no Phase 7A bounded result establishes a full-corpus claim.
 The full Phase 7A contract and its bounded-science/non-claim boundary are in
 `PHASE7A_SSL_BASELINE.md`.
 
+## Phase 8A hierarchy-aware view boundary
+
+Phase 8A is a planner/view increment, not a new encoder or objective family.
+It adds `onset_pitch_descendants`, `beat_pitch_descendants`,
+`contiguous_bar_pitch_span`, and `track_bar_pitch_span`, while
+`independent_note_pitch` dispatches directly to the unchanged Phase 7A
+uniform-note plan. All primary rows are still note rows reconstructed through
+the existing Phase 7A decoder and note/bar/song integration losses.
+
+Hierarchy resolution uses only raw containment/ownership:
+
+```text
+onset -> starts_note -> note
+beat -> contains_onset -> onset -> starts_note -> note
+bar -> contains_onset -> onset -> starts_note -> note
+track -> contains_note -> note
+```
+
+Span descendants are start-anchored. Sustained/`active_at` relations are
+visible encoder topology but never define primary span descendants.
+Track/bar selection is the sparse intersection of one raw track's notes and
+one contiguous bar range's start-descendants; no semantic role label enters
+the graph or planner.
+
+One CPU preparation index validates unique note-onset, onset-beat, onset-bar,
+beat-bar, and note-track ownership; agreement between each onset's direct bar
+and its owning beat's bar; direct/composed note-bar ownership; sample
+boundaries; and the local bar chain. Unit selection uses a seed-derived
+fixed-width stable radix permutation and linear scans; span enumeration is
+bounded by contract-fixed `max_span_bars <= 8`. Unavailable strategies return
+structured sidecars and cannot enter model execution. Mixtures retain the
+complete eligibility set, deterministic renormalized weights, and resolved
+policy.
+
+The pitch-only overlay and collateral closure are unchanged. Hierarchy
+execution uses the distinct versioned
+`PreparedHierarchyMaskBinding@1.0.0` envelope and
+`Phase8AHierarchySSLForwardOutput@1.0.0`; both remain outside the portable
+Phase 7A binding/output shapes. The hierarchy binding reuses the exact
+`PreparedMaskBinding@1.1.0` graph/store/tensor attestation kernel, HMAC, opaque
+token, transfer renewal, and private prepared encoder, while additionally
+binding configuration and resolution evidence. The portable Phase 7A
+dictionary and fingerprint are the compatibility boundary: an
+independent-only configuration delegates to the old builder and preserves
+that artifact exactly.
+
+Phase 8A changes no canonical/raw graph/cache/target contract, does not insert
+mask evidence into PyG stores, and adds no model parameter or checkpoint
+metadata. Its supplemental oracle wraps rather than modifies the immutable
+Phase 7A fixture. Detailed policy, leakage, complexity, version, and bounded
+claim boundaries are in `PHASE8A_HIERARCHICAL_MASKING.md`.
+
 ## Incremental research scope
 
 Phase 7A implements GraphMAE2-inspired decoder remasking but is not a faithful
-GraphMAE2 reproduction. Hi-GMAE-inspired hierarchical masking and
-UGMAE-inspired adaptive or structural objectives remain roadmap increments.
-They are not part of the Phase 7A baseline. PDMX-scale effectiveness must be
-evaluated after the Phase 10 raw-compatible corpus projection; PLL and
-critic/quality scoring remain separate future contracts.
+GraphMAE2 reproduction. Phase 8A implements only Hi-GMAE-inspired
+hierarchy-aware mask/view mechanics. Phase 8B multi-level objectives and
+comparisons and UGMAE-inspired adaptive or structural objectives remain
+roadmap increments. PDMX-scale effectiveness must be evaluated after the
+Phase 10 raw-compatible corpus projection; PLL and critic/quality scoring
+remain separate future contracts.

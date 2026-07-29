@@ -26,6 +26,10 @@ from music_critic.ssl.masking import (
     build_mask_plans_for_batch,
     prepare_mask_binding,
 )
+from music_critic.ssl.hierarchical_masking import (
+    HierarchyMaskPolicyConfig,
+    build_batched_hierarchy_mask_resolutions,
+)
 from music_critic.ssl.model import (
     MaskedGraphSSLConfig,
     MaskedGraphSSLModel,
@@ -42,6 +46,16 @@ from music_critic.tasks import (
 from music_critic.training.config import DataConfig
 from music_critic.training.data import build_data_runtime
 from tests.training.test_split_and_corpus import _build_index
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _single_threaded_torch_for_worker_fork_safety():
+    previous = torch.get_num_threads()
+    torch.set_num_threads(1)
+    try:
+        yield
+    finally:
+        torch.set_num_threads(previous)
 
 
 @pytest.fixture(scope="module")
@@ -85,6 +99,16 @@ def test_ssl_batch_is_raw_only_and_target_sidecar_mutation_is_inert(
         before.raw_graph_batch,
         plans_before,
     )
+    hierarchy_before = build_batched_hierarchy_mask_resolutions(
+        before.raw_graph_batch,
+        dataset_ids=before.dataset_ids,
+        piece_ids=before.piece_ids,
+        global_seed=42,
+        epoch=3,
+        stage="train",
+        requested_mask_rate=0.30,
+        policy_config=HierarchyMaskPolicyConfig(),
+    )
     graph_before = _source_graph_fingerprints(before)
 
     for target in phase6_batch.target_batches:
@@ -116,6 +140,16 @@ def test_ssl_batch_is_raw_only_and_target_sidecar_mutation_is_inert(
         after.raw_graph_batch,
         plans_after,
     )
+    hierarchy_after = build_batched_hierarchy_mask_resolutions(
+        after.raw_graph_batch,
+        dataset_ids=after.dataset_ids,
+        piece_ids=after.piece_ids,
+        global_seed=42,
+        epoch=3,
+        stage="train",
+        requested_mask_rate=0.30,
+        policy_config=HierarchyMaskPolicyConfig(),
+    )
 
     assert tuple(item.name for item in fields(SSLBatch)) == (
         "raw_graph_batch",
@@ -142,6 +176,7 @@ def test_ssl_batch_is_raw_only_and_target_sidecar_mutation_is_inert(
     assert _source_graph_fingerprints(after) == graph_before
     assert plans_after == plans_before
     assert overlay_after.fingerprint == overlay_before.fingerprint
+    assert hierarchy_after == hierarchy_before
 
 
 def test_bounded_runtime_preserves_group_safe_fixed_validation() -> None:
@@ -419,6 +454,22 @@ def _loader_evidence(
         for level in ("note", "bar", "song")
     }
     for batch in batches:
+        hierarchy_resolutions = (
+            build_batched_hierarchy_mask_resolutions(
+                batch.raw_graph_batch,
+                dataset_ids=batch.dataset_ids,
+                piece_ids=batch.piece_ids,
+                global_seed=42,
+                epoch=epoch,
+                stage=stage,
+                requested_mask_rate=model.ssl_config.mask_rate,
+                policy_config=HierarchyMaskPolicyConfig(),
+            )
+        )
+        hierarchy_by_identity = {
+            resolution.sample_identity: resolution.to_dict()
+            for resolution in hierarchy_resolutions
+        }
         binding = prepare_mask_binding(
             batch,
             global_seed=42,
@@ -479,6 +530,7 @@ def _loader_evidence(
                 graph_fingerprint(graph),
                 model_input_fingerprint(graph),
                 plan.fingerprint,
+                hierarchy_by_identity[identity],
                 tuple(
                     (
                         view[sample_index].stable_seed,

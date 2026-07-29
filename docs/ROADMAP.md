@@ -441,21 +441,12 @@ The model and training phases remain pending.
 
 - Goal: add masked observable-feature representation learning.
 - Dependencies: Phase 6D-A evaluation evidence.
-- Phase 7A status: merged in PR #15 at `a850207`. A blocking post-merge
-  CUDA-device-canonicalization hotfix remains draft in PR #17. Its first
-  independent RTX 3090 rerun confirmed the original abstract `cuda` versus
-  concrete `cuda:N` transfer fix, then exposed explicit-index validation,
-  mixed-precision representation-loss, and two test-assertion remediation
-  items. A second run at `145ee10` passed every strict no-leakage invariant and
-  all other CUDA suites but exposed that a two-step smoke incorrectly treated
-  correct-target preference as an acceptance gate. Report/evidence semantics
-  are being remediated without hiding the observed negative margin.
-  Exact-final hardware evidence remains the merge gate. Phase 8 has not
-  started. The Phase 7A implementation is
-  GraphMAE2-inspired, not a faithful reproduction. Exact bounded-run evidence
-  belongs to `PHASE7A_SSL_BASELINE.md`; head-relative Required CI belongs to
-  the historical final PR #15 evidence comment, while the hotfix requires its
-  own CI and RTX evidence.
+- Phase 7A status: accepted and merged in PR #15 at merge commit
+  `a850207897b5abf6eebccf72d44b8814260323c6`; its concrete-CUDA,
+  indexed-device, FP32-under-AMP, and split-evidence remediation is accepted
+  and merged through PR #17 at main `5afec305cfa62ab2c200c5b1e7270ae35cd8a102`.
+  The implementation is GraphMAE2-inspired, not a faithful reproduction.
+  Exact bounded-run evidence belongs to `PHASE7A_SSL_BASELINE.md`.
 - Outputs: masking views, remasked representation decoder, latent prediction
   losses, and a design gate before any normalized probabilistic
   masked-note/pitch-set decoder or deterministic PLL protocol.
@@ -512,17 +503,47 @@ The model and training phases remain pending.
   distinct scopes. Before PDMX, Phase 7 validates SSL mechanics only rather
   than full-scale effectiveness.
 
-## Phase 8 — Hi-GMAE-style hierarchical masking
+## Phase 8A — hierarchy-aware mask contracts, planners, and overlays
 
-- Goal: mask coherent descendants and learn multi-level representations.
-- Dependencies: Phase 7.
-- Outputs: hierarchy-aware onset/beat/bar-span masks, pitch-only masks with
-  visible rhythm, track/span masks, and multi-level objectives.
-- Tests: descendant masks, non-degenerate views, level-specific losses.
-- Non-goals: theory corpus integration.
-- Acceptance: hierarchical masking works on variable graph sizes and exact
-  objective families remain independently ablatable. Before PDMX, Phase 8
-  validates hierarchy/masking mechanics only.
+- Status: implemented on branch `phase/8a-hierarchical-masking`; draft-PR
+  review and Required CI are the merge gate.
+- Goal: extend the accepted Phase 7A view generator from independent note
+  rows to coherent raw hierarchy descendants without changing objectives.
+- Dependencies: accepted Phase 7A prepared-input and pitch-leakage contracts.
+- Outputs: exact `independent_note_pitch` control dispatch plus
+  onset-descendant, beat-descendant, contiguous-bar-span, and sparse
+  track/bar-span policies; start-anchored semantics; deterministic policy
+  mixtures; structured unavailable evidence; unchanged pitch-only overlay;
+  distinct hierarchy binding/output envelopes over the shared prepared-input
+  attestation kernel; bounded oracle and benchmark.
+- Tests: exact descendant/collateral oracles, polyphony, sustained-note
+  exclusion, sample/track boundaries, mixtures/unavailability, worker/batch
+  invariance, prepared mutation rejection, Phase 7A bit-exact compatibility,
+  and bounded existing-objective forward/backward smoke.
+- Non-goals: new objective heads, quality improvement claims, theory/PDMX
+  integration, PLL, critic learning, or production training.
+- Acceptance: hierarchy-aware views are deterministic, sparse, leakage-closed,
+  failure-closed, and model-ready on bounded variable graphs; the raw graph,
+  canonical/cache/split contracts, model state/checkpoints, and Phase 7A
+  control artifacts remain unchanged.
+
+## Phase 8B — multi-level objectives and comparison
+
+- Status: not started.
+- Goal: add independently ablatable onset/beat/bar/track objective families
+  and compare them against Phase 7A/8A controls.
+- Dependencies: merged Phase 8A contracts and an explicit held-out
+  comparison/ablation protocol.
+- Outputs: versioned multi-level heads/losses, held-out comparison,
+  ablations, and any justified curriculum.
+- Tests: level-specific target/denominator semantics, unavailable-level
+  handling, independent ablation, checkpoint compatibility, and bounded
+  optimization behavior.
+- Non-goals: claiming scaled effectiveness before the Phase 10
+  raw-compatible PDMX projection and rerun.
+- Acceptance: objective families remain independently ablatable and their
+  held-out mechanics/comparisons are reported without likelihood, critic, or
+  quality-score interpretation.
 
 ## Phase 9 — Dilemmadata adapter and theory supervision
 

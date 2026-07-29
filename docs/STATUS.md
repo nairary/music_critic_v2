@@ -85,7 +85,8 @@
 - Evaluation/artifact contracts: `1.1.1`; profiler: `1.1.0`; macro-summary
   sub-contract: `1.0.0`; unchanged train-prior: `1.0.0`
 - Phase 7A branch: `phase/7a-graphmae2-ssl-baseline`
-- Phase 7A PR #15: merged at
+- Phase 7A: accepted and merged in PR #15
+- Phase 7A merge SHA:
   `a850207897b5abf6eebccf72d44b8814260323c6`
 - Phase 7A final-remediation base:
   `791ef19b1dbd7c26b7a2ef87f36d4ee5b08391a6`
@@ -211,6 +212,29 @@
   policies, model architecture, graph schema, ontology, dataset, cache, and
   production-training behavior are unchanged. Only the required AMP compute
   dtype semantics changed. No Phase 8 implementation is part of this hotfix.
+
+- Phase 8A branch: `phase/8a-hierarchical-masking`
+- Phase 8A status: implemented for draft-PR review; Required `push` and
+  `pull_request` workflow runs on the final head are the merge gate. Do not
+  merge from this implementation task.
+- Phase 8A hierarchical plan/policy/config/mixture/unit-evidence/
+  unavailable-reason/prepared-hierarchy-binding/prepared-profile/
+  hierarchy-output/leakage-audit/fixture/acceptance/benchmark contracts:
+  `1.0.0`
+- Phase 8A policy contract fingerprint:
+  `b188e90a60d3ec6184dfdb3233ef37b1a0ea133cd5957a10fad3eddf58d77ccd`
+- Phase 8A pitch-leakage audit fingerprint:
+  `27fc135b61649e5b892036dd0aacc92f679493ff671320c8235d33396a7c9949`
+- Phase 8A hierarchy fixture fingerprint:
+  `ffd0d4c7db80323b8f1f8d72c1e4b7e530151c1b95dd68033e1a30273dd98a1b`
+- Phase 8A uses distinct `PreparedHierarchyMaskBinding@1.0.0` and
+  `Phase8AHierarchySSLForwardOutput@1.0.0` portable envelopes over the shared
+  Phase 7A attestation/encoder kernel. It preserves
+  `PreparedMaskBinding@1.1.0`, `SSLForwardOutput@1.2.0`, all other existing
+  Phase 7A and Phase 6 contract versions, checkpoint metadata/state, raw
+  graph/canonical/cache/split contracts, and independent-control artifacts.
+- Next gate: review and merge of the Phase 8A draft PR by an authorized
+  maintainer. Phase 8B has not started.
 
 ## Phase 7A implementation status
 
@@ -341,8 +365,63 @@
   `git diff --check`, and `git show --check` passed. CUDA was unavailable, so
   its prepared-forward test skipped and no GPU evidence is claimed.
 - Production SSL training has not been performed for Phase 7A acceptance.
-  Phase 8 has not started, PDMX has not been added, PLL has not been
-  implemented, and no critic or quality score has been implemented.
+  Phase 8A adds bounded hierarchy-aware mask/view mechanics only; Phase 8B
+  has not started. PDMX has not been added, PLL has not been implemented, and
+  no critic or quality score has been implemented.
+
+## Phase 8A implementation status
+
+- Exactly five policies are versioned: the bit-exact Phase 7A
+  `independent_note_pitch` control plus onset descendants, beat descendants,
+  one start-anchored contiguous bar span, and the sparse intersection of one
+  raw track with one start-anchored bar span.
+- Every new policy hides only the four note pitch fields and availability,
+  then applies the unchanged Phase 7A peer-relative-pitch and owner-track
+  pitch-statistic collateral closure. The fail-closed audit classifies all 68
+  raw registry fields as four primary identities, four unique owner-track
+  collateral identities, and an exact ordered 60-field visible remainder.
+- The target-blind CPU index validates note/onset/beat/bar/track ownership,
+  including beat-bar ownership and agreement between an onset's direct bar and
+  its owning beat's bar. Fixed-width stable radix ordering, linear scans,
+  bounded `max_span_bars <= 8` enumeration, and sparse occupied track/bar cells
+  avoid pairwise or dense hierarchy matrices.
+- Unavailable policies return a structured reason and never silently fall
+  back. Mixture resolution records the full eligibility set, exact normalized
+  weights, stable resolution seed, selected policy, and explicit realized
+  denominator/frequency.
+- Hierarchy execution returns distinct
+  `PreparedHierarchyMaskBinding@1.0.0` and
+  `Phase8AHierarchySSLForwardOutput@1.0.0` artifacts over the shared Phase 7A
+  full-attestation/HMAC/token/transfer implementation. Normal `forward()`
+  remains Phase 7A-only; `forward_hierarchy()` is explicit. An
+  independent-only configuration returns the exact old Phase 7A binding,
+  overlay, logits/embeddings, and losses.
+- The bounded fixture has 6 pieces, 14 tracks, 15 bars, 60 beats, 42 onsets,
+  93 notes, 39 polyphonic onsets, one multi-onset beat, one cross-bar
+  sustained note, and 34 occupied track/bar cells. Train/validation identities
+  are disjoint.
+- The final compact acceptance report is byte-exact across two fresh
+  processes: 32,229 bytes, SHA-256
+  `e6915779f21784a1907c930da7967d2d6c1dae4cfd72fbb0ed5c24bec37cc03a`.
+  All five single-policy runs resolved `4/4`, produced finite loss, and had
+  380/474 finite gradient tensors; 361 were nonzero for independent/onset/
+  beat/bar and 376 for track/bar. A separate four-draw mixed-policy smoke
+  resolved track/bar `1/4`, independent `2/4`, and onset `1/4`; it is
+  accounting evidence, not a frequency-quality claim.
+- Final local verification: Phase 8A focused `84 passed, 1 skipped`; workers
+  `0/2` parity `1 passed`; complete SSL `241 passed, 3 skipped`; Phase 6
+  model/graph/leakage `146 passed, 1 skipped`; checkpoint/resume/transfer
+  `19 passed`; full repository `1073 passed, 22 skipped`. CUDA was unavailable
+  and no GPU evidence is claimed.
+- The no-threshold bounded CPU benchmark measured 147 nodes, 920 total edges,
+  208 relevant edges, candidate counts `57/27/26/14/35`, emitted overlay
+  entries `138/147/147/162/93`, and peak simultaneously retained compact plan
+  JSON bytes `5604/10621/10612/10555/10445` for independent/onset/beat/bar/
+  track-bar. These are mechanics and retained-serialization observations, not
+  Python allocator, temporary-memory, throughput, CUDA, or quality evidence.
+- No legacy source was inspected. No HookTheory or POP909-CL corpus scan,
+  production cache rebuild, PDMX projection, production/full-corpus SSL
+  training, PLL, critic training, or Phase 8B objective work was performed.
 
 ## Scientific context and evaluation backlog
 

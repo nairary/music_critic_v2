@@ -2900,7 +2900,7 @@ cosine, L2, margin, and floor diagnostics compute in FP32 with autocast
 disabled. Model/output, checkpoint/journal/metric, run-manifest/performance,
 masking, graph, data, and architecture contracts do not change.
 
-Phase 7A does not implement hierarchy masks (Phase 8), a PDMX projection or
+Phase 7A does not implement hierarchy masks (Phase 8A/8B), a PDMX projection or
 scaled-effectiveness claim (Phase 10), masked conditional likelihood,
 perplexity, PLL, preference/critic learning, or quality scoring.
 
@@ -2911,29 +2911,70 @@ Required GitHub CI is recorded in the final draft-PR evidence comment. Together
 they distinguish one-batch plumbing, bounded held-out/non-collapse acceptance,
 named production-cache execution, and any future production/full-corpus claim.
 
-## Phase 8. Hi-GMAE-style hierarchy
+## Phase 8A. Hierarchy-aware mask contracts and views
 
-### Implement
+### Implemented increment
 
-- bar-span masks;
-- coherent onset/beat/bar-span masks;
-- pitch-only masks that leave rhythm visible as an explicit ablation;
-- track masks/dropout;
-- coarse-to-fine `MaskPlan` projection;
-- bar and track latent recovery;
-- configurable mask curriculum.
+- preserve `independent_note_pitch` as an exact dispatch to the Phase 7A
+  `uniform_note_without_replacement` plan, overlay, prepared binding, and
+  model behavior;
+- add versioned onset-descendant, beat-descendant, contiguous-bar-span, and
+  sparse track/bar-span policies;
+- define start-anchored descendants through raw containment and ownership,
+  never sustained `active_at` membership;
+- keep pitch-only primary masking and the exact Phase 7A peer-note/
+  owner-track collateral closure while rhythm and topology remain visible;
+- validate unique note-onset, onset-beat/bar, beat-bar, note-track ownership,
+  direct/composed bar consistency, onset/owning-beat bar agreement, sample
+  boundaries, and bar continuity;
+- approximate the requested hidden-note budget with deterministic
+  without-replacement units or bounded spans, while requiring at least one
+  primary and one visible pitched note;
+- return structured unavailable evidence without fallback;
+- add versioned policy configuration, deterministic eligible-weight
+  renormalization/resolution evidence, and realized-frequency reporting;
+- reuse the same prepared-binding attestation/token/transfer kernel behind a
+  distinct hierarchy binding/output envelope that binds configuration and
+  resolutions without changing portable Phase 7A artifacts;
+- add a supplemental bounded oracle beside the immutable Phase 7A fixture,
+  plus no-threshold complexity/retained-metadata benchmark evidence.
 
 ### Acceptance criteria
 
-- masked bar removes or masks all intended descendants;
-- decoder receives visible hierarchy correctly;
-- per-level losses are logged;
-- one-batch overfit test for bar masking passes.
-- mask families remain separately configurable for ablation.
+- exact hand-computed descendants and collateral rows hold for all four new
+  policies, including polyphony, multiple onsets per beat, sustained-note
+  exclusion, and track/bar intersection;
+- plans are target/provenance/diagnostic blind, batch/worker/order invariant,
+  validation-epoch canonical, serializable, and graph-immutable;
+- every policy can be enabled/disabled; impossible policies retain a
+  structured reason and never enter the encoder;
+- prepared feature/store mutation fails before encoder computation and no
+  prepared forward performs graph-sized accelerator-to-host materialization;
+- each policy completes a bounded finite forward/backward through unchanged
+  Phase 7A objectives;
+- the independent control remains bit-exact and Phase 7A checkpoint/config/
+  state semantics remain unchanged.
 
-Like Phase 7, Phase 8 validates masking and hierarchical recovery mechanics on
-bounded pre-PDMX data. Its accepted objectives must be rerun at scale after the
-Phase 10 PDMX raw-compatible corpus/cache exists.
+Phase 8A makes only a mechanics claim. It adds no new objective head and does
+not interpret reconstruction as likelihood, PLL, critic output, quality, or
+representation improvement.
+
+## Phase 8B. Multi-level hierarchy objectives and comparison
+
+### Future implement
+
+- independently ablatable onset, beat, bar, and track latent objectives;
+- an explicit held-out comparison against Phase 7A and Phase 8A controls;
+- level-specific unavailable/denominator semantics;
+- bounded ablations and any justified mask curriculum.
+
+### Future acceptance criteria
+
+- every objective family can be enabled and disabled independently;
+- held-out comparison and ablation artifacts bind exact configurations and
+  membership;
+- no scaled-effectiveness claim is made before rerunning accepted objectives
+  after the Phase 10 PDMX raw-compatible corpus/cache exists.
 
 ## Phase 9. Dilemmadata adapter and theory heads
 
