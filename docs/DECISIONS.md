@@ -1378,3 +1378,209 @@ This log is append-only.
   `1.0.0`, training checkpoint, model, target, cache, and split contracts do
   not change. Existing Phase 6C checkpoints remain valid without mutation.
   Phase 7 remains unstarted.
+
+## 2026-07-29 — ADR-050: Phase 7A is deterministic GraphMAE2-inspired representation SSL
+
+- Status: Accepted. Final Phase 7A acceptance remediation is implemented in
+  draft PR #15. Bounded execution is recorded in
+  `PHASE7A_SSL_BASELINE.md`; head-relative Required CI is operational evidence
+  recorded in the PR comment, not a pending architectural decision. Its
+  initial prepared-input security boundary and current contract-version
+  consequences are superseded by ADR-051.
+- Context: The Phase 6B hierarchical encoder can consume ordinary raw-only
+  MIDI graphs, but visible-feature reconstruction does not prove masked
+  representation learning. The first SSL increment must prevent redundant
+  pitch, peer-relative-pitch, and owner-track aggregate leakage, remain
+  independent of target sidecars and loader ordering, and preserve every
+  Phase 6 supervised/no-mask contract. It must not conflate representation
+  reconstruction with musical likelihood, preference, or quality.
+- Decision: Describe the implementation as GraphMAE2-inspired, not a faithful
+  GraphMAE2 reproduction. Phase 7A uses target mode
+  `shared_stop_gradient_full_view`: the shared hierarchical encoder produces
+  full-view note/bar/song targets under eval/no-grad, while the online path
+  uses a model-side masked feature overlay. Targets are detached. No EMA target
+  encoder is implemented; EMA remains a future controlled ablation.
+- Decision: The only Phase 7A field group is `note_pitch_group`. Resolve note
+  `pitch`, `pitch_class`, `octave`, and `track_relative_pitch` through the
+  versioned raw feature registry and mask both value and availability
+  contributions. Through exact raw note ownership, collateral-mask
+  `track_relative_pitch` and availability on every unselected note peer in an
+  affected owner track, plus owner-track `mean_pitch`, `pitch_std`, `min_pitch`,
+  and `max_pitch` with availability. Peer-note and owner-track collateral
+  fields are leakage closure, not reconstruction targets. Duration, velocity,
+  timing, topology, bars, and whole tracks remain visible.
+- Decision: Use immutable per-sample
+  `uniform_note_without_replacement@1.0.0` MaskPlans with canonical SHA-256
+  seeds and fingerprints. Train masks depend on epoch; validation masks
+  canonicalize epoch to zero. Plans and decoder views do not use Python
+  `hash()`, global RNG, target/annotation content, batch order, or worker
+  scheduling. Mask overlays neither mutate nor cache raw graphs. The
+  no-overlay contribution order and Phase 6 state dict remain unchanged.
+- Decision: Construct every MaskPlan and prepared binding from the fully
+  validated CPU `SSLBatch` before device transfer. Prepared binding `1.0.0`
+  binds ordered identities, raw structure and ownership, stage, canonicalized
+  epoch, seed, and exact plan fingerprints, and rejects externally substituted
+  bindings failure-closed. It is a runtime sidecar, not graph/cache state.
+  CPU and CUDA share this path; prepared accelerator forward performs no
+  graph-tensor `.cpu()`, `.tolist()`, or `.item()` plan construction. Report
+  CPU plan preparation separately from transfer and compute.
+- Decision: Decode selected online note representations through deterministic
+  latent re-mask views and a row-wise contextual representation decoder. Mode
+  `online_owner_track_bar_song_temporal_neighbors` derives context only from
+  masked-online owner-track, available owner-bar, song, and previous/next
+  in-track note representations; adding it after re-masking prevents
+  fully-remasked predictions from depending on one constant mask token alone.
+  Predict detached full-view bar and song latents with separate
+  projector/predictors. Use versioned `1-cosine` with `eps=1e-8`,
+  `sum_count_mean`, retained and counted zero-norm rows, and explicit
+  unavailable components. Anti-collapse diagnostics `1.1.0` separately merge
+  target and prediction rows for note, bar, and song across the complete
+  stage. For each it exposes row count, dimension, the exact variance formula,
+  mean L2 norm, zero-norm count, and global mean off-diagonal cosine, with
+  structured unavailability for fewer than two rows. `O(D)` sufficient
+  statistics retain no embedding history or `N x N` matrix and make the result
+  invariant to batch partition/order and worker count. Epoch artifacts use
+  `anti_collapse_aggregate`, not the rejected
+  `anti_collapse_last_batch` snapshot.
+- Decision: Bound final mechanics acceptance to a deterministic multi-piece,
+  multi-note canonical fixture with disjoint train/validation identities and
+  explicit multitrack/multibar cases. Its varied pitches and rhythms make the
+  configured `0.30` mask select multiple primary rows and exercise nonzero
+  peer-note and owner-track collateral masking. Counts and fingerprints are
+  execution evidence, not architecture constants.
+- Decision: Resolve an unset optimizer learning rate to `3e-4` for the
+  Phase 7A one-batch experiment. Explicit optimizer overrides remain
+  authoritative, and the generic supervised one-batch preset is unchanged.
+  This bounded profile keeps the shared target encoder pitch-sensitive enough
+  for the fixed counterfactual margin gate across supported CPU execution
+  environments.
+- Decision: After bounded one-batch fitting, use pitch-mutation contract
+  `1.0.0` and fixed `midi_axis_reflection_v1` policy
+  (`mutated_pitch = 127 - source_pitch`), then rebuild the canonical piece,
+  raw graph, and dependent raw features under the same fixed MaskPlan. Bind
+  each alternative to actual runtime-source fingerprints and a
+  selection-specific mutation fingerprint. Require a positive difference
+  between `cos(prediction, correct_target)` and
+  `cos(prediction, mutated_target)`, and report correct-to-mutated target
+  distance. This diagnoses pitch-sensitive representation mechanics and is not
+  a label, cross-entropy, normalized likelihood, or PLL.
+- Decision: Evaluate fixed, disjoint validation once before any optimizer step
+  and after every training epoch. Record train/validation loss and exact
+  stage-wide note/bar/song diagnostics; choose the best checkpoint only by
+  fixed-validation loss. Deterministic reruns bind the memberships, prepared
+  plan fingerprints, initial validation baseline, and metric rows.
+- Decision: Keep a simple one-view/no-remask mode and a main
+  three-view/`0.20`-remask mode. No superiority claim follows from including
+  the multi-view mode. Production cache training uses a dedicated raw-only
+  dataset/collator around `load_cached_piece` and `build_raw_graph`, never
+  supervised target projection, while reusing group-safe training and fixed
+  validation membership. Reports distinguish four scopes: one-batch plumbing,
+  bounded held-out/non-collapse evidence, named production-cache execution,
+  and production/full-corpus training. The first two establish deterministic
+  mechanics only, and cache reads alone establish neither production-training
+  nor full-corpus effectiveness. SSL checkpoint/resume is failure-atomic and
+  epoch-boundary-only. Pretrained export strictly transfers local encoder,
+  hierarchy pooling, Transformer, and fusion parameters without overwriting
+  supervised heads.
+- Decision: Hierarchical/coarse-to-fine masks belong to Phase 8. Full-scale
+  effectiveness requires the Phase 10 PDMX raw-compatible corpus projection
+  and rerun. Phase 7A implements no normalized masked-note/pitch-set
+  likelihood, perplexity, PLL, critic, reward, preference, aesthetic, or
+  quality score.
+- Consequences: New Phase 7A SSL, MaskPlan/policy, overlay, maskable-field
+  registry, decoder, objective/diagnostic, model/output/target,
+  checkpoint/journal, encoder-export, and run/report contracts begin at
+  `1.0.0`. The maskable-field registry fingerprint is
+  `97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`.
+  Canonical, graph, adapter, ontology, encoding, split, corpus/cache, Phase 6
+  model/output, and Phase 6 checkpoint contracts do not change.
+- Consequences: The first acceptance remediation added prepared MaskPlan
+  binding `1.0.0` and
+  advances SSL contract/model/output, anti-collapse diagnostics, checkpoint,
+  epoch journal, metric row, run manifest, training report, and performance
+  row to `1.1.0`. MaskPlan/policy, maskable-field registry, representation
+  target/objective/loss, decoder, encoder export, and every Phase 6 contract
+  remained `1.0.0` at their existing semantics. ADR-051 records the subsequent
+  security-remediation versions.
+- Consequences: The first real supervised baseline supplies later-ablation
+  context only: strong HookTheory tonic/scale-degree and POP909-CL root/bass
+  signals, weak or collapsed remaining heads, all-negative HookTheory
+  multilabel output with `F1=0` at threshold `0.5`, and POP909-CL validation
+  limited to 18 independent pieces. Scientific evaluation hardening and the
+  ambiguous `test_not_used_for_checkpoint_selection` field remain registered
+  backlog items; neither blocks Phase 7A mechanics or establishes downstream
+  improvement.
+
+## 2026-07-29 — ADR-051: Prepared Phase 7A execution requires complete process-local attestation
+
+- Status: Accepted. This is the final Phase 7A security/contract remediation
+  in draft PR #15; it does not begin Phase 8 or authorize production training.
+- Context: Prepared Phase 7A execution previously attested only a subset of
+  the validated raw model input while the SSL model could invoke the Phase 6
+  encoder with a caller-controlled `_prevalidated_input=True` boolean. After
+  preparation or transfer, mutation/replacement of features, availability,
+  candidates, `raw_only`, or store attributes could therefore bypass the
+  complete raw-graph validator. The fast path must remain free of graph-sized
+  accelerator-to-host materialization while failing closed over the entire
+  numerical and structural input.
+- Decision: Prepared binding `1.1.0` holds a private, process-local descriptor
+  over the exact graph presented to the model. It keeps strong references to
+  the graph and every global/node/edge store and binds their object identities
+  and types, ordered `node_types` and `edge_types`, and every exact store
+  attribute set. For the current model-facing schema, it covers all 65 graph
+  tensors: global `raw_only`; `x_cat`, `x_cat_available`, `x_cont`,
+  `x_cont_available`, `batch`, and `ptr` for each mandatory node store;
+  beat/onset `candidate_slot`; and `edge_index` for every mandatory relation.
+  Every tensor, plus the compact selected-note-index tensor, is held by strong
+  reference and attested by identity, `_version`, shape, dtype, and device.
+- Decision: A typed immutable hash covers all non-tensor metadata used by the
+  validated graph contract, including schema/registry/builder values,
+  feature-name collections, `num_nodes`, and every `entity_id` collection.
+  Entity identifiers are therefore inside, not outside, the prepared-input
+  boundary. Adding or removing any global/node/edge attribute—including
+  target, theory, split, provenance, diagnostics, or an unknown field—changes
+  the exact surface and is rejected before encoder computation.
+- Decision: Transfer first re-attests the complete source graph, then
+  deep-copies the stores and moves tensor attributes. It compares transferred
+  store types, ordered node/edge types, exact attribute sets, non-tensor
+  metadata, and tensor shape/dtype/device surfaces, then discards the CPU
+  descriptor in favor of a fresh descriptor with strong references and
+  identities for the destination graph. No accelerator tensor value is read
+  on the host.
+- Decision: Runtime graph/store/tensor identities, strong references, version
+  counters, device metadata, HMAC secrets, and capability tokens are
+  intentionally excluded from `to_dict()`, deterministic binding
+  fingerprints, checkpoints, reports, graph serialization, and caches. The
+  portable binding fingerprint continues to derive only from immutable
+  preparation-stage CPU evidence, so process-local attestation strengthens
+  runtime authorization without making deterministic artifacts
+  process-dependent.
+- Decision: Remove the public boolean bypass. Normal Phase 6 `forward` and
+  `encode` calls always run the existing full raw-graph validator. The private
+  prepared encoder path accepts only an opaque process-local, HMAC-backed
+  capability issued for one exact batch, graph, binding, runtime descriptor,
+  and mask rate. The full-view target path and the masked-online path each
+  issue and re-attest a fresh capability immediately before encoder
+  computation. A foreign graph, forged binding/token, in-place tensor
+  mutation, tensor replacement, or surface mutation fails with a structured
+  contract error before either encoder runs.
+- Decision: Preserve the diagnostic implementation but state its performance
+  boundary precisely. Mergeable anti-collapse accumulators retain `O(D)`
+  state and no embedding history or pairwise matrix. Current
+  `_StreamingEmbeddingStatistics.from_values` nevertheless materializes a
+  float64 `N x D` `values64` tensor and a normalized `N x D` working
+  temporary. There is no `O(D)` peak-temporary-memory guarantee. Real CUDA
+  cost has not been measured, and a separate profiler/optimization gate on an
+  RTX 3090 is required before production SSL.
+- Consequences: Prepared binding advances to `1.1.0`. SSL contract,
+  model/output, checkpoint, epoch journal, metric row, run manifest, training
+  report, and performance row advance to `1.2.0`. Anti-collapse diagnostics
+  remain `1.1.0`. MaskPlan/policy/overlay, maskable registry, decoder,
+  representation target/objective/loss, pitch mutation, and encoder export
+  remain `1.0.0`.
+- Consequences: Model/checkpoint-derived fingerprints change with the
+  incompatible prepared execution boundary; the accepted model fingerprint is
+  `7a1ece2b44dc6b52aef6f7c7532238d4716b1a45c38b8ca66957225a24b76774`.
+  Canonical, graph schema, feature registry, cache, split, and every Phase 6
+  numerical/state-dict contract remain unchanged. Raw unlabeled MIDI inference
+  continues through the ordinary fully validated Phase 6 path.

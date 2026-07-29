@@ -2,7 +2,7 @@
 
 ## Current phase
 
-- Date: 2026-07-27
+- Date: 2026-07-29
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -79,20 +79,195 @@
 - Device-transfer contract: `1.0.0`
 - Training-checkpoint contract: `1.0.0`
 - Phase 6D-A: Accepted and merged in PR #13 at
-  `18ebf5b69797f5d40ff38607cf8e8b5dad2f86e7`; the membership-parity hotfix
-  remains a separate draft/CI gate
+  `18ebf5b69797f5d40ff38607cf8e8b5dad2f86e7`
+- Phase 6D-A validation-membership parity hotfix: Accepted and merged in PR
+  #14 at `bded77ff1a923f391623d735b5ad4ce290d9d2d2`
 - Evaluation/artifact contracts: `1.1.1`; profiler: `1.1.0`; macro-summary
   sub-contract: `1.0.0`; unchanged train-prior: `1.0.0`
-- Next phase after Phase 6D-A acceptance: Phase 7 — GraphMAE2-style SSL
+- Phase 7A branch: `phase/7a-graphmae2-ssl-baseline`
+- Phase 7A draft PR: #15; do not merge from the implementation task
+- Phase 7A final-remediation base:
+  `791ef19b1dbd7c26b7a2ef87f36d4ee5b08391a6`
+- Ordered Phase 7A commits after that base are:
+  `ab9477888bc39312e8501bbf18685f45cf1d5630` (acceptance remediation),
+  `64f63997141b9a2e5eb9c718af992e62b01f5b9f` (final evidence),
+  `ba458697599b03395b4a720888e7e7ce9d99c3bb` (cross-environment
+  acceptance-profile fix),
+  `3713ee4b5d51f5511699633784996a153fd86e07` (documentation-only
+  post-CI evidence),
+  `c0f0478be880a8e43415d0716d78cadc573a8025` (complete prepared-input
+  attestation), and
+  `38ae6ccbee4d089171e2d3e58f38c8d67b9baa26` (test-only completion of the
+  mutation matrix). The earlier three-commit final comment omitted
+  `64f63997141b9a2e5eb9c718af992e62b01f5b9f`; it did include the other three
+  commits then present. The final documentation commits follow this list.
+- Phase 7A deterministic GraphMAE2-inspired masked-graph SSL implementation
+  and bounded acceptance are complete on draft PR #15. Required CI is a
+  head-relative merge gate recorded in the final PR evidence comment, not a
+  pending architectural decision.
+- Phase 7A SSL/model/output, checkpoint/journal/metric-row, and
+  run/report/performance-row contracts: `1.2.0`
+- Phase 7A prepared binding and anti-collapse diagnostics contracts: `1.1.0`
+- Phase 7A MaskPlan/policy/overlay, maskable registry, decoder,
+  representation target/objective/loss, pitch-mutation fixture, and encoder
+  export contracts remain `1.0.0`
+- Phase 7A maskable-field registry fingerprint:
+  `97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`
+- Next gate: review and merge of draft PR #15 by an authorized maintainer;
+  Phase 8 has not started
+
+## Phase 7A implementation status
+
+- The implementation is GraphMAE2-inspired, not a faithful GraphMAE2
+  reproduction. Target mode is `shared_stop_gradient_full_view`; no EMA target
+  encoder is present.
+- `note_pitch_group` is the only mask family. Primary note fields are `pitch`,
+  `pitch_class`, `octave`, and `track_relative_pitch`, including availability
+  contributions. Every unselected note peer in an affected owner track
+  collateral-masks `track_relative_pitch` and availability. Collateral
+  owner-track fields are `mean_pitch`, `pitch_std`, `min_pitch`, and
+  `max_pitch`, including availability. Peer-note and owner-track collateral
+  fields close redundant pitch leakage and are not reconstruction targets.
+- Per-sample train MaskPlans use deterministic SHA-256 selection without
+  replacement and vary by epoch when possible. Fixed validation plans use
+  canonical epoch zero. Plans and decoder views are independent of target
+  sidecars, batch order, worker count, and Python `hash()`. Supplied plans must
+  equal the complete canonical target-independent view-zero plan. Production
+  builds and attests plans from validated CPU batches before device transfer;
+  prepared accelerator forward performs no graph-sized host materialization.
+  Binding construction regenerates canonical plans and fails closed on a
+  validly fingerprinted alternative.
+- Prepared binding `1.1.0` additionally captures complete private,
+  process-local runtime evidence for the validated model input: strong
+  graph/store references plus identity and type, ordered node/edge types,
+  exact global/node/edge attribute sets, and all 65 graph tensors. Every
+  tensor is bound by strong reference, object identity, `_version`, shape,
+  dtype, and device; the compact selected-index tensor receives the same
+  evidence. Typed immutable evidence covers non-tensor metadata, including
+  `entity_id` collections. Transfer first re-attests the complete source
+  surface, compares the destination surface, and replaces the source
+  descriptor with a fresh destination descriptor.
+- Runtime identities, strong references, version counters, HMAC material, and
+  capability tokens are deliberately excluded from deterministic binding
+  fingerprints, serialization, checkpoints, reports, and caches. Public Phase
+  6 `forward`/`encode` paths always retain the full raw-graph validator; there
+  is no caller-controlled boolean bypass. Only an opaque process-local token
+  can enter the private prepared path, and both the target and online encoder
+  calls independently issue and immediately re-attest it.
+- Masking is an immutable model-side contribution overlay. It does not mutate,
+  serialize, or cache masked raw graphs, and the no-mask Phase 6 path retains
+  its existing outputs and state-dict surface.
+- Selected note rows use deterministic latent decoder re-masking and
+  representation decoding. Decoder context mode
+  `online_owner_track_bar_song_temporal_neighbors` combines only masked-online
+  owner-track, available owner-bar, song, and temporal-neighbor
+  representations, preventing fully re-masked rows from predicting from one
+  constant token alone. Bar and song rows use separate projector/predictor
+  latent losses. All use `1-cosine` with `eps=1e-8`, explicit sum/count/mean
+  and unavailability, and retained zero-norm rows. Exact stage-level
+  `anti_collapse_aggregate` values use float64 mergeable `O(D)` retained state
+  for note/bar/song target and prediction. They retain no embedding history,
+  build no production pairwise matrix, and are invariant to partition/order/
+  worker changes. This is an `O(D)` retained-state bound, not an `O(D)` peak
+  temporary-memory claim: current `from_values` materializes float64 `N x D`
+  `values64` and normalized working temporaries. Real CUDA cost has not been
+  measured; a separate RTX 3090 profiler/optimization gate is required before
+  production SSL.
+- The simple ablation is one decoder view with remask probability zero. The
+  main preset is three views with probability `0.20`; no superiority claim is
+  made.
+- The production raw-only loader uses a dedicated dataset/collator around
+  `load_cached_piece` and `build_raw_graph`; it never projects supervised
+  targets. It preserves the existing group-safe train/fixed-validation
+  membership. Reports distinguish one-batch plumbing, bounded held-out/
+  non-collapse, named production-cache execution, and production/full-corpus
+  claims. SSL checkpoints bind model, objective, mask registry, resolved config,
+  data/split/composition/fixed-validation,
+  optimizer/scheduler/scaler, RNG, and epoch journal state; resume is
+  failure-atomic and epoch-boundary-only. Encoder transfer loads only the local
+  encoder, hierarchy pooling, Transformer, and fusion, leaving supervised
+  heads untouched.
+- The multi-note fixture has 3 train pieces / 48 notes and 2 disjoint fixed
+  validation pieces / 36 notes. Train graphs have 114 nodes / 740 directed
+  edges; validation has 83 / 546. Requested mask rate `0.30` realizes
+  `13/48` train and `10/36` validation, with primary/peer/owner counts
+  `13/35/7` and `10/26/5`. Fixture fingerprint is
+  `9f959d91d6805101983711511abcf89450e24b1886417632ea37fd0dc96ba922`.
+- Forty-step one-batch plumbing uses the Phase 7A-specific default AdamW rate
+  `3e-4`; explicit overrides remain supported. Loss changed
+  `3.122128486633301 -> 0.04193296656012535`. The fixed
+  `midi_axis_reflection_v1` coherent pitch target produced correct-vs-mutated
+  cosine margin `+0.0009066462516784668`, target cosine distance
+  `0.005206167697906494`, and mean target L2 distance `1.1555137634277344`;
+  runtime-source binding, raw-store immutability,
+  no-leakage, deterministic repeat, and checkpoint reload passed. This
+  one-batch final state is not used as non-collapse evidence.
+- Fixed held-out loss was `3.1229397773742678` before optimizer step zero,
+  then `2.5964468638102214`, `2.2769506017367043`, and
+  `2.0780126730600994` over three epochs. Initial/final note/bar/song aggregate
+  diagnostics were finite and noncollapsed, with all zero-norm counts zero.
+  Best checkpoint was epoch 2 and was selected only by fixed-validation loss.
+  Two fresh runs had identical semantic artifacts and recursively bit-exact
+  loaded checkpoint states.
+- Security-remediation fingerprints are model
+  `7a1ece2b44dc6b52aef6f7c7532238d4716b1a45c38b8ca66957225a24b76774`,
+  train epoch-zero prepared binding
+  `f400906c311313edc58802aea8283adb7de3b4a1c2d2abfd8b2c28bb8dd36b76`,
+  and validation prepared binding
+  `cbf820a5ae2022ce53da05a7d5bb2ef769c13fb618a848a66f40f6c5bd8c7bf9`.
+  The exact-path held-out rerun under
+  `/tmp/music-critic-v2-phase7a-final-heldout` retained resolved-config hash
+  `554c09dd93245d173580e1861e91486bffae4b765eeb6bbdf2ae3ec1659b800f`
+  and produced fingerprints/run/initial/metrics hashes
+  `484af62d67e999a10582668733f528875d82776de5ecf876d38237f298c1dd05`,
+  `b003cd18b941870c3e7812e47ef1125fa0595f353dc9f628cb9f97315b1f1572`,
+  `92c81aae2a16d1cb96f8e4a951ea06e36abf0373fa5871bdd57c9c41e9ba56f7`,
+  and
+  `eb0f4b27bbbdf336539ae757c9bc68d56a41d6f63adaefba0e076217389e713a`.
+  The numerical trajectory and diagnostics remained unchanged.
+- Checkpoint reload was bit-exact; exact dropout/cosine/CPU-AMP epoch resume,
+  atomicity, crash recovery, and RNG rollback tests passed. Encoder transfer
+  loaded 470 parameter tensors and left all 81 supervised-head tensors
+  untouched. Earlier pre-security-remediation timing is not treated as
+  head-relative performance evidence; no current speed claim is made. CUDA was
+  unavailable, so CUDA/VRAM evidence is an explicit skip rather than
+  fabricated data.
+- Post-matrix focused prepared-binding/model/masking/bounded-leakage tests
+  passed `95 passed, 1 skipped, 2 warnings`; complete SSL passed
+  `157 passed, 2 skipped, 2 warnings`. The structured mutation matrix has 28
+  cases, including onset `candidate_slot` and split-like attribute injection.
+  Source-identical Phase 6 model/graph regressions passed
+  `146 passed, 1 skipped`, and checkpoint/resume/transfer passed `19 passed`.
+  The final head-relative complete suite passed
+  `989 passed, 21 skipped, 2 warnings in 84.16s`. The automated held-out check
+  passed once and two exact-path runs were byte-identical. `compileall`,
+  `git diff --check`, and `git show --check` passed. CUDA was unavailable, so
+  its prepared-forward test skipped and no GPU evidence is claimed.
+- Production SSL training has not been performed for Phase 7A acceptance.
+  Phase 8 has not started, PDMX has not been added, PLL has not been
+  implemented, and no critic or quality score has been implemented.
+
+## Scientific context and evaluation backlog
+
+- Strong signal for HookTheory tonic and scale degree.
+- Strong signal for POP909-CL root and bass.
+- Weak or collapsed signal for the remaining heads.
+- HookTheory multilabel heads at threshold `0.5` produce all-negative output
+  and `F1=0`.
+- POP909-CL validation evidence is limited to 18 independent pieces.
+- Scientific evaluation hardening remains in the backlog before final
+  ablations, but does not block Phase 7A.
+- The ambiguous field `test_not_used_for_checkpoint_selection` remains a
+  registered evaluation-backlog item.
 
 ## Phase 6D-A supervised evaluation result
 
-- Blocking validation-membership parity hotfix is implemented on branch
-  `hotfix/phase6d-validation-membership-parity`. Training and evaluation now
-  import one neutral `fixed_validation_membership_v1` implementation whose
-  compact UTF-8 JSON bytes have no terminal newline, exactly matching existing
-  Phase 6C checkpoint fingerprints. The global evaluation canonical
-  fingerprint remains unchanged.
+- The validation-membership parity hotfix was accepted and merged in PR #14 at
+  `bded77ff1a923f391623d735b5ad4ce290d9d2d2`. Training and evaluation import
+  one neutral `fixed_validation_membership_v1` implementation whose compact
+  UTF-8 JSON bytes have no terminal newline, exactly matching existing Phase
+  6C checkpoint fingerprints. The global evaluation canonical fingerprint
+  remains unchanged.
 - The previous `1.1.0` documentation incorrectly asserted exact Phase 6C
   membership parity: evaluation ranking and membership had used a
   newline-bearing fingerprint and rejected valid partial-validation Phase 6C

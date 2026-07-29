@@ -24,6 +24,7 @@ REQUIRED_DOCS = {
     "POP909_ORIGINAL_FIELD_AUDIT.md",
     "MULTISOURCE_TARGET_CONTRACT.md",
     "PHASE6A_BASELINE.md",
+    "PHASE7A_SSL_BASELINE.md",
     "legacy_snapshot.json",
 }
 
@@ -88,6 +89,10 @@ def test_package_has_no_legacy_or_heavy_imports() -> None:
                 {"hydra", "mido", "torch", "torch_geometric"}
             )
         if relative_parts[0] == "evaluation":
+            allowed_roots.update(
+                {"hydra", "torch", "torch_geometric"}
+            )
+        if relative_parts[0] == "ssl":
             allowed_roots.update(
                 {"hydra", "torch", "torch_geometric"}
             )

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping
+from typing import Mapping, Protocol
 
 import torch
 from torch import Tensor, nn
@@ -20,6 +20,18 @@ from music_critic.graph.feature_registry import FeatureSpec
 from music_critic.models.contracts import ENCODER_OUTPUT_VERSION
 
 
+class _FeatureContributionOverlay(Protocol):
+    def replace_feature_contributions(
+        self,
+        *,
+        node_type: str,
+        kind: str,
+        feature_name: str,
+        value_contribution: Tensor,
+        availability_contribution: Tensor,
+    ) -> tuple[Tensor, Tensor]: ...
+
+
 def normalize_continuous(values: Tensor, spec: FeatureSpec) -> Tensor:
     """Apply the versioned Phase 6A bounded scalar transform.
 
@@ -34,11 +46,44 @@ def normalize_continuous(values: Tensor, spec: FeatureSpec) -> Tensor:
     return values / (1.0 + torch.abs(values))
 
 
-def _validate_input_graph(graph: HeteroData) -> None:
+_ENCODER_INPUT_TOKEN_SEAL = object()
+
+
+@dataclass(frozen=True, slots=True)
+class _ValidatedRawEncoderInput:
+    graph: HeteroData
+    _seal: object
+
+
+def _validate_input_graph(
+    graph: HeteroData,
+) -> _ValidatedRawEncoderInput:
     if isinstance(graph, Batch):
         validate_raw_graph_batch(graph, sample_count=int(graph.num_graphs))
     else:
         validate_raw_graph(graph)
+    return _ValidatedRawEncoderInput(
+        graph=graph,
+        _seal=_ENCODER_INPUT_TOKEN_SEAL,
+    )
+
+
+def _verify_encoder_input_token(
+    graph: HeteroData,
+    token: object,
+) -> None:
+    if type(token) is _ValidatedRawEncoderInput:
+        if (
+            token.graph is not graph
+            or token._seal is not _ENCODER_INPUT_TOKEN_SEAL
+        ):
+            raise ValueError("encoder validated-input token is invalid")
+        return
+    from music_critic.ssl.masking import (
+        _verify_prepared_input_token,
+    )
+
+    _verify_prepared_input_token(graph, token)
 
 
 def _batch_membership(graph: HeteroData, node_type: str) -> Tensor:
@@ -129,7 +174,12 @@ class _NodeFeatureEncoder(nn.Module):
         self.activation = nn.GELU()
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, store: object) -> Tensor:
+    def forward(
+        self,
+        store: object,
+        *,
+        feature_overlay: _FeatureContributionOverlay | None = None,
+    ) -> Tensor:
         count = int(store.num_nodes)
         encoded = self.node_bias.expand(count, -1)
         for column, (spec, embedding, availability_embedding) in enumerate(
@@ -139,10 +189,27 @@ class _NodeFeatureEncoder(nn.Module):
                 self.categorical_availability,
             )
         ):
-            del spec
             available = store.x_cat_available[:, column]
-            encoded = encoded + embedding(store.x_cat[:, column])
-            encoded = encoded + availability_embedding(available.long())
+            if feature_overlay is None:
+                encoded = encoded + embedding(store.x_cat[:, column])
+                encoded = encoded + availability_embedding(available.long())
+            else:
+                value_contribution = embedding(store.x_cat[:, column])
+                availability_contribution = availability_embedding(
+                    available.long()
+                )
+                (
+                    value_contribution,
+                    availability_contribution,
+                ) = feature_overlay.replace_feature_contributions(
+                    node_type=self.node_type,
+                    kind="categorical",
+                    feature_name=spec.name,
+                    value_contribution=value_contribution,
+                    availability_contribution=availability_contribution,
+                )
+                encoded = encoded + value_contribution
+                encoded = encoded + availability_contribution
         for column, (spec, projection, availability_embedding) in enumerate(
             zip(
                 self.continuous_specs,
@@ -153,8 +220,26 @@ class _NodeFeatureEncoder(nn.Module):
             available = store.x_cont_available[:, column]
             values = normalize_continuous(store.x_cont[:, column], spec)
             values = torch.where(available, values, torch.zeros_like(values))
-            encoded = encoded + projection(values.unsqueeze(-1))
-            encoded = encoded + availability_embedding(available.long())
+            if feature_overlay is None:
+                encoded = encoded + projection(values.unsqueeze(-1))
+                encoded = encoded + availability_embedding(available.long())
+            else:
+                value_contribution = projection(values.unsqueeze(-1))
+                availability_contribution = availability_embedding(
+                    available.long()
+                )
+                (
+                    value_contribution,
+                    availability_contribution,
+                ) = feature_overlay.replace_feature_contributions(
+                    node_type=self.node_type,
+                    kind="continuous",
+                    feature_name=spec.name,
+                    value_contribution=value_contribution,
+                    availability_contribution=availability_contribution,
+                )
+                encoded = encoded + value_contribution
+                encoded = encoded + availability_contribution
         return self.dropout(self.activation(self.normalization(encoded)))
 
 
@@ -170,10 +255,45 @@ class RawFeatureEncoder(nn.Module):
             }
         )
 
-    def forward(self, graph: HeteroData) -> EncoderOutput:
-        _validate_input_graph(graph)
+    def forward(
+        self,
+        graph: HeteroData,
+        *,
+        feature_overlay: _FeatureContributionOverlay | None = None,
+    ) -> EncoderOutput:
+        validated_input_token = _validate_input_graph(graph)
+        return self._forward_validated(
+            graph,
+            validated_input_token=validated_input_token,
+            feature_overlay=feature_overlay,
+        )
+
+    def _forward_prepared(
+        self,
+        graph: HeteroData,
+        *,
+        prepared_input_token: object,
+        feature_overlay: _FeatureContributionOverlay | None = None,
+    ) -> EncoderOutput:
+        return self._forward_validated(
+            graph,
+            validated_input_token=prepared_input_token,
+            feature_overlay=feature_overlay,
+        )
+
+    def _forward_validated(
+        self,
+        graph: HeteroData,
+        *,
+        validated_input_token: object,
+        feature_overlay: _FeatureContributionOverlay | None,
+    ) -> EncoderOutput:
+        _verify_encoder_input_token(graph, validated_input_token)
         embeddings = {
-            node_type: self.node_encoders[node_type](graph[node_type])
+            node_type: self.node_encoders[node_type](
+                graph[node_type],
+                feature_overlay=feature_overlay,
+            )
             for node_type in MANDATORY_NODE_TYPES
         }
         membership = {
@@ -241,7 +361,9 @@ class LocalRelationLayer(nn.Module):
                 _relation_key(relation_index)
             ](embeddings[source_type].index_select(0, source_index))
             aggregated[destination_type].index_add_(
-                0, destination_index, messages
+                0,
+                destination_index,
+                messages.to(dtype=aggregated[destination_type].dtype),
             )
         output = {}
         for node_type in MANDATORY_NODE_TYPES:
@@ -288,9 +410,49 @@ class LocalHeterogeneousEncoder(nn.Module):
         self.activation = nn.GELU()
 
     def forward(
-        self, graph: HeteroData, *, return_layers: bool = False
+        self,
+        graph: HeteroData,
+        *,
+        return_layers: bool = False,
+        feature_overlay: _FeatureContributionOverlay | None = None,
     ) -> MultiScaleEncoderOutput:
-        feature_output = self.feature_encoder(graph)
+        validated_input_token = _validate_input_graph(graph)
+        return self._forward_validated(
+            graph,
+            validated_input_token=validated_input_token,
+            return_layers=return_layers,
+            feature_overlay=feature_overlay,
+        )
+
+    def _forward_prepared(
+        self,
+        graph: HeteroData,
+        *,
+        prepared_input_token: object,
+        return_layers: bool = False,
+        feature_overlay: _FeatureContributionOverlay | None = None,
+    ) -> MultiScaleEncoderOutput:
+        return self._forward_validated(
+            graph,
+            validated_input_token=prepared_input_token,
+            return_layers=return_layers,
+            feature_overlay=feature_overlay,
+        )
+
+    def _forward_validated(
+        self,
+        graph: HeteroData,
+        *,
+        validated_input_token: object,
+        return_layers: bool,
+        feature_overlay: _FeatureContributionOverlay | None,
+    ) -> MultiScaleEncoderOutput:
+        _verify_encoder_input_token(graph, validated_input_token)
+        feature_output = self.feature_encoder._forward_validated(
+            graph,
+            validated_input_token=validated_input_token,
+            feature_overlay=feature_overlay,
+        )
         current = dict(feature_output.embeddings)
         layer_outputs = []
         for layer in self.layers:
