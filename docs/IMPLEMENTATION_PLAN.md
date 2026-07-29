@@ -2701,6 +2701,9 @@ audit under manifest fingerprint
 - checkpoint/model/ontology/encoding plus current index/cache/split/
   composition/membership evidence, with exact Phase 6C validation binding
   where the historical checkpoint contains it;
+- one neutral versioned fixed-validation membership implementation shared by
+  training and evaluation, preserving the compact no-terminal-newline Phase
+  6C ranking and membership bytes for existing checkpoint compatibility;
 - candidate-first logits followed by target-sidecar joining and exclusion of
   unavailable, masked, unaligned, conflict, non-model-ready, and
   non-source-native rows;

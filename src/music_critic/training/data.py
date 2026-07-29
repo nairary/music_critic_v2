@@ -15,6 +15,10 @@ import mido
 import torch
 from torch.utils.data import DataLoader, Sampler
 
+from music_critic.data.validation_membership import (
+    FixedValidationMembership,
+    fixed_validation_membership,
+)
 from music_critic.adapters import (
     HookTheoryAdapterConfig,
     Pop909ClCorpusRecord,
@@ -76,63 +80,16 @@ def _fingerprint(value: object) -> str:
     return sha256(payload.encode("utf-8")).hexdigest()
 
 
-def _fixed_validation_indices(
-    identities: Sequence[tuple[str, str]],
-    *,
-    limit: int,
-    seed: int,
-) -> tuple[int, ...]:
-    if (
-        isinstance(limit, bool)
-        or not isinstance(limit, int)
-        or limit < 0
-        or limit > len(identities)
-    ):
-        raise ValueError("training.data.validation_limit_invalid")
-    if limit == 0 or limit == len(identities):
-        return tuple(range(len(identities)))
-    ranked = sorted(
-        range(len(identities)),
-        key=lambda index: (
-            _fingerprint(
-                {
-                    "policy": "fixed_validation_membership_v1",
-                    "seed": seed,
-                    "identity": list(identities[index]),
-                }
-            ),
-            identities[index],
-        ),
-    )
-    # Evaluation order is canonical even when membership is hash-selected.
-    return tuple(sorted(ranked[:limit]))
-
-
-def _validation_membership(
-    identities: Sequence[tuple[str, str]],
-    indices: Sequence[int],
-    *,
-    limit: int,
-    seed: int,
+def _training_membership(
+    selection: FixedValidationMembership,
 ) -> ValidationMembership:
-    selected = tuple(identities[index] for index in indices)
-    counts = Counter(dataset_id for dataset_id, _ in selected)
-    fingerprint = _fingerprint(
-        {
-            "policy": "fixed_validation_membership_v1",
-            "seed": seed,
-            "subset_limit": limit,
-            "full_view_count": len(identities),
-            "selected_identities": [list(item) for item in selected],
-        }
-    )
     return ValidationMembership(
-        identities=selected,
-        membership_fingerprint=fingerprint,
-        dataset_counts=dict(sorted(counts.items())),
-        full_view_count=len(identities),
-        selected_count=len(selected),
-        subset_limit=limit,
+        identities=selection.identities,
+        membership_fingerprint=selection.membership_fingerprint,
+        dataset_counts=selection.dataset_counts,
+        full_view_count=selection.full_view_count,
+        selected_count=selection.selected_count,
+        subset_limit=selection.subset_limit,
     )
 
 
@@ -369,17 +326,13 @@ def _bounded_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
     validation_identities = tuple(
         (sample.dataset_id, sample.piece_id) for sample in validation
     )
-    validation_indices = _fixed_validation_indices(
+    validation_selection = fixed_validation_membership(
         validation_identities,
         limit=config.validation_epoch_size,
         seed=seed,
     )
-    membership = _validation_membership(
-        validation_identities,
-        validation_indices,
-        limit=config.validation_epoch_size,
-        seed=seed,
-    )
+    validation_indices = validation_selection.indices
+    membership = _training_membership(validation_selection)
 
     def train_loader(epoch: int):
         return _bounded_epoch(
@@ -478,17 +431,13 @@ def _corpus_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
         validation.record_identity(index)
         for index in range(len(validation))
     )
-    validation_indices = _fixed_validation_indices(
+    validation_selection = fixed_validation_membership(
         validation_identities,
         limit=config.validation_epoch_size,
         seed=seed,
     )
-    membership = _validation_membership(
-        validation_identities,
-        validation_indices,
-        limit=config.validation_epoch_size,
-        seed=seed,
-    )
+    validation_indices = validation_selection.indices
+    membership = _training_membership(validation_selection)
 
     def loader(dataset, epoch_size: int, epoch: int):
         sampler = DeterministicQuotaSampler(

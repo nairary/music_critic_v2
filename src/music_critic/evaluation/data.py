@@ -11,6 +11,10 @@ from typing import Any
 import torch
 from torch.utils.data import DataLoader, Sampler
 
+from music_critic.data.validation_membership import (
+    FixedValidationMembership,
+    fixed_validation_membership,
+)
 from music_critic.evaluation.contracts import (
     EvaluationContractError,
     canonical_fingerprint,
@@ -70,36 +74,6 @@ def _indices(length: int, limit: int) -> tuple[int, ...]:
     return tuple(range(length if limit == 0 else min(length, limit)))
 
 
-def _fixed_validation_indices(
-    identities: Sequence[tuple[str, str]],
-    *,
-    limit: int,
-    seed: int,
-) -> tuple[int, ...]:
-    """Mirror the Phase 6C fixed-validation membership policy exactly."""
-
-    if limit < 0 or limit > len(identities):
-        raise EvaluationContractError(
-            "evaluation.data.validation_limit_invalid"
-        )
-    if limit == 0 or limit == len(identities):
-        return tuple(range(len(identities)))
-    ranked = sorted(
-        range(len(identities)),
-        key=lambda index: (
-            canonical_fingerprint(
-                {
-                    "policy": "fixed_validation_membership_v1",
-                    "seed": seed,
-                    "identity": list(identities[index]),
-                }
-            ),
-            identities[index],
-        ),
-    )
-    return tuple(sorted(ranked[:limit]))
-
-
 def _membership(
     identities: Sequence[tuple[str, str]],
     indices: Sequence[int],
@@ -107,18 +81,17 @@ def _membership(
     split: str,
     seed: int,
     limit: int,
+    validation_selection: FixedValidationMembership | None = None,
 ) -> dict[str, object]:
     selected = [list(identities[index]) for index in indices]
+    if split == "validation":
+        if validation_selection is None:
+            raise EvaluationContractError(
+                "evaluation.data.validation_selection_missing"
+            )
+        return validation_selection.evidence()
     payload = (
         {
-            "policy": "fixed_validation_membership_v1",
-            "seed": seed,
-            "subset_limit": limit,
-            "full_view_count": len(identities),
-            "selected_identities": selected,
-        }
-        if split == "validation"
-        else {
             "policy": "canonical_fixed_no_replacement_v1",
             "split": split,
             "full_view_count": len(identities),
@@ -171,13 +144,18 @@ def _bounded_runtime(
         (sample.dataset_id, sample.piece_id) for sample in evaluation
     )
     train_indices = _indices(len(train), config.max_train_samples)
-    evaluation_indices = (
-        _fixed_validation_indices(
+    validation_selection = (
+        fixed_validation_membership(
             evaluation_identities,
             limit=config.max_evaluation_samples,
             seed=seed,
         )
         if split == "validation"
+        else None
+    )
+    evaluation_indices = (
+        validation_selection.indices
+        if validation_selection is not None
         else _indices(len(evaluation), config.max_evaluation_samples)
     )
     train_membership = _membership(
@@ -193,6 +171,7 @@ def _bounded_runtime(
         split=split,
         seed=seed,
         limit=config.max_evaluation_samples,
+        validation_selection=validation_selection,
     )
     bounded_split_fingerprint = canonical_fingerprint(
         {
@@ -367,13 +346,18 @@ def _corpus_runtime(
         for index in range(len(evaluation))
     )
     train_indices = _indices(len(train), config.max_train_samples)
-    evaluation_indices = (
-        _fixed_validation_indices(
+    validation_selection = (
+        fixed_validation_membership(
             evaluation_identities,
             limit=config.max_evaluation_samples,
             seed=seed,
         )
         if split == "validation"
+        else None
+    )
+    evaluation_indices = (
+        validation_selection.indices
+        if validation_selection is not None
         else _indices(len(evaluation), config.max_evaluation_samples)
     )
     train_membership = _membership(
@@ -389,6 +373,7 @@ def _corpus_runtime(
         split=split,
         seed=seed,
         limit=config.max_evaluation_samples,
+        validation_selection=validation_selection,
     )
     bindings = {
         "kind": "corpus_cache",
