@@ -86,14 +86,19 @@
   sub-contract: `1.0.0`; unchanged train-prior: `1.0.0`
 - Phase 7A branch: `phase/7a-graphmae2-ssl-baseline`
 - Phase 7A draft PR: #15; do not merge from the implementation task
-- Phase 7A implementation commit:
-  `125252b54d51e4644ed5848f1077d163df0c0a12`
-- Phase 7A: deterministic GraphMAE2-inspired masked-graph SSL implementation,
-  bounded acceptance, and Required GitHub CI run #85 are complete on draft PR
-  #15
-- Phase 7A SSL, mask-plan/policy, overlay, maskable-registry, decoder,
-  objective/diagnostic, model/output/target, checkpoint/journal,
-  encoder-export, and run/report/metric contracts: `1.0.0`
+- Phase 7A final-remediation base:
+  `791ef19b1dbd7c26b7a2ef87f36d4ee5b08391a6`
+- Phase 7A tested remediation implementation:
+  `ab9477888bc39312e8501bbf18685f45cf1d5630`
+- Phase 7A deterministic GraphMAE2-inspired masked-graph SSL implementation
+  and bounded acceptance are complete on draft PR #15. Required CI is a
+  head-relative merge gate recorded in the final PR evidence comment, not a
+  pending architectural decision.
+- Phase 7A SSL/model/output, anti-collapse diagnostics, checkpoint/journal/
+  metric-row, and run/report/performance-row contracts: `1.1.0`
+- Phase 7A MaskPlan/policy/overlay, prepared binding, maskable registry,
+  decoder, representation target/objective/loss, pitch-mutation fixture, and
+  encoder export contracts: `1.0.0`
 - Phase 7A maskable-field registry fingerprint:
   `97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`
 - Next gate: review and merge of draft PR #15 by an authorized maintainer;
@@ -115,7 +120,11 @@
   replacement and vary by epoch when possible. Fixed validation plans use
   canonical epoch zero. Plans and decoder views are independent of target
   sidecars, batch order, worker count, and Python `hash()`. Supplied plans must
-  equal the complete canonical target-independent view-zero plan.
+  equal the complete canonical target-independent view-zero plan. Production
+  builds and attests plans from validated CPU batches before device transfer;
+  prepared accelerator forward performs no graph-sized host materialization.
+  Binding construction regenerates canonical plans and fails closed on a
+  validly fingerprinted alternative.
 - Masking is an immutable model-side contribution overlay. It does not mutate,
   serialize, or cache masked raw graphs, and the no-mask Phase 6 path retains
   its existing outputs and state-dict surface.
@@ -126,37 +135,56 @@
   representations, preventing fully re-masked rows from predicting from one
   constant token alone. Bar and song rows use separate projector/predictor
   latent losses. All use `1-cosine` with `eps=1e-8`, explicit sum/count/mean
-  and unavailability, and retained zero-norm rows. Anti-collapse statistics
-  are `O(ND)` and do not build production pairwise matrices.
+  and unavailability, and retained zero-norm rows. Exact stage-level
+  `anti_collapse_aggregate` values use float64 mergeable `O(D)` retained state
+  for note/bar/song target and prediction. They retain no embedding history,
+  build no production pairwise matrix, and are invariant to partition/order/
+  worker changes.
 - The simple ablation is one decoder view with remask probability zero. The
   main preset is three views with probability `0.20`; no superiority claim is
   made.
 - The production raw-only loader uses a dedicated dataset/collator around
   `load_cached_piece` and `build_raw_graph`; it never projects supervised
   targets. It preserves the existing group-safe train/fixed-validation
-  membership. Reports distinguish source kind, production-cache use, and
-  one-batch plumbing scope from production/full-corpus training claims. SSL
-  checkpoints bind model, objective, mask registry, resolved config,
+  membership. Reports distinguish one-batch plumbing, bounded held-out/
+  non-collapse, named production-cache execution, and production/full-corpus
+  claims. SSL checkpoints bind model, objective, mask registry, resolved config,
   data/split/composition/fixed-validation,
   optimizer/scheduler/scaler, RNG, and epoch journal state; resume is
   failure-atomic and epoch-boundary-only. Encoder transfer loads only the local
   encoder, hierarchy pooling, Transformer, and fusion, leaving supervised
   heads untouched.
-- Final bounded evidence used 3 samples, 28 nodes, and 98 edges. It masked 3
-  primary note rows, 0 peer-note collateral rows, and 3 owner-track collateral
-  rows; the singleton fixtures realized rate `1.0` from requested rate `0.30`.
-  Eval/no-grad total SSL loss decreased
-  `3.0867743492126465 -> 0.001336899003945291`; note, bar, and song components
-  all decreased independently. Leakage mutation and deterministic-repeat
-  evidence passed bit-exactly.
+- The multi-note fixture has 3 train pieces / 48 notes and 2 disjoint fixed
+  validation pieces / 36 notes. Train graphs have 114 nodes / 740 directed
+  edges; validation has 83 / 546. Requested mask rate `0.30` realizes
+  `13/48` train and `10/36` validation, with primary/peer/owner counts
+  `13/35/7` and `10/26/5`. Fixture fingerprint is
+  `9f959d91d6805101983711511abcf89450e24b1886417632ea37fd0dc96ba922`.
+- Forty-step one-batch plumbing loss changed
+  `3.122128486633301 -> 0.537868082523346`. The fixed
+  `midi_axis_reflection_v1` coherent pitch target produced correct-vs-mutated
+  cosine margin `+0.000043332576751708984` and mean target L2 distance
+  `0.029059235006570816`; runtime-source binding, raw-store immutability,
+  no-leakage, deterministic repeat, and checkpoint reload passed. This
+  one-batch final state is not used as non-collapse evidence.
+- Fixed held-out loss was `3.1229397773742678` before optimizer step zero,
+  then `2.5964468638102214`, `2.2769506017367043`, and
+  `2.0780126730600994` over three epochs. Initial/final note/bar/song aggregate
+  diagnostics were finite and noncollapsed, with all zero-norm counts zero.
+  Best checkpoint was epoch 2 and was selected only by fixed-validation loss.
+  Two fresh runs had identical semantic artifacts and recursively bit-exact
+  loaded checkpoint states.
 - Checkpoint reload was bit-exact; exact dropout/cosine/CPU-AMP epoch resume,
   atomicity, crash recovery, and RNG rollback tests passed. Encoder transfer
   loaded 470 parameter tensors and left all 81 supervised-head tensors
-  untouched. CPU acceptance took 6.643101028003002 seconds. CUDA was unavailable,
-  so CUDA/VRAM evidence is an explicit skip rather than fabricated data.
-- Focused SSL tests passed 79 with 1 CUDA skip. The full default suite passed
-  911 with 20 skips. `compileall`, diff/show whitespace checks, and Required
-  GitHub CI run #85 passed.
+  untouched. One CPU run separated plan preparation `0.05022745200039935s`
+  from transfer `0.013040239999099867s` and forward
+  `1.4793932830107224s`; no speed claim is made. CUDA was unavailable, so
+  CUDA/VRAM evidence is an explicit skip rather than fabricated data.
+- Focused SSL tests passed 111 with 2 CUDA skips. The full suite passed 943
+  with 21 skips. `compileall` and diff checks passed. Exact aggregate
+  dense-oracle, partition/order, worker, prepared-forward instrumentation,
+  checkpoint/resume, leakage, pitch-margin, and transfer gates are included.
 - Production SSL training has not been performed for Phase 7A acceptance.
   Phase 8 has not started, PDMX has not been added, PLL has not been
   implemented, and no critic or quality score has been implemented.

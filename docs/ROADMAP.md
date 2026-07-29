@@ -441,10 +441,11 @@ The model and training phases remain pending.
 
 - Goal: add masked observable-feature representation learning.
 - Dependencies: Phase 6D-A evaluation evidence.
-- Phase 7A status: implemented on draft PR #15 at implementation commit
-  `125252b54d51e4644ed5848f1077d163df0c0a12`; bounded acceptance and Required
-  GitHub CI run #85 pass. Maintainer review/merge remains pending. The
-  implementation is GraphMAE2-inspired, not a faithful reproduction.
+- Phase 7A status: final acceptance remediation is implemented in draft PR
+  #15; maintainer review/merge remains pending. The implementation is
+  GraphMAE2-inspired, not a faithful reproduction. Exact bounded-run evidence
+  belongs to `PHASE7A_SSL_BASELINE.md`; head-relative Required CI belongs to
+  the final PR evidence comment, not this roadmap.
 - Outputs: masking views, remasked representation decoder, latent prediction
   losses, and a design gate before any normalized probabilistic
   masked-note/pitch-set decoder or deterministic PLL protocol.
@@ -456,26 +457,44 @@ The model and training phases remain pending.
   deterministic no-replacement per-sample MaskPlans,
   `shared_stop_gradient_full_view`, note decoder re-mask views, and bar/song
   latent prediction.
+- Prepared-plan boundary: plans and a versioned binding are derived from the
+  validated CPU batch before device transfer. The binding covers identity,
+  structure/ownership, stage, canonical epoch, seed, and plan fingerprints;
+  prepared accelerator forward neither reconstructs plans from graph tensors
+  nor materializes those tensors on the host.
 - Execution: context mode
   `online_owner_track_bar_song_temporal_neighbors` keeps fully re-masked
   decoder predictions contextual. The production path is a raw-only
   dataset/collator over cached canonical pieces and never projects supervised
   targets. Reports distinguish source/cache/one-batch scope from production or
-  full-corpus training. Fixed validation, atomic checkpoint/reload, exact
-  epoch-boundary resume, and strict encoder-only transfer are included. Simple
-  one-view/no-remask and main three-view/0.20-remask modes remain separately
-  configurable.
+  full-corpus training. A fixed, disjoint validation set is evaluated before
+  the first optimizer step and after every epoch; only its loss selects the
+  best checkpoint. Atomic checkpoint/reload, exact epoch-boundary resume, and
+  strict encoder-only transfer are included. Simple one-view/no-remask and
+  main three-view/0.20-remask modes remain separately configurable.
 - Tests: no masked-value leakage, raw-graph immutability, deterministic views,
-  worker/order parity, stop-gradient behavior, finite online gradients,
-  checkpoint/resume, and untouched supervised heads on transfer.
+  forged-binding rejection, no accelerator graph-to-host plan construction,
+  worker/order/partition parity, dense-oracle parity for exact stage-wide
+  note/bar/song anti-collapse aggregates, coherent pitch-mutation target
+  margin, stop-gradient behavior, finite online gradients, checkpoint/resume,
+  validation-only best selection, and untouched supervised heads on transfer.
 - Deferred inside broader Phase 7: EMA target encoder remains an explicit
   ablation rather than part of Phase 7A.
 - Non-goals: masked conditional likelihood, perplexity, PLL, preference,
   critic, or quality scoring.
-- Acceptance: tiny reconstruction overfit and stable held-out metrics;
-  reconstruction loss is reported separately from masked conditional
-  likelihood, and no final probability factorization is assumed. Before PDMX,
-  Phase 7 validates SSL mechanics only rather than full-scale effectiveness.
+- Acceptance: a deterministic multi-piece, multi-note fixture has disjoint
+  train/validation identities, multitrack/multibar coverage, multiple primary
+  masked rows, and nonzero peer-note/owner-track collateral masks. One-batch
+  loss decreases and the fixed-plan coherent pitch mutation has a positive
+  correct-target cosine margin. Initial/final held-out note/bar/song target and
+  prediction diagnostics remain finite and noncollapsed. Exact mergeable
+  stage-wide aggregates retain no embedding history and are invariant to batch
+  partition/order/workers. Reconstruction loss remains separate from masked
+  conditional likelihood, and no probability factorization is assumed.
+  One-batch plumbing, bounded held-out/non-collapse evidence,
+  production-cache execution, and production/full-corpus claims remain four
+  distinct scopes. Before PDMX, Phase 7 validates SSL mechanics only rather
+  than full-scale effectiveness.
 
 ## Phase 8 — Hi-GMAE-style hierarchical masking
 

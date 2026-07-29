@@ -2790,6 +2790,14 @@ Per-sample selection uses deterministic SHA-256 seeds and
 worker count, targets, and annotations. Train plans vary by epoch when
 possible, while validation uses canonical epoch zero. The model-side overlay
 does not mutate or cache raw graphs and preserves the no-mask Phase 6 path.
+Plans are prepared only from a validated CPU `SSLBatch`, before device
+transfer, under prepared binding contract `1.0.0`. The binding covers ordered
+dataset/piece identities, raw structure and ownership, stage, canonical epoch,
+seed, and plan fingerprints, and rejects caller-supplied substitutions
+failure-closed. It remains a runtime sidecar rather than a graph/cache field.
+CPU and CUDA use this same path; prepared accelerator forward performs no
+graph-tensor `.cpu()`, `.tolist()`, or `.item()` plan construction. Plan
+preparation has a separate timing bucket.
 
 The shared full target view is detached at note, bar, and song levels. Online
 selected-note rows use deterministic decoder re-mask views and representation
@@ -2799,8 +2807,14 @@ owner-track, available owner-bar, song, and temporal-neighbor context prevents
 fully re-masked rows from producing predictions from one constant token alone.
 Bar and song use projector/predictor latent objectives. Every component reports
 `1-cosine` with `eps=1e-8`, sum/count/mean, zero-norm count, and explicit
-unavailability. Anti-collapse diagnostics use `O(ND)` sufficient statistics
-and no production `N x N` matrix.
+unavailability. Anti-collapse diagnostics contract `1.1.0` uses mergeable
+`O(D)` sufficient statistics and no retained embeddings or production `N x N`
+matrix. It computes exact whole-stage target and prediction aggregates
+separately for note, bar, and song: row count, dimension, variance, mean L2
+norm, zero-norm count, and global mean off-diagonal cosine, with structured
+unavailability below two rows. Results are invariant to batch partition/order
+and worker count. Epoch artifacts expose `anti_collapse_aggregate`, not a
+last-batch snapshot.
 
 The simple baseline is one decoder view with remask probability zero. The main
 Phase 7A preset is three views with remask probability `0.20`; no superiority
@@ -2811,14 +2825,50 @@ dataset/collator around `load_cached_piece` and `build_raw_graph`, never
 supervised target projection. Reports distinguish their source kind, cache
 use, and one-batch scope from production and full-corpus training claims.
 
+Bounded acceptance uses a deterministic multi-piece, multi-note canonical
+fixture with disjoint train/validation identities and explicit multitrack and
+multibar pieces. Varied pitch/rhythm content ensures that mask rate `0.30`
+selects multiple primary rows and produces nonzero peer-note and owner-track
+collateral masks. Evidence records sample/node/edge counts plus membership and
+plan fingerprints without treating the fixture as a corpus-scale experiment.
+
+The one-batch overfit is followed by a coherent canonical pitch mutation and
+raw-graph rebuild under the same fixed MaskPlan. Contract `1.0.0` fixes
+`midi_axis_reflection_v1` (`pitch -> 127 - pitch`), binds the rebuilt canonical
+source to the actual runtime graph fingerprints, and fingerprints each
+selection-specific mutation. It reports
+`cos(prediction, correct_target)`,
+`cos(prediction, mutated_target)`, their positive margin, and the
+correct-to-mutated target distance. This is a pitch-sensitive representation
+check only; it introduces no label, cross-entropy, normalized distribution,
+likelihood, or PLL.
+
+Multi-epoch execution evaluates a fixed, disjoint validation set before the
+first optimizer step and after every epoch. Train/validation losses and exact
+stage-wide note/bar/song diagnostics are recorded per epoch; only fixed
+validation loss may select the best checkpoint. Initial and final bounded
+non-collapse acceptance requires finite diagnostics, zero zero-norm rows,
+nondegenerate variance/norm, and embeddings that are not all near-identical.
+Deterministic reruns compare membership, prepared binding/plan fingerprints,
+the initial validation baseline, and metric rows. This is bounded
+held-out/non-collapse mechanics evidence rather than a generalization claim.
+
+Prepared MaskPlan binding begins at `1.0.0`. SSL contract/model/output,
+anti-collapse diagnostics, checkpoint, epoch journal, metric row, run manifest,
+training report, and performance row advance to `1.1.0`. MaskPlan/policy,
+maskable-field registry, representation loss/objective/target, decoder, and
+encoder-export semantics remain `1.0.0`.
+
 Phase 7A does not implement hierarchy masks (Phase 8), a PDMX projection or
 scaled-effectiveness claim (Phase 10), masked conditional likelihood,
 perplexity, PLL, preference/critic learning, or quality scoring.
 
-The final bounded Phase 7A plumbing run, focused SSL suite, full default suite,
-and Required GitHub CI pass. Exact counts, trajectories, fingerprints, transfer
-evidence, CPU timing, and the honest CUDA-unavailable boundary are recorded in
-[`PHASE7A_SSL_BASELINE.md`](PHASE7A_SSL_BASELINE.md).
+The authoritative final bounded run, including exact counts, trajectories,
+fingerprints, transfer checks, timing, and available accelerator coverage, is
+recorded in [`PHASE7A_SSL_BASELINE.md`](PHASE7A_SSL_BASELINE.md). Head-relative
+Required GitHub CI is recorded in the final draft-PR evidence comment. Together
+they distinguish one-batch plumbing, bounded held-out/non-collapse acceptance,
+named production-cache execution, and any future production/full-corpus claim.
 
 ## Phase 8. Hi-GMAE-style hierarchy
 

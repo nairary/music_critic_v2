@@ -112,11 +112,22 @@ one selects all. Train masks advance deterministically by epoch when a
 different subset is possible. Validation canonicalizes every requested epoch
 to zero. Plans are therefore independent of batch order, DataLoader worker
 count, targets, annotations, and dataset-specific labels.
-The model regenerates canonical encoder-view-zero plans from only the raw
-batch, identities, seed, stage, epoch, and configured rate. A supplied plan is
-accepted only when its complete tuple is exactly equal to that canonical
-result; a validly fingerprinted alternate selection or nonzero encoder view
-fails closed before encoding.
+
+Production train and validation construct canonical encoder-view-zero plans
+from the fully validated CPU `SSLBatch` before device transfer. Prepared
+binding contract `1.0.0` binds ordered identities, node/edge structure,
+note-track ownership, stage, canonical epoch, seed, rate, plan fingerprints,
+overlay fingerprint, and selected global indices. Its constructor regenerates
+the canonical plans from the CPU graph before signing the binding, so a
+validly fingerprinted alternate selection fails closed even if supplied
+through the internal constructor.
+
+The binding remains an in-memory sidecar: it is absent from PyG stores,
+serialization, raw graph fingerprints, and cache artifacts. CPU and CUDA use
+the same prepared model path. Forward validates the attestation and tensor
+shapes without graph-sized `.cpu()`, `.tolist()`, `.item()`, or per-note
+SHA-256 work. CPU plan preparation, transfer, forward, and backward have
+separate timing fields.
 
 ## Model-side overlay and leakage boundary
 
@@ -239,27 +250,37 @@ Weights are finite and non-negative, with at least one positive. A positively
 weighted unavailable component makes the total unavailable; its weight is not
 silently redistributed.
 
-Anti-collapse diagnostics report row count, embedding dimension, target and
-prediction embedding variance, mean norm, zero-norm count, and mean
-off-diagonal cosine. Pairwise cosine uses normalized-vector sums and exact
-sufficient statistics in `O(ND)` time; the final aggregate is `O(D)`, and the
-implementation does not construct a production `N x N` matrix. These
-diagnostics are not quality scores.
+Anti-collapse diagnostics contract `1.1.0` reports row count, embedding
+dimension, target and prediction embedding variance, mean norm, exact
+zero-norm count, and global mean off-diagonal cosine separately for note, bar,
+and song. Mergeable float64 sufficient statistics retain no embeddings or
+per-batch prediction history: state is `O(D)` per family/side and no production
+`N x N` matrix is constructed. Fewer than two rows produce structured
+unavailability. Dense-oracle, merge, batch-partition, batch-order, and worker
+tests cover emitted `anti_collapse_aggregate`; the rejected
+`anti_collapse_last_batch` field is not used.
+
+Bounded non-collapse acceptance requires finite initial/final held-out values,
+zero zero-norm counts, variance and mean norm above dtype-aware numerical
+floors, and off-diagonal cosine below the near-identical gate. It is a
+mechanics diagnostic, not a quality score.
 
 ## Contracts and public APIs
 
-All new Phase 7A contracts begin at `1.0.0`:
+Remediation advances only contracts whose meaning or artifact shape changed:
 
-| Contract family | Main API/module |
-|---|---|
-| SSL, MaskPlan, mask policy, feature overlay | `ssl.contracts`, `ssl.masking`, `ssl.views` |
-| maskable-field registry | `ssl.field_registry` |
-| decoder re-mask and representation decoder | `ssl.decoder` |
-| representation/multi-view loss and diagnostics | `ssl.objective` |
-| SSL model, output, and representation target | `ssl.model` |
-| SSL checkpoint and epoch journal | `ssl.checkpoint` |
-| pretrained encoder export | `ssl.transfer` |
-| run manifest, report, metric row, performance row | `ssl.engine` |
+| Contract family | Version |
+|---|---:|
+| SSL and SSL model/output | `1.1.0` |
+| anti-collapse diagnostics | `1.1.0` |
+| checkpoint, epoch journal, metric row | `1.1.0` |
+| run manifest, training report, performance row | `1.1.0` |
+| prepared MaskPlan binding | `1.0.0` |
+| MaskPlan/policy and feature overlay | `1.0.0` |
+| bounded fixture and pitch-mutation policy | `1.0.0` |
+| maskable-field registry | `1.0.0` |
+| decoder/remask, representation target/objective/loss | `1.0.0` |
+| pretrained encoder export | `1.0.0` |
 
 The principal APIs are `build_mask_plan`, `build_batched_mask_plans`,
 `build_feature_mask_overlay`, `MaskedGraphSSLModel`, `build_ssl_model`,
@@ -314,9 +335,10 @@ reported as untouched and are not overwritten.
 
 Reports separate deterministic metric/checkpoint evidence from
 nondeterministic stage timing. They include total and component losses,
-per-decoder-view loss, requested/realized masking and counts, anti-collapse
-diagnostics, learning rates, sample/node/edge counts, unavailable batches,
-gradient coverage, device evidence, and bounded retained-memory counters.
+per-decoder-view loss, requested/realized masking and counts, aggregate
+anti-collapse diagnostics, learning rates, sample/node/edge counts,
+unavailable batches, gradient coverage, device evidence, and explicitly
+scoped `O(D)` diagnostic-accumulator retained state.
 Report provenance explicitly distinguishes `evidence_kind`,
 `data_source_kind`, `production_cache_data_used`, the one-batch
 `run_scope=one_batch_plumbing` boundary, and the
@@ -347,30 +369,126 @@ No downstream improvement is claimed from these observations.
 
 ## Final acceptance evidence
 
-The bounded acceptance used the default 40-step CPU command with
-`experiment=one_batch model=hierarchical data=bounded device=cpu`. Initial and
-final losses were measured in `eval_no_grad` mode. Outputs were written below
-`/tmp`, not to the repository, and no production cache was read.
+The remediation starts from `791ef19b1dbd7c26b7a2ef87f36d4ee5b08391a6`;
+the tested implementation commit is
+`ab9477888bc39312e8501bbf18685f45cf1d5630`. Outputs were written only below
+`/tmp`; no production cache was read.
 
-| Evidence | Final value |
-|---|---|
-| Branch and implementation commits | `phase/7a-graphmae2-ssl-baseline`; start `07bee14`; implementation `125252b54d51e4644ed5848f1077d163df0c0a12` |
-| Contract versions/fingerprints emitted by final run | all new Phase 7A contracts `1.0.0`; maskable registry `97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`; model contract `44c8ba546608bbba4accab65d7c5733db15d86965709ad8c78dae16221a2b296`; resolved config `50f93cb2fa1b5e180dfd7e121ee5dff5c39b65e58cdd9be440f6f824c32fa225`; data binding `dc2861e59dffa378da10db4e6c44af2f3538ce5eb06f80ab5ffb832efc139c01` |
-| Samples, nodes, and edges | 3 samples; 28 nodes; 98 directed edges |
-| Primary and collateral masked counts | requested `0.30`; realized `1.0` for three singleton-note fixtures; 3 primary notes; 0 peer-note collateral rows; 3 owner-track collateral rows. Multi-note peer collateral is exercised separately by leakage tests. |
-| Initial/final total SSL loss | `3.0867743492126465` → `0.001336899003945291` |
-| Initial/final note reconstruction loss | `0.9426748752593994` → `0.0005422499380074441` |
-| Initial/final bar latent loss | `1.051714301109314` → `0.0003143151698168367` |
-| Initial/final song latent loss | `1.0923850536346436` → `0.0004803339543286711` |
-| Gradient coverage | finite/nonzero gradients reached the feature-mask token and every required online group: local encoder, hierarchy pooling, Transformer, fusion, decoder, and both bar/song projector-predictors; all 81 supervised-head parameter tensors remained gradient-free |
-| Masked-value leakage mutation evidence | PASS: fixed plan and raw stores remained bit-exact; masked-value mutation left online embeddings/predictions bit-exact while changing the full-view target and reconstruction loss |
-| Deterministic repeat | PASS: mask plans, online embeddings, decoder predictions, and loss were bit-exact |
-| Checkpoint reload and epoch-resume evidence | one-batch reload bit-exact; exact uninterrupted/resumed state and metrics passed with dropout `0.2`, cosine scheduling, and CPU AMP; atomic save/load, corrupt-journal, crash-window recovery, and rejected-resume RNG rollback tests passed |
-| Encoder-transfer evidence | export `1.0.0`; 470 parameter tensors loaded; 81 supervised-head tensors untouched and bit-exact |
-| CPU timing and retained memory | 6.643101028003002 s total; 0.012225073998706648 s transfer, 3.119837647991517 s forward, 2.3773286959985853 s backward; one live batch, zero retained predictions, two retained metric rows |
-| CUDA/VRAM evidence or honest unavailability | CUDA unavailable; CUDA+AMP test skipped explicitly; no device name or VRAM values fabricated |
-| Focused and complete test results | focused SSL: 79 passed, 1 CUDA skip; full default suite: 911 passed, 20 skipped; model/graph/dataset regression slice: 265 passed, 1 skipped plus 2 isolated worker tests passed; `compileall`, `git diff --check`, and implementation `git show --check` passed |
-| Required GitHub CI | PASS: `Required test suite` run #85 completed successfully for implementation commit `125252b54d51e4644ed5848f1077d163df0c0a12`; the final documentation-head result is also recorded in the draft PR evidence comment |
+### Fixture and masking
+
+| Evidence | Train | Fixed validation |
+|---|---:|---:|
+| identities | 3 disjoint pieces | 2 disjoint pieces |
+| notes / tracks / bars | 48 / 7 / 7 | 36 / 5 / 5 |
+| graph nodes / directed edges | 114 / 740 | 83 / 546 |
+| requested / realized mask rate | `0.30` / `13/48 = 0.2708333333333333` | `0.30` / `10/36 = 0.2777777777777778` |
+| primary / peer-note / owner-track rows | 13 / 35 / 7 | 10 / 26 / 5 |
+
+Fixture fingerprint is
+`9f959d91d6805101983711511abcf89450e24b1886417632ea37fd0dc96ba922`;
+split `89715a23b35ead69a1a314845414d01c6b56bdfbcc913e931719f17020bbef8d`;
+train composition
+`218b51f2a212b5158b244bb22f8b28952ec79d8ecf9fc2ff5861dc24b9e770bf`;
+validation composition
+`5730dfa44b90912cfca10bdacf489800054da8331f6a030e8dd7ab7cb461d7cd`.
+Fixed-validation membership is
+`eeefb2ef9e34e0221a2d025603d4ac6967d31583db78d625c25e8e850a725353`;
+the complete data binding is
+`35cc77297b1acf484695ef7f5a7c5fdcd072f013747be7d2a0338643efd776bc`.
+Model contract fingerprint is
+`bf82693225af0bf49d7bb7d1f2e88a07aba6386a4976356eb543bfce87581f01`;
+resolved-config fingerprint is
+`0667a5cd6f87780fd0bc0affd8bdda06080229cffe11da3d6c1da7069649cd4c`;
+the maskable registry remains
+`97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`.
+Train plan fingerprints are
+`f07c83364859e4f28b499d821985f9fb20c3be866c4d5e6f4bea237d3e16647c`,
+`3b5c90bc0016a528cb840ee9c3a3214e52cbd2d0eafbad2aa6ded52e0729da5d`,
+and `42da3df81221b200303fd9184097e59bc7d4b85eca94a26ac7648f14bc120751`;
+their prepared binding is
+`a7fccd61ce152b6b6f527a8510d6e32916fa5e150d61a92aad296e94fb7addac`.
+Validation plans are
+`3d53144db3405b3d504d186ae6e6dfa4bf9f154afded82563f6a7575a41459db`
+and `3f135a44278feff1d7af514895f924d796988521403b13573266cd2f7af823e8`;
+their fixed binding is
+`c776d0cc986097089b6d6fd7f9fbac4a5e974aa553e4704f87cad950db160c53`.
+
+### One-batch plumbing and pitch sensitivity
+
+The default 40-step CPU/no-AMP run used the full 128-dimensional model.
+Eval/no-grad total loss changed `3.122128486633301 → 0.537868082523346`;
+note/bar/song components changed respectively
+`0.9796208143234253 → 0.25825920701026917`,
+`0.9931425452232361 → 0.2769353687763214`, and
+`1.1493650674819946 → 0.002673506736755371`.
+
+Pitch mutation contract `1.0.0` uses fixed policy
+`midi_axis_reflection_v1` (`pitch -> 127 - pitch`), fingerprint
+`55c9c82b10153c21d158fb3287c3c01deea10b2a427b08d1266e1c89cdc32227`.
+For the same plans, `cos(prediction, correct_target)=0.7417699098587036`,
+`cos(prediction, mutated_target)=0.7417265772819519`, so the margin is
+`+0.000043332576751708984` above dtype floor `9.5367431640625e-7`.
+Target L2 distance is `0.029059235006570816`; cosine distance is
+`0.0000029206275939941406`. Actual runtime-source fingerprints matched the
+rebuilt canonical sources; original/mutated CPU/device graph stores remained
+bit-exact; masked online embeddings/predictions remained bit-exact while the
+full-view target and reconstruction loss changed.
+
+This overfit run is only plumbing/pitch-sensitivity evidence. Its final
+one-batch embeddings are not the non-collapse acceptance source.
+
+### Held-out trajectory and aggregate non-collapse
+
+The fixed validation baseline was measured with optimizer step count zero.
+Three one-batch train epochs then produced:
+
+| Measurement | Train loss | Fixed-validation loss |
+|---|---:|---:|
+| initial | — | `3.1229397773742678` |
+| epoch 0 | `3.137899176978366` | `2.5964468638102214` |
+| epoch 1 | `2.6812487155089886` | `2.2769506017367043` |
+| epoch 2 | `2.3729584487803255` | `2.0780126730600994` |
+
+`best.pt` is epoch 2, selected only by minimum fixed-validation loss. Initial
+and final aggregate diagnostics are:
+
+| Stage/level | rows | target/pred variance | target/pred mean norm | target/pred zero count | target/pred offdiag cosine |
+|---|---:|---:|---:|---:|---:|
+| initial note | 10 | `0.17252324824920307 / 0.048302809353796286` | `11.313566954223944 / 5.127291991705188` | `0 / 0` | `0.8083027001321981 / 0.7714759246451488` |
+| initial bar | 5 | `0.016285389384962688 / 0.028396703350398934` | `6.45909049406117 / 6.503982809362448` | `0 / 0` | `0.9380904694959945 / 0.8939212061215471` |
+| initial song | 2 | `0.017167156929002482 / 0.015808369519164787` | `6.490804980887502 / 6.7738515048479675` | `0 / 0` | `0.8961429433180865 / 0.9124933745309369` |
+| final note | 10 | `0.11253555792667458 / 0.01523628125833525` | `11.319743739268711 / 6.464376256994916` | `0 / 0` | `0.8750934437723483 / 0.9496680268784783` |
+| final bar | 5 | `0.006837738670964865 / 0.005255709954242996` | `7.257334453798848 / 6.677702690592231` | `0 / 0` | `0.9793280490012577 / 0.981249392210251` |
+| final song | 2 | `0.011029292593605558 / 0.006030926095875147` | `7.301032834267348 / 7.1842883725925155` | `0 / 0` | `0.9472672009595868 / 0.9700898056740257` |
+
+All finite/non-collapse gates pass. Two fresh overwrite runs produced
+identical semantic artifact bytes. SHA-256 values were: resolved config
+`554c09dd93245d173580e1861e91486bffae4b765eeb6bbdf2ae3ec1659b800f`,
+fingerprints
+`f74fd11fa5608e2c40ab4daba41efe9f86c154826130136cc8dc2a454f932524`,
+run manifest
+`f76e62c5a0f231693c9b7b5879a8b54777cae0c4dc0d1b5896ba05a92e59079d`,
+initial validation
+`510a9ba5daee8515ce3121e307a0d2f96c830ed9d779d2d7968d41895850919f`,
+and metrics journal
+`5654b539c834c72d253bf416dd43dde5ba52f80cfbe4c216dde33c5a4756c071`.
+Loaded `last.pt` and `best.pt` states were recursively bit-exact; raw ZIP
+container bytes and timing files are intentionally outside that contract.
+
+### Timing, transfer, tests, and CI boundary
+
+One CPU run measured plan preparation `0.05022745200039935s`, transfer
+`0.013040239999099867s`, forward `1.4793932830107224s`, backward
+`2.5643506280030124s`, total `5.181941038001241s`. This is bounded timing, not
+a speed claim. Encoder export loaded 470 tensors and left all 81 supervised
+head tensors bit-exact.
+
+Focused SSL: `111 passed, 2 skipped`; full suite: `943 passed, 21 skipped`;
+`compileall` and diff checks pass. CUDA is unavailable locally, so both
+CUDA-path acceptances are explicit skips and no CUDA/VRAM number is
+fabricated. Required GitHub CI is head-relative operational evidence recorded
+in the final draft-PR #15 evidence comment; it remains a merge gate, not a
+pending ADR decision. The PR remains draft and is not merged.
 
 Production SSL training was not authorized as Phase 7A acceptance. Phase 8 was
 not started, PDMX was not added, PLL was not implemented, and no critic or

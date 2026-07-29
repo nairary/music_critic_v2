@@ -1381,8 +1381,10 @@ This log is append-only.
 
 ## 2026-07-29 — ADR-050: Phase 7A is deterministic GraphMAE2-inspired representation SSL
 
-- Status: Accepted for draft PR #15 implementation; final bounded evidence and
-  Required GitHub CI remain pending.
+- Status: Accepted. Final Phase 7A acceptance remediation is implemented in
+  draft PR #15. Bounded execution is recorded in
+  `PHASE7A_SSL_BASELINE.md`; head-relative Required CI is operational evidence
+  recorded in the PR comment, not a pending architectural decision.
 - Context: The Phase 6B hierarchical encoder can consume ordinary raw-only
   MIDI graphs, but visible-feature reconstruction does not prove masked
   representation learning. The first SSL increment must prevent redundant
@@ -1412,6 +1414,14 @@ This log is append-only.
   `hash()`, global RNG, target/annotation content, batch order, or worker
   scheduling. Mask overlays neither mutate nor cache raw graphs. The
   no-overlay contribution order and Phase 6 state dict remain unchanged.
+- Decision: Construct every MaskPlan and prepared binding from the fully
+  validated CPU `SSLBatch` before device transfer. Prepared binding `1.0.0`
+  binds ordered identities, raw structure and ownership, stage, canonicalized
+  epoch, seed, and exact plan fingerprints, and rejects externally substituted
+  bindings failure-closed. It is a runtime sidecar, not graph/cache state.
+  CPU and CUDA share this path; prepared accelerator forward performs no
+  graph-tensor `.cpu()`, `.tolist()`, or `.item()` plan construction. Report
+  CPU plan preparation separately from transfer and compute.
 - Decision: Decode selected online note representations through deterministic
   latent re-mask views and a row-wise contextual representation decoder. Mode
   `online_owner_track_bar_song_temporal_neighbors` derives context only from
@@ -1421,19 +1431,49 @@ This log is append-only.
   Predict detached full-view bar and song latents with separate
   projector/predictors. Use versioned `1-cosine` with `eps=1e-8`,
   `sum_count_mean`, retained and counted zero-norm rows, and explicit
-  unavailable components. Compute anti-collapse variance, norm, zero-count,
-  and mean off-diagonal cosine through exact `O(ND)` sufficient statistics
-  without an `N x N` production matrix.
+  unavailable components. Anti-collapse diagnostics `1.1.0` separately merge
+  target and prediction rows for note, bar, and song across the complete
+  stage. For each it exposes row count, dimension, the exact variance formula,
+  mean L2 norm, zero-norm count, and global mean off-diagonal cosine, with
+  structured unavailability for fewer than two rows. `O(D)` sufficient
+  statistics retain no embedding history or `N x N` matrix and make the result
+  invariant to batch partition/order and worker count. Epoch artifacts use
+  `anti_collapse_aggregate`, not the rejected
+  `anti_collapse_last_batch` snapshot.
+- Decision: Bound final mechanics acceptance to a deterministic multi-piece,
+  multi-note canonical fixture with disjoint train/validation identities and
+  explicit multitrack/multibar cases. Its varied pitches and rhythms make the
+  configured `0.30` mask select multiple primary rows and exercise nonzero
+  peer-note and owner-track collateral masking. Counts and fingerprints are
+  execution evidence, not architecture constants.
+- Decision: After bounded one-batch fitting, use pitch-mutation contract
+  `1.0.0` and fixed `midi_axis_reflection_v1` policy
+  (`mutated_pitch = 127 - source_pitch`), then rebuild the canonical piece,
+  raw graph, and dependent raw features under the same fixed MaskPlan. Bind
+  each alternative to actual runtime-source fingerprints and a
+  selection-specific mutation fingerprint. Require a positive difference
+  between `cos(prediction, correct_target)` and
+  `cos(prediction, mutated_target)`, and report correct-to-mutated target
+  distance. This diagnoses pitch-sensitive representation mechanics and is not
+  a label, cross-entropy, normalized likelihood, or PLL.
+- Decision: Evaluate fixed, disjoint validation once before any optimizer step
+  and after every training epoch. Record train/validation loss and exact
+  stage-wide note/bar/song diagnostics; choose the best checkpoint only by
+  fixed-validation loss. Deterministic reruns bind the memberships, prepared
+  plan fingerprints, initial validation baseline, and metric rows.
 - Decision: Keep a simple one-view/no-remask mode and a main
   three-view/`0.20`-remask mode. No superiority claim follows from including
   the multi-view mode. Production cache training uses a dedicated raw-only
   dataset/collator around `load_cached_piece` and `build_raw_graph`, never
   supervised target projection, while reusing group-safe training and fixed
-  validation membership. Reports distinguish data source, production-cache
-  use, and one-batch plumbing scope from production/full-corpus training
-  claims. SSL checkpoint/resume is failure-atomic and epoch-boundary-only;
-  pretrained export strictly transfers local encoder, hierarchy pooling,
-  Transformer, and fusion parameters without overwriting supervised heads.
+  validation membership. Reports distinguish four scopes: one-batch plumbing,
+  bounded held-out/non-collapse evidence, named production-cache execution,
+  and production/full-corpus training. The first two establish deterministic
+  mechanics only, and cache reads alone establish neither production-training
+  nor full-corpus effectiveness. SSL checkpoint/resume is failure-atomic and
+  epoch-boundary-only. Pretrained export strictly transfers local encoder,
+  hierarchy pooling, Transformer, and fusion parameters without overwriting
+  supervised heads.
 - Decision: Hierarchical/coarse-to-fine masks belong to Phase 8. Full-scale
   effectiveness requires the Phase 10 PDMX raw-compatible corpus projection
   and rerun. Phase 7A implements no normalized masked-note/pitch-set
@@ -1446,6 +1486,12 @@ This log is append-only.
   `97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`.
   Canonical, graph, adapter, ontology, encoding, split, corpus/cache, Phase 6
   model/output, and Phase 6 checkpoint contracts do not change.
+- Consequences: Final remediation adds prepared MaskPlan binding `1.0.0` and
+  advances SSL contract/model/output, anti-collapse diagnostics, checkpoint,
+  epoch journal, metric row, run manifest, training report, and performance
+  row to `1.1.0`. MaskPlan/policy, maskable-field registry, representation
+  target/objective/loss, decoder, encoder export, and every Phase 6 contract
+  remain `1.0.0` at their existing semantics.
 - Consequences: The first real supervised baseline supplies later-ablation
   context only: strong HookTheory tonic/scale-degree and POP909-CL root/bass
   signals, weak or collapsed remaining heads, all-negative HookTheory

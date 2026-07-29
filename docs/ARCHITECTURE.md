@@ -521,6 +521,22 @@ retain the existing group-safe train and fixed-validation membership. The raw
 graph schema, stores, topology, serialization, fingerprint, index/cache keys,
 and supervised model outputs are unchanged.
 
+Every mask plan used by the model is prepared from a fully validated CPU
+`SSLBatch` before device transfer. Prepared binding contract `1.0.0` binds the
+ordered dataset/piece identities, raw structure and ownership, stage,
+canonicalized epoch, seed, and exact plan fingerprints. Preparation is
+failure-closed: a caller-supplied binding is accepted only when all bound
+values match the validated CPU batch and regenerated plans. The binding is a
+runtime sidecar; it is not inserted into graph stores and does not change graph
+serialization, cache identity, or raw-graph fingerprints.
+
+CPU and CUDA use the same prepared path. After transfer, the accelerator
+forward consumes only the validated binding and device tensors; it never
+derives plans through graph-tensor `.cpu()`, `.tolist()`, or `.item()` calls.
+Plan preparation time is reported separately from device transfer and model
+compute. Plan semantics remain independent of batch partition/order and worker
+scheduling.
+
 Maskable-field registry `1.0.0` resolves names against raw feature registry
 `1.0.0`. Its only group, `note_pitch_group`, masks note `pitch`,
 `pitch_class`, `octave`, and `track_relative_pitch`, plus each field's
@@ -562,15 +578,54 @@ Every component uses row-wise `1 - cosine` with contract-fixed `eps=1e-8` and
 `sum_count_mean` reduction. Numerator, denominator, mean, zero-norm count, and
 unavailable reason remain explicit. Zero-vector rows are counted, and a
 positively weighted component with no eligible rows makes total SSL loss
-unavailable. Anti-collapse diagnostics use exact normalized-vector sufficient
-statistics in `O(ND)` without a production pairwise matrix.
+unavailable. Anti-collapse diagnostics contract `1.1.0` accumulates target and
+prediction rows separately for note, bar, and song over the complete
+train/validation stage. For each side and level it reports row count, embedding
+dimension, the contract variance formula, mean L2 norm, zero-norm count, and
+global mean off-diagonal cosine; fewer than two rows produce a structured
+unavailable result. Mergeable `O(D)` sufficient statistics retain no embedding
+history or production pairwise matrix and reproduce the dense stage-level
+formula independently of batch partition, batch order, and worker count. The
+artifact field is `anti_collapse_aggregate`; the former
+`anti_collapse_last_batch` snapshot is not an acceptance statistic.
 
 The simple decoder mode is one view with no latent remasking. The Phase 7A
 main preset is three views with probability `0.20`; no relative-performance
 claim is made. Both use mask rate `0.30` by default. Separate note, bar, and
 song weights remain configurable.
 
-SSL checkpoint `1.0.0` binds the model/SSL contracts, field-registry
+The bounded acceptance source is a deterministic multi-piece, multi-note
+canonical fixture with disjoint train/validation identities and explicit
+multitrack and multibar cases. Its pitch/rhythm variation makes mask rate
+`0.30` select multiple primary note rows and exercise nonzero peer-note and
+owner-track collateral masks. One-batch acceptance remains a plumbing
+experiment: after fitting, a coherent canonical pitch mutation rebuilds the raw
+graph and all dependent raw features while preserving the fixed MaskPlan. The
+versioned `midi_axis_reflection_v1` policy maps `pitch -> 127 - pitch` and binds
+the rebuilt source to actual runtime graph fingerprints. The evidence reports
+cosine to the correct target, cosine to the mutated target,
+their positive margin, and correct-to-mutated target distance. These are
+representation-sensitivity diagnostics, not labels, cross-entropy,
+probabilities, likelihood, or PLL.
+
+Held-out execution evaluates the fixed, disjoint validation membership once
+before any optimizer step and after every training epoch. Epoch rows retain
+train and validation loss plus the exact stage-wide diagnostics. Best
+checkpoint selection uses only fixed-validation loss; the initial validation
+baseline, memberships, prepared-plan bindings, and deterministic metric rows
+are rerun evidence. Non-collapse acceptance requires finite initial and final
+note/bar/song aggregates, no zero vectors, nondegenerate variance/norm, and
+embeddings that are not all near-identical. These checks validate bounded
+mechanics, not generalization or scaled effectiveness.
+
+SSL contract/model/output `1.1.0` require the prepared forward boundary.
+Checkpoint, epoch-journal, metric-row, run-manifest, training-report, and
+performance-row contracts are `1.1.0`; the performance row separates CPU plan
+preparation from transfer/compute. MaskPlan, mask policy, maskable-field
+registry, representation target/objective, and encoder-export semantics remain
+`1.0.0`.
+
+SSL checkpoint `1.1.0` binds the model/SSL contracts, field-registry
 fingerprint, resolved config, data index/split/composition/fixed-validation
 fingerprints, optimizer/scheduler/scaler, RNG, and ordered epoch journal.
 Save/load is atomic and resume is epoch-boundary-only. Encoder export `1.0.0`
@@ -578,10 +633,11 @@ strictly transfers the local encoder, hierarchy pooling, Transformer, and
 fusion parameters into a compatible supervised hierarchical model without
 overwriting task or reconstruction heads.
 
-Run reports distinguish bounded versus named production-cache sources,
-production-cache reads, and one-batch plumbing scope from production or
-full-corpus SSL training claims. Cache use alone is not reported as either
-training claim.
+Run reports keep four claim boundaries explicit: one-batch plumbing; bounded
+held-out/non-collapse evidence; named production-cache execution; and
+production/full-corpus SSL training. The first two establish only deterministic
+mechanics. Reading a production cache does not establish production training,
+and no Phase 7A bounded result establishes a full-corpus claim.
 
 The full Phase 7A contract and its bounded-science/non-claim boundary are in
 `PHASE7A_SSL_BASELINE.md`.
