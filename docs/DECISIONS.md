@@ -1378,3 +1378,79 @@ This log is append-only.
   `1.0.0`, training checkpoint, model, target, cache, and split contracts do
   not change. Existing Phase 6C checkpoints remain valid without mutation.
   Phase 7 remains unstarted.
+
+## 2026-07-29 — ADR-050: Phase 7A is deterministic GraphMAE2-inspired representation SSL
+
+- Status: Accepted for draft PR #15 implementation; final bounded evidence and
+  Required GitHub CI remain pending.
+- Context: The Phase 6B hierarchical encoder can consume ordinary raw-only
+  MIDI graphs, but visible-feature reconstruction does not prove masked
+  representation learning. The first SSL increment must prevent redundant
+  pitch, peer-relative-pitch, and owner-track aggregate leakage, remain
+  independent of target sidecars and loader ordering, and preserve every
+  Phase 6 supervised/no-mask contract. It must not conflate representation
+  reconstruction with musical likelihood, preference, or quality.
+- Decision: Describe the implementation as GraphMAE2-inspired, not a faithful
+  GraphMAE2 reproduction. Phase 7A uses target mode
+  `shared_stop_gradient_full_view`: the shared hierarchical encoder produces
+  full-view note/bar/song targets under eval/no-grad, while the online path
+  uses a model-side masked feature overlay. Targets are detached. No EMA target
+  encoder is implemented; EMA remains a future controlled ablation.
+- Decision: The only Phase 7A field group is `note_pitch_group`. Resolve note
+  `pitch`, `pitch_class`, `octave`, and `track_relative_pitch` through the
+  versioned raw feature registry and mask both value and availability
+  contributions. Through exact raw note ownership, collateral-mask
+  `track_relative_pitch` and availability on every unselected note peer in an
+  affected owner track, plus owner-track `mean_pitch`, `pitch_std`, `min_pitch`,
+  and `max_pitch` with availability. Peer-note and owner-track collateral
+  fields are leakage closure, not reconstruction targets. Duration, velocity,
+  timing, topology, bars, and whole tracks remain visible.
+- Decision: Use immutable per-sample
+  `uniform_note_without_replacement@1.0.0` MaskPlans with canonical SHA-256
+  seeds and fingerprints. Train masks depend on epoch; validation masks
+  canonicalize epoch to zero. Plans and decoder views do not use Python
+  `hash()`, global RNG, target/annotation content, batch order, or worker
+  scheduling. Mask overlays neither mutate nor cache raw graphs. The
+  no-overlay contribution order and Phase 6 state dict remain unchanged.
+- Decision: Decode selected online note representations through deterministic
+  latent re-mask views and a row-wise contextual representation decoder. Mode
+  `online_owner_track_bar_song_temporal_neighbors` derives context only from
+  masked-online owner-track, available owner-bar, song, and previous/next
+  in-track note representations; adding it after re-masking prevents
+  fully-remasked predictions from depending on one constant mask token alone.
+  Predict detached full-view bar and song latents with separate
+  projector/predictors. Use versioned `1-cosine` with `eps=1e-8`,
+  `sum_count_mean`, retained and counted zero-norm rows, and explicit
+  unavailable components. Compute anti-collapse variance, norm, zero-count,
+  and mean off-diagonal cosine through exact `O(ND)` sufficient statistics
+  without an `N x N` production matrix.
+- Decision: Keep a simple one-view/no-remask mode and a main
+  three-view/`0.20`-remask mode. No superiority claim follows from including
+  the multi-view mode. Production cache training uses a dedicated raw-only
+  dataset/collator around `load_cached_piece` and `build_raw_graph`, never
+  supervised target projection, while reusing group-safe training and fixed
+  validation membership. Reports distinguish data source, production-cache
+  use, and one-batch plumbing scope from production/full-corpus training
+  claims. SSL checkpoint/resume is failure-atomic and epoch-boundary-only;
+  pretrained export strictly transfers local encoder, hierarchy pooling,
+  Transformer, and fusion parameters without overwriting supervised heads.
+- Decision: Hierarchical/coarse-to-fine masks belong to Phase 8. Full-scale
+  effectiveness requires the Phase 10 PDMX raw-compatible corpus projection
+  and rerun. Phase 7A implements no normalized masked-note/pitch-set
+  likelihood, perplexity, PLL, critic, reward, preference, aesthetic, or
+  quality score.
+- Consequences: New Phase 7A SSL, MaskPlan/policy, overlay, maskable-field
+  registry, decoder, objective/diagnostic, model/output/target,
+  checkpoint/journal, encoder-export, and run/report contracts begin at
+  `1.0.0`. The maskable-field registry fingerprint is
+  `97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`.
+  Canonical, graph, adapter, ontology, encoding, split, corpus/cache, Phase 6
+  model/output, and Phase 6 checkpoint contracts do not change.
+- Consequences: The first real supervised baseline supplies later-ablation
+  context only: strong HookTheory tonic/scale-degree and POP909-CL root/bass
+  signals, weak or collapsed remaining heads, all-negative HookTheory
+  multilabel output with `F1=0` at threshold `0.5`, and POP909-CL validation
+  limited to 18 independent pieces. Scientific evaluation hardening and the
+  ambiguous `test_not_used_for_checkpoint_selection` field remain registered
+  backlog items; neither blocks Phase 7A mechanics or establishes downstream
+  improvement.

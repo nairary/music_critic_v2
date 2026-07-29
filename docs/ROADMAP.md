@@ -441,11 +441,36 @@ The model and training phases remain pending.
 
 - Goal: add masked observable-feature representation learning.
 - Dependencies: Phase 6D-A evaluation evidence.
+- Phase 7A status: implemented on draft PR #15; final bounded evidence and CI
+  acceptance remain pending. The implementation is GraphMAE2-inspired, not a
+  faithful reproduction.
 - Outputs: masking views, remasked representation decoder, latent prediction
   losses, and a design gate before any normalized probabilistic
   masked-note/pitch-set decoder or deterministic PLL protocol.
-- Tests: no masked-value leakage, deterministic views, stop-gradient behavior.
-- Non-goals: quality scoring.
+- Phase 7A scope: only `note_pitch_group`, with note pitch/pitch-class/octave/
+  track-relative-pitch and availability hidden, plus
+  track-relative-pitch/availability on every unselected peer in an affected
+  owner track and collateral owner-track mean/std/min/max pitch/availability.
+  Peer and track collateral fields are not reconstruction targets. It uses
+  deterministic no-replacement per-sample MaskPlans,
+  `shared_stop_gradient_full_view`, note decoder re-mask views, and bar/song
+  latent prediction.
+- Execution: context mode
+  `online_owner_track_bar_song_temporal_neighbors` keeps fully re-masked
+  decoder predictions contextual. The production path is a raw-only
+  dataset/collator over cached canonical pieces and never projects supervised
+  targets. Reports distinguish source/cache/one-batch scope from production or
+  full-corpus training. Fixed validation, atomic checkpoint/reload, exact
+  epoch-boundary resume, and strict encoder-only transfer are included. Simple
+  one-view/no-remask and main three-view/0.20-remask modes remain separately
+  configurable.
+- Tests: no masked-value leakage, raw-graph immutability, deterministic views,
+  worker/order parity, stop-gradient behavior, finite online gradients,
+  checkpoint/resume, and untouched supervised heads on transfer.
+- Deferred inside broader Phase 7: EMA target encoder remains an explicit
+  ablation rather than part of Phase 7A.
+- Non-goals: masked conditional likelihood, perplexity, PLL, preference,
+  critic, or quality scoring.
 - Acceptance: tiny reconstruction overfit and stable held-out metrics;
   reconstruction loss is reported separately from masked conditional
   likelihood, and no final probability factorization is assumed. Before PDMX,

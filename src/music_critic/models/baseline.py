@@ -75,11 +75,19 @@ class LocalHeterogeneousBaseline(nn.Module):
         self.reconstruction_heads = RawReconstructionHeads(config.hidden_dim)
 
     def encode(
-        self, raw_graph_batch: object, *, return_layers: bool = False
+        self,
+        raw_graph_batch: object,
+        *,
+        return_layers: bool = False,
+        feature_overlay=None,
     ) -> MultiScaleEncoderOutput:
         """Encode a raw graph without any target or source metadata."""
 
-        return self.encoder(raw_graph_batch, return_layers=return_layers)
+        return self.encoder(
+            raw_graph_batch,
+            return_layers=return_layers,
+            feature_overlay=feature_overlay,
+        )
 
     def forward(
         self,
@@ -124,11 +132,14 @@ class LocalHeterogeneousBaseline(nn.Module):
         raw_graph_batch: object,
         *,
         return_layers: bool = False,
+        feature_overlay=None,
     ) -> tuple[MultiScaleEncoderOutput, tuple[TaskPrediction, ...]]:
         """Emit raw-graph candidate logits without any target sidecar."""
 
         encoded = self.encode(
-            raw_graph_batch, return_layers=return_layers
+            raw_graph_batch,
+            return_layers=return_layers,
+            feature_overlay=feature_overlay,
         )
         return encoded, self.task_heads(encoded.final_output)
 

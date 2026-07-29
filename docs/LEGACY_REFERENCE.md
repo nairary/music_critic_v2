@@ -272,3 +272,46 @@ quality-score interpretation. Heads gather current V2 target sidecars through
 explicit local indices, and missing, PU, or open-vocabulary observations do not
 become ordinary negative supervision. Hierarchy, critic, SSL, and likelihood
 work remain owned by their later V2 phases.
+
+## Phase 7A deterministic SSL adaptation
+
+Exactly two legacy files were inspected read-only for Phase 7A:
+
+- `src/dataloader/utils_graph.py`;
+- `src/models/teacher_heads.py`.
+
+No legacy file was modified, imported at runtime, copied wholesale, formatted,
+staged, or used as the V2 specification. V2 remains runnable without the
+legacy checkout.
+
+Only broad ideas were adapted:
+
+- select explicit rows and preserve separate reconstruction evidence, while
+  replacing legacy process-global randomness with deterministic per-sample
+  SHA-256 selection;
+- keep reconstruction decoding separate from the encoder and from scoring;
+- retain explicit valid-row/count handling instead of treating an absent row
+  as a negative observation.
+
+The following legacy assumptions were explicitly rejected:
+
+- Python `random.sample`, `random.random`, and other process-global random
+  choices for masks;
+- `copy.deepcopy(graph)` masked-graph construction and mutation of graph
+  feature tensors;
+- writing numeric zero as an ambiguous mask sentinel;
+- assuming that masking only selected-note fields closes leakage through
+  unselected peer-relative pitch or owner-track pitch statistics;
+- masking or reconstructing theory labels such as note scale degree and chord
+  root/type/applied/borrowed IDs;
+- mandatory gold chord/section nodes or theory-derived topology;
+- treating teacher local/global score heads or corruption discrimination as
+  an SSL, critic, aesthetic, or quality objective.
+
+Phase 7A instead masks only raw-observable redundant pitch representations
+through a versioned model-side overlay, hides availability evidence, closes
+unselected-peer relative-pitch and owner-track aggregate leakage, reconstructs
+detached full-view representations with masked-online owner/bar/song/temporal
+decoder context, and keeps raw graph fingerprints unchanged. Its production
+cache dataset rebuilds raw graphs without projecting supervised targets. No
+legacy checkpoint, vocabulary, model class, or runtime module participates.

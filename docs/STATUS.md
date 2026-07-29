@@ -2,7 +2,7 @@
 
 ## Current phase
 
-- Date: 2026-07-27
+- Date: 2026-07-29
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -79,20 +79,94 @@
 - Device-transfer contract: `1.0.0`
 - Training-checkpoint contract: `1.0.0`
 - Phase 6D-A: Accepted and merged in PR #13 at
-  `18ebf5b69797f5d40ff38607cf8e8b5dad2f86e7`; the membership-parity hotfix
-  remains a separate draft/CI gate
+  `18ebf5b69797f5d40ff38607cf8e8b5dad2f86e7`
+- Phase 6D-A validation-membership parity hotfix: Accepted and merged in PR
+  #14 at `bded77ff1a923f391623d735b5ad4ce290d9d2d2`
 - Evaluation/artifact contracts: `1.1.1`; profiler: `1.1.0`; macro-summary
   sub-contract: `1.0.0`; unchanged train-prior: `1.0.0`
-- Next phase after Phase 6D-A acceptance: Phase 7 — GraphMAE2-style SSL
+- Phase 7A branch: `phase/7a-graphmae2-ssl-baseline`
+- Phase 7A draft PR: #15; do not merge from the implementation task
+- Phase 7A: deterministic GraphMAE2-inspired masked-graph SSL implementation
+  present; final bounded evidence and Required GitHub CI remain pending
+- Phase 7A SSL, mask-plan/policy, overlay, maskable-registry, decoder,
+  objective/diagnostic, model/output/target, checkpoint/journal,
+  encoder-export, and run/report/metric contracts: `1.0.0`
+- Phase 7A maskable-field registry fingerprint:
+  `97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`
+- Next gate: Phase 7A bounded evidence and draft PR #15 acceptance; Phase 8 has
+  not started
+
+## Phase 7A implementation status
+
+- The implementation is GraphMAE2-inspired, not a faithful GraphMAE2
+  reproduction. Target mode is `shared_stop_gradient_full_view`; no EMA target
+  encoder is present.
+- `note_pitch_group` is the only mask family. Primary note fields are `pitch`,
+  `pitch_class`, `octave`, and `track_relative_pitch`, including availability
+  contributions. Every unselected note peer in an affected owner track
+  collateral-masks `track_relative_pitch` and availability. Collateral
+  owner-track fields are `mean_pitch`, `pitch_std`, `min_pitch`, and
+  `max_pitch`, including availability. Peer-note and owner-track collateral
+  fields close redundant pitch leakage and are not reconstruction targets.
+- Per-sample train MaskPlans use deterministic SHA-256 selection without
+  replacement and vary by epoch when possible. Fixed validation plans use
+  canonical epoch zero. Plans and decoder views are independent of target
+  sidecars, batch order, worker count, and Python `hash()`.
+- Masking is an immutable model-side contribution overlay. It does not mutate,
+  serialize, or cache masked raw graphs, and the no-mask Phase 6 path retains
+  its existing outputs and state-dict surface.
+- Selected note rows use deterministic latent decoder re-masking and
+  representation decoding. Decoder context mode
+  `online_owner_track_bar_song_temporal_neighbors` combines only masked-online
+  owner-track, available owner-bar, song, and temporal-neighbor
+  representations, preventing fully re-masked rows from predicting from one
+  constant token alone. Bar and song rows use separate projector/predictor
+  latent losses. All use `1-cosine` with `eps=1e-8`, explicit sum/count/mean
+  and unavailability, and retained zero-norm rows. Anti-collapse statistics
+  are `O(ND)` and do not build production pairwise matrices.
+- The simple ablation is one decoder view with remask probability zero. The
+  main preset is three views with probability `0.20`; no superiority claim is
+  made.
+- The production raw-only loader uses a dedicated dataset/collator around
+  `load_cached_piece` and `build_raw_graph`; it never projects supervised
+  targets. It preserves the existing group-safe train/fixed-validation
+  membership. Reports distinguish source kind, production-cache use, and
+  one-batch plumbing scope from production/full-corpus training claims. SSL
+  checkpoints bind model, objective, mask registry, resolved config,
+  data/split/composition/fixed-validation,
+  optimizer/scheduler/scaler, RNG, and epoch journal state; resume is
+  failure-atomic and epoch-boundary-only. Encoder transfer loads only the local
+  encoder, hierarchy pooling, Transformer, and fusion, leaving supervised
+  heads untouched.
+- Final sample/node/edge counts, mask counts, loss trajectory, gradient
+  coverage, deterministic repeat, reload/resume/transfer results, CPU/CUDA
+  evidence, complete test counts, and Required GitHub CI are intentionally
+  pending final acceptance evidence. No values are inferred in documentation.
+- Production SSL training has not been performed for Phase 7A acceptance.
+  Phase 8 has not started, PDMX has not been added, PLL has not been
+  implemented, and no critic or quality score has been implemented.
+
+## Scientific context and evaluation backlog
+
+- Strong signal for HookTheory tonic and scale degree.
+- Strong signal for POP909-CL root and bass.
+- Weak or collapsed signal for the remaining heads.
+- HookTheory multilabel heads at threshold `0.5` produce all-negative output
+  and `F1=0`.
+- POP909-CL validation evidence is limited to 18 independent pieces.
+- Scientific evaluation hardening remains in the backlog before final
+  ablations, but does not block Phase 7A.
+- The ambiguous field `test_not_used_for_checkpoint_selection` remains a
+  registered evaluation-backlog item.
 
 ## Phase 6D-A supervised evaluation result
 
-- Blocking validation-membership parity hotfix is implemented on branch
-  `hotfix/phase6d-validation-membership-parity`. Training and evaluation now
-  import one neutral `fixed_validation_membership_v1` implementation whose
-  compact UTF-8 JSON bytes have no terminal newline, exactly matching existing
-  Phase 6C checkpoint fingerprints. The global evaluation canonical
-  fingerprint remains unchanged.
+- The validation-membership parity hotfix was accepted and merged in PR #14 at
+  `bded77ff1a923f391623d735b5ad4ce290d9d2d2`. Training and evaluation import
+  one neutral `fixed_validation_membership_v1` implementation whose compact
+  UTF-8 JSON bytes have no terminal newline, exactly matching existing Phase
+  6C checkpoint fingerprints. The global evaluation canonical fingerprint
+  remains unchanged.
 - The previous `1.1.0` documentation incorrectly asserted exact Phase 6C
   membership parity: evaluation ranking and membership had used a
   newline-bearing fingerprint and rejected valid partial-validation Phase 6C

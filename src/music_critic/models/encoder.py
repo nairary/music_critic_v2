@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping
+from typing import Mapping, Protocol
 
 import torch
 from torch import Tensor, nn
@@ -18,6 +18,18 @@ from music_critic.graph import (
 )
 from music_critic.graph.feature_registry import FeatureSpec
 from music_critic.models.contracts import ENCODER_OUTPUT_VERSION
+
+
+class _FeatureContributionOverlay(Protocol):
+    def replace_feature_contributions(
+        self,
+        *,
+        node_type: str,
+        kind: str,
+        feature_name: str,
+        value_contribution: Tensor,
+        availability_contribution: Tensor,
+    ) -> tuple[Tensor, Tensor]: ...
 
 
 def normalize_continuous(values: Tensor, spec: FeatureSpec) -> Tensor:
@@ -129,7 +141,12 @@ class _NodeFeatureEncoder(nn.Module):
         self.activation = nn.GELU()
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, store: object) -> Tensor:
+    def forward(
+        self,
+        store: object,
+        *,
+        feature_overlay: _FeatureContributionOverlay | None = None,
+    ) -> Tensor:
         count = int(store.num_nodes)
         encoded = self.node_bias.expand(count, -1)
         for column, (spec, embedding, availability_embedding) in enumerate(
@@ -139,10 +156,27 @@ class _NodeFeatureEncoder(nn.Module):
                 self.categorical_availability,
             )
         ):
-            del spec
             available = store.x_cat_available[:, column]
-            encoded = encoded + embedding(store.x_cat[:, column])
-            encoded = encoded + availability_embedding(available.long())
+            if feature_overlay is None:
+                encoded = encoded + embedding(store.x_cat[:, column])
+                encoded = encoded + availability_embedding(available.long())
+            else:
+                value_contribution = embedding(store.x_cat[:, column])
+                availability_contribution = availability_embedding(
+                    available.long()
+                )
+                (
+                    value_contribution,
+                    availability_contribution,
+                ) = feature_overlay.replace_feature_contributions(
+                    node_type=self.node_type,
+                    kind="categorical",
+                    feature_name=spec.name,
+                    value_contribution=value_contribution,
+                    availability_contribution=availability_contribution,
+                )
+                encoded = encoded + value_contribution
+                encoded = encoded + availability_contribution
         for column, (spec, projection, availability_embedding) in enumerate(
             zip(
                 self.continuous_specs,
@@ -153,8 +187,26 @@ class _NodeFeatureEncoder(nn.Module):
             available = store.x_cont_available[:, column]
             values = normalize_continuous(store.x_cont[:, column], spec)
             values = torch.where(available, values, torch.zeros_like(values))
-            encoded = encoded + projection(values.unsqueeze(-1))
-            encoded = encoded + availability_embedding(available.long())
+            if feature_overlay is None:
+                encoded = encoded + projection(values.unsqueeze(-1))
+                encoded = encoded + availability_embedding(available.long())
+            else:
+                value_contribution = projection(values.unsqueeze(-1))
+                availability_contribution = availability_embedding(
+                    available.long()
+                )
+                (
+                    value_contribution,
+                    availability_contribution,
+                ) = feature_overlay.replace_feature_contributions(
+                    node_type=self.node_type,
+                    kind="continuous",
+                    feature_name=spec.name,
+                    value_contribution=value_contribution,
+                    availability_contribution=availability_contribution,
+                )
+                encoded = encoded + value_contribution
+                encoded = encoded + availability_contribution
         return self.dropout(self.activation(self.normalization(encoded)))
 
 
@@ -170,10 +222,18 @@ class RawFeatureEncoder(nn.Module):
             }
         )
 
-    def forward(self, graph: HeteroData) -> EncoderOutput:
+    def forward(
+        self,
+        graph: HeteroData,
+        *,
+        feature_overlay: _FeatureContributionOverlay | None = None,
+    ) -> EncoderOutput:
         _validate_input_graph(graph)
         embeddings = {
-            node_type: self.node_encoders[node_type](graph[node_type])
+            node_type: self.node_encoders[node_type](
+                graph[node_type],
+                feature_overlay=feature_overlay,
+            )
             for node_type in MANDATORY_NODE_TYPES
         }
         membership = {
@@ -241,7 +301,9 @@ class LocalRelationLayer(nn.Module):
                 _relation_key(relation_index)
             ](embeddings[source_type].index_select(0, source_index))
             aggregated[destination_type].index_add_(
-                0, destination_index, messages
+                0,
+                destination_index,
+                messages.to(dtype=aggregated[destination_type].dtype),
             )
         output = {}
         for node_type in MANDATORY_NODE_TYPES:
@@ -288,9 +350,16 @@ class LocalHeterogeneousEncoder(nn.Module):
         self.activation = nn.GELU()
 
     def forward(
-        self, graph: HeteroData, *, return_layers: bool = False
+        self,
+        graph: HeteroData,
+        *,
+        return_layers: bool = False,
+        feature_overlay: _FeatureContributionOverlay | None = None,
     ) -> MultiScaleEncoderOutput:
-        feature_output = self.feature_encoder(graph)
+        feature_output = self.feature_encoder(
+            graph,
+            feature_overlay=feature_overlay,
+        )
         current = dict(feature_output.embeddings)
         layer_outputs = []
         for layer in self.layers:

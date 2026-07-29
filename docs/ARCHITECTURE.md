@@ -3,8 +3,10 @@
 Status: **INCREMENTAL**. Phase 6A implements raw feature and local-GNN
 representations; Phase 6B implements deterministic hierarchy, coarse
 Transformer context, and top-down fusion; Phase 6C supplies reproducible
-supervised execution without changing those semantics. SSL and critic paths
-below remain future phases.
+supervised execution without changing those semantics. Phase 7A adds a
+deterministic GraphMAE2-inspired masked representation baseline over that
+unchanged encoder. Hierarchical/adaptive SSL and critic paths remain future
+phases.
 
 ## System flow
 
@@ -371,8 +373,8 @@ interpreted as a negative example.
 Phase 6A implements only visible-input local reconstruction as a plumbing
 check and fully supervised auxiliary semantics. Phase 6B adds global context
 without changing that reconstruction or using mean-only final aggregation.
-GraphMAE2-style masking begins in Phase 7; future critic evidence must retain
-local or top-k worst regions.
+Phase 7A adds GraphMAE2-inspired masked representation learning, while future
+critic evidence must retain local or top-k worst regions.
 
 Phase 6A model/output and loss contracts are `1.1.0`; candidate prediction is
 `1.0.0`. Tensor node-type codes in `BatchTarget` contract `1.1.0` permit the
@@ -507,8 +509,88 @@ Per-epoch train/validation wall time and throughput live in the non-binding
 and checkpoint contract remain byte-exact across epoch-boundary resume.
 The complete contract is in `EVALUATION.md`.
 
+## Phase 7A masked representation boundary
+
+Phase 7A consumes an immutable raw-only `SSLBatch` containing the PyG batch,
+dataset/piece identities used only for deterministic plan derivation, and
+aggregate sample/node/edge counts. It strips Phase 6 target sidecars without
+reading their contents for bounded compatibility. Production cache execution
+uses a dedicated raw-only dataset/collator around `load_cached_piece` and
+`build_raw_graph`; it never projects a supervised target bundle. Both paths
+retain the existing group-safe train and fixed-validation membership. The raw
+graph schema, stores, topology, serialization, fingerprint, index/cache keys,
+and supervised model outputs are unchanged.
+
+Maskable-field registry `1.0.0` resolves names against raw feature registry
+`1.0.0`. Its only group, `note_pitch_group`, masks note `pitch`,
+`pitch_class`, `octave`, and `track_relative_pitch`, plus each field's
+availability contribution. Every selected note projects a collateral mask to
+every unselected note peer in the same affected owner track for
+`track_relative_pitch`, and to the owner track for `mean_pitch`, `pitch_std`,
+`min_pitch`, and `max_pitch`, always including availability. Peer-note and
+owner-track collateral fields close redundant pitch leakage but are not
+reconstruction targets. The registry fingerprint is
+`97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`.
+
+Immutable per-sample MaskPlans use policy
+`uniform_note_without_replacement@1.0.0`. Portable SHA-256 derivation binds
+global seed, train/validation stage, `(dataset_id, piece_id)`, epoch, and view
+index without Python `hash()` or global RNG. Train plans change
+deterministically by epoch when possible; validation uses canonical epoch
+zero. Selection is independent of targets, annotations, batch order, and
+worker count.
+
+The overlay acts only inside raw feature encoding. At any primary or collateral
+semantic field/row it substitutes a learned SSL mask token for the value
+contribution and zero for the availability contribution. No raw tensor is
+mutated. With no overlay, the Phase 6 two-addition order and state-dict surface
+are unchanged.
+
+Target mode is `shared_stop_gradient_full_view`: the shared hierarchical
+encoder runs on the complete raw view under eval/no-grad to produce detached
+note, bar, and song targets. The online path runs the same architecture with
+the feature overlay. There is no EMA target encoder. Selected online note rows
+pass through deterministic latent decoder re-mask views and a contextual
+representation decoder. Context mode
+`online_owner_track_bar_song_temporal_neighbors` combines only masked-online
+owner-track, available owner-bar, song, and previous/next in-track note
+representations. Adding it after latent re-masking prevents a fully re-masked
+view from reducing every prediction to the same learned mask token. All online
+bar and song rows pass through separate projector/predictors.
+
+Every component uses row-wise `1 - cosine` with contract-fixed `eps=1e-8` and
+`sum_count_mean` reduction. Numerator, denominator, mean, zero-norm count, and
+unavailable reason remain explicit. Zero-vector rows are counted, and a
+positively weighted component with no eligible rows makes total SSL loss
+unavailable. Anti-collapse diagnostics use exact normalized-vector sufficient
+statistics in `O(ND)` without a production pairwise matrix.
+
+The simple decoder mode is one view with no latent remasking. The Phase 7A
+main preset is three views with probability `0.20`; no relative-performance
+claim is made. Both use mask rate `0.30` by default. Separate note, bar, and
+song weights remain configurable.
+
+SSL checkpoint `1.0.0` binds the model/SSL contracts, field-registry
+fingerprint, resolved config, data index/split/composition/fixed-validation
+fingerprints, optimizer/scheduler/scaler, RNG, and ordered epoch journal.
+Save/load is atomic and resume is epoch-boundary-only. Encoder export `1.0.0`
+strictly transfers the local encoder, hierarchy pooling, Transformer, and
+fusion parameters into a compatible supervised hierarchical model without
+overwriting task or reconstruction heads.
+
+Run reports distinguish bounded versus named production-cache sources,
+production-cache reads, and one-batch plumbing scope from production or
+full-corpus SSL training claims. Cache use alone is not reported as either
+training claim.
+
+The full Phase 7A contract and its bounded-science/non-claim boundary are in
+`PHASE7A_SSL_BASELINE.md`.
+
 ## Incremental research scope
 
-GraphMAE2-inspired decoder remasking, Hi-GMAE-inspired hierarchical masking, and
-UGMAE-inspired adaptive or structural objectives are roadmap increments. They
-are not all part of the bootstrap or the first baseline model.
+Phase 7A implements GraphMAE2-inspired decoder remasking but is not a faithful
+GraphMAE2 reproduction. Hi-GMAE-inspired hierarchical masking and
+UGMAE-inspired adaptive or structural objectives remain roadmap increments.
+They are not part of the Phase 7A baseline. PDMX-scale effectiveness must be
+evaluated after the Phase 10 raw-compatible corpus projection; PLL and
+critic/quality scoring remain separate future contracts.

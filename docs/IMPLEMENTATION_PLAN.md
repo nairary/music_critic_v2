@@ -2766,6 +2766,55 @@ fixtures. It does not establish full-scale SSL effectiveness.
 - reports distinguish SSL reconstruction loss from any probabilistic masked
   conditional likelihood or PLL metric.
 
+### Phase 7A implemented increment
+
+Phase 7A implements the deterministic baseline in
+[`PHASE7A_SSL_BASELINE.md`](PHASE7A_SSL_BASELINE.md). It is
+GraphMAE2-inspired rather than a faithful reproduction and deliberately
+chooses `shared_stop_gradient_full_view`; the switchable EMA target encoder
+listed for the broader Phase 7 roadmap remains a deferred ablation.
+
+The only encoder mask family is `note_pitch_group`. It resolves note `pitch`,
+`pitch_class`, `octave`, and `track_relative_pitch` by name through the raw
+feature registry and masks their availability contributions. The same
+MaskPlan masks `track_relative_pitch` plus availability on every unselected
+note peer in an affected owner track, and carries collateral owner-track masks
+for `mean_pitch`, `pitch_std`, `min_pitch`, and `max_pitch`, including
+availability. Neither peer-note nor owner-track collateral fields are
+reconstruction targets. The resulting maskable-field registry fingerprint is
+`97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`.
+Duration, velocity, timing, topology, bars, and complete tracks remain visible.
+
+Per-sample selection uses deterministic SHA-256 seeds and
+`uniform_note_without_replacement@1.0.0`; it is independent of batch order,
+worker count, targets, and annotations. Train plans vary by epoch when
+possible, while validation uses canonical epoch zero. The model-side overlay
+does not mutate or cache raw graphs and preserves the no-mask Phase 6 path.
+
+The shared full target view is detached at note, bar, and song levels. Online
+selected-note rows use deterministic decoder re-mask views and representation
+decoding with context mode
+`online_owner_track_bar_song_temporal_neighbors`. Its masked-online
+owner-track, available owner-bar, song, and temporal-neighbor context prevents
+fully re-masked rows from producing predictions from one constant token alone.
+Bar and song use projector/predictor latent objectives. Every component reports
+`1-cosine` with `eps=1e-8`, sum/count/mean, zero-norm count, and explicit
+unavailability. Anti-collapse diagnostics use `O(ND)` sufficient statistics
+and no production `N x N` matrix.
+
+The simple baseline is one decoder view with remask probability zero. The main
+Phase 7A preset is three views with remask probability `0.20`; no superiority
+claim is made. Raw-only loading, exact fixed validation, failure-atomic
+epoch-boundary checkpoints/resume, and strict representation-only encoder
+transfer are included. Production cache loading uses a dedicated target-free
+dataset/collator around `load_cached_piece` and `build_raw_graph`, never
+supervised target projection. Reports distinguish their source kind, cache
+use, and one-batch scope from production and full-corpus training claims.
+
+Phase 7A does not implement hierarchy masks (Phase 8), a PDMX projection or
+scaled-effectiveness claim (Phase 10), masked conditional likelihood,
+perplexity, PLL, preference/critic learning, or quality scoring.
+
 ## Phase 8. Hi-GMAE-style hierarchy
 
 ### Implement
