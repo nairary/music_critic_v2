@@ -7,7 +7,7 @@ supervised auxiliary heads. It is not a critic score, calibration result, SSL
 objective, or new checkpoint-selection policy. It changes no model, graph,
 adapter, target, corpus, cache, ontology, or encoding semantics.
 
-Evaluation and evaluation-artifact contracts are version `1.1.0`. The
+Evaluation and evaluation-artifact contracts are version `1.1.1`. The
 profiler contract is `1.1.0`, the macro-summary sub-contract is `1.0.0`, and
 the unchanged train-prior contract remains `1.0.0`.
 
@@ -30,10 +30,23 @@ and `entity_index_mask=true`. Alignment conflicts are emitted as unavailable
 rows and counted separately. Masked, unavailable, unaligned, conflict, and
 open-vocabulary/deferred rows never enter a metric denominator.
 
-Validation is the default. It uses the same fixed full-view or hash-selected
-membership policy as Phase 6C. Test evaluation fails before checkpoint access
-unless `acknowledge_test_evaluation=true`; every test artifact states that
-test was not used for checkpoint selection.
+Validation is the default. Training and evaluation import one neutral
+`fixed_validation_membership_v1` contract. Its ranking and membership payloads
+use the exact compact UTF-8 JSON bytes, without a terminal newline, used by
+Phase 6C checkpoints. Hash-selected membership is without replacement and is
+emitted in canonical view order; `limit=0` means the complete view. This byte
+rule is intentionally separate from the newline-bearing global evaluation
+`canonical_fingerprint`, whose semantics did not change.
+
+Evaluation contract `1.1.0` documentation incorrectly claimed exact Phase 6C
+membership parity while evaluation used the global newline-bearing
+fingerprint. Contract `1.1.1` restores actual backward compatibility without
+changing or deprecating existing checkpoints and without weakening any index,
+split, composition, or membership check.
+
+Test evaluation fails before checkpoint access unless
+`acknowledge_test_evaluation=true`; every test artifact states that test was
+not used for checkpoint selection.
 
 ## Fingerprint evidence
 

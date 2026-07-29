@@ -1347,3 +1347,34 @@ This log is append-only.
   begins at `1.0.0`. The unchanged train-prior contract stays `1.0.0`.
   Models, checkpoints, adapters, canonical/graph contracts, ontology, target
   semantics, caches, split manifests, and Phase 7 remain unchanged.
+
+## 2026-07-29 — ADR-049: Fixed-validation membership preserves Phase 6C bytes
+
+- Status: Accepted as a blocking Phase 6D-A compatibility hotfix.
+- Context: Phase 6C ranked validation identities and fingerprinted membership
+  with compact sorted UTF-8 JSON and no terminal newline. Phase 6D-A
+  evaluation reused its global canonical fingerprint, which deliberately adds
+  a newline. The payload objects looked identical but their SHA-256 values did
+  not, so valid Phase 6C checkpoints trained with a partial fixed validation
+  view failed `validation_membership_fingerprint` verification. Documentation
+  for evaluation `1.1.0` incorrectly claimed exact Phase 6C parity.
+- Decision: Training and evaluation import one neutral, versioned
+  `fixed_validation_membership_v1` implementation. Ranking hashes the exact
+  payload `{policy, seed, identity}` and membership hashes the exact payload
+  `{policy, seed, subset_limit, full_view_count, selected_identities}` using
+  compact sorted UTF-8 JSON without a terminal newline. Selection remains
+  seed-dependent, without replacement, and is emitted in canonical view order.
+  `limit=0` and `limit=len(view)` both select the complete view while retaining
+  their distinct historical `subset_limit` payload value.
+- Decision: Existing Phase 6C checkpoint bytes and metadata are authoritative
+  compatibility oracles. No fingerprint substitution, mismatch override, or
+  checkpoint migration is permitted. Global evaluation
+  `canonical_fingerprint` remains newline-bearing because existing evaluation
+  artifacts depend on it. Index, split-manifest, train/validation composition,
+  and membership checks remain fail-closed.
+- Consequences: Evaluation and evaluation-artifact contracts advance from
+  `1.1.0` to `1.1.1`. Fixed-validation membership begins its neutral shared
+  contract at `1.0.0`. Macro-summary `1.0.0`, profiler `1.1.0`, train-prior
+  `1.0.0`, training checkpoint, model, target, cache, and split contracts do
+  not change. Existing Phase 6C checkpoints remain valid without mutation.
+  Phase 7 remains unstarted.

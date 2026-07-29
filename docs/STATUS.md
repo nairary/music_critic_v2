@@ -78,13 +78,34 @@
   `d3590d18550ba4a47bb8386786295d4905544fb5`
 - Device-transfer contract: `1.0.0`
 - Training-checkpoint contract: `1.0.0`
-- Phase 6D-A: Implemented on branch
-  `phase/6d-supervised-evaluation`; local/Required CI are the merge gate
-- Evaluation/artifact contracts: `1.1.0`; profiler: `1.1.0`; macro-summary
+- Phase 6D-A: Accepted and merged in PR #13 at
+  `18ebf5b69797f5d40ff38607cf8e8b5dad2f86e7`; the membership-parity hotfix
+  remains a separate draft/CI gate
+- Evaluation/artifact contracts: `1.1.1`; profiler: `1.1.0`; macro-summary
   sub-contract: `1.0.0`; unchanged train-prior: `1.0.0`
 - Next phase after Phase 6D-A acceptance: Phase 7 — GraphMAE2-style SSL
 
 ## Phase 6D-A supervised evaluation result
+
+- Blocking validation-membership parity hotfix is implemented on branch
+  `hotfix/phase6d-validation-membership-parity`. Training and evaluation now
+  import one neutral `fixed_validation_membership_v1` implementation whose
+  compact UTF-8 JSON bytes have no terminal newline, exactly matching existing
+  Phase 6C checkpoint fingerprints. The global evaluation canonical
+  fingerprint remains unchanged.
+- The previous `1.1.0` documentation incorrectly asserted exact Phase 6C
+  membership parity: evaluation ranking and membership had used a
+  newline-bearing fingerprint and rejected valid partial-validation Phase 6C
+  checkpoints. Evaluation/artifact `1.1.1` corrects that compatibility defect
+  without modifying checkpoints or weakening index/split/composition checks.
+- Read-only acceptance of
+  `data/runs/hierarchical-cpu-pilot-10e-2/best.pt` with seed `42` and 512 fixed
+  validation samples matched its legacy membership fingerprint
+  `52633d79c29498e9f865668121b5454b33baed879e66bc4fd379dbf61a0f2593`.
+  All checkpoint data-binding fields verified. The checkpoint SHA-256 remained
+  `31b621a214bc31caaf6d76c99b62f5e6b2913d038b9dcaf25900d18ace8a6f3b`.
+  The smoke used only two train samples for prior plumbing, so it is not a
+  scientific validation-metric claim.
 
 - Existing Phase 6A/6B model-only and Phase 6C training checkpoints load into
   a fresh model from their strict model contract. Only model weights are
@@ -123,15 +144,31 @@
   sample/batch throughput to `epoch_performance.jsonl`. This sidecar is
   deliberately excluded from the deterministic checkpoint and metric journal,
   so existing byte-exact Phase 6C resume evidence is preserved.
-- No production cache, active pilot checkpoint, or `metrics.jsonl` was written,
-  rebuilt, or deleted. The active pilot checkpoint was not read. Synthetic
-  fixtures and temporary directories supplied default acceptance; the only
-  production-cache access was an explicit read-only smoke of 2 train plus
-  2 validation artifacts per dataset through absolute paths. No full corpus
-  scan/evaluation/training ran. Legacy code was not inspected or reused.
-  Phase 7 has not started.
+- No production cache, checkpoint, or `metrics.jsonl` was written, rebuilt, or
+  deleted. Synthetic fixtures and temporary directories supplied default
+  acceptance. The initial Phase 6D-A smoke read 2 train plus 2 validation
+  artifacts per dataset; the later membership-parity hotfix read the explicitly
+  requested completed checkpoint and 512 fixed validation artifacts through
+  absolute production paths. Both wrote outputs only under `/tmp`; neither ran
+  a full corpus evaluation/training pass. Legacy code was not inspected or
+  reused. Phase 7 has not started.
 
 ## Phase 6D-A verification
+
+- Validation-membership hotfix focused suite: `63 passed`; it covers literal
+  legacy Phase 6C bytes/SHA-256, multiple limits/seeds and mixed identities,
+  shared training/evaluation selection, production checkpoint-writer E2E,
+  deterministic repeated artifacts, negative seed/limit/split/index/
+  composition binding, all Phase 6D evaluation tests, and Phase 6C
+  checkpoint/resume/epoch-performance regressions.
+- Public canonical-data API plus hotfix tests after keeping the shared contract
+  neutral and non-public: `20 passed`.
+- Final local hotfix suite: `832 passed, 19 skipped` in `58.23 s`; skips remain
+  the existing opt-in real-data/CUDA guards. Warnings are the existing PyTorch
+  JIT deprecations and the intentional Python 3.13 worker-fork warning.
+- The Phase 6C-writer/Phase 6D-evaluator deterministic artifact regression was
+  rerun alone after the full suite: `1 passed`.
+- `python -m compileall -q src tests` and `git diff --check`: passed.
 
 - Remediation metric/summary/checkpoint oracle tests: `15 passed`. The direct
   confusion-count oracle covers categorical and multilabel supported misses,
@@ -165,9 +202,10 @@
   manifest paths. Results remained dataset-isolated. Historical data
   verification was correctly `false` because a Phase 6A model-only checkpoint
   has no Phase 6C data binding.
-- Draft PR #13 was opened from `phase/6d-supervised-evaluation` into `main`.
-  Both remediation `full-suite` GitHub checks passed at commit `e9e22f0` in
-  `1m51s` and `1m55s`. The PR remains draft and no merge was attempted.
+- PR #13 was merged into `main` at `18ebf5b`; both remediation `full-suite`
+  GitHub checks passed at commit `e9e22f0` in `1m51s` and `1m55s`. The
+  validation-membership compatibility correction is intentionally isolated in
+  its own hotfix branch and new draft PR.
 
 ## Phase 6C reproducible baseline training result
 
