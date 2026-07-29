@@ -72,11 +72,102 @@
 - Hierarchy pooling, coarse token sequence, hierarchical encoder output,
   top-down fusion, hierarchical model/output, and hierarchical checkpoint:
   `1.0.0`
-- Phase 6C: Implemented on branch `phase/6c-training-harness`; draft PR and
-  Required CI are the merge gate
+- Phase 6C: Accepted and merged in PR #11 at
+  `05501d8247f60d540e79841f89da42988a76b3e3`
+- POP909-CL identity hotfix: Accepted and merged in PR #12 at
+  `d3590d18550ba4a47bb8386786295d4905544fb5`
 - Device-transfer contract: `1.0.0`
 - Training-checkpoint contract: `1.0.0`
-- Next phase after acceptance: Phase 7 — GraphMAE2-style SSL
+- Phase 6D-A: Implemented on branch
+  `phase/6d-supervised-evaluation`; local/Required CI are the merge gate
+- Evaluation/artifact contracts: `1.1.0`; profiler: `1.1.0`; macro-summary
+  sub-contract: `1.0.0`; unchanged train-prior: `1.0.0`
+- Next phase after Phase 6D-A acceptance: Phase 7 — GraphMAE2-style SSL
+
+## Phase 6D-A supervised evaluation result
+
+- Existing Phase 6A/6B model-only and Phase 6C training checkpoints load into
+  a fresh model from their strict model contract. Only model weights are
+  applied; optimizer, scheduler, scaler, checkpoint RNG, and caller RNG remain
+  untouched. Checkpoint SHA-256, model contract, current ontology/encoding, and
+  current data bindings are reported.
+- The evaluator defaults to fixed validation. Test requires
+  `acknowledge_test_evaluation=true` and is explicitly marked unavailable for
+  checkpoint selection. Phase 6C validation checkpoints are matched against
+  index, split, composition, and membership evidence; cache artifacts remain
+  index-SHA-validated on read.
+- Raw graphs reach `model.predict` before target sidecars are joined. Only
+  available, aligned, conflict-free, fully supervised rows enter streaming
+  metrics. Results remain keyed by dataset and exact source-native task;
+  HookTheory and POP909-CL heads never share metric or macro buckets.
+- Categorical and multilabel metrics, class evidence, counts, undefined-value
+  reasons, train-only trivial baselines, and model-minus-baseline comparisons
+  are fixed-memory. Train priors are a separate artifact bound to train
+  membership and index/cache/split/ontology/encoding evidence; held-out label
+  mutation cannot change their fingerprint.
+- Per-class categorical and multilabel F1 is `2TP/(2TP+FP+FN)` and is
+  undefined only when truth and predictions both omit the class. Defined zero
+  values remain in class macro-F1. Versioned task macro summaries group only
+  by exact dataset and encoding kind, expose included and undefined task IDs
+  and counts, and explicitly omit scientifically incomparable cross-vocabulary
+  likelihood aggregates.
+- The explicitly enabled bounded profiler separates serial exclusive
+  preparation, prepared training compute, prepared validation, loader-only
+  traversal, and loader-plus-compute end-to-end passes. It does not repeat
+  alignment inside measured assembly, does not assign overlapping worker time
+  to collation, declares per-sample/per-batch units, and labels RSS as a
+  process-level high-water mark. Optional deterministic production-read-only
+  subsets require explicit absolute index/cache/split paths. Normal training
+  never enables detailed profiling.
+- Ordinary training writes bounded per-epoch train/validation wall time and
+  sample/batch throughput to `epoch_performance.jsonl`. This sidecar is
+  deliberately excluded from the deterministic checkpoint and metric journal,
+  so existing byte-exact Phase 6C resume evidence is preserved.
+- No production cache, active pilot checkpoint, or `metrics.jsonl` was written,
+  rebuilt, or deleted. The active pilot checkpoint was not read. Synthetic
+  fixtures and temporary directories supplied default acceptance; the only
+  production-cache access was an explicit read-only smoke of 2 train plus
+  2 validation artifacts per dataset through absolute paths. No full corpus
+  scan/evaluation/training ran. Legacy code was not inspected or reused.
+  Phase 7 has not started.
+
+## Phase 6D-A verification
+
+- Remediation metric/summary/checkpoint oracle tests: `15 passed`. The direct
+  confusion-count oracle covers categorical and multilabel supported misses,
+  unsupported false positives, absent truth+prediction, the old macro-F1
+  overestimate, and row-order/batch-partition invariance.
+- Remediation profiler tests: `6 passed`. They cover the serial exclusive
+  result-flow chain, one alignment per scheduled sample, consistent units,
+  honest `workers>0` unavailable attribution, a loader delay inside the
+  end-to-end timer, and immutable temporary indexed-cache contents in
+  production-read-only mode.
+- Combined evaluation/data/prior/checkpoint plus epoch-performance/resume/
+  atomicity regressions: `44 passed`. The repeated checkpoint evaluation
+  remains bit-exact and raw-byte `metrics.jsonl`, checkpoint, optimizer, and
+  RNG resume comparisons pass unchanged.
+- The repeated-evaluation artifact check was also rerun alone after the full
+  suite: `1 passed`; both artifact directories were byte-identical.
+- Final default suite on the completed remediation tree: `813 passed,
+  19 skipped` in `807.18 s`; skips are existing opt-in real-data/CUDA guards.
+  Warnings comprise PyTorch JIT deprecations, the Python 3.13 fork warning in
+  the intentional worker test, and one non-failing DataLoader cleanup warning.
+- `python -m compileall -q src tests`: passed.
+- `git diff --check`: passed.
+- Pre-remediation bounded CLI acceptance wrote all five required evaluation artifacts for
+  3 validation samples across both datasets, evaluated 63 eligible rows,
+  retained zero prediction tensors, and completed one profiler cell. The
+  superseding profiler `1.1.0` evidence uses separate measurement passes
+  rather than calling the former overlapping timings independent.
+- Optional read-only production smoke used a temporary model-only checkpoint
+  and temporary outputs. HookTheory and POP909-CL each loaded exactly 2 train
+  and 2 validation cache artifacts through explicit absolute index/cache/
+  manifest paths. Results remained dataset-isolated. Historical data
+  verification was correctly `false` because a Phase 6A model-only checkpoint
+  has no Phase 6C data binding.
+- Draft PR #13 was opened from `phase/6d-supervised-evaluation` into `main`.
+  Both remediation `full-suite` GitHub checks passed at commit `e9e22f0` in
+  `1m51s` and `1m55s`. The PR remains draft and no merge was attempted.
 
 ## Phase 6C reproducible baseline training result
 
@@ -173,8 +264,8 @@
   artifact/RNG-atomic incompatible resume, cosine used/next LR evidence,
   pre-mutation future-epoch rejection, and static synchronization guards.
   Deterministic target audit `--check`, compileall over `src`, `scripts`, and
-  `tests`, and `git diff --check` pass. Required GitHub CI remains the remote
-  merge gate.
+  `tests`, and `git diff --check` passed. Required GitHub CI subsequently
+  passed before Phase 6C merged in PR #11.
 
 ## Phase 6C full-corpus POP909-CL identity remediation
 

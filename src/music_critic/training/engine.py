@@ -49,6 +49,7 @@ class InjectedTrainingCrash(RuntimeError):
 
 
 RUN_MANIFEST_VERSION = "1.0.0"
+EPOCH_PERFORMANCE_VERSION = "1.0.0"
 _MANAGED_FILENAMES = (
     "resolved_config.json",
     "fingerprints.json",
@@ -57,6 +58,7 @@ _MANAGED_FILENAMES = (
     "one_batch_report.json",
     "one_batch.pt",
     "metrics.jsonl",
+    "epoch_performance.jsonl",
     "training_report.json",
     "last.pt",
     "best.pt",
@@ -1093,6 +1095,90 @@ def _reset_metric_journal(output_dir: Path) -> None:
     _write_text_atomic(output_dir / "metrics.jsonl", "")
 
 
+def _read_performance_rows(output_dir: Path) -> list[dict[str, Any]]:
+    path = output_dir / "epoch_performance.jsonl"
+    if not path.exists():
+        return []
+    rows = []
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise TrainingContractError(
+                "training.performance.unreadable:"
+                f"{line_number}:{exc}"
+            ) from exc
+        if (
+            not isinstance(row, dict)
+            or row.get("next_epoch") != line_number
+            or row.get("epoch_performance_version")
+            != EPOCH_PERFORMANCE_VERSION
+        ):
+            raise TrainingContractError(
+                "training.performance.non_contiguous"
+            )
+        rows.append(row)
+    return rows
+
+
+def _write_performance_rows(
+    output_dir: Path, rows: list[dict[str, Any]]
+) -> None:
+    payload = "".join(
+        json.dumps(
+            row,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        + "\n"
+        for row in rows
+    )
+    _write_text_atomic(output_dir / "epoch_performance.jsonl", payload)
+
+
+def _sync_performance_rows(
+    output_dir: Path, *, committed_epochs: int
+) -> None:
+    """Align the non-binding timing sidecar with checkpoint authority."""
+
+    rows = _read_performance_rows(output_dir)[:committed_epochs]
+    while len(rows) < committed_epochs:
+        next_epoch = len(rows) + 1
+        rows.append(
+            {
+                "epoch_performance_version": EPOCH_PERFORMANCE_VERSION,
+                "epoch": next_epoch - 1,
+                "next_epoch": next_epoch,
+                "train": None,
+                "validation": None,
+                "unavailable": {
+                    "category": "recovered_epoch_without_timing",
+                    "reason": (
+                        "the deterministic epoch was checkpoint-committed "
+                        "before its non-binding timing sidecar was written"
+                    ),
+                },
+                "checkpoint_binding_participation": False,
+            }
+        )
+    _write_performance_rows(output_dir, rows)
+
+
+def _append_performance_row(
+    output_dir: Path, row: dict[str, Any]
+) -> None:
+    rows = _read_performance_rows(output_dir)
+    if row.get("next_epoch") != len(rows) + 1:
+        raise TrainingContractError(
+            "training.performance.append_epoch_mismatch"
+        )
+    rows.append(row)
+    _write_performance_rows(output_dir, rows)
+
+
 def _atomic_copy(source: Path, destination: Path) -> None:
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{destination.name}.",
@@ -1273,6 +1359,11 @@ def _run_epochs(
             output_dir, config, runtime, model
         )
         _reset_metric_journal(output_dir)
+        _write_performance_rows(output_dir, [])
+    if resume:
+        _sync_performance_rows(
+            output_dir, committed_epochs=start_epoch
+        )
     epochs = int(config["experiment"]["epochs"])
     completed = start_epoch
     for epoch in range(start_epoch, epochs):
@@ -1285,6 +1376,7 @@ def _run_epochs(
             ],
             task_weights=config["objective"]["task_weights"],
         )
+        train_started_at = time.perf_counter()
         for cpu_batch in runtime.train_loader(epoch):
             batch = move_multisource_batch(
                 cpu_batch,
@@ -1309,18 +1401,21 @@ def _run_epochs(
             )
             train_accumulator.add(output, batch, skipped=skipped)
         train_metric = train_accumulator.finalize()
+        train_wall_seconds = time.perf_counter() - train_started_at
         if train_metric["batch_count"] == 0:
             raise TrainingContractError("training.epoch.empty")
         if scheduler is not None:
             scheduler.step()
         next_learning_rate = optimizer.param_groups[0]["lr"]
         validation = None
+        validation_wall_seconds = None
         if (
             (epoch + 1)
             % int(config["experiment"]["validation_interval"])
             == 0
             or epoch + 1 == epochs
         ):
+            validation_started_at = time.perf_counter()
             validation = _validation_epoch(
                 model,
                 runtime.validation_loader(),
@@ -1329,6 +1424,9 @@ def _run_epochs(
                 membership_evidence=asdict(
                     runtime.validation_membership
                 ),
+            )
+            validation_wall_seconds = (
+                time.perf_counter() - validation_started_at
             )
         row = {
             "epoch": epoch,
@@ -1371,6 +1469,54 @@ def _run_epochs(
             runtime=runtime,
             crash_after=crash_after,
         )
+        train_sample_count = sum(
+            int(value)
+            for value in train_metric["dataset_counts"].values()
+        )
+        validation_sample_count = (
+            0
+            if validation is None
+            else sum(
+                int(value)
+                for value in validation["dataset_counts"].values()
+            )
+        )
+        _append_performance_row(
+            output_dir,
+            {
+                "epoch_performance_version": EPOCH_PERFORMANCE_VERSION,
+                "epoch": epoch,
+                "next_epoch": epoch + 1,
+                "train": {
+                    "wall_seconds": train_wall_seconds,
+                    "samples_per_second": (
+                        train_sample_count / train_wall_seconds
+                    ),
+                    "batches_per_second": (
+                        int(train_metric["batch_count"])
+                        / train_wall_seconds
+                    ),
+                },
+                "validation": (
+                    None
+                    if validation is None
+                    or validation_wall_seconds is None
+                    else {
+                        "wall_seconds": validation_wall_seconds,
+                        "samples_per_second": (
+                            validation_sample_count
+                            / validation_wall_seconds
+                        ),
+                        "batches_per_second": (
+                            int(validation["batch_count"])
+                            / validation_wall_seconds
+                        ),
+                    }
+                ),
+                "unavailable": None,
+                "checkpoint_binding_participation": False,
+            },
+        )
         completed = epoch + 1
         if stop_after_epoch is not None and completed >= stop_after_epoch:
             break
@@ -1383,11 +1529,15 @@ def _run_epochs(
         "configured_epochs": epochs,
         "best_validation_loss": best,
         "metrics": str(output_dir / "metrics.jsonl"),
+        "epoch_performance": str(
+            output_dir / "epoch_performance.jsonl"
+        ),
         "last_checkpoint": str(output_dir / "last.pt"),
         "best_checkpoint": str(output_dir / "best.pt"),
         "amp_enabled": bool(config["device"]["amp"]),
         "scaler_enabled": scaler.is_enabled(),
         "duration_seconds": time.perf_counter() - started_at,
+        "detailed_profiler_enabled": False,
         "device": _device_evidence(device),
         "fingerprints": runtime.fingerprints,
         "validation_membership": asdict(

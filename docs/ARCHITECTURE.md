@@ -449,6 +449,64 @@ explicit diagnostic operation. Epoch rows distinguish
 `learning_rate_used` from post-scheduler `next_learning_rate`. Commands and
 artifact semantics are in `TRAINING.md`.
 
+## Phase 6D-A evaluation boundary
+
+Evaluation reconstructs a fresh feature-only, local-GNN, or hierarchical model
+from the checkpoint's complete model contract and loads only `model_state`.
+It validates the contract against current canonical/graph/feature/ontology/
+encoding/head metadata before applying weights. Phase 6C data bindings are
+matched to the selected index, split manifest, train/evaluation composition,
+and fixed validation membership. Each selected cached piece is still checked
+against its index-bound canonical SHA-256 while loading. Older Phase 6A/6B
+model-only checkpoints remain evaluable, but their lack of historical
+Phase 6C data binding is reported rather than silently claimed as verified.
+Optimizer, scheduler, scaler, checkpoint RNG, and caller RNG are not applied.
+
+The inference boundary is candidate-first:
+
+```text
+raw graph -> encoder + source-native candidate logits
+          -> target-sidecar join
+          -> eligible-row streaming metrics
+```
+
+Targets are unavailable to `predict`. The later join admits only available,
+aligned, fully supervised rows; conflict rows are unavailable by construction.
+Metrics are keyed by exact `(dataset_id, task_id)`, and a task is admitted only
+for its ontology-declared source adapter. HookTheory and POP909-CL heads
+therefore never share a bucket or macro average. Streaming accumulators retain
+fixed confusion/TP/FP/FN/TN and exact binary64 likelihood sums, not prediction
+tensors.
+
+Per-class F1 is computed directly from confusion counts as
+`2 TP / (2 TP + FP + FN)`. It is undefined only when that denominator is zero;
+supported-but-unpredicted and unsupported-with-false-positive classes have
+defined F1 zero and remain in macro-F1. Versioned task macro summaries preserve
+the complete dataset/task evidence and group only by exact dataset plus
+encoding kind. They average defined normalized task metrics without task
+weights, count excluded undefined tasks, and omit cross-vocabulary NLL/BCE and
+other scientifically incomparable aggregates with explicit reasons.
+
+Trivial baselines are constructed in a separate pass over the train split
+only. Their artifact binds train membership, index/cache/split, ontology, and
+encoding evidence. Held-out labels are joined only after fixed majority,
+empirical-prior, prevalence, and 0.5-threshold decisions exist. Undefined
+metrics use JSON `null` plus a stable category and explanation.
+
+Detailed timing is a separate, explicitly enabled, bounded profiler with
+synthetic plumbing and an optional indexed production-read-only subset.
+For `workers=0`, its exclusive preparation chain passes canonical artifacts to
+graph construction, then target alignment/tensorization, then assembly without
+repeating alignment. Prepared-batch compute, validation compute, loader-only
+traversal, and loader-plus-training end-to-end throughput are distinct passes.
+Multiprocess startup/IPC/prefetch attribution is reported as unavailable
+rather than assigned to collation, and RSS is a process high-water mark.
+Normal training contains no per-batch timing histories or CUDA synchronization.
+Per-epoch train/validation wall time and throughput live in the non-binding
+`epoch_performance.jsonl` sidecar. The deterministic `metrics.jsonl` journal
+and checkpoint contract remain byte-exact across epoch-boundary resume.
+The complete contract is in `EVALUATION.md`.
+
 ## Incremental research scope
 
 GraphMAE2-inspired decoder remasking, Hi-GMAE-inspired hierarchical masking, and

@@ -379,8 +379,10 @@ The model and training phases remain pending.
 
 ## Phase 6C — Reproducible baseline training harness
 
-- Status: Implemented on branch `phase/6c-training-harness`; draft PR and
-  Required CI are the merge gate.
+- Status: Accepted and merged in PR #11 at
+  `05501d8247f60d540e79841f89da42988a76b3e3`; the POP909-CL identity
+  remediation is merged in PR #12 at
+  `d3590d18550ba4a47bb8386786295d4905544fb5`.
 - Goal: make the three unchanged Phase 6A/6B baselines reproducibly trainable
   on bounded fixtures and existing versioned corpus caches on CPU or CUDA.
 - Dependencies: accepted and merged Phase 6B.
@@ -409,10 +411,36 @@ The model and training phases remain pending.
   HookTheory index pass one complete cache/split audit; the only exact score
   duplicate cluster is split-atomic and no full-corpus training is implied.
 
+## Phase 6D-A — Supervised evaluation and performance evidence
+
+- Status: Implemented on branch `phase/6d-supervised-evaluation`; bounded
+  acceptance and Required CI are the merge gate.
+- Goal: establish whether existing supervised heads outperform honest
+  train-only trivial baselines and provide bounded evidence for CPU cost.
+- Dependencies: accepted and merged Phase 6C and PR #12 identity remediation.
+- Outputs: versioned candidate-first evaluator; fixed validation and explicit
+  test CLI; categorical/multilabel dataset-task-class metrics; provenance-bound
+  train priors; true dataset/encoding task macro summaries; deterministic JSON
+  artifacts; bounded opt-in performance matrix with exclusive preparation,
+  compute-only and end-to-end boundaries; optional deterministic indexed
+  production-read-only subsets; non-binding epoch timing sidecar.
+- Tests: hand-computed metrics, partition/order invariance, mask/target
+  boundaries, target-mutation logit invariance, train-prior isolation,
+  repeated bit-exact evaluation, test acknowledgement, source-native
+  dataset/task isolation, direct-count F1 undefined semantics, true macro
+  grouping, fixed memory, no repeated serial alignment, honest worker
+  attribution, end-to-end loader timing, profiler opt-in, timing/checkpoint
+  separation, and Phase 6C resume regression.
+- Non-goals: full-corpus scan/training, new checkpoint selection, Phase 7 SSL,
+  PLL, calibration, preference/critic work, or any model/data semantics.
+- Acceptance: bounded synthetic evaluation and profiling complete; all
+  artifacts expose contracts/fingerprints and no incompatible source heads are
+  averaged. Optional real-cache smoke is explicitly bounded and read-only.
+
 ## Phase 7 — GraphMAE2-style SSL
 
 - Goal: add masked observable-feature representation learning.
-- Dependencies: Phase 6C.
+- Dependencies: Phase 6D-A evaluation evidence.
 - Outputs: masking views, remasked representation decoder, latent prediction
   losses, and a design gate before any normalized probabilistic
   masked-note/pitch-set decoder or deterministic PLL protocol.
