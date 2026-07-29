@@ -69,6 +69,7 @@ from music_critic.training.checkpoint import (
 SSL_RUN_MANIFEST_VERSION = "1.1.0"
 SSL_TRAINING_REPORT_VERSION = "1.1.0"
 SSL_PERFORMANCE_ROW_VERSION = "1.1.0"
+SSL_ONE_BATCH_DEFAULT_LEARNING_RATE = 3e-4
 
 
 class SSLTrainingError(ValueError):
@@ -88,9 +89,11 @@ def _plain_config(config: object) -> dict[str, Any]:
         raise SSLTrainingError("ssl.training.config_root_invalid")
     value.pop("defaults", None)
     if value["optimizer"]["learning_rate"] is None:
-        value["optimizer"]["learning_rate"] = value["experiment"][
-            "default_learning_rate"
-        ]
+        value["optimizer"]["learning_rate"] = (
+            SSL_ONE_BATCH_DEFAULT_LEARNING_RATE
+            if value["experiment"]["name"] == "one_batch"
+            else value["experiment"]["default_learning_rate"]
+        )
     return value
 
 
@@ -2626,6 +2629,7 @@ def run_ssl_training(
 
 __all__ = [
     "SSL_METRIC_ROW_VERSION",
+    "SSL_ONE_BATCH_DEFAULT_LEARNING_RATE",
     "SSL_PERFORMANCE_ROW_VERSION",
     "SSL_RUN_MANIFEST_VERSION",
     "SSL_TRAINING_REPORT_VERSION",

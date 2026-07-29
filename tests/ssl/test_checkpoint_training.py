@@ -21,6 +21,7 @@ from music_critic.ssl.engine import (
     SSLTrainingError,
     _Accumulator,
     _optimize_batch,
+    _plain_config,
     _training_scope_evidence,
     run_ssl_training,
 )
@@ -129,6 +130,22 @@ def _assert_state_equal(left: object, right: object) -> None:
             _assert_state_equal(left_item, right_item)
     else:
         assert left == right
+
+
+def test_ssl_one_batch_default_learning_rate_is_phase7a_specific() -> None:
+    config = _config(
+        Path("/tmp/unused-phase7a-learning-rate"),
+        "one_batch",
+    )
+    config.optimizer.learning_rate = None
+    assert _plain_config(config)["optimizer"]["learning_rate"] == pytest.approx(
+        3e-4
+    )
+
+    config.optimizer.learning_rate = 0.001
+    assert _plain_config(config)["optimizer"]["learning_rate"] == pytest.approx(
+        0.001
+    )
 
 
 def _checkpoint_objects():
@@ -543,6 +560,7 @@ def test_one_batch_report_has_trajectory_reload_transfer_and_cpu_evidence(
     config.ssl.decoder_remask_prob = 0.20
     config.ssl.mask_rate = 0.30
     config.experiment.steps = 40
+    config.optimizer.learning_rate = None
     report = run_ssl_training(config)
 
     assert report["evidence_kind"] == "bounded_phase7a_ssl_plumbing"
@@ -550,6 +568,7 @@ def test_one_batch_report_has_trajectory_reload_transfer_and_cpu_evidence(
     assert report["node_count"] == 114
     assert report["edge_count"] == 740
     assert report["steps"] == 40
+    assert report["learning_rate_used"] == pytest.approx(3e-4)
     assert report["trajectory_measurement_mode"] == "eval_no_grad"
     assert report["final"]["total_ssl_loss"] < report["initial"][
         "total_ssl_loss"
