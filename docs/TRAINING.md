@@ -250,7 +250,11 @@ ablation; missing labels never become negative or zero-loss examples.
 ## Device-transfer boundary and CUDA acceptance
 
 `move_multisource_batch(batch, device, non_blocking=...)` is the official
-non-mutating boundary. It deep-copies the raw PyG batch and transfers only
+non-mutating boundary under device-transfer contract `1.0.1`. One shared
+runtime resolver canonicalizes CPU to `cpu`, bare CUDA to the concrete
+`cuda:<torch.cuda.current_device()>`, and preserves an explicit `cuda:N`.
+Every CUDA request fails structurally when CUDA is unavailable. It deep-copies
+the raw PyG batch and transfers only
 tensor attributes, preserving tuple-valued graph metadata. Model-facing target
 tensors move to the same device, while strings, provenance, diagnostics,
 statistics, and other CPU sidecars remain CPU objects. Targets are never added
@@ -259,6 +263,12 @@ before transfer. The normal device path performs only structural
 device/shape/task-order checks without data-dependent CUDA predicates. Full
 post-transfer semantic validation is available through
 `debug_validate_device=True`.
+
+Post-transfer checks compare the complete `torch.device`, including its CUDA
+index. They never accept a tensor merely because its device type is `cuda`;
+an expected `cuda:1` rejects an actual `cuda:0`. Evaluation uses the same
+resolver and transfer boundary. Device evidence reports the concrete runtime
+device, for example `cuda:0`, rather than the unresolved selector `cuda`.
 
 Normal multi-epoch training does not collect parameter-by-parameter gradient
 evidence. The default engine/device hot path has no tensor-to-Python

@@ -407,6 +407,13 @@ enter graph stores. Fixed task/node-family tensor checks prove device, shape,
 task ordering, and graph binding without replaying row-wise Python validation
 on CUDA.
 
+Runtime device resolution is shared by training, evaluation, and SSL. CPU
+canonicalizes to bare `cpu`; bare CUDA resolves to the current concrete index;
+and explicit `cuda:N` preserves its index. Unavailable CUDA is a structured
+contract failure. Transfer validation compares exact devices, never only
+`device.type`, because `cuda:0` and `cuda:1` are different placement
+boundaries. Device-transfer contract `1.0.1` records this patch-level rule.
+
 One-batch mode repeats exactly one bounded or first real cached train batch,
 reports harmonic/reconstruction/total losses, finite gradients, clipping,
 candidate counts, and gradient coverage, then requires both active objectives
@@ -549,6 +556,12 @@ version counters, devices, private HMACs, and opaque tokens are deliberately
 excluded from deterministic fingerprints, serialization, caches, checkpoints,
 and reports.
 
+The transfer receives the same concrete runtime device as the Phase 6C and
+evaluation boundaries. The selected-note-index binding sidecar is moved to and
+validated against that exact device. A mismatch retains
+`ssl.data.device_transfer_tensor_mismatch` and identifies the global, node,
+edge, or binding field together with concrete expected and actual devices.
+
 The public Phase 6 raw encoder and model `forward`/`encode` paths have no
 boolean validation bypass and always run the established full graph validator.
 The internal prepared encoder requires a process-local opaque token bound to
@@ -649,10 +662,12 @@ note/bar/song aggregates, no zero vectors, nondegenerate variance/norm, and
 embeddings that are not all near-identical. These checks validate bounded
 mechanics, not generalization or scaled effectiveness.
 
-SSL contract/model/output `1.2.0` require the prepared forward boundary.
-Checkpoint, epoch-journal, metric-row, run-manifest, training-report, and
-performance-row contracts are `1.2.0`; the performance row separates CPU plan
-preparation from transfer/compute. MaskPlan, mask policy, maskable-field
+Umbrella SSL `1.2.1` requires the canonical runtime-device boundary, while SSL
+model/output remain `1.2.0` at unchanged numerical semantics. Checkpoint,
+epoch-journal, metric-row, run-manifest, and performance-row contracts remain
+`1.2.0`; training report `1.2.1` exposes concrete `cuda:N`. The performance
+row separates CPU plan preparation from transfer/compute. MaskPlan, mask
+policy, maskable-field
 registry, representation target/objective, and encoder-export semantics remain
 `1.0.0`; anti-collapse diagnostics remain `1.1.0`, and prepared binding is
 `1.1.0`.

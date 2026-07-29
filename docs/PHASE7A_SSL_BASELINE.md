@@ -1,7 +1,7 @@
 # Phase 7A deterministic masked-graph SSL baseline
 
-Status: **IMPLEMENTED ON DRAFT PR #15; FINAL SECURITY/CONTRACT REMEDIATION
-COMPLETE; BOUNDED ACCEPTANCE COMPLETE**.
+Status: **MERGED IN PR #15 AT `a850207`; POST-MERGE CUDA
+DEVICE-CANONICALIZATION HOTFIX IN PROGRESS; PHASE 8 NOT STARTED**.
 
 Phase 7A adds the first trainable self-supervised objective over the existing
 raw-only PyG graph. It is GraphMAE2-inspired, not a faithful reproduction of
@@ -25,6 +25,56 @@ Hierarchical bar/span/track masking belongs to Phase 8. PDMX projection and a
 full-scale rerun of accepted SSL objectives belong to Phase 10. A normalized
 probabilistic decoder and deterministic PLL protocol require a separate design
 gate and ablation.
+
+## Post-merge CUDA device-canonicalization hotfix
+
+Independent execution on an RTX 3090 after the Phase 7A merge produced
+`157 passed, 2 failed, 8 warnings` for `python -m pytest -q tests/ssl`.
+Both failures ended at the unchanged strict category
+`ssl.data.device_transfer_tensor_mismatch`: the prepared CUDA+AMP path and
+the bounded CUDA+AMP smoke path received abstract `torch.device("cuda")`,
+while PyTorch placed tensors on concrete `cuda:0`. Those device objects do
+not compare equal because the former has no index.
+
+The hotfix resolves every runtime request before transfer. CPU, including an
+indexed CPU spelling, canonicalizes to `cpu`; bare CUDA resolves through
+`torch.cuda.current_device()`; and explicit `cuda:N` preserves `N`. CUDA
+requests fail structurally when CUDA is unavailable. Validation remains exact:
+`cuda:0` and `cuda:1` are distinct, and a tensor on the wrong index is
+rejected. No `.cpu()`, `.item()`, `.tolist()`, tensor value read, or
+graph-sized host materialization is introduced.
+
+The same resolver governs the SSL graph, prepared selected-index sidecar,
+Phase 6C graph and target transfer, evaluation runtime, and direct evaluation
+checkpoint model placement. SSL mismatch evidence keeps its stable category
+and adds one concrete location plus expected/actual devices:
+`global:<attribute>`, `node:<node-type>:<attribute>`,
+`edge:<source>|<relation>|<destination>:<attribute>`, or
+`binding:<field>`.
+
+Patch versions are device transfer `1.0.1`, umbrella SSL `1.2.1`, and SSL
+training report `1.2.1`. Prepared binding remains `1.1.0`; SSL model/output,
+checkpoint/journal/metric-row, run-manifest/performance-row, masking,
+objectives, decoder, registry, fixture, and encoder-export versions remain
+unchanged. The umbrella SSL bump changes newly generated model-contract and
+checkpoint-binding fingerprints. Existing Phase 7A hashes below remain
+historical `1.2.0` evidence and are not rewritten. Exact checkpoint metadata
+means historical bounded SSL `1.2.0` checkpoints are not resumable under
+`1.2.1`; this narrow hotfix adds no migration.
+
+CPU verification cannot establish CUDA correctness. The hotfix draft must
+remain unmerged until the independent RTX 3090 SSL and bounded AMP acceptance
+commands pass.
+
+On the CPU-only development host, the pre-fix regression first failed exactly
+on abstract-versus-concrete CUDA resolution. After the fix, focused resolver,
+SSL-transfer, training-transfer, and evaluation checks passed
+`28 passed, 1 skipped, 2 warnings`; the complete SSL suite passed
+`164 passed, 4 skipped, 8 warnings`; related Phase 6C transfer/CUDA and
+evaluation checks passed `12 passed, 6 skipped, 2 warnings`; and the complete
+default suite passed `1009 passed, 25 skipped, 10 warnings`. CUDA-dependent
+cases account for the relevant skips, so these counts are CPU regression
+evidence rather than post-fix RTX evidence.
 
 ## Unchanged raw-data contract
 
@@ -305,10 +355,14 @@ Remediation advances only contracts whose meaning or artifact shape changed:
 
 | Contract family | Version |
 |---|---:|
-| SSL and SSL model/output | `1.2.0` |
+| umbrella SSL | `1.2.1` |
+| SSL model/output | `1.2.0` |
 | anti-collapse diagnostics | `1.1.0` |
 | checkpoint, epoch journal, metric row | `1.2.0` |
-| run manifest, training report, performance row | `1.2.0` |
+| run manifest and performance row | `1.2.0` |
+| training report | `1.2.1` |
+| runtime-device resolution | `1.0.0` |
+| shared device transfer | `1.0.1` |
 | prepared MaskPlan binding | `1.1.0` |
 | MaskPlan/policy and feature overlay | `1.0.0` |
 | bounded fixture and pitch-mutation policy | `1.0.0` |
@@ -554,9 +608,10 @@ final head-relative complete suite passed
 passed once, followed by two byte-identical exact-path overwrites.
 `compileall`, `git diff --check`, and `git show --check` pass. CUDA is
 unavailable locally, so CUDA acceptance is an explicit skip and no CUDA/VRAM
-number is fabricated. Required GitHub CI is head-relative operational evidence
-recorded in the final draft-PR #15 evidence comment; it remains a merge gate,
-not a pending ADR decision. The PR remains draft and is not merged.
+number is fabricated. Required GitHub CI is historical head-relative
+operational evidence recorded in the final PR #15 evidence comment. PR #15 is
+merged at `a850207`; the post-merge CUDA hotfix requires its own head-relative
+CI and RTX 3090 evidence.
 
 Production SSL training was not authorized as Phase 7A acceptance. Phase 8 was
 not started, PDMX was not added, PLL was not implemented, and no critic or

@@ -13,7 +13,10 @@ import torch
 
 from music_critic.graph import RAW_FEATURE_REGISTRY
 from music_critic.training.config import register_training_configs
-from music_critic.training.device import move_multisource_batch
+from music_critic.training.device import (
+    move_multisource_batch,
+    validate_device_batch,
+)
 from music_critic.training.engine import run_training
 from music_critic.training.metrics import EpochMetricAccumulator
 from music_critic.training.models import build_baseline_model
@@ -40,6 +43,26 @@ def _small_hierarchical_config():
                 "device=cuda",
             ],
         )
+
+
+def _assert_batch_is_on_exact_device(batch, device: torch.device) -> None:
+    for store in batch.raw_graph_batch.stores:
+        for value in store.values():
+            if isinstance(value, torch.Tensor):
+                assert value.device == device
+    for target in batch.target_batches:
+        for value in (
+            target.values,
+            target.availability_mask,
+            target.entity_indices,
+            target.entity_index_mask,
+            target.entity_node_type_codes,
+            target.sample_indices,
+            target.confidence,
+            target.confidence_mask,
+        ):
+            if isinstance(value, torch.Tensor):
+                assert value.device == device
 
 
 def test_real_cuda_cli_runner_uses_amp_scaler_and_checkpoint(
@@ -107,7 +130,9 @@ def test_real_cuda_cli_runner_uses_amp_scaler_and_checkpoint(
     assert report["final"]["reconstruction_loss"] < report["initial"][
         "reconstruction_loss"
     ]
-    assert report["device"]["resolved_device"] == "cuda"
+    assert report["device"]["resolved_device"] == (
+        f"cuda:{torch.cuda.current_device()}"
+    )
     assert report["device"]["peak_allocated_bytes"] > 0
     assert report["device"]["peak_reserved_bytes"] > 0
     assert report["device"]["torch_version"] == torch.__version__
@@ -124,6 +149,10 @@ def test_cuda_feature_perturbation_changes_only_its_sample(
     config = _small_hierarchical_config()
     batch = move_multisource_batch(
         bounded_batch, "cuda", non_blocking=True
+    )
+    _assert_batch_is_on_exact_device(
+        batch,
+        torch.device("cuda", torch.cuda.current_device()),
     )
     model = build_baseline_model(config.model).cuda().eval()
     with torch.no_grad():
@@ -309,3 +338,27 @@ def test_cuda_metric_retention_is_constant_across_many_batches(
 
     assert final_allocated <= steady_allocated
     assert accumulator.storage_evidence()["aggregate_bucket_count"] > 0
+
+
+@pytest.mark.skipif(
+    torch.cuda.device_count() < 2,
+    reason="wrong-device validation requires at least two CUDA devices",
+)
+def test_wrong_cuda_index_is_rejected(
+    bounded_batch,
+) -> None:
+    expected = torch.device("cuda:1")
+    moved = move_multisource_batch(bounded_batch, expected)
+    moved.raw_graph_batch["note"].x_cont = moved.raw_graph_batch[
+        "note"
+    ].x_cont.to("cuda:0")
+
+    with pytest.raises(
+        ValueError,
+        match=r"training\.device\.graph_tensor_mismatch",
+    ):
+        validate_device_batch(
+            moved,
+            expected,
+            source=bounded_batch,
+        )

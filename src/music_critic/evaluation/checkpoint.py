@@ -9,6 +9,7 @@ from typing import Any
 
 import torch
 
+from music_critic.device import RuntimeDeviceError, resolve_runtime_device
 from music_critic.evaluation.contracts import (
     EvaluationContractError,
     canonical_fingerprint,
@@ -113,6 +114,16 @@ def load_evaluation_checkpoint(
     before = _capture_rng()
     try:
         try:
+            runtime_device = resolve_runtime_device(device)
+        except RuntimeDeviceError as exc:
+            if exc.category == "runtime.device.cuda_unavailable":
+                raise EvaluationContractError(
+                    "evaluation.device.cuda_unavailable"
+                ) from exc
+            raise EvaluationContractError(
+                f"evaluation.checkpoint.device_invalid:{exc}"
+            ) from exc
+        try:
             payload = torch.load(
                 checkpoint_path,
                 map_location="cpu",
@@ -158,7 +169,7 @@ def load_evaluation_checkpoint(
                 f"evaluation.checkpoint.model_state_invalid:{exc}"
             ) from exc
         model.load_state_dict(validated_state, strict=True)
-        model.to(torch.device(device))
+        model.to(runtime_device)
         model.eval()
         evidence = {
             "checkpoint_kind": checkpoint_kind,

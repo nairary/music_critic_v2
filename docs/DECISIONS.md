@@ -1584,3 +1584,41 @@ This log is append-only.
   Canonical, graph schema, feature registry, cache, split, and every Phase 6
   numerical/state-dict contract remain unchanged. Raw unlabeled MIDI inference
   continues through the ordinary fully validated Phase 6 path.
+
+## 2026-07-30 — ADR-052: Runtime CUDA devices resolve to a concrete index before transfer
+
+- Status: Accepted for the blocking post-merge Phase 7A hotfix. This decision
+  does not begin Phase 8 or authorize production training.
+- Context: Independent RTX 3090 execution after PR #15 merged found two SSL
+  CUDA+AMP failures. Transfer received abstract `torch.device("cuda")`, PyTorch
+  placed tensors on concrete `cuda:0`, and the strict validator correctly
+  observed that those device objects are unequal. CPU CI skipped the real-CUDA
+  paths and could not expose this distinction.
+- Decision: Use one runtime-device resolver for SSL, supervised training, and
+  evaluation. Canonicalize CPU to bare `cpu`, resolve bare CUDA through
+  `torch.cuda.current_device()`, and preserve every explicit `cuda:N`. Any CUDA
+  request when CUDA is unavailable is a structured contract failure.
+- Decision: Preserve exact device validation. Comparing only `device.type` is
+  forbidden because a tensor expected on `cuda:1` must reject actual
+  `cuda:0`. Resolution and validation inspect only device metadata; they do
+  not call `.cpu()`, `.item()`, `.tolist()`, or otherwise materialize tensor
+  values on the host.
+- Decision: SSL mismatch category remains
+  `ssl.data.device_transfer_tensor_mismatch`. Evidence adds one stable
+  location—`global:<attribute>`, `node:<node-type>:<attribute>`,
+  `edge:<source>|<relation>|<destination>:<attribute>`, or
+  `binding:<field>`—and concrete expected/actual devices without object
+  `repr`.
+- Consequences: Device-transfer contract advances from `1.0.0` to `1.0.1`.
+  Umbrella SSL and SSL training-report contracts advance from `1.2.0` to
+  `1.2.1`; reports now expose concrete `cuda:N`. Prepared binding remains
+  `1.1.0`, while SSL model/output, checkpoint/journal/metric-row,
+  run-manifest/performance-row, objectives, masking, decoder, registry,
+  fixture, and encoder-export versions remain unchanged.
+- Consequences: New umbrella-SSL metadata changes derived model-contract and
+  checkpoint-binding fingerprints. Historical Phase 7A `1.2.0` evidence is
+  retained rather than regenerated. Exact metadata makes old bounded SSL
+  checkpoints non-resumable under `1.2.1`; no migration is added in this
+  narrow hotfix. Graph/canonical schema, ontology, encoding, datasets, caches,
+  model architecture, numerical objectives, and production artifacts do not
+  change.

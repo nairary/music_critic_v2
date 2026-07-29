@@ -20,6 +20,7 @@ from typing import Any, Iterable
 import torch
 from omegaconf import DictConfig, OmegaConf
 
+from music_critic.device import RuntimeDeviceError, resolve_runtime_device
 from music_critic.models import ACTIVE_TASK_IDS
 from music_critic.tasks import MultiSourceBatch
 from music_critic.training.checkpoint import (
@@ -401,11 +402,19 @@ def _resolve_device(config: dict[str, Any]) -> torch.device:
     name = config["device"]["name"]
     if name == "auto":
         name = "cuda" if torch.cuda.is_available() else "cpu"
-    if name == "cuda" and not torch.cuda.is_available():
-        raise TrainingContractError("training.device.cuda_unavailable")
+    try:
+        device = resolve_runtime_device(name)
+    except RuntimeDeviceError as exc:
+        if exc.category == "runtime.device.cuda_unavailable":
+            raise TrainingContractError(
+                "training.device.cuda_unavailable"
+            ) from exc
+        raise TrainingContractError(
+            f"training.device.invalid:{exc}"
+        ) from exc
     if config["device"]["amp"] and name != "cuda":
         raise TrainingContractError("training.device.amp_requires_cuda")
-    return torch.device(name)
+    return device
 
 
 def _set_determinism(seed: int) -> None:

@@ -2,7 +2,7 @@
 
 ## Current phase
 
-- Date: 2026-07-29
+- Date: 2026-07-30
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -76,7 +76,7 @@
   `05501d8247f60d540e79841f89da42988a76b3e3`
 - POP909-CL identity hotfix: Accepted and merged in PR #12 at
   `d3590d18550ba4a47bb8386786295d4905544fb5`
-- Device-transfer contract: `1.0.0`
+- Device-transfer contract: `1.0.1` after the post-merge CUDA hotfix
 - Training-checkpoint contract: `1.0.0`
 - Phase 6D-A: Accepted and merged in PR #13 at
   `18ebf5b69797f5d40ff38607cf8e8b5dad2f86e7`
@@ -85,7 +85,8 @@
 - Evaluation/artifact contracts: `1.1.1`; profiler: `1.1.0`; macro-summary
   sub-contract: `1.0.0`; unchanged train-prior: `1.0.0`
 - Phase 7A branch: `phase/7a-graphmae2-ssl-baseline`
-- Phase 7A draft PR: #15; do not merge from the implementation task
+- Phase 7A PR #15: merged at
+  `a850207897b5abf6eebccf72d44b8814260323c6`
 - Phase 7A final-remediation base:
   `791ef19b1dbd7c26b7a2ef87f36d4ee5b08391a6`
 - Ordered Phase 7A commits after that base are:
@@ -102,19 +103,54 @@
   `64f63997141b9a2e5eb9c718af992e62b01f5b9f`; it did include the other three
   commits then present. The final documentation commits follow this list.
 - Phase 7A deterministic GraphMAE2-inspired masked-graph SSL implementation
-  and bounded acceptance are complete on draft PR #15. Required CI is a
-  head-relative merge gate recorded in the final PR evidence comment, not a
-  pending architectural decision.
-- Phase 7A SSL/model/output, checkpoint/journal/metric-row, and
-  run/report/performance-row contracts: `1.2.0`
+  and bounded acceptance are merged. Required CI for that historical head is
+  recorded in the final PR #15 evidence comment.
+- Phase 7A umbrella SSL and training-report contracts: `1.2.1`
+- Phase 7A model/output, checkpoint/journal/metric-row, and
+  run-manifest/performance-row contracts remain `1.2.0`
 - Phase 7A prepared binding and anti-collapse diagnostics contracts: `1.1.0`
 - Phase 7A MaskPlan/policy/overlay, maskable registry, decoder,
   representation target/objective/loss, pitch-mutation fixture, and encoder
   export contracts remain `1.0.0`
 - Phase 7A maskable-field registry fingerprint:
   `97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`
-- Next gate: review and merge of draft PR #15 by an authorized maintainer;
-  Phase 8 has not started
+- Blocking post-merge hotfix branch:
+  `hotfix/cuda-device-canonicalization`
+- Runtime device-resolution contract: `1.0.0`
+- Next gate: draft hotfix PR, Required CI, and independent RTX 3090
+  verification; Phase 8 has not started
+
+## CUDA device-canonicalization hotfix status
+
+- Independent RTX 3090 execution of `python -m pytest -q tests/ssl` against
+  merged Phase 7A produced `157 passed, 2 failed, 8 warnings`.
+- Both failures retained category
+  `ssl.data.device_transfer_tensor_mismatch`. The confirmed root cause is exact
+  comparison of abstract `torch.device("cuda")` (`index=None`) with tensors
+  concretely placed by PyTorch on `cuda:0`.
+- One shared resolver now canonicalizes CPU, resolves bare CUDA through the
+  current device, preserves explicit CUDA indices, and rejects unavailable
+  CUDA structurally. SSL graph transfer, prepared binding sidecars, Phase 6C
+  graph/target transfer, evaluation, and direct evaluation checkpoint
+  placement use it.
+- Strict validation is preserved. Type-only CUDA acceptance is forbidden,
+  wrong indices are rejected, and SSL mismatch evidence names exact
+  global/node/edge/binding location plus expected and actual devices.
+- Umbrella SSL `1.2.1` changes newly generated model/checkpoint binding
+  fingerprints. Historical Phase 7A `1.2.0` hashes remain historical and are
+  not rewritten. Prepared binding, objectives, masking, model/output, graph,
+  ontology, encoding, canonical, and checkpoint container contracts are
+  unchanged.
+- Local development is CPU-only, so all real-CUDA tests remain unverified
+  locally. The hotfix must remain draft pending new RTX 3090 evidence.
+- Local hotfix verification passed focused device/SSL/training/evaluation
+  checks (`28 passed, 1 skipped, 2 warnings`), complete SSL
+  (`164 passed, 4 skipped, 8 warnings`), related Phase 6C/evaluation device
+  checks (`12 passed, 6 skipped, 2 warnings`), and the complete default suite
+  (`1009 passed, 25 skipped, 10 warnings`). These are CPU/skip results, not
+  hardware verification.
+- No SSL objective, graph schema, ontology, dataset, cache, production
+  training, or Phase 8 implementation is part of this hotfix.
 
 ## Phase 7A implementation status
 

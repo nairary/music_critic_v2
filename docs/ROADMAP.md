@@ -441,11 +441,14 @@ The model and training phases remain pending.
 
 - Goal: add masked observable-feature representation learning.
 - Dependencies: Phase 6D-A evaluation evidence.
-- Phase 7A status: final acceptance remediation is implemented in draft PR
-  #15; maintainer review/merge remains pending. The implementation is
+- Phase 7A status: merged in PR #15 at `a850207`. A blocking post-merge
+  CUDA-device-canonicalization hotfix is in progress after independent RTX
+  3090 execution exposed abstract `cuda` versus concrete `cuda:N` validation.
+  Phase 8 has not started. The Phase 7A implementation is
   GraphMAE2-inspired, not a faithful reproduction. Exact bounded-run evidence
   belongs to `PHASE7A_SSL_BASELINE.md`; head-relative Required CI belongs to
-  the final PR evidence comment, not this roadmap.
+  the historical final PR #15 evidence comment, while the hotfix requires its
+  own CI and RTX evidence.
 - Outputs: masking views, remasked representation decoder, latent prediction
   losses, and a design gate before any normalized probabilistic
   masked-note/pitch-set decoder or deterministic PLL protocol.

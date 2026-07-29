@@ -14,6 +14,9 @@ from torch import Tensor
 from torch.utils.data import DataLoader, Sampler
 from torch_geometric.data import Batch
 
+from music_critic.device import (
+    resolve_runtime_device,
+)
 from music_critic.graph import (
     MANDATORY_EDGE_TYPES,
     MANDATORY_NODE_TYPES,
@@ -592,7 +595,7 @@ def move_ssl_batch(
         raise SSLDataError("ssl.data.ssl_batch_required")
     # Re-run the exact source contract before the unchecked device rebuild.
     validate_ssl_batch(batch)
-    target_device = torch.device(device)
+    target_device = resolve_runtime_device(device)
     graph = copy.deepcopy(batch.raw_graph_batch)
     for store in graph.stores:
         for key, value in tuple(store.items()):
@@ -638,9 +641,20 @@ def _validate_moved_batch(
     ):
         raise SSLDataError("ssl.data.device_transfer_structure_changed")
     for store in batch.raw_graph_batch.stores:
-        for value in store.values():
-            if isinstance(value, Tensor) and value.device != device:
-                raise SSLDataError("ssl.data.device_transfer_tensor_mismatch")
+        store_key = getattr(store, "_key", None)
+        if store_key is None:
+            location_prefix = "global"
+        elif isinstance(store_key, str):
+            location_prefix = f"node:{store_key}"
+        else:
+            location_prefix = "edge:" + "|".join(store_key)
+        for name, value in store.items():
+            if isinstance(value, Tensor):
+                _require_ssl_tensor_device(
+                    value,
+                    device=device,
+                    location=f"{location_prefix}:{name}",
+                )
     for node_type in MANDATORY_NODE_TYPES:
         moved_store = batch.raw_graph_batch[node_type]
         source_store = source.raw_graph_batch[node_type]
@@ -675,6 +689,19 @@ def _validate_moved_batch(
                 "ssl.data.device_transfer_edge_shape_changed:"
                 + "|".join(edge_type)
             )
+
+
+def _require_ssl_tensor_device(
+    value: Tensor,
+    *,
+    device: torch.device,
+    location: str,
+) -> None:
+    if value.device != device:
+        raise SSLDataError(
+            "ssl.data.device_transfer_tensor_mismatch:"
+            f"location={location};expected={device};actual={value.device}"
+        )
 
 
 __all__ = [

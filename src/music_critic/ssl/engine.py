@@ -18,6 +18,7 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 from torch.nn import functional as F
 
+from music_critic.device import RuntimeDeviceError, resolve_runtime_device
 from music_critic.graph import graph_fingerprint
 from music_critic.models import (
     HierarchicalHeterogeneousBaseline,
@@ -67,7 +68,7 @@ from music_critic.training.checkpoint import (
 
 
 SSL_RUN_MANIFEST_VERSION = "1.2.0"
-SSL_TRAINING_REPORT_VERSION = "1.2.0"
+SSL_TRAINING_REPORT_VERSION = "1.2.1"
 SSL_PERFORMANCE_ROW_VERSION = "1.2.0"
 SSL_ONE_BATCH_DEFAULT_LEARNING_RATE = 3e-4
 
@@ -243,15 +244,20 @@ def _validate_config(config: dict[str, Any]) -> None:
 
 def _resolve_device(config: dict[str, Any]) -> torch.device:
     name = config["device"]["name"]
-    if name == "cpu":
-        return torch.device("cpu")
-    if name == "cuda":
-        if not torch.cuda.is_available():
-            raise SSLTrainingError("ssl.training.cuda_unavailable")
-        return torch.device("cuda")
     if name == "auto":
-        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    raise SSLTrainingError(f"ssl.training.device_unknown:{name}")
+        name = "cuda" if torch.cuda.is_available() else "cpu"
+    if name not in {"cpu", "cuda"}:
+        raise SSLTrainingError(f"ssl.training.device_unknown:{name}")
+    try:
+        return resolve_runtime_device(name)
+    except RuntimeDeviceError as exc:
+        if exc.category == "runtime.device.cuda_unavailable":
+            raise SSLTrainingError(
+                "ssl.training.cuda_unavailable"
+            ) from exc
+        raise SSLTrainingError(
+            f"ssl.training.device_invalid:{exc}"
+        ) from exc
 
 
 def _configure_cublas_determinism() -> None:
