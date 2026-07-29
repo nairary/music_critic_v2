@@ -1,6 +1,6 @@
 # Phase 7A deterministic masked-graph SSL baseline
 
-Status: **IMPLEMENTED ON DRAFT PR #15; FINAL ACCEPTANCE EVIDENCE PENDING**.
+Status: **IMPLEMENTED ON DRAFT PR #15; BOUNDED ACCEPTANCE COMPLETE**.
 
 Phase 7A adds the first trainable self-supervised objective over the existing
 raw-only PyG graph. It is GraphMAE2-inspired, not a faithful reproduction of
@@ -345,30 +345,32 @@ for or against Phase 7A:
 
 No downstream improvement is claimed from these observations.
 
-## Final acceptance evidence — pending parent fill
+## Final acceptance evidence
 
-The table below is deliberately incomplete. It must be filled only from the
-final bounded run and final repository/CI results; documentation work does not
-invent acceptance values.
+The bounded acceptance used the default 40-step CPU command with
+`experiment=one_batch model=hierarchical data=bounded device=cpu`. Initial and
+final losses were measured in `eval_no_grad` mode. Outputs were written below
+`/tmp`, not to the repository, and no production cache was read.
 
 | Evidence | Final value |
 |---|---|
-| Branch and commits | **PENDING — parent fill** |
-| Contract versions/fingerprints emitted by final run | **PENDING — parent fill** |
-| Samples, nodes, and edges | **PENDING — parent fill** |
-| Primary and collateral masked counts | **PENDING — parent fill** |
-| Initial/final note reconstruction loss | **PENDING — parent fill** |
-| Initial/final bar latent loss | **PENDING — parent fill** |
-| Initial/final song latent loss | **PENDING — parent fill** |
-| Gradient coverage | **PENDING — parent fill** |
-| Masked-value leakage mutation evidence | **PENDING — parent fill** |
-| Deterministic repeat | **PENDING — parent fill** |
-| Checkpoint reload and epoch-resume evidence | **PENDING — parent fill** |
-| Encoder-transfer evidence | **PENDING — parent fill** |
-| CPU timing | **PENDING — parent fill** |
-| CUDA/VRAM evidence or honest unavailability | **PENDING — parent fill** |
-| Focused and complete test results | **PENDING — parent fill** |
-| Required GitHub CI | **PENDING — parent fill** |
+| Branch and implementation commits | `phase/7a-graphmae2-ssl-baseline`; start `07bee14`; implementation `125252b54d51e4644ed5848f1077d163df0c0a12` |
+| Contract versions/fingerprints emitted by final run | all new Phase 7A contracts `1.0.0`; maskable registry `97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`; model contract `44c8ba546608bbba4accab65d7c5733db15d86965709ad8c78dae16221a2b296`; resolved config `50f93cb2fa1b5e180dfd7e121ee5dff5c39b65e58cdd9be440f6f824c32fa225`; data binding `dc2861e59dffa378da10db4e6c44af2f3538ce5eb06f80ab5ffb832efc139c01` |
+| Samples, nodes, and edges | 3 samples; 28 nodes; 98 directed edges |
+| Primary and collateral masked counts | requested `0.30`; realized `1.0` for three singleton-note fixtures; 3 primary notes; 0 peer-note collateral rows; 3 owner-track collateral rows. Multi-note peer collateral is exercised separately by leakage tests. |
+| Initial/final total SSL loss | `3.0867743492126465` → `0.001336899003945291` |
+| Initial/final note reconstruction loss | `0.9426748752593994` → `0.0005422499380074441` |
+| Initial/final bar latent loss | `1.051714301109314` → `0.0003143151698168367` |
+| Initial/final song latent loss | `1.0923850536346436` → `0.0004803339543286711` |
+| Gradient coverage | finite/nonzero gradients reached the feature-mask token and every required online group: local encoder, hierarchy pooling, Transformer, fusion, decoder, and both bar/song projector-predictors; all 81 supervised-head parameter tensors remained gradient-free |
+| Masked-value leakage mutation evidence | PASS: fixed plan and raw stores remained bit-exact; masked-value mutation left online embeddings/predictions bit-exact while changing the full-view target and reconstruction loss |
+| Deterministic repeat | PASS: mask plans, online embeddings, decoder predictions, and loss were bit-exact |
+| Checkpoint reload and epoch-resume evidence | one-batch reload bit-exact; exact uninterrupted/resumed state and metrics passed with dropout `0.2`, cosine scheduling, and CPU AMP; atomic save/load, corrupt-journal, crash-window recovery, and rejected-resume RNG rollback tests passed |
+| Encoder-transfer evidence | export `1.0.0`; 470 parameter tensors loaded; 81 supervised-head tensors untouched and bit-exact |
+| CPU timing and retained memory | 6.643101028003002 s total; 0.012225073998706648 s transfer, 3.119837647991517 s forward, 2.3773286959985853 s backward; one live batch, zero retained predictions, two retained metric rows |
+| CUDA/VRAM evidence or honest unavailability | CUDA unavailable; CUDA+AMP test skipped explicitly; no device name or VRAM values fabricated |
+| Focused and complete test results | focused SSL: 79 passed, 1 CUDA skip; full default suite: 911 passed, 20 skipped; model/graph/dataset regression slice: 265 passed, 1 skipped plus 2 isolated worker tests passed; `compileall`, `git diff --check`, and implementation `git show --check` passed |
+| Required GitHub CI | PASS: `Required test suite` run #85 completed successfully for implementation commit `125252b54d51e4644ed5848f1077d163df0c0a12`; the final documentation-head result is also recorded in the draft PR evidence comment |
 
 Production SSL training was not authorized as Phase 7A acceptance. Phase 8 was
 not started, PDMX was not added, PLL was not implemented, and no critic or

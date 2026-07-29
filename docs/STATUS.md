@@ -86,15 +86,18 @@
   sub-contract: `1.0.0`; unchanged train-prior: `1.0.0`
 - Phase 7A branch: `phase/7a-graphmae2-ssl-baseline`
 - Phase 7A draft PR: #15; do not merge from the implementation task
-- Phase 7A: deterministic GraphMAE2-inspired masked-graph SSL implementation
-  present; final bounded evidence and Required GitHub CI remain pending
+- Phase 7A implementation commit:
+  `125252b54d51e4644ed5848f1077d163df0c0a12`
+- Phase 7A: deterministic GraphMAE2-inspired masked-graph SSL implementation,
+  bounded acceptance, and Required GitHub CI run #85 are complete on draft PR
+  #15
 - Phase 7A SSL, mask-plan/policy, overlay, maskable-registry, decoder,
   objective/diagnostic, model/output/target, checkpoint/journal,
   encoder-export, and run/report/metric contracts: `1.0.0`
 - Phase 7A maskable-field registry fingerprint:
   `97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`
-- Next gate: Phase 7A bounded evidence and draft PR #15 acceptance; Phase 8 has
-  not started
+- Next gate: review and merge of draft PR #15 by an authorized maintainer;
+  Phase 8 has not started
 
 ## Phase 7A implementation status
 
@@ -111,7 +114,8 @@
 - Per-sample train MaskPlans use deterministic SHA-256 selection without
   replacement and vary by epoch when possible. Fixed validation plans use
   canonical epoch zero. Plans and decoder views are independent of target
-  sidecars, batch order, worker count, and Python `hash()`.
+  sidecars, batch order, worker count, and Python `hash()`. Supplied plans must
+  equal the complete canonical target-independent view-zero plan.
 - Masking is an immutable model-side contribution overlay. It does not mutate,
   serialize, or cache masked raw graphs, and the no-mask Phase 6 path retains
   its existing outputs and state-dict surface.
@@ -138,10 +142,21 @@
   failure-atomic and epoch-boundary-only. Encoder transfer loads only the local
   encoder, hierarchy pooling, Transformer, and fusion, leaving supervised
   heads untouched.
-- Final sample/node/edge counts, mask counts, loss trajectory, gradient
-  coverage, deterministic repeat, reload/resume/transfer results, CPU/CUDA
-  evidence, complete test counts, and Required GitHub CI are intentionally
-  pending final acceptance evidence. No values are inferred in documentation.
+- Final bounded evidence used 3 samples, 28 nodes, and 98 edges. It masked 3
+  primary note rows, 0 peer-note collateral rows, and 3 owner-track collateral
+  rows; the singleton fixtures realized rate `1.0` from requested rate `0.30`.
+  Eval/no-grad total SSL loss decreased
+  `3.0867743492126465 -> 0.001336899003945291`; note, bar, and song components
+  all decreased independently. Leakage mutation and deterministic-repeat
+  evidence passed bit-exactly.
+- Checkpoint reload was bit-exact; exact dropout/cosine/CPU-AMP epoch resume,
+  atomicity, crash recovery, and RNG rollback tests passed. Encoder transfer
+  loaded 470 parameter tensors and left all 81 supervised-head tensors
+  untouched. CPU acceptance took 6.643101028003002 seconds. CUDA was unavailable,
+  so CUDA/VRAM evidence is an explicit skip rather than fabricated data.
+- Focused SSL tests passed 79 with 1 CUDA skip. The full default suite passed
+  911 with 20 skips. `compileall`, diff/show whitespace checks, and Required
+  GitHub CI run #85 passed.
 - Production SSL training has not been performed for Phase 7A acceptance.
   Phase 8 has not started, PDMX has not been added, PLL has not been
   implemented, and no critic or quality score has been implemented.

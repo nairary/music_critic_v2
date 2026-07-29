@@ -441,9 +441,10 @@ The model and training phases remain pending.
 
 - Goal: add masked observable-feature representation learning.
 - Dependencies: Phase 6D-A evaluation evidence.
-- Phase 7A status: implemented on draft PR #15; final bounded evidence and CI
-  acceptance remain pending. The implementation is GraphMAE2-inspired, not a
-  faithful reproduction.
+- Phase 7A status: implemented on draft PR #15 at implementation commit
+  `125252b54d51e4644ed5848f1077d163df0c0a12`; bounded acceptance and Required
+  GitHub CI run #85 pass. Maintainer review/merge remains pending. The
+  implementation is GraphMAE2-inspired, not a faithful reproduction.
 - Outputs: masking views, remasked representation decoder, latent prediction
   losses, and a design gate before any normalized probabilistic
   masked-note/pitch-set decoder or deterministic PLL protocol.

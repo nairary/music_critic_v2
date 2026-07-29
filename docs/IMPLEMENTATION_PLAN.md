@@ -2815,6 +2815,11 @@ Phase 7A does not implement hierarchy masks (Phase 8), a PDMX projection or
 scaled-effectiveness claim (Phase 10), masked conditional likelihood,
 perplexity, PLL, preference/critic learning, or quality scoring.
 
+The final bounded Phase 7A plumbing run, focused SSL suite, full default suite,
+and Required GitHub CI pass. Exact counts, trajectories, fingerprints, transfer
+evidence, CPU timing, and the honest CUDA-unavailable boundary are recorded in
+[`PHASE7A_SSL_BASELINE.md`](PHASE7A_SSL_BASELINE.md).
+
 ## Phase 8. Hi-GMAE-style hierarchy
 
 ### Implement
