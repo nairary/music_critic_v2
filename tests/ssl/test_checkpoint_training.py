@@ -33,19 +33,29 @@ _DATA_FINGERPRINTS = {
     "kind": "bounded",
     "bounded_fixture_fingerprint": "a" * 64,
     "split_fingerprint": "b" * 64,
+    "train_composition_fingerprint": "d" * 64,
+    "validation_composition_fingerprint": "e" * 64,
     "validation_membership_fingerprint": "c" * 64,
 }
 
 
-def _journal_row() -> dict[str, object]:
+def _journal_row(
+    *,
+    epoch: int = 0,
+    validation_loss: float | None = 0.75,
+) -> dict[str, object]:
     return {
-        "metric_row_version": "1.0.0",
-        "epoch": 0,
-        "next_epoch": 1,
+        "metric_row_version": "1.1.0",
+        "epoch": epoch,
+        "next_epoch": epoch + 1,
         "learning_rate_used": 0.01,
         "next_learning_rate": 0.005,
         "train": {"total_ssl_loss": 0.75},
-        "validation": None,
+        "validation": (
+            None
+            if validation_loss is None
+            else {"total_ssl_loss": validation_loss}
+        ),
         "gradient_coverage": None,
     }
 
@@ -82,7 +92,7 @@ def _config(
                 "data=bounded",
                 "data.batch_size=3",
                 "data.epoch_size=3",
-                "data.validation_epoch_size=3",
+                "data.validation_epoch_size=2",
                 "device=cpu",
                 "optimizer.learning_rate=0.02",
                 "ssl.mask_rate=0.5",
@@ -244,6 +254,74 @@ def test_ssl_checkpoint_round_trip_restores_every_deterministic_state(
     _assert_state_equal(scheduler.state_dict(), payload["scheduler_state"])
     _assert_state_equal(scaler.state_dict(), payload["scaler_state"])
     _assert_state_equal(capture_rng_state(), payload["rng_state"])
+
+
+@pytest.mark.parametrize(
+    ("scenario", "forged_best_validation_loss"),
+    (
+        ("best_without_validation", 0.75),
+        ("missing_best_with_validation", None),
+        ("stale_nonminimum_best", 0.75),
+    ),
+)
+def test_ssl_checkpoint_rejects_forged_inconsistent_best_validation_loss(
+    tmp_path: Path,
+    scenario: str,
+    forged_best_validation_loss: float | None,
+) -> None:
+    model, optimizer, scheduler, scaler = _checkpoint_objects()
+    if scenario == "best_without_validation":
+        journal = (_journal_row(validation_loss=None),)
+        valid_best = None
+    elif scenario == "missing_best_with_validation":
+        journal = (_journal_row(validation_loss=0.75),)
+        valid_best = 0.75
+    else:
+        journal = (
+            _journal_row(validation_loss=0.75),
+            _journal_row(epoch=1, validation_loss=0.50),
+        )
+        valid_best = 0.50
+
+    valid_path = tmp_path / f"{scenario}-valid.pt"
+    save_ssl_checkpoint(
+        valid_path,
+        model,
+        optimizer,
+        scheduler=scheduler,
+        scaler=scaler,
+        next_epoch=len(journal),
+        best_validation_loss=valid_best,
+        epoch_journal=journal,
+        resolved_config=_CHECKPOINT_CONFIG,
+        data_fingerprints=_DATA_FINGERPRINTS,
+    )
+    payload = torch.load(
+        valid_path,
+        map_location="cpu",
+        weights_only=True,
+    )
+    payload["best_validation_loss"] = forged_best_validation_loss
+    forged_path = tmp_path / f"{scenario}-forged.pt"
+    torch.save(payload, forged_path)
+    before = _snapshot(model, optimizer, scheduler, scaler)
+
+    with pytest.raises(
+        SSLCheckpointError,
+        match="best_validation_loss_inconsistent",
+    ):
+        _load_checkpoint(
+            forged_path,
+            model,
+            optimizer,
+            scheduler,
+            scaler,
+        )
+
+    _assert_state_equal(
+        _snapshot(model, optimizer, scheduler, scaler),
+        before,
+    )
 
 
 def test_ssl_checkpoint_rejects_noncanonical_epoch_journal_rows(
@@ -421,7 +499,7 @@ def test_epoch_boundary_resume_matches_uninterrupted_state_and_metrics(
     assert all("stage_timing" not in row for row in rows)
     assert (resumed_dir / "epoch_performance.jsonl").is_file()
     validation_fingerprints = [
-        row["validation"]["masking"]["last_plan_fingerprints"]
+        row["validation"]["masking"]["plan_fingerprints"]
         for row in rows
     ]
     assert validation_fingerprints[1] == validation_fingerprints[0]
@@ -453,13 +531,25 @@ def test_one_batch_report_has_trajectory_reload_transfer_and_cpu_evidence(
 ) -> None:
     output = tmp_path / "one-batch"
     config = _config(output, "one_batch", dropout=0.2)
+    config.model.hidden_dim = 128
+    config.model.local_gnn_layers = 3
+    config.model.transformer_layers = 2
+    config.model.attention_heads = 4
+    config.model.ffn_multiplier = 4
+    config.model.dropout = 0.1
+    config.ssl.decoder_hidden_dim = 128
+    config.ssl.projector_hidden_dim = 128
+    config.ssl.decoder_views = 3
+    config.ssl.decoder_remask_prob = 0.20
+    config.ssl.mask_rate = 0.30
+    config.experiment.steps = 40
     report = run_ssl_training(config)
 
     assert report["evidence_kind"] == "bounded_phase7a_ssl_plumbing"
     assert report["sample_count"] == 3
-    assert report["node_count"] > 0
-    assert report["edge_count"] > 0
-    assert report["steps"] == 8
+    assert report["node_count"] == 114
+    assert report["edge_count"] == 740
+    assert report["steps"] == 40
     assert report["trajectory_measurement_mode"] == "eval_no_grad"
     assert report["final"]["total_ssl_loss"] < report["initial"][
         "total_ssl_loss"
@@ -474,8 +564,12 @@ def test_one_batch_report_has_trajectory_reload_transfer_and_cpu_evidence(
         ]["mean"]
         assert report["initial"][component]["denominator"] > 0
     assert report["initial"]["masking"]["primary_masked_count"] > 0
-    assert report["initial"]["masking"]["collateral_track_count"] > 0
-    assert "collateral_note_count" in report["initial"]["masking"]
+    assert report["initial"]["masking"]["primary_masked_count"] == 13
+    assert report["initial"]["masking"]["collateral_note_count"] == 35
+    assert report["initial"]["masking"]["collateral_track_count"] == 7
+    assert report["initial"]["masking"]["realized_mask_rate"] == (
+        pytest.approx(13 / 48)
+    )
     assert (
         report["initial"]["masking"]["requested_mask_rate"]
         == config.ssl.mask_rate
@@ -493,6 +587,15 @@ def test_one_batch_report_has_trajectory_reload_transfer_and_cpu_evidence(
         assert diagnostics["pairwise_policy"] == (
             "exact_linear_normalized_sum"
         )
+        assert report["initial"]["non_collapse_acceptance"]["levels"][
+            level
+        ]["passed"] is True
+    assert report["initial"]["non_collapse_acceptance"]["passed"] is True
+    assert all(
+        value["target_zero_norm_count"] == 0
+        and value["prediction_zero_norm_count"] == 0
+        for value in report["final"]["anti_collapse"].values()
+    )
     assert all(report["deterministic_repeat"].values())
     leakage = report["no_leakage_mutation_evidence"]
     assert leakage["applicable"] is True
@@ -512,6 +615,37 @@ def test_one_batch_report_has_trajectory_reload_transfer_and_cpu_evidence(
     )
     assert leakage["full_view_target_changed"] is True
     assert leakage["reconstruction_loss_changed"] is True
+    assert leakage["fixed_prepared_binding_fingerprint"] is True
+    assert leakage["mutation_contract_version"] == "1.0.0"
+    assert leakage["mutation_policy"] == "midi_axis_reflection_v1"
+    assert leakage["mutation_policy_fingerprint"] == (
+        "55c9c82b10153c21d158fb3287c3c01deea10b2a427b08d1266e1c89cdc32227"
+    )
+    assert leakage["runtime_source_binding"]["passed"] is True
+    assert all(
+        row["passed"] is True
+        for row in leakage["runtime_source_binding"]["per_sample"]
+    )
+    assert leakage["raw_graph_store_immutability"] == {
+        "original_cpu": True,
+        "original_device": True,
+        "mutated_cpu": True,
+        "mutated_device": True,
+    }
+    assert all(
+        mutation["mutation_instance_fingerprint"]
+        and mutation["mask_plan_fingerprint"]
+        and mutation["selected_note_ids"]
+        and len(mutation["source_pitches"])
+        == len(mutation["mutated_pitches"])
+        for mutation in leakage["coherent_mutations"]
+    )
+    assert leakage["metrics_finite"] is True
+    assert leakage["positive_margin"] is True
+    assert leakage["correct_minus_mutated_margin"] > (
+        leakage["positive_margin_floor"]
+    )
+    assert leakage["target_to_mutated_target_mean_l2_distance"] > 0
     assert leakage["passed"] is True
     assert report["checkpoint_reload"] == {
         "next_epoch": 0,
@@ -545,11 +679,12 @@ def test_one_batch_report_has_trajectory_reload_transfer_and_cpu_evidence(
     assert report["amp_enabled"] is False
     assert report["scaler_enabled"] is False
     assert report["stage_timing"]["checkpoint_binding_participation"] is False
-    assert report["retained_memory_counters"] == {
-        "peak_live_batches": 1,
-        "retained_prediction_tensors": 0,
-        "retained_batch_metric_rows": 2,
-    }
+    assert report["stage_timing"]["mask_plan_preparation_seconds"] > 0
+    assert (
+        report["prepared_mask_binding"]["fingerprint"]
+        == leakage["prepared_mask_binding_fingerprint"]
+    )
+    assert "retained_memory_counters" not in report
     assert report["data_source_kind"] == "bounded"
     assert report["production_cache_data_used"] is False
     assert report["run_scope"] == "one_batch_plumbing"
@@ -650,17 +785,13 @@ def test_zero_mask_one_batch_report_is_explicitly_unavailable(
         assert report[stage]["masking"]["primary_masked_count"] == 0
         assert report[stage]["masking"]["realized_mask_rate"] == 0.0
     assert all(report["deterministic_repeat"].values())
-    assert report["no_leakage_mutation_evidence"] == {
-        "applicable": False,
-        "unavailable_reason": "no_masked_rows",
-        "fixed_mask_plan": True,
-        "raw_graph_stores_bit_exact_after_view": True,
-        "online_embeddings_bit_exact_after_masked_mutation": None,
-        "online_predictions_bit_exact_after_masked_mutation": None,
-        "full_view_target_changed": None,
-        "reconstruction_loss_changed": None,
-        "passed": None,
-    }
+    leakage = report["no_leakage_mutation_evidence"]
+    assert leakage["applicable"] is False
+    assert leakage["unavailable_reason"] == "no_masked_rows"
+    assert leakage["fixed_mask_plan"] is True
+    assert leakage["raw_graph_stores_bit_exact_after_view"] is True
+    assert leakage["passed"] is None
+    assert leakage["correct_minus_mutated_margin"] is None
     assert report["checkpoint_reload"]["bit_exact"] is True
 
 
@@ -683,6 +814,11 @@ def test_epoch_metrics_recompose_row_weighted_objective_and_unavailable_state(
     accumulator.view_sum[0] = 4.0
     accumulator.view_count[0] = 4
     accumulator.view_zero_norm_count[0] = 1
+    for diagnostics in accumulator.diagnostics.values():
+        diagnostics.update(
+            torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
+            torch.tensor([[0.9, 0.1], [0.1, 0.9]]),
+        )
 
     metric = accumulator.finalize()
 
@@ -706,6 +842,11 @@ def test_epoch_metrics_recompose_row_weighted_objective_and_unavailable_state(
     unavailable.bar_count = 1
     unavailable.song_sum = 1.0
     unavailable.song_count = 1
+    for diagnostics in unavailable.diagnostics.values():
+        diagnostics.update(
+            torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
+            torch.tensor([[0.9, 0.1], [0.1, 0.9]]),
+        )
     missing = unavailable.finalize()
     assert missing["total_ssl_loss"] is None
     assert (

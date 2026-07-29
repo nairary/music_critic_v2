@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from copy import deepcopy
+from copy import copy, deepcopy
 from dataclasses import replace
 from pathlib import Path
 
@@ -24,10 +24,10 @@ from music_critic.ssl.data import (
     build_ssl_data_runtime,
     collate_ssl_samples,
 )
-from music_critic.ssl.contracts import MaskPlan
+from music_critic.ssl.contracts import MaskPlan, SSLContractError
 from music_critic.ssl.masking import (
-    build_batched_mask_plans,
     build_mask_plan,
+    prepare_mask_binding,
 )
 from music_critic.ssl.model import (
     MaskedGraphSSLConfig,
@@ -65,6 +65,41 @@ def _model() -> MaskedGraphSSLModel:
 
 def _batch() -> SSLBatch:
     return build_ssl_data_runtime(DataConfig(), seed=42).first_train_batch
+
+
+def _binding(
+    model: MaskedGraphSSLModel,
+    batch: SSLBatch,
+    *,
+    global_seed: int,
+    epoch: int,
+    stage: str = "train",
+):
+    return prepare_mask_binding(
+        batch,
+        global_seed=global_seed,
+        epoch=epoch,
+        stage=stage,
+        requested_mask_rate=model.ssl_config.mask_rate,
+    )
+
+
+def _forward(
+    model: MaskedGraphSSLModel,
+    batch: SSLBatch,
+    *,
+    global_seed: int,
+    epoch: int,
+    stage: str = "train",
+):
+    binding = _binding(
+        model,
+        batch,
+        global_seed=global_seed,
+        epoch=epoch,
+        stage=stage,
+    )
+    return model(batch, prepared_mask_binding=binding)
 
 
 def _replace_graph(batch: SSLBatch, graph: object) -> SSLBatch:
@@ -158,13 +193,18 @@ def test_masked_mutation_is_hidden_online_but_changes_target_and_loss() -> None:
     torch.manual_seed(17)
     model = _model().eval()
     batch = _batch()
-    original = model(batch, global_seed=23, epoch=2)
+    original = _forward(model, batch, global_seed=23, epoch=2)
     changed_batch = _mutate_masked_slots(batch, original.mask_plans)
-    changed = model(
+    changed_binding = _binding(
+        model,
         changed_batch,
         global_seed=23,
         epoch=2,
-        mask_plans=original.mask_plans,
+    )
+    assert changed_binding.mask_plans == original.mask_plans
+    changed = model(
+        changed_batch,
+        prepared_mask_binding=changed_binding,
     )
 
     assert _fused_equal(original, changed)
@@ -200,7 +240,7 @@ def test_coherent_pitch_rebuild_hides_owner_track_peer_dependencies() -> None:
     )
     torch.manual_seed(18)
     model = _model().eval()
-    original = model(batch, global_seed=24, epoch=0)
+    original = _forward(model, batch, global_seed=24, epoch=0)
     plan = original.mask_plans[0]
     peer_mask = next(
         mask
@@ -232,11 +272,16 @@ def test_coherent_pitch_rebuild_hides_owner_track_peer_dependencies() -> None:
             ),
         )
     )
-    changed = model(
+    changed_binding = _binding(
+        model,
         changed_batch,
         global_seed=24,
         epoch=0,
-        mask_plans=original.mask_plans,
+    )
+    assert changed_binding.mask_plans == original.mask_plans
+    changed = model(
+        changed_batch,
+        prepared_mask_binding=changed_binding,
     )
 
     assert _fused_equal(original, changed)
@@ -259,12 +304,13 @@ def test_unmasked_raw_value_can_change_online_output() -> None:
     torch.manual_seed(19)
     model = _model().eval()
     batch = _batch()
-    original = model(batch, global_seed=29, epoch=0)
-    changed = model(
-        _mutate_unmasked_velocity(batch),
+    original = _forward(model, batch, global_seed=29, epoch=0)
+    changed_batch = _mutate_unmasked_velocity(batch)
+    changed = _forward(
+        model,
+        changed_batch,
         global_seed=29,
         epoch=0,
-        mask_plans=original.mask_plans,
     )
     assert not _fused_equal(original, changed)
 
@@ -273,12 +319,16 @@ def test_mutating_one_sample_leaves_other_samples_bit_exact() -> None:
     torch.manual_seed(21)
     model = _model().eval()
     batch = _batch()
-    original = model(batch, global_seed=31, epoch=0)
-    changed = model(
-        _mutate_unmasked_velocity(batch, sample_index=0),
+    original = _forward(model, batch, global_seed=31, epoch=0)
+    changed_batch = _mutate_unmasked_velocity(
+        batch,
+        sample_index=0,
+    )
+    changed = _forward(
+        model,
+        changed_batch,
         global_seed=31,
         epoch=0,
-        mask_plans=original.mask_plans,
     )
     for node_type, before in original.online_encoder.fused.embeddings.items():
         membership = original.online_encoder.fused.batch_membership[
@@ -314,7 +364,12 @@ def test_overlay_construction_preserves_raw_graph_fingerprint() -> None:
 def test_stop_gradient_and_required_trainable_paths_receive_gradients() -> None:
     torch.manual_seed(23)
     model = _model().train()
-    output = model(_batch(), global_seed=41, epoch=0)
+    output = _forward(
+        model,
+        _batch(),
+        global_seed=41,
+        epoch=0,
+    )
     assert output.objective.total_loss is not None
     assert not output.targets.note.requires_grad
     assert not output.targets.bar.requires_grad
@@ -376,23 +431,16 @@ def test_no_mask_supervised_encode_remains_bit_exact() -> None:
 def test_model_rejects_noncanonical_encoder_view_plan() -> None:
     batch = _batch()
     model = _model().eval()
-    alternate_view = build_batched_mask_plans(
-        batch.raw_graph_batch,
-        dataset_ids=batch.dataset_ids,
-        piece_ids=batch.piece_ids,
-        global_seed=37,
-        epoch=0,
-        encoder_view_index=1,
-        requested_mask_rate=model.ssl_config.mask_rate,
-        stage="train",
-    )
-
-    with pytest.raises(ValueError, match="canonical target-independent"):
-        model(
+    with pytest.raises(
+        SSLContractError,
+        match="require encoder view zero",
+    ):
+        prepare_mask_binding(
             batch,
             global_seed=37,
             epoch=0,
-            mask_plans=alternate_view,
+            encoder_view_index=1,
+            requested_mask_rate=model.ssl_config.mask_rate,
         )
 
 
@@ -410,7 +458,13 @@ def test_model_rejects_validly_fingerprinted_alternate_selection() -> None:
         )
     )
     model = _model().eval()
-    canonical = model(batch, global_seed=41, epoch=0).mask_plans[0]
+    binding = _binding(
+        model,
+        batch,
+        global_seed=41,
+        epoch=0,
+    )
+    canonical = binding.mask_plans[0]
     different_epoch = build_mask_plan(
         graph,
         dataset_id=piece.dataset_name,
@@ -447,12 +501,15 @@ def test_model_rejects_validly_fingerprinted_alternate_selection() -> None:
         stable_seed_sha256=canonical.stable_seed_sha256,
     )
 
-    with pytest.raises(ValueError, match="canonical target-independent"):
+    forged = copy(binding)
+    object.__setattr__(forged, "mask_plans", (alternate,))
+    with pytest.raises(
+        SSLContractError,
+        match="ordered plan fingerprints",
+    ):
         model(
             batch,
-            global_seed=41,
-            epoch=0,
-            mask_plans=(alternate,),
+            prepared_mask_binding=forged,
         )
 
 
@@ -464,9 +521,18 @@ def test_tiny_one_batch_all_ssl_losses_materially_decrease() -> None:
         model = _model().train()
         optimizer = torch.optim.AdamW(model.parameters(), lr=0.02)
         batch = _batch()
+        binding = _binding(
+            model,
+            batch,
+            global_seed=42,
+            epoch=0,
+        )
         trajectory = []
         for step in range(31):
-            output = model(batch, global_seed=42, epoch=0)
+            output = model(
+                batch,
+                prepared_mask_binding=binding,
+            )
             loss = output.objective.total_loss
             assert loss is not None and torch.isfinite(loss)
             trajectory.append(

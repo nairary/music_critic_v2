@@ -6,8 +6,6 @@ import copy
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import asdict, dataclass
-from hashlib import sha256
-import json
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +26,9 @@ from music_critic.graph import (
 from music_critic.data.validation_membership import (
     fixed_validation_membership,
 )
+from music_critic.ssl.bounded_fixture import (
+    build_phase7a_bounded_fixture,
+)
 from music_critic.tasks import (
     CorpusCacheConfig,
     CorpusContractError,
@@ -42,10 +43,7 @@ from music_critic.tasks import (
     seed_multisource_worker,
     validate_current_corpus_index,
 )
-from music_critic.training.data import (
-    ValidationMembership,
-    _bounded_samples,
-)
+from music_critic.training.data import ValidationMembership
 
 
 class SSLDataError(ValueError):
@@ -309,16 +307,6 @@ def validate_ssl_batch(batch: SSLBatch) -> None:
     batch.__post_init__()
 
 
-def _fingerprint(value: object) -> str:
-    encoded = json.dumps(
-        value,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return sha256(encoded).hexdigest()
-
-
 def _membership(value: object) -> ValidationMembership:
     return ValidationMembership(
         identities=value.identities,
@@ -364,7 +352,7 @@ def _data_loader(
 
 
 def _bounded_epoch(
-    samples: tuple[MultiSourceSample, ...],
+    samples: tuple[SSLRawSample, ...],
     *,
     batch_size: int,
     epoch_size: int,
@@ -386,7 +374,9 @@ def _bounded_epoch(
 
 
 def _bounded_runtime(config: object, seed: int) -> SSLDataRuntime:
-    train, validation = _bounded_samples()
+    fixture = build_phase7a_bounded_fixture()
+    train = fixture.raw_samples("train")
+    validation = fixture.raw_samples("validation")
     selection = fixed_validation_membership(
         tuple(
             (sample.dataset_id, sample.piece_id)
@@ -417,15 +407,10 @@ def _bounded_runtime(config: object, seed: int) -> SSLDataRuntime:
             for start in range(0, len(selected), config.batch_size)
         )
 
-    identities = {
-        "train": [
-            [sample.dataset_id, sample.piece_id] for sample in train
-        ],
-        "validation": [
-            [sample.dataset_id, sample.piece_id]
-            for sample in validation
-        ],
-    }
+    fingerprints = fixture.fingerprint_bundle()
+    fingerprints["validation_membership_fingerprint"] = (
+        membership.membership_fingerprint
+    )
     return SSLDataRuntime(
         first_train_batch=collate_ssl_samples(
             train[: config.batch_size]
@@ -433,15 +418,18 @@ def _bounded_runtime(config: object, seed: int) -> SSLDataRuntime:
         train_loader=train_loader,
         validation_loader=validation_loader,
         validation_membership=membership,
-        fingerprints={
-            "kind": "bounded",
-            "bounded_fixture_fingerprint": _fingerprint(identities),
-            "split_fingerprint": _fingerprint(identities),
-            "validation_membership_fingerprint": (
-                membership.membership_fingerprint
-            ),
-        },
+        fingerprints=fingerprints,
         mixture_statistics={
+            "bounded_fixture_contract_version": (
+                fixture.contract_version
+            ),
+            "bounded_fixture_policy": fixture.policy,
+            "fixture_counts": fixture.count_summary(),
+            "train_counts": fixture.count_summary("train"),
+            "validation_counts": fixture.count_summary(
+                "validation"
+            ),
+            "composition": fixture.composition_payload(),
             "requested_weights": dict(config.mixture_weights),
             "train_dataset_counts": dict(
                 sorted(

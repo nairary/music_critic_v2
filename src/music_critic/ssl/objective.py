@@ -24,7 +24,7 @@ from music_critic.ssl.decoder import DecoderRemaskPlan
 
 
 REPRESENTATION_LOSS_CONTRACT_VERSION = "1.0.0"
-ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION = "1.0.0"
+ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION = "1.1.0"
 MULTI_VIEW_REPRESENTATION_LOSS_CONTRACT_VERSION = "1.0.0"
 LATENT_PROJECTOR_PREDICTOR_CONTRACT_VERSION = "1.0.0"
 SSL_OBJECTIVE_CONTRACT_VERSION = "1.0.0"
@@ -202,6 +202,9 @@ class AntiCollapseDiagnostics:
     unavailable_reason: str | None
     pairwise_unavailable_reason: str | None
     pairwise_policy: str = "exact_linear_normalized_sum"
+    aggregation_scope: str = "single_batch"
+    source_dtype: str | None = None
+    accumulation_dtype: str | None = None
 
     def __post_init__(self) -> None:
         if self.contract_version != ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION:
@@ -270,6 +273,468 @@ class AntiCollapseDiagnostics:
                 raise ValueError(
                     "multi-row diagnostics require pairwise scalar statistics"
                 )
+        if self.aggregation_scope not in {
+            "single_batch",
+            "streaming_aggregate",
+        }:
+            raise ValueError("anti-collapse aggregation scope is invalid")
+        for name, value in (
+            ("source_dtype", self.source_dtype),
+            ("accumulation_dtype", self.accumulation_dtype),
+        ):
+            if value is not None and (
+                not isinstance(value, str)
+                or not value
+                or value != value.strip()
+            ):
+                raise ValueError(f"{name} must be a normalized non-empty string")
+
+    def to_dict(self) -> dict[str, object]:
+        """Return a deterministic, detached JSON-compatible report."""
+
+        def scalar(value: Tensor | None) -> float | None:
+            return (
+                None
+                if value is None
+                else float(value.detach().cpu().item())
+            )
+
+        return {
+            "contract_version": self.contract_version,
+            "aggregation_scope": self.aggregation_scope,
+            "row_count": self.row_count,
+            "embedding_dim": self.embedding_dim,
+            "source_dtype": self.source_dtype,
+            "accumulation_dtype": self.accumulation_dtype,
+            "target_embedding_variance": scalar(
+                self.target_embedding_variance
+            ),
+            "prediction_embedding_variance": scalar(
+                self.prediction_embedding_variance
+            ),
+            "target_mean_norm": scalar(self.target_mean_norm),
+            "prediction_mean_norm": scalar(self.prediction_mean_norm),
+            "target_zero_norm_count": self.target_zero_norm_count,
+            "prediction_zero_norm_count": self.prediction_zero_norm_count,
+            "target_mean_off_diagonal_cosine": scalar(
+                self.target_mean_off_diagonal_cosine
+            ),
+            "prediction_mean_off_diagonal_cosine": scalar(
+                self.prediction_mean_off_diagonal_cosine
+            ),
+            "unavailable_reason": self.unavailable_reason,
+            "pairwise_unavailable_reason": (
+                self.pairwise_unavailable_reason
+            ),
+            "pairwise_policy": self.pairwise_policy,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class _StreamingEmbeddingStatistics:
+    """Mergeable CPU float64 sufficient statistics for one embedding side."""
+
+    row_count: int
+    embedding_dim: int
+    source_dtype: str | None
+    mean: Tensor
+    centered_square_sum: Tensor
+    norm_sum: Tensor
+    zero_norm_count: int
+    normalized_sum: Tensor
+    normalized_square_sum: Tensor
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.row_count, bool)
+            or not isinstance(self.row_count, int)
+            or self.row_count < 0
+            or isinstance(self.embedding_dim, bool)
+            or not isinstance(self.embedding_dim, int)
+            or self.embedding_dim <= 0
+        ):
+            raise ValueError("streaming diagnostic dimensions are invalid")
+        for name, value, shape in (
+            ("mean", self.mean, (self.embedding_dim,)),
+            (
+                "centered_square_sum",
+                self.centered_square_sum,
+                (self.embedding_dim,),
+            ),
+            ("norm_sum", self.norm_sum, ()),
+            (
+                "normalized_sum",
+                self.normalized_sum,
+                (self.embedding_dim,),
+            ),
+            (
+                "normalized_square_sum",
+                self.normalized_square_sum,
+                (),
+            ),
+        ):
+            if (
+                not isinstance(value, Tensor)
+                or tuple(value.shape) != shape
+                or value.dtype != torch.float64
+                or value.device.type != "cpu"
+                or value.requires_grad
+                or not bool(torch.isfinite(value).all())
+            ):
+                raise ValueError(
+                    f"{name} must be a finite detached CPU float64 tensor"
+                )
+        if (
+            isinstance(self.zero_norm_count, bool)
+            or not isinstance(self.zero_norm_count, int)
+            or not 0 <= self.zero_norm_count <= self.row_count
+        ):
+            raise ValueError("zero_norm_count must lie within row_count")
+        if self.row_count == 0:
+            if self.source_dtype is not None:
+                raise ValueError("empty statistics cannot bind a source dtype")
+            if any(
+                bool(torch.count_nonzero(value))
+                for value in (
+                    self.mean,
+                    self.centered_square_sum,
+                    self.norm_sum,
+                    self.normalized_sum,
+                    self.normalized_square_sum,
+                )
+            ):
+                raise ValueError("empty streaming statistics must be zero")
+        elif (
+            not isinstance(self.source_dtype, str)
+            or not self.source_dtype
+        ):
+            raise ValueError("non-empty statistics require a source dtype")
+
+    @classmethod
+    def empty(cls, embedding_dim: int) -> _StreamingEmbeddingStatistics:
+        zeros = torch.zeros(embedding_dim, dtype=torch.float64)
+        scalar = torch.zeros((), dtype=torch.float64)
+        return cls(
+            row_count=0,
+            embedding_dim=embedding_dim,
+            source_dtype=None,
+            mean=zeros,
+            centered_square_sum=zeros.clone(),
+            norm_sum=scalar,
+            zero_norm_count=0,
+            normalized_sum=zeros.clone(),
+            normalized_square_sum=scalar.clone(),
+        )
+
+    @classmethod
+    def from_values(cls, values: Tensor) -> _StreamingEmbeddingStatistics:
+        if not isinstance(values, Tensor) or values.ndim != 2:
+            raise ValueError(
+                "streaming diagnostic values must be a rank-two tensor"
+            )
+        if values.shape[1] == 0:
+            raise ValueError("streaming diagnostic width must be positive")
+        if not values.is_floating_point():
+            raise TypeError(
+                "streaming diagnostic values must use a floating-point dtype"
+            )
+        row_count = int(values.shape[0])
+        embedding_dim = int(values.shape[1])
+        if row_count == 0:
+            return cls.empty(embedding_dim)
+        detached = values.detach()
+        if not bool(torch.isfinite(detached).all()):
+            raise ValueError(
+                "streaming diagnostics require finite embedding rows"
+            )
+
+        # Float64 accumulation makes fp16/bfloat16/fp32 diagnostics finite at
+        # the contract-fixed epsilon and sharply limits partition-order drift.
+        # Only these O(D) reductions cross to CPU; embeddings are never kept.
+        values64 = detached.to(dtype=torch.float64)
+        variance, mean = torch.var_mean(
+            values64,
+            dim=0,
+            correction=0,
+        )
+        norms = torch.linalg.vector_norm(values64, dim=-1)
+        normalized = values64 / norms.clamp_min(
+            COSINE_EPSILON
+        ).unsqueeze(-1)
+        result = cls(
+            row_count=row_count,
+            embedding_dim=embedding_dim,
+            source_dtype=str(values.dtype).removeprefix("torch."),
+            mean=mean.cpu(),
+            centered_square_sum=(variance * row_count).cpu(),
+            norm_sum=norms.sum().cpu(),
+            zero_norm_count=int(
+                (norms == 0).count_nonzero().cpu().item()
+            ),
+            normalized_sum=normalized.sum(dim=0).cpu(),
+            normalized_square_sum=normalized.square().sum().cpu(),
+        )
+        return result
+
+    def merged(
+        self,
+        other: _StreamingEmbeddingStatistics,
+    ) -> _StreamingEmbeddingStatistics:
+        if not isinstance(other, _StreamingEmbeddingStatistics):
+            raise TypeError(
+                "streaming diagnostics can merge only compatible statistics"
+            )
+        if self.embedding_dim != other.embedding_dim:
+            raise ValueError("streaming diagnostic widths differ")
+        if self.row_count == 0:
+            return other
+        if other.row_count == 0:
+            return self
+        if self.source_dtype != other.source_dtype:
+            raise ValueError("streaming diagnostic source dtypes differ")
+
+        row_count = self.row_count + other.row_count
+        delta = other.mean - self.mean
+        other_fraction = other.row_count / row_count
+        mean = self.mean + delta * other_fraction
+        centered_square_sum = (
+            self.centered_square_sum
+            + other.centered_square_sum
+            + delta.square()
+            * (self.row_count * other.row_count / row_count)
+        )
+        return _StreamingEmbeddingStatistics(
+            row_count=row_count,
+            embedding_dim=self.embedding_dim,
+            source_dtype=self.source_dtype,
+            mean=mean,
+            centered_square_sum=centered_square_sum,
+            norm_sum=self.norm_sum + other.norm_sum,
+            zero_norm_count=(
+                self.zero_norm_count + other.zero_norm_count
+            ),
+            normalized_sum=self.normalized_sum + other.normalized_sum,
+            normalized_square_sum=(
+                self.normalized_square_sum
+                + other.normalized_square_sum
+            ),
+        )
+
+    @property
+    def retained_tensor_elements(self) -> int:
+        return (
+            self.mean.numel()
+            + self.centered_square_sum.numel()
+            + self.norm_sum.numel()
+            + self.normalized_sum.numel()
+            + self.normalized_square_sum.numel()
+        )
+
+
+class StreamingAntiCollapseDiagnostics:
+    """Exact stage-wide anti-collapse aggregation with O(D) retained state."""
+
+    contract_version = ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION
+
+    def __init__(self, embedding_dim: int | None = None) -> None:
+        if embedding_dim is not None and (
+            isinstance(embedding_dim, bool)
+            or not isinstance(embedding_dim, int)
+            or embedding_dim <= 0
+        ):
+            raise ValueError("embedding_dim must be a positive integer")
+        self._embedding_dim = embedding_dim
+        self._target = (
+            None
+            if embedding_dim is None
+            else _StreamingEmbeddingStatistics.empty(embedding_dim)
+        )
+        self._prediction = (
+            None
+            if embedding_dim is None
+            else _StreamingEmbeddingStatistics.empty(embedding_dim)
+        )
+
+    @property
+    def row_count(self) -> int:
+        return 0 if self._target is None else self._target.row_count
+
+    @property
+    def embedding_dim(self) -> int | None:
+        return self._embedding_dim
+
+    @property
+    def retained_tensor_elements(self) -> int:
+        if self._target is None or self._prediction is None:
+            return 0
+        return (
+            self._target.retained_tensor_elements
+            + self._prediction.retained_tensor_elements
+        )
+
+    def update(
+        self,
+        target: Tensor,
+        prediction: Tensor,
+    ) -> StreamingAntiCollapseDiagnostics:
+        """Add one batch without retaining either input tensor."""
+
+        prediction, target = _validate_representation_pair(
+            prediction, target
+        )
+        embedding_dim = int(target.shape[1])
+        if (
+            self._embedding_dim is not None
+            and self._embedding_dim != embedding_dim
+        ):
+            raise ValueError("streaming diagnostic widths differ")
+
+        # Build both sides before mutating state so invalid/non-finite input
+        # cannot leave a half-updated aggregate.
+        batch_target = _StreamingEmbeddingStatistics.from_values(target)
+        batch_prediction = _StreamingEmbeddingStatistics.from_values(
+            prediction
+        )
+        if self._target is None or self._prediction is None:
+            current_target = _StreamingEmbeddingStatistics.empty(
+                embedding_dim
+            )
+            current_prediction = _StreamingEmbeddingStatistics.empty(
+                embedding_dim
+            )
+        else:
+            current_target = self._target
+            current_prediction = self._prediction
+        merged_target = current_target.merged(batch_target)
+        merged_prediction = current_prediction.merged(batch_prediction)
+        self._embedding_dim = embedding_dim
+        self._target = merged_target
+        self._prediction = merged_prediction
+        return self
+
+    def merge(
+        self,
+        other: StreamingAntiCollapseDiagnostics,
+    ) -> StreamingAntiCollapseDiagnostics:
+        """Merge an independently accumulated partition into this instance."""
+
+        if not isinstance(other, StreamingAntiCollapseDiagnostics):
+            raise TypeError(
+                "streaming diagnostics can merge only another accumulator"
+            )
+        if other._embedding_dim is None:
+            return self
+        if (
+            self._embedding_dim is not None
+            and self._embedding_dim != other._embedding_dim
+        ):
+            raise ValueError("streaming diagnostic widths differ")
+        if other._target is None or other._prediction is None:
+            raise ValueError("streaming diagnostic state is incomplete")
+        current_target = (
+            _StreamingEmbeddingStatistics.empty(other._embedding_dim)
+            if self._target is None
+            else self._target
+        )
+        current_prediction = (
+            _StreamingEmbeddingStatistics.empty(other._embedding_dim)
+            if self._prediction is None
+            else self._prediction
+        )
+        merged_target = current_target.merged(other._target)
+        merged_prediction = current_prediction.merged(other._prediction)
+        self._embedding_dim = other._embedding_dim
+        self._target = merged_target
+        self._prediction = merged_prediction
+        return self
+
+    def finalize(self) -> AntiCollapseDiagnostics:
+        """Materialize one immutable stage-wide report."""
+
+        if (
+            self._embedding_dim is None
+            or self._target is None
+            or self._prediction is None
+        ):
+            raise ValueError(
+                "embedding_dim is required before diagnostics can finalize"
+            )
+        if self._target.row_count != self._prediction.row_count:
+            raise ValueError("target/prediction streaming row counts differ")
+        if self._target.source_dtype != self._prediction.source_dtype:
+            raise ValueError("target/prediction streaming dtypes differ")
+        row_count = self._target.row_count
+        if row_count == 0:
+            return AntiCollapseDiagnostics(
+                contract_version=self.contract_version,
+                row_count=0,
+                embedding_dim=self._embedding_dim,
+                target_embedding_variance=None,
+                prediction_embedding_variance=None,
+                target_mean_norm=None,
+                prediction_mean_norm=None,
+                target_zero_norm_count=0,
+                prediction_zero_norm_count=0,
+                target_mean_off_diagonal_cosine=None,
+                prediction_mean_off_diagonal_cosine=None,
+                unavailable_reason=_NO_ELIGIBLE_ROWS,
+                pairwise_unavailable_reason=_NO_ELIGIBLE_ROWS,
+                aggregation_scope="streaming_aggregate",
+                source_dtype=None,
+                accumulation_dtype="float64",
+            )
+
+        def variance(
+            value: _StreamingEmbeddingStatistics,
+        ) -> Tensor:
+            return value.centered_square_sum.sum() / (
+                row_count * value.embedding_dim
+            )
+
+        def mean_norm(
+            value: _StreamingEmbeddingStatistics,
+        ) -> Tensor:
+            return value.norm_sum / row_count
+
+        def pairwise(
+            value: _StreamingEmbeddingStatistics,
+        ) -> Tensor | None:
+            if row_count < 2:
+                return None
+            ordered_pair_sum = (
+                value.normalized_sum.square().sum()
+                - value.normalized_square_sum
+            )
+            return ordered_pair_sum / (row_count * (row_count - 1))
+
+        pairwise_reason = (
+            _FEWER_THAN_TWO_ROWS if row_count < 2 else None
+        )
+        return AntiCollapseDiagnostics(
+            contract_version=self.contract_version,
+            row_count=row_count,
+            embedding_dim=self._embedding_dim,
+            target_embedding_variance=variance(self._target),
+            prediction_embedding_variance=variance(self._prediction),
+            target_mean_norm=mean_norm(self._target),
+            prediction_mean_norm=mean_norm(self._prediction),
+            target_zero_norm_count=self._target.zero_norm_count,
+            prediction_zero_norm_count=self._prediction.zero_norm_count,
+            target_mean_off_diagonal_cosine=pairwise(self._target),
+            prediction_mean_off_diagonal_cosine=pairwise(
+                self._prediction
+            ),
+            unavailable_reason=None,
+            pairwise_unavailable_reason=pairwise_reason,
+            aggregation_scope="streaming_aggregate",
+            source_dtype=self._target.source_dtype,
+            accumulation_dtype="float64",
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        """Finalize and return the deterministic JSON-compatible report."""
+
+        return self.finalize().to_dict()
 
 
 def _mean_off_diagonal_cosine(values: Tensor, norms: Tensor) -> Tensor:
@@ -311,6 +776,8 @@ def anti_collapse_diagnostics(
             prediction_mean_off_diagonal_cosine=None,
             unavailable_reason=_NO_ELIGIBLE_ROWS,
             pairwise_unavailable_reason=_NO_ELIGIBLE_ROWS,
+            source_dtype=str(prediction.dtype).removeprefix("torch."),
+            accumulation_dtype="input_dtype",
         )
 
     target_norms = torch.linalg.vector_norm(detached_target, dim=-1)
@@ -352,6 +819,8 @@ def anti_collapse_diagnostics(
         ),
         unavailable_reason=None,
         pairwise_unavailable_reason=pairwise_reason,
+        source_dtype=str(prediction.dtype).removeprefix("torch."),
+        accumulation_dtype="input_dtype",
     )
 
 
@@ -745,6 +1214,7 @@ __all__ = [
     "RepresentationLoss",
     "SSLObjectiveLoss",
     "SSLObjectiveWeights",
+    "StreamingAntiCollapseDiagnostics",
     "anti_collapse_diagnostics",
     "combine_ssl_losses",
     "multi_view_representation_loss",

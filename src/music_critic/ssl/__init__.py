@@ -4,6 +4,7 @@ from music_critic.ssl.contracts import (
     MASKED_FEATURE_OVERLAY_CONTRACT_VERSION,
     MASK_PLAN_CONTRACT_VERSION,
     MASK_POLICY_VERSION,
+    PREPARED_MASK_BINDING_CONTRACT_VERSION,
     SSL_CONTRACT_VERSION,
     UNIFORM_NOTE_MASK_POLICY,
     CollateralFeatureMask,
@@ -31,11 +32,15 @@ from music_critic.ssl.field_registry import (
 )
 from music_critic.ssl.masking import (
     DEFAULT_ENCODER_MASK_RATE,
+    PreparedMaskBinding,
     build_batch_mask_plans,
     build_batched_mask_plans,
     build_mask_plan,
     build_mask_plans_for_batch,
     derive_stable_seed,
+    move_ssl_batch_with_prepared_binding,
+    prepare_mask_binding,
+    validate_prepared_mask_binding,
 )
 from music_critic.ssl.views import (
     BoundFeatureMaskOverlay,
@@ -56,6 +61,7 @@ __all__ = [
     "MASKED_FEATURE_OVERLAY_CONTRACT_VERSION",
     "MASK_PLAN_CONTRACT_VERSION",
     "MASK_POLICY_VERSION",
+    "PREPARED_MASK_BINDING_CONTRACT_VERSION",
     "NOTE_PITCH_GROUP",
     "NOTE_PITCH_GROUP_NAME",
     "OWNER_TRACK_PEER_RELATIVE_PITCH_REASON",
@@ -74,6 +80,7 @@ __all__ = [
     "MaskableFieldRegistry",
     "MaskedFeature",
     "MaskedFeatureOverlay",
+    "PreparedMaskBinding",
     "ResolvedFeatureColumn",
     "SSLContractError",
     "SampleIdentity",
@@ -88,5 +95,8 @@ __all__ = [
     "derive_stable_seed",
     "mask_plan_fingerprint",
     "maskable_field_registry_fingerprint",
+    "move_ssl_batch_with_prepared_binding",
+    "prepare_mask_binding",
     "resolve_feature_column",
+    "validate_prepared_mask_binding",
 ]

@@ -16,10 +16,19 @@ from typing import Any, Iterable
 
 import torch
 from omegaconf import DictConfig, OmegaConf
+from torch.nn import functional as F
 
-from music_critic.graph import RAW_FEATURE_REGISTRY
+from music_critic.graph import graph_fingerprint
 from music_critic.models import (
     HierarchicalHeterogeneousBaseline,
+)
+from music_critic.ssl.bounded_fixture import (
+    CoherentPitchGroupMutation,
+    PHASE7A_PITCH_MUTATION_CONTRACT_VERSION,
+    PHASE7A_PITCH_MUTATION_POLICY,
+    PHASE7A_PITCH_MUTATION_POLICY_FINGERPRINT,
+    build_phase7a_bounded_fixture,
+    mutate_piece_pitch_group,
 )
 from music_critic.ssl.checkpoint import (
     SSL_METRIC_ROW_VERSION,
@@ -32,12 +41,20 @@ from music_critic.ssl.data import (
     SSLBatch,
     SSLDataRuntime,
     build_ssl_data_runtime,
-    move_ssl_batch,
+    collate_ssl_samples,
+)
+from music_critic.ssl.masking import (
+    PreparedMaskBinding,
+    move_ssl_batch_with_prepared_binding,
+    prepare_mask_binding,
 )
 from music_critic.ssl.model import (
     MaskedGraphSSLModel,
     SSLForwardOutput,
     build_ssl_model,
+)
+from music_critic.ssl.objective import (
+    StreamingAntiCollapseDiagnostics,
 )
 from music_critic.ssl.transfer import (
     export_pretrained_encoder_state,
@@ -49,9 +66,9 @@ from music_critic.training.checkpoint import (
 )
 
 
-SSL_RUN_MANIFEST_VERSION = "1.0.0"
-SSL_TRAINING_REPORT_VERSION = "1.0.0"
-SSL_PERFORMANCE_ROW_VERSION = "1.0.0"
+SSL_RUN_MANIFEST_VERSION = "1.1.0"
+SSL_TRAINING_REPORT_VERSION = "1.1.0"
+SSL_PERFORMANCE_ROW_VERSION = "1.1.0"
 
 
 class SSLTrainingError(ValueError):
@@ -300,31 +317,288 @@ def _optional_tensor_equal(
     return torch.equal(left, right)
 
 
-def _diagnostics(value: object) -> dict[str, object]:
+def _non_collapse_mechanics_check(
+    diagnostics_by_level: dict[str, object],
+) -> dict[str, object]:
+    """Apply conservative dtype-aware mechanics checks to bounded evidence."""
+
+    if set(diagnostics_by_level) != {"note", "bar", "song"}:
+        raise SSLTrainingError(
+            "ssl.training.non_collapse_levels_invalid"
+        )
+    levels: dict[str, object] = {}
+    for level in ("note", "bar", "song"):
+        diagnostics = diagnostics_by_level[level]
+        if not isinstance(diagnostics, dict):
+            raise SSLTrainingError(
+                "ssl.training.non_collapse_diagnostics_invalid"
+            )
+        dtype_name = diagnostics.get("source_dtype")
+        dtype = getattr(torch, str(dtype_name), None)
+        if not isinstance(dtype, torch.dtype) or not dtype.is_floating_point:
+            raise SSLTrainingError(
+                "ssl.training.non_collapse_dtype_invalid"
+            )
+        finfo = torch.finfo(dtype)
+        variance_floor = max(finfo.tiny, finfo.eps**2)
+        mean_norm_floor = max(finfo.tiny, finfo.eps)
+        maximum_near_identical_cosine = 1.0 - max(
+            1.0e-4,
+            8.0 * finfo.eps**2,
+        )
+        finite_fields = (
+            "target_embedding_variance",
+            "prediction_embedding_variance",
+            "target_mean_norm",
+            "prediction_mean_norm",
+            "target_mean_off_diagonal_cosine",
+            "prediction_mean_off_diagonal_cosine",
+        )
+        values = {
+            name: diagnostics.get(name) for name in finite_fields
+        }
+        finite = all(
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(float(value))
+            for value in values.values()
+        )
+        zero_norms = (
+            diagnostics.get("target_zero_norm_count") == 0
+            and diagnostics.get("prediction_zero_norm_count") == 0
+        )
+        variance_nondegenerate = all(
+            isinstance(values[name], (int, float))
+            and float(values[name]) > variance_floor
+            for name in (
+                "target_embedding_variance",
+                "prediction_embedding_variance",
+            )
+        )
+        norm_nondegenerate = all(
+            isinstance(values[name], (int, float))
+            and float(values[name]) > mean_norm_floor
+            for name in (
+                "target_mean_norm",
+                "prediction_mean_norm",
+            )
+        )
+        not_all_near_identical = all(
+            isinstance(values[name], (int, float))
+            and float(values[name])
+            < maximum_near_identical_cosine
+            for name in (
+                "target_mean_off_diagonal_cosine",
+                "prediction_mean_off_diagonal_cosine",
+            )
+        )
+        passed = all(
+            (
+                finite,
+                zero_norms,
+                variance_nondegenerate,
+                norm_nondegenerate,
+                not_all_near_identical,
+            )
+        )
+        levels[level] = {
+            "source_dtype": dtype_name,
+            "variance_floor": variance_floor,
+            "mean_norm_floor": mean_norm_floor,
+            "maximum_near_identical_cosine": (
+                maximum_near_identical_cosine
+            ),
+            "finite": finite,
+            "zero_norm_count_is_zero": zero_norms,
+            "variance_nondegenerate": variance_nondegenerate,
+            "mean_norm_nondegenerate": norm_nondegenerate,
+            "not_all_near_identical": not_all_near_identical,
+            "passed": passed,
+        }
     return {
-        "row_count": value.row_count,
-        "embedding_dim": value.embedding_dim,
-        "target_embedding_variance": _scalar(
-            value.target_embedding_variance
+        "scope": "mechanics_non_collapse_diagnostic",
+        "levels": levels,
+        "passed": all(
+            bool(level["passed"]) for level in levels.values()
         ),
-        "prediction_embedding_variance": _scalar(
-            value.prediction_embedding_variance
+    }
+
+
+def _bounded_held_out_acceptance(
+    initial_validation: dict[str, object],
+    journal: tuple[dict[str, object], ...],
+    *,
+    completed_epochs: int,
+    configured_epochs: int,
+    best_validation_loss: float | None,
+) -> dict[str, object]:
+    """Summarize finite fixed-validation mechanics without efficacy claims."""
+
+    validation_metrics = [
+        initial_validation,
+        *[
+            row["validation"]
+            for row in journal
+            if row["validation"] is not None
+        ],
+    ]
+    stage_metrics = [
+        initial_validation,
+        *[row["train"] for row in journal],
+        *[
+            row["validation"]
+            for row in journal
+            if row["validation"] is not None
+        ],
+    ]
+    finite_losses = all(
+        isinstance(metric["total_ssl_loss"], (int, float))
+        and not isinstance(metric["total_ssl_loss"], bool)
+        and math.isfinite(float(metric["total_ssl_loss"]))
+        for metric in stage_metrics
+    )
+    diagnostic_float_fields = (
+        "target_embedding_variance",
+        "prediction_embedding_variance",
+        "target_mean_norm",
+        "prediction_mean_norm",
+        "target_mean_off_diagonal_cosine",
+        "prediction_mean_off_diagonal_cosine",
+    )
+    finite_diagnostics = all(
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(float(value))
+        for metric in stage_metrics
+        for diagnostics in metric["anti_collapse_aggregate"].values()
+        for value in (
+            diagnostics[field] for field in diagnostic_float_fields
+        )
+    )
+    non_collapsed = all(
+        metric["non_collapse_acceptance"]["passed"] is True
+        for metric in stage_metrics
+    )
+    validation_plan_fingerprints = [
+        metric["masking"]["plan_fingerprints"]
+        for metric in validation_metrics
+    ]
+    validation_binding_fingerprints = [
+        metric["masking"]["prepared_mask_binding_fingerprints"]
+        for metric in validation_metrics
+    ]
+    fixed_validation_plans = bool(validation_plan_fingerprints) and all(
+        fingerprints == validation_plan_fingerprints[0]
+        for fingerprints in validation_plan_fingerprints[1:]
+    )
+    fixed_validation_bindings = bool(
+        validation_binding_fingerprints
+    ) and all(
+        fingerprints == validation_binding_fingerprints[0]
+        for fingerprints in validation_binding_fingerprints[1:]
+    )
+    every_epoch_has_validation = (
+        len(validation_metrics) == len(journal) + 1
+    )
+    initial_optimizer_step_count = initial_validation.get(
+        "optimizer_step_count_at_measurement"
+    )
+    initial_measurement_before_optimizer = (
+        initial_optimizer_step_count == 0
+    )
+    finite_validation_losses = [
+        float(metric["total_ssl_loss"])
+        for metric in validation_metrics[1:]
+        if isinstance(metric["total_ssl_loss"], (int, float))
+        and not isinstance(metric["total_ssl_loss"], bool)
+        and math.isfinite(float(metric["total_ssl_loss"]))
+    ]
+    validation_checkpoint_selection_only = (
+        bool(finite_validation_losses)
+        and best_validation_loss == min(finite_validation_losses)
+    )
+    multiple_epochs = (
+        configured_epochs >= 2
+        and completed_epochs >= 2
+        and len(journal) >= 2
+    )
+    trajectory_complete = (
+        completed_epochs == configured_epochs == len(journal)
+    )
+    return {
+        "scope": "bounded_held_out_mechanics_non_collapse_only",
+        "initial_measurement_before_optimizer": (
+            initial_measurement_before_optimizer
         ),
-        "target_mean_norm": _scalar(value.target_mean_norm),
-        "prediction_mean_norm": _scalar(value.prediction_mean_norm),
-        "target_zero_norm_count": value.target_zero_norm_count,
-        "prediction_zero_norm_count": value.prediction_zero_norm_count,
-        "target_mean_off_diagonal_cosine": _scalar(
-            value.target_mean_off_diagonal_cosine
+        "initial_optimizer_step_count": (
+            initial_optimizer_step_count
         ),
-        "prediction_mean_off_diagonal_cosine": _scalar(
-            value.prediction_mean_off_diagonal_cosine
+        "validation_mask_epoch": 0,
+        "validation_checkpoint_selection_only": (
+            validation_checkpoint_selection_only
         ),
-        "unavailable_reason": value.unavailable_reason,
-        "pairwise_unavailable_reason": (
-            value.pairwise_unavailable_reason
+        "checkpoint_selection_metric": (
+            "minimum_fixed_validation_total_ssl_loss"
         ),
-        "pairwise_policy": value.pairwise_policy,
+        "finite_losses": finite_losses,
+        "finite_aggregate_diagnostics": finite_diagnostics,
+        "finite_losses_and_diagnostics": (
+            finite_losses and finite_diagnostics
+        ),
+        "non_collapse_checks_passed": non_collapsed,
+        "fixed_validation_plan_fingerprints": (
+            validation_plan_fingerprints[0]
+            if validation_plan_fingerprints
+            else []
+        ),
+        "fixed_validation_plans_across_trajectory": (
+            fixed_validation_plans
+        ),
+        "fixed_validation_prepared_binding_fingerprints": (
+            validation_binding_fingerprints[0]
+            if validation_binding_fingerprints
+            else []
+        ),
+        "fixed_validation_bindings_across_trajectory": (
+            fixed_validation_bindings
+        ),
+        "every_epoch_has_validation": every_epoch_has_validation,
+        "multiple_epochs": multiple_epochs,
+        "trajectory_complete": trajectory_complete,
+        "completed_epochs": completed_epochs,
+        "configured_epochs": configured_epochs,
+        "initial_validation_loss": initial_validation[
+            "total_ssl_loss"
+        ],
+        "epoch_trajectory": [
+            {
+                "epoch": row["epoch"],
+                "train_total_ssl_loss": row["train"][
+                    "total_ssl_loss"
+                ],
+                "validation_total_ssl_loss": (
+                    None
+                    if row["validation"] is None
+                    else row["validation"]["total_ssl_loss"]
+                ),
+            }
+            for row in journal
+        ],
+        "effectiveness_claim": False,
+        "passed": all(
+            (
+                finite_losses,
+                finite_diagnostics,
+                non_collapsed,
+                fixed_validation_plans,
+                fixed_validation_bindings,
+                every_epoch_has_validation,
+                multiple_epochs,
+                trajectory_complete,
+                initial_measurement_before_optimizer,
+                validation_checkpoint_selection_only,
+            )
+        ),
     }
 
 
@@ -407,6 +681,32 @@ def _batch_metric(
         for mask in plan.collateral_feature_masks
         if mask.node_type == "track"
     )
+    note_stream = StreamingAntiCollapseDiagnostics().update(
+        output.targets.note.index_select(
+            0,
+            output.selected_global_note_indices,
+        ),
+        torch.stack(output.decoder_predictions, dim=0).mean(dim=0),
+    )
+    bar_stream = StreamingAntiCollapseDiagnostics().update(
+        output.bar_latent.target,
+        output.bar_latent.prediction,
+    )
+    song_stream = StreamingAntiCollapseDiagnostics().update(
+        output.song_latent.target,
+        output.song_latent.prediction,
+    )
+    anti_collapse = {
+        "note": note_stream.to_dict(),
+        "bar": bar_stream.to_dict(),
+        "song": song_stream.to_dict(),
+    }
+    non_collapse_available = all(
+        int(diagnostics["row_count"]) >= 2
+        and diagnostics["unavailable_reason"] is None
+        and diagnostics["pairwise_unavailable_reason"] is None
+        for diagnostics in anti_collapse.values()
+    )
     return {
         "total_ssl_loss": _scalar(output.objective.total_loss),
         "total_unavailable_reason": output.objective.unavailable_reason,
@@ -471,16 +771,65 @@ def _batch_metric(
             "plan_fingerprints": [
                 plan.fingerprint for plan in output.mask_plans
             ],
+            "prepared_mask_binding_fingerprint": (
+                output.prepared_mask_binding_fingerprint
+            ),
             "overlay_fingerprint": output.feature_overlay.fingerprint,
         },
-        "anti_collapse": {
-            "note": _diagnostics(output.note_diagnostics),
-            "bar": _diagnostics(output.bar_latent.diagnostics),
-            "song": _diagnostics(output.song_latent.diagnostics),
-        },
+        "anti_collapse": anti_collapse,
+        "non_collapse_acceptance": (
+            _non_collapse_mechanics_check(anti_collapse)
+            if non_collapse_available
+            else {
+                "scope": "mechanics_non_collapse_diagnostic",
+                "levels": None,
+                "passed": None,
+                "unavailable_reason": (
+                    "fewer_than_two_rows_in_at_least_one_level"
+                ),
+            }
+        ),
         "sample_count": batch.sample_count,
         "node_count": batch.node_count,
         "edge_count": batch.edge_count,
+    }
+
+
+def _prepare_and_move_batch(
+    cpu_batch: SSLBatch,
+    model: MaskedGraphSSLModel,
+    config: dict[str, Any],
+    device: torch.device,
+    *,
+    epoch: int,
+    validation: bool,
+) -> tuple[SSLBatch, PreparedMaskBinding, dict[str, float]]:
+    """Prepare the target-blind CPU binding before any device transfer."""
+
+    plan_started = time.perf_counter()
+    binding = prepare_mask_binding(
+        cpu_batch,
+        global_seed=int(config["seed"]),
+        epoch=epoch,
+        stage="validation" if validation else "train",
+        requested_mask_rate=model.ssl_config.mask_rate,
+    )
+    plan_seconds = time.perf_counter() - plan_started
+    transfer_started = time.perf_counter()
+    batch, moved_binding = move_ssl_batch_with_prepared_binding(
+        cpu_batch,
+        binding,
+        device,
+        non_blocking=bool(config["device"]["non_blocking"]),
+    )
+    transfer_seconds = time.perf_counter() - transfer_started
+    if not isinstance(batch, SSLBatch):
+        raise SSLTrainingError(
+            "ssl.training.prepared_device_batch_invalid"
+        )
+    return batch, moved_binding, {
+        "mask_plan_preparation_seconds": plan_seconds,
+        "device_transfer_seconds": transfer_seconds,
     }
 
 
@@ -492,6 +841,7 @@ def _optimize_batch(
     config: dict[str, Any],
     device: torch.device,
     *,
+    prepared_mask_binding: PreparedMaskBinding | None = None,
     epoch: int,
     collect_gradient_evidence: bool,
 ) -> tuple[
@@ -505,11 +855,17 @@ def _optimize_batch(
         device_type=device.type,
         enabled=bool(config["device"]["amp"]),
     ):
-        output = model(
-            batch,
-            global_seed=int(config["seed"]),
-            epoch=epoch,
-        )
+        if prepared_mask_binding is None:
+            if isinstance(model, MaskedGraphSSLModel):
+                raise SSLTrainingError(
+                    "ssl.training.prepared_mask_binding_required"
+                )
+            output = model(batch)
+        else:
+            output = model(
+                batch,
+                prepared_mask_binding=prepared_mask_binding,
+            )
     forward_seconds = time.perf_counter() - forward_started
     loss = output.objective.total_loss
     if loss is None:
@@ -569,8 +925,13 @@ class _Accumulator:
         self.view_sum = [0.0] * decoder_views
         self.view_count = [0] * decoder_views
         self.view_zero_norm_count = [0] * decoder_views
-        self.diagnostic_rows: list[dict[str, object]] = []
-        self.last_plan_fingerprints: list[str] = []
+        self.diagnostics = {
+            "note": StreamingAntiCollapseDiagnostics(),
+            "bar": StreamingAntiCollapseDiagnostics(),
+            "song": StreamingAntiCollapseDiagnostics(),
+        }
+        self.plan_fingerprints: list[str] = []
+        self.prepared_binding_fingerprints: list[str] = []
         self.requested_mask_rate: float | None = None
         self.weights = {
             "note_reconstruction": float(note_weight),
@@ -594,7 +955,10 @@ class _Accumulator:
             masking["collateral_track_count"]
         )
         self.maskable_count += int(masking["maskable_note_count"])
-        self.last_plan_fingerprints = list(masking["plan_fingerprints"])
+        self.plan_fingerprints.extend(masking["plan_fingerprints"])
+        self.prepared_binding_fingerprints.append(
+            output.prepared_mask_binding_fingerprint
+        )
         requested_rate = float(masking["requested_mask_rate"])
         if (
             self.requested_mask_rate is not None
@@ -627,14 +991,42 @@ class _Accumulator:
             self.view_zero_norm_count[index] += (
                 view.loss.zero_norm_count
             )
-        # Retain one bounded detached row, never predictions or per-batch tensors.
-        self.diagnostic_rows[:] = [metric["anti_collapse"]]
+        selected_target = output.targets.note.index_select(
+            0,
+            output.selected_global_note_indices,
+        )
+        mean_note_prediction = torch.stack(
+            output.decoder_predictions,
+            dim=0,
+        ).mean(dim=0)
+        self.diagnostics["note"].update(
+            selected_target,
+            mean_note_prediction,
+        )
+        self.diagnostics["bar"].update(
+            output.bar_latent.target,
+            output.bar_latent.prediction,
+        )
+        self.diagnostics["song"].update(
+            output.song_latent.target,
+            output.song_latent.prediction,
+        )
 
     @staticmethod
     def _mean(numerator: float, denominator: int) -> float | None:
         return None if denominator == 0 else numerator / denominator
 
     def finalize(self) -> dict[str, object]:
+        aggregate_diagnostics = {
+            level: diagnostics.to_dict()
+            for level, diagnostics in self.diagnostics.items()
+        }
+        non_collapse_available = all(
+            int(diagnostics["row_count"]) >= 2
+            and diagnostics["unavailable_reason"] is None
+            and diagnostics["pairwise_unavailable_reason"] is None
+            for diagnostics in aggregate_diagnostics.values()
+        )
         component_values = {
             "note_reconstruction": self._mean(
                 self.note_sum, self.note_count
@@ -736,17 +1128,37 @@ class _Accumulator:
                     self.collateral_note_count
                     + self.collateral_track_count
                 ),
-                "last_plan_fingerprints": self.last_plan_fingerprints,
+                "plan_fingerprints": sorted(self.plan_fingerprints),
+                "prepared_mask_binding_fingerprints": sorted(
+                    self.prepared_binding_fingerprints
+                ),
             },
-            "anti_collapse_last_batch": (
-                None
-                if not self.diagnostic_rows
-                else self.diagnostic_rows[0]
+            "anti_collapse_aggregate": aggregate_diagnostics,
+            "non_collapse_acceptance": (
+                _non_collapse_mechanics_check(
+                    aggregate_diagnostics
+                )
+                if non_collapse_available
+                else {
+                    "scope": (
+                        "mechanics_non_collapse_diagnostic"
+                    ),
+                    "levels": None,
+                    "passed": None,
+                    "unavailable_reason": (
+                        "fewer_than_two_rows_in_at_least_one_level"
+                    ),
+                }
             ),
-            "retained_memory_counters": {
-                "peak_live_batches": 1 if self.batch_count else 0,
-                "retained_prediction_tensors": 0,
-                "retained_diagnostic_rows": len(self.diagnostic_rows),
+            "diagnostic_accumulator_retained_state": {
+                "scope": "anti_collapse_sufficient_statistics_only",
+                "retained_embedding_history_rows": 0,
+                "retained_prediction_history_tensors": 0,
+                "retained_diagnostic_tensor_elements": sum(
+                    diagnostics.retained_tensor_elements
+                    for diagnostics in self.diagnostics.values()
+                ),
+                "dimension_linear_not_row_linear": True,
             },
         }
 
@@ -759,6 +1171,7 @@ def _evaluate(
     config: dict[str, Any],
     device: torch.device,
     epoch: int,
+    stage_timing: dict[str, float] | None = None,
 ) -> dict[str, object]:
     model.eval()
     accumulator = _Accumulator(
@@ -768,20 +1181,41 @@ def _evaluate(
         song_weight=float(config["ssl"]["song_weight"]),
     )
     for cpu_batch in loader:
-        batch = move_ssl_batch(
+        batch, binding, preparation_timing = _prepare_and_move_batch(
             cpu_batch,
+            model,
+            config,
             device,
-            non_blocking=bool(config["device"]["non_blocking"]),
+            epoch=epoch,
+            validation=True,
         )
+        forward_started = time.perf_counter()
         with torch.autocast(
             device_type=device.type,
             enabled=bool(config["device"]["amp"]),
         ):
             output = model(
                 batch,
-                global_seed=int(config["seed"]),
-                epoch=epoch,
-                validation=True,
+                prepared_mask_binding=binding,
+            )
+        forward_seconds = time.perf_counter() - forward_started
+        if stage_timing is not None:
+            stage_timing["mask_plan_preparation_seconds"] = (
+                stage_timing.get(
+                    "mask_plan_preparation_seconds",
+                    0.0,
+                )
+                + preparation_timing[
+                    "mask_plan_preparation_seconds"
+                ]
+            )
+            stage_timing["device_transfer_seconds"] = (
+                stage_timing.get("device_transfer_seconds", 0.0)
+                + preparation_timing["device_transfer_seconds"]
+            )
+            stage_timing["forward_seconds"] = (
+                stage_timing.get("forward_seconds", 0.0)
+                + forward_seconds
             )
         accumulator.add(output, batch)
     return accumulator.finalize()
@@ -866,9 +1300,11 @@ def _managed_paths(output: Path) -> tuple[Path, ...]:
             "resolved_config.json",
             "fingerprints.json",
             "run_manifest.json",
+            "initial_validation.json",
             "metrics.jsonl",
             "epoch_performance.jsonl",
             "last.pt",
+            "best.pt",
             "one_batch.pt",
             "one_batch_report.json",
             "training_report.json",
@@ -900,6 +1336,8 @@ def _write_initial_artifacts(
     config: dict[str, Any],
     runtime: SSLDataRuntime,
     model: MaskedGraphSSLModel,
+    *,
+    initial_validation: dict[str, object] | None = None,
 ) -> None:
     resolved = copy.deepcopy(config)
     fingerprints = {
@@ -913,16 +1351,26 @@ def _write_initial_artifacts(
             data_fingerprints=runtime.fingerprints,
         ),
     }
+    artifacts = {
+        "resolved_config.json": _fingerprint(resolved),
+        "fingerprints.json": _fingerprint(fingerprints),
+    }
+    if initial_validation is not None:
+        artifacts["initial_validation.json"] = _fingerprint(
+            initial_validation
+        )
     manifest = {
         "run_manifest_version": SSL_RUN_MANIFEST_VERSION,
-        "artifact_fingerprints": {
-            "resolved_config.json": _fingerprint(resolved),
-            "fingerprints.json": _fingerprint(fingerprints),
-        },
+        "artifact_fingerprints": artifacts,
         "checkpoint_binding": fingerprints["checkpoint_binding"],
     }
     _write_json_atomic(output / "resolved_config.json", resolved)
     _write_json_atomic(output / "fingerprints.json", fingerprints)
+    if initial_validation is not None:
+        _write_json_atomic(
+            output / "initial_validation.json",
+            initial_validation,
+        )
     _write_json_atomic(output / "run_manifest.json", manifest)
 
 
@@ -965,6 +1413,8 @@ def _validate_resume_artifacts(
         )
     artifact_fingerprints = manifest["artifact_fingerprints"]
     expected_names = {"resolved_config.json", "fingerprints.json"}
+    if config["experiment"]["name"] == "pretrain":
+        expected_names.add("initial_validation.json")
     if (
         not isinstance(artifact_fingerprints, dict)
         or set(artifact_fingerprints) != expected_names
@@ -984,8 +1434,8 @@ def _validate_resume_artifacts(
 def _deterministic_repeat(
     model: MaskedGraphSSLModel,
     batch: SSLBatch,
+    prepared_mask_binding: PreparedMaskBinding,
     *,
-    seed: int,
     device: torch.device,
     amp_enabled: bool,
 ) -> dict[str, object]:
@@ -995,9 +1445,20 @@ def _deterministic_repeat(
             device_type=device.type,
             enabled=amp_enabled,
         ):
-            first = model(batch, global_seed=seed, epoch=0)
-            second = model(batch, global_seed=seed, epoch=0)
+            first = model(
+                batch,
+                prepared_mask_binding=prepared_mask_binding,
+            )
+            second = model(
+                batch,
+                prepared_mask_binding=prepared_mask_binding,
+            )
     return {
+        "prepared_mask_binding_fingerprint_bit_exact": (
+            first.prepared_mask_binding_fingerprint
+            == second.prepared_mask_binding_fingerprint
+            == prepared_mask_binding.fingerprint
+        ),
         "mask_plans_bit_exact": first.mask_plans == second.mask_plans,
         "online_embeddings_bit_exact": all(
             torch.equal(
@@ -1021,29 +1482,213 @@ def _deterministic_repeat(
     }
 
 
+def _snapshot_store_value(value: object) -> object:
+    if torch.is_tensor(value):
+        return value.detach().clone()
+    return copy.deepcopy(value)
+
+
+def _snapshot_store_value_equal(
+    current: object,
+    snapshot: object,
+) -> bool:
+    if torch.is_tensor(snapshot):
+        return torch.is_tensor(current) and torch.equal(
+            current,
+            snapshot,
+        )
+    if isinstance(snapshot, dict):
+        return (
+            isinstance(current, dict)
+            and current.keys() == snapshot.keys()
+            and all(
+                _snapshot_store_value_equal(
+                    current[key],
+                    snapshot[key],
+                )
+                for key in snapshot
+            )
+        )
+    if isinstance(snapshot, (list, tuple)):
+        return (
+            type(current) is type(snapshot)
+            and len(current) == len(snapshot)
+            and all(
+                _snapshot_store_value_equal(left, right)
+                for left, right in zip(
+                    current,
+                    snapshot,
+                    strict=True,
+                )
+            )
+        )
+    return bool(current == snapshot)
+
+
+def _graph_store_snapshot(
+    graph: Any,
+) -> tuple[tuple[str, tuple[tuple[str, object], ...]], ...]:
+    """Snapshot tensor values and non-tensor metadata in every PyG store."""
+
+    return tuple(
+        (
+            repr(getattr(store, "_key", None)),
+            tuple(
+                (str(name), _snapshot_store_value(value))
+                for name, value in store.items()
+            ),
+        )
+        for store in graph.stores
+    )
+
+
+def _graph_store_snapshot_matches(
+    graph: Any,
+    snapshot: tuple[
+        tuple[str, tuple[tuple[str, object], ...]],
+        ...,
+    ],
+) -> bool:
+    current = tuple(
+        (
+            repr(getattr(store, "_key", None)),
+            tuple((str(name), value) for name, value in store.items()),
+        )
+        for store in graph.stores
+    )
+    if len(current) != len(snapshot):
+        return False
+    for (current_key, current_items), (
+        snapshot_key,
+        snapshot_items,
+    ) in zip(current, snapshot, strict=True):
+        if current_key != snapshot_key or len(current_items) != len(
+            snapshot_items
+        ):
+            return False
+        for (current_name, current_value), (
+            snapshot_name,
+            snapshot_value,
+        ) in zip(current_items, snapshot_items, strict=True):
+            if (
+                current_name != snapshot_name
+                or not _snapshot_store_value_equal(
+                    current_value,
+                    snapshot_value,
+                )
+            ):
+                return False
+    return True
+
+
+def _per_sample_cpu_raw_graph_fingerprints(
+    batch: SSLBatch,
+) -> tuple[str, ...]:
+    """Fingerprint the actual validated CPU samples used for plan binding."""
+
+    if any(
+        value.device.type != "cpu"
+        for store in batch.raw_graph_batch.stores
+        for value in store.values()
+        if torch.is_tensor(value)
+    ):
+        raise SSLTrainingError(
+            "ssl.training.runtime_source_binding_requires_cpu_batch"
+        )
+    graphs = batch.raw_graph_batch.to_data_list()
+    for graph in graphs:
+        if torch.is_tensor(graph.raw_only):
+            graph.raw_only = bool(graph.raw_only.item())
+    return tuple(graph_fingerprint(graph) for graph in graphs)
+
+
+def _runtime_mutation_source_binding(
+    cpu_batch: SSLBatch,
+    mutations: tuple[CoherentPitchGroupMutation, ...],
+) -> dict[str, object]:
+    """Bind rebuilt alternative targets to the exact runtime source graphs."""
+
+    runtime_fingerprints = _per_sample_cpu_raw_graph_fingerprints(
+        cpu_batch
+    )
+    if len(runtime_fingerprints) != len(mutations):
+        raise SSLTrainingError(
+            "ssl.training.runtime_source_binding_length_mismatch"
+        )
+    rows = []
+    for dataset_id, piece_id, runtime_fingerprint, mutation in zip(
+        cpu_batch.dataset_ids,
+        cpu_batch.piece_ids,
+        runtime_fingerprints,
+        mutations,
+        strict=True,
+    ):
+        identity_exact = (
+            dataset_id == mutation.source_piece.dataset_name
+            and piece_id == mutation.source_piece.piece_id
+        )
+        fingerprint_exact = (
+            runtime_fingerprint
+            == mutation.source_raw_graph_fingerprint
+        )
+        rows.append(
+            {
+                "dataset_id": dataset_id,
+                "piece_id": piece_id,
+                "runtime_raw_graph_fingerprint": (
+                    runtime_fingerprint
+                ),
+                "rebuilt_source_raw_graph_fingerprint": (
+                    mutation.source_raw_graph_fingerprint
+                ),
+                "identity_exact": identity_exact,
+                "fingerprint_exact": fingerprint_exact,
+                "passed": identity_exact and fingerprint_exact,
+            }
+        )
+    return {
+        "scope": "actual_cpu_runtime_to_rebuilt_canonical_source",
+        "per_sample": rows,
+        "passed": all(bool(row["passed"]) for row in rows),
+    }
+
+
 def _masked_mutation_evidence(
     model: MaskedGraphSSLModel,
+    cpu_batch: SSLBatch,
     batch: SSLBatch,
+    prepared_mask_binding: PreparedMaskBinding,
     *,
-    seed: int,
+    config: dict[str, Any],
     device: torch.device,
     amp_enabled: bool,
 ) -> dict[str, object]:
-    """Bounded proof that planned raw pitch slots cannot reach online outputs."""
+    """Compare predictions with correct and coherently pitch-mutated targets."""
 
+    cpu_graph_snapshot = _graph_store_snapshot(
+        cpu_batch.raw_graph_batch
+    )
+    device_graph_snapshot = _graph_store_snapshot(
+        batch.raw_graph_batch
+    )
     model.eval()
-    graph_before = {
-        (store_index, name): value.detach().clone()
-        for store_index, store in enumerate(batch.raw_graph_batch.stores)
-        for name, value in store.items()
-        if isinstance(value, torch.Tensor)
-    }
     with torch.no_grad():
         with torch.autocast(
             device_type=device.type,
             enabled=amp_enabled,
         ):
-            original = model(batch, global_seed=seed, epoch=0)
+            original = model(
+                batch,
+                prepared_mask_binding=prepared_mask_binding,
+            )
+    original_cpu_unchanged = _graph_store_snapshot_matches(
+        cpu_batch.raw_graph_batch,
+        cpu_graph_snapshot,
+    )
+    original_device_unchanged = _graph_store_snapshot_matches(
+        batch.raw_graph_batch,
+        device_graph_snapshot,
+    )
     if not any(
         plan.selected_local_node_indices
         for plan in original.mask_plans
@@ -1052,67 +1697,69 @@ def _masked_mutation_evidence(
             "applicable": False,
             "unavailable_reason": "no_masked_rows",
             "fixed_mask_plan": True,
-            "raw_graph_stores_bit_exact_after_view": True,
+            "raw_graph_stores_bit_exact_after_view": (
+                original_cpu_unchanged and original_device_unchanged
+            ),
+            "raw_graph_store_immutability": {
+                "original_cpu": original_cpu_unchanged,
+                "original_device": original_device_unchanged,
+                "mutated_cpu": None,
+                "mutated_device": None,
+            },
             "online_embeddings_bit_exact_after_masked_mutation": None,
             "online_predictions_bit_exact_after_masked_mutation": None,
             "full_view_target_changed": None,
             "reconstruction_loss_changed": None,
+            "cosine_prediction_correct_target": None,
+            "cosine_prediction_pitch_mutated_target": None,
+            "correct_minus_mutated_margin": None,
+            "target_to_mutated_target_cosine_distance": None,
+            "target_to_mutated_target_mean_l2_distance": None,
+            "positive_margin_floor": None,
             "passed": None,
         }
-    graph = copy.deepcopy(batch.raw_graph_batch)
-    note_ptr = graph["note"].ptr
-    track_ptr = graph["track"].ptr
-    for sample_index, plan in enumerate(original.mask_plans):
-        for local_index in plan.selected_local_node_indices:
-            row = int(note_ptr[sample_index].item()) + local_index
-            for name in ("pitch", "pitch_class", "octave"):
-                specs = RAW_FEATURE_REGISTRY.for_node(
-                    "note", "categorical"
-                )
-                column = RAW_FEATURE_REGISTRY.names(
-                    "note", "categorical"
-                ).index(name)
-                vocabulary_size = int(specs[column].vocabulary_size or 0)
-                graph["note"].x_cat[row, column] = (
-                    int(graph["note"].x_cat[row, column].item()) + 1
-                ) % vocabulary_size
-            column = RAW_FEATURE_REGISTRY.names(
-                "note", "continuous"
-            ).index("track_relative_pitch")
-            if bool(graph["note"].x_cont_available[row, column]):
-                graph["note"].x_cont[row, column] += 7.0
-            else:
-                graph["note"].x_cont_available[row, column] = True
-                graph["note"].x_cont[row, column] = 0.75
-        for collateral in plan.collateral_feature_masks:
-            ptr = (
-                note_ptr
-                if collateral.node_type == "note"
-                else track_ptr
-            )
-            for local_index in collateral.local_node_indices:
-                row = int(ptr[sample_index].item()) + local_index
-                for field in collateral.features:
-                    if field.kind != "continuous":
-                        raise SSLTrainingError(
-                            "ssl.training.unexpected_collateral_kind"
-                        )
-                    column = RAW_FEATURE_REGISTRY.names(
-                        collateral.node_type, "continuous"
-                    ).index(field.feature_name)
-                    graph[collateral.node_type].x_cont[
-                        row, column
-                    ] += 9.0
-                    graph[collateral.node_type].x_cont_available[
-                        row, column
-                    ] = True
-    mutated = SSLBatch(
-        raw_graph_batch=graph,
-        dataset_ids=batch.dataset_ids,
-        piece_ids=batch.piece_ids,
-        sample_count=batch.sample_count,
-        node_count=batch.node_count,
-        edge_count=batch.edge_count,
+    if config["data"]["name"] != "bounded":
+        return {
+            "applicable": False,
+            "unavailable_reason": (
+                "coherent_canonical_mutation_is_bounded_fixture_only"
+            ),
+            "fixed_mask_plan": None,
+            "passed": None,
+        }
+    fixture = build_phase7a_bounded_fixture()
+    mutations = tuple(
+        mutate_piece_pitch_group(
+            fixture.piece_by_identity(dataset_id, piece_id),
+            plan.selected_local_node_indices,
+        )
+        for dataset_id, piece_id, plan in zip(
+            cpu_batch.dataset_ids,
+            cpu_batch.piece_ids,
+            original.mask_plans,
+            strict=True,
+        )
+    )
+    runtime_source_binding = _runtime_mutation_source_binding(
+        cpu_batch,
+        mutations,
+    )
+    mutated_cpu_batch = collate_ssl_samples(
+        tuple(mutation.raw_sample(mutated=True) for mutation in mutations)
+    )
+    mutated_batch, mutated_binding, _timing = _prepare_and_move_batch(
+        mutated_cpu_batch,
+        model,
+        config,
+        device,
+        epoch=0,
+        validation=False,
+    )
+    mutated_cpu_graph_snapshot = _graph_store_snapshot(
+        mutated_cpu_batch.raw_graph_batch
+    )
+    mutated_device_graph_snapshot = _graph_store_snapshot(
+        mutated_batch.raw_graph_batch
     )
     with torch.no_grad():
         with torch.autocast(
@@ -1120,17 +1767,38 @@ def _masked_mutation_evidence(
             enabled=amp_enabled,
         ):
             changed = model(
-                mutated,
-                global_seed=seed,
-                epoch=0,
-                mask_plans=original.mask_plans,
+                mutated_batch,
+                prepared_mask_binding=mutated_binding,
             )
-    raw_unchanged = all(
-        torch.equal(
-            value,
-            batch.raw_graph_batch.stores[store_index][name],
+    original_cpu_unchanged = (
+        original_cpu_unchanged
+        and _graph_store_snapshot_matches(
+            cpu_batch.raw_graph_batch,
+            cpu_graph_snapshot,
         )
-        for (store_index, name), value in graph_before.items()
+    )
+    original_device_unchanged = (
+        original_device_unchanged
+        and _graph_store_snapshot_matches(
+            batch.raw_graph_batch,
+            device_graph_snapshot,
+        )
+    )
+    mutated_cpu_unchanged = _graph_store_snapshot_matches(
+        mutated_cpu_batch.raw_graph_batch,
+        mutated_cpu_graph_snapshot,
+    )
+    mutated_device_unchanged = _graph_store_snapshot_matches(
+        mutated_batch.raw_graph_batch,
+        mutated_device_graph_snapshot,
+    )
+    raw_unchanged = all(
+        (
+            original_cpu_unchanged,
+            original_device_unchanged,
+            mutated_cpu_unchanged,
+            mutated_device_unchanged,
+        )
     )
     online_equal = all(
         torch.equal(
@@ -1148,10 +1816,74 @@ def _masked_mutation_evidence(
         )
     )
     target_changed = not torch.equal(
-        original.targets.note, changed.targets.note
+        original.targets.note.index_select(
+            0,
+            original.selected_global_note_indices,
+        ),
+        changed.targets.note.index_select(
+            0,
+            changed.selected_global_note_indices,
+        ),
     )
     loss_changed = not torch.equal(
         original.note_loss.mean, changed.note_loss.mean
+    )
+    prediction = torch.stack(
+        original.decoder_predictions,
+        dim=0,
+    ).mean(dim=0)
+    correct_target = original.targets.note.index_select(
+        0,
+        original.selected_global_note_indices,
+    )
+    mutated_target = changed.targets.note.index_select(
+        0,
+        changed.selected_global_note_indices,
+    )
+    correct_cosine = F.cosine_similarity(
+        prediction,
+        correct_target,
+        dim=-1,
+        eps=1e-8,
+    ).mean()
+    mutated_cosine = F.cosine_similarity(
+        prediction,
+        mutated_target,
+        dim=-1,
+        eps=1e-8,
+    ).mean()
+    target_mutated_cosine = F.cosine_similarity(
+        correct_target,
+        mutated_target,
+        dim=-1,
+        eps=1e-8,
+    ).mean()
+    target_mutated_l2 = torch.linalg.vector_norm(
+        correct_target - mutated_target,
+        dim=-1,
+    ).mean()
+    margin = correct_cosine - mutated_cosine
+    margin_floor = 8.0 * torch.finfo(prediction.dtype).eps
+    metrics_finite = bool(
+        torch.isfinite(
+            torch.stack(
+                (
+                    correct_cosine,
+                    mutated_cosine,
+                    target_mutated_cosine,
+                    target_mutated_l2,
+                    margin,
+                )
+            )
+        ).all()
+    )
+    fixed_binding = (
+        prepared_mask_binding.fingerprint
+        == mutated_binding.fingerprint
+    )
+    positive_margin = bool(margin > margin_floor)
+    positive_target_distance = bool(
+        target_mutated_l2 > torch.finfo(prediction.dtype).eps
     )
     return {
         "applicable": True,
@@ -1159,20 +1891,94 @@ def _masked_mutation_evidence(
         "fixed_mask_plan": (
             original.mask_plans == changed.mask_plans
         ),
+        "fixed_prepared_binding_fingerprint": fixed_binding,
+        "prepared_mask_binding_fingerprint": (
+            prepared_mask_binding.fingerprint
+        ),
+        "mutation_contract_version": (
+            PHASE7A_PITCH_MUTATION_CONTRACT_VERSION
+        ),
+        "mutation_policy": PHASE7A_PITCH_MUTATION_POLICY,
+        "mutation_policy_fingerprint": (
+            PHASE7A_PITCH_MUTATION_POLICY_FINGERPRINT
+        ),
         "raw_graph_stores_bit_exact_after_view": raw_unchanged,
+        "raw_graph_store_immutability": {
+            "original_cpu": original_cpu_unchanged,
+            "original_device": original_device_unchanged,
+            "mutated_cpu": mutated_cpu_unchanged,
+            "mutated_device": mutated_device_unchanged,
+        },
+        "runtime_source_binding": runtime_source_binding,
         "online_embeddings_bit_exact_after_masked_mutation": online_equal,
         "online_predictions_bit_exact_after_masked_mutation": (
             predictions_equal
         ),
         "full_view_target_changed": target_changed,
         "reconstruction_loss_changed": loss_changed,
+        "source_dtype": str(prediction.dtype).removeprefix("torch."),
+        "cosine_prediction_correct_target": _scalar(
+            correct_cosine
+        ),
+        "cosine_prediction_pitch_mutated_target": _scalar(
+            mutated_cosine
+        ),
+        "correct_minus_mutated_margin": _scalar(margin),
+        "target_to_mutated_target_cosine_distance": _scalar(
+            1.0 - target_mutated_cosine
+        ),
+        "target_to_mutated_target_mean_l2_distance": _scalar(
+            target_mutated_l2
+        ),
+        "positive_margin_floor": margin_floor,
+        "metrics_finite": metrics_finite,
+        "positive_margin": positive_margin,
+        "positive_target_distance": positive_target_distance,
+        "coherent_mutations": [
+            {
+                "dataset_id": mutation.source_piece.dataset_name,
+                "piece_id": mutation.source_piece.piece_id,
+                "selected_local_node_indices": list(
+                    mutation.selected_local_node_indices
+                ),
+                "selected_note_ids": list(
+                    mutation.selected_note_ids
+                ),
+                "source_pitches": list(mutation.source_pitches),
+                "mutated_pitches": list(mutation.mutated_pitches),
+                "mutation_instance_fingerprint": (
+                    mutation.mutation_instance_fingerprint
+                ),
+                "mask_plan_fingerprint": plan.fingerprint,
+                "source_raw_graph_fingerprint": (
+                    mutation.source_raw_graph_fingerprint
+                ),
+                "mutated_raw_graph_fingerprint": (
+                    mutation.mutated_raw_graph_fingerprint
+                ),
+                "changed_feature_slots": [
+                    list(slot)
+                    for slot in mutation.changed_feature_slots
+                ],
+            }
+            for mutation, plan in zip(
+                mutations,
+                original.mask_plans,
+                strict=True,
+            )
+        ],
         "passed": all(
             (
                 raw_unchanged,
+                runtime_source_binding["passed"],
+                fixed_binding,
                 online_equal,
                 predictions_equal,
                 target_changed,
                 loss_changed,
+                metrics_finite,
+                positive_margin,
+                positive_target_distance,
             )
         ),
     }
@@ -1224,13 +2030,17 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         overwrite=bool(config["experiment"]["overwrite_output"]),
     )
     _write_initial_artifacts(output, config, runtime, model)
-    transfer_started = time.perf_counter()
-    batch = move_ssl_batch(
-        runtime.first_train_batch,
-        device,
-        non_blocking=bool(config["device"]["non_blocking"]),
+    cpu_batch = runtime.first_train_batch
+    batch, prepared_mask_binding, preparation_timing = (
+        _prepare_and_move_batch(
+            cpu_batch,
+            model,
+            config,
+            device,
+            epoch=0,
+            validation=False,
+        )
     )
-    transfer_seconds = time.perf_counter() - transfer_started
     steps = int(config["experiment"]["steps"])
     initial: dict[str, object] | None = None
     final: dict[str, object] | None = None
@@ -1245,11 +2055,10 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
             with torch.autocast(
                 device_type=device.type,
                 enabled=bool(config["device"]["amp"]),
-            ):
+                ):
                 return model(
                     batch,
-                    global_seed=int(config["seed"]),
-                    epoch=0,
+                    prepared_mask_binding=prepared_mask_binding,
                 )
 
     initial = _batch_metric(measure(), batch)
@@ -1262,6 +2071,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
             scaler,
             config,
             device,
+            prepared_mask_binding=prepared_mask_binding,
             epoch=0,
             collect_gradient_evidence=(
                 step == 0
@@ -1282,14 +2092,16 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
     repeat = _deterministic_repeat(
         model,
         batch,
-        seed=int(config["seed"]),
+        prepared_mask_binding,
         device=device,
         amp_enabled=bool(config["device"]["amp"]),
     )
     leakage = _masked_mutation_evidence(
         model,
+        cpu_batch,
         batch,
-        seed=int(config["seed"]),
+        prepared_mask_binding,
+        config=config,
         device=device,
         amp_enabled=bool(config["device"]["amp"]),
     )
@@ -1333,10 +2145,12 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
             enabled=bool(config["device"]["amp"]),
         ):
             original_reload = model(
-                batch, global_seed=int(config["seed"]), epoch=0
+                batch,
+                prepared_mask_binding=prepared_mask_binding,
             )
             cloned_reload = clone(
-                batch, global_seed=int(config["seed"]), epoch=0
+                batch,
+                prepared_mask_binding=prepared_mask_binding,
             )
     reload_exact = all(
         torch.equal(left, right)
@@ -1372,9 +2186,11 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         "trajectory_measurement_mode": "eval_no_grad",
         "initial": initial,
         "final": final,
+        "prepared_mask_binding": prepared_mask_binding.to_dict(),
         "gradient_coverage": gradient,
         "deterministic_repeat": repeat,
         "no_leakage_mutation_evidence": leakage,
+        "pitch_sensitive_reconstruction_evidence": leakage,
         "checkpoint_reload": {
             "next_epoch": state.next_epoch,
             "bit_exact": reload_exact,
@@ -1385,21 +2201,22 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         ),
         "next_learning_rate": optimizer.param_groups[0]["lr"],
         "stage_timing": {
-            "device_transfer_seconds": transfer_seconds,
+            "mask_plan_preparation_seconds": preparation_timing[
+                "mask_plan_preparation_seconds"
+            ],
+            "device_transfer_seconds": preparation_timing[
+                "device_transfer_seconds"
+            ],
             "forward_seconds": forward_seconds,
             "backward_seconds": backward_seconds,
             "total_seconds": time.perf_counter() - started,
             "checkpoint_binding_participation": False,
         },
-        "retained_memory_counters": {
-            "peak_live_batches": 1,
-            "retained_prediction_tensors": 0,
-            "retained_batch_metric_rows": 2,
-        },
         "device": _device_evidence(device),
         "amp_enabled": bool(config["device"]["amp"]),
         "scaler_enabled": scaler.is_enabled(),
         "fingerprints": runtime.fingerprints,
+        "data_composition": runtime.mixture_statistics,
         "phase8_started": False,
         "pdmx_added": False,
         "pll_implemented": False,
@@ -1433,8 +2250,18 @@ def _run_epochs(
     start_epoch = 0
     best: float | None = None
     journal: tuple[dict[str, object], ...] = ()
+    optimization_step_count = 0
+    initial_validation: dict[str, object]
     if resume_path:
         _validate_resume_artifacts(output, config, runtime, model)
+        loaded_initial_validation = _read_json(
+            output / "initial_validation.json"
+        )
+        if not isinstance(loaded_initial_validation, dict):
+            raise SSLTrainingError(
+                "ssl.training.initial_validation_invalid"
+            )
+        initial_validation = loaded_initial_validation
         state: SSLResumeState = load_ssl_checkpoint(
             resume_path,
             model,
@@ -1448,11 +2275,33 @@ def _run_epochs(
         start_epoch = state.next_epoch
         best = state.best_validation_loss
         journal = state.epoch_journal
+        optimization_step_count = sum(
+            int(row["train"]["available_batch_count"])
+            for row in journal
+        )
         # The checkpoint journal is authoritative after any interrupted
         # checkpoint/metric commit boundary.
         _write_jsonl_atomic(output / "metrics.jsonl", journal)
     else:
-        _write_initial_artifacts(output, config, runtime, model)
+        # The fixed validation baseline is measured before the first optimizer
+        # mutation and uses the canonical validation epoch-zero mask binding.
+        initial_validation = _evaluate(
+            model,
+            runtime.validation_loader(),
+            config=config,
+            device=device,
+            epoch=0,
+        )
+        initial_validation["optimizer_step_count_at_measurement"] = (
+            optimization_step_count
+        )
+        _write_initial_artifacts(
+            output,
+            config,
+            runtime,
+            model,
+            initial_validation=initial_validation,
+        )
         _write_jsonl_atomic(output / "metrics.jsonl", ())
         _write_jsonl_atomic(output / "epoch_performance.jsonl", ())
     performance_rows: list[dict[str, object]] = []
@@ -1498,15 +2347,25 @@ def _run_epochs(
         forward_seconds = 0.0
         backward_seconds = 0.0
         transfer_seconds = 0.0
+        plan_preparation_seconds = 0.0
         gradient_evidence = None
         for cpu_batch in runtime.train_loader(epoch):
-            transfer_started = time.perf_counter()
-            batch = move_ssl_batch(
-                cpu_batch,
-                device,
-                non_blocking=bool(config["device"]["non_blocking"]),
+            batch, prepared_mask_binding, preparation_timing = (
+                _prepare_and_move_batch(
+                    cpu_batch,
+                    model,
+                    config,
+                    device,
+                    epoch=epoch,
+                    validation=False,
+                )
             )
-            transfer_seconds += time.perf_counter() - transfer_started
+            plan_preparation_seconds += preparation_timing[
+                "mask_plan_preparation_seconds"
+            ]
+            transfer_seconds += preparation_timing[
+                "device_transfer_seconds"
+            ]
             model.train()
             output_batch, gradient, timing = _optimize_batch(
                 model,
@@ -1515,6 +2374,7 @@ def _run_epochs(
                 scaler,
                 config,
                 device,
+                prepared_mask_binding=prepared_mask_binding,
                 epoch=epoch,
                 collect_gradient_evidence=(
                     gradient_evidence is None
@@ -1533,12 +2393,16 @@ def _run_epochs(
         train_metric = accumulator.finalize()
         if train_metric["batch_count"] == 0:
             raise SSLTrainingError("ssl.training.empty_train_epoch")
+        optimization_step_count += int(
+            train_metric["available_batch_count"]
+        )
         train_seconds = time.perf_counter() - train_started
         if scheduler is not None:
             scheduler.step()
         next_learning_rate = optimizer.param_groups[0]["lr"]
         validation = None
         validation_seconds = None
+        validation_stage_timing: dict[str, float] = {}
         if (
             (epoch + 1)
             % int(config["experiment"]["validation_interval"])
@@ -1552,6 +2416,10 @@ def _run_epochs(
                 config=config,
                 device=device,
                 epoch=epoch,
+                stage_timing=validation_stage_timing,
+            )
+            validation["optimizer_step_count_at_measurement"] = (
+                optimization_step_count
             )
             validation_seconds = time.perf_counter() - validation_started
         row = {
@@ -1569,9 +2437,10 @@ def _run_epochs(
             if validation is None
             else validation["total_ssl_loss"]
         )
-        if validation_loss is not None and (
+        improved = validation_loss is not None and (
             best is None or float(validation_loss) < best
-        ):
+        )
+        if improved:
             best = float(validation_loss)
         journal = (*journal, row)
         save_ssl_checkpoint(
@@ -1586,6 +2455,19 @@ def _run_epochs(
             resolved_config=_checkpoint_config(config),
             data_fingerprints=runtime.fingerprints,
         )
+        if improved:
+            save_ssl_checkpoint(
+                output / "best.pt",
+                model,
+                optimizer,
+                scheduler=scheduler,
+                scaler=scaler,
+                next_epoch=epoch + 1,
+                best_validation_loss=best,
+                epoch_journal=journal,
+                resolved_config=_checkpoint_config(config),
+                data_fingerprints=runtime.fingerprints,
+            )
         _write_jsonl_atomic(output / "metrics.jsonl", journal)
         performance_rows.append(
             {
@@ -1593,11 +2475,29 @@ def _run_epochs(
                 "epoch": epoch,
                 "next_epoch": epoch + 1,
                 "stage_timing": {
+                    "mask_plan_preparation_seconds": (
+                        plan_preparation_seconds
+                    ),
                     "device_transfer_seconds": transfer_seconds,
                     "forward_seconds": forward_seconds,
                     "backward_seconds": backward_seconds,
                     "train_total_seconds": train_seconds,
                     "validation_total_seconds": validation_seconds,
+                    "validation_mask_plan_preparation_seconds": (
+                        validation_stage_timing.get(
+                            "mask_plan_preparation_seconds"
+                        )
+                    ),
+                    "validation_device_transfer_seconds": (
+                        validation_stage_timing.get(
+                            "device_transfer_seconds"
+                        )
+                    ),
+                    "validation_forward_seconds": (
+                        validation_stage_timing.get(
+                            "forward_seconds"
+                        )
+                    ),
                 },
                 "unavailable_reason": None,
                 "checkpoint_binding_participation": False,
@@ -1612,7 +2512,7 @@ def _run_epochs(
     report = {
         "training_report_version": SSL_TRAINING_REPORT_VERSION,
         "evidence_kind": (
-            "bounded_phase7a_ssl_pretraining_plumbing"
+            "bounded_phase7a_ssl_held_out_noncollapse"
             if config["data"]["name"] == "bounded"
             else "production_cache_phase7a_ssl_pretraining_run"
         ),
@@ -1627,7 +2527,47 @@ def _run_epochs(
         "start_epoch": start_epoch,
         "completed_epochs": completed,
         "configured_epochs": epochs,
+        "held_out_acceptance": (
+            _bounded_held_out_acceptance(
+                initial_validation,
+                journal,
+                completed_epochs=completed,
+                configured_epochs=epochs,
+                best_validation_loss=best,
+            )
+            if config["data"]["name"] == "bounded"
+            else {
+                "scope": "production_cache_training",
+                "passed": None,
+                "unavailable_reason": (
+                    "bounded_acceptance_not_applicable"
+                ),
+            }
+        ),
+        "initial_validation": initial_validation,
+        "initial_validation_artifact": str(
+            output / "initial_validation.json"
+        ),
         "best_validation_loss": best,
+        "best_validation_epoch": (
+            None
+            if best is None
+            else min(
+                (
+                    int(row["epoch"])
+                    for row in journal
+                    if row["validation"] is not None
+                    and row["validation"]["total_ssl_loss"] == best
+                ),
+                default=None,
+            )
+        ),
+        "best_checkpoint_selection": (
+            "minimum_fixed_validation_total_ssl_loss"
+        ),
+        "best_checkpoint": (
+            None if best is None else str(output / "best.pt")
+        ),
         "metrics": str(output / "metrics.jsonl"),
         "epoch_performance": str(output / "epoch_performance.jsonl"),
         "last_checkpoint": str(output / "last.pt"),
@@ -1635,6 +2575,7 @@ def _run_epochs(
         "mid_epoch_resume_supported": False,
         "validation_membership": asdict(runtime.validation_membership),
         "fingerprints": runtime.fingerprints,
+        "data_composition": runtime.mixture_statistics,
         "device": _device_evidence(device),
         "amp_enabled": bool(config["device"]["amp"]),
         "scaler_enabled": scaler.is_enabled(),

@@ -80,6 +80,7 @@ class LocalHeterogeneousBaseline(nn.Module):
         *,
         return_layers: bool = False,
         feature_overlay=None,
+        _prevalidated_input: bool = False,
     ) -> MultiScaleEncoderOutput:
         """Encode a raw graph without any target or source metadata."""
 
@@ -87,6 +88,7 @@ class LocalHeterogeneousBaseline(nn.Module):
             raw_graph_batch,
             return_layers=return_layers,
             feature_overlay=feature_overlay,
+            _prevalidated_input=_prevalidated_input,
         )
 
     def forward(

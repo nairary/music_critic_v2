@@ -79,6 +79,7 @@ class HierarchicalHeterogeneousBaseline(nn.Module):
         *,
         return_layers: bool = False,
         feature_overlay=None,
+        _prevalidated_input: bool = False,
     ) -> ContextualEncoderOutput:
         # Extract before Phase 6A validation so every malformed ownership path
         # has a structured Phase 6B error. The internal handoff validates local
@@ -88,6 +89,7 @@ class HierarchicalHeterogeneousBaseline(nn.Module):
             raw_graph_batch,
             return_layers=return_layers,
             feature_overlay=feature_overlay,
+            _prevalidated_input=_prevalidated_input,
         )
         return self.context_encoder._forward_with_extracted_ownership(
             local, ownership

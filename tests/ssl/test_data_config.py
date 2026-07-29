@@ -22,10 +22,16 @@ from music_critic.ssl.data import (
     strip_multisource_batch,
     validate_ssl_batch,
 )
-from music_critic.ssl.masking import build_mask_plans_for_batch
+from music_critic.ssl.masking import (
+    build_mask_plans_for_batch,
+    prepare_mask_binding,
+)
 from music_critic.ssl.model import (
     MaskedGraphSSLConfig,
     MaskedGraphSSLModel,
+)
+from music_critic.ssl.objective import (
+    StreamingAntiCollapseDiagnostics,
 )
 from music_critic.ssl.views import build_feature_mask_overlay
 from music_critic.tasks import (
@@ -401,17 +407,45 @@ def _loader_evidence(
     model: MaskedGraphSSLModel,
     stage: str,
     epoch: int,
-) -> tuple[tuple[tuple[str, str], ...], dict[tuple[str, str], object]]:
+) -> tuple[
+    tuple[tuple[str, str], ...],
+    dict[tuple[str, str], object],
+    dict[str, object],
+]:
     order: list[tuple[str, str]] = []
     evidence: dict[tuple[str, str], object] = {}
+    diagnostics = {
+        level: StreamingAntiCollapseDiagnostics()
+        for level in ("note", "bar", "song")
+    }
     for batch in batches:
+        binding = prepare_mask_binding(
+            batch,
+            global_seed=42,
+            epoch=epoch,
+            stage=stage,
+            requested_mask_rate=model.ssl_config.mask_rate,
+        )
         with torch.no_grad():
             output = model(
                 batch,
-                global_seed=42,
-                epoch=epoch,
-                validation=stage == "validation",
+                prepared_mask_binding=binding,
             )
+        diagnostics["note"].update(
+            output.targets.note.index_select(
+                0,
+                output.selected_global_note_indices,
+            ),
+            torch.stack(output.decoder_predictions).mean(dim=0),
+        )
+        diagnostics["bar"].update(
+            output.bar_latent.target,
+            output.bar_latent.prediction,
+        )
+        diagnostics["song"].update(
+            output.song_latent.target,
+            output.song_latent.prediction,
+        )
         plans = output.mask_plans
         graphs = _source_graphs(batch)
         cursor = 0
@@ -464,7 +498,14 @@ def _loader_evidence(
         assert cursor == int(
             output.selected_global_note_indices.shape[0]
         )
-    return tuple(order), evidence
+    return (
+        tuple(order),
+        evidence,
+        {
+            level: accumulator.to_dict()
+            for level, accumulator in diagnostics.items()
+        },
+    )
 
 
 def test_workers_zero_and_two_preserve_per_identity_inputs_and_plans(

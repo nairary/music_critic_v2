@@ -227,8 +227,10 @@ class RawFeatureEncoder(nn.Module):
         graph: HeteroData,
         *,
         feature_overlay: _FeatureContributionOverlay | None = None,
+        _prevalidated_input: bool = False,
     ) -> EncoderOutput:
-        _validate_input_graph(graph)
+        if not _prevalidated_input:
+            _validate_input_graph(graph)
         embeddings = {
             node_type: self.node_encoders[node_type](
                 graph[node_type],
@@ -355,10 +357,12 @@ class LocalHeterogeneousEncoder(nn.Module):
         *,
         return_layers: bool = False,
         feature_overlay: _FeatureContributionOverlay | None = None,
+        _prevalidated_input: bool = False,
     ) -> MultiScaleEncoderOutput:
         feature_output = self.feature_encoder(
             graph,
             feature_overlay=feature_overlay,
+            _prevalidated_input=_prevalidated_input,
         )
         current = dict(feature_output.embeddings)
         layer_outputs = []

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 import math
-from typing import Sequence
 
 import torch
 from torch import Tensor, nn
@@ -19,8 +18,10 @@ from music_critic.ssl.contracts import (
     MASKED_FEATURE_OVERLAY_CONTRACT_VERSION,
     MASK_PLAN_CONTRACT_VERSION,
     MASK_POLICY_VERSION,
+    PREPARED_MASK_BINDING_CONTRACT_VERSION,
     SSL_CONTRACT_VERSION,
     MaskPlan,
+    is_sha256,
 )
 from music_critic.ssl.data import SSLBatch
 from music_critic.ssl.decoder import (
@@ -29,13 +30,15 @@ from music_critic.ssl.decoder import (
     DecoderRemaskPlan,
     RepresentationDecoder,
     build_decoder_remask_plan,
-    gather_selected_latent_rows,
 )
 from music_critic.ssl.field_registry import (
     MASKABLE_FIELD_REGISTRY_FINGERPRINT,
     MASKABLE_FIELD_REGISTRY_VERSION,
 )
-from music_critic.ssl.masking import build_batched_mask_plans
+from music_critic.ssl.masking import (
+    PreparedMaskBinding,
+    validate_prepared_mask_binding,
+)
 from music_critic.ssl.objective import (
     ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION,
     COSINE_EPSILON,
@@ -60,12 +63,11 @@ from music_critic.ssl.objective import (
 from music_critic.ssl.views import (
     BoundFeatureMaskOverlay,
     FeatureMaskOverlay,
-    build_feature_mask_overlay,
 )
 
 
-SSL_MODEL_CONTRACT_VERSION = "1.0.0"
-SSL_MODEL_OUTPUT_CONTRACT_VERSION = "1.0.0"
+SSL_MODEL_CONTRACT_VERSION = "1.1.0"
+SSL_MODEL_OUTPUT_CONTRACT_VERSION = "1.1.0"
 SSL_REPRESENTATION_TARGET_CONTRACT_VERSION = "1.0.0"
 TARGET_MODE = "shared_stop_gradient_full_view"
 DECODER_CONTEXT_MODE = (
@@ -192,6 +194,7 @@ class SSLForwardOutput:
     """Complete inspectable output for one masked encoder view."""
 
     contract_version: str
+    prepared_mask_binding_fingerprint: str
     mask_plans: tuple[MaskPlan, ...]
     feature_overlay: FeatureMaskOverlay
     online_encoder: ContextualEncoderOutput
@@ -208,6 +211,14 @@ class SSLForwardOutput:
     def __post_init__(self) -> None:
         if self.contract_version != SSL_MODEL_OUTPUT_CONTRACT_VERSION:
             raise ValueError("SSL model output contract is incompatible")
+        if (
+            not is_sha256(
+                self.prepared_mask_binding_fingerprint
+            )
+        ):
+            raise ValueError(
+                "prepared mask binding fingerprint is incompatible"
+            )
         if len(self.decoder_predictions) != len(
             self.decoder_remask_plans
         ):
@@ -261,6 +272,9 @@ class MaskedGraphSSLModel(nn.Module):
             "decoder_context_mode": DECODER_CONTEXT_MODE,
             "mask_plan_contract_version": MASK_PLAN_CONTRACT_VERSION,
             "mask_policy_version": MASK_POLICY_VERSION,
+            "prepared_mask_binding_contract_version": (
+                PREPARED_MASK_BINDING_CONTRACT_VERSION
+            ),
             "masked_feature_overlay_contract_version": (
                 MASKED_FEATURE_OVERLAY_CONTRACT_VERSION
             ),
@@ -307,7 +321,10 @@ class MaskedGraphSSLModel(nn.Module):
         self.encoder.eval()
         try:
             with torch.no_grad():
-                encoded = self.encoder.encode(graph)
+                encoded = self.encoder.encode(
+                    graph,
+                    _prevalidated_input=True,
+                )
                 targets = RepresentationTargets(
                     contract_version=(
                         SSL_REPRESENTATION_TARGET_CONTRACT_VERSION
@@ -319,41 +336,6 @@ class MaskedGraphSSLModel(nn.Module):
         finally:
             self.encoder.train(was_training)
         return targets
-
-    def _plans(
-        self,
-        batch: SSLBatch,
-        *,
-        global_seed: int,
-        epoch: int,
-        validation: bool,
-        mask_plans: Sequence[MaskPlan] | None,
-    ) -> tuple[MaskPlan, ...]:
-        stage = "validation" if validation else "train"
-        canonical_plans = build_batched_mask_plans(
-            batch.raw_graph_batch,
-            dataset_ids=batch.dataset_ids,
-            piece_ids=batch.piece_ids,
-            global_seed=global_seed,
-            epoch=epoch,
-            encoder_view_index=0,
-            requested_mask_rate=self.ssl_config.mask_rate,
-            stage=stage,
-        )
-        if mask_plans is None:
-            return canonical_plans
-        plans = tuple(mask_plans)
-        if len(plans) != batch.sample_count:
-            raise ValueError("one MaskPlan is required per SSL sample")
-        for index, plan in enumerate(plans):
-            if not isinstance(plan, MaskPlan):
-                raise TypeError(f"mask plan {index} has an invalid type")
-        if plans != canonical_plans:
-            raise ValueError(
-                "supplied mask plans must exactly match the canonical "
-                "target-independent encoder view"
-            )
-        return plans
 
     def _decode_views(
         self,
@@ -418,7 +400,6 @@ class MaskedGraphSSLModel(nn.Module):
         edge_type: tuple[str, str, str],
         owner_embeddings: Tensor,
         note_count: int,
-        required: bool,
     ) -> tuple[Tensor, Tensor]:
         owners = torch.full(
             (note_count,),
@@ -428,33 +409,29 @@ class MaskedGraphSSLModel(nn.Module):
         )
         source, target = graph[edge_type].edge_index
         if source.device != owner_embeddings.device:
-            source = source.to(owner_embeddings.device)
-            target = target.to(owner_embeddings.device)
-        if target.numel():
-            if int(target.unique().numel()) != int(target.numel()):
-                raise ValueError(
-                    "decoder context note ownership is not unique"
-                )
-            owners.index_copy_(0, target, source)
-        available = owners >= 0
-        if required and not bool(available.all()):
             raise ValueError(
-                "decoder context is missing required note ownership"
+                "prepared decoder ownership and embeddings use "
+                "different devices"
             )
-        context = owner_embeddings.new_zeros(
-            (note_count, owner_embeddings.shape[1])
+        owners.index_copy_(0, target, source)
+        available = owners >= 0
+        safe_owners = owners.clamp_min(0)
+        context = owner_embeddings.index_select(
+            0,
+            safe_owners,
         )
-        if bool(available.any()):
-            context[available] = owner_embeddings.index_select(
-                0, owners[available]
-            )
+        context = torch.where(
+            available.unsqueeze(-1),
+            context,
+            torch.zeros_like(context),
+        )
         return context, available
 
     def _selected_decoder_context(
         self,
         batch: SSLBatch,
         online: ContextualEncoderOutput,
-        plans: tuple[MaskPlan, ...],
+        selected_global_note_indices: Tensor,
     ) -> Tensor:
         graph = batch.raw_graph_batch
         note = online.fused.embeddings["note"]
@@ -464,14 +441,12 @@ class MaskedGraphSSLModel(nn.Module):
             edge_type=_TRACK_NOTE_EDGE,
             owner_embeddings=online.fused.embeddings["track"],
             note_count=note_count,
-            required=True,
         )
         bar, bar_available = self._owner_context(
             graph,
             edge_type=_BAR_NOTE_EDGE,
             owner_embeddings=online.fused.embeddings["bar"],
             note_count=note_count,
-            required=False,
         )
         song_membership = online.fused.batch_membership["note"]
         song = online.fused.embeddings["song"].index_select(
@@ -486,17 +461,18 @@ class MaskedGraphSSLModel(nn.Module):
         for edge_type in (_NOTE_NEXT_EDGE, _NOTE_PREVIOUS_EDGE):
             source, target = graph[edge_type].edge_index
             if source.device != note.device:
-                source = source.to(note.device)
-                target = target.to(note.device)
-            if target.numel():
-                neighbor_sum.index_add_(
-                    0, target, note.index_select(0, source)
+                raise ValueError(
+                    "prepared decoder neighbors and embeddings use "
+                    "different devices"
                 )
-                neighbor_count.index_add_(
-                    0,
-                    target,
-                    torch.ones_like(target, dtype=note.dtype),
-                )
+            neighbor_sum.index_add_(
+                0, target, note.index_select(0, source)
+            )
+            neighbor_count.index_add_(
+                0,
+                target,
+                torch.ones_like(target, dtype=note.dtype),
+            )
         context = track + bar + song + neighbor_sum
         contribution_count = (
             track_available.to(note.dtype)
@@ -505,70 +481,50 @@ class MaskedGraphSSLModel(nn.Module):
             + neighbor_count
         ).clamp_min(1.0)
         context = context / contribution_count.unsqueeze(-1)
-        return gather_selected_latent_rows(
-            context,
-            plans,
-            graph["note"].ptr,
+        return context.index_select(
+            0,
+            selected_global_note_indices,
         )
 
     def forward(
         self,
         batch: SSLBatch,
         *,
-        global_seed: int,
-        epoch: int,
-        validation: bool = False,
-        mask_plans: Sequence[MaskPlan] | None = None,
+        prepared_mask_binding: PreparedMaskBinding,
     ) -> SSLForwardOutput:
         if not isinstance(batch, SSLBatch):
             raise TypeError("MaskedGraphSSLModel requires a raw-only SSLBatch")
-        plans = self._plans(
+        validate_prepared_mask_binding(
             batch,
-            global_seed=global_seed,
-            epoch=epoch,
-            validation=validation,
-            mask_plans=mask_plans,
+            prepared_mask_binding,
+            expected_mask_rate=self.ssl_config.mask_rate,
         )
+        plans = prepared_mask_binding.mask_plans
         full_targets = self._full_view_targets(batch.raw_graph_batch)
-        feature_overlay = build_feature_mask_overlay(
-            batch.raw_graph_batch, plans
-        )
+        feature_overlay = prepared_mask_binding.feature_overlay
         bound_overlay: BoundFeatureMaskOverlay = feature_overlay.bind(
             self.feature_mask_token
         )
         online = self.encoder.encode(
             batch.raw_graph_batch,
             feature_overlay=bound_overlay,
+            _prevalidated_input=True,
         )
-        note_ptr = batch.raw_graph_batch["note"].ptr
-        selected_online = gather_selected_latent_rows(
-            online.fused.embeddings["note"],
-            plans,
-            note_ptr,
+        selected_indices = (
+            prepared_mask_binding.selected_global_note_indices_tensor
         )
-        selected_target = gather_selected_latent_rows(
-            full_targets.note,
-            plans,
-            note_ptr,
+        selected_online = online.fused.embeddings["note"].index_select(
+            0,
+            selected_indices,
+        )
+        selected_target = full_targets.note.index_select(
+            0,
+            selected_indices,
         ).detach()
         selected_context = self._selected_decoder_context(
             batch,
             online,
-            plans,
-        )
-        selected_indices = torch.cat(
-            [
-                torch.tensor(
-                    [
-                        int(note_ptr[sample_index].item()) + local_index
-                        for local_index in plan.selected_local_node_indices
-                    ],
-                    dtype=torch.long,
-                    device=note_ptr.device,
-                )
-                for sample_index, plan in enumerate(plans)
-            ],
-            dim=0,
+            selected_indices,
         )
         decoder_predictions, decoder_plans = self._decode_views(
             selected_online,
@@ -631,6 +587,9 @@ class MaskedGraphSSLModel(nn.Module):
         )
         return SSLForwardOutput(
             contract_version=SSL_MODEL_OUTPUT_CONTRACT_VERSION,
+            prepared_mask_binding_fingerprint=(
+                prepared_mask_binding.fingerprint
+            ),
             mask_plans=plans,
             feature_overlay=feature_overlay,
             online_encoder=online,

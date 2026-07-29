@@ -30,9 +30,9 @@ from music_critic.training.checkpoint import (
 )
 
 
-SSL_CHECKPOINT_CONTRACT_VERSION = "1.0.0"
-SSL_EPOCH_JOURNAL_CONTRACT_VERSION = "1.0.0"
-SSL_METRIC_ROW_VERSION = "1.0.0"
+SSL_CHECKPOINT_CONTRACT_VERSION = "1.1.0"
+SSL_EPOCH_JOURNAL_CONTRACT_VERSION = "1.1.0"
+SSL_METRIC_ROW_VERSION = "1.1.0"
 
 
 class SSLCheckpointError(ValueError):
@@ -106,6 +106,8 @@ def _validated_data_fingerprints(
             "kind",
             "bounded_fixture_fingerprint",
             "split_fingerprint",
+            "train_composition_fingerprint",
+            "validation_composition_fingerprint",
             "validation_membership_fingerprint",
         }
         if set(value) != expected:
@@ -230,6 +232,7 @@ def _validate_epoch_state(
             "ssl.checkpoint.epoch_journal_invalid"
         )
     rows: list[dict[str, object]] = []
+    finite_validation_losses: list[float] = []
     expected_row_fields = {
         "metric_row_version",
         "epoch",
@@ -288,11 +291,41 @@ def _validate_epoch_state(
             raise SSLCheckpointError(
                 "ssl.checkpoint.epoch_journal_metric_invalid"
             )
+        validation = copied["validation"]
+        if validation is not None:
+            if "total_ssl_loss" not in validation:
+                raise SSLCheckpointError(
+                    "ssl.checkpoint."
+                    "epoch_journal_validation_loss_invalid"
+                )
+            validation_loss = validation["total_ssl_loss"]
+            if validation_loss is not None:
+                if (
+                    isinstance(validation_loss, bool)
+                    or not isinstance(validation_loss, (int, float))
+                    or not math.isfinite(float(validation_loss))
+                ):
+                    raise SSLCheckpointError(
+                        "ssl.checkpoint."
+                        "epoch_journal_validation_loss_invalid"
+                    )
+                finite_validation_losses.append(
+                    float(validation_loss)
+                )
         _canonical_fingerprint(copied)
         rows.append(copied)
     if len(rows) != next_epoch:
         raise SSLCheckpointError(
             "ssl.checkpoint.epoch_journal_length_invalid"
+        )
+    expected_best_validation_loss = (
+        min(finite_validation_losses)
+        if finite_validation_losses
+        else None
+    )
+    if best_validation_loss != expected_best_validation_loss:
+        raise SSLCheckpointError(
+            "ssl.checkpoint.best_validation_loss_inconsistent"
         )
     return tuple(rows)
 

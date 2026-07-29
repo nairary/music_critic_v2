@@ -2,14 +2,25 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field, replace
+import hmac
 import math
+import secrets
 from collections.abc import Sequence
 
+import torch
+from torch import Tensor
 from torch_geometric.data import Batch, HeteroData
 
-from music_critic.graph import validate_raw_graph, validate_raw_graph_batch
+from music_critic.graph import (
+    MANDATORY_EDGE_TYPES,
+    MANDATORY_NODE_TYPES,
+    validate_raw_graph,
+    validate_raw_graph_batch,
+)
 from music_critic.ssl.contracts import (
     MASK_POLICY_VERSION,
+    PREPARED_MASK_BINDING_CONTRACT_VERSION,
     UNIFORM_NOTE_MASK_POLICY,
     CollateralFeatureMask,
     MaskPlan,
@@ -18,6 +29,8 @@ from music_critic.ssl.contracts import (
     SampleIdentity,
     StableSeed,
     canonical_sha256,
+    is_sha256,
+    mask_plan_fingerprint,
     validate_global_seed,
     validate_mask_rate,
     validate_non_negative_integer,
@@ -29,10 +42,16 @@ from music_critic.ssl.field_registry import (
     NOTE_PITCH_GROUP_NAME,
     SSL_MASKABLE_FIELD_REGISTRY,
 )
+from music_critic.ssl.views import (
+    FeatureMaskOverlay,
+    build_feature_mask_overlay,
+)
 
 
 DEFAULT_ENCODER_MASK_RATE = 0.30
 TRACK_CONTAINS_NOTE_EDGE = ("track", "contains_note", "note")
+
+_PREPARED_BINDING_ATTESTATION_KEY = secrets.token_bytes(32)
 
 
 def derive_stable_seed(
@@ -208,6 +227,719 @@ def _note_owner_tracks(graph: HeteroData) -> tuple[int, ...]:
     if any(owner < 0 for owner in owners):
         raise SSLContractError("every note must have exactly one owner track")
     return tuple(owners)
+
+
+def _binding_payload(
+    *,
+    dataset_ids: tuple[str, ...],
+    piece_ids: tuple[str, ...],
+    stage: MaskStage,
+    epoch: int,
+    encoder_view_index: int,
+    global_seed: int,
+    requested_mask_rate: float,
+    sample_count: int,
+    node_counts: tuple[tuple[str, int], ...],
+    node_ptrs: tuple[tuple[str, tuple[int, ...]], ...],
+    edge_counts: tuple[tuple[tuple[str, str, str], int], ...],
+    validated_structure_sha256: str,
+    note_track_ownership_sha256: str,
+    ordered_plan_fingerprints: tuple[str, ...],
+    feature_overlay_fingerprint: str,
+    selected_global_note_indices: tuple[int, ...],
+) -> dict[str, object]:
+    return {
+        "contract_version": PREPARED_MASK_BINDING_CONTRACT_VERSION,
+        "sample_identities": [
+            {"dataset_id": dataset_id, "piece_id": piece_id}
+            for dataset_id, piece_id in zip(
+                dataset_ids,
+                piece_ids,
+                strict=True,
+            )
+        ],
+        "stage": stage,
+        "epoch": epoch,
+        "encoder_view_index": encoder_view_index,
+        "global_seed": global_seed,
+        "requested_mask_rate": requested_mask_rate,
+        "sample_count": sample_count,
+        "node_counts": [
+            {"node_type": node_type, "count": count}
+            for node_type, count in node_counts
+        ],
+        "node_ptrs": [
+            {"node_type": node_type, "ptr": list(ptr)}
+            for node_type, ptr in node_ptrs
+        ],
+        "edge_counts": [
+            {
+                "edge_type": list(edge_type),
+                "count": count,
+            }
+            for edge_type, count in edge_counts
+        ],
+        "validated_structure_sha256": validated_structure_sha256,
+        "note_track_ownership_sha256": note_track_ownership_sha256,
+        "ordered_plan_fingerprints": list(ordered_plan_fingerprints),
+        "feature_overlay_fingerprint": feature_overlay_fingerprint,
+        "selected_global_note_indices": list(
+            selected_global_note_indices
+        ),
+    }
+
+
+def _semantic_attestation(fingerprint: str) -> str:
+    return hmac.new(
+        _PREPARED_BINDING_ATTESTATION_KEY,
+        fingerprint.encode("ascii"),
+        digestmod="sha256",
+    ).hexdigest()
+
+
+def _runtime_graph_tensor_evidence(
+    graph: HeteroData,
+) -> tuple[tuple[str, int, int], ...]:
+    evidence: list[tuple[str, int, int]] = []
+    for node_type in MANDATORY_NODE_TYPES:
+        ptr = graph[node_type].ptr
+        if not isinstance(ptr, Tensor):
+            raise SSLContractError(
+                f"prepared binding requires tensor {node_type}.ptr"
+            )
+        evidence.append(
+            (
+                f"node:{node_type}:ptr",
+                id(ptr),
+                int(ptr._version),
+            )
+        )
+        batch_membership = graph[node_type].batch
+        if not isinstance(batch_membership, Tensor):
+            raise SSLContractError(
+                f"prepared binding requires tensor {node_type}.batch"
+            )
+        evidence.append(
+            (
+                f"node:{node_type}:batch",
+                id(batch_membership),
+                int(batch_membership._version),
+            )
+        )
+    for edge_type in MANDATORY_EDGE_TYPES:
+        edge_index = graph[edge_type].edge_index
+        if not isinstance(edge_index, Tensor):
+            raise SSLContractError(
+                "prepared binding requires tensor edge_index for "
+                + "|".join(edge_type)
+            )
+        evidence.append(
+            (
+                "edge:" + "|".join(edge_type),
+                id(edge_index),
+                int(edge_index._version),
+            )
+        )
+    return tuple(evidence)
+
+
+def _runtime_attestation(
+    *,
+    fingerprint: str,
+    graph: HeteroData,
+    selected_indices: Tensor,
+) -> str:
+    payload = {
+        "binding_fingerprint": fingerprint,
+        "bound_graph_object": id(graph),
+        "selected_index_tensor_object": id(selected_indices),
+        "selected_index_tensor_version": int(selected_indices._version),
+        "structure_tensor_evidence": [
+            [label, object_id, version]
+            for label, object_id, version in (
+                _runtime_graph_tensor_evidence(graph)
+            )
+        ],
+    }
+    message = canonical_sha256(payload).encode("ascii")
+    return hmac.new(
+        _PREPARED_BINDING_ATTESTATION_KEY,
+        message,
+        digestmod="sha256",
+    ).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedMaskBinding:
+    """CPU-prepared plans bound to one validated raw batch and transfer."""
+
+    contract_version: str
+    dataset_ids: tuple[str, ...]
+    piece_ids: tuple[str, ...]
+    stage: MaskStage
+    epoch: int
+    encoder_view_index: int
+    global_seed: int
+    requested_mask_rate: float
+    sample_count: int
+    node_counts: tuple[tuple[str, int], ...]
+    node_ptrs: tuple[tuple[str, tuple[int, ...]], ...]
+    edge_counts: tuple[tuple[tuple[str, str, str], int], ...]
+    validated_structure_sha256: str
+    note_track_ownership_sha256: str
+    mask_plans: tuple[MaskPlan, ...]
+    ordered_plan_fingerprints: tuple[str, ...]
+    feature_overlay: FeatureMaskOverlay
+    selected_global_note_indices: tuple[int, ...]
+    selected_global_note_indices_tensor: Tensor = field(
+        repr=False,
+        compare=False,
+    )
+    fingerprint: str
+    _bound_graph: HeteroData = field(repr=False, compare=False)
+    _semantic_attestation: str = field(repr=False, compare=False)
+    _runtime_attestation: str = field(repr=False, compare=False)
+
+    @classmethod
+    def _create(
+        cls,
+        *,
+        dataset_ids: tuple[str, ...],
+        piece_ids: tuple[str, ...],
+        stage: MaskStage,
+        epoch: int,
+        encoder_view_index: int,
+        global_seed: int,
+        requested_mask_rate: float,
+        sample_count: int,
+        node_counts: tuple[tuple[str, int], ...],
+        node_ptrs: tuple[tuple[str, tuple[int, ...]], ...],
+        edge_counts: tuple[tuple[tuple[str, str, str], int], ...],
+        validated_structure_sha256: str,
+        note_track_ownership_sha256: str,
+        mask_plans: tuple[MaskPlan, ...],
+        feature_overlay: FeatureMaskOverlay,
+        selected_global_note_indices: tuple[int, ...],
+        bound_graph: HeteroData,
+    ) -> PreparedMaskBinding:
+        if not isinstance(bound_graph, Batch):
+            raise SSLContractError(
+                "prepared binding construction requires a PyG Batch"
+            )
+        (
+            canonical_node_counts,
+            canonical_node_ptrs,
+            canonical_edge_counts,
+            canonical_structure_sha256,
+            canonical_ownership_sha256,
+        ) = _cpu_graph_evidence(
+            bound_graph,
+            sample_count=sample_count,
+        )
+        if (
+            node_counts != canonical_node_counts
+            or node_ptrs != canonical_node_ptrs
+            or edge_counts != canonical_edge_counts
+            or validated_structure_sha256
+            != canonical_structure_sha256
+            or note_track_ownership_sha256
+            != canonical_ownership_sha256
+        ):
+            raise SSLContractError(
+                "prepared binding construction evidence is non-canonical"
+            )
+        canonical_plans = build_batched_mask_plans(
+            bound_graph,
+            dataset_ids=dataset_ids,
+            piece_ids=piece_ids,
+            global_seed=global_seed,
+            epoch=epoch,
+            encoder_view_index=encoder_view_index,
+            requested_mask_rate=requested_mask_rate,
+            stage=stage,
+        )
+        if mask_plans != canonical_plans:
+            raise SSLContractError(
+                "prepared binding construction plans are non-canonical"
+            )
+        canonical_overlay = build_feature_mask_overlay(
+            bound_graph,
+            canonical_plans,
+        )
+        note_ptr = dict(canonical_node_ptrs)["note"]
+        canonical_selected_global_indices = tuple(
+            note_ptr[sample_index] + local_index
+            for sample_index, plan in enumerate(canonical_plans)
+            for local_index in plan.selected_local_node_indices
+        )
+        if (
+            feature_overlay != canonical_overlay
+            or selected_global_note_indices
+            != canonical_selected_global_indices
+        ):
+            raise SSLContractError(
+                "prepared binding construction overlay is non-canonical"
+            )
+        ordered_plan_fingerprints = tuple(
+            plan.fingerprint for plan in mask_plans
+        )
+        payload = _binding_payload(
+            dataset_ids=dataset_ids,
+            piece_ids=piece_ids,
+            stage=stage,
+            epoch=epoch,
+            encoder_view_index=encoder_view_index,
+            global_seed=global_seed,
+            requested_mask_rate=requested_mask_rate,
+            sample_count=sample_count,
+            node_counts=node_counts,
+            node_ptrs=node_ptrs,
+            edge_counts=edge_counts,
+            validated_structure_sha256=validated_structure_sha256,
+            note_track_ownership_sha256=(
+                note_track_ownership_sha256
+            ),
+            ordered_plan_fingerprints=ordered_plan_fingerprints,
+            feature_overlay_fingerprint=feature_overlay.fingerprint,
+            selected_global_note_indices=(
+                selected_global_note_indices
+            ),
+        )
+        fingerprint = canonical_sha256(payload)
+        selected_tensor = torch.tensor(
+            selected_global_note_indices,
+            dtype=torch.long,
+            device="cpu",
+        )
+        return cls(
+            contract_version=PREPARED_MASK_BINDING_CONTRACT_VERSION,
+            dataset_ids=dataset_ids,
+            piece_ids=piece_ids,
+            stage=stage,
+            epoch=epoch,
+            encoder_view_index=encoder_view_index,
+            global_seed=global_seed,
+            requested_mask_rate=requested_mask_rate,
+            sample_count=sample_count,
+            node_counts=node_counts,
+            node_ptrs=node_ptrs,
+            edge_counts=edge_counts,
+            validated_structure_sha256=validated_structure_sha256,
+            note_track_ownership_sha256=(
+                note_track_ownership_sha256
+            ),
+            mask_plans=mask_plans,
+            ordered_plan_fingerprints=ordered_plan_fingerprints,
+            feature_overlay=feature_overlay,
+            selected_global_note_indices=(
+                selected_global_note_indices
+            ),
+            selected_global_note_indices_tensor=selected_tensor,
+            fingerprint=fingerprint,
+            _bound_graph=bound_graph,
+            _semantic_attestation=_semantic_attestation(fingerprint),
+            _runtime_attestation=_runtime_attestation(
+                fingerprint=fingerprint,
+                graph=bound_graph,
+                selected_indices=selected_tensor,
+            ),
+        )
+
+    def __post_init__(self) -> None:
+        _validate_prepared_mask_binding_contract(self)
+
+    def to_dict(self) -> dict[str, object]:
+        """Return deterministic public evidence, excluding runtime binding."""
+
+        payload = _binding_payload(
+            dataset_ids=self.dataset_ids,
+            piece_ids=self.piece_ids,
+            stage=self.stage,
+            epoch=self.epoch,
+            encoder_view_index=self.encoder_view_index,
+            global_seed=self.global_seed,
+            requested_mask_rate=self.requested_mask_rate,
+            sample_count=self.sample_count,
+            node_counts=self.node_counts,
+            node_ptrs=self.node_ptrs,
+            edge_counts=self.edge_counts,
+            validated_structure_sha256=(
+                self.validated_structure_sha256
+            ),
+            note_track_ownership_sha256=(
+                self.note_track_ownership_sha256
+            ),
+            ordered_plan_fingerprints=(
+                self.ordered_plan_fingerprints
+            ),
+            feature_overlay_fingerprint=(
+                self.feature_overlay.fingerprint
+            ),
+            selected_global_note_indices=(
+                self.selected_global_note_indices
+            ),
+        )
+        payload["fingerprint"] = self.fingerprint
+        return payload
+
+
+def _validate_prepared_mask_binding_contract(
+    binding: PreparedMaskBinding,
+) -> None:
+    if (
+        binding.contract_version
+        != PREPARED_MASK_BINDING_CONTRACT_VERSION
+    ):
+        raise SSLContractError(
+            "prepared mask binding contract version is incompatible"
+        )
+    if (
+        not isinstance(binding.dataset_ids, tuple)
+        or not isinstance(binding.piece_ids, tuple)
+        or not binding.dataset_ids
+        or len(binding.dataset_ids) != len(binding.piece_ids)
+        or len(binding.dataset_ids) != binding.sample_count
+    ):
+        raise SSLContractError(
+            "prepared mask binding identities are incompatible"
+        )
+    for dataset_id, piece_id in zip(
+        binding.dataset_ids,
+        binding.piece_ids,
+        strict=True,
+    ):
+        SampleIdentity(dataset_id, piece_id)
+    if binding.stage not in {"train", "validation"}:
+        raise SSLContractError("prepared mask binding stage is invalid")
+    validate_non_negative_integer(binding.epoch, name="epoch")
+    if binding.stage == "validation" and binding.epoch != 0:
+        raise SSLContractError(
+            "prepared validation bindings require canonical epoch zero"
+        )
+    if binding.encoder_view_index != 0:
+        raise SSLContractError(
+            "prepared Phase 7A bindings require encoder view zero"
+        )
+    validate_global_seed(binding.global_seed)
+    rate = validate_mask_rate(binding.requested_mask_rate)
+    if (
+        not isinstance(binding.requested_mask_rate, float)
+        or rate != binding.requested_mask_rate
+    ):
+        raise SSLContractError(
+            "prepared binding mask rate must use canonical float form"
+        )
+    validate_non_negative_integer(
+        binding.sample_count,
+        name="sample_count",
+    )
+    if binding.sample_count == 0:
+        raise SSLContractError("prepared binding batch must be non-empty")
+
+    if tuple(name for name, _ in binding.node_counts) != (
+        MANDATORY_NODE_TYPES
+    ):
+        raise SSLContractError(
+            "prepared binding node counts have incompatible ordering"
+        )
+    node_count_by_type = dict(binding.node_counts)
+    if any(
+        isinstance(count, bool)
+        or not isinstance(count, int)
+        or count < 0
+        for count in node_count_by_type.values()
+    ):
+        raise SSLContractError(
+            "prepared binding node counts must be non-negative integers"
+        )
+    if tuple(name for name, _ in binding.node_ptrs) != (
+        MANDATORY_NODE_TYPES
+    ):
+        raise SSLContractError(
+            "prepared binding node ptrs have incompatible ordering"
+        )
+    for node_type, ptr in binding.node_ptrs:
+        if (
+            not isinstance(ptr, tuple)
+            or len(ptr) != binding.sample_count + 1
+            or ptr[0] != 0
+            or ptr[-1] != node_count_by_type[node_type]
+            or any(
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or value < 0
+                for value in ptr
+            )
+            or any(left > right for left, right in zip(ptr, ptr[1:]))
+        ):
+            raise SSLContractError(
+                f"prepared binding {node_type}.ptr is invalid"
+            )
+    if tuple(edge_type for edge_type, _ in binding.edge_counts) != (
+        MANDATORY_EDGE_TYPES
+    ):
+        raise SSLContractError(
+            "prepared binding edge counts have incompatible ordering"
+        )
+    if any(
+        isinstance(count, bool)
+        or not isinstance(count, int)
+        or count < 0
+        for _, count in binding.edge_counts
+    ):
+        raise SSLContractError(
+            "prepared binding edge counts must be non-negative integers"
+        )
+    if (
+        not is_sha256(binding.validated_structure_sha256)
+        or not is_sha256(binding.note_track_ownership_sha256)
+    ):
+        raise SSLContractError(
+            "prepared binding structure evidence must use SHA-256"
+        )
+    if (
+        not isinstance(binding.mask_plans, tuple)
+        or len(binding.mask_plans) != binding.sample_count
+        or not all(
+            isinstance(plan, MaskPlan) for plan in binding.mask_plans
+        )
+    ):
+        raise SSLContractError(
+            "prepared binding requires one MaskPlan per sample"
+        )
+    if (
+        not isinstance(binding.ordered_plan_fingerprints, tuple)
+        or binding.ordered_plan_fingerprints
+        != tuple(plan.fingerprint for plan in binding.mask_plans)
+        or not all(
+            is_sha256(value)
+            for value in binding.ordered_plan_fingerprints
+        )
+    ):
+        raise SSLContractError(
+            "prepared binding ordered plan fingerprints are invalid"
+        )
+    note_ptr = dict(binding.node_ptrs)["note"]
+    expected_selected: list[int] = []
+    for sample_index, plan in enumerate(binding.mask_plans):
+        if (
+            plan.fingerprint != mask_plan_fingerprint(plan)
+            or plan.dataset_id != binding.dataset_ids[sample_index]
+            or plan.piece_id != binding.piece_ids[sample_index]
+            or plan.stage != binding.stage
+            or plan.epoch != binding.epoch
+            or plan.encoder_view_index != binding.encoder_view_index
+            or plan.global_seed != binding.global_seed
+            or plan.requested_mask_rate != binding.requested_mask_rate
+            or plan.maskable_node_count
+            != note_ptr[sample_index + 1] - note_ptr[sample_index]
+        ):
+            raise SSLContractError(
+                "prepared binding contains a non-canonical bound MaskPlan"
+            )
+        expected_selected.extend(
+            note_ptr[sample_index] + local_index
+            for local_index in plan.selected_local_node_indices
+        )
+    if (
+        not isinstance(binding.selected_global_note_indices, tuple)
+        or binding.selected_global_note_indices
+        != tuple(expected_selected)
+    ):
+        raise SSLContractError(
+            "prepared binding selected global note indices are invalid"
+        )
+    if (
+        not isinstance(binding.feature_overlay, FeatureMaskOverlay)
+        or binding.feature_overlay.graph_count != binding.sample_count
+        or dict(binding.feature_overlay.node_counts)
+        != node_count_by_type
+        or binding.feature_overlay.mask_plan_fingerprints
+        != binding.ordered_plan_fingerprints
+    ):
+        raise SSLContractError(
+            "prepared binding feature overlay is incompatible"
+        )
+    binding.feature_overlay.__post_init__()
+
+    payload = _binding_payload(
+        dataset_ids=binding.dataset_ids,
+        piece_ids=binding.piece_ids,
+        stage=binding.stage,
+        epoch=binding.epoch,
+        encoder_view_index=binding.encoder_view_index,
+        global_seed=binding.global_seed,
+        requested_mask_rate=binding.requested_mask_rate,
+        sample_count=binding.sample_count,
+        node_counts=binding.node_counts,
+        node_ptrs=binding.node_ptrs,
+        edge_counts=binding.edge_counts,
+        validated_structure_sha256=(
+            binding.validated_structure_sha256
+        ),
+        note_track_ownership_sha256=(
+            binding.note_track_ownership_sha256
+        ),
+        ordered_plan_fingerprints=(
+            binding.ordered_plan_fingerprints
+        ),
+        feature_overlay_fingerprint=(
+            binding.feature_overlay.fingerprint
+        ),
+        selected_global_note_indices=(
+            binding.selected_global_note_indices
+        ),
+    )
+    if (
+        not is_sha256(binding.fingerprint)
+        or binding.fingerprint != canonical_sha256(payload)
+        or not isinstance(binding._semantic_attestation, str)
+        or not hmac.compare_digest(
+            binding._semantic_attestation,
+            _semantic_attestation(binding.fingerprint),
+        )
+    ):
+        raise SSLContractError(
+            "prepared mask binding semantic attestation is invalid"
+        )
+    selected_tensor = binding.selected_global_note_indices_tensor
+    if (
+        not isinstance(selected_tensor, Tensor)
+        or selected_tensor.dtype != torch.long
+        or selected_tensor.ndim != 1
+        or int(selected_tensor.shape[0])
+        != len(binding.selected_global_note_indices)
+    ):
+        raise SSLContractError(
+            "prepared binding selected-index tensor is invalid"
+        )
+    if not isinstance(binding._bound_graph, Batch):
+        raise SSLContractError(
+            "prepared binding must remain bound to a PyG Batch"
+        )
+    if not isinstance(binding._runtime_attestation, str):
+        raise SSLContractError(
+            "prepared mask binding runtime attestation is invalid"
+        )
+    expected_runtime_attestation = _runtime_attestation(
+        fingerprint=binding.fingerprint,
+        graph=binding._bound_graph,
+        selected_indices=selected_tensor,
+    )
+    if not hmac.compare_digest(
+        binding._runtime_attestation,
+        expected_runtime_attestation,
+    ):
+        raise SSLContractError(
+            "prepared mask binding runtime attestation is invalid"
+        )
+
+
+def _cpu_graph_evidence(
+    graph_batch: Batch,
+    *,
+    sample_count: int,
+) -> tuple[
+    tuple[tuple[str, int], ...],
+    tuple[tuple[str, tuple[int, ...]], ...],
+    tuple[tuple[tuple[str, str, str], int], ...],
+    str,
+    str,
+]:
+    for store in graph_batch.stores:
+        for value in store.values():
+            if isinstance(value, Tensor) and value.device.type != "cpu":
+                raise SSLContractError(
+                    "prepared MaskPlans must be constructed from a CPU raw batch"
+                )
+    node_counts = tuple(
+        (
+            node_type,
+            int(graph_batch[node_type].num_nodes),
+        )
+        for node_type in MANDATORY_NODE_TYPES
+    )
+    node_ptrs = tuple(
+        (
+            node_type,
+            tuple(
+                int(value)
+                for value in graph_batch[node_type].ptr.detach().tolist()
+            ),
+        )
+        for node_type in MANDATORY_NODE_TYPES
+    )
+    node_batches = tuple(
+        (
+            node_type,
+            tuple(
+                int(value)
+                for value in (
+                    graph_batch[node_type].batch.detach().tolist()
+                )
+            ),
+        )
+        for node_type in MANDATORY_NODE_TYPES
+    )
+    edge_values = tuple(
+        (
+            edge_type,
+            tuple(
+                tuple(int(value) for value in row)
+                for row in (
+                    graph_batch[edge_type]
+                    .edge_index.detach()
+                    .tolist()
+                )
+            ),
+        )
+        for edge_type in MANDATORY_EDGE_TYPES
+    )
+    edge_counts = tuple(
+        (edge_type, len(values[0]))
+        for edge_type, values in edge_values
+    )
+    structure_sha256 = canonical_sha256(
+        {
+            "sample_count": sample_count,
+            "node_counts": [
+                [node_type, count]
+                for node_type, count in node_counts
+            ],
+            "node_ptrs": [
+                [node_type, list(ptr)]
+                for node_type, ptr in node_ptrs
+            ],
+            "node_batches": [
+                [node_type, list(membership)]
+                for node_type, membership in node_batches
+            ],
+            "edges": [
+                [
+                    list(edge_type),
+                    [list(row) for row in values],
+                ]
+                for edge_type, values in edge_values
+            ],
+        }
+    )
+    ownership_values = dict(edge_values)[TRACK_CONTAINS_NOTE_EDGE]
+    ownership_sha256 = canonical_sha256(
+        {
+            "note_ptr": list(dict(node_ptrs)["note"]),
+            "track_ptr": list(dict(node_ptrs)["track"]),
+            "track_contains_note": [
+                list(row) for row in ownership_values
+            ],
+        }
+    )
+    return (
+        node_counts,
+        node_ptrs,
+        edge_counts,
+        structure_sha256,
+        ownership_sha256,
+    )
 
 
 def _one_plan(
@@ -428,6 +1160,200 @@ def build_batched_mask_plans(
     )
 
 
+def prepare_mask_binding(
+    batch: object,
+    *,
+    global_seed: int,
+    epoch: int,
+    requested_mask_rate: float = DEFAULT_ENCODER_MASK_RATE,
+    stage: MaskStage = "train",
+    encoder_view_index: int = 0,
+) -> PreparedMaskBinding:
+    """Prepare canonical plans and their graph binding on validated CPU input."""
+
+    from music_critic.ssl.data import SSLBatch, validate_ssl_batch
+
+    if not isinstance(batch, SSLBatch):
+        raise SSLContractError(
+            "prepare_mask_binding requires a raw-only SSLBatch"
+        )
+    if encoder_view_index != 0:
+        raise SSLContractError(
+            "prepared Phase 7A bindings require encoder view zero"
+        )
+    validate_ssl_batch(batch)
+    graph_batch = batch.raw_graph_batch
+    if not isinstance(graph_batch, Batch):
+        raise SSLContractError(
+            "prepare_mask_binding requires a PyG Batch"
+        )
+    (
+        node_counts,
+        node_ptrs,
+        edge_counts,
+        structure_sha256,
+        ownership_sha256,
+    ) = _cpu_graph_evidence(
+        graph_batch,
+        sample_count=batch.sample_count,
+    )
+    plans = build_batched_mask_plans(
+        graph_batch,
+        dataset_ids=batch.dataset_ids,
+        piece_ids=batch.piece_ids,
+        global_seed=global_seed,
+        epoch=epoch,
+        encoder_view_index=encoder_view_index,
+        requested_mask_rate=requested_mask_rate,
+        stage=stage,
+    )
+    feature_overlay = build_feature_mask_overlay(graph_batch, plans)
+    canonical_epoch = plans[0].epoch
+    canonical_rate = plans[0].requested_mask_rate
+    note_ptr = dict(node_ptrs)["note"]
+    selected_global_indices = tuple(
+        note_ptr[sample_index] + local_index
+        for sample_index, plan in enumerate(plans)
+        for local_index in plan.selected_local_node_indices
+    )
+    return PreparedMaskBinding._create(
+        dataset_ids=batch.dataset_ids,
+        piece_ids=batch.piece_ids,
+        stage=stage,
+        epoch=canonical_epoch,
+        encoder_view_index=encoder_view_index,
+        global_seed=global_seed,
+        requested_mask_rate=canonical_rate,
+        sample_count=batch.sample_count,
+        node_counts=node_counts,
+        node_ptrs=node_ptrs,
+        edge_counts=edge_counts,
+        validated_structure_sha256=structure_sha256,
+        note_track_ownership_sha256=ownership_sha256,
+        mask_plans=plans,
+        feature_overlay=feature_overlay,
+        selected_global_note_indices=selected_global_indices,
+        bound_graph=graph_batch,
+    )
+
+
+def validate_prepared_mask_binding(
+    batch: object,
+    binding: PreparedMaskBinding,
+    *,
+    expected_mask_rate: float | None = None,
+) -> None:
+    """Validate a prepared binding without reading accelerator graph values."""
+
+    from music_critic.ssl.data import SSLBatch
+
+    if not isinstance(batch, SSLBatch):
+        raise SSLContractError(
+            "prepared mask binding requires a raw-only SSLBatch"
+        )
+    if not isinstance(binding, PreparedMaskBinding):
+        raise SSLContractError(
+            "prepared mask binding has an invalid type"
+        )
+    _validate_prepared_mask_binding_contract(binding)
+    if (
+        binding._bound_graph is not batch.raw_graph_batch
+        or binding.dataset_ids != batch.dataset_ids
+        or binding.piece_ids != batch.piece_ids
+        or binding.sample_count != batch.sample_count
+        or sum(count for _, count in binding.node_counts)
+        != batch.node_count
+        or sum(count for _, count in binding.edge_counts)
+        != batch.edge_count
+    ):
+        raise SSLContractError(
+            "prepared mask binding does not belong to this SSLBatch"
+        )
+    graph = batch.raw_graph_batch
+    if (
+        not isinstance(graph, Batch)
+        or int(graph.num_graphs) != binding.sample_count
+        or tuple(graph.node_types) != MANDATORY_NODE_TYPES
+        or tuple(graph.edge_types) != MANDATORY_EDGE_TYPES
+    ):
+        raise SSLContractError(
+            "prepared mask binding graph schema is incompatible"
+        )
+    for node_type, count in binding.node_counts:
+        store = graph[node_type]
+        if (
+            int(store.num_nodes) != count
+            or not isinstance(store.ptr, Tensor)
+            or store.ptr.dtype != torch.long
+            or store.ptr.ndim != 1
+            or int(store.ptr.shape[0]) != binding.sample_count + 1
+        ):
+            raise SSLContractError(
+                f"prepared mask binding {node_type} shape is incompatible"
+            )
+    for edge_type, count in binding.edge_counts:
+        edge_index = graph[edge_type].edge_index
+        if (
+            not isinstance(edge_index, Tensor)
+            or edge_index.dtype != torch.long
+            or edge_index.ndim != 2
+            or tuple(edge_index.shape) != (2, count)
+        ):
+            raise SSLContractError(
+                "prepared mask binding edge shape is incompatible: "
+                + "|".join(edge_type)
+            )
+    graph_device = graph["note"].x_cat.device
+    if (
+        binding.selected_global_note_indices_tensor.device
+        != graph_device
+    ):
+        raise SSLContractError(
+            "prepared binding indices and raw graph use different devices"
+        )
+    if expected_mask_rate is not None:
+        rate = validate_mask_rate(expected_mask_rate)
+        if rate != binding.requested_mask_rate:
+            raise SSLContractError(
+                "prepared binding mask rate differs from the SSL model"
+            )
+
+
+def move_ssl_batch_with_prepared_binding(
+    batch: object,
+    binding: PreparedMaskBinding,
+    device: torch.device | str,
+    *,
+    non_blocking: bool = False,
+) -> tuple[object, PreparedMaskBinding]:
+    """Move one raw batch and its prepared index sidecar as one trusted step."""
+
+    from music_critic.ssl.data import move_ssl_batch
+
+    validate_prepared_mask_binding(batch, binding)
+    moved_batch = move_ssl_batch(
+        batch,
+        device,
+        non_blocking=non_blocking,
+    )
+    moved_indices = binding.selected_global_note_indices_tensor.to(
+        device=torch.device(device),
+        non_blocking=non_blocking,
+    )
+    moved_binding = replace(
+        binding,
+        selected_global_note_indices_tensor=moved_indices,
+        _bound_graph=moved_batch.raw_graph_batch,
+        _runtime_attestation=_runtime_attestation(
+            fingerprint=binding.fingerprint,
+            graph=moved_batch.raw_graph_batch,
+            selected_indices=moved_indices,
+        ),
+    )
+    validate_prepared_mask_binding(moved_batch, moved_binding)
+    return moved_batch, moved_binding
+
+
 def build_batch_mask_plans(*args: object, **kwargs: object) -> tuple[MaskPlan, ...]:
     """Compatibility alias for :func:`build_batched_mask_plans`."""
 
@@ -470,10 +1396,14 @@ def build_mask_plans_for_batch(
 
 __all__ = [
     "DEFAULT_ENCODER_MASK_RATE",
+    "PreparedMaskBinding",
     "TRACK_CONTAINS_NOTE_EDGE",
     "build_batch_mask_plans",
     "build_batched_mask_plans",
     "build_mask_plan",
     "build_mask_plans_for_batch",
     "derive_stable_seed",
+    "move_ssl_batch_with_prepared_binding",
+    "prepare_mask_binding",
+    "validate_prepared_mask_binding",
 ]
