@@ -615,6 +615,7 @@ _RUNTIME_INPUT_MUTATIONS = (
     "categorical_availability_in_place",
     "continuous_availability_in_place",
     "candidate_slot_in_place",
+    "onset_candidate_slot_in_place",
     "tensor_replacement_same_shape_dtype",
     "tensor_replacement_different_shape",
     "tensor_replacement_different_dtype",
@@ -623,6 +624,7 @@ _RUNTIME_INPUT_MUTATIONS = (
     "unknown_node_attribute_injection",
     "target_attribute_injection",
     "theory_attribute_injection",
+    "split_attribute_injection",
     "provenance_attribute_injection",
     "edge_index_in_place",
     "ptr_in_place",
@@ -650,6 +652,8 @@ def _mutate_runtime_input(graph: Any, mutation: str) -> None:
         graph["note"].x_cont_available.logical_not_()
     elif mutation == "candidate_slot_in_place":
         graph["beat"].candidate_slot.logical_not_()
+    elif mutation == "onset_candidate_slot_in_place":
+        graph["onset"].candidate_slot.logical_not_()
     elif mutation == "tensor_replacement_same_shape_dtype":
         graph["note"].x_cat = graph["note"].x_cat.clone()
     elif mutation == "tensor_replacement_different_shape":
@@ -676,6 +680,8 @@ def _mutate_runtime_input(graph: Any, mutation: str) -> None:
         )
     elif mutation == "theory_attribute_injection":
         graph["bar"].theory_label = ("C:maj",)
+    elif mutation == "split_attribute_injection":
+        graph.split = "validation"
     elif mutation == "provenance_attribute_injection":
         graph.provenance = {"source": "forbidden"}
     elif mutation == "edge_index_in_place":
