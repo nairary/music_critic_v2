@@ -88,19 +88,27 @@
 - Phase 7A draft PR: #15; do not merge from the implementation task
 - Phase 7A final-remediation base:
   `791ef19b1dbd7c26b7a2ef87f36d4ee5b08391a6`
-- Phase 7A tested remediation implementation:
-  `ab9477888bc39312e8501bbf18685f45cf1d5630`
-- Phase 7A cross-environment acceptance-profile fix:
-  `ba458697599b03395b4a720888e7e7ce9d99c3bb`
+- Ordered Phase 7A commits after that base are:
+  `ab9477888bc39312e8501bbf18685f45cf1d5630` (acceptance remediation),
+  `64f63997141b9a2e5eb9c718af992e62b01f5b9f` (final evidence),
+  `ba458697599b03395b4a720888e7e7ce9d99c3bb` (cross-environment
+  acceptance-profile fix),
+  `3713ee4b5d51f5511699633784996a153fd86e07` (documentation-only
+  post-CI evidence),
+  `c0f0478be880a8e43415d0716d78cadc573a8025` (complete prepared-input
+  attestation), and
+  `38ae6ccbee4d089171e2d3e58f38c8d67b9baa26` (test-only completion of the
+  mutation matrix). The final documentation commit follows these commits.
 - Phase 7A deterministic GraphMAE2-inspired masked-graph SSL implementation
   and bounded acceptance are complete on draft PR #15. Required CI is a
   head-relative merge gate recorded in the final PR evidence comment, not a
   pending architectural decision.
-- Phase 7A SSL/model/output, anti-collapse diagnostics, checkpoint/journal/
-  metric-row, and run/report/performance-row contracts: `1.1.0`
-- Phase 7A MaskPlan/policy/overlay, prepared binding, maskable registry,
-  decoder, representation target/objective/loss, pitch-mutation fixture, and
-  encoder export contracts: `1.0.0`
+- Phase 7A SSL/model/output, checkpoint/journal/metric-row, and
+  run/report/performance-row contracts: `1.2.0`
+- Phase 7A prepared binding and anti-collapse diagnostics contracts: `1.1.0`
+- Phase 7A MaskPlan/policy/overlay, maskable registry, decoder,
+  representation target/objective/loss, pitch-mutation fixture, and encoder
+  export contracts remain `1.0.0`
 - Phase 7A maskable-field registry fingerprint:
   `97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`
 - Next gate: review and merge of draft PR #15 by an authorized maintainer;
@@ -127,6 +135,23 @@
   prepared accelerator forward performs no graph-sized host materialization.
   Binding construction regenerates canonical plans and fails closed on a
   validly fingerprinted alternative.
+- Prepared binding `1.1.0` additionally captures complete private,
+  process-local runtime evidence for the validated model input: strong
+  graph/store references plus identity and type, ordered node/edge types,
+  exact global/node/edge attribute sets, and all 65 graph tensors. Every
+  tensor is bound by strong reference, object identity, `_version`, shape,
+  dtype, and device; the compact selected-index tensor receives the same
+  evidence. Typed immutable evidence covers non-tensor metadata, including
+  `entity_id` collections. Transfer first re-attests the complete source
+  surface, compares the destination surface, and replaces the source
+  descriptor with a fresh destination descriptor.
+- Runtime identities, strong references, version counters, HMAC material, and
+  capability tokens are deliberately excluded from deterministic binding
+  fingerprints, serialization, checkpoints, reports, and caches. Public Phase
+  6 `forward`/`encode` paths always retain the full raw-graph validator; there
+  is no caller-controlled boolean bypass. Only an opaque process-local token
+  can enter the private prepared path, and both the target and online encoder
+  calls independently issue and immediately re-attest it.
 - Masking is an immutable model-side contribution overlay. It does not mutate,
   serialize, or cache masked raw graphs, and the no-mask Phase 6 path retains
   its existing outputs and state-dict surface.
@@ -141,7 +166,11 @@
   `anti_collapse_aggregate` values use float64 mergeable `O(D)` retained state
   for note/bar/song target and prediction. They retain no embedding history,
   build no production pairwise matrix, and are invariant to partition/order/
-  worker changes.
+  worker changes. This is an `O(D)` retained-state bound, not an `O(D)` peak
+  temporary-memory claim: current `from_values` materializes float64 `N x D`
+  `values64` and normalized working temporaries. Real CUDA cost has not been
+  measured; a separate RTX 3090 profiler/optimization gate is required before
+  production SSL.
 - The simple ablation is one decoder view with remask probability zero. The
   main preset is three views with probability `0.20`; no superiority claim is
   made.
@@ -178,17 +207,40 @@
   Best checkpoint was epoch 2 and was selected only by fixed-validation loss.
   Two fresh runs had identical semantic artifacts and recursively bit-exact
   loaded checkpoint states.
+- Security-remediation fingerprints are model
+  `7a1ece2b44dc6b52aef6f7c7532238d4716b1a45c38b8ca66957225a24b76774`,
+  train epoch-zero prepared binding
+  `f400906c311313edc58802aea8283adb7de3b4a1c2d2abfd8b2c28bb8dd36b76`,
+  and validation prepared binding
+  `cbf820a5ae2022ce53da05a7d5bb2ef769c13fb618a848a66f40f6c5bd8c7bf9`.
+  The exact-path held-out rerun under
+  `/tmp/music-critic-v2-phase7a-final-heldout` retained resolved-config hash
+  `554c09dd93245d173580e1861e91486bffae4b765eeb6bbdf2ae3ec1659b800f`
+  and produced fingerprints/run/initial/metrics hashes
+  `484af62d67e999a10582668733f528875d82776de5ecf876d38237f298c1dd05`,
+  `b003cd18b941870c3e7812e47ef1125fa0595f353dc9f628cb9f97315b1f1572`,
+  `92c81aae2a16d1cb96f8e4a951ea06e36abf0373fa5871bdd57c9c41e9ba56f7`,
+  and
+  `eb0f4b27bbbdf336539ae757c9bc68d56a41d6f63adaefba0e076217389e713a`.
+  The numerical trajectory and diagnostics remained unchanged.
 - Checkpoint reload was bit-exact; exact dropout/cosine/CPU-AMP epoch resume,
   atomicity, crash recovery, and RNG rollback tests passed. Encoder transfer
   loaded 470 parameter tensors and left all 81 supervised-head tensors
-  untouched. One CPU run separated plan preparation `0.05142308099675574s`
-  from transfer `0.012888179000583477s` and forward
-  `1.485993103004148s`; no speed claim is made. CUDA was unavailable, so
-  CUDA/VRAM evidence is an explicit skip rather than fabricated data.
-- Focused SSL tests passed 112 with 2 CUDA skips. The full suite passed 944
-  with 21 skips. `compileall` and diff checks passed. Exact aggregate
-  dense-oracle, partition/order, worker, prepared-forward instrumentation,
-  checkpoint/resume, leakage, pitch-margin, and transfer gates are included.
+  untouched. Earlier pre-security-remediation timing is not treated as
+  head-relative performance evidence; no current speed claim is made. CUDA was
+  unavailable, so CUDA/VRAM evidence is an explicit skip rather than
+  fabricated data.
+- Post-matrix focused prepared-binding/model/masking/bounded-leakage tests
+  passed `95 passed, 1 skipped, 2 warnings`; complete SSL passed
+  `157 passed, 2 skipped, 2 warnings`. The structured mutation matrix has 28
+  cases, including onset `candidate_slot` and split-like attribute injection.
+  Source-identical Phase 6 model/graph regressions passed
+  `146 passed, 1 skipped`, and checkpoint/resume/transfer passed `19 passed`.
+  The final head-relative complete suite passed
+  `989 passed, 21 skipped, 2 warnings in 84.16s`. The automated held-out check
+  passed once and two exact-path runs were byte-identical. `compileall`,
+  `git diff --check`, and `git show --check` passed. CUDA was unavailable, so
+  its prepared-forward test skipped and no GPU evidence is claimed.
 - Production SSL training has not been performed for Phase 7A acceptance.
   Phase 8 has not started, PDMX has not been added, PLL has not been
   implemented, and no critic or quality score has been implemented.

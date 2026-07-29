@@ -522,7 +522,7 @@ graph schema, stores, topology, serialization, fingerprint, index/cache keys,
 and supervised model outputs are unchanged.
 
 Every mask plan used by the model is prepared from a fully validated CPU
-`SSLBatch` before device transfer. Prepared binding contract `1.0.0` binds the
+`SSLBatch` before device transfer. Prepared binding contract `1.1.0` binds the
 ordered dataset/piece identities, raw structure and ownership, stage,
 canonicalized epoch, seed, and exact plan fingerprints. Preparation is
 failure-closed: a caller-supplied binding is accepted only when all bound
@@ -530,12 +530,34 @@ values match the validated CPU batch and regenerated plans. The binding is a
 runtime sidecar; it is not inserted into graph stores and does not change graph
 serialization, cache identity, or raw-graph fingerprints.
 
-CPU and CUDA use the same prepared path. After transfer, the accelerator
-forward consumes only the validated binding and device tensors; it never
-derives plans through graph-tensor `.cpu()`, `.tolist()`, or `.item()` calls.
-Plan preparation time is reported separately from device transfer and model
-compute. Plan semantics remain independent of batch partition/order and worker
-scheduling.
+The process-local runtime descriptor binds the graph and every store by strong
+reference, identity, and type; ordered node and edge types; and exact
+global/node/edge attribute sets. It retains strong references and expected
+object identity, `_version`, shape, dtype, and device for all 65 graph tensors:
+global `raw_only`; `x_cat`, `x_cat_available`, `x_cont`,
+`x_cont_available`, `batch`, and `ptr` on every mandatory node store;
+beat/onset `candidate_slot`; and every mandatory `edge_index`. The selected
+note-index tensor is attested separately. A typed hash covers all non-tensor
+metadata, including `num_nodes`, feature-name collections, and every
+`entity_id` collection.
+
+Transfer revalidates the CPU source, deep-copies the full store surface, moves
+tensor attributes, checks the transferred metadata/shape/dtype/device surface,
+and renews the complete descriptor over the moved objects. The source
+descriptor cannot authorize the moved graph. Object identities, references,
+version counters, devices, private HMACs, and opaque tokens are deliberately
+excluded from deterministic fingerprints, serialization, caches, checkpoints,
+and reports.
+
+The public Phase 6 raw encoder and model `forward`/`encode` paths have no
+boolean validation bypass and always run the established full graph validator.
+The internal prepared encoder requires a process-local opaque token bound to
+one batch, graph, binding, attestation, and mask rate. Full-target and
+masked-online execution each obtain and re-attest a token immediately before
+encoder work. CPU and CUDA use this same path without post-transfer
+graph-tensor `.cpu()`, `.tolist()`, or `.item()` calls. Plan preparation time
+is reported separately from device transfer and model compute. Plan semantics
+remain independent of batch partition/order and worker scheduling.
 
 Maskable-field registry `1.0.0` resolves names against raw feature registry
 `1.0.0`. Its only group, `note_pitch_group`, masks note `pitch`,
@@ -589,6 +611,12 @@ formula independently of batch partition, batch order, and worker count. The
 artifact field is `anti_collapse_aggregate`; the former
 `anti_collapse_last_batch` snapshot is not an acceptance statistic.
 
+The `O(D)` statement is limited to retained accumulator state. The current
+`from_values` reduction allocates float64 `N x D` `values64` and normalized
+`N x D` working temporaries; no `O(D)` peak-temporary-memory property is
+claimed. Their real CUDA cost remains unmeasured. Production SSL on an RTX
+3090 is gated on a separate profiler and any required optimization.
+
 The simple decoder mode is one view with no latent remasking. The Phase 7A
 main preset is three views with probability `0.20`; no relative-performance
 claim is made. Both use mask rate `0.30` by default. Separate note, bar, and
@@ -621,14 +649,15 @@ note/bar/song aggregates, no zero vectors, nondegenerate variance/norm, and
 embeddings that are not all near-identical. These checks validate bounded
 mechanics, not generalization or scaled effectiveness.
 
-SSL contract/model/output `1.1.0` require the prepared forward boundary.
+SSL contract/model/output `1.2.0` require the prepared forward boundary.
 Checkpoint, epoch-journal, metric-row, run-manifest, training-report, and
-performance-row contracts are `1.1.0`; the performance row separates CPU plan
+performance-row contracts are `1.2.0`; the performance row separates CPU plan
 preparation from transfer/compute. MaskPlan, mask policy, maskable-field
 registry, representation target/objective, and encoder-export semantics remain
-`1.0.0`.
+`1.0.0`; anti-collapse diagnostics remain `1.1.0`, and prepared binding is
+`1.1.0`.
 
-SSL checkpoint `1.1.0` binds the model/SSL contracts, field-registry
+SSL checkpoint `1.2.0` binds the model/SSL contracts, field-registry
 fingerprint, resolved config, data index/split/composition/fixed-validation
 fingerprints, optimizer/scheduler/scaler, RNG, and ordered epoch journal.
 Save/load is atomic and resume is epoch-boundary-only. Encoder export `1.0.0`

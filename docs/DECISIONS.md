@@ -1384,7 +1384,9 @@ This log is append-only.
 - Status: Accepted. Final Phase 7A acceptance remediation is implemented in
   draft PR #15. Bounded execution is recorded in
   `PHASE7A_SSL_BASELINE.md`; head-relative Required CI is operational evidence
-  recorded in the PR comment, not a pending architectural decision.
+  recorded in the PR comment, not a pending architectural decision. Its
+  initial prepared-input security boundary and current contract-version
+  consequences are superseded by ADR-051.
 - Context: The Phase 6B hierarchical encoder can consume ordinary raw-only
   MIDI graphs, but visible-feature reconstruction does not prove masked
   representation learning. The first SSL increment must prevent redundant
@@ -1492,12 +1494,14 @@ This log is append-only.
   `97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`.
   Canonical, graph, adapter, ontology, encoding, split, corpus/cache, Phase 6
   model/output, and Phase 6 checkpoint contracts do not change.
-- Consequences: Final remediation adds prepared MaskPlan binding `1.0.0` and
+- Consequences: The first acceptance remediation added prepared MaskPlan
+  binding `1.0.0` and
   advances SSL contract/model/output, anti-collapse diagnostics, checkpoint,
   epoch journal, metric row, run manifest, training report, and performance
   row to `1.1.0`. MaskPlan/policy, maskable-field registry, representation
   target/objective/loss, decoder, encoder export, and every Phase 6 contract
-  remain `1.0.0` at their existing semantics.
+  remained `1.0.0` at their existing semantics. ADR-051 records the subsequent
+  security-remediation versions.
 - Consequences: The first real supervised baseline supplies later-ablation
   context only: strong HookTheory tonic/scale-degree and POP909-CL root/bass
   signals, weak or collapsed remaining heads, all-negative HookTheory
@@ -1506,3 +1510,77 @@ This log is append-only.
   ambiguous `test_not_used_for_checkpoint_selection` field remain registered
   backlog items; neither blocks Phase 7A mechanics or establishes downstream
   improvement.
+
+## 2026-07-29 — ADR-051: Prepared Phase 7A execution requires complete process-local attestation
+
+- Status: Accepted. This is the final Phase 7A security/contract remediation
+  in draft PR #15; it does not begin Phase 8 or authorize production training.
+- Context: Prepared Phase 7A execution previously attested only a subset of
+  the validated raw model input while the SSL model could invoke the Phase 6
+  encoder with a caller-controlled `_prevalidated_input=True` boolean. After
+  preparation or transfer, mutation/replacement of features, availability,
+  candidates, `raw_only`, or store attributes could therefore bypass the
+  complete raw-graph validator. The fast path must remain free of graph-sized
+  accelerator-to-host materialization while failing closed over the entire
+  numerical and structural input.
+- Decision: Prepared binding `1.1.0` holds a private, process-local descriptor
+  over the exact graph presented to the model. It keeps strong references to
+  the graph and every global/node/edge store and binds their object identities
+  and types, ordered `node_types` and `edge_types`, and every exact store
+  attribute set. For the current model-facing schema, it covers all 65 graph
+  tensors: global `raw_only`; `x_cat`, `x_cat_available`, `x_cont`,
+  `x_cont_available`, `batch`, and `ptr` for each mandatory node store;
+  beat/onset `candidate_slot`; and `edge_index` for every mandatory relation.
+  Every tensor, plus the compact selected-note-index tensor, is held by strong
+  reference and attested by identity, `_version`, shape, dtype, and device.
+- Decision: A typed immutable hash covers all non-tensor metadata used by the
+  validated graph contract, including schema/registry/builder values,
+  feature-name collections, `num_nodes`, and every `entity_id` collection.
+  Entity identifiers are therefore inside, not outside, the prepared-input
+  boundary. Adding or removing any global/node/edge attribute—including
+  target, theory, split, provenance, diagnostics, or an unknown field—changes
+  the exact surface and is rejected before encoder computation.
+- Decision: Transfer first re-attests the complete source graph, then
+  deep-copies the stores and moves tensor attributes. It compares transferred
+  store types, ordered node/edge types, exact attribute sets, non-tensor
+  metadata, and tensor shape/dtype/device surfaces, then discards the CPU
+  descriptor in favor of a fresh descriptor with strong references and
+  identities for the destination graph. No accelerator tensor value is read
+  on the host.
+- Decision: Runtime graph/store/tensor identities, strong references, version
+  counters, device metadata, HMAC secrets, and capability tokens are
+  intentionally excluded from `to_dict()`, deterministic binding
+  fingerprints, checkpoints, reports, graph serialization, and caches. The
+  portable binding fingerprint continues to derive only from immutable
+  preparation-stage CPU evidence, so process-local attestation strengthens
+  runtime authorization without making deterministic artifacts
+  process-dependent.
+- Decision: Remove the public boolean bypass. Normal Phase 6 `forward` and
+  `encode` calls always run the existing full raw-graph validator. The private
+  prepared encoder path accepts only an opaque process-local, HMAC-backed
+  capability issued for one exact batch, graph, binding, runtime descriptor,
+  and mask rate. The full-view target path and the masked-online path each
+  issue and re-attest a fresh capability immediately before encoder
+  computation. A foreign graph, forged binding/token, in-place tensor
+  mutation, tensor replacement, or surface mutation fails with a structured
+  contract error before either encoder runs.
+- Decision: Preserve the diagnostic implementation but state its performance
+  boundary precisely. Mergeable anti-collapse accumulators retain `O(D)`
+  state and no embedding history or pairwise matrix. Current
+  `_StreamingEmbeddingStatistics.from_values` nevertheless materializes a
+  float64 `N x D` `values64` tensor and a normalized `N x D` working
+  temporary. There is no `O(D)` peak-temporary-memory guarantee. Real CUDA
+  cost has not been measured, and a separate profiler/optimization gate on an
+  RTX 3090 is required before production SSL.
+- Consequences: Prepared binding advances to `1.1.0`. SSL contract,
+  model/output, checkpoint, epoch journal, metric row, run manifest, training
+  report, and performance row advance to `1.2.0`. Anti-collapse diagnostics
+  remain `1.1.0`. MaskPlan/policy/overlay, maskable registry, decoder,
+  representation target/objective/loss, pitch mutation, and encoder export
+  remain `1.0.0`.
+- Consequences: Model/checkpoint-derived fingerprints change with the
+  incompatible prepared execution boundary; the accepted model fingerprint is
+  `7a1ece2b44dc6b52aef6f7c7532238d4716b1a45c38b8ca66957225a24b76774`.
+  Canonical, graph schema, feature registry, cache, split, and every Phase 6
+  numerical/state-dict contract remain unchanged. Raw unlabeled MIDI inference
+  continues through the ordinary fully validated Phase 6 path.

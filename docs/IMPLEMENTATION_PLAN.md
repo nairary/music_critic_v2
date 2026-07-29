@@ -2791,13 +2791,28 @@ worker count, targets, and annotations. Train plans vary by epoch when
 possible, while validation uses canonical epoch zero. The model-side overlay
 does not mutate or cache raw graphs and preserves the no-mask Phase 6 path.
 Plans are prepared only from a validated CPU `SSLBatch`, before device
-transfer, under prepared binding contract `1.0.0`. The binding covers ordered
-dataset/piece identities, raw structure and ownership, stage, canonical epoch,
-seed, and plan fingerprints, and rejects caller-supplied substitutions
-failure-closed. It remains a runtime sidecar rather than a graph/cache field.
-CPU and CUDA use this same path; prepared accelerator forward performs no
-graph-tensor `.cpu()`, `.tolist()`, or `.item()` plan construction. Plan
-preparation has a separate timing bucket.
+transfer, under prepared binding contract `1.1.0`. The portable binding covers
+ordered dataset/piece identities, raw structure and ownership, stage,
+canonical epoch, seed, and plan fingerprints, and rejects caller-supplied
+substitutions failure-closed. It remains a runtime sidecar rather than a
+graph/cache field.
+Its private process-local descriptor additionally binds the graph and every
+store by strong reference, identity, and type; ordered node/edge types; exact
+global/node/edge attribute sets; all 65 model-facing graph tensors; and the
+selected-index tensor. Tensor evidence is strong reference, identity,
+`_version`, shape, dtype, and device. Typed immutable non-tensor evidence
+includes `entity_id` collections. Transfer re-attests the source, compares the
+destination surface, then renews the descriptor over the moved graph.
+
+Process-local identities, references, version counters, HMAC material, and
+capability tokens are excluded from portable binding fingerprints and every
+deterministic artifact. There is no public `_prevalidated_input` boolean:
+ordinary Phase 6 `forward`/`encode` calls always run the complete raw-graph
+validator. Only a private opaque process-local token can enter the prepared
+encoder path; the target and online paths independently issue and immediately
+re-attest it. CPU and CUDA use this same path; prepared accelerator forward
+performs no graph-tensor `.cpu()`, `.tolist()`, or `.item()` plan construction.
+Plan preparation has a separate timing bucket.
 
 The shared full target view is detached at note, bar, and song levels. Online
 selected-note rows use deterministic decoder re-mask views and representation
@@ -2814,7 +2829,11 @@ separately for note, bar, and song: row count, dimension, variance, mean L2
 norm, zero-norm count, and global mean off-diagonal cosine, with structured
 unavailability below two rows. Results are invariant to batch partition/order
 and worker count. Epoch artifacts expose `anti_collapse_aggregate`, not a
-last-batch snapshot.
+last-batch snapshot. `O(D)` describes retained state only: current
+`from_values` materializes float64 `N x D` `values64` and normalized `N x D`
+temporaries, so no `O(D)` peak-memory claim is made. Real CUDA cost is
+unmeasured; production SSL requires a separate RTX 3090
+profiler/optimization gate.
 
 The simple baseline is one decoder view with remask probability zero. The main
 Phase 7A preset is three views with remask probability `0.20`; no superiority
@@ -2859,11 +2878,11 @@ Deterministic reruns compare membership, prepared binding/plan fingerprints,
 the initial validation baseline, and metric rows. This is bounded
 held-out/non-collapse mechanics evidence rather than a generalization claim.
 
-Prepared MaskPlan binding begins at `1.0.0`. SSL contract/model/output,
-anti-collapse diagnostics, checkpoint, epoch journal, metric row, run manifest,
-training report, and performance row advance to `1.1.0`. MaskPlan/policy,
-maskable-field registry, representation loss/objective/target, decoder, and
-encoder-export semantics remain `1.0.0`.
+Prepared MaskPlan binding advances to `1.1.0`. SSL contract/model/output,
+checkpoint, epoch journal, metric row, run manifest, training report, and
+performance row advance to `1.2.0`. Anti-collapse diagnostics remain `1.1.0`.
+MaskPlan/policy, maskable-field registry, representation loss/objective/target,
+decoder, and encoder-export semantics remain `1.0.0`.
 
 Phase 7A does not implement hierarchy masks (Phase 8), a PDMX projection or
 scaled-effectiveness claim (Phase 10), masked conditional likelihood,

@@ -1,6 +1,7 @@
 # Phase 7A deterministic masked-graph SSL baseline
 
-Status: **IMPLEMENTED ON DRAFT PR #15; BOUNDED ACCEPTANCE COMPLETE**.
+Status: **IMPLEMENTED ON DRAFT PR #15; FINAL SECURITY/CONTRACT REMEDIATION
+COMPLETE; BOUNDED ACCEPTANCE COMPLETE**.
 
 Phase 7A adds the first trainable self-supervised objective over the existing
 raw-only PyG graph. It is GraphMAE2-inspired, not a faithful reproduction of
@@ -115,19 +116,45 @@ count, targets, annotations, and dataset-specific labels.
 
 Production train and validation construct canonical encoder-view-zero plans
 from the fully validated CPU `SSLBatch` before device transfer. Prepared
-binding contract `1.0.0` binds ordered identities, node/edge structure,
+binding contract `1.1.0` binds ordered identities, node/edge structure,
 note-track ownership, stage, canonical epoch, seed, rate, plan fingerprints,
 overlay fingerprint, and selected global indices. Its constructor regenerates
 the canonical plans from the CPU graph before signing the binding, so a
 validly fingerprinted alternate selection fails closed even if supplied
 through the internal constructor.
 
-The binding remains an in-memory sidecar: it is absent from PyG stores,
-serialization, raw graph fingerprints, and cache artifacts. CPU and CUDA use
-the same prepared model path. Forward validates the attestation and tensor
-shapes without graph-sized `.cpu()`, `.tolist()`, `.item()`, or per-note
-SHA-256 work. CPU plan preparation, transfer, forward, and backward have
-separate timing fields.
+The binding also holds a complete process-local runtime descriptor for the
+validated model-facing input. It binds the graph and every global/node/edge
+store by strong object reference, object identity, and type; ordered
+`node_types`/`edge_types`; and the exact attribute set of every store. The
+current schema contains 65 graph tensors: global `raw_only`; each mandatory
+node store's `x_cat`, `x_cat_available`, `x_cont`, `x_cont_available`,
+`batch`, and `ptr`; `candidate_slot` on beat/onset; and every mandatory
+relation's `edge_index`. Each tensor is held by a strong reference and attested
+by object identity, `_version`, shape, dtype, and device. The compact selected
+note-index tensor has the same separate evidence. A typed hash binds all
+non-tensor metadata, including schema/registry/builder values, feature-name
+collections, `num_nodes`, and `entity_id` collections.
+
+Device transfer first revalidates the complete source surface, deep-copies the
+stores, moves tensor attributes, compares the transferred metadata, shape,
+dtype, and device surface, and then replaces the CPU descriptor with a fresh
+descriptor over the moved graph. Post-prepare mutation, tensor replacement,
+attribute injection/deletion, a foreign graph, or a forged binding therefore
+fails before encoder computation. The private object identities, strong
+references, version counters, device metadata, HMACs, and capability tokens
+never enter `to_dict()`, deterministic binding fingerprints, checkpoints,
+reports, graph serialization, or caches.
+
+There is no free boolean validation bypass. Ordinary public Phase 6
+`forward`/`encode` APIs always execute the existing full raw-graph validator.
+Only the private prepared path accepts an opaque, process-local HMAC-backed
+token issued for one exact batch, graph, binding, runtime attestation, and mask
+rate. The full-target and masked-online paths independently issue and re-attest
+that token immediately before their encoder execution. CPU and CUDA share this
+path without graph-sized `.cpu()`, `.tolist()`, `.item()`, or per-note SHA-256
+work after transfer. CPU plan preparation, transfer, forward, and backward
+remain separate timing fields.
 
 ## Model-side overlay and leakage boundary
 
@@ -260,6 +287,13 @@ unavailability. Dense-oracle, merge, batch-partition, batch-order, and worker
 tests cover emitted `anti_collapse_aggregate`; the rejected
 `anti_collapse_last_batch` field is not used.
 
+`O(D)` describes retained accumulator state only. The current
+`_StreamingEmbeddingStatistics.from_values` implementation materializes a
+float64 `N x D` `values64` working tensor and a normalized `N x D` temporary
+for each input batch. No `O(D)` peak-temporary-memory guarantee is made. Their
+real CUDA cost has not been measured; production SSL on an RTX 3090 requires a
+separate profiler/optimization gate before training is authorized.
+
 Bounded non-collapse acceptance requires finite initial/final held-out values,
 zero zero-norm counts, variance and mean norm above dtype-aware numerical
 floors, and off-diagonal cosine below the near-identical gate. It is a
@@ -271,11 +305,11 @@ Remediation advances only contracts whose meaning or artifact shape changed:
 
 | Contract family | Version |
 |---|---:|
-| SSL and SSL model/output | `1.1.0` |
+| SSL and SSL model/output | `1.2.0` |
 | anti-collapse diagnostics | `1.1.0` |
-| checkpoint, epoch journal, metric row | `1.1.0` |
-| run manifest, training report, performance row | `1.1.0` |
-| prepared MaskPlan binding | `1.0.0` |
+| checkpoint, epoch journal, metric row | `1.2.0` |
+| run manifest, training report, performance row | `1.2.0` |
+| prepared MaskPlan binding | `1.1.0` |
 | MaskPlan/policy and feature overlay | `1.0.0` |
 | bounded fixture and pitch-mutation policy | `1.0.0` |
 | maskable-field registry | `1.0.0` |
@@ -369,12 +403,23 @@ No downstream improvement is claimed from these observations.
 
 ## Final acceptance evidence
 
-The remediation starts from `791ef19b1dbd7c26b7a2ef87f36d4ee5b08391a6`;
-the tested implementation commit is
-`ab9477888bc39312e8501bbf18685f45cf1d5630`, followed by the
-cross-environment acceptance-profile fix
-`ba458697599b03395b4a720888e7e7ce9d99c3bb`. Outputs were written only below
-`/tmp`; no production cache was read.
+The remediation starts from `791ef19b1dbd7c26b7a2ef87f36d4ee5b08391a6`.
+The complete ordered compare list before this documentation commit is:
+
+1. `ab9477888bc39312e8501bbf18685f45cf1d5630` — acceptance remediation;
+2. `64f63997141b9a2e5eb9c718af992e62b01f5b9f` — remediation evidence;
+3. `ba458697599b03395b4a720888e7e7ce9d99c3bb` — cross-environment pitch
+   acceptance stabilization;
+4. `3713ee4b5d51f5511699633784996a153fd86e07` — documentation-only post-CI
+   evidence correction that was omitted from the earlier three-commit list;
+5. `c0f0478be880a8e43415d0716d78cadc573a8025` — prepared-input security
+   attestation and contract remediation;
+6. `38ae6ccbee4d089171e2d3e58f38c8d67b9baa26` — test-only completion of the
+   structured mutation matrix.
+
+The final documentation commit is added to this ordered list in PR evidence
+after publication. Outputs were written only below `/tmp`; no production cache
+was read.
 
 ### Fixture and masking
 
@@ -398,7 +443,7 @@ Fixed-validation membership is
 the complete data binding is
 `35cc77297b1acf484695ef7f5a7c5fdcd072f013747be7d2a0338643efd776bc`.
 Model contract fingerprint is
-`bf82693225af0bf49d7bb7d1f2e88a07aba6386a4976356eb543bfce87581f01`;
+`7a1ece2b44dc6b52aef6f7c7532238d4716b1a45c38b8ca66957225a24b76774`;
 resolved-config fingerprint is
 `0667a5cd6f87780fd0bc0affd8bdda06080229cffe11da3d6c1da7069649cd4c`;
 the maskable registry remains
@@ -408,12 +453,13 @@ Train plan fingerprints are
 `3b5c90bc0016a528cb840ee9c3a3214e52cbd2d0eafbad2aa6ded52e0729da5d`,
 and `42da3df81221b200303fd9184097e59bc7d4b85eca94a26ac7648f14bc120751`;
 their prepared binding is
-`a7fccd61ce152b6b6f527a8510d6e32916fa5e150d61a92aad296e94fb7addac`.
+`f400906c311313edc58802aea8283adb7de3b4a1c2d2abfd8b2c28bb8dd36b76`
+at train epoch zero.
 Validation plans are
 `3d53144db3405b3d504d186ae6e6dfa4bf9f154afded82563f6a7575a41459db`
 and `3f135a44278feff1d7af514895f924d796988521403b13573266cd2f7af823e8`;
 their fixed binding is
-`c776d0cc986097089b6d6fd7f9fbac4a5e974aa553e4704f87cad950db160c53`.
+`cbf820a5ae2022ce53da05a7d5bb2ef769c13fb618a848a66f40f6c5bd8c7bf9`.
 
 ### One-batch plumbing and pitch sensitivity
 
@@ -469,30 +515,46 @@ All finite/non-collapse gates pass. Two fresh overwrite runs produced
 identical semantic artifact bytes. SHA-256 values were: resolved config
 `554c09dd93245d173580e1861e91486bffae4b765eeb6bbdf2ae3ec1659b800f`,
 fingerprints
-`f74fd11fa5608e2c40ab4daba41efe9f86c154826130136cc8dc2a454f932524`,
+`484af62d67e999a10582668733f528875d82776de5ecf876d38237f298c1dd05`,
 run manifest
-`f76e62c5a0f231693c9b7b5879a8b54777cae0c4dc0d1b5896ba05a92e59079d`,
+`b003cd18b941870c3e7812e47ef1125fa0595f353dc9f628cb9f97315b1f1572`,
 initial validation
-`510a9ba5daee8515ce3121e307a0d2f96c830ed9d779d2d7968d41895850919f`,
+`92c81aae2a16d1cb96f8e4a951ea06e36abf0373fa5871bdd57c9c41e9ba56f7`,
 and metrics journal
-`5654b539c834c72d253bf416dd43dde5ba52f80cfbe4c216dde33c5a4756c071`.
+`eb0f4b27bbbdf336539ae757c9bc68d56a41d6f63adaefba0e076217389e713a`.
 Loaded `last.pt` and `best.pt` states were recursively bit-exact; raw ZIP
 container bytes and timing files are intentionally outside that contract.
+The two exact-path overwrite runs used
+`/tmp/music-critic-v2-phase7a-final-heldout`; their numerical loss trajectory
+and initial/final diagnostics were unchanged.
 
 ### Timing, transfer, tests, and CI boundary
 
-One CPU run measured plan preparation `0.05142308099675574s`, transfer
-`0.012888179000583477s`, forward `1.485993103004148s`, backward
-`2.5666476680125925s`, total `5.197211505001178s`. This is bounded timing, not
-a speed claim. Encoder export loaded 470 tensors and left all 81 supervised
-head tensors bit-exact.
+No current CPU/GPU speed or memory-performance claim is made. Encoder export
+continues to load 470 tensors while leaving all 81 supervised-head tensors
+bit-exact.
 
-Focused SSL: `112 passed, 2 skipped`; full suite: `944 passed, 21 skipped`;
-`compileall` and diff checks pass. CUDA is unavailable locally, so both
-CUDA-path acceptances are explicit skips and no CUDA/VRAM number is
-fabricated. Required GitHub CI is head-relative operational evidence recorded
-in the final draft-PR #15 evidence comment; it remains a merge gate, not a
-pending ADR decision. The PR remains draft and is not merged.
+Post-matrix local checks are: focused prepared-binding/model/masking/bounded
+leakage `95 passed, 1 skipped, 2 warnings`; complete SSL
+`157 passed, 2 skipped, 2 warnings`. The structured mutation matrix contains
+28 cases, including onset `candidate_slot` and split-like attribute injection.
+It covers in-place feature/availability/beat-and-onset-candidate/edge/ptr/batch/
+`raw_only` changes; same-metadata and changed-shape/dtype replacements;
+global/node/edge attribute addition or removal; target/theory/split/provenance/
+diagnostic fields; unknown node/edge stores; and entity-ID, feature-name,
+schema, and `num_nodes` metadata. Separate cases reject a foreign graph and an
+internally forged binding. Every failure asserts `SSLContractError`, zero
+encoder calls, and unchanged graph, binding, and model snapshots.
+Source-identical Phase 6 model/graph regressions passed
+`146 passed, 1 skipped`; checkpoint/resume/transfer passed `19 passed`. The
+final head-relative complete suite passed
+`989 passed, 21 skipped, 2 warnings in 84.16s`. The automated held-out rerun
+passed once, followed by two byte-identical exact-path overwrites.
+`compileall`, `git diff --check`, and `git show --check` pass. CUDA is
+unavailable locally, so CUDA acceptance is an explicit skip and no CUDA/VRAM
+number is fabricated. Required GitHub CI is head-relative operational evidence
+recorded in the final draft-PR #15 evidence comment; it remains a merge gate,
+not a pending ADR decision. The PR remains draft and is not merged.
 
 Production SSL training was not authorized as Phase 7A acceptance. Phase 8 was
 not started, PDMX was not added, PLL was not implemented, and no critic or
