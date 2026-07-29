@@ -98,7 +98,9 @@
   `c0f0478be880a8e43415d0716d78cadc573a8025` (complete prepared-input
   attestation), and
   `38ae6ccbee4d089171e2d3e58f38c8d67b9baa26` (test-only completion of the
-  mutation matrix). The final documentation commit follows these commits.
+  mutation matrix). The earlier three-commit final comment omitted
+  `64f63997141b9a2e5eb9c718af992e62b01f5b9f`; it did include the other three
+  commits then present. The final documentation commits follow this list.
 - Phase 7A deterministic GraphMAE2-inspired masked-graph SSL implementation
   and bounded acceptance are complete on draft PR #15. Required CI is a
   head-relative merge gate recorded in the final PR evidence comment, not a

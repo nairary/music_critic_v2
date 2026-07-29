@@ -407,11 +407,13 @@ The remediation starts from `791ef19b1dbd7c26b7a2ef87f36d4ee5b08391a6`.
 The complete ordered compare list before this documentation commit is:
 
 1. `ab9477888bc39312e8501bbf18685f45cf1d5630` — acceptance remediation;
-2. `64f63997141b9a2e5eb9c718af992e62b01f5b9f` — remediation evidence;
+2. `64f63997141b9a2e5eb9c718af992e62b01f5b9f` — remediation evidence; this
+   documentation commit was the commit omitted from the earlier three-commit
+   final-comment list;
 3. `ba458697599b03395b4a720888e7e7ce9d99c3bb` — cross-environment pitch
    acceptance stabilization;
 4. `3713ee4b5d51f5511699633784996a153fd86e07` — documentation-only post-CI
-   evidence correction that was omitted from the earlier three-commit list;
+   evidence correction;
 5. `c0f0478be880a8e43415d0716d78cadc573a8025` — prepared-input security
    attestation and contract remediation;
 6. `38ae6ccbee4d089171e2d3e58f38c8d67b9baa26` — test-only completion of the
