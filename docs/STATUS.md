@@ -166,8 +166,8 @@
   verification was correctly `false` because a Phase 6A model-only checkpoint
   has no Phase 6C data binding.
 - Draft PR #13 was opened from `phase/6d-supervised-evaluation` into `main`.
-  Pre-remediation Required GitHub checks passed; remediation CI is rerun after
-  the remediation commit. The PR remains draft and no merge is attempted.
+  Both remediation `full-suite` GitHub checks passed at commit `e9e22f0` in
+  `1m51s` and `1m55s`. The PR remains draft and no merge was attempted.
 
 ## Phase 6C reproducible baseline training result
 
