@@ -1302,3 +1302,48 @@ This log is append-only.
   at `1.0.0`. Model, graph, adapter, target, ontology, encoding, cache,
   manifest, corpus, loss, and checkpoint semantics do not change. Raw
   unlabeled inference remains possible; Phase 7/SSL remains unstarted.
+
+## 2026-07-29 — ADR-048: F1 undefined semantics and profiler timing boundaries are explicit
+
+- Status: Accepted as Phase 6D-A remediation.
+- Context: Deriving F1 only after requiring separately defined precision and
+  recall excluded supported-but-unpredicted classes and unsupported classes
+  with false positives. Their lawful zero F1 values disappeared from
+  macro-F1. The first profiler artifact also mixed exclusive work with
+  repeated alignment and complete DataLoader traversal, so its stage values
+  were not one additive or comparable decomposition.
+- Decision: Categorical and multilabel per-class F1 is computed directly as
+  `2TP/(2TP+FP+FN)`. It is `null` only when the denominator is zero, exactly
+  when eligible truth and predictions both omit the class. A class with true
+  support but no predicted positives and a class with false-positive
+  predictions but no true support both have defined F1 zero. Precision and
+  recall keep their independent denominator rules. Macro-F1 averages all and
+  only defined per-class F1 values, including zero.
+- Decision: Preserve full `(dataset_id, task_id)` metrics as primary evidence.
+  A versioned macro-summary view groups only by `(dataset_id, encoding_kind)`
+  and computes an unweighted arithmetic mean over defined task metric values.
+  It records included/undefined task IDs and counts. Dataset sources or
+  categorical/multilabel encodings never cross groups. NLL/BCE and any metric
+  whose probability or label-set dimension is task-specific are omitted with
+  a structured scientific reason.
+- Decision: The serial `workers=0` preparation pass is a result-flow chain:
+  canonical read, graph construction, target projection/alignment/
+  tensorization, then metadata/statistics assembly using the already
+  tensorized targets. Each stage declares per-sample or per-batch units.
+  Prepared training compute, prepared validation, full loader traversal, and
+  loader-plus-training end-to-end throughput are separate passes and are never
+  summed into that decomposition. The loader timers begin before
+  `iter(loader)`. With `workers>0`, overlapping startup, IPC, prefetch, sample
+  preparation, and collation receive structured unavailable component
+  attribution rather than being assigned to collation. RSS is a cumulative
+  process high-water mark.
+- Decision: An optional production-read-only mode validates explicitly passed
+  absolute index/cache/split paths and reads only a capped deterministic,
+  fingerprinted subset per dataset. It performs no cache writes, canonical
+  corpus scan, or checkpoint read. Detailed profiling remains outside normal
+  training and deterministic checkpoint/journal state.
+- Consequences: Evaluation and evaluation-artifact contracts advance to
+  `1.1.0`; profiler advances to `1.1.0`; the new macro-summary sub-contract
+  begins at `1.0.0`. The unchanged train-prior contract stays `1.0.0`.
+  Models, checkpoints, adapters, canonical/graph contracts, ontology, target
+  semantics, caches, split manifests, and Phase 7 remain unchanged.

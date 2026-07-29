@@ -2705,15 +2705,23 @@ audit under manifest fingerprint
   unavailable, masked, unaligned, conflict, non-model-ready, and
   non-source-native rows;
 - fixed-memory categorical NLL, top-1/top-3, balanced accuracy, macro/micro F1,
-  per-class metrics, and confusion matrices;
+  per-class metrics, and confusion matrices; per-class F1 uses
+  `2TP/(2TP+FP+FN)`, is undefined only at a zero denominator, and macro-F1
+  retains every defined zero;
 - fixed-threshold multilabel BCE/NLL, micro/macro precision/recall/F1,
   per-class TP/FP/FN/TN/support, and exact-match accuracy, with explicit
   undefined-value reasons;
 - dataset/task-isolated train-only majority, empirical-prior, prevalence, and
   0.5-threshold baselines in a separate fingerprinted JSON artifact;
-- deterministic evaluation artifacts and a bounded opt-in profiler covering
-  canonical read, graph construction, target alignment/tensorization,
-  collation, transfer, forward, loss, backward, optimizer, and validation;
+- versioned unweighted task macro summaries grouped only by dataset and
+  encoding kind, with included/undefined task evidence and explicit omission
+  of incomparable NLL/BCE or cross-dimensional metrics;
+- deterministic evaluation artifacts and a bounded opt-in profiler with
+  exclusive serial preparation, prepared compute, separate validation,
+  loader-only traversal, and loader-plus-compute end-to-end passes; exact
+  worker-stage attribution is unavailable when worker work overlaps;
+- optional deterministic production-read-only profiler subsets over explicit
+  absolute index/cache/split paths, with no cache or checkpoint writes/reads;
 - a non-checkpoint-bound epoch performance sidecar with train/validation wall
   time and sample/batch throughput, preserving deterministic metric-journal
   and checkpoint/resume semantics.

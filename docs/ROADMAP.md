@@ -420,13 +420,17 @@ The model and training phases remain pending.
 - Dependencies: accepted and merged Phase 6C and PR #12 identity remediation.
 - Outputs: versioned candidate-first evaluator; fixed validation and explicit
   test CLI; categorical/multilabel dataset-task-class metrics; provenance-bound
-  train priors; deterministic JSON artifacts; bounded opt-in performance
-  matrix; non-binding epoch timing sidecar.
+  train priors; true dataset/encoding task macro summaries; deterministic JSON
+  artifacts; bounded opt-in performance matrix with exclusive preparation,
+  compute-only and end-to-end boundaries; optional deterministic indexed
+  production-read-only subsets; non-binding epoch timing sidecar.
 - Tests: hand-computed metrics, partition/order invariance, mask/target
   boundaries, target-mutation logit invariance, train-prior isolation,
   repeated bit-exact evaluation, test acknowledgement, source-native
-  dataset/task isolation, undefined semantics, fixed memory, profiler opt-in,
-  timing/checkpoint separation, and Phase 6C resume regression.
+  dataset/task isolation, direct-count F1 undefined semantics, true macro
+  grouping, fixed memory, no repeated serial alignment, honest worker
+  attribution, end-to-end loader timing, profiler opt-in, timing/checkpoint
+  separation, and Phase 6C resume regression.
 - Non-goals: full-corpus scan/training, new checkpoint selection, Phase 7 SSL,
   PLL, calibration, preference/critic work, or any model/data semantics.
 - Acceptance: bounded synthetic evaluation and profiling complete; all

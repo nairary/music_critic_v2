@@ -478,13 +478,29 @@ therefore never share a bucket or macro average. Streaming accumulators retain
 fixed confusion/TP/FP/FN/TN and exact binary64 likelihood sums, not prediction
 tensors.
 
+Per-class F1 is computed directly from confusion counts as
+`2 TP / (2 TP + FP + FN)`. It is undefined only when that denominator is zero;
+supported-but-unpredicted and unsupported-with-false-positive classes have
+defined F1 zero and remain in macro-F1. Versioned task macro summaries preserve
+the complete dataset/task evidence and group only by exact dataset plus
+encoding kind. They average defined normalized task metrics without task
+weights, count excluded undefined tasks, and omit cross-vocabulary NLL/BCE and
+other scientifically incomparable aggregates with explicit reasons.
+
 Trivial baselines are constructed in a separate pass over the train split
 only. Their artifact binds train membership, index/cache/split, ontology, and
 encoding evidence. Held-out labels are joined only after fixed majority,
 empirical-prior, prevalence, and 0.5-threshold decisions exist. Undefined
 metrics use JSON `null` plus a stable category and explanation.
 
-Detailed timing is a separate, explicitly enabled, bounded synthetic profiler.
+Detailed timing is a separate, explicitly enabled, bounded profiler with
+synthetic plumbing and an optional indexed production-read-only subset.
+For `workers=0`, its exclusive preparation chain passes canonical artifacts to
+graph construction, then target alignment/tensorization, then assembly without
+repeating alignment. Prepared-batch compute, validation compute, loader-only
+traversal, and loader-plus-training end-to-end throughput are distinct passes.
+Multiprocess startup/IPC/prefetch attribution is reported as unavailable
+rather than assigned to collation, and RSS is a process high-water mark.
 Normal training contains no per-batch timing histories or CUDA synchronization.
 Per-epoch train/validation wall time and throughput live in the non-binding
 `epoch_performance.jsonl` sidecar. The deterministic `metrics.jsonl` journal

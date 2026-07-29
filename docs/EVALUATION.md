@@ -7,7 +7,9 @@ supervised auxiliary heads. It is not a critic score, calibration result, SSL
 objective, or new checkpoint-selection policy. It changes no model, graph,
 adapter, target, corpus, cache, ontology, or encoding semantics.
 
-Evaluation/artifact, train-prior, and profiler contracts are version `1.0.0`.
+Evaluation and evaluation-artifact contracts are version `1.1.0`. The
+profiler contract is `1.1.0`, the macro-summary sub-contract is `1.0.0`, and
+the unchanged train-prior contract remains `1.0.0`.
 
 ## Candidate-first and split contract
 
@@ -74,14 +76,27 @@ Closed multilabel heads use fixed `sigmoid(logit) >= 0.5` and report BCE/NLL,
 micro and macro precision/recall/F1, per-class TP/FP/FN/TN/support, and
 exact-match accuracy.
 
+Precision and recall retain their own denominator rules. Per-class F1 does
+not depend on whether those two separately reported values are defined:
+
+```text
+F1 = 2 TP / (2 TP + FP + FN)
+```
+
+A supported class with no predicted positive and an unsupported class with
+false-positive predictions therefore both have defined F1 `0`. Per-class F1
+is undefined only when `2 TP + FP + FN == 0`, meaning that the class occurs
+neither in eligible truth nor in predictions. Macro-F1 is the unweighted mean
+of every defined per-class F1, including defined zeros.
+
 An undefined denominator produces:
 
 ```json
 {
   "value": null,
   "undefined": {
-    "category": "zero_true_positive",
-    "reason": "no eligible positive label exists"
+    "category": "zero_f1_denominator",
+    "reason": "the class is absent from both eligible truth and thresholded predictions"
   }
 }
 ```
@@ -90,6 +105,19 @@ Absence of positive labels is therefore not reported as zero quality.
 Likelihood sums use exact accumulation of the observed binary64 values, and
 confusion/count state is fixed by the ontology size. Prediction tensors are
 not retained across batches.
+
+Primary evidence remains under `datasets[dataset_id][task_id]`. The versioned
+`macro_summaries` view groups task-level normalized metrics by
+`(dataset_id, encoding_kind)`. Every metric records `value`/`null`,
+`included_task_ids`, `undefined_task_ids`, defined/undefined task counts, and
+the exact rule: an unweighted arithmetic mean over defined task-level values,
+with undefined tasks excluded and counted. Defined zeros are included.
+HookTheory and POP909-CL are never combined; categorical and multilabel heads
+are never combined. NLL and BCE/NLL are explicitly omitted with
+`scientifically_incomparable` reasons because distinct vocabularies and label
+dimensions do not share one probability space. Multilabel exact-match is also
+omitted because its difficulty depends on the task-specific label-set
+dimension.
 
 ## Train-only baselines
 
@@ -153,8 +181,8 @@ writes exactly:
 
 ## Bounded profiler
 
-The profiler is synthetic and disabled by default. The full requested matrix
-is explicitly enabled with:
+The profiler is disabled by default. Synthetic fixtures are the default
+plumbing mode. A matrix is explicitly enabled with:
 
 ```bash
 PYTHONPATH=src python -m music_critic.evaluation.profile \
@@ -167,16 +195,60 @@ local-GNN, and hierarchical models; batch sizes 1/2/4; workers 0/2; and two
 batches per cell. An unavailable worker configuration is reported rather than
 silently substituted.
 
-Each completed cell separates canonical artifact read, graph construction,
-target alignment/tensorization, collation, device transfer, model forward,
-loss construction, backward, optimizer step, and validation forward. It
-reports samples/s, batches/s, nodes/s, edges/s, eligible target rows/s,
-mean/p50/p90/p95/p99 batch time, CPU peak RSS, and a fingerprint of dataset
-membership, model configuration, batch size, and workers.
+Each cell names independent measurement passes; values from different passes
+must not be summed as one decomposition:
 
-The report retains summaries, not per-batch histories. It does not add CUDA
-synchronization. A production smoke must use a separate explicitly bounded,
-read-only command; a full corpus profile is not Phase 6D-A acceptance.
+- `serial_exclusive_preparation` (`workers=0`) is one result-flow chain:
+  per-sample canonical read, per-sample graph construction, per-batch target
+  projection/alignment/tensorization, then per-batch metadata/statistics
+  collation. The final collation stage consumes already tensorized targets and
+  never repeats alignment. With `workers>0`, exact preparation-stage
+  attribution is structured `unavailable`.
+- `prepared_batch_compute` starts from prepared CPU batches and measures the
+  exclusive device-transfer, model-forward, loss, backward, and optimizer-step
+  chain. Its throughput excludes all dataset and loader work.
+- `prepared_validation_compute` is a separate inference-only pass and is not
+  added to the training chain.
+- `full_loader_traversal` starts before `iter(loader)`, exhausts the loader
+  without model compute, and reports first-batch latency plus total traversal.
+  With workers, startup, IPC, prefetch, preparation, and collation overlap, so
+  their individual attribution is explicitly unavailable.
+- `end_to_end_loader_and_training_compute` starts before `iter(loader)` and
+  includes startup, every loader iteration, canonical reads/preparation/
+  collation, delivery, and compute through `optimizer.step`.
+
+Every percentile series declares one unit (`per_sample` or `per_batch`).
+Memory is labelled as the process-level `ru_maxrss` high-water mark, not an
+isolated per-cell allocation. The report retains summaries, not per-batch
+histories, and detailed timing remains outside normal training and checkpoint
+determinism.
+
+Optional `input_mode=production_read_only` requires explicit absolute index,
+cache-root, and split-manifest paths plus a positive
+`production_max_samples_per_dataset` capped at 32. Membership is selected by a
+seeded deterministic hash and fingerprinted separately for HookTheory,
+POP909-CL, and mixed cells. It reads only those indexed canonical artifacts,
+writes no cache, loads no checkpoint, and never scans cache directories or
+canonical corpus contents. Index and split metadata are validated in full.
+A full-corpus profile is not Phase 6D-A acceptance.
+
+For example, a one-cell read-only smoke is:
+
+```bash
+PYTHONPATH=src python -m music_critic.evaluation.profile \
+  enabled=true \
+  input_mode=production_read_only \
+  output_path=/tmp/music-critic-phase6d-production-profile.json \
+  dataset_values='[hooktheory]' \
+  model_values='[feature_only]' \
+  batch_sizes='[1]' \
+  worker_values='[0]' \
+  max_batches=1 \
+  production_index_paths='[/absolute/path/hooktheory.index.json,/absolute/path/pop909_cl.index.json]' \
+  production_cache_roots='[/absolute/path/hooktheory,/absolute/path/pop909_cl]' \
+  production_split_manifest=/absolute/path/global.split.json \
+  production_max_samples_per_dataset=1
+```
 
 ## Ordinary epoch timing
 

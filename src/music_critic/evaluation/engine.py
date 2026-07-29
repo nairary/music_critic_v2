@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,7 @@ from music_critic.evaluation.checkpoint import (
 from music_critic.evaluation.contracts import (
     EVALUATION_ARTIFACT_VERSION,
     EVALUATION_CONTRACT_VERSION,
+    MACRO_SUMMARY_CONTRACT_VERSION,
     EvaluationContractError,
     canonical_fingerprint,
     metric_value,
@@ -49,6 +51,48 @@ _MANAGED_ARTIFACTS = {
 _DATASET_ADAPTER_FRAGMENT = {
     "hooktheory": "music_critic.adapters.hooktheory",
     "pop909_cl": "music_critic.adapters.pop909_cl",
+}
+
+_MACRO_METRICS_BY_KIND = {
+    "closed_categorical_index": (
+        "top1_accuracy",
+        "top3_accuracy",
+        "balanced_accuracy",
+        "macro_f1",
+        "micro_f1",
+    ),
+    "closed_multilabel": (
+        "micro_precision",
+        "micro_recall",
+        "micro_f1",
+        "macro_precision",
+        "macro_recall",
+        "macro_f1",
+    ),
+}
+
+_OMITTED_MACRO_METRICS_BY_KIND = {
+    "closed_categorical_index": {
+        "nll": (
+            "not aggregated across tasks with distinct categorical "
+            "vocabularies and probability spaces"
+        ),
+    },
+    "closed_multilabel": {
+        "bce_nll": (
+            "not aggregated across tasks with distinct label dimensions "
+            "and label semantics"
+        ),
+        "exact_match_accuracy": (
+            "not aggregated because exact-match difficulty depends on the "
+            "task-specific label-set dimension"
+        ),
+    },
+}
+
+_ENCODING_KIND_BY_METRIC_KIND = {
+    "closed_categorical": "closed_categorical_index",
+    "closed_multilabel": "closed_multilabel",
 }
 
 
@@ -328,6 +372,100 @@ def _delta(
     return metric_value(float(left) - float(right))
 
 
+def _task_macro_metric(
+    task_metrics: dict[str, dict[str, Any]],
+    metric_name: str,
+) -> dict[str, Any]:
+    included = []
+    undefined = []
+    values = []
+    for task_id, metrics in sorted(task_metrics.items()):
+        metric = metrics.get(metric_name)
+        if (
+            not isinstance(metric, dict)
+            or "value" not in metric
+            or metric["value"] is None
+        ):
+            undefined.append(task_id)
+            continue
+        included.append(task_id)
+        values.append(float(metric["value"]))
+    value = (
+        metric_value(
+            None,
+            category="no_defined_task_metrics",
+            reason=(
+                f"no task in this dataset/encoding group defines "
+                f"{metric_name}"
+            ),
+        )
+        if not values
+        else metric_value(math.fsum(values) / len(values))
+    )
+    return {
+        **value,
+        "included_task_ids": included,
+        "undefined_task_ids": undefined,
+        "defined_task_count": len(included),
+        "undefined_task_count": len(undefined),
+        "aggregation_rule": (
+            "unweighted arithmetic mean over defined task-level metric "
+            "values; undefined task metrics are excluded and counted"
+        ),
+    }
+
+
+def build_macro_summaries(
+    datasets: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Aggregate only comparable normalized metrics within source and kind."""
+
+    groups = []
+    for dataset_id, tasks in sorted(datasets.items()):
+        by_kind: dict[str, dict[str, dict[str, Any]]] = {}
+        for task_id, evidence in sorted(tasks.items()):
+            model_metrics = evidence["model"]
+            metric_kind = model_metrics["kind"]
+            kind = _ENCODING_KIND_BY_METRIC_KIND.get(metric_kind)
+            if kind is None:
+                raise EvaluationContractError(
+                    f"evaluation.summary.encoding_unknown:{metric_kind}"
+                )
+            by_kind.setdefault(kind, {})[task_id] = model_metrics
+        for kind, task_metrics in sorted(by_kind.items()):
+            groups.append(
+                {
+                    "dataset_id": dataset_id,
+                    "encoding_kind": kind,
+                    "candidate_task_ids": sorted(task_metrics),
+                    "metrics": {
+                        metric_name: _task_macro_metric(
+                            task_metrics, metric_name
+                        )
+                        for metric_name in _MACRO_METRICS_BY_KIND[kind]
+                    },
+                    "omitted_metrics": {
+                        metric_name: {
+                            "category": "scientifically_incomparable",
+                            "reason": reason,
+                        }
+                        for metric_name, reason in (
+                            _OMITTED_MACRO_METRICS_BY_KIND[kind].items()
+                        )
+                    },
+                }
+            )
+    return {
+        "macro_summary_contract_version": (
+            MACRO_SUMMARY_CONTRACT_VERSION
+        ),
+        "grouping_keys": ["dataset_id", "encoding_kind"],
+        "cross_dataset_aggregation": False,
+        "cross_encoding_aggregation": False,
+        "groups": groups,
+    }
+
+
 def _evaluate(
     model: Any,
     batches: Any,
@@ -531,20 +669,12 @@ def _evaluate(
             "train_only_baseline": baseline_metrics,
             "comparison": comparison,
         }
-    macro_summaries = {
-        task_id: {
-            dataset_id: datasets[dataset_id][task_id]["model"]
-            for dataset_id in sorted(datasets)
-            if task_id in datasets[dataset_id]
-        }
-        for task_id in ACTIVE_TASK_IDS
-    }
     return {
         "batch_count": batch_count,
         "dataset_sample_counts": dict(sorted(dataset_samples.items())),
         "counts": dict(sorted(aggregate.items())),
         "datasets": datasets,
-        "macro_summaries_by_compatible_task_id": macro_summaries,
+        "macro_summaries": build_macro_summaries(datasets),
         "retained_prediction_tensor_count": 0,
         "retained_prediction_element_count": 0,
     }
@@ -633,4 +763,4 @@ def run_evaluation(config: object) -> dict[str, Any]:
     return report
 
 
-__all__ = ["run_evaluation"]
+__all__ = ["build_macro_summaries", "run_evaluation"]

@@ -80,7 +80,8 @@
 - Training-checkpoint contract: `1.0.0`
 - Phase 6D-A: Implemented on branch
   `phase/6d-supervised-evaluation`; local/Required CI are the merge gate
-- Evaluation/artifact/train-prior/profiler contracts: `1.0.0`
+- Evaluation/artifact contracts: `1.1.0`; profiler: `1.1.0`; macro-summary
+  sub-contract: `1.0.0`; unchanged train-prior: `1.0.0`
 - Next phase after Phase 6D-A acceptance: Phase 7 — GraphMAE2-style SSL
 
 ## Phase 6D-A supervised evaluation result
@@ -104,11 +105,20 @@
   are fixed-memory. Train priors are a separate artifact bound to train
   membership and index/cache/split/ontology/encoding evidence; held-out label
   mutation cannot change their fingerprint.
-- The explicitly enabled bounded profiler covers the required ten stages and
-  reports sample/batch/node/edge/eligible-row rates, mean/percentile batch
-  times, peak RSS, and dataset/model/batch/worker fingerprints. It defaults to
-  the requested three datasets, three models, batch sizes 1/2/4, and workers
-  0/2. Normal training never enables it.
+- Per-class categorical and multilabel F1 is `2TP/(2TP+FP+FN)` and is
+  undefined only when truth and predictions both omit the class. Defined zero
+  values remain in class macro-F1. Versioned task macro summaries group only
+  by exact dataset and encoding kind, expose included and undefined task IDs
+  and counts, and explicitly omit scientifically incomparable cross-vocabulary
+  likelihood aggregates.
+- The explicitly enabled bounded profiler separates serial exclusive
+  preparation, prepared training compute, prepared validation, loader-only
+  traversal, and loader-plus-compute end-to-end passes. It does not repeat
+  alignment inside measured assembly, does not assign overlapping worker time
+  to collation, declares per-sample/per-batch units, and labels RSS as a
+  process-level high-water mark. Optional deterministic production-read-only
+  subsets require explicit absolute index/cache/split paths. Normal training
+  never enables detailed profiling.
 - Ordinary training writes bounded per-epoch train/validation wall time and
   sample/batch throughput to `epoch_performance.jsonl`. This sidecar is
   deliberately excluded from the deterministic checkpoint and metric journal,
@@ -123,25 +133,32 @@
 
 ## Phase 6D-A verification
 
-- Focused evaluation tests: `17 passed`; they cover hand-computed categorical
-  and multilabel evidence, exact partition/order invariance, mask exclusion,
-  target-independent logits, held-out mutation/prior isolation, repeated
-  checkpoint evaluation, explicit test acknowledgement, source-native
-  dataset/task isolation, undefined metrics, fixed storage, global-manifest
-  single-dataset views, and the tiny profiler.
-- Combined evaluation/training regression before the final data-view test:
-  `61 passed, 4 skipped`; all skips require CUDA. The existing raw-byte
-  `metrics.jsonl` resume comparison and checkpoint/RNG bit-exact comparisons
-  pass unchanged.
-- Final default suite on the completed tree: `804 passed, 19 skipped` in
-  `734.96 s`; skips are existing opt-in real-data/CUDA guards. The only
-  warnings are the two existing PyTorch JIT deprecations.
+- Remediation metric/summary/checkpoint oracle tests: `15 passed`. The direct
+  confusion-count oracle covers categorical and multilabel supported misses,
+  unsupported false positives, absent truth+prediction, the old macro-F1
+  overestimate, and row-order/batch-partition invariance.
+- Remediation profiler tests: `6 passed`. They cover the serial exclusive
+  result-flow chain, one alignment per scheduled sample, consistent units,
+  honest `workers>0` unavailable attribution, a loader delay inside the
+  end-to-end timer, and immutable temporary indexed-cache contents in
+  production-read-only mode.
+- Combined evaluation/data/prior/checkpoint plus epoch-performance/resume/
+  atomicity regressions: `44 passed`. The repeated checkpoint evaluation
+  remains bit-exact and raw-byte `metrics.jsonl`, checkpoint, optimizer, and
+  RNG resume comparisons pass unchanged.
+- The repeated-evaluation artifact check was also rerun alone after the full
+  suite: `1 passed`; both artifact directories were byte-identical.
+- Final default suite on the completed remediation tree: `813 passed,
+  19 skipped` in `807.18 s`; skips are existing opt-in real-data/CUDA guards.
+  Warnings comprise PyTorch JIT deprecations, the Python 3.13 fork warning in
+  the intentional worker test, and one non-failing DataLoader cleanup warning.
 - `python -m compileall -q src tests`: passed.
 - `git diff --check`: passed.
-- Bounded CLI acceptance wrote all five required evaluation artifacts for
+- Pre-remediation bounded CLI acceptance wrote all five required evaluation artifacts for
   3 validation samples across both datasets, evaluated 63 eligible rows,
-  retained zero prediction tensors, and completed one profiler cell with all
-  ten required stage summaries.
+  retained zero prediction tensors, and completed one profiler cell. The
+  superseding profiler `1.1.0` evidence uses separate measurement passes
+  rather than calling the former overlapping timings independent.
 - Optional read-only production smoke used a temporary model-only checkpoint
   and temporary outputs. HookTheory and POP909-CL each loaded exactly 2 train
   and 2 validation cache artifacts through explicit absolute index/cache/
@@ -149,8 +166,8 @@
   verification was correctly `false` because a Phase 6A model-only checkpoint
   has no Phase 6C data binding.
 - Draft PR #13 was opened from `phase/6d-supervised-evaluation` into `main`.
-  Both Required GitHub `full-suite` checks passed in `1m41s`; the PR remains
-  draft and no merge was attempted.
+  Pre-remediation Required GitHub checks passed; remediation CI is rerun after
+  the remediation commit. The PR remains draft and no merge is attempted.
 
 ## Phase 6C reproducible baseline training result
 

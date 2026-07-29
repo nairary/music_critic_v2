@@ -56,6 +56,7 @@ class ProfilerConfig:
     enabled: bool = False
     output_path: str = "outputs/phase6d/performance_report.json"
     seed: int = 42
+    input_mode: str = "synthetic"
     max_batches: int = 2
     dataset_values: list[str] = field(
         default_factory=lambda: ["hooktheory", "pop909_cl", "mixed"]
@@ -73,6 +74,13 @@ class ProfilerConfig:
     local_gnn_layers: int = 3
     transformer_layers: int = 2
     attention_heads: int = 4
+    # Production profiling is opt-in and read-only. Paths must be explicit,
+    # absolute, and empty in synthetic mode.
+    production_index_paths: list[str] = field(default_factory=list)
+    production_cache_roots: list[str] = field(default_factory=list)
+    production_split_manifest: str = ""
+    production_split: str = "validation"
+    production_max_samples_per_dataset: int = 2
 
 
 def _data(

@@ -119,15 +119,17 @@ def test_dataset_and_task_results_are_source_native(tmp_path: Path) -> None:
         task_id.startswith("pop909_cl.")
         for task_id in metrics["datasets"]["pop909_cl"]
     )
-    for task_id, datasets in metrics[
-        "macro_summaries_by_compatible_task_id"
-    ].items():
-        expected = (
-            {"pop909_cl"}
-            if task_id.startswith("pop909_cl.")
-            else {"hooktheory"}
-        )
-        assert set(datasets) == expected
+    summaries = metrics["macro_summaries"]
+    assert summaries["cross_dataset_aggregation"] is False
+    assert summaries["cross_encoding_aggregation"] is False
+    assert {
+        (group["dataset_id"], group["encoding_kind"])
+        for group in summaries["groups"]
+    } == {
+        ("hooktheory", "closed_categorical_index"),
+        ("hooktheory", "closed_multilabel"),
+        ("pop909_cl", "closed_categorical_index"),
+    }
 
 
 def test_test_split_requires_explicit_acknowledgement(tmp_path: Path) -> None:

@@ -45,6 +45,20 @@ def _mean_defined(
     return metric_value(math.fsum(defined) / len(defined))
 
 
+def _f1(tp: int, fp: int, fn: int) -> dict[str, Any]:
+    denominator = 2 * tp + fp + fn
+    if denominator == 0:
+        return metric_value(
+            None,
+            category="zero_f1_denominator",
+            reason=(
+                "the class is absent from both eligible truth and "
+                "thresholded predictions"
+            ),
+        )
+    return metric_value(2 * tp / denominator)
+
+
 @dataclass(slots=True)
 class _ExactFloatSum:
     """Order- and batch-partition-invariant sum of binary64 observations."""
@@ -167,28 +181,7 @@ class CategoricalMetricAccumulator:
                 category="zero_true_support",
                 reason="the class has no eligible true rows",
             )
-            if precision["value"] is None or recall["value"] is None:
-                f1 = metric_value(
-                    None,
-                    category="undefined_precision_or_recall",
-                    reason=(
-                        "class F1 requires both defined precision and recall"
-                    ),
-                )
-            else:
-                denominator = float(precision["value"]) + float(
-                    recall["value"]
-                )
-                f1 = (
-                    metric_value(0.0)
-                    if denominator == 0
-                    else metric_value(
-                        2
-                        * float(precision["value"])
-                        * float(recall["value"])
-                        / denominator
-                    )
-                )
+            f1 = _f1(tp, fp, fn)
             recalls.append(recall)
             f1_values.append(f1)
             per_class.append(
@@ -344,28 +337,11 @@ class MultilabelMetricAccumulator:
                 category="zero_true_positive",
                 reason="the class has no eligible positive labels",
             )
-            if precision["value"] is None or recall["value"] is None:
-                f1 = metric_value(
-                    None,
-                    category="undefined_precision_or_recall",
-                    reason=(
-                        "class F1 requires both defined precision and recall"
-                    ),
-                )
-            else:
-                denominator = float(precision["value"]) + float(
-                    recall["value"]
-                )
-                f1 = (
-                    metric_value(0.0)
-                    if denominator == 0
-                    else metric_value(
-                        2
-                        * float(precision["value"])
-                        * float(recall["value"])
-                        / denominator
-                    )
-                )
+            f1 = _f1(
+                self.tp[index],
+                self.fp[index],
+                self.fn[index],
+            )
             precisions.append(precision)
             recalls.append(recall)
             f1_values.append(f1)
