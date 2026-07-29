@@ -1446,6 +1446,12 @@ This log is append-only.
   configured `0.30` mask select multiple primary rows and exercise nonzero
   peer-note and owner-track collateral masking. Counts and fingerprints are
   execution evidence, not architecture constants.
+- Decision: Resolve an unset optimizer learning rate to `3e-4` for the
+  Phase 7A one-batch experiment. Explicit optimizer overrides remain
+  authoritative, and the generic supervised one-batch preset is unchanged.
+  This bounded profile keeps the shared target encoder pitch-sensitive enough
+  for the fixed counterfactual margin gate across supported CPU execution
+  environments.
 - Decision: After bounded one-batch fitting, use pitch-mutation contract
   `1.0.0` and fixed `midi_axis_reflection_v1` policy
   (`mutated_pitch = 127 - source_pitch`), then rebuild the canonical piece,

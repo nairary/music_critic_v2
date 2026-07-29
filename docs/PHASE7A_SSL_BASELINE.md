@@ -371,7 +371,9 @@ No downstream improvement is claimed from these observations.
 
 The remediation starts from `791ef19b1dbd7c26b7a2ef87f36d4ee5b08391a6`;
 the tested implementation commit is
-`ab9477888bc39312e8501bbf18685f45cf1d5630`. Outputs were written only below
+`ab9477888bc39312e8501bbf18685f45cf1d5630`, followed by the
+cross-environment acceptance-profile fix
+`ba458697599b03395b4a720888e7e7ce9d99c3bb`. Outputs were written only below
 `/tmp`; no production cache was read.
 
 ### Fixture and masking
@@ -415,21 +417,23 @@ their fixed binding is
 
 ### One-batch plumbing and pitch sensitivity
 
-The default 40-step CPU/no-AMP run used the full 128-dimensional model.
-Eval/no-grad total loss changed `3.122128486633301 → 0.537868082523346`;
+The default 40-step CPU/no-AMP run used the full 128-dimensional model and
+AdamW learning rate `3e-4`. The SSL runner uses this rate when the one-batch
+optimizer rate is unset; explicit overrides remain authoritative. Eval/no-grad
+total loss changed `3.122128486633301 → 0.04193296656012535`;
 note/bar/song components changed respectively
-`0.9796208143234253 → 0.25825920701026917`,
-`0.9931425452232361 → 0.2769353687763214`, and
-`1.1493650674819946 → 0.002673506736755371`.
+`0.9796208143234253 → 0.020008785650134087`,
+`0.9931425452232361 → 0.012395143508911133`, and
+`1.1493650674819946 → 0.009529034607112408`.
 
 Pitch mutation contract `1.0.0` uses fixed policy
 `midi_axis_reflection_v1` (`pitch -> 127 - pitch`), fingerprint
 `55c9c82b10153c21d158fb3287c3c01deea10b2a427b08d1266e1c89cdc32227`.
-For the same plans, `cos(prediction, correct_target)=0.7417699098587036`,
-`cos(prediction, mutated_target)=0.7417265772819519`, so the margin is
-`+0.000043332576751708984` above dtype floor `9.5367431640625e-7`.
-Target L2 distance is `0.029059235006570816`; cosine distance is
-`0.0000029206275939941406`. Actual runtime-source fingerprints matched the
+For the same plans, `cos(prediction, correct_target)=0.9806331396102905`,
+`cos(prediction, mutated_target)=0.9797264933586121`, so the margin is
+`+0.0009066462516784668` above dtype floor `9.5367431640625e-7`.
+Target L2 distance is `1.1555137634277344`; cosine distance is
+`0.005206167697906494`. Actual runtime-source fingerprints matched the
 rebuilt canonical sources; original/mutated CPU/device graph stores remained
 bit-exact; masked online embeddings/predictions remained bit-exact while the
 full-view target and reconstruction loss changed.
@@ -477,13 +481,13 @@ container bytes and timing files are intentionally outside that contract.
 
 ### Timing, transfer, tests, and CI boundary
 
-One CPU run measured plan preparation `0.05022745200039935s`, transfer
-`0.013040239999099867s`, forward `1.4793932830107224s`, backward
-`2.5643506280030124s`, total `5.181941038001241s`. This is bounded timing, not
+One CPU run measured plan preparation `0.05142308099675574s`, transfer
+`0.012888179000583477s`, forward `1.485993103004148s`, backward
+`2.5666476680125925s`, total `5.197211505001178s`. This is bounded timing, not
 a speed claim. Encoder export loaded 470 tensors and left all 81 supervised
 head tensors bit-exact.
 
-Focused SSL: `111 passed, 2 skipped`; full suite: `943 passed, 21 skipped`;
+Focused SSL: `112 passed, 2 skipped`; full suite: `944 passed, 21 skipped`;
 `compileall` and diff checks pass. CUDA is unavailable locally, so both
 CUDA-path acceptances are explicit skips and no CUDA/VRAM number is
 fabricated. Required GitHub CI is head-relative operational evidence recorded

@@ -90,6 +90,8 @@
   `791ef19b1dbd7c26b7a2ef87f36d4ee5b08391a6`
 - Phase 7A tested remediation implementation:
   `ab9477888bc39312e8501bbf18685f45cf1d5630`
+- Phase 7A cross-environment acceptance-profile fix:
+  `ba458697599b03395b4a720888e7e7ce9d99c3bb`
 - Phase 7A deterministic GraphMAE2-inspired masked-graph SSL implementation
   and bounded acceptance are complete on draft PR #15. Required CI is a
   head-relative merge gate recorded in the final PR evidence comment, not a
@@ -160,11 +162,13 @@
   `13/48` train and `10/36` validation, with primary/peer/owner counts
   `13/35/7` and `10/26/5`. Fixture fingerprint is
   `9f959d91d6805101983711511abcf89450e24b1886417632ea37fd0dc96ba922`.
-- Forty-step one-batch plumbing loss changed
-  `3.122128486633301 -> 0.537868082523346`. The fixed
+- Forty-step one-batch plumbing uses the Phase 7A-specific default AdamW rate
+  `3e-4`; explicit overrides remain supported. Loss changed
+  `3.122128486633301 -> 0.04193296656012535`. The fixed
   `midi_axis_reflection_v1` coherent pitch target produced correct-vs-mutated
-  cosine margin `+0.000043332576751708984` and mean target L2 distance
-  `0.029059235006570816`; runtime-source binding, raw-store immutability,
+  cosine margin `+0.0009066462516784668`, target cosine distance
+  `0.005206167697906494`, and mean target L2 distance `1.1555137634277344`;
+  runtime-source binding, raw-store immutability,
   no-leakage, deterministic repeat, and checkpoint reload passed. This
   one-batch final state is not used as non-collapse evidence.
 - Fixed held-out loss was `3.1229397773742678` before optimizer step zero,
@@ -177,11 +181,11 @@
 - Checkpoint reload was bit-exact; exact dropout/cosine/CPU-AMP epoch resume,
   atomicity, crash recovery, and RNG rollback tests passed. Encoder transfer
   loaded 470 parameter tensors and left all 81 supervised-head tensors
-  untouched. One CPU run separated plan preparation `0.05022745200039935s`
-  from transfer `0.013040239999099867s` and forward
-  `1.4793932830107224s`; no speed claim is made. CUDA was unavailable, so
+  untouched. One CPU run separated plan preparation `0.05142308099675574s`
+  from transfer `0.012888179000583477s` and forward
+  `1.485993103004148s`; no speed claim is made. CUDA was unavailable, so
   CUDA/VRAM evidence is an explicit skip rather than fabricated data.
-- Focused SSL tests passed 111 with 2 CUDA skips. The full suite passed 943
+- Focused SSL tests passed 112 with 2 CUDA skips. The full suite passed 944
   with 21 skips. `compileall` and diff checks passed. Exact aggregate
   dense-oracle, partition/order, worker, prepared-forward instrumentation,
   checkpoint/resume, leakage, pitch-margin, and transfer gates are included.

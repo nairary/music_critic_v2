@@ -2843,6 +2843,12 @@ correct-to-mutated target distance. This is a pitch-sensitive representation
 check only; it introduces no label, cross-entropy, normalized distribution,
 likelihood, or PLL.
 
+When the Phase 7A one-batch optimizer rate is unset, the SSL runner resolves it
+to `3e-4`; an explicit override remains authoritative. This does not alter the
+generic supervised one-batch preset. The bounded acceptance profile uses the
+resolved `3e-4` rate so that the shared target retains a conservative,
+cross-environment positive pitch-counterfactual margin.
+
 Multi-epoch execution evaluates a fixed, disjoint validation set before the
 first optimizer step and after every epoch. Train/validation losses and exact
 stage-wide note/bar/song diagnostics are recorded per epoch; only fixed

@@ -485,9 +485,11 @@ The model and training phases remain pending.
 - Acceptance: a deterministic multi-piece, multi-note fixture has disjoint
   train/validation identities, multitrack/multibar coverage, multiple primary
   masked rows, and nonzero peer-note/owner-track collateral masks. One-batch
-  loss decreases and the fixed-plan coherent pitch mutation has a positive
-  correct-target cosine margin. Initial/final held-out note/bar/song target and
-  prediction diagnostics remain finite and noncollapsed. Exact mergeable
+  loss decreases under the Phase 7A-specific `3e-4` default rate, and the
+  fixed-plan coherent pitch mutation has a positive correct-target cosine
+  margin. Explicit optimizer overrides remain supported. Initial/final
+  held-out note/bar/song target and prediction diagnostics remain finite and
+  noncollapsed. Exact mergeable
   stage-wide aggregates retain no embedding history and are invariant to batch
   partition/order/workers. Reconstruction loss remains separate from masked
   conditional likelihood, and no probability factorization is assumed.

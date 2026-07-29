@@ -592,7 +592,10 @@ artifact field is `anti_collapse_aggregate`; the former
 The simple decoder mode is one view with no latent remasking. The Phase 7A
 main preset is three views with probability `0.20`; no relative-performance
 claim is made. Both use mask rate `0.30` by default. Separate note, bar, and
-song weights remain configurable.
+song weights remain configurable. For the Phase 7A one-batch experiment, an
+unset optimizer learning rate resolves to `3e-4`; an explicit caller override
+remains authoritative. This avoids inheriting the generic supervised
+one-batch rate while leaving every Phase 6 preset unchanged.
 
 The bounded acceptance source is a deterministic multi-piece, multi-note
 canonical fixture with disjoint train/validation identities and explicit
