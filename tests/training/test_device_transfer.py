@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import copy
 
+import pytest
 import torch
 
+from music_critic.device import RuntimeDeviceError
 from music_critic.tasks import TARGET_FAMILIES
 from music_critic.training.device import (
+    DEVICE_TRANSFER_CONTRACT_VERSION,
     TransferInstrumentation,
     move_multisource_batch,
     validate_device_batch,
 )
+from music_critic.training.engine import _resolve_device
 
 
 def _graph_tensor_snapshot(graph) -> dict[tuple[object, str], torch.Tensor]:
@@ -25,6 +29,7 @@ def _graph_tensor_snapshot(graph) -> dict[tuple[object, str], torch.Tensor]:
 def test_cpu_transfer_is_non_mutating_and_keeps_sidecars(
     bounded_batch,
 ) -> None:
+    assert DEVICE_TRANSFER_CONTRACT_VERSION == "1.0.2"
     graph_before = _graph_tensor_snapshot(
         bounded_batch.raw_graph_batch
     )
@@ -121,3 +126,94 @@ def test_normal_transfer_validates_semantics_only_on_cpu(
     assert (
         debug_evidence.post_transfer_debug_validation_calls == 1
     )
+
+
+def test_training_runtime_resolves_abstract_cuda_to_current_index(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 2)
+    monkeypatch.setattr(torch.cuda, "current_device", lambda: 1)
+
+    resolved = _resolve_device(
+        {"device": {"name": "cuda", "amp": True}}
+    )
+
+    assert resolved == torch.device("cuda:1")
+
+
+@pytest.mark.parametrize("name", ("cuda:0", "auto"))
+def test_training_runtime_accepts_concrete_or_auto_cuda_with_amp(
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+) -> None:
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+    monkeypatch.setattr(torch.cuda, "current_device", lambda: 0)
+
+    resolved = _resolve_device(
+        {"device": {"name": name, "amp": True}}
+    )
+
+    assert resolved == torch.device("cuda:0")
+
+
+def test_training_runtime_rejects_cpu_amp() -> None:
+    with pytest.raises(
+        ValueError,
+        match=r"^training\.device\.amp_requires_cuda$",
+    ):
+        _resolve_device(
+            {"device": {"name": "cpu", "amp": True}}
+        )
+
+
+def test_training_runtime_preserves_cuda_index_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"runtime\.device\.cuda_index_out_of_range:"
+            r"requested=cuda:1;visible_device_count=1"
+        ),
+    ):
+        _resolve_device(
+            {"device": {"name": "cuda:1", "amp": False}}
+        )
+
+
+@pytest.mark.parametrize(
+    ("name", "category"),
+    (
+        ("xpu", "runtime.device.type_unsupported"),
+        ("cuda:not-an-index", "runtime.device.request_invalid"),
+    ),
+)
+def test_training_runtime_preserves_structured_device_error(
+    name: str,
+    category: str,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match=rf"training\.device\.invalid:{category}:",
+    ):
+        _resolve_device(
+            {"device": {"name": name, "amp": False}}
+        )
+
+
+def test_direct_transfer_rejects_unavailable_cuda_structurally(
+    monkeypatch: pytest.MonkeyPatch,
+    bounded_batch,
+) -> None:
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+
+    with pytest.raises(
+        RuntimeDeviceError,
+        match=r"^runtime\.device\.cuda_unavailable:requested=cuda$",
+    ):
+        move_multisource_batch(bounded_batch, "cuda")

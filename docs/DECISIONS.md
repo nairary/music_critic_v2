@@ -1584,3 +1584,149 @@ This log is append-only.
   Canonical, graph schema, feature registry, cache, split, and every Phase 6
   numerical/state-dict contract remain unchanged. Raw unlabeled MIDI inference
   continues through the ordinary fully validated Phase 6 path.
+
+## 2026-07-30 — ADR-052: Runtime CUDA devices resolve to a concrete index before transfer
+
+- Status: Accepted for the blocking post-merge Phase 7A hotfix. This decision
+  does not begin Phase 8 or authorize production training.
+- Context: Independent RTX 3090 execution after PR #15 merged found two SSL
+  CUDA+AMP failures. Transfer received abstract `torch.device("cuda")`, PyTorch
+  placed tensors on concrete `cuda:0`, and the strict validator correctly
+  observed that those device objects are unequal. CPU CI skipped the real-CUDA
+  paths and could not expose this distinction.
+- Decision: Use one runtime-device resolver for SSL, supervised training, and
+  evaluation. Canonicalize CPU to bare `cpu`, resolve bare CUDA through
+  `torch.cuda.current_device()`, and preserve every explicit `cuda:N`. Any CUDA
+  request when CUDA is unavailable is a structured contract failure.
+- Decision: Preserve exact device validation. Comparing only `device.type` is
+  forbidden because a tensor expected on `cuda:1` must reject actual
+  `cuda:0`. Resolution and validation inspect only device metadata; they do
+  not call `.cpu()`, `.item()`, `.tolist()`, or otherwise materialize tensor
+  values on the host.
+- Decision: SSL mismatch category remains
+  `ssl.data.device_transfer_tensor_mismatch`. Evidence adds one stable
+  location—`global:<attribute>`, `node:<node-type>:<attribute>`,
+  `edge:<source>|<relation>|<destination>:<attribute>`, or
+  `binding:<field>`—and concrete expected/actual devices without object
+  `repr`.
+- Consequences: Device-transfer contract advances from `1.0.0` to `1.0.1`.
+  Umbrella SSL and SSL training-report contracts advance from `1.2.0` to
+  `1.2.1`; reports now expose concrete `cuda:N`. Prepared binding remains
+  `1.1.0`, while SSL model/output, checkpoint/journal/metric-row,
+  run-manifest/performance-row, objectives, masking, decoder, registry,
+  fixture, and encoder-export versions remain unchanged.
+- Consequences: New umbrella-SSL metadata changes derived model-contract and
+  checkpoint-binding fingerprints. Historical Phase 7A `1.2.0` evidence is
+  retained rather than regenerated. Exact metadata makes old bounded SSL
+  checkpoints non-resumable under `1.2.1`; no migration is added in this
+  narrow hotfix. Graph/canonical schema, ontology, encoding, datasets, caches,
+  model architecture, numerical objectives, and production artifacts do not
+  change.
+
+## 2026-07-30 — ADR-053: CUDA indices and AMP representation objectives fail closed
+
+- Status: Accepted as remediation of draft PR #17. This decision extends
+  ADR-052, does not begin Phase 8, and does not authorize production training.
+- Context: An independent RTX 3090 run at hotfix head `fb54e85` confirmed that
+  bare `cuda` resolves to `cuda:0`; the original
+  `ssl.data.device_transfer_tensor_mismatch` disappeared, and graph plus
+  prepared-binding tensors passed exact `cuda:0` assertions. The remaining
+  failures exposed four separate issues: explicit CUDA indices were not
+  checked against visible devices; subsystem allowlists and a string-based AMP
+  check rejected valid `cuda:N`; decoder predictions under AMP were FP16 while
+  stop-gradient targets were FP32; and two CUDA acceptance assertions mutated
+  unavailable raw values or compared JSON lists directly with live tuples.
+- Decision: Runtime resolution `1.0.1` validates both explicit and current CUDA
+  indices against `torch.cuda.device_count()` before any tensor transfer.
+  `runtime.device.cuda_index_out_of_range` carries the requested device and
+  visible count; a bare-current failure also records the resolved index.
+  Training, SSL, and evaluation accept `cpu`, `cuda`, `cuda:N`, and `auto`
+  through the shared resolver. AMP eligibility depends on
+  `resolved_device.type == "cuda"`, never the unresolved input string.
+- Decision: Representation loss `1.0.1` requires equal shape and concrete
+  device and floating inputs. Any FP16/BF16/FP32 pair computes row-wise cosine,
+  differentiable empty and non-empty numerators, means, and reductions in FP32
+  with autocast disabled. Only a matching FP64 pair remains FP64; incompatible
+  combinations fail. The target is detached before an out-of-place cast, and
+  the prediction cast retains gradient flow. Multi-view loss and combined SSL
+  objective advance to `1.0.1`. Immediate and streaming anti-collapse
+  diagnostics apply the same numerical normalization and advance to `1.1.1`.
+- Decision: CUDA velocity perturbation selects only available sample-zero
+  values, preserves unavailable placeholders exactly, and reruns raw-graph
+  validation before model execution. JSON-loaded membership evidence is
+  compared with live evidence only after canonical JSON normalization, while
+  fingerprint, selected count, dataset counts, subset limit, full-view count,
+  ordered identities, and byte-identical metric journals remain separate
+  exact assertions. Production membership selection, fingerprints, resume
+  binding, raw validation, and placeholder policy are not weakened.
+- Consequences: Device transfer advances to `1.0.2`; umbrella SSL advances to
+  `1.2.2`. SSL training report remains `1.2.1`, and SSL model/output,
+  checkpoint/journal/metric-row, run-manifest/performance-row, prepared
+  binding, representation target, decoder, masking, graph/canonical schema,
+  ontology, encoding, dataset, cache, and model-architecture contracts remain
+  unchanged. PR #17 stays draft until the exact final commit passes Required
+  CI and an independent RTX 3090 rerun records passed/skipped counts plus
+  bounded-smoke peak allocated/reserved VRAM.
+
+## 2026-07-30 — ADR-054: Leakage safety, reconstruction sensitivity, and target preference are separate evidence
+
+- Status: Accepted as continued remediation of draft PR #17. This decision
+  supersedes only ADR-050's bounded positive-margin acceptance gate. It does
+  not change the masking/model objective, begin Phase 8, or authorize
+  production training.
+- Context: Independent RTX 3090 execution at exact head `145ee10` produced
+  `195 passed, 1 failed, 1 skipped` for the complete SSL suite,
+  `15 passed, 1 skipped` for the training CUDA suite, and a passing prepared
+  CUDA AMP test. The sole failure was the bounded two-step CUDA AMP smoke.
+  Raw stores remained bit-exact, runtime-source binding passed, MaskPlan and
+  prepared-binding fingerprint stayed fixed, masked-online embeddings and
+  predictions stayed bit-exact, the hidden full-view target and reconstruction
+  loss changed, metrics were finite, and target distance was positive. The
+  only rejected field was a correct-minus-mutated cosine margin of
+  `-0.04540175199508667` from an FP16 prediction with an FP16-derived floor of
+  `0.0078125`.
+- Decision: A signed correct-target-preference margin after two optimizer
+  steps is not a no-leakage invariant and is not required to prove that a
+  controlled pitch mutation forms an effective reconstruction challenge. A
+  nearly untrained model may prefer either target without implying leakage or
+  broken CUDA/AMP plumbing. Preserve the signed value; never relabel a
+  negative margin as leakage, hide it, clamp it, or adjust a tolerance to
+  change its sign.
+- Decision: Introduce independent
+  `no_leakage_mutation_evidence@1.0.0` and
+  `pitch_sensitive_reconstruction_evidence@1.0.0` objects. Each is a separate
+  dictionary with its own domain-separated canonical SHA-256 fingerprint.
+  The report must not alias one mutable object under both keys.
+- Decision: No-leakage `passed` requires an applicable mutation; bit-exact raw
+  graph stores; valid runtime-source binding; fixed MaskPlan; fixed prepared
+  binding fingerprint; strict `torch.equal` masked-online embeddings and
+  predictions; an actually changed hidden full-view target; and finite
+  metrics. Reconstruction-loss change, target-distance magnitude, margin, and
+  correct-target preference do not participate.
+- Decision: Pitch-sensitive reconstruction `passed` requires an applicable
+  mutation, changed hidden full-view target, positive correct-to-mutated target
+  distance, changed reconstruction loss, and finite metrics. Raw-online
+  leakage flags and correct-target preference do not participate.
+- Decision: Compute decoder-view averaging, both target cosines, target L2
+  distance, signed margin, and numerical floors in FP32 under explicitly
+  disabled autocast regardless of FP16/BF16/FP32 source dtype. Record
+  `source_dtype`, `diagnostic_compute_dtype="float32"`, and
+  `margin_floor=8*finfo(float32).eps`. Reject nonfinite sources, diagnostics,
+  or reconstruction losses before fingerprinting/JSON serialization.
+- Decision: Retain correct-target preference as a finite diagnostic with
+  `correct_target_preference_observed`, signed
+  `correct_minus_mutated_margin`, both cosines,
+  `preference_status=observed|not_observed`, and
+  `preference_is_acceptance_criterion=false`. A scientific claim that a model
+  prefers the correct target requires a genuinely trained checkpoint and
+  held-out evaluation, not a bounded two-step smoke.
+- Consequences: SSL training report advances from `1.2.1` to `1.2.2`; both
+  new evidence contracts begin at `1.0.0`. Umbrella SSL remains `1.2.2`;
+  model/output, checkpoint/journal/metric-row, run-manifest/performance-row,
+  representation objective/loss, anti-collapse diagnostics, pitch mutation,
+  prepared binding, masking, graph/canonical schema, ontology, encoding,
+  dataset, cache, and model architecture contracts remain unchanged.
+  Historical Phase 7A positive-margin values and fingerprints remain
+  historical diagnostics. PR #17 remains draft until Required CI and an
+  independent RTX 3090 rerun pass on the exact final commit with exact
+  passed/skipped counts and bounded-smoke peak allocated/reserved VRAM.

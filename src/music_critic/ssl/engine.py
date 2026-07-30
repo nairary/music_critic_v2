@@ -18,6 +18,7 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 from torch.nn import functional as F
 
+from music_critic.device import RuntimeDeviceError, resolve_runtime_device
 from music_critic.graph import graph_fingerprint
 from music_critic.models import (
     HierarchicalHeterogeneousBaseline,
@@ -67,8 +68,10 @@ from music_critic.training.checkpoint import (
 
 
 SSL_RUN_MANIFEST_VERSION = "1.2.0"
-SSL_TRAINING_REPORT_VERSION = "1.2.0"
+SSL_TRAINING_REPORT_VERSION = "1.2.2"
 SSL_PERFORMANCE_ROW_VERSION = "1.2.0"
+NO_LEAKAGE_MUTATION_EVIDENCE_CONTRACT_VERSION = "1.0.0"
+PITCH_SENSITIVE_RECONSTRUCTION_EVIDENCE_CONTRACT_VERSION = "1.0.0"
 SSL_ONE_BATCH_DEFAULT_LEARNING_RATE = 3e-4
 
 
@@ -157,6 +160,100 @@ def _fingerprint(value: object) -> str:
     return sha256(encoded).hexdigest()
 
 
+def _versioned_evidence(
+    *,
+    evidence_kind: str,
+    contract_version: str,
+    payload: dict[str, object],
+) -> dict[str, object]:
+    if {"evidence_kind", "contract_version", "fingerprint"} & payload.keys():
+        raise SSLTrainingError(
+            "ssl.training.evidence_reserved_field_present"
+        )
+    evidence = {
+        "evidence_kind": evidence_kind,
+        "contract_version": contract_version,
+        **copy.deepcopy(payload),
+    }
+    evidence["fingerprint"] = _fingerprint(evidence)
+    return evidence
+
+
+def _build_no_leakage_mutation_evidence(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    result = copy.deepcopy(payload)
+    applicable = result.get("applicable")
+    if applicable is True:
+        runtime_source_binding = result.get("runtime_source_binding")
+        runtime_source_binding_passed = (
+            isinstance(runtime_source_binding, dict)
+            and runtime_source_binding.get("passed") is True
+        )
+        result["passed"] = all(
+            value is True
+            for value in (
+                result.get("mutation_applicable"),
+                result.get("raw_graph_stores_bit_exact_after_view"),
+                runtime_source_binding_passed,
+                result.get("fixed_mask_plan"),
+                result.get("fixed_prepared_binding_fingerprint"),
+                result.get(
+                    "online_embeddings_bit_exact_after_masked_mutation"
+                ),
+                result.get(
+                    "online_predictions_bit_exact_after_masked_mutation"
+                ),
+                result.get("full_view_target_changed"),
+                result.get("metrics_finite"),
+            )
+        )
+    elif applicable is False:
+        result["passed"] = None
+    else:
+        raise SSLTrainingError(
+            "ssl.training.no_leakage_evidence_applicability_invalid"
+        )
+    return _versioned_evidence(
+        evidence_kind="no_leakage_mutation",
+        contract_version=(
+            NO_LEAKAGE_MUTATION_EVIDENCE_CONTRACT_VERSION
+        ),
+        payload=result,
+    )
+
+
+def _build_pitch_sensitive_reconstruction_evidence(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    result = copy.deepcopy(payload)
+    applicable = result.get("applicable")
+    if applicable is True:
+        result["passed"] = all(
+            value is True
+            for value in (
+                result.get("mutation_applicable"),
+                result.get("full_view_target_changed"),
+                result.get("positive_target_distance"),
+                result.get("reconstruction_loss_changed"),
+                result.get("metrics_finite"),
+            )
+        )
+    elif applicable is False:
+        result["passed"] = None
+    else:
+        raise SSLTrainingError(
+            "ssl.training.pitch_sensitive_evidence_applicability_invalid"
+        )
+    return _versioned_evidence(
+        evidence_kind="pitch_sensitive_reconstruction",
+        contract_version=(
+            PITCH_SENSITIVE_RECONSTRUCTION_EVIDENCE_CONTRACT_VERSION
+        ),
+        payload=result,
+    )
+
+
 def _write_text_atomic(path: Path, value: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
@@ -243,15 +340,21 @@ def _validate_config(config: dict[str, Any]) -> None:
 
 def _resolve_device(config: dict[str, Any]) -> torch.device:
     name = config["device"]["name"]
-    if name == "cpu":
-        return torch.device("cpu")
-    if name == "cuda":
-        if not torch.cuda.is_available():
-            raise SSLTrainingError("ssl.training.cuda_unavailable")
-        return torch.device("cuda")
     if name == "auto":
-        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    raise SSLTrainingError(f"ssl.training.device_unknown:{name}")
+        name = "cuda" if torch.cuda.is_available() else "cpu"
+    try:
+        device = resolve_runtime_device(name)
+    except RuntimeDeviceError as exc:
+        if exc.category == "runtime.device.cuda_unavailable":
+            raise SSLTrainingError(
+                "ssl.training.cuda_unavailable"
+            ) from exc
+        raise SSLTrainingError(
+            f"ssl.training.device_invalid:{exc}"
+        ) from exc
+    if config["device"].get("amp", False) and device.type != "cuda":
+        raise SSLTrainingError("ssl.training.amp_requires_cuda")
+    return device
 
 
 def _configure_cublas_determinism() -> None:
@@ -1656,6 +1759,183 @@ def _runtime_mutation_source_binding(
     }
 
 
+def _fp32_pitch_mutation_diagnostics(
+    decoder_predictions: tuple[torch.Tensor, ...],
+    correct_target: torch.Tensor,
+    mutated_target: torch.Tensor,
+) -> dict[str, object]:
+    if not decoder_predictions:
+        raise SSLTrainingError(
+            "ssl.training.pitch_diagnostic_predictions_empty"
+        )
+    source = decoder_predictions[0]
+    if (
+        not source.is_floating_point()
+        or not correct_target.is_floating_point()
+        or not mutated_target.is_floating_point()
+    ):
+        raise SSLTrainingError(
+            "ssl.training.pitch_diagnostic_dtype_invalid"
+        )
+    if (
+        correct_target.shape != mutated_target.shape
+        or source.shape != correct_target.shape
+        or correct_target.device != mutated_target.device
+        or source.device != correct_target.device
+    ):
+        raise SSLTrainingError(
+            "ssl.training.pitch_diagnostic_pair_invalid"
+        )
+    if any(
+        prediction.shape != source.shape
+        or prediction.device != source.device
+        or prediction.dtype != source.dtype
+        or not prediction.is_floating_point()
+        for prediction in decoder_predictions
+    ):
+        raise SSLTrainingError(
+            "ssl.training.pitch_diagnostic_prediction_view_invalid"
+        )
+    with torch.autocast(
+        device_type=source.device.type,
+        enabled=False,
+    ):
+        prediction_fp32 = torch.stack(
+            tuple(
+                prediction.to(dtype=torch.float32)
+                for prediction in decoder_predictions
+            ),
+            dim=0,
+        ).mean(dim=0)
+        correct_target_fp32 = correct_target.detach().to(
+            dtype=torch.float32
+        )
+        mutated_target_fp32 = mutated_target.detach().to(
+            dtype=torch.float32
+        )
+        if not all(
+            bool(torch.isfinite(value).all())
+            for value in (
+                prediction_fp32,
+                correct_target_fp32,
+                mutated_target_fp32,
+            )
+        ):
+            raise SSLTrainingError(
+                "ssl.training.pitch_diagnostic_nonfinite"
+            )
+        correct_cosine = F.cosine_similarity(
+            prediction_fp32,
+            correct_target_fp32,
+            dim=-1,
+            eps=1e-8,
+        ).mean()
+        mutated_cosine = F.cosine_similarity(
+            prediction_fp32,
+            mutated_target_fp32,
+            dim=-1,
+            eps=1e-8,
+        ).mean()
+        target_mutated_cosine = F.cosine_similarity(
+            correct_target_fp32,
+            mutated_target_fp32,
+            dim=-1,
+            eps=1e-8,
+        ).mean()
+        target_mutated_l2 = torch.linalg.vector_norm(
+            correct_target_fp32 - mutated_target_fp32,
+            dim=-1,
+        ).mean()
+        margin = correct_cosine - mutated_cosine
+        metrics_finite = bool(
+            torch.isfinite(
+                torch.stack(
+                    (
+                        correct_cosine,
+                        mutated_cosine,
+                        target_mutated_cosine,
+                        target_mutated_l2,
+                        margin,
+                    )
+                )
+            ).all()
+        )
+    if not metrics_finite:
+        raise SSLTrainingError(
+            "ssl.training.pitch_diagnostic_nonfinite"
+        )
+    float32_epsilon = torch.finfo(torch.float32).eps
+    margin_floor = 8.0 * float32_epsilon
+    preference_observed = bool(margin > margin_floor)
+    return {
+        "source_dtype": str(source.dtype).removeprefix("torch."),
+        "diagnostic_compute_dtype": "float32",
+        "cosine_prediction_correct_target": _scalar(
+            correct_cosine
+        ),
+        "cosine_prediction_mutated_target": _scalar(
+            mutated_cosine
+        ),
+        "correct_minus_mutated_margin": _scalar(margin),
+        "target_to_mutated_target_cosine_distance": _scalar(
+            1.0 - target_mutated_cosine
+        ),
+        "target_to_mutated_target_mean_l2_distance": _scalar(
+            target_mutated_l2
+        ),
+        "target_distance_floor": float32_epsilon,
+        "margin_floor": margin_floor,
+        "metrics_finite": True,
+        "positive_target_distance": bool(
+            target_mutated_l2 > float32_epsilon
+        ),
+        "correct_target_preference_observed": preference_observed,
+        "preference_status": (
+            "observed" if preference_observed else "not_observed"
+        ),
+        "preference_is_acceptance_criterion": False,
+    }
+
+
+def _pitch_reconstruction_loss_changed(
+    correct_loss: torch.Tensor | None,
+    mutated_loss: torch.Tensor | None,
+) -> bool:
+    if correct_loss is None or mutated_loss is None:
+        raise SSLTrainingError(
+            "ssl.training.pitch_diagnostic_loss_unavailable"
+        )
+    if (
+        not correct_loss.is_floating_point()
+        or not mutated_loss.is_floating_point()
+        or correct_loss.numel() != 1
+        or mutated_loss.numel() != 1
+        or correct_loss.device != mutated_loss.device
+    ):
+        raise SSLTrainingError(
+            "ssl.training.pitch_diagnostic_loss_invalid"
+        )
+    with torch.autocast(
+        device_type=correct_loss.device.type,
+        enabled=False,
+    ):
+        losses_finite = bool(
+            torch.isfinite(
+                torch.stack(
+                    (
+                        correct_loss.detach().to(dtype=torch.float32),
+                        mutated_loss.detach().to(dtype=torch.float32),
+                    )
+                )
+            ).all()
+        )
+    if not losses_finite:
+        raise SSLTrainingError(
+            "ssl.training.pitch_diagnostic_nonfinite"
+        )
+    return not torch.equal(correct_loss, mutated_loss)
+
+
 def _masked_mutation_evidence(
     model: MaskedGraphSSLModel,
     cpu_batch: SSLBatch,
@@ -1665,7 +1945,7 @@ def _masked_mutation_evidence(
     config: dict[str, Any],
     device: torch.device,
     amp_enabled: bool,
-) -> dict[str, object]:
+) -> tuple[dict[str, object], dict[str, object]]:
     """Compare predictions with correct and coherently pitch-mutated targets."""
 
     cpu_graph_snapshot = _graph_store_snapshot(
@@ -1696,40 +1976,126 @@ def _masked_mutation_evidence(
         plan.selected_local_node_indices
         for plan in original.mask_plans
     ):
-        return {
-            "applicable": False,
-            "unavailable_reason": "no_masked_rows",
-            "fixed_mask_plan": True,
-            "raw_graph_stores_bit_exact_after_view": (
-                original_cpu_unchanged and original_device_unchanged
+        raw_unchanged = (
+            original_cpu_unchanged and original_device_unchanged
+        )
+        return (
+            _build_no_leakage_mutation_evidence(
+                {
+                    "applicable": False,
+                    "mutation_applicable": False,
+                    "unavailable_reason": "no_masked_rows",
+                    "fixed_mask_plan": True,
+                    "fixed_prepared_binding_fingerprint": None,
+                    "prepared_mask_binding_fingerprint": (
+                        prepared_mask_binding.fingerprint
+                    ),
+                    "raw_graph_stores_bit_exact_after_view": (
+                        raw_unchanged
+                    ),
+                    "raw_graph_store_immutability": {
+                        "original_cpu": original_cpu_unchanged,
+                        "original_device": original_device_unchanged,
+                        "mutated_cpu": None,
+                        "mutated_device": None,
+                    },
+                    "runtime_source_binding": None,
+                    "online_embeddings_bit_exact_after_masked_mutation": (
+                        None
+                    ),
+                    "online_predictions_bit_exact_after_masked_mutation": (
+                        None
+                    ),
+                    "full_view_target_changed": None,
+                    "metrics_finite": None,
+                }
             ),
-            "raw_graph_store_immutability": {
-                "original_cpu": original_cpu_unchanged,
-                "original_device": original_device_unchanged,
-                "mutated_cpu": None,
-                "mutated_device": None,
-            },
-            "online_embeddings_bit_exact_after_masked_mutation": None,
-            "online_predictions_bit_exact_after_masked_mutation": None,
-            "full_view_target_changed": None,
-            "reconstruction_loss_changed": None,
-            "cosine_prediction_correct_target": None,
-            "cosine_prediction_pitch_mutated_target": None,
-            "correct_minus_mutated_margin": None,
-            "target_to_mutated_target_cosine_distance": None,
-            "target_to_mutated_target_mean_l2_distance": None,
-            "positive_margin_floor": None,
-            "passed": None,
-        }
+            _build_pitch_sensitive_reconstruction_evidence(
+                {
+                    "applicable": False,
+                    "mutation_applicable": False,
+                    "unavailable_reason": "no_masked_rows",
+                    "full_view_target_changed": None,
+                    "reconstruction_loss_changed": None,
+                    "source_dtype": None,
+                    "diagnostic_compute_dtype": "float32",
+                    "cosine_prediction_correct_target": None,
+                    "cosine_prediction_mutated_target": None,
+                    "correct_minus_mutated_margin": None,
+                    "target_to_mutated_target_cosine_distance": None,
+                    "target_to_mutated_target_mean_l2_distance": None,
+                    "target_distance_floor": torch.finfo(
+                        torch.float32
+                    ).eps,
+                    "margin_floor": (
+                        8.0 * torch.finfo(torch.float32).eps
+                    ),
+                    "metrics_finite": None,
+                    "positive_target_distance": None,
+                    "correct_target_preference_observed": None,
+                    "preference_status": None,
+                    "preference_is_acceptance_criterion": False,
+                }
+            ),
+        )
     if config["data"]["name"] != "bounded":
-        return {
-            "applicable": False,
-            "unavailable_reason": (
-                "coherent_canonical_mutation_is_bounded_fixture_only"
+        unavailable_reason = (
+            "coherent_canonical_mutation_is_bounded_fixture_only"
+        )
+        return (
+            _build_no_leakage_mutation_evidence(
+                {
+                    "applicable": False,
+                    "mutation_applicable": False,
+                    "unavailable_reason": unavailable_reason,
+                    "fixed_mask_plan": None,
+                    "fixed_prepared_binding_fingerprint": None,
+                    "prepared_mask_binding_fingerprint": (
+                        prepared_mask_binding.fingerprint
+                    ),
+                    "raw_graph_stores_bit_exact_after_view": (
+                        original_cpu_unchanged
+                        and original_device_unchanged
+                    ),
+                    "runtime_source_binding": None,
+                    "online_embeddings_bit_exact_after_masked_mutation": (
+                        None
+                    ),
+                    "online_predictions_bit_exact_after_masked_mutation": (
+                        None
+                    ),
+                    "full_view_target_changed": None,
+                    "metrics_finite": None,
+                }
             ),
-            "fixed_mask_plan": None,
-            "passed": None,
-        }
+            _build_pitch_sensitive_reconstruction_evidence(
+                {
+                    "applicable": False,
+                    "mutation_applicable": False,
+                    "unavailable_reason": unavailable_reason,
+                    "full_view_target_changed": None,
+                    "reconstruction_loss_changed": None,
+                    "source_dtype": None,
+                    "diagnostic_compute_dtype": "float32",
+                    "cosine_prediction_correct_target": None,
+                    "cosine_prediction_mutated_target": None,
+                    "correct_minus_mutated_margin": None,
+                    "target_to_mutated_target_cosine_distance": None,
+                    "target_to_mutated_target_mean_l2_distance": None,
+                    "target_distance_floor": torch.finfo(
+                        torch.float32
+                    ).eps,
+                    "margin_floor": (
+                        8.0 * torch.finfo(torch.float32).eps
+                    ),
+                    "metrics_finite": None,
+                    "positive_target_distance": None,
+                    "correct_target_preference_observed": None,
+                    "preference_status": None,
+                    "preference_is_acceptance_criterion": False,
+                }
+            ),
+        )
     fixture = build_phase7a_bounded_fixture()
     mutations = tuple(
         mutate_piece_pitch_group(
@@ -1828,13 +2194,10 @@ def _masked_mutation_evidence(
             changed.selected_global_note_indices,
         ),
     )
-    loss_changed = not torch.equal(
-        original.note_loss.mean, changed.note_loss.mean
+    loss_changed = _pitch_reconstruction_loss_changed(
+        original.note_loss.mean,
+        changed.note_loss.mean,
     )
-    prediction = torch.stack(
-        original.decoder_predictions,
-        dim=0,
-    ).mean(dim=0)
     correct_target = original.targets.note.index_select(
         0,
         original.selected_global_note_indices,
@@ -1843,61 +2206,53 @@ def _masked_mutation_evidence(
         0,
         changed.selected_global_note_indices,
     )
-    correct_cosine = F.cosine_similarity(
-        prediction,
-        correct_target,
-        dim=-1,
-        eps=1e-8,
-    ).mean()
-    mutated_cosine = F.cosine_similarity(
-        prediction,
-        mutated_target,
-        dim=-1,
-        eps=1e-8,
-    ).mean()
-    target_mutated_cosine = F.cosine_similarity(
+    diagnostics = _fp32_pitch_mutation_diagnostics(
+        tuple(original.decoder_predictions),
         correct_target,
         mutated_target,
-        dim=-1,
-        eps=1e-8,
-    ).mean()
-    target_mutated_l2 = torch.linalg.vector_norm(
-        correct_target - mutated_target,
-        dim=-1,
-    ).mean()
-    margin = correct_cosine - mutated_cosine
-    margin_floor = 8.0 * torch.finfo(prediction.dtype).eps
-    metrics_finite = bool(
-        torch.isfinite(
-            torch.stack(
-                (
-                    correct_cosine,
-                    mutated_cosine,
-                    target_mutated_cosine,
-                    target_mutated_l2,
-                    margin,
-                )
-            )
-        ).all()
     )
+    metrics_finite = bool(diagnostics["metrics_finite"])
     fixed_binding = (
         prepared_mask_binding.fingerprint
         == mutated_binding.fingerprint
     )
-    positive_margin = bool(margin > margin_floor)
-    positive_target_distance = bool(
-        target_mutated_l2 > torch.finfo(prediction.dtype).eps
+    fixed_mask_plan = (
+        original.mask_plans == changed.mask_plans
     )
-    return {
-        "applicable": True,
-        "unavailable_reason": None,
-        "fixed_mask_plan": (
-            original.mask_plans == changed.mask_plans
-        ),
-        "fixed_prepared_binding_fingerprint": fixed_binding,
-        "prepared_mask_binding_fingerprint": (
-            prepared_mask_binding.fingerprint
-        ),
+    coherent_mutations = [
+        {
+            "dataset_id": mutation.source_piece.dataset_name,
+            "piece_id": mutation.source_piece.piece_id,
+            "selected_local_node_indices": list(
+                mutation.selected_local_node_indices
+            ),
+            "selected_note_ids": list(
+                mutation.selected_note_ids
+            ),
+            "source_pitches": list(mutation.source_pitches),
+            "mutated_pitches": list(mutation.mutated_pitches),
+            "mutation_instance_fingerprint": (
+                mutation.mutation_instance_fingerprint
+            ),
+            "mask_plan_fingerprint": plan.fingerprint,
+            "source_raw_graph_fingerprint": (
+                mutation.source_raw_graph_fingerprint
+            ),
+            "mutated_raw_graph_fingerprint": (
+                mutation.mutated_raw_graph_fingerprint
+            ),
+            "changed_feature_slots": [
+                list(slot)
+                for slot in mutation.changed_feature_slots
+            ],
+        }
+        for mutation, plan in zip(
+            mutations,
+            original.mask_plans,
+            strict=True,
+        )
+    ]
+    mutation_provenance = {
         "mutation_contract_version": (
             PHASE7A_PITCH_MUTATION_CONTRACT_VERSION
         ),
@@ -1905,86 +2260,52 @@ def _masked_mutation_evidence(
         "mutation_policy_fingerprint": (
             PHASE7A_PITCH_MUTATION_POLICY_FINGERPRINT
         ),
-        "raw_graph_stores_bit_exact_after_view": raw_unchanged,
-        "raw_graph_store_immutability": {
-            "original_cpu": original_cpu_unchanged,
-            "original_device": original_device_unchanged,
-            "mutated_cpu": mutated_cpu_unchanged,
-            "mutated_device": mutated_device_unchanged,
-        },
-        "runtime_source_binding": runtime_source_binding,
-        "online_embeddings_bit_exact_after_masked_mutation": online_equal,
-        "online_predictions_bit_exact_after_masked_mutation": (
-            predictions_equal
-        ),
-        "full_view_target_changed": target_changed,
-        "reconstruction_loss_changed": loss_changed,
-        "source_dtype": str(prediction.dtype).removeprefix("torch."),
-        "cosine_prediction_correct_target": _scalar(
-            correct_cosine
-        ),
-        "cosine_prediction_pitch_mutated_target": _scalar(
-            mutated_cosine
-        ),
-        "correct_minus_mutated_margin": _scalar(margin),
-        "target_to_mutated_target_cosine_distance": _scalar(
-            1.0 - target_mutated_cosine
-        ),
-        "target_to_mutated_target_mean_l2_distance": _scalar(
-            target_mutated_l2
-        ),
-        "positive_margin_floor": margin_floor,
-        "metrics_finite": metrics_finite,
-        "positive_margin": positive_margin,
-        "positive_target_distance": positive_target_distance,
-        "coherent_mutations": [
-            {
-                "dataset_id": mutation.source_piece.dataset_name,
-                "piece_id": mutation.source_piece.piece_id,
-                "selected_local_node_indices": list(
-                    mutation.selected_local_node_indices
-                ),
-                "selected_note_ids": list(
-                    mutation.selected_note_ids
-                ),
-                "source_pitches": list(mutation.source_pitches),
-                "mutated_pitches": list(mutation.mutated_pitches),
-                "mutation_instance_fingerprint": (
-                    mutation.mutation_instance_fingerprint
-                ),
-                "mask_plan_fingerprint": plan.fingerprint,
-                "source_raw_graph_fingerprint": (
-                    mutation.source_raw_graph_fingerprint
-                ),
-                "mutated_raw_graph_fingerprint": (
-                    mutation.mutated_raw_graph_fingerprint
-                ),
-                "changed_feature_slots": [
-                    list(slot)
-                    for slot in mutation.changed_feature_slots
-                ],
-            }
-            for mutation, plan in zip(
-                mutations,
-                original.mask_plans,
-                strict=True,
-            )
-        ],
-        "passed": all(
-            (
-                raw_unchanged,
-                runtime_source_binding["passed"],
-                fixed_binding,
-                online_equal,
-                predictions_equal,
-                target_changed,
-                loss_changed,
-                metrics_finite,
-                positive_margin,
-                positive_target_distance,
-            )
-        ),
+        "coherent_mutations": coherent_mutations,
     }
+    no_leakage = _build_no_leakage_mutation_evidence(
+        {
+            "applicable": True,
+            "mutation_applicable": True,
+            "unavailable_reason": None,
+            "fixed_mask_plan": fixed_mask_plan,
+            "fixed_prepared_binding_fingerprint": fixed_binding,
+            "prepared_mask_binding_fingerprint": (
+                prepared_mask_binding.fingerprint
+            ),
+            "raw_graph_stores_bit_exact_after_view": raw_unchanged,
+            "raw_graph_store_immutability": {
+                "original_cpu": original_cpu_unchanged,
+                "original_device": original_device_unchanged,
+                "mutated_cpu": mutated_cpu_unchanged,
+                "mutated_device": mutated_device_unchanged,
+            },
+            "runtime_source_binding": runtime_source_binding,
+            "online_embeddings_bit_exact_after_masked_mutation": (
+                online_equal
+            ),
+            "online_predictions_bit_exact_after_masked_mutation": (
+                predictions_equal
+            ),
+            "full_view_target_changed": target_changed,
+            "metrics_finite": metrics_finite,
+            **mutation_provenance,
+        }
+    )
+    pitch_sensitive = (
+        _build_pitch_sensitive_reconstruction_evidence(
+            {
+                "applicable": True,
+                "mutation_applicable": True,
+                "unavailable_reason": None,
+                "full_view_target_changed": target_changed,
+                "reconstruction_loss_changed": loss_changed,
+                **diagnostics,
+                "metrics_finite": metrics_finite,
+                **mutation_provenance,
+            }
+        )
+    )
+    return no_leakage, pitch_sensitive
 
 
 def _one_batch_transfer_evidence(
@@ -2099,7 +2420,10 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         device=device,
         amp_enabled=bool(config["device"]["amp"]),
     )
-    leakage = _masked_mutation_evidence(
+    (
+        no_leakage_mutation_evidence,
+        pitch_sensitive_reconstruction_evidence,
+    ) = _masked_mutation_evidence(
         model,
         cpu_batch,
         batch,
@@ -2192,8 +2516,12 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         "prepared_mask_binding": prepared_mask_binding.to_dict(),
         "gradient_coverage": gradient,
         "deterministic_repeat": repeat,
-        "no_leakage_mutation_evidence": leakage,
-        "pitch_sensitive_reconstruction_evidence": leakage,
+        "no_leakage_mutation_evidence": (
+            no_leakage_mutation_evidence
+        ),
+        "pitch_sensitive_reconstruction_evidence": (
+            pitch_sensitive_reconstruction_evidence
+        ),
         "checkpoint_reload": {
             "next_epoch": state.next_epoch,
             "bit_exact": reload_exact,
@@ -2628,6 +2956,8 @@ def run_ssl_training(
 
 
 __all__ = [
+    "NO_LEAKAGE_MUTATION_EVIDENCE_CONTRACT_VERSION",
+    "PITCH_SENSITIVE_RECONSTRUCTION_EVIDENCE_CONTRACT_VERSION",
     "SSL_METRIC_ROW_VERSION",
     "SSL_ONE_BATCH_DEFAULT_LEARNING_RATE",
     "SSL_PERFORMANCE_ROW_VERSION",

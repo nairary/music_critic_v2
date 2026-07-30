@@ -12,6 +12,7 @@ import torch
 from torch import Tensor
 from torch_geometric.data import Batch, HeteroData
 
+from music_critic.device import resolve_runtime_device
 from music_critic.graph import (
     BATCH_BASE_NODE_ATTRIBUTES,
     BATCH_CANDIDATE_NODE_ATTRIBUTES,
@@ -1836,18 +1837,27 @@ def move_ssl_batch_with_prepared_binding(
 ) -> tuple[object, PreparedMaskBinding]:
     """Move one raw batch and its prepared index sidecar as one trusted step."""
 
-    from music_critic.ssl.data import move_ssl_batch
+    from music_critic.ssl.data import (
+        _require_ssl_tensor_device,
+        move_ssl_batch,
+    )
 
     validate_prepared_mask_binding(batch, binding)
+    target_device = resolve_runtime_device(device)
     moved_batch = move_ssl_batch(
         batch,
-        device,
+        target_device,
         non_blocking=non_blocking,
     )
     moved_indices = binding.selected_global_note_indices_tensor.to(
-        device=torch.device(device),
+        device=target_device,
         non_blocking=non_blocking,
         copy=True,
+    )
+    _require_ssl_tensor_device(
+        moved_indices,
+        device=target_device,
+        location="binding:selected_global_note_indices_tensor",
     )
     moved_runtime_graph_evidence = _capture_runtime_graph_evidence(
         moved_batch.raw_graph_batch

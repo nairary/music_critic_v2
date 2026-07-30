@@ -1216,6 +1216,20 @@ def test_prepared_cuda_amp_uses_the_same_no_host_materialization_path(
         cpu_binding,
         "cuda",
     )
+    expected_device = torch.device(
+        "cuda",
+        torch.cuda.current_device(),
+    )
+    assert all(
+        value.device == expected_device
+        for store in batch.raw_graph_batch.stores
+        for value in store.values()
+        if isinstance(value, Tensor)
+    )
+    assert (
+        binding.selected_global_note_indices_tensor.device
+        == expected_device
+    )
     model = cpu_model.cuda()
     _graph_storage_guard(monkeypatch, batch.raw_graph_batch)
 

@@ -111,7 +111,7 @@ def test_streaming_report_matches_dense_global_oracle() -> None:
         .finalize()
     )
 
-    assert report.contract_version == "1.1.0"
+    assert report.contract_version == "1.1.1"
     assert (
         report.contract_version
         == ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION
@@ -268,7 +268,10 @@ def test_dtype_aware_accumulation_is_finite(dtype: torch.dtype) -> None:
         .update(target, prediction)
         .to_dict()
     )
-    assert report["source_dtype"] == str(dtype).removeprefix("torch.")
+    expected_source_dtype = (
+        "float64" if dtype == torch.float64 else "float32"
+    )
+    assert report["source_dtype"] == expected_source_dtype
     assert report["accumulation_dtype"] == "float64"
     for key, value in report.items():
         if isinstance(value, float):
@@ -347,12 +350,72 @@ def test_existing_single_batch_api_is_preserved_at_new_version() -> None:
     assert (
         report.contract_version
         == ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION
-        == "1.1.0"
+        == "1.1.1"
     )
     assert report.aggregation_scope == "single_batch"
     assert report.source_dtype == "float32"
     assert report.accumulation_dtype == "input_dtype"
     assert report.to_dict()["row_count"] == 2
+
+
+def test_mixed_precision_batch_and_streaming_diagnostics_normalize() -> None:
+    target = torch.tensor(
+        [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0],
+        ],
+        dtype=torch.float32,
+        requires_grad=True,
+    )
+    prediction = torch.tensor(
+        [
+            [0.5, 0.5, 0.0],
+            [-0.5, 0.5, 0.0],
+            [0.0, 0.0, 0.0],
+        ],
+        dtype=torch.float16,
+        requires_grad=True,
+    )
+    target_before = target.detach().clone()
+    prediction_before = prediction.detach().clone()
+
+    with torch.autocast(device_type="cpu", dtype=torch.bfloat16):
+        immediate = anti_collapse_diagnostics(target, prediction)
+        streaming = (
+            StreamingAntiCollapseDiagnostics()
+            .update(target[:2], prediction[:2])
+            .update(target[2:], prediction[2:])
+            .finalize()
+        )
+
+    assert immediate.contract_version == "1.1.1"
+    assert immediate.source_dtype == "float32"
+    assert immediate.accumulation_dtype == "input_dtype"
+    for value in (
+        immediate.target_embedding_variance,
+        immediate.prediction_embedding_variance,
+        immediate.target_mean_norm,
+        immediate.prediction_mean_norm,
+        immediate.target_mean_off_diagonal_cosine,
+        immediate.prediction_mean_off_diagonal_cosine,
+    ):
+        assert value is not None
+        assert value.dtype == torch.float32
+        assert torch.isfinite(value)
+    assert immediate.target_zero_norm_count == 1
+    assert immediate.prediction_zero_norm_count == 1
+    assert streaming.contract_version == "1.1.1"
+    assert streaming.source_dtype == "float32"
+    assert streaming.accumulation_dtype == "float64"
+    assert streaming.target_zero_norm_count == 1
+    assert streaming.prediction_zero_norm_count == 1
+    assert target.grad is None
+    assert prediction.grad is None
+    assert target.dtype == torch.float32
+    assert prediction.dtype == torch.float16
+    assert torch.equal(target.detach(), target_before)
+    assert torch.equal(prediction.detach(), prediction_before)
 
 
 def test_merge_rejects_incompatible_width_or_dtype() -> None:

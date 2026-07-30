@@ -17,7 +17,7 @@ from music_critic.evaluation.config import (
 )
 from music_critic.evaluation.contracts import EvaluationContractError
 from music_critic.evaluation.data import build_evaluation_data_runtime
-from music_critic.evaluation.engine import run_evaluation
+from music_critic.evaluation.engine import _resolve_device, run_evaluation
 from music_critic.models import LocalBaselineConfig, LocalHeterogeneousBaseline
 from music_critic.training.checkpoint import save_training_checkpoint
 
@@ -83,6 +83,115 @@ def test_evaluation_checkpoint_load_preserves_rng_and_ignores_training_state(
     assert torch.equal(torch.get_rng_state(), torch_before)
     assert evidence["optimizer_state_loaded"] is False
     assert evidence["checkpoint_rng_state_loaded"] is False
+
+
+def test_evaluation_runtime_resolves_abstract_cuda_to_current_index(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 2)
+    monkeypatch.setattr(torch.cuda, "current_device", lambda: 1)
+
+    resolved = _resolve_device(
+        {"device": {"name": "cuda"}}
+    )
+
+    assert resolved == torch.device("cuda:1")
+
+
+@pytest.mark.parametrize("name", ("cuda:0", "auto"))
+def test_evaluation_runtime_accepts_concrete_or_auto_cuda_with_amp(
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+) -> None:
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+    monkeypatch.setattr(torch.cuda, "current_device", lambda: 0)
+
+    resolved = _resolve_device(
+        {"device": {"name": name, "amp": True}}
+    )
+
+    assert resolved == torch.device("cuda:0")
+
+
+def test_evaluation_runtime_rejects_cpu_amp() -> None:
+    with pytest.raises(
+        EvaluationContractError,
+        match=r"^evaluation\.device\.amp_requires_cuda$",
+    ):
+        _resolve_device(
+            {"device": {"name": "cpu", "amp": True}}
+        )
+
+
+@pytest.mark.parametrize(
+    ("name", "category"),
+    (
+        ("meta", "runtime.device.type_unsupported"),
+        ("cuda:not-an-index", "runtime.device.request_invalid"),
+    ),
+)
+def test_evaluation_runtime_preserves_structured_device_error(
+    name: str,
+    category: str,
+) -> None:
+    with pytest.raises(
+        EvaluationContractError,
+        match=rf"evaluation\.device\.invalid:{category}:",
+    ):
+        _resolve_device(
+            {"device": {"name": name, "amp": False}}
+        )
+
+
+def test_evaluation_runtime_preserves_cuda_index_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+
+    with pytest.raises(
+        EvaluationContractError,
+        match=(
+            r"runtime\.device\.cuda_index_out_of_range:"
+            r"requested=cuda:1;visible_device_count=1"
+        ),
+    ):
+        _resolve_device(
+            {"device": {"name": "cuda:1", "amp": False}}
+        )
+
+
+def test_direct_evaluation_checkpoint_rejects_unavailable_cuda(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    checkpoint = _checkpoint(tmp_path)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+
+    with pytest.raises(
+        EvaluationContractError,
+        match=r"^evaluation\.device\.cuda_unavailable$",
+    ):
+        load_evaluation_checkpoint(checkpoint, device="cuda")
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available(),
+    reason="bounded evaluation CUDA runtime requires CUDA",
+)
+def test_bounded_evaluation_uses_concrete_cuda_runtime(
+    tmp_path: Path,
+) -> None:
+    checkpoint = _checkpoint(tmp_path)
+    config = _config(checkpoint, tmp_path / "cuda-evaluation")
+    config.device = EvaluationDeviceConfig(name="cuda")
+
+    report = run_evaluation(config)
+
+    assert report["status"] == "completed"
+    assert report["sample_count"] > 0
 
 
 def test_repeated_checkpoint_evaluation_is_bit_exact(tmp_path: Path) -> None:

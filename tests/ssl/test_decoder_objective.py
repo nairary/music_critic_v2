@@ -10,6 +10,7 @@ from torch.utils._python_dispatch import TorchDispatchMode
 
 from music_critic.ssl.contracts import (
     MASK_POLICY_VERSION,
+    SSL_CONTRACT_VERSION,
     UNIFORM_NOTE_MASK_POLICY,
     CollateralFeatureMask,
     MaskPlan,
@@ -24,7 +25,11 @@ from music_critic.ssl.decoder import (
 )
 from music_critic.ssl.field_registry import NOTE_PITCH_GROUP
 from music_critic.ssl.objective import (
+    ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION,
     COSINE_EPSILON,
+    MULTI_VIEW_REPRESENTATION_LOSS_CONTRACT_VERSION,
+    REPRESENTATION_LOSS_CONTRACT_VERSION,
+    SSL_OBJECTIVE_CONTRACT_VERSION,
     LatentProjectorPredictor,
     SSLObjectiveWeights,
     anti_collapse_diagnostics,
@@ -347,6 +352,291 @@ def test_cosine_loss_zero_singleton_and_empty_states_are_explicit() -> None:
     assert singleton_diagnostics.target_embedding_variance is not None
     assert singleton_diagnostics.target_embedding_variance.item() == 0.0
     assert singleton_diagnostics.target_mean_off_diagonal_cosine is None
+
+
+@pytest.mark.parametrize(
+    ("prediction_dtype", "target_dtype"),
+    [
+        (torch.float16, torch.float16),
+        (torch.float16, torch.bfloat16),
+        (torch.float16, torch.float32),
+        (torch.bfloat16, torch.float16),
+        (torch.bfloat16, torch.bfloat16),
+        (torch.bfloat16, torch.float32),
+        (torch.float32, torch.float16),
+        (torch.float32, torch.bfloat16),
+        (torch.float32, torch.float32),
+    ],
+)
+def test_cosine_loss_low_precision_matrix_computes_in_float32(
+    prediction_dtype: torch.dtype,
+    target_dtype: torch.dtype,
+) -> None:
+    prediction = torch.tensor(
+        [[0.25, 0.75, -0.5], [1.0, -0.25, 0.5]],
+        dtype=prediction_dtype,
+        requires_grad=True,
+    )
+    target = torch.tensor(
+        [[-0.5, 0.25, 1.0], [0.5, 1.0, -0.75]],
+        dtype=target_dtype,
+        requires_grad=True,
+    )
+    prediction_before = prediction.detach().clone()
+    target_before = target.detach().clone()
+    prediction_version = prediction._version
+    target_version = target._version
+
+    report = representation_cosine_loss(
+        prediction,
+        target,
+        component="note_reconstruction",
+    )
+
+    assert report.contract_version == (
+        REPRESENTATION_LOSS_CONTRACT_VERSION
+    ) == "1.0.1"
+    assert report.numerator.dtype == torch.float32
+    assert report.mean is not None
+    assert report.mean.dtype == torch.float32
+    assert torch.isfinite(report.numerator)
+    assert torch.isfinite(report.mean)
+    report.mean.backward()
+    assert prediction.grad is not None
+    assert prediction.grad.dtype == prediction_dtype
+    assert torch.isfinite(prediction.grad).all()
+    assert torch.count_nonzero(prediction.grad)
+    assert target.grad is None
+    assert prediction._version == prediction_version
+    assert target._version == target_version
+    assert prediction.dtype == prediction_dtype
+    assert target.dtype == target_dtype
+    assert torch.equal(prediction.detach(), prediction_before)
+    assert torch.equal(target.detach(), target_before)
+
+
+def test_cosine_loss_float64_pair_is_preserved() -> None:
+    prediction = torch.tensor(
+        [[0.25, 0.75], [1.0, -0.25]],
+        dtype=torch.float64,
+        requires_grad=True,
+    )
+    target = torch.tensor(
+        [[-0.5, 0.25], [0.5, 1.0]],
+        dtype=torch.float64,
+        requires_grad=True,
+    )
+
+    report = representation_cosine_loss(
+        prediction,
+        target,
+        component="bar_latent",
+    )
+
+    assert report.numerator.dtype == torch.float64
+    assert report.mean is not None
+    assert report.mean.dtype == torch.float64
+    report.mean.backward()
+    assert prediction.grad is not None
+    assert prediction.grad.dtype == torch.float64
+    assert torch.isfinite(prediction.grad).all()
+    assert target.grad is None
+
+
+@pytest.mark.parametrize(
+    ("prediction_dtype", "target_dtype"),
+    [
+        (torch.float64, torch.float32),
+        (torch.float32, torch.float64),
+        (torch.float64, torch.float16),
+        (torch.bfloat16, torch.float64),
+        (torch.float8_e4m3fn, torch.float32),
+    ],
+)
+def test_cosine_loss_rejects_incompatible_float_dtypes(
+    prediction_dtype: torch.dtype,
+    target_dtype: torch.dtype,
+) -> None:
+    with pytest.raises(ValueError, match="compute contract"):
+        representation_cosine_loss(
+            torch.ones(2, 3, dtype=prediction_dtype),
+            torch.ones(2, 3, dtype=target_dtype),
+            component="bar_latent",
+        )
+
+
+def test_cosine_loss_rejects_nonfloating_input() -> None:
+    with pytest.raises(TypeError, match="floating-point"):
+        representation_cosine_loss(
+            torch.ones(2, 3, dtype=torch.int64),
+            torch.ones(2, 3),
+            component="bar_latent",
+        )
+
+
+def test_latent_projector_preserves_exact_input_dtype_contract() -> None:
+    head = LatentProjectorPredictor(hidden_dim=3)
+    with pytest.raises(ValueError, match="dtypes must match"):
+        head(
+            torch.ones(2, 3, dtype=torch.float16),
+            torch.ones(2, 3, dtype=torch.float32),
+        )
+
+
+def test_cosine_loss_disables_outer_autocast(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[tuple[bool, torch.dtype, torch.dtype]] = []
+    cosine_similarity = F.cosine_similarity
+
+    def inspected_cosine_similarity(
+        prediction: torch.Tensor,
+        target: torch.Tensor,
+        *args,
+        **kwargs,
+    ) -> torch.Tensor:
+        observed.append(
+            (
+                torch.is_autocast_enabled("cpu"),
+                prediction.dtype,
+                target.dtype,
+            )
+        )
+        return cosine_similarity(
+            prediction,
+            target,
+            *args,
+            **kwargs,
+        )
+
+    monkeypatch.setattr(
+        F,
+        "cosine_similarity",
+        inspected_cosine_similarity,
+    )
+    prediction = torch.tensor(
+        [[0.25, 0.75], [1.0, -0.25]],
+        dtype=torch.bfloat16,
+        requires_grad=True,
+    )
+    target = torch.tensor(
+        [[-0.5, 0.25], [0.5, 1.0]],
+        dtype=torch.float32,
+        requires_grad=True,
+    )
+
+    with torch.autocast(device_type="cpu", dtype=torch.bfloat16):
+        report = representation_cosine_loss(
+            prediction,
+            target,
+            component="note_reconstruction",
+        )
+
+    assert observed == [(False, torch.float32, torch.float32)]
+    assert report.numerator.dtype == torch.float32
+    assert report.mean is not None
+    assert report.mean.dtype == torch.float32
+
+
+def test_mixed_precision_empty_and_zero_rows_follow_float32_contract() -> None:
+    empty_prediction = torch.empty(
+        0,
+        4,
+        dtype=torch.float16,
+        requires_grad=True,
+    )
+    empty_target = torch.empty(
+        0,
+        4,
+        dtype=torch.float32,
+        requires_grad=True,
+    )
+    empty = representation_cosine_loss(
+        empty_prediction,
+        empty_target,
+        component="note_reconstruction",
+    )
+    assert empty.numerator.dtype == torch.float32
+    assert empty.denominator == 0
+    assert empty.mean is None
+    assert empty.unavailable_reason == "no_eligible_rows"
+    empty.numerator.backward()
+    assert empty_prediction.grad is not None
+    assert empty_prediction.grad.dtype == torch.float16
+    assert empty_prediction.grad.shape == empty_prediction.shape
+    assert empty_target.grad is None
+
+    zero = representation_cosine_loss(
+        torch.zeros(2, 4, dtype=torch.bfloat16, requires_grad=True),
+        torch.zeros(2, 4, dtype=torch.float32, requires_grad=True),
+        component="bar_latent",
+    )
+    assert zero.numerator.dtype == torch.float32
+    assert torch.equal(zero.numerator, torch.tensor(2.0))
+    assert zero.denominator == 2
+    assert zero.zero_norm_count == 2
+    assert zero.mean is not None
+    assert zero.mean.dtype == torch.float32
+    assert torch.equal(zero.mean, torch.tensor(1.0))
+
+
+def test_mixed_precision_multiview_and_ssl_objective_remain_float32() -> None:
+    target = torch.tensor(
+        [[1.0, 0.0], [0.0, 1.0]],
+        dtype=torch.float32,
+        requires_grad=True,
+    )
+    note_predictions = (
+        target.detach().to(torch.float16).requires_grad_(),
+        (-target.detach()).to(torch.bfloat16).requires_grad_(),
+    )
+    bar_prediction = torch.tensor(
+        [[0.5, 1.0], [1.0, -0.5]],
+        dtype=torch.float16,
+        requires_grad=True,
+    )
+    song_prediction = torch.tensor(
+        [[-0.25, 1.0], [0.5, 0.75]],
+        dtype=torch.bfloat16,
+        requires_grad=True,
+    )
+
+    with torch.autocast(device_type="cpu", dtype=torch.bfloat16):
+        note = multi_view_representation_loss(
+            note_predictions,
+            target,
+            component="note_reconstruction",
+        )
+        bar = representation_cosine_loss(
+            bar_prediction,
+            target,
+            component="bar_latent",
+        )
+        song = representation_cosine_loss(
+            song_prediction,
+            target,
+            component="song_latent",
+        )
+        combined = combine_ssl_losses(note, bar, song)
+
+    assert note.contract_version == (
+        MULTI_VIEW_REPRESENTATION_LOSS_CONTRACT_VERSION
+    ) == "1.0.1"
+    assert note.numerator.dtype == torch.float32
+    assert note.mean is not None
+    assert note.mean.dtype == torch.float32
+    assert combined.contract_version == (
+        SSL_OBJECTIVE_CONTRACT_VERSION
+    ) == "1.0.1"
+    assert combined.total_loss is not None
+    assert combined.total_loss.dtype == torch.float32
+    assert ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION == "1.1.1"
+    assert SSL_CONTRACT_VERSION == "1.2.2"
+    combined.total_loss.backward()
+    for prediction in (*note_predictions, bar_prediction, song_prediction):
+        assert prediction.grad is not None
+        assert torch.isfinite(prediction.grad).all()
+    assert target.grad is None
 
 
 def test_target_is_detached_and_prediction_receives_gradient() -> None:

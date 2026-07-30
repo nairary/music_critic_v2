@@ -407,6 +407,20 @@ enter graph stores. Fixed task/node-family tensor checks prove device, shape,
 task ordering, and graph binding without replaying row-wise Python validation
 on CUDA.
 
+Runtime device resolution is shared by training, evaluation, and SSL. CPU
+canonicalizes to bare `cpu`; bare CUDA resolves to the current concrete index;
+and explicit `cuda:N` preserves its index only when
+`0 <= N < torch.cuda.device_count()`. The current index is checked against the
+same visible count. Unavailable CUDA is a structured contract failure, while
+an invisible explicit or current index fails before tensor transfer as
+`runtime.device.cuda_index_out_of_range`, with requested device and visible
+count evidence. Training, evaluation, and SSL accept `cpu`, `cuda`, `cuda:N`,
+and `auto` through this resolver rather than subsystem allowlists. AMP is
+eligible only when the resolved device type is CUDA. Transfer validation
+compares exact devices, never only `device.type`, because `cuda:0` and
+`cuda:1` are different placement boundaries. Runtime resolution contract
+`1.0.1` and device-transfer contract `1.0.2` record these patch-level rules.
+
 One-batch mode repeats exactly one bounded or first real cached train batch,
 reports harmonic/reconstruction/total losses, finite gradients, clipping,
 candidate counts, and gradient coverage, then requires both active objectives
@@ -549,6 +563,12 @@ version counters, devices, private HMACs, and opaque tokens are deliberately
 excluded from deterministic fingerprints, serialization, caches, checkpoints,
 and reports.
 
+The transfer receives the same concrete runtime device as the Phase 6C and
+evaluation boundaries. The selected-note-index binding sidecar is moved to and
+validated against that exact device. A mismatch retains
+`ssl.data.device_transfer_tensor_mismatch` and identifies the global, node,
+edge, or binding field together with concrete expected and actual devices.
+
 The public Phase 6 raw encoder and model `forward`/`encode` paths have no
 boolean validation bypass and always run the established full graph validator.
 The internal prepared encoder requires a process-local opaque token bound to
@@ -597,19 +617,29 @@ view from reducing every prediction to the same learned mask token. All online
 bar and song rows pass through separate projector/predictors.
 
 Every component uses row-wise `1 - cosine` with contract-fixed `eps=1e-8` and
-`sum_count_mean` reduction. Numerator, denominator, mean, zero-norm count, and
-unavailable reason remain explicit. Zero-vector rows are counted, and a
-positively weighted component with no eligible rows makes total SSL loss
-unavailable. Anti-collapse diagnostics contract `1.1.0` accumulates target and
-prediction rows separately for note, bar, and song over the complete
-train/validation stage. For each side and level it reports row count, embedding
-dimension, the contract variance formula, mean L2 norm, zero-norm count, and
-global mean off-diagonal cosine; fewer than two rows produce a structured
-unavailable result. Mergeable `O(D)` sufficient statistics retain no embedding
-history or production pairwise matrix and reproduce the dense stage-level
-formula independently of batch partition, batch order, and worker count. The
-artifact field is `anti_collapse_aggregate`; the former
-`anti_collapse_last_batch` snapshot is not an acceptance statistic.
+`sum_count_mean` reduction. Prediction and detached target must have identical
+shape and concrete device and must both be floating-point. Any pair drawn from
+FP16, BF16, and FP32 is cast out of place and computed in FP32 with autocast
+disabled; only a matching FP64 pair retains FP64. Mixed FP64 or unsupported
+floating combinations are rejected. The FP32 prediction cast preserves
+gradient flow, while the target remains stop-gradient. Empty differentiable
+numerators, ordinary numerators, means, multi-view reduction, and the combined
+SSL objective follow the same compute-dtype rule. Numerator, denominator,
+mean, zero-norm count, and unavailable reason remain explicit. Zero-vector
+rows are counted, and a positively weighted component with no eligible rows
+makes total SSL loss unavailable.
+
+Anti-collapse diagnostics contract `1.1.1` applies the same compatible
+compute-dtype normalization before accumulating target and prediction rows
+separately for note, bar, and song over the complete train/validation stage.
+For each side and level it reports row count, embedding dimension, the contract
+variance formula, mean L2 norm, zero-norm count, and global mean off-diagonal
+cosine; fewer than two rows produce a structured unavailable result. Mergeable
+`O(D)` sufficient statistics retain no embedding history or production
+pairwise matrix and reproduce the dense stage-level formula independently of
+batch partition, batch order, and worker count. The artifact field is
+`anti_collapse_aggregate`; the former `anti_collapse_last_batch` snapshot is
+not an acceptance statistic.
 
 The `O(D)` statement is limited to retained accumulator state. The current
 `from_values` reduction allocates float64 `N x D` `values64` and normalized
@@ -635,9 +665,17 @@ graph and all dependent raw features while preserving the fixed MaskPlan. The
 versioned `midi_axis_reflection_v1` policy maps `pitch -> 127 - pitch` and binds
 the rebuilt source to actual runtime graph fingerprints. The evidence reports
 cosine to the correct target, cosine to the mutated target,
-their positive margin, and correct-to-mutated target distance. These are
-representation-sensitivity diagnostics, not labels, cross-entropy,
-probabilities, likelihood, or PLL.
+their signed margin, and correct-to-mutated target distance. Report contract
+`1.2.2` exposes two independent, fingerprinted subcontracts. No-leakage
+`1.0.0` accepts only strict raw/source/plan/binding/online bit-exact invariants,
+an applicable changed hidden target, and finite metrics. Pitch-sensitive
+reconstruction `1.0.0` accepts an applicable mutation that changes the hidden
+target and reconstruction loss with positive target distance and finite
+metrics. Correct-target preference is a sign-agnostic training diagnostic, not
+a two-step plumbing acceptance criterion. Cosine, L2, signed margin, and
+floors compute in FP32 with autocast disabled regardless of prediction source
+dtype. These are representation-sensitivity diagnostics, not labels,
+cross-entropy, probabilities, likelihood, or PLL.
 
 Held-out execution evaluates the fixed, disjoint validation membership once
 before any optimizer step and after every training epoch. Epoch rows retain
@@ -649,13 +687,16 @@ note/bar/song aggregates, no zero vectors, nondegenerate variance/norm, and
 embeddings that are not all near-identical. These checks validate bounded
 mechanics, not generalization or scaled effectiveness.
 
-SSL contract/model/output `1.2.0` require the prepared forward boundary.
-Checkpoint, epoch-journal, metric-row, run-manifest, training-report, and
-performance-row contracts are `1.2.0`; the performance row separates CPU plan
+Umbrella SSL `1.2.2` requires the indexed runtime-device and AMP-safe numerical
+boundaries, while SSL model/output remain `1.2.0` at unchanged architecture
+and output schema. Representation loss, multi-view loss, and the combined SSL
+objective are `1.0.1`; anti-collapse diagnostics are `1.1.1`. Checkpoint,
+epoch-journal, metric-row, run-manifest, and performance-row contracts remain
+`1.2.0`; training report `1.2.2` exposes concrete `cuda:N` and the two
+independent evidence objects. The performance row separates CPU plan
 preparation from transfer/compute. MaskPlan, mask policy, maskable-field
-registry, representation target/objective, and encoder-export semantics remain
-`1.0.0`; anti-collapse diagnostics remain `1.1.0`, and prepared binding is
-`1.1.0`.
+registry, representation target, decoder, and encoder-export semantics remain
+`1.0.0`; prepared binding remains `1.1.0`.
 
 SSL checkpoint `1.2.0` binds the model/SSL contracts, field-registry
 fingerprint, resolved config, data index/split/composition/fixed-validation

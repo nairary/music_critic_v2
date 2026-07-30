@@ -1,7 +1,7 @@
 # Phase 7A deterministic masked-graph SSL baseline
 
-Status: **IMPLEMENTED ON DRAFT PR #15; FINAL SECURITY/CONTRACT REMEDIATION
-COMPLETE; BOUNDED ACCEPTANCE COMPLETE**.
+Status: **MERGED IN PR #15 AT `a850207`; POST-MERGE CUDA
+DEVICE/EVIDENCE HOTFIX IN PROGRESS; PHASE 8 NOT STARTED**.
 
 Phase 7A adds the first trainable self-supervised objective over the existing
 raw-only PyG graph. It is GraphMAE2-inspired, not a faithful reproduction of
@@ -25,6 +25,138 @@ Hierarchical bar/span/track masking belongs to Phase 8. PDMX projection and a
 full-scale rerun of accepted SSL objectives belong to Phase 10. A normalized
 probabilistic decoder and deterministic PLL protocol require a separate design
 gate and ablation.
+
+## Post-merge CUDA device-canonicalization hotfix
+
+Independent execution on an RTX 3090 after the Phase 7A merge produced
+`157 passed, 2 failed, 8 warnings` for `python -m pytest -q tests/ssl`.
+Both failures ended at the unchanged strict category
+`ssl.data.device_transfer_tensor_mismatch`: the prepared CUDA+AMP path and
+the bounded CUDA+AMP smoke path received abstract `torch.device("cuda")`,
+while PyTorch placed tensors on concrete `cuda:0`. Those device objects do
+not compare equal because the former has no index.
+
+The first independent rerun of draft PR #17 at `fb54e85` confirmed that this
+root cause was fixed: both `resolve_runtime_device("cuda")` and exact
+graph/prepared-binding assertions resolved to `cuda:0`, and
+`ssl.data.device_transfer_tensor_mismatch` disappeared. That run produced
+`165 passed, 2 failed, 1 skipped` for `tests/ssl` and
+`7 passed, 2 failed, 1 skipped` for the training CUDA tests. The remaining
+failures were distinct remediation items: AMP decoder predictions were FP16
+against FP32 detached targets; explicit `cuda:N` was not range-checked or
+accepted consistently by engines; a velocity perturbation test modified an
+unavailable placeholder; and a resume assertion compared JSON lists directly
+with in-memory tuples.
+
+The next independent RTX 3090 run at exact head `145ee10` confirmed those
+remediations: full `tests/ssl` produced
+`195 passed, 1 failed, 1 skipped`, the training CUDA suite produced
+`15 passed, 1 skipped`, and the prepared CUDA AMP path passed. The sole failure
+was `test_bounded_cuda_amp_smoke`. Its strict mutation facts were all green:
+raw stores remained bit-exact, runtime-source binding passed, MaskPlan and
+prepared-binding fingerprint remained fixed, masked-online embeddings and
+predictions remained bit-exact, the full-view target and reconstruction loss
+changed, metrics were finite, and target distance was positive. The only false
+field was the former `positive_margin` gate:
+`correct_minus_mutated_margin=-0.04540175199508667` from an FP16 prediction
+with FP16-derived floor `0.0078125`. This is intermediate-head execution
+evidence, not leakage and not acceptance evidence for the future final head.
+
+The hotfix resolves every runtime request before transfer. CPU, including an
+indexed CPU spelling, canonicalizes to `cpu`; bare CUDA resolves through
+`torch.cuda.current_device()`; and explicit `cuda:N` preserves `N` only when
+`0 <= N < torch.cuda.device_count()`. The current device is checked against
+the same visible count. CUDA requests fail structurally when CUDA is
+unavailable, while an invisible explicit or current index fails before
+transfer as `runtime.device.cuda_index_out_of_range`. Validation remains
+exact: `cuda:0` and `cuda:1` are distinct, and a tensor on the wrong index is
+rejected. Training, SSL, and evaluation accept `cpu`, `cuda`, `cuda:N`, and
+`auto` through the shared resolver; AMP eligibility is based on the resolved
+CUDA device type. No resolver or transfer check calls `.cpu()`, `.item()`,
+`.tolist()`, reads tensor values, allocates a validation tensor, or introduces
+graph-sized host materialization.
+
+The same resolver governs the SSL graph, prepared selected-index sidecar,
+Phase 6C graph and target transfer, evaluation runtime, and direct evaluation
+checkpoint model placement. SSL mismatch evidence keeps its stable category
+and adds one concrete location plus expected/actual devices:
+`global:<attribute>`, `node:<node-type>:<attribute>`,
+`edge:<source>|<relation>|<destination>:<attribute>`, or
+`binding:<field>`.
+
+Under AMP, any FP16/BF16/FP32 representation prediction-target pair is computed
+in FP32 with autocast disabled. Only matching FP64 pairs remain FP64.
+Prediction and detached target keep exact shape and concrete-device checks;
+the out-of-place prediction cast preserves gradients and the target remains
+stop-gradient. Empty numerators, zero-vector policy, multi-view reduction, the
+combined note/bar/song objective, and immediate/streaming anti-collapse
+diagnostics use the same compute-dtype rule.
+
+Mutation reporting now separates two independent, versioned, fingerprinted
+objects. `no_leakage_mutation_evidence@1.0.0` accepts only mutation
+applicability, exact raw/runtime-source/plan/binding invariants, strict
+`torch.equal` online embeddings and predictions, a changed hidden target, and
+finite metrics. `pitch_sensitive_reconstruction_evidence@1.0.0` accepts an
+applicable mutation that changes the hidden target and reconstruction loss,
+has positive target distance, and keeps metrics finite. Correct-target
+preference is recorded separately through the two cosines, signed margin,
+`observed|not_observed` status, and
+`preference_is_acceptance_criterion=false`. Cosine, L2, margin, and floors use
+an autocast-disabled FP32 diagnostic kernel; `margin_floor` is
+`8 * finfo(float32).eps`, never a device/source-dtype adjustment intended to
+change the margin sign.
+
+Patch versions are runtime resolution `1.0.1`, device transfer `1.0.2`,
+representation loss `1.0.1`, multi-view representation loss `1.0.1`, SSL
+objective `1.0.1`, anti-collapse diagnostics `1.1.1`, and umbrella SSL
+`1.2.2`. SSL training report advances from `1.2.1` to `1.2.2` because its
+serialized evidence schema is split. The two new evidence subcontracts begin
+at `1.0.0`. Prepared binding remains `1.1.0`; SSL model/output,
+checkpoint/journal/metric-row, run-manifest/performance-row, masking, decoder,
+registry, fixture, and encoder-export versions remain unchanged. The umbrella
+SSL bump changes newly generated model-contract and checkpoint-binding
+fingerprints. Existing Phase 7A hashes below remain historical `1.2.0`
+evidence and are not rewritten. Exact checkpoint metadata means historical
+bounded SSL `1.2.0` checkpoints are not resumable under the remediated umbrella
+contract; this hotfix adds no migration.
+
+The velocity CUDA test now mutates only available sample-zero velocity values,
+preserves unavailable placeholders bit-exactly, and reruns raw-graph
+validation before checking model isolation. The resume CUDA test separately
+asserts membership fingerprint/count/limit evidence and compares ordered
+identities through canonical JSON normalization. Production raw validation,
+placeholder policy, membership selection/fingerprint, resume binding, and
+byte-identical `metrics.jsonl` evidence are unchanged.
+
+CPU verification cannot establish CUDA correctness. The hotfix draft must
+remain unmerged until the exact final commit passes Required CI and the
+independent RTX 3090 SSL, training CUDA, prepared-binding AMP, and bounded AMP
+acceptance commands pass with recorded passed/skipped counts and bounded-smoke
+peak allocated/reserved VRAM.
+
+On the CPU-only development host, the pre-fix regression first failed exactly
+on abstract-versus-concrete CUDA resolution. Final remediation verification
+passed focused runtime/config/device checks
+`73 passed, 1 skipped, 2 warnings`, focused objective/diagnostic/CUDA
+collection `53 passed, 5 skipped, 2 warnings`, the complete SSL suite
+`191 passed, 6 skipped, 8 warnings`, related training/evaluation device checks
+`60 passed, 6 skipped, 2 warnings`, resume/checkpoint checks
+`33 passed, 2 warnings`, and the complete default suite
+`1059 passed, 27 skipped, 10 warnings`. Repository/import plus deterministic
+membership checks passed `12 passed, 2 warnings`; compileall and
+`git diff --check` passed. CUDA-dependent cases account for the relevant
+skips, so these counts are CPU regression evidence rather than exact-final RTX
+evidence.
+
+The subsequent evidence-semantics remediation passed its focused truth-table,
+fingerprint, FP32-diagnostic, checkpoint, and optional-CUDA collection with
+`18 passed, 1 skipped, 2 warnings`; the complete SSL suite with
+`206 passed, 6 skipped, 8 warnings`; related training/evaluation CUDA-device
+tests with `41 passed, 6 skipped, 2 warnings`; the complete repository with
+`1074 passed, 27 skipped, 10 warnings`; and the explicit deterministic
+repository/resume audit with `12 passed, 2 warnings`. Compileall and
+`git diff --check` passed. These remain CPU/skip evidence; an independent RTX
+3090 rerun is required on the exact pushed final SHA.
 
 ## Unchanged raw-data contract
 
@@ -301,19 +433,27 @@ mechanics diagnostic, not a quality score.
 
 ## Contracts and public APIs
 
-Remediation advances only contracts whose meaning or artifact shape changed:
+Remediation advances only contracts whose public meaning or numerical
+semantics changed:
 
 | Contract family | Version |
 |---|---:|
-| SSL and SSL model/output | `1.2.0` |
-| anti-collapse diagnostics | `1.1.0` |
+| umbrella SSL | `1.2.2` |
+| SSL model/output | `1.2.0` |
+| anti-collapse diagnostics | `1.1.1` |
 | checkpoint, epoch journal, metric row | `1.2.0` |
-| run manifest, training report, performance row | `1.2.0` |
+| run manifest and performance row | `1.2.0` |
+| training report | `1.2.2` |
+| no-leakage mutation evidence | `1.0.0` |
+| pitch-sensitive reconstruction evidence | `1.0.0` |
+| runtime-device resolution | `1.0.1` |
+| shared device transfer | `1.0.2` |
 | prepared MaskPlan binding | `1.1.0` |
 | MaskPlan/policy and feature overlay | `1.0.0` |
 | bounded fixture and pitch-mutation policy | `1.0.0` |
 | maskable-field registry | `1.0.0` |
-| decoder/remask, representation target/objective/loss | `1.0.0` |
+| decoder/remask and representation target | `1.0.0` |
+| representation loss, multi-view loss, SSL objective | `1.0.1` |
 | pretrained encoder export | `1.0.0` |
 
 The principal APIs are `build_mask_plan`, `build_batched_mask_plans`,
@@ -477,7 +617,8 @@ note/bar/song components changed respectively
 Pitch mutation contract `1.0.0` uses fixed policy
 `midi_axis_reflection_v1` (`pitch -> 127 - pitch`), fingerprint
 `55c9c82b10153c21d158fb3287c3c01deea10b2a427b08d1266e1c89cdc32227`.
-For the same plans, `cos(prediction, correct_target)=0.9806331396102905`,
+For the historical merged CPU evidence under the same plans,
+`cos(prediction, correct_target)=0.9806331396102905`,
 `cos(prediction, mutated_target)=0.9797264933586121`, so the margin is
 `+0.0009066462516784668` above dtype floor `9.5367431640625e-7`.
 Target L2 distance is `1.1555137634277344`; cosine distance is
@@ -485,6 +626,12 @@ Target L2 distance is `1.1555137634277344`; cosine distance is
 rebuilt canonical sources; original/mutated CPU/device graph stores remained
 bit-exact; masked online embeddings/predictions remained bit-exact while the
 full-view target and reconstruction loss changed.
+
+That positive historical margin is retained as an observed diagnostic, not a
+portable acceptance constant. The report `1.2.2` split accepts the strict
+no-leakage invariants and effective target/loss challenge independently of
+margin sign; a scientific correct-target-preference claim requires a trained
+checkpoint and held-out evaluation rather than this one-batch plumbing run.
 
 This overfit run is only plumbing/pitch-sensitivity evidence. Its final
 one-batch embeddings are not the non-collapse acceptance source.
@@ -554,9 +701,10 @@ final head-relative complete suite passed
 passed once, followed by two byte-identical exact-path overwrites.
 `compileall`, `git diff --check`, and `git show --check` pass. CUDA is
 unavailable locally, so CUDA acceptance is an explicit skip and no CUDA/VRAM
-number is fabricated. Required GitHub CI is head-relative operational evidence
-recorded in the final draft-PR #15 evidence comment; it remains a merge gate,
-not a pending ADR decision. The PR remains draft and is not merged.
+number is fabricated. Required GitHub CI is historical head-relative
+operational evidence recorded in the final PR #15 evidence comment. PR #15 is
+merged at `a850207`; the post-merge CUDA hotfix requires its own head-relative
+CI and RTX 3090 evidence.
 
 Production SSL training was not authorized as Phase 7A acceptance. Phase 8 was
 not started, PDMX was not added, PLL was not implemented, and no critic or

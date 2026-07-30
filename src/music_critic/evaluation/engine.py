@@ -12,6 +12,7 @@ from typing import Any
 from omegaconf import OmegaConf
 import torch
 
+from music_critic.device import RuntimeDeviceError, resolve_runtime_device
 from music_critic.evaluation.checkpoint import (
     load_evaluation_checkpoint,
 )
@@ -220,15 +221,21 @@ def _resolve_device(config: dict[str, Any]) -> torch.device:
     name = config["device"]["name"]
     if name == "auto":
         name = "cuda" if torch.cuda.is_available() else "cpu"
-    if name == "cuda" and not torch.cuda.is_available():
+    try:
+        device = resolve_runtime_device(name)
+    except RuntimeDeviceError as exc:
+        if exc.category == "runtime.device.cuda_unavailable":
+            raise EvaluationContractError(
+                "evaluation.device.cuda_unavailable"
+            ) from exc
         raise EvaluationContractError(
-            "evaluation.device.cuda_unavailable"
-        )
-    if name not in {"cpu", "cuda"}:
+            f"evaluation.device.invalid:{exc}"
+        ) from exc
+    if config["device"].get("amp", False) and device.type != "cuda":
         raise EvaluationContractError(
-            f"evaluation.device.unknown:{name}"
+            "evaluation.device.amp_requires_cuda"
         )
-    return torch.device(name)
+    return device
 
 
 def _prepare_output(path: Path, *, overwrite: bool) -> None:

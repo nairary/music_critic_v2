@@ -99,6 +99,18 @@ def test_all_structured_groups_compose_with_fixed_overrides() -> None:
     assert config.output_dir == "artifacts/phase6c-test"
 
 
+def test_training_validation_accepts_explicit_cuda_index() -> None:
+    config = _plain_config(
+        _compose(
+            "device=cuda",
+            "device.name=cuda:0",
+        )
+    )
+    _resolve_presets(config)
+
+    _validate_config(config)
+
+
 @pytest.mark.parametrize(
     (
         "experiment",

@@ -23,11 +23,11 @@ from torch.nn import functional as F
 from music_critic.ssl.decoder import DecoderRemaskPlan
 
 
-REPRESENTATION_LOSS_CONTRACT_VERSION = "1.0.0"
-ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION = "1.1.0"
-MULTI_VIEW_REPRESENTATION_LOSS_CONTRACT_VERSION = "1.0.0"
+REPRESENTATION_LOSS_CONTRACT_VERSION = "1.0.1"
+ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION = "1.1.1"
+MULTI_VIEW_REPRESENTATION_LOSS_CONTRACT_VERSION = "1.0.1"
 LATENT_PROJECTOR_PREDICTOR_CONTRACT_VERSION = "1.0.0"
-SSL_OBJECTIVE_CONTRACT_VERSION = "1.0.0"
+SSL_OBJECTIVE_CONTRACT_VERSION = "1.0.1"
 
 COSINE_EPSILON = 1e-8
 COSINE_FORMULA = "one_minus_cosine"
@@ -36,6 +36,13 @@ ZERO_NORM_POLICY = "count_and_retain"
 
 _NO_ELIGIBLE_ROWS = "no_eligible_rows"
 _FEWER_THAN_TWO_ROWS = "fewer_than_two_rows"
+_FLOAT32_COMPUTE_DTYPES = frozenset(
+    {
+        torch.float16,
+        torch.bfloat16,
+        torch.float32,
+    }
+)
 
 
 def _validate_component(component: object) -> str:
@@ -60,11 +67,54 @@ def _validate_representation_pair(
         raise ValueError("representation width must be positive")
     if not prediction.is_floating_point() or not target.is_floating_point():
         raise TypeError("prediction and target must use floating-point dtypes")
-    if prediction.dtype != target.dtype:
-        raise ValueError("prediction and target dtypes must match")
     if prediction.device != target.device:
         raise ValueError("prediction and target devices must match")
     return prediction, target
+
+
+def _validate_exact_dtype_representation_pair(
+    prediction: object,
+    target: object,
+) -> tuple[Tensor, Tensor]:
+    prediction, target = _validate_representation_pair(
+        prediction,
+        target,
+    )
+    if prediction.dtype != target.dtype:
+        raise ValueError("prediction and target dtypes must match")
+    return prediction, target
+
+
+def _representation_compute_dtype(
+    prediction: Tensor,
+    target: Tensor,
+) -> torch.dtype:
+    if (
+        prediction.dtype in _FLOAT32_COMPUTE_DTYPES
+        and target.dtype in _FLOAT32_COMPUTE_DTYPES
+    ):
+        return torch.float32
+    if prediction.dtype == target.dtype == torch.float64:
+        return torch.float64
+    raise ValueError(
+        "prediction and target dtypes are incompatible with the "
+        "representation compute contract"
+    )
+
+
+def _detached_compute_representation_pair(
+    prediction: Tensor,
+    target: Tensor,
+) -> tuple[Tensor, Tensor]:
+    prediction, target = _validate_representation_pair(
+        prediction,
+        target,
+    )
+    compute_dtype = _representation_compute_dtype(prediction, target)
+    return (
+        prediction.detach().to(dtype=compute_dtype),
+        target.detach().to(dtype=compute_dtype),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,8 +137,11 @@ class RepresentationLoss:
             not isinstance(self.numerator, Tensor)
             or self.numerator.ndim != 0
             or not self.numerator.is_floating_point()
+            or self.numerator.dtype not in {torch.float32, torch.float64}
         ):
-            raise ValueError("representation loss numerator must be a float scalar")
+            raise ValueError(
+                "representation loss numerator must be a float32/float64 scalar"
+            )
         if (
             isinstance(self.denominator, bool)
             or not isinstance(self.denominator, int)
@@ -145,43 +198,58 @@ def representation_cosine_loss(
     """Compute versioned ``1-cosine`` while retaining every eligible row."""
 
     prediction, target = _validate_representation_pair(prediction, target)
+    compute_dtype = _representation_compute_dtype(prediction, target)
     component = _validate_component(component)
     row_count = int(prediction.shape[0])
-    # ``sum`` keeps the empty numerator differentiably connected to prediction
-    # while the public mean remains unavailable instead of a fake zero result.
-    if row_count == 0:
+    with torch.autocast(
+        device_type=prediction.device.type,
+        enabled=False,
+    ):
+        compute_prediction = prediction.to(dtype=compute_dtype)
+        compute_target = target.detach().to(dtype=compute_dtype)
+        # ``sum`` keeps the empty numerator differentiably connected to
+        # prediction while the public mean remains unavailable instead of a
+        # fake zero result.
+        if row_count == 0:
+            return RepresentationLoss(
+                contract_version=REPRESENTATION_LOSS_CONTRACT_VERSION,
+                component=component,
+                numerator=compute_prediction.sum(),
+                denominator=0,
+                mean=None,
+                unavailable_reason=_NO_ELIGIBLE_ROWS,
+                zero_norm_count=0,
+            )
+
+        prediction_norms = torch.linalg.vector_norm(
+            compute_prediction,
+            dim=-1,
+        )
+        target_norms = torch.linalg.vector_norm(
+            compute_target,
+            dim=-1,
+        )
+        zero_rows = (prediction_norms == 0) | (target_norms == 0)
+        # PyTorch's cosine implementation clamps each norm by ``eps``.  A zero
+        # vector therefore has cosine zero, contributes loss one, and is
+        # counted.
+        per_row = 1.0 - F.cosine_similarity(
+            compute_prediction,
+            compute_target,
+            dim=-1,
+            eps=COSINE_EPSILON,
+        )
+        numerator = per_row.sum()
+        mean = numerator / row_count
         return RepresentationLoss(
             contract_version=REPRESENTATION_LOSS_CONTRACT_VERSION,
             component=component,
-            numerator=prediction.sum(),
-            denominator=0,
-            mean=None,
-            unavailable_reason=_NO_ELIGIBLE_ROWS,
-            zero_norm_count=0,
+            numerator=numerator,
+            denominator=row_count,
+            mean=mean,
+            unavailable_reason=None,
+            zero_norm_count=int(zero_rows.count_nonzero().item()),
         )
-
-    detached_target = target.detach()
-    prediction_norms = torch.linalg.vector_norm(prediction, dim=-1)
-    target_norms = torch.linalg.vector_norm(detached_target, dim=-1)
-    zero_rows = (prediction_norms == 0) | (target_norms == 0)
-    # PyTorch's cosine implementation clamps each norm by ``eps``.  A zero
-    # vector therefore has cosine zero, contributes loss one, and is counted.
-    per_row = 1.0 - F.cosine_similarity(
-        prediction,
-        detached_target,
-        dim=-1,
-        eps=COSINE_EPSILON,
-    )
-    numerator = per_row.sum()
-    return RepresentationLoss(
-        contract_version=REPRESENTATION_LOSS_CONTRACT_VERSION,
-        component=component,
-        numerator=numerator,
-        denominator=row_count,
-        mean=numerator / row_count,
-        unavailable_reason=None,
-        zero_norm_count=int(zero_rows.count_nonzero().item()),
-    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -579,7 +647,7 @@ class StreamingAntiCollapseDiagnostics:
     ) -> StreamingAntiCollapseDiagnostics:
         """Add one batch without retaining either input tensor."""
 
-        prediction, target = _validate_representation_pair(
+        prediction, target = _detached_compute_representation_pair(
             prediction, target
         )
         embedding_dim = int(target.shape[1])
@@ -754,74 +822,79 @@ def anti_collapse_diagnostics(
 ) -> AntiCollapseDiagnostics:
     """Report variance, norms, zeros, and pairwise cosine without N x N data."""
 
-    prediction, target = _validate_representation_pair(prediction, target)
-    detached_target = target.detach()
-    detached_prediction = prediction.detach()
+    prediction, target = _detached_compute_representation_pair(
+        prediction,
+        target,
+    )
     row_count, embedding_dim = (
         int(prediction.shape[0]),
         int(prediction.shape[1]),
     )
-    if row_count == 0:
+    with torch.autocast(
+        device_type=prediction.device.type,
+        enabled=False,
+    ):
+        if row_count == 0:
+            return AntiCollapseDiagnostics(
+                contract_version=ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION,
+                row_count=0,
+                embedding_dim=embedding_dim,
+                target_embedding_variance=None,
+                prediction_embedding_variance=None,
+                target_mean_norm=None,
+                prediction_mean_norm=None,
+                target_zero_norm_count=0,
+                prediction_zero_norm_count=0,
+                target_mean_off_diagonal_cosine=None,
+                prediction_mean_off_diagonal_cosine=None,
+                unavailable_reason=_NO_ELIGIBLE_ROWS,
+                pairwise_unavailable_reason=_NO_ELIGIBLE_ROWS,
+                source_dtype=str(prediction.dtype).removeprefix("torch."),
+                accumulation_dtype="input_dtype",
+            )
+
+        target_norms = torch.linalg.vector_norm(target, dim=-1)
+        prediction_norms = torch.linalg.vector_norm(prediction, dim=-1)
+        pairwise_reason = (
+            _FEWER_THAN_TWO_ROWS if row_count == 1 else None
+        )
         return AntiCollapseDiagnostics(
             contract_version=ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION,
-            row_count=0,
+            row_count=row_count,
             embedding_dim=embedding_dim,
-            target_embedding_variance=None,
-            prediction_embedding_variance=None,
-            target_mean_norm=None,
-            prediction_mean_norm=None,
-            target_zero_norm_count=0,
-            prediction_zero_norm_count=0,
-            target_mean_off_diagonal_cosine=None,
-            prediction_mean_off_diagonal_cosine=None,
-            unavailable_reason=_NO_ELIGIBLE_ROWS,
-            pairwise_unavailable_reason=_NO_ELIGIBLE_ROWS,
+            target_embedding_variance=target.var(
+                dim=0, unbiased=False
+            ).mean(),
+            prediction_embedding_variance=prediction.var(
+                dim=0, unbiased=False
+            ).mean(),
+            target_mean_norm=target_norms.mean(),
+            prediction_mean_norm=prediction_norms.mean(),
+            target_zero_norm_count=int(
+                (target_norms == 0).count_nonzero().item()
+            ),
+            prediction_zero_norm_count=int(
+                (prediction_norms == 0).count_nonzero().item()
+            ),
+            target_mean_off_diagonal_cosine=(
+                None
+                if row_count == 1
+                else _mean_off_diagonal_cosine(
+                    target, target_norms
+                )
+            ),
+            prediction_mean_off_diagonal_cosine=(
+                None
+                if row_count == 1
+                else _mean_off_diagonal_cosine(
+                    prediction, prediction_norms
+                )
+            ),
+            unavailable_reason=None,
+            pairwise_unavailable_reason=pairwise_reason,
             source_dtype=str(prediction.dtype).removeprefix("torch."),
             accumulation_dtype="input_dtype",
         )
-
-    target_norms = torch.linalg.vector_norm(detached_target, dim=-1)
-    prediction_norms = torch.linalg.vector_norm(detached_prediction, dim=-1)
-    pairwise_reason = (
-        _FEWER_THAN_TWO_ROWS if row_count == 1 else None
-    )
-    return AntiCollapseDiagnostics(
-        contract_version=ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION,
-        row_count=row_count,
-        embedding_dim=embedding_dim,
-        target_embedding_variance=detached_target.var(
-            dim=0, unbiased=False
-        ).mean(),
-        prediction_embedding_variance=detached_prediction.var(
-            dim=0, unbiased=False
-        ).mean(),
-        target_mean_norm=target_norms.mean(),
-        prediction_mean_norm=prediction_norms.mean(),
-        target_zero_norm_count=int(
-            (target_norms == 0).count_nonzero().item()
-        ),
-        prediction_zero_norm_count=int(
-            (prediction_norms == 0).count_nonzero().item()
-        ),
-        target_mean_off_diagonal_cosine=(
-            None
-            if row_count == 1
-            else _mean_off_diagonal_cosine(
-                detached_target, target_norms
-            )
-        ),
-        prediction_mean_off_diagonal_cosine=(
-            None
-            if row_count == 1
-            else _mean_off_diagonal_cosine(
-                detached_prediction, prediction_norms
-            )
-        ),
-        unavailable_reason=None,
-        pairwise_unavailable_reason=pairwise_reason,
-        source_dtype=str(prediction.dtype).removeprefix("torch."),
-        accumulation_dtype="input_dtype",
-    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -969,21 +1042,26 @@ def multi_view_representation_loss(
                 loss=loss,
             )
         )
-    numerator = torch.stack(
-        [view.loss.numerator for view in view_losses]
-    ).sum()
     denominator = sum(view.loss.denominator for view in view_losses)
+    with torch.autocast(
+        device_type=target.device.type,
+        enabled=False,
+    ):
+        numerator = torch.stack(
+            [view.loss.numerator for view in view_losses]
+        ).sum()
+        mean = (
+            None
+            if denominator == 0
+            else numerator / denominator
+        )
     return MultiViewRepresentationLoss(
         contract_version=MULTI_VIEW_REPRESENTATION_LOSS_CONTRACT_VERSION,
         component=component,
         view_losses=tuple(view_losses),
         numerator=numerator,
         denominator=denominator,
-        mean=(
-            None
-            if denominator == 0
-            else numerator / denominator
-        ),
+        mean=mean,
         unavailable_reason=(
             _NO_ELIGIBLE_ROWS if denominator == 0 else None
         ),
@@ -1038,9 +1116,11 @@ class LatentProjectorPredictor(nn.Module):
         online_latents: Tensor,
         full_view_latents: Tensor,
     ) -> tuple[Tensor, Tensor]:
-        online_latents, full_view_latents = _validate_representation_pair(
-            online_latents,
-            full_view_latents,
+        online_latents, full_view_latents = (
+            _validate_exact_dtype_representation_pair(
+                online_latents,
+                full_view_latents,
+            )
         )
         if int(online_latents.shape[1]) != self.hidden_dim:
             raise ValueError("latent hidden dimension is incompatible with projector")
@@ -1176,14 +1256,23 @@ def combine_ssl_losses(
             unavailable_components=unavailable,
             unavailable_reason="required_component_unavailable",
         )
-    weighted_means = [
-        loss.mean * weight
+    available_means = [
+        (loss.mean, weight)
         for _name, weight, loss in components
         if weight > 0 and loss.mean is not None
     ]
     # SSLObjectiveWeights guarantees at least one positive weight, and the
     # unavailable branch above guarantees every corresponding mean exists.
-    total_loss = torch.stack(weighted_means).sum()
+    with torch.autocast(
+        device_type=available_means[0][0].device.type,
+        enabled=False,
+    ):
+        total_loss = torch.stack(
+            [
+                mean * weight
+                for mean, weight in available_means
+            ]
+        ).sum()
     return SSLObjectiveLoss(
         contract_version=SSL_OBJECTIVE_CONTRACT_VERSION,
         weights=weights,

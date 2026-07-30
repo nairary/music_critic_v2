@@ -441,11 +441,21 @@ The model and training phases remain pending.
 
 - Goal: add masked observable-feature representation learning.
 - Dependencies: Phase 6D-A evaluation evidence.
-- Phase 7A status: final acceptance remediation is implemented in draft PR
-  #15; maintainer review/merge remains pending. The implementation is
+- Phase 7A status: merged in PR #15 at `a850207`. A blocking post-merge
+  CUDA-device-canonicalization hotfix remains draft in PR #17. Its first
+  independent RTX 3090 rerun confirmed the original abstract `cuda` versus
+  concrete `cuda:N` transfer fix, then exposed explicit-index validation,
+  mixed-precision representation-loss, and two test-assertion remediation
+  items. A second run at `145ee10` passed every strict no-leakage invariant and
+  all other CUDA suites but exposed that a two-step smoke incorrectly treated
+  correct-target preference as an acceptance gate. Report/evidence semantics
+  are being remediated without hiding the observed negative margin.
+  Exact-final hardware evidence remains the merge gate. Phase 8 has not
+  started. The Phase 7A implementation is
   GraphMAE2-inspired, not a faithful reproduction. Exact bounded-run evidence
   belongs to `PHASE7A_SSL_BASELINE.md`; head-relative Required CI belongs to
-  the final PR evidence comment, not this roadmap.
+  the historical final PR #15 evidence comment, while the hotfix requires its
+  own CI and RTX evidence.
 - Outputs: masking views, remasked representation decoder, latent prediction
   losses, and a design gate before any normalized probabilistic
   masked-note/pitch-set decoder or deterministic PLL protocol.
@@ -475,9 +485,11 @@ The model and training phases remain pending.
 - Tests: no masked-value leakage, raw-graph immutability, deterministic views,
   forged-binding rejection, no accelerator graph-to-host plan construction,
   worker/order/partition parity, dense-oracle parity for exact stage-wide
-  note/bar/song anti-collapse aggregates, coherent pitch-mutation target
-  margin, stop-gradient behavior, finite online gradients, checkpoint/resume,
-  validation-only best selection, and untouched supervised heads on transfer.
+  note/bar/song anti-collapse aggregates, coherent pitch-mutation target and
+  reconstruction-loss sensitivity, sign-agnostic correct-target-preference
+  diagnostics, stop-gradient behavior, finite online gradients,
+  checkpoint/resume, validation-only best selection, and untouched supervised
+  heads on transfer.
 - Deferred inside broader Phase 7: EMA target encoder remains an explicit
   ablation rather than part of Phase 7A.
 - Non-goals: masked conditional likelihood, perplexity, PLL, preference,
@@ -485,11 +497,13 @@ The model and training phases remain pending.
 - Acceptance: a deterministic multi-piece, multi-note fixture has disjoint
   train/validation identities, multitrack/multibar coverage, multiple primary
   masked rows, and nonzero peer-note/owner-track collateral masks. One-batch
-  loss decreases under the Phase 7A-specific `3e-4` default rate, and the
-  fixed-plan coherent pitch mutation has a positive correct-target cosine
-  margin. Explicit optimizer overrides remain supported. Initial/final
-  held-out note/bar/song target and prediction diagnostics remain finite and
-  noncollapsed. Exact mergeable
+  loss decreases under the Phase 7A-specific `3e-4` default rate. Under a
+  fixed plan, coherent pitch mutation must leave the raw/masked-online path
+  bit-exact while changing the hidden full-view target and reconstruction
+  loss with positive target distance. Its signed correct-minus-mutated margin
+  is recorded but is not a bounded acceptance criterion. Explicit optimizer
+  overrides remain supported. Initial/final held-out note/bar/song target and
+  prediction diagnostics remain finite and noncollapsed. Exact mergeable
   stage-wide aggregates retain no embedding history and are invariant to batch
   partition/order/workers. Reconstruction loss remains separate from masked
   conditional likelihood, and no probability factorization is assumed.

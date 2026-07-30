@@ -9,6 +9,10 @@ from typing import Any
 import torch
 from torch import Tensor
 
+from music_critic.device import (
+    DEVICE_TRANSFER_CONTRACT_VERSION,
+    resolve_runtime_device,
+)
 from music_critic.graph import MANDATORY_NODE_TYPES
 from music_critic.tasks import (
     ENTITY_NODE_TYPE_TO_CODE,
@@ -16,9 +20,6 @@ from music_critic.tasks import (
     BatchTarget,
     MultiSourceBatch,
 )
-
-
-DEVICE_TRANSFER_CONTRACT_VERSION = "1.0.0"
 
 
 class DeviceTransferError(ValueError):
@@ -141,7 +142,7 @@ def validate_device_batch(
 ) -> None:
     """Validate tensor devices, shapes, task order, and graph binding."""
 
-    expected_device = torch.device(device)
+    expected_device = resolve_runtime_device(device)
     expected_tasks = tuple(spec.task_id for spec in TARGET_FAMILIES)
     if tuple(item.task_id for item in batch.target_batches) != expected_tasks:
         raise DeviceTransferError("training.device.task_order_mismatch")
@@ -253,7 +254,7 @@ def move_multisource_batch(
     validate_device_batch(batch, "cpu")
     if instrumentation is not None:
         instrumentation.source_cpu_semantic_validation_calls += 1
-    target_device = torch.device(device)
+    target_device = resolve_runtime_device(device)
     graph = copy.deepcopy(batch.raw_graph_batch)
     # PyG's recursive ``Data.to`` also rewrites tuple-valued CPU metadata
     # (for example entity IDs) into lists. Move only actual tensor
