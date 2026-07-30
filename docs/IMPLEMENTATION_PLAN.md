@@ -2967,13 +2967,19 @@ named production-cache execution, and any future production/full-corpus claim.
   remain unchanged;
 - optional CUDA/AMP acceptance emits separate versioned hardware evidence
   with concrete bindings and peak allocated/reserved VRAM, never a fabricated
-  CPU substitute.
+  CPU substitute; the documented direct script CLI is subprocess-tested and
+  rejects a wrong SHA, dirty tree, or missing portable report before CUDA;
+- plan/selection/binding/overlay/mask/index/raw-graph/topology, same-device
+  replay, Phase 7A control, blindness, and leakage remain exact, while CPU
+  FP32 versus CUDA FP32 embeddings/predictions/targets/losses use only the
+  fixed bounded numerical diagnostic (`rtol=1e-3`, `atol=5e-5`, cosine floor
+  `0.999`) with per-policy and per-node-type serialized error evidence.
 
 Hierarchical plan, policy, policy configuration, selection evidence, prepared
 profile, prepared hierarchy envelope, bounded acceptance, and benchmark
 contracts are `1.2.0`. Mixture, unavailable reason, hierarchy output, fixture,
 and leakage audit remain `1.0.0`. Optional
-`Phase8ACudaAmpHardwareEvidence` advances to `1.1.0`. These changes do not alter
+`Phase8ACudaAmpHardwareEvidence` advances to `1.2.0`. These changes do not alter
 Phase 7A, graph, data, model, checkpoint, or Phase 6 numerical contracts.
 
 Phase 8A makes only a mechanics claim. It adds no new objective head and does

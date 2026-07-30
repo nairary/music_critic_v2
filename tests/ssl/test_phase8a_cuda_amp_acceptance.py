@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import os
 from copy import deepcopy
@@ -13,17 +14,20 @@ import warnings
 import pytest
 import torch
 
-from scripts.accept_phase8a_cuda_amp import (
+from music_critic.ssl.phase8a_cuda_acceptance import (
     PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION,
+    PHASE8A_CPU_CUDA_NUMERICAL_PARITY_ATOL,
+    PHASE8A_CPU_CUDA_NUMERICAL_PARITY_RTOL,
     _guard_host_materialization,
     _mutate_unmasked_velocity,
     _pitch_mutation_evidence,
     _portable_contract_bindings,
     _portable_policy_projection,
+    _tensor_numerical_parity_evidence,
     _validate_portable_cpu_report,
     build_phase8a_cuda_amp_hardware_report,
 )
-from scripts.accept_phase8a_hierarchical_masking import (
+from music_critic.ssl.phase8a_acceptance import (
     build_phase8a_bounded_acceptance_report,
 )
 from music_critic.ssl.contracts import canonical_sha256
@@ -45,14 +49,17 @@ def test_phase8a_cuda_acceptance_rejects_abstract_cuda() -> None:
         build_phase8a_cuda_amp_hardware_report(device="cuda")
 
 
-def test_documented_cuda_acceptance_module_cli_is_importable() -> None:
+def test_documented_portable_cpu_cli_creates_versioned_report(
+    tmp_path: Path,
+) -> None:
     repository_root = Path(__file__).resolve().parents[2]
+    output = tmp_path / "phase8a-cpu.json"
     completed = subprocess.run(
         (
             sys.executable,
-            "-m",
-            "scripts.accept_phase8a_cuda_amp",
-            "--help",
+            "scripts/accept_phase8a_hierarchical_masking.py",
+            "--output",
+            str(output),
         ),
         cwd=repository_root,
         check=True,
@@ -60,9 +67,169 @@ def test_documented_cuda_acceptance_module_cli_is_importable() -> None:
         text=True,
     )
 
-    assert "--device DEVICE" in completed.stdout
-    assert "--expected-device-name" in completed.stdout
-    assert "--portable-report PORTABLE_REPORT" in completed.stdout
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["acceptance_contract_version"] == "1.2.0"
+    assert report["contracts"]["hierarchical_mask_plan"] == "1.2.0"
+    assert len(report["hierarchy_mask_policy_contract_fingerprint"]) == 64
+    assert report["model_contract_metadata_fingerprint"]
+    assert json.loads(completed.stdout) == report
+
+
+def _cuda_cli_command(
+    *,
+    expected_head: str,
+    portable_report: Path,
+    output: Path,
+) -> tuple[str, ...]:
+    return (
+        sys.executable,
+        "scripts/accept_phase8a_cuda_amp.py",
+        "--device",
+        "cuda:0",
+        "--amp",
+        "--amp-dtype",
+        "float16",
+        "--expected-head",
+        expected_head,
+        "--expected-device-name",
+        "NVIDIA GeForce RTX 3090",
+        "--portable-report",
+        str(portable_report),
+        "--output",
+        str(output),
+    )
+
+
+def _head(repository_root: Path) -> str:
+    return subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=repository_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def test_documented_cuda_cli_rejects_wrong_expected_sha_before_cuda(
+    tmp_path: Path,
+) -> None:
+    repository_root = Path(__file__).resolve().parents[2]
+    portable_report = tmp_path / "portable.json"
+    portable_report.write_text("{}\n", encoding="utf-8")
+    output = tmp_path / "hardware.json"
+
+    completed = subprocess.run(
+        _cuda_cli_command(
+            expected_head="0" * 40,
+            portable_report=portable_report,
+            output=output,
+        ),
+        cwd=repository_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "phase8a.cuda.expected_head_mismatch" in completed.stderr
+    assert not output.exists()
+
+
+def test_documented_cuda_cli_rejects_missing_portable_report(
+    tmp_path: Path,
+) -> None:
+    repository_root = Path(__file__).resolve().parents[2]
+    output = tmp_path / "hardware.json"
+
+    completed = subprocess.run(
+        _cuda_cli_command(
+            expected_head=_head(repository_root),
+            portable_report=tmp_path / "missing-portable.json",
+            output=output,
+        ),
+        cwd=repository_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert (
+        "phase8a.cuda.portable_cpu_report_unreadable"
+        in completed.stderr
+    )
+    assert not output.exists()
+
+
+def test_documented_cuda_cli_rejects_dirty_worktree_before_cuda(
+    tmp_path: Path,
+) -> None:
+    repository_root = Path(__file__).resolve().parents[2]
+    portable_report = tmp_path / "portable.json"
+    portable_report.write_text("{}\n", encoding="utf-8")
+    output = tmp_path / "hardware.json"
+    marker = repository_root / (
+        f".phase8a-cli-dirty-test-{tmp_path.name}"
+    )
+    marker.write_text("dirty\n", encoding="utf-8")
+    try:
+        completed = subprocess.run(
+            _cuda_cli_command(
+                expected_head=_head(repository_root),
+                portable_report=portable_report,
+                output=output,
+            ),
+            cwd=repository_root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        marker.unlink(missing_ok=True)
+
+    assert completed.returncode != 0
+    assert "phase8a.cuda.source_tree_dirty" in completed.stderr
+    assert not output.exists()
+
+
+def test_cross_backend_tolerance_contract_has_fixed_boundary() -> None:
+    reference = torch.tensor([1.0], dtype=torch.float32)
+    allowance = (
+        PHASE8A_CPU_CUDA_NUMERICAL_PARITY_ATOL
+        + PHASE8A_CPU_CUDA_NUMERICAL_PARITY_RTOL
+    )
+    inside = torch.tensor(
+        [1.0 + 0.99 * allowance],
+        dtype=torch.float32,
+    )
+    outside = torch.tensor(
+        [1.0 + 1.01 * allowance],
+        dtype=torch.float32,
+    )
+
+    accepted = _tensor_numerical_parity_evidence(
+        {"inside": (reference, inside)}
+    )
+    rejected = _tensor_numerical_parity_evidence(
+        {"outside": (reference, outside)}
+    )
+    cosine_rejected = _tensor_numerical_parity_evidence(
+        {
+            "rotation": (
+                torch.tensor([1.0, 0.0], dtype=torch.float32),
+                torch.tensor([0.0, 1.0], dtype=torch.float32),
+            )
+        },
+        rtol=0.0,
+        atol=2.0,
+    )
+
+    assert accepted["cross_backend_parity_passed"] is True
+    assert rejected["cross_backend_parity_passed"] is False
+    assert cosine_rejected["cross_backend_parity_passed"] is False
+    assert cosine_rejected["minimum_cosine_similarity"] == 0.0
+    assert accepted["configured_rtol"] == 1.0e-3
+    assert accepted["configured_atol"] == 5.0e-5
 
 
 def test_exact_final_path_requires_rtx_name_and_portable_report() -> None:
@@ -206,6 +373,52 @@ def test_negative_preference_margin_is_non_gating_cpu_semantics() -> None:
 
 @pytest.mark.skipif(
     not torch.cuda.is_available(),
+    reason="documented Phase 8A CUDA CLI requires actual CUDA",
+)
+def test_documented_cuda_cli_creates_bound_hardware_report(
+    tmp_path: Path,
+) -> None:
+    repository_root = Path(__file__).resolve().parents[2]
+    portable_report = tmp_path / "portable.json"
+    hardware_report = tmp_path / "hardware.json"
+    subprocess.run(
+        (
+            sys.executable,
+            "scripts/accept_phase8a_hierarchical_masking.py",
+            "--output",
+            str(portable_report),
+        ),
+        cwd=repository_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    completed = subprocess.run(
+        _cuda_cli_command(
+            expected_head=_head(repository_root),
+            portable_report=portable_report,
+            output=hardware_report,
+        ),
+        cwd=repository_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    report = json.loads(hardware_report.read_text(encoding="utf-8"))
+    assert report["hardware_evidence_contract_version"] == "1.2.0"
+    assert report["source"]["expected_head_match"] is True
+    assert report["source"]["source_tree_clean"] is True
+    assert report["portable_binding"][
+        "portable_cpu_report_validation"
+    ]["validated"] is True
+    assert len(report["hardware_evidence_fingerprint"]) == 64
+    assert json.loads(completed.stdout) == report
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available(),
     reason="Phase 8A CUDA+AMP acceptance requires actual CUDA",
 )
 def test_all_phase8a_policies_and_mixture_on_explicit_cuda_zero() -> None:
@@ -254,7 +467,7 @@ def test_all_phase8a_policies_and_mixture_on_explicit_cuda_zero() -> None:
 
     assert report["hardware_evidence_contract_version"] == (
         PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION
-    ) == "1.1.0"
+    ) == "1.2.0"
     assert report["portable"] is False
     assert report["runtime"]["requested_device"] == "cuda:0"
     assert report["runtime"]["resolved_device"] == "cuda:0"
@@ -307,6 +520,42 @@ def test_all_phase8a_policies_and_mixture_on_explicit_cuda_zero() -> None:
         assert evidence["prepared_binding_validated_on_cuda"] is True
         assert evidence["all_model_facing_tensors_on_cuda_0"] is True
         assert evidence["deterministic_repeat_bit_exact"] is True
+        assert evidence[
+            "same_device_cuda_fp32_repeat_bit_exact"
+        ] is True
+        assert all(
+            evidence["cross_backend_exact_invariants"].values()
+        )
+        parity = evidence["cross_backend_numerical_parity"]
+        assert parity["configured_rtol"] == 1.0e-3
+        assert parity["configured_atol"] == 5.0e-5
+        assert parity["configured_min_cosine_similarity"] == 0.999
+        assert parity["compared_tensor_count"] > 0
+        assert parity["max_abs_cpu_cuda_difference"] >= 0.0
+        assert parity["max_rel_cpu_cuda_difference"] >= 0.0
+        assert parity["finite_status_exact"] is True
+        assert parity["shapes_exact"] is True
+        assert parity["dtypes_exact"] is True
+        assert parity["cross_backend_parity_passed"] is True
+        assert parity["objective_difference"] >= 0.0
+        assert parity["per_node_type"]
+        for node_evidence in parity["per_node_type"].values():
+            assert node_evidence["configured_rtol"] == 1.0e-3
+            assert node_evidence["configured_atol"] == 5.0e-5
+            assert (
+                node_evidence["configured_min_cosine_similarity"]
+                == 0.999
+            )
+            assert node_evidence["compared_tensor_count"] == 1
+            assert (
+                node_evidence["max_abs_cpu_cuda_difference"] >= 0.0
+            )
+            assert (
+                node_evidence["max_rel_cpu_cuda_difference"] >= 0.0
+            )
+            assert (
+                node_evidence["cross_backend_parity_passed"] is True
+            )
         assert evidence["forward_tensors"][
             "all_tensors_on_cuda_0"
         ] is True

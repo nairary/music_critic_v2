@@ -521,15 +521,19 @@ The model and training phases remain pending.
   pitch-only overlay;
   distinct hierarchy binding/output envelopes over the shared prepared-input
   attestation kernel; bounded oracle/benchmark; and a separate optional
-  CUDA/AMP hardware-evidence artifact.
+  CUDA/AMP hardware-evidence artifact with per-policy/per-node-type bounded
+  CPU-FP32/CUDA-FP32 numerical diagnostics.
 - Tests: exact descendant/collateral oracles, polyphony, sustained-note
   exclusion, sample/track boundaries, mixtures/unavailability, worker/batch
   and fresh-process invariance, crafted epochs-0..255 positional-bias
   regression with canonical-prefix escape, late-bar/multi-track actual
   selections and complete retained-pool reachability, pool/error bounds,
-  prepared mutation rejection,
-  Phase 7A bit-exact CPU/CUDA-AMP compatibility, and bounded
-  existing-objective forward/backward smoke.
+  prepared mutation rejection, documented direct-CLI subprocess success and
+  failure-closed source/report preflight, fixed numerical-tolerance boundary
+  tests, Phase 7A bit-exact CPU/CUDA-AMP compatibility, and bounded
+  existing-objective forward/backward smoke. Cross-backend floating outputs
+  are bounded diagnostics; all semantic/security invariants and same-device
+  replay remain exact.
 - Non-goals: new objective heads, quality improvement claims, theory/PDMX
   integration, PLL, critic learning, or production training.
 - Acceptance: hierarchy-aware views are deterministic, sparse, leakage-closed,

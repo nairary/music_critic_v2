@@ -221,7 +221,7 @@
   prepared-hierarchy-binding/acceptance/benchmark contracts: `1.2.0`
 - Phase 8A mixture/unavailable-reason/hierarchy-output/leakage-audit/fixture
   contracts: `1.0.0`
-- Optional `Phase8ACudaAmpHardwareEvidence`: `1.1.0`
+- Optional `Phase8ACudaAmpHardwareEvidence`: `1.2.0`
 - Phase 8A pitch-leakage audit fingerprint:
   `27fc135b61649e5b892036dd0aacc92f679493ff671320c8235d33396a7c9949`
 - Phase 8A hierarchy fixture fingerprint:
@@ -425,25 +425,44 @@
   policy quality.
 - Two fresh-process remediated CPU reports are byte-identical: 93,062 bytes
   each, SHA-256
-  `b21cf11e018130e7270abdfa47d56b0414a4a5a01ea14db973e125e8590c6fb1`.
+  `2d107944c38d8ee465d73f2f71f07b224451f5a31213e86e0049dbaf3958c8f4`.
   Policy/default-configuration fingerprints are
   `2d39eb5e1ddf6ad53c626a18b364d0ffae0896663008a4e1422215c0c20fbdb1`
   and
   `e38651e00726ce9681dc015634c5d1f48f11586d07e0faf3187e20bda9ffee67`.
-- Final local verification passed focused Phase 8A
-  (`113 passed, 2 skipped`), fresh-process plus workers `0/2` parity
-  (`2 passed`), complete SSL (`319 passed, 8 skipped`), model/graph/device
+- Final local verification passed focused Phase 8A plus CLI contracts
+  (`117 passed, 7 skipped`), worker `0/2` parity (`1 passed`) plus two
+  byte-identical direct-CLI portable reports, complete SSL
+  (`323 passed, 13 skipped`), model/graph/device
   (`165 passed, 1 skipped`), training/evaluation (`94 passed, 6 skipped`),
   checkpoint/resume/transfer (`21 passed`), deterministic held-out plus
   repository audit (`7 passed`), and the complete repository
-  (`1187 passed, 29 skipped, 10 warnings`). The no-threshold benchmark passed
+  (`1191 passed, 34 skipped, 10 warnings`). The no-threshold benchmark passed
   all five policies. Required GitHub workflows remain pending the new
   exact-final commit.
 - Optional explicit-`cuda:0` AMP acceptance covers all five policies and the
   mixture, concrete bindings, finite forward/loss/gradients, and peak
   allocated/reserved VRAM in separate
-  `Phase8ACudaAmpHardwareEvidence@1.1.0`. Local CUDA absence must skip
-  honestly. Independent exact-final RTX 3090 evidence is still required.
+  `Phase8ACudaAmpHardwareEvidence@1.2.0`. Its serialized bounded numerical
+  diagnostic compares CPU FP32 and CUDA FP32 per policy and encoder node type
+  with fixed `rtol=1e-3`, `atol=5e-5`, cosine floor `0.999`, exact
+  shape/dtype/finite checks, predictions/targets/losses, and objective
+  difference. Plans, selections, bindings, overlays/masks, indices,
+  graph/topology, same-device replay, Phase 7A control, blindness, and leakage
+  remain bit-exact.
+- Both acceptance scripts are thin wrappers over importable
+  `music_critic.ssl` modules. The documented root command
+  `python scripts/accept_phase8a_cuda_amp.py` no longer imports through an
+  unresolved `scripts` package. Subprocess regressions cover successful
+  portable output plus wrong-SHA, dirty-tree, and missing-portable-report
+  rejection before CUDA; absence of CUDA cannot create hardware evidence.
+- The independent RTX 3090 run at intermediate
+  `00ba0f38f3ebc85c7056d1ad3a77ece75816d0c4` confirmed exact head/hotfix
+  ancestry, portable CPU acceptance, and one targeted CUDA+AMP test, but is
+  forbidden as final evidence. Full SSL was `322 passed, 1 failed, 1 skipped`;
+  the direct CUDA CLI failed with `ModuleNotFoundError: scripts`, and no
+  hardware report was created. A repeat on the new exact final SHA is required.
+  Local CUDA absence must skip honestly.
 - Anti-collapse streaming diagnostics retain `O(D)` state, but current
   `from_values` creates float64 `N x D` values and normalized temporaries.
   Real CUDA cost is unmeasured; production SSL requires a separate RTX 3090

@@ -1974,3 +1974,45 @@ This log is append-only.
   split, Phase 6 numerical, model architecture, and checkpoint contracts do
   not change. Any RTX result for an earlier head is intermediate evidence;
   exact-final RTX 3090 execution remains a separate pre-merge gate.
+
+## 2026-07-30 — ADR-058: Phase 8A CUDA evidence separates exact semantics from bounded backend numerics
+
+- Status: Accepted for the final pre-merge remediation of draft PR #16. The
+  PR remains draft; Phase 8B and production training remain unauthorized.
+- Context: An independent RTX 3090 run at intermediate SHA `00ba0f38` found
+  two evidence-path defects. Direct
+  `python scripts/accept_phase8a_cuda_amp.py` could not resolve an import from
+  the `scripts` package, so no hardware artifact was emitted. Separately, the
+  all-policy SSL run treated CPU FP32 and CUDA FP32 embeddings as nearly
+  bit-exact and exceeded `rtol=1e-4`, `atol=1e-5` by a maximum absolute
+  difference of `3.632158041000366e-05`; all preceding semantic invariants
+  were exact.
+- Decision: Move reusable CPU and CUDA acceptance implementations under
+  `music_critic.ssl` and keep both documented `scripts/accept_phase8a_*.py`
+  entrypoints as thin wrappers. Direct root execution is normative; module
+  execution remains supported. No wrapper mutates `sys.path`. Exact-final
+  host preflight validates the portable report path, exact HEAD, hotfix
+  ancestry, and clean tree before CUDA resolution or output creation.
+- Decision: Preserve bit-exact gates for hierarchy plans and selection,
+  prepared bindings, overlay/masks, selected indices, raw graph/topology,
+  target/provenance blindness, leakage mutations, same-device replay, and the
+  independent Phase 7A-versus-Phase 8A CUDA control. No tolerance applies to
+  those contracts.
+- Decision: Treat CPU FP32 versus CUDA FP32 embeddings, predictions, targets,
+  and required losses only as bounded numerical-parity diagnostics. Fix
+  `rtol=1e-3`, `atol=5e-5`, and minimum cosine similarity `0.999` before the
+  final hardware rerun. Record exact shape/dtype/finite status, total tensor
+  and element counts, max absolute/relative error, cosine, and total-objective
+  difference. Report per policy and per encoder node type. Tests prove a
+  value just inside the elementwise boundary passes, a value just outside
+  fails, and a large direction change fails the cosine gate. Thresholds are
+  not searched or widened from observed runs.
+- Decision: Cross-backend closeness is not evidence that CPU and CUDA execute
+  identical floating operations. The final artifact must be regenerated on
+  the exact final SHA; the targeted success at `00ba0f38` is intermediate
+  evidence only, and its failed CLI produced no hardware acceptance.
+- Consequences: Serialized hardware evidence changes incompatibly and
+  advances from `Phase8ACudaAmpHardwareEvidence@1.1.0` to `1.2.0`.
+  Hierarchical mask/selection/prepared contracts, portable CPU acceptance,
+  benchmark, Phase 7A, device transfer, graph/feature/data, model/checkpoint,
+  and Phase 6 numerical contracts do not change.

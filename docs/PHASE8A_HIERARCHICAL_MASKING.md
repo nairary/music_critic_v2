@@ -38,8 +38,9 @@ These unchanged Phase 8A contracts remain `1.0.0`:
 - supplemental hierarchy fixture.
 
 The separate optional
-`Phase8ACudaAmpHardwareEvidence@1.1.0` artifact binds the remediated portable
-contracts. A result for an earlier draft head is intermediate evidence only.
+`Phase8ACudaAmpHardwareEvidence@1.2.0` artifact binds the remediated portable
+contracts and adds serialized bounded CPU-FP32/CUDA-FP32 numerical-parity
+diagnostics. A result for an earlier draft head is intermediate evidence only.
 Hardware identity, timing, and peak allocated/reserved VRAM never enter the
 portable deterministic CPU report fingerprint.
 
@@ -331,7 +332,7 @@ requires a separate profiler/optimization gate.
 
 Portable deterministic acceptance runs on CPU and was rebuilt in two fresh
 processes with byte-identical canonical JSON: 93,062 bytes each, SHA-256
-`b21cf11e018130e7270abdfa47d56b0414a4a5a01ea14db973e125e8590c6fb1`.
+`2d107944c38d8ee465d73f2f71f07b224451f5a31213e86e0049dbaf3958c8f4`.
 Its single-policy fingerprints and bounded objective observations are:
 
 | Policy | Config | Overlay | Prepared binding | Total loss | Grad tensors present/nonzero |
@@ -353,6 +354,25 @@ unavailable, the comprehensive pytest path skips honestly; CPU output must
 not be presented as GPU evidence. Independent exact-final RTX 3090 evidence
 remains the pre-merge gate.
 
+Plans, policy selection, prepared bindings, overlay masks, selected indices,
+raw graph/topology, target/provenance blindness, leakage comparisons,
+same-device CUDA replay, and the Phase 7A-versus-Phase 8A CUDA control remain
+bit-exact gates. CPU FP32 and CUDA FP32 floating outputs are a separate
+bounded diagnostic because their kernels need not implement every operation
+identically. For every policy and encoder node type the hardware artifact
+records tensor count, maximum absolute and relative difference, configured
+`rtol=1e-3` and `atol=5e-5`, minimum cosine similarity with fixed floor
+`0.999`, exact shape/dtype and finite status, and pass/fail. Predictions,
+targets, required losses, and total-objective difference are also compared.
+These ceilings are fixed by contract and are not widened by observed results.
+
+The two documented script files are thin wrappers over importable
+`music_critic.ssl` modules. From the repository root, direct
+`python scripts/...` execution is the normative CLI contract; no global or
+uncontrolled `sys.path` modification is used. Exact-final CUDA preflight
+rejects a missing portable report, wrong expected SHA, or dirty tree before
+device execution and never creates hardware evidence on failure.
+
 Focused and regression commands are:
 
 ```bash
@@ -370,7 +390,7 @@ cmp /tmp/phase8a-cpu-acceptance-a.json \
 sha256sum /tmp/phase8a-cpu-acceptance-a.json \
   /tmp/phase8a-cpu-acceptance-b.json
 .venv/bin/python scripts/benchmark_phase8a_hierarchical_masking.py
-.venv/bin/python -m scripts.accept_phase8a_cuda_amp \
+.venv/bin/python scripts/accept_phase8a_cuda_amp.py \
   --device cuda:0 --amp --amp-dtype float16 \
   --expected-head "$(git rev-parse HEAD)" \
   --expected-device-name "NVIDIA GeForce RTX 3090" \
@@ -399,17 +419,23 @@ training, or quality/likelihood interpretation is part of Phase 8A.
 
 Final local verification before commit:
 
-- focused Phase 8A: `113 passed, 2 skipped, 2 warnings`;
-- fresh-process plus workers `0/2` parity: `2 passed, 2 warnings`;
-- complete SSL: `319 passed, 8 skipped, 8 warnings`;
+- focused Phase 8A plus CLI contracts:
+  `117 passed, 7 skipped, 2 warnings`;
+- worker `0/2` parity: `1 passed, 2 warnings`; two direct-CLI portable
+  reports were byte-identical;
+- complete SSL: `323 passed, 13 skipped, 8 warnings`;
 - model/graph/device regressions: `165 passed, 1 skipped, 2 warnings`;
 - training/evaluation regressions: `94 passed, 6 skipped, 4 warnings`;
 - checkpoint/resume/transfer regressions: `21 passed, 2 warnings`;
 - deterministic held-out plus repository audit: `7 passed, 2 warnings`;
-- complete repository: `1187 passed, 29 skipped, 10 warnings`;
+- complete repository: `1191 passed, 34 skipped, 10 warnings`;
 - bounded benchmark: all five policies, no timing threshold;
 - `compileall` and `git diff --check`: passed.
 
 CUDA was unavailable locally. The CUDA skips above are not GPU evidence.
-Required GitHub CI and the independent exact-final RTX 3090 run remain
-pre-merge gates.
+The independent RTX 3090 run at intermediate SHA
+`00ba0f38f3ebc85c7056d1ad3a77ece75816d0c4` is explicitly invalid as final
+acceptance: its targeted CUDA test passed, but the full SSL suite had one
+CPU/CUDA tolerance failure, direct CUDA CLI import failed before execution,
+and no hardware report was created. Required GitHub CI and a repeat against
+the new exact final SHA remain pre-merge gates.

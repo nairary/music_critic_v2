@@ -12,9 +12,16 @@ from scripts.benchmark_phase8a_hierarchical_masking import (
     PHASE8A_MASKING_BENCHMARK_CONTRACT_VERSION,
     benchmark_phase8a_policy,
 )
-from scripts.accept_phase8a_hierarchical_masking import (
+from music_critic.ssl.phase8a_acceptance import (
     PHASE8A_BOUNDED_ACCEPTANCE_CONTRACT_VERSION,
     build_phase8a_bounded_acceptance_report,
+)
+from music_critic.ssl.phase8a_cuda_acceptance import (
+    PHASE8A_CPU_CUDA_NUMERICAL_PARITY_ATOL,
+    PHASE8A_CPU_CUDA_NUMERICAL_PARITY_RTOL,
+    _cross_backend_numerical_parity,
+    _graphs_cross_device_bit_exact,
+    _outputs_bit_exact,
 )
 from music_critic.data import CanonicalPiece, QualityFlag, TargetArray
 from music_critic.graph import (
@@ -1099,95 +1106,88 @@ def test_prepared_cpu_forward_has_no_graph_sized_host_materialization(
     not torch.cuda.is_available(),
     reason="Phase 8A prepared parity requires actual CUDA",
 )
+@pytest.mark.parametrize("policy", HIERARCHY_MASK_POLICIES)
 def test_optional_cuda_prepared_policy_parity(
     bounded_batch: SSLBatch,
+    policy: str,
 ) -> None:
-    for policy_index, policy in enumerate(HIERARCHY_MASK_POLICIES):
-        cpu_model = _model(211 + policy_index).eval()
-        cuda_model = deepcopy(cpu_model).cuda().eval()
-        cpu_binding = prepare_hierarchy_mask_binding(
+    policy_index = HIERARCHY_MASK_POLICIES.index(policy)
+    cpu_model = _model(211 + policy_index).eval()
+    cuda_model = deepcopy(cpu_model).cuda().eval()
+    cpu_binding = prepare_hierarchy_mask_binding(
+        bounded_batch,
+        policy_config=_policy_config(policy),
+        global_seed=_GLOBAL_SEED,
+        epoch=0,
+        requested_mask_rate=_MASK_RATE,
+        stage="train",
+    )
+    cpu_batch, moved_cpu_binding = (
+        move_ssl_batch_with_prepared_binding(
             bounded_batch,
-            policy_config=_policy_config(policy),
-            global_seed=_GLOBAL_SEED,
-            epoch=0,
-            requested_mask_rate=_MASK_RATE,
-            stage="train",
+            cpu_binding,
+            "cpu",
         )
-        cpu_batch, moved_cpu_binding = (
-            move_ssl_batch_with_prepared_binding(
-                bounded_batch,
-                cpu_binding,
-                "cpu",
-            )
+    )
+    cuda_batch, moved_cuda_binding = (
+        move_ssl_batch_with_prepared_binding(
+            bounded_batch,
+            cpu_binding,
+            "cuda",
         )
-        cuda_batch, moved_cuda_binding = (
-            move_ssl_batch_with_prepared_binding(
-                bounded_batch,
-                cpu_binding,
-                "cuda",
-            )
+    )
+
+    with torch.no_grad():
+        cpu_output = cpu_model.forward_hierarchy(
+            cpu_batch,
+            prepared_mask_binding=moved_cpu_binding,
+        )
+        cuda_output = cuda_model.forward_hierarchy(
+            cuda_batch,
+            prepared_mask_binding=moved_cuda_binding,
+        )
+        cuda_repeated = cuda_model.forward_hierarchy(
+            cuda_batch,
+            prepared_mask_binding=moved_cuda_binding,
         )
 
-        with torch.no_grad():
-            cpu_output = cpu_model.forward_hierarchy(
-                cpu_batch,
-                prepared_mask_binding=moved_cpu_binding,
-            )
-            cuda_output = cuda_model.forward_hierarchy(
-                cuda_batch,
-                prepared_mask_binding=moved_cuda_binding,
-            )
-
-        assert moved_cpu_binding.to_dict() == moved_cuda_binding.to_dict()
-        assert cpu_output.mask_plans == cuda_output.mask_plans
-        assert cpu_output.feature_overlay.to_dict() == (
-            cuda_output.feature_overlay.to_dict()
-        )
-        assert torch.equal(
-            cpu_output.selected_global_note_indices,
-            cuda_output.selected_global_note_indices.cpu(),
-        )
-        assert cpu_output.objective.total_loss is not None
-        assert cuda_output.objective.total_loss is not None
-        assert bool(torch.isfinite(cpu_output.objective.total_loss))
-        assert bool(torch.isfinite(cuda_output.objective.total_loss))
-        assert tuple(
-            prediction.shape
-            for prediction in cpu_output.decoder_predictions
-        ) == tuple(
-            prediction.shape
-            for prediction in cuda_output.decoder_predictions
-        )
-        for node_type in cpu_output.online_encoder.fused.embeddings:
-            torch.testing.assert_close(
-                cpu_output.online_encoder.fused.embeddings[node_type],
-                cuda_output.online_encoder.fused.embeddings[
-                    node_type
-                ].cpu(),
-                rtol=1e-4,
-                atol=1e-5,
-            )
-        for level in ("note", "bar", "song"):
-            torch.testing.assert_close(
-                getattr(cpu_output.targets, level),
-                getattr(cuda_output.targets, level).cpu(),
-                rtol=1e-4,
-                atol=1e-5,
-            )
-        for cpu_prediction, cuda_prediction in zip(
-            cpu_output.decoder_predictions,
-            cuda_output.decoder_predictions,
-            strict=True,
-        ):
-            torch.testing.assert_close(
-                cpu_prediction,
-                cuda_prediction.cpu(),
-                rtol=1e-4,
-                atol=1e-5,
-            )
-        torch.testing.assert_close(
-            cpu_output.objective.total_loss,
-            cuda_output.objective.total_loss.cpu(),
-            rtol=1e-4,
-            atol=1e-5,
-        )
+    assert moved_cpu_binding.to_dict() == moved_cuda_binding.to_dict()
+    assert cpu_output.mask_plans == cuda_output.mask_plans
+    assert cpu_output.feature_overlay.to_dict() == (
+        cuda_output.feature_overlay.to_dict()
+    )
+    assert torch.equal(
+        cpu_output.selected_global_note_indices,
+        cuda_output.selected_global_note_indices.cpu(),
+    )
+    assert _graphs_cross_device_bit_exact(
+        cpu_batch.raw_graph_batch,
+        cuda_batch.raw_graph_batch,
+    )
+    assert _outputs_bit_exact(cuda_output, cuda_repeated)
+    evidence = _cross_backend_numerical_parity(
+        cpu_output,
+        cuda_output,
+    )
+    assert evidence["configured_rtol"] == (
+        PHASE8A_CPU_CUDA_NUMERICAL_PARITY_RTOL
+    ) == 1.0e-3
+    assert evidence["configured_atol"] == (
+        PHASE8A_CPU_CUDA_NUMERICAL_PARITY_ATOL
+    ) == 5.0e-5
+    assert evidence["configured_min_cosine_similarity"] == 0.999
+    assert evidence["cross_backend_parity_passed"] is True
+    assert evidence["finite_status_exact"] is True
+    assert evidence["shapes_exact"] is True
+    assert evidence["dtypes_exact"] is True
+    assert evidence["compared_tensor_count"] > 0
+    assert evidence["minimum_cosine_similarity"] <= 1.0
+    assert evidence["objective_difference"] >= 0.0
+    assert tuple(evidence["per_node_type"]) == tuple(
+        cpu_output.online_encoder.fused.embeddings
+    )
+    assert all(
+        node_evidence["cross_backend_parity_passed"] is True
+        and node_evidence["compared_tensor_count"] == 1
+        for node_evidence in evidence["per_node_type"].values()
+    )

@@ -785,9 +785,18 @@ reason, hierarchy output, fixture, and leakage audit remain `1.0.0`.
 Portable CPU acceptance excludes GPU name, driver/runtime observations,
 timing, and VRAM. Optional explicit-`cuda:0` AMP acceptance emits those
 observations only in a separate
-`Phase8ACudaAmpHardwareEvidence@1.1.0` artifact and skips honestly when CUDA
-is unavailable. An independent exact-final RTX 3090 artifact remains a
-pre-merge gate, not portable CPU evidence.
+`Phase8ACudaAmpHardwareEvidence@1.2.0` artifact and skips honestly when CUDA
+is unavailable. The hardware artifact keeps plan/selection/binding/overlay/
+mask/index/raw-graph/topology, same-device replay, Phase 7A control, blindness,
+and leakage gates bit-exact. CPU FP32 versus CUDA FP32 embeddings,
+predictions, targets, and losses are only a bounded numerical diagnostic:
+fixed `rtol=1e-3`, `atol=5e-5`, cosine floor `0.999`, exact shape/dtype and
+finite checks, per-policy/per-node-type max absolute/relative errors, and
+objective difference. Close results do not prove identical backend floating
+operations. Both acceptance CLIs are thin root-invoked wrappers over
+importable `music_critic.ssl` modules; exact-final source/report preflight is
+failure-closed before CUDA execution. An independent exact-final RTX 3090
+artifact remains a pre-merge gate, not portable CPU evidence.
 Detailed policy, leakage, complexity, version, bounded default audit, and
 optional CUDA hardware-evidence boundaries are in
 `PHASE8A_HIERARCHICAL_MASKING.md`.

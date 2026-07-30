@@ -141,7 +141,7 @@ PYTHONPATH=src python -m music_critic.ssl.run \
 PYTHONPATH=src python scripts/accept_phase8a_hierarchical_masking.py \
   --output /tmp/phase8a-cpu-acceptance.json
 PYTHONPATH=src python scripts/benchmark_phase8a_hierarchical_masking.py
-PYTHONPATH=src python -m scripts.accept_phase8a_cuda_amp \
+PYTHONPATH=src python scripts/accept_phase8a_cuda_amp.py \
   --device cuda:0 --amp --amp-dtype float16 \
   --expected-head "$(git rev-parse HEAD)" \
   --expected-device-name "NVIDIA GeForce RTX 3090" \
@@ -150,8 +150,10 @@ PYTHONPATH=src python -m scripts.accept_phase8a_cuda_amp \
 ```
 
 The final command is optional hardware acceptance. It requires real CUDA and
-emits a separate `Phase8ACudaAmpHardwareEvidence@1.0.0` artifact; a CPU run or
-CUDA skip is not GPU evidence.
+emits a separate `Phase8ACudaAmpHardwareEvidence@1.2.0` artifact; a CPU run or
+CUDA skip is not GPU evidence. Both documented Phase 8A script files are thin
+wrappers over importable `music_critic.ssl` acceptance modules and work from
+the repository root without modifying `sys.path`.
 
 For production-cache SSL, the target-free dataset loads each canonical cache
 piece and rebuilds its raw graph without projecting supervised targets. SSL
