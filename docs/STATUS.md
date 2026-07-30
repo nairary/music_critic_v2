@@ -118,14 +118,13 @@
   `1.0.1`
 - Phase 7A maskable-field registry fingerprint:
   `97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`
-- Blocking post-merge hotfix branch:
-  `hotfix/cuda-device-canonicalization`
-- Runtime device-resolution contract: `1.0.1`
-- Draft hotfix PR: #17
-- Next gate: Required CI on the exact remediation head and independent RTX
-  3090 verification; Phase 8 has not started
+- Phase 7A CUDA/AMP and split-evidence hotfix: accepted and merged through
+  PR #17 at main `5afec305cfa62ab2c200c5b1e7270ae35cd8a102`
+- Device-transfer contract after the accepted hotfix: `1.0.2`
+- Phase 8A pre-merge remediation is active in draft PR #16; Phase 8B has not
+  started
 
-## CUDA device-canonicalization hotfix status
+## Accepted CUDA device-canonicalization hotfix status
 
 - Independent RTX 3090 execution of `python -m pytest -q tests/ssl` against
   merged Phase 7A produced `157 passed, 2 failed, 8 warnings`.
@@ -186,8 +185,9 @@
   fingerprints. Historical Phase 7A `1.2.0` hashes remain historical and are
   not rewritten. Prepared binding, masking, model/output, graph, ontology,
   encoding, canonical, and checkpoint container contracts are unchanged.
-- Local development is CPU-only, so all real-CUDA tests remain unverified
-  locally. The hotfix must remain draft pending new RTX 3090 evidence.
+- Local development for that remediation was CPU-only, so local skips were
+  not presented as accelerator evidence. PR #17 is now accepted and merged;
+  the paragraphs above retain its historical failure and correction evidence.
 - Previous indexed-CUDA/AMP local remediation verification passed
   runtime/config/device checks
   (`73 passed, 1 skipped, 2 warnings`), focused objective/diagnostic/CUDA
@@ -214,27 +214,28 @@
   dtype semantics changed. No Phase 8 implementation is part of this hotfix.
 
 - Phase 8A branch: `phase/8a-hierarchical-masking`
-- Phase 8A status: implemented for draft-PR review; Required `push` and
-  `pull_request` workflow runs on the final head are the merge gate. Do not
-  merge from this implementation task.
-- Phase 8A hierarchical plan/policy/config/mixture/unit-evidence/
-  unavailable-reason/prepared-hierarchy-binding/prepared-profile/
-  hierarchy-output/leakage-audit/fixture/acceptance/benchmark contracts:
-  `1.0.0`
-- Phase 8A policy contract fingerprint:
-  `b188e90a60d3ec6184dfdb3233ef37b1a0ea133cd5957a10fad3eddf58d77ccd`
+- Phase 8A status: pre-merge remediation in draft PR #16. Final-head review,
+  both Required workflow runs, and independent exact-final RTX 3090 CUDA/AMP
+  evidence are merge gates. Do not merge from this implementation task.
+- Phase 8A hierarchical plan/policy/config/selection/prepared-profile/
+  prepared-hierarchy-binding/acceptance/benchmark contracts: `1.1.0`
+- Phase 8A mixture/unavailable-reason/hierarchy-output/leakage-audit/fixture
+  contracts: `1.0.0`
+- Optional `Phase8ACudaAmpHardwareEvidence`: `1.0.0`
 - Phase 8A pitch-leakage audit fingerprint:
   `27fc135b61649e5b892036dd0aacc92f679493ff671320c8235d33396a7c9949`
 - Phase 8A hierarchy fixture fingerprint:
   `ffd0d4c7db80323b8f1f8d72c1e4b7e530151c1b95dd68033e1a30273dd98a1b`
-- Phase 8A uses distinct `PreparedHierarchyMaskBinding@1.0.0` and
+- Phase 8A uses distinct `PreparedHierarchyMaskBinding@1.1.0` and
   `Phase8AHierarchySSLForwardOutput@1.0.0` portable envelopes over the shared
   Phase 7A attestation/encoder kernel. It preserves
   `PreparedMaskBinding@1.1.0`, `SSLForwardOutput@1.2.0`, all other existing
   Phase 7A and Phase 6 contract versions, checkpoint metadata/state, raw
   graph/canonical/cache/split contracts, and independent-control artifacts.
-- Next gate: review and merge of the Phase 8A draft PR by an authorized
-  maintainer. Phase 8B has not started.
+- Exact final policy/configuration/acceptance fingerprints and test counts are
+  pending the final-head rerun and are not replaced by pre-remediation hashes.
+- Next gate: finish deterministic CPU evidence, Required CI, and independent
+  exact-final RTX 3090 acceptance. Phase 8B has not started.
 
 ## Phase 7A implementation status
 
@@ -382,15 +383,27 @@
   collateral identities, and an exact ordered 60-field visible remainder.
 - The target-blind CPU index validates note/onset/beat/bar/track ownership,
   including beat-bar ownership and agreement between an onset's direct bar and
-  its owning beat's bar. Fixed-width stable radix ordering, linear scans,
-  bounded `max_span_bars <= 8` enumeration, and sparse occupied track/bar cells
-  avoid pairwise or dense hierarchy matrices.
+  its owning beat's bar. SplitMix64/Fisher-Yates unit permutation, linear
+  scans, bounded `max_span_bars <= 8` enumeration, and sparse occupied
+  track/bar cells avoid pairwise or dense hierarchy matrices.
+- Span method `bounded_near_optimal_seed_rank_v1` first derives best budget
+  error, admits candidates through `best + slack`, retains the canonical top
+  `K`, and selects inside that pool by stable seed SHA-256 rank. Defaults are
+  `K=4`, slack `1`; bounds are `K <= 8`, slack `<= 8`; `K=1` is the
+  canonical exact-closest control.
+- Existing candidate generation retains `O(C+S)` sparse state. Selection uses
+  two passes, `O(C*K)=O(C)` time under the fixed `K` bound, and `O(K)` scratch;
+  it performs no unbounded/full candidate sort or dense construction.
+- The crafted unique-closest oracle has six single-bar track candidates: one
+  at error `0` and five at error `1`. Epochs `0..63` choose four actual spans
+  with error distribution `0:14, 1:50` and exact replay. Pool size `1` and
+  slack `0` retain the unique exact-closest selection.
 - Unavailable policies return a structured reason and never silently fall
   back. Mixture resolution records the full eligibility set, exact normalized
   weights, stable resolution seed, selected policy, and explicit realized
   denominator/frequency.
 - Hierarchy execution returns distinct
-  `PreparedHierarchyMaskBinding@1.0.0` and
+  `PreparedHierarchyMaskBinding@1.1.0` and
   `Phase8AHierarchySSLForwardOutput@1.0.0` artifacts over the shared Phase 7A
   full-attestation/HMAC/token/transfer implementation. Normal `forward()`
   remains Phase 7A-only; `forward_hierarchy()` is explicit. An
@@ -400,28 +413,40 @@
   93 notes, 39 polyphonic onsets, one multi-onset beat, one cross-bar
   sustained note, and 34 occupied track/bar cells. Train/validation identities
   are disjoint.
-- The final compact acceptance report is byte-exact across two fresh
-  processes: 32,229 bytes, SHA-256
-  `e6915779f21784a1907c930da7967d2d6c1dae4cfd72fbb0ed5c24bec37cc03a`.
-  All five single-policy runs resolved `4/4`, produced finite loss, and had
-  380/474 finite gradient tensors; 361 were nonzero for independent/onset/
-  beat/bar and 376 for track/bar. A separate four-draw mixed-policy smoke
-  resolved track/bar `1/4`, independent `2/4`, and onset `1/4`; it is
-  accounting evidence, not a frequency-quality claim.
-- Final local verification: Phase 8A focused `84 passed, 1 skipped`; workers
-  `0/2` parity `1 passed`; complete SSL `241 passed, 3 skipped`; Phase 6
-  model/graph/leakage `146 passed, 1 skipped`; checkpoint/resume/transfer
-  `19 passed`; full repository `1073 passed, 22 skipped`. CUDA was unavailable
-  and no GPU evidence is claimed.
-- The no-threshold bounded CPU benchmark measured 147 nodes, 920 total edges,
-  208 relevant edges, candidate counts `57/27/26/14/35`, emitted overlay
-  entries `138/147/147/162/93`, and peak simultaneously retained compact plan
-  JSON bytes `5604/10621/10612/10555/10445` for independent/onset/beat/bar/
-  track-bar. These are mechanics and retained-serialization observations, not
-  Python allocator, temporary-memory, throughput, CUDA, or quality evidence.
+- The default bounded audit over epochs `0..63` finds actual diversity for
+  both span policies on all four train identities. Every selected error is
+  within `best + 1`; the exact per-piece candidate/pool/error table is in
+  `PHASE8A_HIERARCHICAL_MASKING.md`. This justifies bounded defaults, not
+  policy quality.
+- Two final local CPU acceptance processes emitted byte-identical canonical
+  JSON: 81,302 bytes and SHA-256
+  `d845b38fcb283fc7d0c993f993b7008c88aa23c7ebd82d6cb54272d05422ecc8`.
+  The remediated policy/default-configuration fingerprints are
+  `a2ad4fdd4c283413a1a7050a7471ea7fe86f29c95f17bf011cf4948f72547954`
+  and
+  `2e53d771d67a33d2db426033850ca57bccf0d6e284954141ccdeb28e8af3d760`.
+- Final local remediation verification passed focused Phase 8A
+  (`110 passed, 2 skipped`), workers `0/2` parity (`1 passed`), complete SSL
+  (`316 passed, 8 skipped`), model/graph/device (`165 passed, 1 skipped`),
+  training/evaluation (`94 passed, 6 skipped`), checkpoint/resume/transfer
+  (`21 passed`), deterministic held-out plus repository audit (`6 passed`),
+  and the complete repository (`1184 passed, 29 skipped`). The complete
+  repository run had 10 warnings. Bounded benchmark, `compileall`, and
+  `git diff --check` passed. Required GitHub workflows remain pending until
+  the final commit is pushed.
+- Optional explicit-`cuda:0` AMP acceptance covers all five policies and the
+  mixture, concrete bindings, finite forward/loss/gradients, and peak
+  allocated/reserved VRAM in separate
+  `Phase8ACudaAmpHardwareEvidence@1.0.0`. Local CUDA absence must skip
+  honestly. Independent exact-final RTX 3090 evidence is still required.
+- Anti-collapse streaming diagnostics retain `O(D)` state, but current
+  `from_values` creates float64 `N x D` values and normalized temporaries.
+  Real CUDA cost is unmeasured; production SSL requires a separate RTX 3090
+  profiler/optimization gate.
 - No legacy source was inspected. No HookTheory or POP909-CL corpus scan,
-  production cache rebuild, PDMX projection, production/full-corpus SSL
-  training, PLL, critic training, or Phase 8B objective work was performed.
+  Dilemmadata or PDMX integration, production cache rebuild,
+  production/full-corpus SSL training, PLL, critic training, or Phase 8B
+  objective work was performed.
 
 ## Scientific context and evaluation backlog
 

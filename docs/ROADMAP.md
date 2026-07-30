@@ -505,27 +505,34 @@ The model and training phases remain pending.
 
 ## Phase 8A — hierarchy-aware mask contracts, planners, and overlays
 
-- Status: implemented on branch `phase/8a-hierarchical-masking`; draft-PR
-  review and Required CI are the merge gate.
+- Status: pre-merge remediation is implemented on branch
+  `phase/8a-hierarchical-masking` in draft PR #16. Final-head review, both
+  Required workflow runs, and independent exact-final RTX 3090 CUDA/AMP
+  evidence are merge gates. This task does not merge the PR.
 - Goal: extend the accepted Phase 7A view generator from independent note
   rows to coherent raw hierarchy descendants without changing objectives.
 - Dependencies: accepted Phase 7A prepared-input and pitch-leakage contracts.
 - Outputs: exact `independent_note_pitch` control dispatch plus
   onset-descendant, beat-descendant, contiguous-bar-span, and sparse
   track/bar-span policies; start-anchored semantics; deterministic policy
-  mixtures; structured unavailable evidence; unchanged pitch-only overlay;
+  mixtures; structured unavailable evidence; bounded near-optimal span
+  selection with versioned pool size/slack; unchanged pitch-only overlay;
   distinct hierarchy binding/output envelopes over the shared prepared-input
-  attestation kernel; bounded oracle and benchmark.
+  attestation kernel; bounded oracle/benchmark; and a separate optional
+  CUDA/AMP hardware-evidence artifact.
 - Tests: exact descendant/collateral oracles, polyphony, sustained-note
   exclusion, sample/track boundaries, mixtures/unavailability, worker/batch
-  invariance, prepared mutation rejection, Phase 7A bit-exact compatibility,
-  and bounded existing-objective forward/backward smoke.
+  and fresh-process invariance, crafted unique-closest actual-span diversity,
+  pool/error bounds and pool-size-one control, prepared mutation rejection,
+  Phase 7A bit-exact CPU/CUDA-AMP compatibility, and bounded
+  existing-objective forward/backward smoke.
 - Non-goals: new objective heads, quality improvement claims, theory/PDMX
   integration, PLL, critic learning, or production training.
 - Acceptance: hierarchy-aware views are deterministic, sparse, leakage-closed,
   failure-closed, and model-ready on bounded variable graphs; the raw graph,
   canonical/cache/split contracts, model state/checkpoints, and Phase 7A
-  control artifacts remain unchanged.
+  control artifacts remain unchanged. Portable CPU evidence and optional
+  hardware-dependent CUDA identity/timing/VRAM evidence remain separate.
 
 ## Phase 8B — multi-level objectives and comparison
 

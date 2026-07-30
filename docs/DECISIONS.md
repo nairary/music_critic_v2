@@ -1727,9 +1727,11 @@ This log is append-only.
   prepared binding, masking, graph/canonical schema, ontology, encoding,
   dataset, cache, and model architecture contracts remain unchanged.
   Historical Phase 7A positive-margin values and fingerprints remain
-  historical diagnostics. PR #17 remains draft until Required CI and an
-  independent RTX 3090 rerun pass on the exact final commit with exact
-  passed/skipped counts and bounded-smoke peak allocated/reserved VRAM.
+  historical diagnostics. At this decision point PR #17 remained draft
+  pending Required CI and independent RTX 3090 evidence; it was subsequently
+  accepted and merged at main
+  `5afec305cfa62ab2c200c5b1e7270ae35cd8a102`.
+
 ## 2026-07-30 — ADR-055: Phase 8A adds start-anchored hierarchy views without new objectives
 
 - Status: Accepted for implementation on the Phase 8A draft branch. Merge
@@ -1827,9 +1829,85 @@ This log is append-only.
   split, target, and Phase 6 contracts do not change.
 - Consequences: Planner/index work is
   `O(nodes + relevant edges + emitted candidate/mask entries)` for the
-  contract-fixed span bound. Fixed-width stable radix ordering avoids
-  comparison sorts on node-sized planner inputs. No dense node-unit/note-note
-  matrix, clique, full `O(B²)` spans, or all-note-pairs loop is constructed.
+  contract-fixed span bound. SplitMix64/Fisher-Yates unit permutation and
+  linear scans avoid comparison sorts on node-sized planner inputs. No dense
+  node-unit/note-note matrix, clique, full `O(B²)` spans, or all-note-pairs
+  loop is constructed.
   Benchmark
   retained JSON bytes are not Python/CUDA/total peak-memory evidence, and no
   GPU performance claim is made.
+
+## 2026-07-30 — ADR-056: Phase 8A span choice uses a bounded near-optimal seed-dependent pool
+
+- Status: Accepted for the final pre-merge remediation of draft PR #16.
+  Merge still requires both Required workflow runs and independent
+  exact-final RTX 3090 CUDA/AMP evidence. This decision does not start Phase
+  8B or authorize production training. It supersedes only ADR-055's
+  exact-closest span-selection sentence and its initial versions for the
+  contracts listed below.
+- Context: ADR-055 selected the exact-closest span and used the seed only to
+  break equal-error ties. A graph with one unique closest candidate therefore
+  chose the same actual span across epochs even though a seed was bound. Phase
+  8A requires deterministic, seed-dependent view diversity without permitting
+  unbounded budget error, dense candidate structures, or accelerator-to-host
+  planning.
+- Decision: Replace only the span selector with
+  `bounded_near_optimal_seed_rank_v1`. First scan all valid candidates for the
+  best absolute hidden-note budget error. In a second pass admit candidates
+  through `best_error + span_budget_error_slack`, retain the canonically
+  smallest configured number ordered by error, track, start, end, and exact
+  descendants, then choose one retained candidate by domain-separated stable
+  seed SHA-256 rank with the canonical key as collision fallback.
+- Decision: Policy configuration binds integer
+  `span_selection_pool_size` in `[1, 8]` and
+  `span_budget_error_slack` in `[0, 8]`. Defaults are pool size `4` and slack
+  `1`. Pool size `1` is the canonical exact-closest control; slack `0`
+  restricts admission to exact-best error. The pool is canonical and therefore
+  independent of candidate enumeration order.
+- Decision: Selection evidence records total valid candidates, best error,
+  tolerance-qualified candidates, retained-pool count, configured pool/slack,
+  selected error/start/end/track, selected descendant count, realized mask
+  rate, and method identifier. Plan validation binds these fields to the
+  configuration and canonical graph-aware recomputation.
+- Decision: Bounded-fixture audit uses seed `42`, mask rate `0.30`, and train
+  epochs `0..63`. Both span policies produce actual selection diversity for
+  every one of the four train identities and every selected error is within
+  `best + 1`. In the crafted unique-closest single-bar track case, six valid
+  candidates contain one error-0 candidate and five error-1 candidates; the
+  default pool selects four actual spans with error distribution
+  `0:14, 1:50` and exact replay. Pool size `1` and slack `0` each retain the
+  unique closest selection. This audit justifies bounded defaults, not masking
+  quality or corpus representativeness.
+- Decision: Existing candidate construction retains `O(C+S)` candidates and
+  descendant entries. The bounded selector uses `O(C*K)=O(C)` time because
+  `K <= 8`, plus `O(K)` selection scratch. It performs no full/unbounded
+  candidate sort, dense tracks-by-bars representation, or pairwise note
+  construction.
+- Decision: Preserve the independent Phase 7A control exactly and reprove it
+  on CPU and, when available, explicit indexed-CUDA with AMP. The optional
+  command emits `Phase8ACudaAmpHardwareEvidence@1.0.0` separately from
+  portable CPU acceptance. All five policies and the mixture must bind
+  concrete `cuda:0`, complete finite forward/loss/gradient execution, and
+  record peak allocated/reserved VRAM. CUDA absence is an honest skip, never
+  substituted CPU evidence. Independent exact-final RTX 3090 execution remains
+  a pre-merge gate.
+- Decision: Streaming anti-collapse diagnostics are not redesigned here.
+  Retained state is `O(D)`, but current `from_values` creates temporary
+  float64 `N x D` values and normalized working tensors. No `O(D)` peak
+  temporary-memory claim is permitted; real CUDA cost remains unmeasured, and
+  production SSL requires a separate RTX 3090 profiler/optimization gate.
+- Consequences: Hierarchical plan, policy, configuration, selection evidence,
+  prepared hierarchy profile, prepared hierarchy envelope, bounded acceptance,
+  and benchmark contracts advance to `1.1.0`. Mixture, unavailable reason,
+  `Phase8AHierarchySSLForwardOutput`, fixture, and leakage audit remain
+  `1.0.0`. The hardware-evidence artifact begins at `1.0.0`.
+- Consequences: Accepted post-hotfix semantics remain fixed: device transfer
+  `1.0.2`, representation/multi-view/objective `1.0.1`, umbrella SSL `1.2.2`,
+  training report `1.2.2`, `PreparedMaskBinding@1.1.0`, and independent
+  no-leakage/pitch-sensitive-reconstruction evidence `1.0.0`. Correct-target
+  preference remains a signed non-gating diagnostic. Graph, feature,
+  canonical/cache/split, Phase 6 numerical, model, checkpoint, and
+  independent-control contracts do not change.
+- Consequences: Phase 8B objectives, Dilemmadata, PDMX, PLL, adaptive masking,
+  preference or critic learning, production training, and
+  representation-quality claims remain out of scope.

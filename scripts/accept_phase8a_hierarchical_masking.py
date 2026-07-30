@@ -14,27 +14,43 @@ from typing import Any
 import torch
 from torch import Tensor
 
+import music_critic.ssl.hierarchical_masking as hierarchy_masking_module
+from music_critic.device import (
+    DEVICE_TRANSFER_CONTRACT_VERSION,
+    RUNTIME_DEVICE_RESOLUTION_CONTRACT_VERSION,
+)
 from music_critic.models import HierarchicalBaselineConfig
 from music_critic.ssl.contracts import (
     MASKED_FEATURE_OVERLAY_CONTRACT_VERSION,
     MASK_PLAN_CONTRACT_VERSION,
     MASK_POLICY_VERSION,
     PREPARED_MASK_BINDING_CONTRACT_VERSION,
+    SSL_CONTRACT_VERSION,
     MaskPlan,
+    canonical_sha256,
 )
 from music_critic.ssl.data import SSLBatch, collate_ssl_samples
 from music_critic.ssl.hierarchical_masking import (
+    CONTIGUOUS_BAR_PITCH_SPAN,
     HIERARCHICAL_MASK_PLAN_CONTRACT_VERSION,
     HIERARCHY_MASK_POLICIES,
+    HIERARCHY_MASK_POLICY_CONTRACT_FINGERPRINT,
     HIERARCHY_MASK_POLICY_VERSION,
     HIERARCHY_POLICY_CONFIG_CONTRACT_VERSION,
     HIERARCHY_POLICY_MIXTURE_CONTRACT_VERSION,
     HIERARCHY_PREPARED_BINDING_PROFILE_VERSION,
     HIERARCHY_SELECTION_EVIDENCE_CONTRACT_VERSION,
     HIERARCHY_UNAVAILABLE_REASON_CONTRACT_VERSION,
+    TRACK_BAR_PITCH_SPAN,
     HierarchicalMaskPlan,
     HierarchyMaskPolicyConfig,
+    build_hierarchy_mask_plan,
     build_batched_hierarchy_mask_resolutions,
+)
+from music_critic.ssl.engine import (
+    NO_LEAKAGE_MUTATION_EVIDENCE_CONTRACT_VERSION,
+    PITCH_SENSITIVE_RECONSTRUCTION_EVIDENCE_CONTRACT_VERSION,
+    SSL_TRAINING_REPORT_VERSION,
 )
 from music_critic.ssl.hierarchy_fixture import (
     PHASE8A_HIERARCHY_FIXTURE_CONTRACT_VERSION,
@@ -47,12 +63,21 @@ from music_critic.ssl.masking import (
 )
 from music_critic.ssl.model import (
     PHASE8A_HIERARCHY_SSL_OUTPUT_CONTRACT_VERSION,
+    SSL_MODEL_CONTRACT_VERSION,
+    SSL_MODEL_OUTPUT_CONTRACT_VERSION,
     MaskedGraphSSLConfig,
     MaskedGraphSSLModel,
 )
+from music_critic.ssl.objective import (
+    ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION,
+    MULTI_VIEW_REPRESENTATION_LOSS_CONTRACT_VERSION,
+    REPRESENTATION_LOSS_CONTRACT_VERSION,
+    SSL_OBJECTIVE_CONTRACT_VERSION,
+)
 
 
-PHASE8A_BOUNDED_ACCEPTANCE_CONTRACT_VERSION = "1.0.0"
+PHASE8A_BOUNDED_ACCEPTANCE_CONTRACT_VERSION = "1.1.0"
+PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION = "1.0.0"
 _GLOBAL_SEED = 42
 _EPOCH = 0
 _MASK_RATE = 0.30
@@ -242,6 +267,7 @@ def _plan_evidence(
             "selected_local_track_index": (
                 plan.selected_local_track_index
             ),
+            "selection_evidence": plan.selection.to_dict(),
         }
     else:
         selected_unit_node_type = "note"
@@ -254,6 +280,7 @@ def _plan_evidence(
             "end_bar_index": None,
             "length_bars": None,
             "selected_local_track_index": None,
+            "selection_evidence": None,
         }
     maskable_note_count = plan.maskable_node_count
     primary_set = set(plan.selected_local_node_indices)
@@ -481,10 +508,373 @@ def _accept_policy(
     }
 
 
+def _span_diversity_audit(fixture: Any) -> dict[str, object]:
+    sample = fixture.raw_samples("train")[-1]
+    piece = fixture.supplemental_piece
+    config = HierarchyMaskPolicyConfig.create(
+        weights={TRACK_BAR_PITCH_SPAN: 1.0},
+        min_span_bars=1,
+        max_span_bars=1,
+        span_selection_pool_size=4,
+        span_budget_error_slack=1,
+    )
+    kwargs = {
+        "dataset_id": piece.dataset_name,
+        "piece_id": piece.piece_id,
+        "policy": TRACK_BAR_PITCH_SPAN,
+        "global_seed": _GLOBAL_SEED,
+        "requested_mask_rate": _MASK_RATE,
+        "stage": "train",
+        "policy_config": config,
+    }
+
+    def build_sequence() -> tuple[HierarchicalMaskPlan, ...]:
+        return tuple(
+            build_hierarchy_mask_plan(
+                sample.raw_graph,
+                epoch=epoch,
+                **kwargs,
+            )
+            for epoch in range(64)
+        )
+
+    plans = build_sequence()
+    repeated = build_sequence()
+    signatures = tuple(
+        (
+            plan.selected_local_track_index,
+            plan.span_start_bar_index,
+            plan.span_end_bar_index,
+            plan.selected_local_note_indices,
+        )
+        for plan in plans
+    )
+    repeated_signatures = tuple(
+        (
+            plan.selected_local_track_index,
+            plan.span_start_bar_index,
+            plan.span_end_bar_index,
+            plan.selected_local_note_indices,
+        )
+        for plan in repeated
+    )
+    signature_counts = Counter(signatures)
+    error_counts = Counter(
+        plan.selection.span_selected_budget_error
+        for plan in plans
+    )
+    index = hierarchy_masking_module._build_hierarchy_indices(
+        sample.raw_graph
+    )[0]
+    candidates = (
+        hierarchy_masking_module._track_bar_span_candidates(
+            index=index,
+            config=config,
+        )
+    )
+    target_count = plans[0].requested_hidden_note_count
+    candidate_error_counts = Counter(
+        abs(len(candidate[3]) - target_count)
+        for candidate in candidates
+    )
+    control = HierarchyMaskPolicyConfig.create(
+        weights={TRACK_BAR_PITCH_SPAN: 1.0},
+        min_span_bars=1,
+        max_span_bars=1,
+        span_selection_pool_size=1,
+        span_budget_error_slack=1,
+    )
+    control_plans = tuple(
+        build_hierarchy_mask_plan(
+            sample.raw_graph,
+            epoch=epoch,
+            **{
+                **kwargs,
+                "policy_config": control,
+            },
+        )
+        for epoch in range(64)
+    )
+    control_signatures = {
+        (
+            plan.selected_local_track_index,
+            plan.span_start_bar_index,
+            plan.span_end_bar_index,
+            plan.selected_local_note_indices,
+        )
+        for plan in control_plans
+    }
+    validation_zero = build_hierarchy_mask_plan(
+        sample.raw_graph,
+        epoch=0,
+        **{
+            **kwargs,
+            "stage": "validation",
+        },
+    )
+    validation_later = build_hierarchy_mask_plan(
+        sample.raw_graph,
+        epoch=999,
+        **{
+            **kwargs,
+            "stage": "validation",
+        },
+    )
+    if (
+        plans != repeated
+        or signatures != repeated_signatures
+        or len(signature_counts) <= 1
+        or len(control_signatures) != 1
+        or validation_zero != validation_later
+        or candidate_error_counts[0] != 1
+    ):
+        raise RuntimeError("Phase 8A span diversity audit failed")
+
+    default_bounded_fixture_rows = []
+    for policy in (
+        CONTIGUOUS_BAR_PITCH_SPAN,
+        TRACK_BAR_PITCH_SPAN,
+    ):
+        default_config = _single_policy_config(policy)
+        for bounded_sample in fixture.raw_samples("train"):
+            sequence_kwargs = {
+                "dataset_id": bounded_sample.dataset_id,
+                "piece_id": bounded_sample.piece_id,
+                "policy": policy,
+                "global_seed": _GLOBAL_SEED,
+                "requested_mask_rate": _MASK_RATE,
+                "stage": "train",
+                "policy_config": default_config,
+            }
+
+            def default_sequence() -> tuple[
+                HierarchicalMaskPlan, ...
+            ]:
+                return tuple(
+                    build_hierarchy_mask_plan(
+                        bounded_sample.raw_graph,
+                        epoch=epoch,
+                        **sequence_kwargs,
+                    )
+                    for epoch in range(64)
+                )
+
+            default_plans = default_sequence()
+            default_replay = default_sequence()
+            default_signatures = tuple(
+                (
+                    plan.selected_local_track_index,
+                    plan.span_start_bar_index,
+                    plan.span_end_bar_index,
+                    plan.selected_local_unit_indices,
+                    plan.selected_local_note_indices,
+                )
+                for plan in default_plans
+            )
+            replay_signatures = tuple(
+                (
+                    plan.selected_local_track_index,
+                    plan.span_start_bar_index,
+                    plan.span_end_bar_index,
+                    plan.selected_local_unit_indices,
+                    plan.selected_local_note_indices,
+                )
+                for plan in default_replay
+            )
+            selection = default_plans[0].selection
+            selected_error_counts = Counter(
+                plan.selection.span_selected_budget_error
+                for plan in default_plans
+            )
+            replay_bit_exact = (
+                default_plans == default_replay
+                and default_signatures == replay_signatures
+            )
+            within_slack = all(
+                plan.selection.span_selected_budget_error
+                is not None
+                and plan.selection.span_best_budget_error
+                is not None
+                and plan.selection.span_selected_budget_error
+                <= plan.selection.span_best_budget_error
+                + default_config.span_budget_error_slack
+                for plan in default_plans
+            )
+            selection_evidence_is_constant = all(
+                plan.selection.total_valid_candidate_count
+                == selection.total_valid_candidate_count
+                and plan.selection.span_best_budget_error
+                == selection.span_best_budget_error
+                and plan.selection.span_tolerance_candidate_count
+                == selection.span_tolerance_candidate_count
+                and plan.selection.span_admissible_pool_count
+                == selection.span_admissible_pool_count
+                for plan in default_plans
+            )
+            actual_unique_count = len(set(default_signatures))
+            if (
+                not replay_bit_exact
+                or not within_slack
+                or not selection_evidence_is_constant
+                or actual_unique_count <= 1
+            ):
+                raise RuntimeError(
+                    "Phase 8A default bounded span diversity audit failed"
+                )
+            default_bounded_fixture_rows.append(
+                {
+                    "policy": policy,
+                    "sample_identity": [
+                        bounded_sample.dataset_id,
+                        bounded_sample.piece_id,
+                    ],
+                    "policy_config_fingerprint": (
+                        default_config.fingerprint
+                    ),
+                    "configured_pool_size_limit": (
+                        default_config.span_selection_pool_size
+                    ),
+                    "configured_budget_error_slack": (
+                        default_config.span_budget_error_slack
+                    ),
+                    "total_valid_candidate_count": (
+                        selection.total_valid_candidate_count
+                    ),
+                    "best_budget_error": (
+                        selection.span_best_budget_error
+                    ),
+                    "tolerance_candidate_count": (
+                        selection.span_tolerance_candidate_count
+                    ),
+                    "admissible_pool_count": (
+                        selection.span_admissible_pool_count
+                    ),
+                    "actual_unique_selection_count": (
+                        actual_unique_count
+                    ),
+                    "selected_budget_error_distribution": {
+                        str(error): count
+                        for error, count in sorted(
+                            selected_error_counts.items()
+                        )
+                    },
+                    "ordered_actual_selection_sequence_fingerprint": (
+                        canonical_sha256(
+                            [
+                                {
+                                    "track": signature[0],
+                                    "start_bar": signature[1],
+                                    "end_bar": signature[2],
+                                    "selected_local_unit_indices": list(
+                                        signature[3]
+                                    ),
+                                    "selected_local_note_indices": list(
+                                        signature[4]
+                                    ),
+                                }
+                                for signature in default_signatures
+                            ]
+                        )
+                    ),
+                    "fresh_replay_bit_exact": replay_bit_exact,
+                    "all_selected_errors_within_best_plus_slack": (
+                        within_slack
+                    ),
+                }
+            )
+    return {
+        "crafted_fixture_identity": [
+            sample.dataset_id,
+            sample.piece_id,
+        ],
+        "epoch_range": [0, 63],
+        "global_seed": _GLOBAL_SEED,
+        "encoder_view_index": 0,
+        "requested_mask_rate": _MASK_RATE,
+        "config": config.to_dict(),
+        "total_valid_candidate_count": len(candidates),
+        "candidate_budget_error_distribution": {
+            str(error): count
+            for error, count in sorted(candidate_error_counts.items())
+        },
+        "unique_closest_candidate_count": (
+            candidate_error_counts[0]
+        ),
+        "actual_unique_selection_count": len(signature_counts),
+        "actual_selection_counts": [
+            {
+                "track": signature[0],
+                "start_bar": signature[1],
+                "end_bar": signature[2],
+                "selected_local_note_indices": list(signature[3]),
+                "count": count,
+            }
+            for signature, count in sorted(signature_counts.items())
+        ],
+        "selected_budget_error_distribution": {
+            str(error): count
+            for error, count in sorted(error_counts.items())
+        },
+        "ordered_actual_selection_sequence_fingerprint": (
+            canonical_sha256(
+                [
+                    {
+                        "track": signature[0],
+                        "start_bar": signature[1],
+                        "end_bar": signature[2],
+                        "selected_local_note_indices": list(
+                            signature[3]
+                        ),
+                    }
+                    for signature in signatures
+                ]
+            )
+        ),
+        "fresh_replay_bit_exact": True,
+        "all_selected_errors_within_best_plus_slack": all(
+            plan.selection.span_selected_budget_error
+            is not None
+            and plan.selection.span_best_budget_error
+            is not None
+            and plan.selection.span_selected_budget_error
+            <= plan.selection.span_best_budget_error
+            + config.span_budget_error_slack
+            for plan in plans
+        ),
+        "pool_size_one_control": {
+            "config_fingerprint": control.fingerprint,
+            "actual_unique_selection_count": len(
+                control_signatures
+            ),
+            "selection": {
+                "track": next(iter(control_signatures))[0],
+                "start_bar": next(iter(control_signatures))[1],
+                "end_bar": next(iter(control_signatures))[2],
+                "selected_local_note_indices": list(
+                    next(iter(control_signatures))[3]
+                ),
+            },
+        },
+        "validation_epochs_0_and_999_bit_exact": True,
+        "default_bounded_fixture_audit": {
+            "epoch_range": [0, 63],
+            "global_seed": _GLOBAL_SEED,
+            "encoder_view_index": 0,
+            "requested_mask_rate": _MASK_RATE,
+            "rows": default_bounded_fixture_rows,
+            "all_rows_have_actual_diversity": True,
+            "all_rows_replay_bit_exact": True,
+            "all_rows_within_configured_budget_slack": True,
+        },
+        "quality_claim": None,
+    }
+
+
 def build_phase8a_bounded_acceptance_report() -> dict[str, object]:
     fixture = build_phase8a_hierarchy_fixture()
     batch = collate_ssl_samples(fixture.raw_samples("train"))
     graph_before = _snapshot_graph(batch.raw_graph_batch)
+    model_metadata = _model().ssl_contract_metadata()
     policies = {
         policy: _accept_policy(batch, policy)
         for policy in HIERARCHY_MASK_POLICIES
@@ -511,6 +901,30 @@ def build_phase8a_bounded_acceptance_report() -> dict[str, object]:
             "GPU performance evidence",
         ],
         "contracts": {
+            "runtime_device_resolution": (
+                RUNTIME_DEVICE_RESOLUTION_CONTRACT_VERSION
+            ),
+            "device_transfer": DEVICE_TRANSFER_CONTRACT_VERSION,
+            "ssl_umbrella": SSL_CONTRACT_VERSION,
+            "ssl_training_report": SSL_TRAINING_REPORT_VERSION,
+            "ssl_model": SSL_MODEL_CONTRACT_VERSION,
+            "ssl_model_output": SSL_MODEL_OUTPUT_CONTRACT_VERSION,
+            "representation_loss": (
+                REPRESENTATION_LOSS_CONTRACT_VERSION
+            ),
+            "multi_view_representation_loss": (
+                MULTI_VIEW_REPRESENTATION_LOSS_CONTRACT_VERSION
+            ),
+            "ssl_objective": SSL_OBJECTIVE_CONTRACT_VERSION,
+            "anti_collapse_diagnostics": (
+                ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION
+            ),
+            "no_leakage_mutation_evidence": (
+                NO_LEAKAGE_MUTATION_EVIDENCE_CONTRACT_VERSION
+            ),
+            "pitch_sensitive_reconstruction_evidence": (
+                PITCH_SENSITIVE_RECONSTRUCTION_EVIDENCE_CONTRACT_VERSION
+            ),
             "phase7a_mask_plan": MASK_PLAN_CONTRACT_VERSION,
             "phase7a_mask_policy": MASK_POLICY_VERSION,
             "feature_overlay": (
@@ -548,6 +962,12 @@ def build_phase8a_bounded_acceptance_report() -> dict[str, object]:
                 PHASE8A_HIERARCHY_SSL_OUTPUT_CONTRACT_VERSION
             ),
         },
+        "hierarchy_mask_policy_contract_fingerprint": (
+            HIERARCHY_MASK_POLICY_CONTRACT_FINGERPRINT
+        ),
+        "model_contract_metadata_fingerprint": canonical_sha256(
+            model_metadata
+        ),
         "fixture": {
             "fingerprints": fixture.fingerprint_bundle(),
             "counts": {
@@ -572,11 +992,28 @@ def build_phase8a_bounded_acceptance_report() -> dict[str, object]:
             "device": "cpu",
         },
         "policies": policies,
+        "span_diversity_audit": _span_diversity_audit(fixture),
         "all_policies_independently_exercised": (
             tuple(policies) == HIERARCHY_MASK_POLICIES
         ),
         "source_batch_unchanged": True,
+        "mechanics_acceptance_gates": {
+            "finite_existing_objectives": True,
+            "loss_decrease_required": False,
+            "positive_correct_target_preference_required": False,
+            "no_leakage_and_pitch_sensitive_evidence_are_separate": (
+                True
+            ),
+        },
         "cuda_measurement": None,
+        "optional_cuda_hardware_evidence": {
+            "contract_version": (
+                PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION
+            ),
+            "script": "scripts/accept_phase8a_cuda_amp.py",
+            "embedded": False,
+            "status": "pending_independent_exact_final_rtx_run",
+        },
         "quality_claim": None,
     }
 

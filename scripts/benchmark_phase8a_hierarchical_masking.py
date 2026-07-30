@@ -29,7 +29,9 @@ from music_critic.ssl.hierarchical_masking import (
     HIERARCHY_POLICY_CONFIG_CONTRACT_VERSION,
     HIERARCHY_POLICY_MIXTURE_CONTRACT_VERSION,
     HIERARCHY_PREPARED_BINDING_PROFILE_VERSION,
+    HIERARCHY_SELECTION_EVIDENCE_CONTRACT_VERSION,
     INDEPENDENT_NOTE_PITCH,
+    MAX_SPAN_SELECTION_POOL_SIZE,
     ONSET_PITCH_DESCENDANTS,
     TRACK_BAR_PITCH_SPAN,
     HierarchicalMaskPlan,
@@ -47,7 +49,8 @@ from music_critic.ssl.model import (
     MaskedGraphSSLModel,
 )
 from music_critic.ssl.views import build_feature_mask_overlay
-PHASE8A_MASKING_BENCHMARK_CONTRACT_VERSION = "1.0.0"
+
+PHASE8A_MASKING_BENCHMARK_CONTRACT_VERSION = "1.1.0"
 
 _ONSET_STARTS_NOTE = ("onset", "starts_note", "note")
 _BEAT_CONTAINS_ONSET = ("beat", "contains_onset", "onset")
@@ -410,6 +413,28 @@ def benchmark_phase8a_policy(
         )
         for plan in plans
     )
+    span_plans = tuple(
+        plan
+        for plan in plans
+        if isinstance(plan, HierarchicalMaskPlan)
+        and plan.resolved_policy
+        in {
+            CONTIGUOUS_BAR_PITCH_SPAN,
+            TRACK_BAR_PITCH_SPAN,
+        }
+    )
+    span_total_candidates = sum(
+        plan.selection.total_valid_candidate_count
+        for plan in span_plans
+    )
+    span_tolerance_candidates = sum(
+        plan.selection.span_tolerance_candidate_count or 0
+        for plan in span_plans
+    )
+    span_pool_entries = sum(
+        plan.selection.span_admissible_pool_count or 0
+        for plan in span_plans
+    )
     primary_entries = sum(len(value) for value in descendants)
     collateral_note_entries = sum(
         len(mask.local_node_indices)
@@ -446,6 +471,9 @@ def benchmark_phase8a_policy(
             ),
             "hierarchy_policy_mixture": (
                 HIERARCHY_POLICY_MIXTURE_CONTRACT_VERSION
+            ),
+            "hierarchy_selection_evidence": (
+                HIERARCHY_SELECTION_EVIDENCE_CONTRACT_VERSION
             ),
             "hierarchy_prepared_binding_profile": (
                 HIERARCHY_PREPARED_BINDING_PROFILE_VERSION
@@ -492,10 +520,28 @@ def benchmark_phase8a_policy(
                 "state in this call, not Python heap, temporary peak, RSS, "
                 "CUDA allocation, or checkpoint size"
             ),
+            "span_selection_complexity": (
+                "two passes over C candidates plus bounded insertion: "
+                "O(C*K)=O(C) because K<=8; O(K) selection scratch; "
+                "no full candidate sort"
+            ),
+            "candidate_generation_retained_state": (
+                "existing sparse generators retain O(C+S) candidate and "
+                "descendant entries; the O(K) claim applies only to "
+                "selection scratch"
+            ),
         },
         "counts": {
             **_graph_counts(graph),
             "candidate_units_or_control_notes": candidate_count,
+            "span_total_valid_candidates": span_total_candidates,
+            "span_tolerance_candidates": (
+                span_tolerance_candidates
+            ),
+            "span_admissible_pool_entries": span_pool_entries,
+            "span_selection_pool_size_contract_bound": (
+                MAX_SPAN_SELECTION_POOL_SIZE
+            ),
             "primary_descendant_note_entries": primary_entries,
             "collateral_peer_note_entries": (
                 collateral_note_entries

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -15,16 +16,33 @@ from scripts.accept_phase8a_hierarchical_masking import (
     PHASE8A_BOUNDED_ACCEPTANCE_CONTRACT_VERSION,
     build_phase8a_bounded_acceptance_report,
 )
+from music_critic.data import CanonicalPiece, QualityFlag, TargetArray
+from music_critic.graph import (
+    build_raw_graph,
+    graph_fingerprint,
+    model_input_fingerprint,
+)
 from music_critic.models import HierarchicalBaselineConfig
 from music_critic.ssl.contracts import SSLContractError
 from music_critic.ssl.contracts import (
     PREPARED_MASK_BINDING_CONTRACT_VERSION,
 )
-from music_critic.ssl.data import SSLBatch, build_ssl_data_runtime
+from music_critic.ssl.data import (
+    SSLBatch,
+    SSLRawSample,
+    build_ssl_data_runtime,
+    collate_ssl_samples,
+)
 from music_critic.ssl.hierarchical_masking import (
+    CONTIGUOUS_BAR_PITCH_SPAN,
     HIERARCHY_MASK_POLICIES,
     INDEPENDENT_NOTE_PITCH,
+    ONSET_PITCH_DESCENDANTS,
+    TRACK_BAR_PITCH_SPAN,
     HierarchyMaskPolicyConfig,
+)
+from music_critic.ssl.hierarchy_fixture import (
+    build_phase8a_hierarchy_fixture,
 )
 from music_critic.ssl.masking import (
     PREPARED_HIERARCHY_MASK_BINDING_CONTRACT_VERSION,
@@ -129,6 +147,32 @@ def _assert_tensor_equal(left: Tensor, right: Tensor) -> None:
     assert torch.equal(left, right)
 
 
+def _raw_sample(piece: CanonicalPiece) -> SSLRawSample:
+    graph = build_raw_graph(piece)
+    return SSLRawSample(
+        raw_graph=graph,
+        raw_graph_fingerprint=graph_fingerprint(graph),
+        dataset_id=piece.dataset_name,
+        piece_id=piece.piece_id,
+    )
+
+
+def _batch_graph_fingerprints(
+    batch: SSLBatch,
+) -> tuple[tuple[str, str], ...]:
+    graphs = batch.raw_graph_batch.to_data_list()
+    for graph in graphs:
+        if isinstance(graph.raw_only, Tensor):
+            graph.raw_only = bool(graph.raw_only.item())
+    return tuple(
+        (
+            graph_fingerprint(graph),
+            model_input_fingerprint(graph),
+        )
+        for graph in graphs
+    )
+
+
 @pytest.mark.parametrize("policy", HIERARCHY_MASK_POLICIES)
 def test_each_policy_prepares_and_has_finite_forward_backward_gradients(
     bounded_batch: SSLBatch,
@@ -153,7 +197,7 @@ def test_each_policy_prepares_and_has_finite_forward_backward_gradients(
         assert type(binding) is PreparedHierarchyMaskBinding
         assert binding.contract_version == (
             PREPARED_HIERARCHY_MASK_BINDING_CONTRACT_VERSION
-        ) == "1.0.0"
+        ) == "1.1.0"
     assert type(output) is Phase8AHierarchySSLForwardOutput
     assert output.contract_version == (
         PHASE8A_HIERARCHY_SSL_OUTPUT_CONTRACT_VERSION
@@ -176,6 +220,46 @@ def test_each_policy_prepares_and_has_finite_forward_backward_gradients(
     assert model.feature_mask_token.grad is not None
     assert bool(torch.isfinite(model.feature_mask_token.grad).all())
     assert bool(torch.count_nonzero(model.feature_mask_token.grad))
+
+
+@pytest.mark.parametrize("policy", HIERARCHY_MASK_POLICIES)
+def test_each_policy_inherits_post_hotfix_float32_objective_under_autocast(
+    bounded_batch: SSLBatch,
+    policy: str,
+) -> None:
+    model = _model(151 + HIERARCHY_MASK_POLICIES.index(policy)).eval()
+    batch, binding = _prepared(bounded_batch, policy)
+
+    with torch.no_grad(), torch.autocast(
+        "cpu",
+        dtype=torch.bfloat16,
+    ):
+        output = model.forward_hierarchy(
+            batch,
+            prepared_mask_binding=binding,
+        )
+
+    required = [
+        output.note_loss.numerator,
+        output.note_loss.mean,
+        output.bar_latent.loss.numerator,
+        output.bar_latent.loss.mean,
+        output.song_latent.loss.numerator,
+        output.song_latent.loss.mean,
+        output.objective.total_loss,
+        *(
+            value
+            for view in output.note_loss.view_losses
+            for value in (view.loss.numerator, view.loss.mean)
+        ),
+    ]
+    assert all(value is not None for value in required)
+    assert all(
+        value.dtype == torch.float32
+        and bool(torch.isfinite(value))
+        for value in required
+        if value is not None
+    )
 
 
 def test_phase7_public_forward_rejects_hierarchy_profile_before_encoder(
@@ -388,6 +472,225 @@ def test_independent_control_binding_and_output_remain_bit_exact(
         _assert_tensor_equal(left, right)
 
 
+def test_target_provenance_and_diagnostics_are_end_to_end_model_blind() -> None:
+    fixture = build_phase8a_hierarchy_fixture()
+    source_piece = fixture.supplemental_piece
+    changed_piece = replace(
+        source_piece,
+        source_path="ignored/phase8a-prepared-sidecar.mid",
+        targets=(
+            TargetArray(
+                target_id="target:phase8a-prepared-inert",
+                task="quality.overall",
+                annotation_view_id=None,
+                alignment_type="piece",
+                entity_ids=(source_piece.piece_id,),
+                value_type="scalar",
+                class_labels=None,
+                values=(0.75,),
+                mask=(True,),
+                confidence=(1.0,),
+                source=("synthetic",),
+                provenance=(
+                    source_piece.provenance[0].provenance_id,
+                ),
+            ),
+        ),
+        provenance=(
+            replace(
+                source_piece.provenance[0],
+                source="phase8a_prepared_sidecar_mutation",
+                details=(("diagnostic", "changed"),),
+            ),
+        ),
+        quality_flags=(
+            QualityFlag(
+                code="phase8a.test.prepared_diagnostic",
+                severity="info",
+                message="target-blind prepared hierarchy mutation",
+                entity_ids=(source_piece.piece_id,),
+                provenance_id=(
+                    source_piece.provenance[0].provenance_id
+                ),
+            ),
+        ),
+    )
+    source_sample = _raw_sample(source_piece)
+    changed_sample = _raw_sample(changed_piece)
+    source_batch = collate_ssl_samples((source_sample,))
+    changed_batch = collate_ssl_samples((changed_sample,))
+
+    assert graph_fingerprint(source_sample.raw_graph) == (
+        graph_fingerprint(changed_sample.raw_graph)
+    )
+    assert model_input_fingerprint(source_sample.raw_graph) == (
+        model_input_fingerprint(changed_sample.raw_graph)
+    )
+    assert _batch_graph_fingerprints(source_batch) == (
+        _batch_graph_fingerprints(changed_batch)
+    )
+
+    config = _policy_config(ONSET_PITCH_DESCENDANTS)
+    source_binding = prepare_hierarchy_mask_binding(
+        source_batch,
+        policy_config=config,
+        global_seed=_GLOBAL_SEED,
+        epoch=0,
+        requested_mask_rate=_MASK_RATE,
+        stage="train",
+    )
+    changed_binding = prepare_hierarchy_mask_binding(
+        changed_batch,
+        policy_config=config,
+        global_seed=_GLOBAL_SEED,
+        epoch=0,
+        requested_mask_rate=_MASK_RATE,
+        stage="train",
+    )
+    assert source_binding.to_dict() == changed_binding.to_dict()
+    assert source_binding.mask_plans == changed_binding.mask_plans
+    assert source_binding.feature_overlay == changed_binding.feature_overlay
+    _assert_tensor_equal(
+        source_binding.selected_global_note_indices_tensor,
+        changed_binding.selected_global_note_indices_tensor,
+    )
+
+    moved_source, moved_source_binding = (
+        move_ssl_batch_with_prepared_binding(
+            source_batch,
+            source_binding,
+            "cpu",
+        )
+    )
+    moved_changed, moved_changed_binding = (
+        move_ssl_batch_with_prepared_binding(
+            changed_batch,
+            changed_binding,
+            "cpu",
+        )
+    )
+    assert moved_source_binding.to_dict() == (
+        moved_changed_binding.to_dict()
+    )
+    assert _batch_graph_fingerprints(moved_source) == (
+        _batch_graph_fingerprints(moved_changed)
+    )
+
+    source_graph_before = _batch_graph_fingerprints(moved_source)
+    changed_graph_before = _batch_graph_fingerprints(moved_changed)
+    source_binding_before = deepcopy(moved_source_binding.to_dict())
+    changed_binding_before = deepcopy(moved_changed_binding.to_dict())
+    source_indices_before = (
+        moved_source_binding.selected_global_note_indices_tensor
+        .detach()
+        .clone()
+    )
+    changed_indices_before = (
+        moved_changed_binding.selected_global_note_indices_tensor
+        .detach()
+        .clone()
+    )
+    source_indices_version = int(
+        moved_source_binding.selected_global_note_indices_tensor._version
+    )
+    changed_indices_version = int(
+        moved_changed_binding.selected_global_note_indices_tensor._version
+    )
+    model = _model(401).eval()
+    model_before = {
+        name: value.detach().clone()
+        for name, value in model.state_dict().items()
+    }
+
+    with torch.no_grad():
+        source_output = model.forward_hierarchy(
+            moved_source,
+            prepared_mask_binding=moved_source_binding,
+        )
+        changed_output = model.forward_hierarchy(
+            moved_changed,
+            prepared_mask_binding=moved_changed_binding,
+        )
+
+    assert source_output.mask_plans == changed_output.mask_plans
+    assert source_output.feature_overlay == changed_output.feature_overlay
+    _assert_tensor_equal(
+        source_output.selected_global_note_indices,
+        changed_output.selected_global_note_indices,
+    )
+    for node_type in source_output.online_encoder.fused.embeddings:
+        _assert_tensor_equal(
+            source_output.online_encoder.fused.embeddings[node_type],
+            changed_output.online_encoder.fused.embeddings[node_type],
+        )
+        _assert_tensor_equal(
+            source_output.online_encoder.fused.batch_membership[node_type],
+            changed_output.online_encoder.fused.batch_membership[node_type],
+        )
+    for level in ("note", "bar", "song"):
+        _assert_tensor_equal(
+            getattr(source_output.targets, level),
+            getattr(changed_output.targets, level),
+        )
+    for source_prediction, changed_prediction in zip(
+        source_output.decoder_predictions,
+        changed_output.decoder_predictions,
+        strict=True,
+    ):
+        _assert_tensor_equal(source_prediction, changed_prediction)
+    for source_value, changed_value in (
+        (
+            source_output.note_loss.numerator,
+            changed_output.note_loss.numerator,
+        ),
+        (source_output.note_loss.mean, changed_output.note_loss.mean),
+        (
+            source_output.bar_latent.loss.numerator,
+            changed_output.bar_latent.loss.numerator,
+        ),
+        (
+            source_output.bar_latent.loss.mean,
+            changed_output.bar_latent.loss.mean,
+        ),
+        (
+            source_output.song_latent.loss.numerator,
+            changed_output.song_latent.loss.numerator,
+        ),
+        (
+            source_output.song_latent.loss.mean,
+            changed_output.song_latent.loss.mean,
+        ),
+        (
+            source_output.objective.total_loss,
+            changed_output.objective.total_loss,
+        ),
+    ):
+        assert source_value is not None
+        assert changed_value is not None
+        _assert_tensor_equal(source_value, changed_value)
+
+    assert _batch_graph_fingerprints(moved_source) == source_graph_before
+    assert _batch_graph_fingerprints(moved_changed) == changed_graph_before
+    assert moved_source_binding.to_dict() == source_binding_before
+    assert moved_changed_binding.to_dict() == changed_binding_before
+    assert int(
+        moved_source_binding.selected_global_note_indices_tensor._version
+    ) == source_indices_version
+    assert int(
+        moved_changed_binding.selected_global_note_indices_tensor._version
+    ) == changed_indices_version
+    _assert_tensor_equal(
+        moved_source_binding.selected_global_note_indices_tensor,
+        source_indices_before,
+    )
+    _assert_tensor_equal(
+        moved_changed_binding.selected_global_note_indices_tensor,
+        changed_indices_before,
+    )
+    for name, value in model.state_dict().items():
+        _assert_tensor_equal(value, model_before[name])
+
+
 def test_bounded_benchmark_reports_explicit_measurement_boundaries() -> None:
     report = benchmark_phase8a_policy(
         INDEPENDENT_NOTE_PITCH,
@@ -404,6 +707,12 @@ def test_bounded_benchmark_reports_explicit_measurement_boundaries() -> None:
     assert report["finite_existing_objective_forward"] is True
     assert "not Python heap" in report["measurement_boundary"][
         "retained_plan_metadata"
+    ]
+    assert "O(C*K)=O(C)" in report["measurement_boundary"][
+        "span_selection_complexity"
+    ]
+    assert "O(C+S)" in report["measurement_boundary"][
+        "candidate_generation_retained_state"
     ]
     assert report["counts"]["sample_count"] == 4
     assert report["counts"]["total_nodes"] > 0
@@ -444,8 +753,192 @@ def test_bounded_acceptance_publishes_each_policy_mechanics() -> None:
     )
     assert report["all_policies_independently_exercised"] is True
     assert report["source_batch_unchanged"] is True
+    assert report["mechanics_acceptance_gates"] == {
+        "finite_existing_objectives": True,
+        "loss_decrease_required": False,
+        "positive_correct_target_preference_required": False,
+        "no_leakage_and_pitch_sensitive_evidence_are_separate": True,
+    }
     assert report["cuda_measurement"] is None
+    assert report["optional_cuda_hardware_evidence"]["embedded"] is False
+    assert report["optional_cuda_hardware_evidence"]["status"] == (
+        "pending_independent_exact_final_rtx_run"
+    )
     assert report["quality_claim"] is None
+    diversity = report["span_diversity_audit"]
+    assert diversity["total_valid_candidate_count"] == 6
+    assert diversity["unique_closest_candidate_count"] == 1
+    assert diversity["actual_unique_selection_count"] == 4
+    assert diversity["selected_budget_error_distribution"] == {
+        "0": 14,
+        "1": 50,
+    }
+    assert diversity["fresh_replay_bit_exact"] is True
+    assert diversity[
+        "validation_epochs_0_and_999_bit_exact"
+    ] is True
+    assert diversity["pool_size_one_control"][
+        "actual_unique_selection_count"
+    ] == 1
+    default_audit = diversity["default_bounded_fixture_audit"]
+    assert default_audit["all_rows_have_actual_diversity"] is True
+    assert default_audit["all_rows_replay_bit_exact"] is True
+    assert default_audit[
+        "all_rows_within_configured_budget_slack"
+    ] is True
+    assert [
+        {
+            "policy": row["policy"],
+            "sample_identity": row["sample_identity"],
+            "candidate_evidence": [
+                row["total_valid_candidate_count"],
+                row["best_budget_error"],
+                row["tolerance_candidate_count"],
+                row["admissible_pool_count"],
+            ],
+            "actual_unique_selection_count": (
+                row["actual_unique_selection_count"]
+            ),
+            "selected_budget_error_distribution": (
+                row["selected_budget_error_distribution"]
+            ),
+            "configured_pool_size_limit": (
+                row["configured_pool_size_limit"]
+            ),
+            "configured_budget_error_slack": (
+                row["configured_budget_error_slack"]
+            ),
+            "fresh_replay_bit_exact": row["fresh_replay_bit_exact"],
+            "within_slack": (
+                row[
+                    "all_selected_errors_within_best_plus_slack"
+                ]
+            ),
+        }
+        for row in default_audit["rows"]
+    ] == [
+        {
+            "policy": CONTIGUOUS_BAR_PITCH_SPAN,
+            "sample_identity": [
+                "phase7a-bounded",
+                "piece:phase7a-train-00",
+            ],
+            "candidate_evidence": [5, 1, 3, 3],
+            "actual_unique_selection_count": 3,
+            "selected_budget_error_distribution": {"1": 64},
+            "configured_pool_size_limit": 4,
+            "configured_budget_error_slack": 1,
+            "fresh_replay_bit_exact": True,
+            "within_slack": True,
+        },
+        {
+            "policy": CONTIGUOUS_BAR_PITCH_SPAN,
+            "sample_identity": [
+                "phase7a-bounded",
+                "piece:phase7a-train-01",
+            ],
+            "candidate_evidence": [2, 4, 2, 2],
+            "actual_unique_selection_count": 2,
+            "selected_budget_error_distribution": {"4": 64},
+            "configured_pool_size_limit": 4,
+            "configured_budget_error_slack": 1,
+            "fresh_replay_bit_exact": True,
+            "within_slack": True,
+        },
+        {
+            "policy": CONTIGUOUS_BAR_PITCH_SPAN,
+            "sample_identity": [
+                "phase7a-bounded",
+                "piece:phase7a-train-02",
+            ],
+            "candidate_evidence": [2, 3, 2, 2],
+            "actual_unique_selection_count": 2,
+            "selected_budget_error_distribution": {"3": 64},
+            "configured_pool_size_limit": 4,
+            "configured_budget_error_slack": 1,
+            "fresh_replay_bit_exact": True,
+            "within_slack": True,
+        },
+        {
+            "policy": CONTIGUOUS_BAR_PITCH_SPAN,
+            "sample_identity": [
+                "phase8a-bounded",
+                "piece:phase8a-hierarchy-oracle",
+            ],
+            "candidate_evidence": [5, 0, 2, 2],
+            "actual_unique_selection_count": 2,
+            "selected_budget_error_distribution": {
+                "0": 32,
+                "1": 32,
+            },
+            "configured_pool_size_limit": 4,
+            "configured_budget_error_slack": 1,
+            "fresh_replay_bit_exact": True,
+            "within_slack": True,
+        },
+        {
+            "policy": TRACK_BAR_PITCH_SPAN,
+            "sample_identity": [
+                "phase7a-bounded",
+                "piece:phase7a-train-00",
+            ],
+            "candidate_evidence": [10, 1, 10, 4],
+            "actual_unique_selection_count": 4,
+            "selected_budget_error_distribution": {"1": 64},
+            "configured_pool_size_limit": 4,
+            "configured_budget_error_slack": 1,
+            "fresh_replay_bit_exact": True,
+            "within_slack": True,
+        },
+        {
+            "policy": TRACK_BAR_PITCH_SPAN,
+            "sample_identity": [
+                "phase7a-bounded",
+                "piece:phase7a-train-01",
+            ],
+            "candidate_evidence": [9, 1, 9, 4],
+            "actual_unique_selection_count": 4,
+            "selected_budget_error_distribution": {
+                "1": 44,
+                "2": 20,
+            },
+            "configured_pool_size_limit": 4,
+            "configured_budget_error_slack": 1,
+            "fresh_replay_bit_exact": True,
+            "within_slack": True,
+        },
+        {
+            "policy": TRACK_BAR_PITCH_SPAN,
+            "sample_identity": [
+                "phase7a-bounded",
+                "piece:phase7a-train-02",
+            ],
+            "candidate_evidence": [6, 0, 4, 4],
+            "actual_unique_selection_count": 4,
+            "selected_budget_error_distribution": {"0": 64},
+            "configured_pool_size_limit": 4,
+            "configured_budget_error_slack": 1,
+            "fresh_replay_bit_exact": True,
+            "within_slack": True,
+        },
+        {
+            "policy": TRACK_BAR_PITCH_SPAN,
+            "sample_identity": [
+                "phase8a-bounded",
+                "piece:phase8a-hierarchy-oracle",
+            ],
+            "candidate_evidence": [10, 0, 9, 4],
+            "actual_unique_selection_count": 4,
+            "selected_budget_error_distribution": {
+                "0": 31,
+                "1": 33,
+            },
+            "configured_pool_size_limit": 4,
+            "configured_budget_error_slack": 1,
+            "fresh_replay_bit_exact": True,
+            "within_slack": True,
+        },
+    ]
     assert report["fixture"]["counts"]["train"]["piece_count"] == 4
     assert tuple(report["policies"]) == HIERARCHY_MASK_POLICIES
     for policy, evidence in report["policies"].items():

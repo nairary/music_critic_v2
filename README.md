@@ -21,15 +21,19 @@ It adds note pitch-group masking, owner-track-statistic and peer-note leakage
 closure, shared stop-gradient full-view representation targets, contextual
 decoder re-masking, bar/song latent prediction, target-free raw-cache loading,
 and strict SSL checkpoint/resume and encoder-transfer contracts.
-The accepted CUDA/AMP hotfix in PR #17 resolves runtime CUDA requests to a
-concrete `cuda:N`, validates explicit indices before transfer, computes
-low-precision representation objectives in FP32, and separates no-leakage
-from pitch-sensitive reconstruction evidence.
+The accepted CUDA/AMP hotfix is merged through PR #17 at main
+`5afec305cfa62ab2c200c5b1e7270ae35cd8a102`. It resolves runtime CUDA
+requests to a concrete `cuda:N`, validates explicit indices before transfer,
+computes low-precision representation objectives in FP32, and separates
+no-leakage from pitch-sensitive reconstruction evidence.
 Phase 8A adds deterministic onset, beat, contiguous-bar, and track/bar
 start-descendant pitch masks, explicit policy-mixture/unavailable contracts,
 and distinct hierarchy binding/output envelopes over the same prepared-input
-attestation path. It uses the unchanged Phase 7A objectives only for bounded
-mechanics evidence.
+attestation path. Span policies choose from a versioned, seed-dependent
+bounded near-optimal pool instead of varying only on exact-budget ties. Phase
+8A uses the unchanged Phase 7A objectives only for bounded mechanics evidence
+and remains in draft PR #16 pending final-head review, Required CI, and an
+independent exact-final RTX 3090 acceptance run.
 Decoder context mode
 `online_owner_track_bar_song_temporal_neighbors` retains masked-online
 owner/bar/song/temporal context after latent re-masking, avoiding predictions
@@ -62,7 +66,8 @@ yet.
 Phase 7A reconstruction is SSL representation plumbing only: it is not a
 masked-note likelihood, PLL, critic, quality score, or full-scale effectiveness
 claim. Phase 8A is not completion of Phase 8; comparative multi-level
-objectives remain Phase 8B, and PDMX-scale SSL evaluation remains Phase 10.
+objectives remain Phase 8B, Dilemmadata remains Phase 9, and PDMX-scale SSL
+evaluation remains Phase 10.
 
 ## Layout
 
@@ -132,8 +137,20 @@ PYTHONPATH=src python scripts/benchmark_phase6b.py \
   --larger-repeats 4 --overfit-steps 30
 PYTHONPATH=src python -m music_critic.ssl.run \
   experiment=one_batch model=hierarchical data=bounded device=cpu
+PYTHONPATH=src python scripts/accept_phase8a_hierarchical_masking.py \
+  --output /tmp/phase8a-cpu-acceptance.json
 PYTHONPATH=src python scripts/benchmark_phase8a_hierarchical_masking.py
+PYTHONPATH=src python -m scripts.accept_phase8a_cuda_amp \
+  --device cuda:0 --amp --amp-dtype float16 \
+  --expected-head "$(git rev-parse HEAD)" \
+  --expected-device-name "NVIDIA GeForce RTX 3090" \
+  --portable-report /tmp/phase8a-cpu-acceptance.json \
+  --output /tmp/phase8a-cuda-amp-hardware.json
 ```
+
+The final command is optional hardware acceptance. It requires real CUDA and
+emits a separate `Phase8ACudaAmpHardwareEvidence@1.0.0` artifact; a CPU run or
+CUDA skip is not GPU evidence.
 
 For production-cache SSL, the target-free dataset loads each canonical cache
 piece and rebuilds its raw graph without projecting supervised targets. SSL

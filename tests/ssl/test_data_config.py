@@ -454,22 +454,62 @@ def _loader_evidence(
         for level in ("note", "bar", "song")
     }
     for batch in batches:
-        hierarchy_resolutions = (
-            build_batched_hierarchy_mask_resolutions(
-                batch.raw_graph_batch,
-                dataset_ids=batch.dataset_ids,
-                piece_ids=batch.piece_ids,
-                global_seed=42,
-                epoch=epoch,
-                stage=stage,
-                requested_mask_rate=model.ssl_config.mask_rate,
-                policy_config=HierarchyMaskPolicyConfig(),
+        hierarchy_by_identity: dict[
+            tuple[str, str],
+            list[object],
+        ] = {
+            identity: []
+            for identity in zip(
+                batch.dataset_ids,
+                batch.piece_ids,
+                strict=True,
             )
-        )
-        hierarchy_by_identity = {
-            resolution.sample_identity: resolution.to_dict()
-            for resolution in hierarchy_resolutions
         }
+        hierarchy_epochs = (
+            range(8) if stage == "train" else (0, 999)
+        )
+        for hierarchy_epoch in hierarchy_epochs:
+            hierarchy_resolutions = (
+                build_batched_hierarchy_mask_resolutions(
+                    batch.raw_graph_batch,
+                    dataset_ids=batch.dataset_ids,
+                    piece_ids=batch.piece_ids,
+                    global_seed=42,
+                    epoch=hierarchy_epoch,
+                    stage=stage,
+                    requested_mask_rate=model.ssl_config.mask_rate,
+                    policy_config=HierarchyMaskPolicyConfig(),
+                )
+            )
+            for resolution in hierarchy_resolutions:
+                hierarchy_plan = resolution.plan
+                actual_selection = (
+                    None
+                    if hierarchy_plan is None
+                    else (
+                        hierarchy_plan.mask_policy,
+                        hierarchy_plan.selected_local_unit_indices
+                        if hasattr(
+                            hierarchy_plan,
+                            "selected_local_unit_indices",
+                        )
+                        else hierarchy_plan.selected_local_node_indices,
+                        hierarchy_plan.selected_local_note_indices
+                        if hasattr(
+                            hierarchy_plan,
+                            "selected_local_note_indices",
+                        )
+                        else hierarchy_plan.selected_local_node_indices,
+                    )
+                )
+                hierarchy_by_identity[
+                    resolution.sample_identity
+                ].append(
+                    (
+                        resolution.to_dict(),
+                        actual_selection,
+                    )
+                )
         binding = prepare_mask_binding(
             batch,
             global_seed=42,
@@ -530,7 +570,7 @@ def _loader_evidence(
                 graph_fingerprint(graph),
                 model_input_fingerprint(graph),
                 plan.fingerprint,
-                hierarchy_by_identity[identity],
+                tuple(hierarchy_by_identity[identity]),
                 tuple(
                     (
                         view[sample_index].stable_seed,

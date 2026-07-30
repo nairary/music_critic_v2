@@ -2930,6 +2930,10 @@ named production-cache execution, and any future production/full-corpus claim.
 - approximate the requested hidden-note budget with deterministic
   without-replacement units or bounded spans, while requiring at least one
   primary and one visible pitched note;
+- for span policies, select by versioned bounded near-optimal pool: first
+  derive best budget error, admit error within configured slack, retain the
+  canonical top `K <= 8`, and use stable seed SHA-256 rank inside that pool;
+  defaults are `K=4` and slack `1`, while `K=1` is the exact-closest control;
 - return structured unavailable evidence without fallback;
 - add versioned policy configuration, deterministic eligible-weight
   renormalization/resolution evidence, and realized-frequency reporting;
@@ -2946,14 +2950,28 @@ named production-cache execution, and any future production/full-corpus claim.
   exclusion, and track/bar intersection;
 - plans are target/provenance/diagnostic blind, batch/worker/order invariant,
   validation-epoch canonical, serializable, and graph-immutable;
+- a crafted unique-closest fixture varies actual selected spans over epochs
+  `0..63`, replays exactly, stays in the canonical pool and within the
+  configured budget-error bound, while pool size `1` stays exact-closest;
 - every policy can be enabled/disabled; impossible policies retain a
   structured reason and never enter the encoder;
 - prepared feature/store mutation fails before encoder computation and no
   prepared forward performs graph-sized accelerator-to-host materialization;
 - each policy completes a bounded finite forward/backward through unchanged
   Phase 7A objectives;
-- the independent control remains bit-exact and Phase 7A checkpoint/config/
-  state semantics remain unchanged.
+- the independent control remains bit-exact on CPU and, when CUDA exists,
+  under explicit indexed-CUDA AMP; Phase 7A checkpoint/config/state semantics
+  remain unchanged;
+- optional CUDA/AMP acceptance emits separate versioned hardware evidence
+  with concrete bindings and peak allocated/reserved VRAM, never a fabricated
+  CPU substitute.
+
+Hierarchical plan, policy, policy configuration, selection evidence, prepared
+profile, prepared hierarchy envelope, bounded acceptance, and benchmark
+contracts are `1.1.0`. Mixture, unavailable reason, hierarchy output, fixture,
+and leakage audit remain `1.0.0`. Optional
+`Phase8ACudaAmpHardwareEvidence` begins at `1.0.0`. These changes do not alter
+Phase 7A, graph, data, model, checkpoint, or Phase 6 numerical contracts.
 
 Phase 8A makes only a mechanics claim. It adds no new objective head and does
 not interpret reconstruction as likelihood, PLL, critic output, quality, or

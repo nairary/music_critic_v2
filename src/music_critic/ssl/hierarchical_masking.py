@@ -47,14 +47,19 @@ from music_critic.ssl.masking import (
 )
 
 
-HIERARCHICAL_MASK_PLAN_CONTRACT_VERSION = "1.0.0"
-HIERARCHY_MASK_POLICY_VERSION = "1.0.0"
-HIERARCHY_POLICY_CONFIG_CONTRACT_VERSION = "1.0.0"
+HIERARCHICAL_MASK_PLAN_CONTRACT_VERSION = "1.1.0"
+HIERARCHY_MASK_POLICY_VERSION = "1.1.0"
+HIERARCHY_POLICY_CONFIG_CONTRACT_VERSION = "1.1.0"
 HIERARCHY_POLICY_MIXTURE_CONTRACT_VERSION = "1.0.0"
-HIERARCHY_SELECTION_EVIDENCE_CONTRACT_VERSION = "1.0.0"
+HIERARCHY_SELECTION_EVIDENCE_CONTRACT_VERSION = "1.1.0"
 HIERARCHY_UNAVAILABLE_REASON_CONTRACT_VERSION = "1.0.0"
-HIERARCHY_PREPARED_BINDING_PROFILE_VERSION = "1.0.0"
+HIERARCHY_PREPARED_BINDING_PROFILE_VERSION = "1.1.0"
 MAX_SPAN_BARS = 8
+MAX_SPAN_SELECTION_POOL_SIZE = 8
+MAX_SPAN_BUDGET_ERROR_SLACK = 8
+DEFAULT_SPAN_SELECTION_POOL_SIZE = 4
+DEFAULT_SPAN_BUDGET_ERROR_SLACK = 1
+SPAN_SELECTION_METHOD = "bounded_near_optimal_seed_rank_v1"
 
 INDEPENDENT_NOTE_PITCH = "independent_note_pitch"
 ONSET_PITCH_DESCENDANTS = "onset_pitch_descendants"
@@ -125,7 +130,16 @@ HIERARCHY_MASK_POLICY_CONTRACT_FINGERPRINT = canonical_sha256(
         "max_span_bars": MAX_SPAN_BARS,
         "unit_order": "splitmix64_fisher_yates_v1",
         "budget_crossing": "closest_valid_before_or_after_v1",
-        "span_ties": "stable_seed_sha256_v1",
+        "span_selection": SPAN_SELECTION_METHOD,
+        "span_pool_order": "budget_error_track_start_end_descendants_v1",
+        "max_span_selection_pool_size": MAX_SPAN_SELECTION_POOL_SIZE,
+        "max_span_budget_error_slack": MAX_SPAN_BUDGET_ERROR_SLACK,
+        "default_span_selection_pool_size": (
+            DEFAULT_SPAN_SELECTION_POOL_SIZE
+        ),
+        "default_span_budget_error_slack": (
+            DEFAULT_SPAN_BUDGET_ERROR_SLACK
+        ),
         "mixture_resolution": "stable_seed_weighted_cumulative_v1",
     }
 )
@@ -319,6 +333,12 @@ def _policy_config_payload(
         ],
         "min_span_bars": config.min_span_bars,
         "max_span_bars": config.max_span_bars,
+        "span_selection_pool_size": (
+            config.span_selection_pool_size
+        ),
+        "span_budget_error_slack": (
+            config.span_budget_error_slack
+        ),
         "renormalization": (
             "positive_weights_over_piece_eligible_policies"
         ),
@@ -350,6 +370,8 @@ def validate_hierarchy_policy_config(
         policy_weights=config.policy_weights,
         min_span_bars=config.min_span_bars,
         max_span_bars=config.max_span_bars,
+        span_selection_pool_size=config.span_selection_pool_size,
+        span_budget_error_slack=config.span_budget_error_slack,
     )
     if config != canonical:
         raise HierarchyMaskContractError(
@@ -373,6 +395,8 @@ class HierarchyMaskPolicyConfig:
     )
     min_span_bars: int = 1
     max_span_bars: int = 2
+    span_selection_pool_size: int = DEFAULT_SPAN_SELECTION_POOL_SIZE
+    span_budget_error_slack: int = DEFAULT_SPAN_BUDGET_ERROR_SLACK
     fingerprint: str = field(init=False)
 
     @classmethod
@@ -382,6 +406,12 @@ class HierarchyMaskPolicyConfig:
         weights: Mapping[str, float],
         min_span_bars: int = 1,
         max_span_bars: int = 2,
+        span_selection_pool_size: int = (
+            DEFAULT_SPAN_SELECTION_POOL_SIZE
+        ),
+        span_budget_error_slack: int = (
+            DEFAULT_SPAN_BUDGET_ERROR_SLACK
+        ),
     ) -> HierarchyMaskPolicyConfig:
         if not isinstance(weights, Mapping):
             raise HierarchyMaskContractError(
@@ -409,6 +439,8 @@ class HierarchyMaskPolicyConfig:
             ),
             min_span_bars=min_span_bars,
             max_span_bars=max_span_bars,
+            span_selection_pool_size=span_selection_pool_size,
+            span_budget_error_slack=span_budget_error_slack,
         )
 
     def __post_init__(self) -> None:
@@ -491,6 +523,38 @@ class HierarchyMaskPolicyConfig:
             raise HierarchyMaskContractError(
                 "phase8a.hierarchy.max_span_exceeds_contract_bound"
             )
+        if (
+            isinstance(self.span_selection_pool_size, bool)
+            or not isinstance(self.span_selection_pool_size, int)
+            or self.span_selection_pool_size <= 0
+        ):
+            raise HierarchyMaskContractError(
+                "phase8a.hierarchy.span_selection_pool_size_invalid"
+            )
+        if (
+            self.span_selection_pool_size
+            > MAX_SPAN_SELECTION_POOL_SIZE
+        ):
+            raise HierarchyMaskContractError(
+                "phase8a.hierarchy."
+                "span_selection_pool_size_exceeds_contract_bound"
+            )
+        if (
+            isinstance(self.span_budget_error_slack, bool)
+            or not isinstance(self.span_budget_error_slack, int)
+            or self.span_budget_error_slack < 0
+        ):
+            raise HierarchyMaskContractError(
+                "phase8a.hierarchy.span_budget_error_slack_invalid"
+            )
+        if (
+            self.span_budget_error_slack
+            > MAX_SPAN_BUDGET_ERROR_SLACK
+        ):
+            raise HierarchyMaskContractError(
+                "phase8a.hierarchy."
+                "span_budget_error_slack_exceeds_contract_bound"
+            )
         payload = _policy_config_payload(self)
         object.__setattr__(self, "fingerprint", canonical_sha256(payload))
 
@@ -524,7 +588,16 @@ class SelectedHierarchyUnits:
     span_length_bars: int | None
     selected_local_track_index: int | None
     selected_local_note_descendants: tuple[int, ...]
-    candidate_count: int
+    total_valid_candidate_count: int
+    span_best_budget_error: int | None
+    span_tolerance_candidate_count: int | None
+    span_admissible_pool_count: int | None
+    span_configured_pool_size_limit: int | None
+    span_configured_budget_error_slack: int | None
+    span_selected_budget_error: int | None
+    span_selected_descendant_count: int | None
+    span_realized_mask_rate: float | None
+    span_selection_method: str | None
 
     @classmethod
     def create(
@@ -533,11 +606,20 @@ class SelectedHierarchyUnits:
         policy: HierarchyMaskPolicy,
         selected_local_unit_indices: tuple[int, ...],
         selected_local_note_descendants: tuple[int, ...],
-        candidate_count: int,
+        total_valid_candidate_count: int,
         span_start_bar_index: int | None = None,
         span_end_bar_index: int | None = None,
         span_length_bars: int | None = None,
         selected_local_track_index: int | None = None,
+        span_best_budget_error: int | None = None,
+        span_tolerance_candidate_count: int | None = None,
+        span_admissible_pool_count: int | None = None,
+        span_configured_pool_size_limit: int | None = None,
+        span_configured_budget_error_slack: int | None = None,
+        span_selected_budget_error: int | None = None,
+        span_selected_descendant_count: int | None = None,
+        span_realized_mask_rate: float | None = None,
+        span_selection_method: str | None = None,
     ) -> SelectedHierarchyUnits:
         resolved_policy = _validate_policy(policy)
         return cls(
@@ -556,7 +638,28 @@ class SelectedHierarchyUnits:
             selected_local_note_descendants=(
                 selected_local_note_descendants
             ),
-            candidate_count=candidate_count,
+            total_valid_candidate_count=total_valid_candidate_count,
+            span_best_budget_error=span_best_budget_error,
+            span_tolerance_candidate_count=(
+                span_tolerance_candidate_count
+            ),
+            span_admissible_pool_count=(
+                span_admissible_pool_count
+            ),
+            span_configured_pool_size_limit=(
+                span_configured_pool_size_limit
+            ),
+            span_configured_budget_error_slack=(
+                span_configured_budget_error_slack
+            ),
+            span_selected_budget_error=(
+                span_selected_budget_error
+            ),
+            span_selected_descendant_count=(
+                span_selected_descendant_count
+            ),
+            span_realized_mask_rate=span_realized_mask_rate,
+            span_selection_method=span_selection_method,
         )
 
     def __post_init__(self) -> None:
@@ -581,8 +684,8 @@ class SelectedHierarchyUnits:
             name="selected_note_descendants",
         )
         validate_non_negative_integer(
-            self.candidate_count,
-            name="candidate_count",
+            self.total_valid_candidate_count,
+            name="total_valid_candidate_count",
         )
         if bool(self.selected_local_unit_indices) != bool(
             self.selected_local_note_descendants
@@ -591,7 +694,7 @@ class SelectedHierarchyUnits:
                 "phase8a.hierarchy.selection_units_descendants_mismatch"
             )
         if self.selected_local_unit_indices:
-            if self.candidate_count < 1:
+            if self.total_valid_candidate_count < 1:
                 raise HierarchyMaskContractError(
                     "phase8a.hierarchy.selection_candidate_count_empty"
                 )
@@ -601,7 +704,7 @@ class SelectedHierarchyUnits:
                     ONSET_PITCH_DESCENDANTS,
                     BEAT_PITCH_DESCENDANTS,
                 }
-                and self.candidate_count
+                and self.total_valid_candidate_count
                 < len(self.selected_local_unit_indices)
             ):
                 raise HierarchyMaskContractError(
@@ -622,6 +725,100 @@ class SelectedHierarchyUnits:
             and all(value is None for value in span_values)
             and self.selected_local_track_index is None
         )
+        span_selection_values = (
+            self.span_best_budget_error,
+            self.span_tolerance_candidate_count,
+            self.span_admissible_pool_count,
+            self.span_configured_pool_size_limit,
+            self.span_configured_budget_error_slack,
+            self.span_selected_budget_error,
+            self.span_selected_descendant_count,
+            self.span_realized_mask_rate,
+            self.span_selection_method,
+        )
+        if is_span:
+            for name, value, lower, upper in (
+                (
+                    "span_configured_pool_size_limit",
+                    self.span_configured_pool_size_limit,
+                    1,
+                    MAX_SPAN_SELECTION_POOL_SIZE,
+                ),
+                (
+                    "span_configured_budget_error_slack",
+                    self.span_configured_budget_error_slack,
+                    0,
+                    MAX_SPAN_BUDGET_ERROR_SLACK,
+                ),
+            ):
+                if (
+                    isinstance(value, bool)
+                    or not isinstance(value, int)
+                    or not lower <= value <= upper
+                ):
+                    raise HierarchyMaskContractError(
+                        f"phase8a.hierarchy.selection_{name}_invalid"
+                    )
+            if self.span_selection_method != SPAN_SELECTION_METHOD:
+                raise HierarchyMaskContractError(
+                    "phase8a.hierarchy."
+                    "selection_span_method_incompatible"
+                )
+            for name, value in (
+                (
+                    "span_tolerance_candidate_count",
+                    self.span_tolerance_candidate_count,
+                ),
+                (
+                    "span_admissible_pool_count",
+                    self.span_admissible_pool_count,
+                ),
+            ):
+                if (
+                    isinstance(value, bool)
+                    or not isinstance(value, int)
+                    or value < 0
+                ):
+                    raise HierarchyMaskContractError(
+                        f"phase8a.hierarchy.selection_{name}_invalid"
+                    )
+            tolerance_count = self.span_tolerance_candidate_count
+            pool_count = self.span_admissible_pool_count
+            pool_limit = self.span_configured_pool_size_limit
+            assert tolerance_count is not None
+            assert pool_count is not None
+            assert pool_limit is not None
+            if (
+                tolerance_count > self.total_valid_candidate_count
+                or pool_count != min(tolerance_count, pool_limit)
+            ):
+                raise HierarchyMaskContractError(
+                    "phase8a.hierarchy.selection_span_pool_count_invalid"
+                )
+            if self.total_valid_candidate_count == 0:
+                if (
+                    self.span_best_budget_error is not None
+                    or tolerance_count != 0
+                    or pool_count != 0
+                ):
+                    raise HierarchyMaskContractError(
+                        "phase8a.hierarchy."
+                        "selection_empty_span_pool_invalid"
+                    )
+            elif (
+                isinstance(self.span_best_budget_error, bool)
+                or not isinstance(self.span_best_budget_error, int)
+                or self.span_best_budget_error < 0
+                or tolerance_count < 1
+                or pool_count < 1
+            ):
+                raise HierarchyMaskContractError(
+                    "phase8a.hierarchy.selection_span_best_error_invalid"
+                )
+        elif any(value is not None for value in span_selection_values):
+            raise HierarchyMaskContractError(
+                "phase8a.hierarchy.non_span_has_selection_evidence"
+            )
         if is_span and not empty_unavailable_evidence:
             if any(
                 isinstance(value, bool)
@@ -647,9 +844,48 @@ class SelectedHierarchyUnits:
                 raise HierarchyMaskContractError(
                     "phase8a.hierarchy.selection_span_units_invalid"
                 )
+            best_error = self.span_best_budget_error
+            selected_error = self.span_selected_budget_error
+            selected_descendant_count = (
+                self.span_selected_descendant_count
+            )
+            slack = self.span_configured_budget_error_slack
+            realized_rate = self.span_realized_mask_rate
+            assert best_error is not None
+            assert slack is not None
+            if (
+                isinstance(selected_error, bool)
+                or not isinstance(selected_error, int)
+                or selected_error < best_error
+                or selected_error > best_error + slack
+                or isinstance(selected_descendant_count, bool)
+                or not isinstance(selected_descendant_count, int)
+                or selected_descendant_count
+                != len(self.selected_local_note_descendants)
+                or isinstance(realized_rate, bool)
+                or not isinstance(realized_rate, float)
+                or not math.isfinite(realized_rate)
+                or not 0.0 < realized_rate < 1.0
+            ):
+                raise HierarchyMaskContractError(
+                    "phase8a.hierarchy."
+                    "selection_selected_span_evidence_invalid"
+                )
         elif any(value is not None for value in span_values):
             raise HierarchyMaskContractError(
                 "phase8a.hierarchy.non_span_has_span_evidence"
+            )
+        if is_span and empty_unavailable_evidence and any(
+            value is not None
+            for value in (
+                self.span_selected_budget_error,
+                self.span_selected_descendant_count,
+                self.span_realized_mask_rate,
+            )
+        ):
+            raise HierarchyMaskContractError(
+                "phase8a.hierarchy."
+                "selection_unavailable_has_selected_span_evidence"
             )
         if (
             policy == TRACK_BAR_PITCH_SPAN
@@ -688,9 +924,40 @@ class SelectedHierarchyUnits:
             "selected_local_note_descendants": list(
                 self.selected_local_note_descendants
             ),
-            "candidate_count": self.candidate_count,
+            "total_valid_candidate_count": (
+                self.total_valid_candidate_count
+            ),
+            "span_best_budget_error": self.span_best_budget_error,
+            "span_tolerance_candidate_count": (
+                self.span_tolerance_candidate_count
+            ),
+            "span_admissible_pool_count": (
+                self.span_admissible_pool_count
+            ),
+            "span_configured_pool_size_limit": (
+                self.span_configured_pool_size_limit
+            ),
+            "span_configured_budget_error_slack": (
+                self.span_configured_budget_error_slack
+            ),
+            "span_selected_budget_error": (
+                self.span_selected_budget_error
+            ),
+            "span_selected_descendant_count": (
+                self.span_selected_descendant_count
+            ),
+            "span_realized_mask_rate": (
+                self.span_realized_mask_rate
+            ),
+            "span_selection_method": self.span_selection_method,
             "descendant_semantics": "start_anchored_v1",
         }
+
+    @property
+    def candidate_count(self) -> int:
+        """Compatibility alias for internal callers; not serialized."""
+
+        return self.total_valid_candidate_count
 
 
 def _hierarchical_plan_payload(
@@ -998,8 +1265,23 @@ class HierarchicalMaskPlan:
             raise HierarchyMaskContractError(
                 "phase8a.hierarchy.plan_span_outside_config"
             )
+        if self.resolved_policy in {
+            CONTIGUOUS_BAR_PITCH_SPAN,
+            TRACK_BAR_PITCH_SPAN,
+        } and (
+            self.selection.span_configured_pool_size_limit
+            != config.span_selection_pool_size
+            or self.selection.span_configured_budget_error_slack
+            != config.span_budget_error_slack
+            or self.selection.span_selection_method
+            != SPAN_SELECTION_METHOD
+        ):
+            raise HierarchyMaskContractError(
+                "phase8a.hierarchy."
+                "plan_span_selection_config_mismatch"
+            )
         expected_seed = derive_stable_seed(
-            namespace="music_critic.ssl.hierarchy_mask.plan.v1",
+            namespace="music_critic.ssl.hierarchy_mask.plan.v2",
             global_seed=self.global_seed,
             dataset_id=self.dataset_id,
             piece_id=self.piece_id,
@@ -1094,6 +1376,23 @@ class HierarchicalMaskPlan:
         ):
             raise HierarchyMaskContractError(
                 "phase8a.hierarchy.realized_rate_inconsistent"
+            )
+        if self.resolved_policy in {
+            CONTIGUOUS_BAR_PITCH_SPAN,
+            TRACK_BAR_PITCH_SPAN,
+        } and self.available and (
+            self.selection.span_selected_budget_error
+            != abs(
+                len(selected) - self.requested_hidden_note_count
+            )
+            or self.selection.span_selected_descendant_count
+            != len(selected)
+            or self.selection.span_realized_mask_rate
+            != self.realized_mask_rate
+        ):
+            raise HierarchyMaskContractError(
+                "phase8a.hierarchy."
+                "plan_span_selection_counts_inconsistent"
             )
         if self.available:
             if (
@@ -2189,7 +2488,7 @@ def _plan_seed(
     index: _HierarchyIndex,
 ) -> StableSeed:
     return derive_stable_seed(
-        namespace="music_critic.ssl.hierarchy_mask.plan.v1",
+        namespace="music_critic.ssl.hierarchy_mask.plan.v2",
         global_seed=global_seed,
         dataset_id=identity.dataset_id,
         piece_id=identity.piece_id,
@@ -2467,6 +2766,40 @@ def _track_bar_span_candidates(
     return tuple(candidates)
 
 
+@dataclass(frozen=True, slots=True)
+class _SpanSelection:
+    candidate: tuple[int, int, int | None, tuple[int, ...]]
+    best_budget_error: int
+    tolerance_candidate_count: int
+    admissible_pool_count: int
+    selected_budget_error: int
+
+
+def _span_candidate_identity(
+    candidate: tuple[int, int, int | None, tuple[int, ...]],
+) -> dict[str, object]:
+    return {
+        "start": candidate[0],
+        "end": candidate[1],
+        "track": candidate[2],
+        "descendants": list(candidate[3]),
+    }
+
+
+def _span_canonical_pool_key(
+    candidate: tuple[int, int, int | None, tuple[int, ...]],
+    *,
+    target_count: int,
+) -> tuple[int, int, int, int, tuple[int, ...]]:
+    return (
+        abs(len(candidate[3]) - target_count),
+        candidate[2] if candidate[2] is not None else -1,
+        candidate[0],
+        candidate[1],
+        candidate[3],
+    )
+
+
 def _select_span(
     *,
     candidates: tuple[
@@ -2474,27 +2807,62 @@ def _select_span(
     ],
     target_count: int,
     seed: StableSeed,
-) -> tuple[int, int, int | None, tuple[int, ...]] | None:
+    config: HierarchyMaskPolicyConfig,
+) -> _SpanSelection | None:
     if not candidates:
         return None
-    return min(
-        candidates,
-        key=lambda candidate: (
-            abs(len(candidate[3]) - target_count),
+    best_error = min(
+        abs(len(candidate[3]) - target_count)
+        for candidate in candidates
+    )
+    maximum_error = best_error + config.span_budget_error_slack
+    pool: list[
+        tuple[
+            tuple[int, int, int, int, tuple[int, ...]],
+            tuple[int, int, int | None, tuple[int, ...]],
+        ]
+    ] = []
+    tolerance_candidate_count = 0
+    for candidate in candidates:
+        key = _span_canonical_pool_key(
+            candidate,
+            target_count=target_count,
+        )
+        if key[0] > maximum_error:
+            continue
+        tolerance_candidate_count += 1
+        insert_at = 0
+        while insert_at < len(pool) and pool[insert_at][0] < key:
+            insert_at += 1
+        if (
+            insert_at >= config.span_selection_pool_size
+            and len(pool) >= config.span_selection_pool_size
+        ):
+            continue
+        pool.insert(insert_at, (key, candidate))
+        if len(pool) > config.span_selection_pool_size:
+            pool.pop()
+    if not pool:
+        raise HierarchyMaskContractError(
+            "phase8a.hierarchy.span_pool_empty_after_best_candidate"
+        )
+    selected_key, selected_candidate = min(
+        pool,
+        key=lambda item: (
             _score(
                 seed,
-                purpose="hierarchy_span_tie",
-                value={
-                    "start": candidate[0],
-                    "end": candidate[1],
-                    "track": candidate[2],
-                    "descendants": list(candidate[3]),
-                },
+                purpose=SPAN_SELECTION_METHOD,
+                value=_span_candidate_identity(item[1]),
             ),
-            candidate[2] if candidate[2] is not None else -1,
-            candidate[0],
-            candidate[1],
+            item[0],
         ),
+    )
+    return _SpanSelection(
+        candidate=selected_candidate,
+        best_budget_error=best_error,
+        tolerance_candidate_count=tolerance_candidate_count,
+        admissible_pool_count=len(pool),
+        selected_budget_error=selected_key[0],
     )
 
 
@@ -2549,6 +2917,7 @@ def _unavailable_plan(
     rate: float,
     target_count: int,
     seed: StableSeed,
+    span_selection: _SpanSelection | None = None,
 ) -> HierarchicalMaskPlan:
     reason = HierarchyMaskUnavailableReason.create(
         policy=policy,
@@ -2574,7 +2943,65 @@ def _unavailable_plan(
             policy=policy,
             selected_local_unit_indices=(),
             selected_local_note_descendants=(),
-            candidate_count=candidate_count,
+            total_valid_candidate_count=candidate_count,
+            span_best_budget_error=(
+                None
+                if span_selection is None
+                else span_selection.best_budget_error
+            ),
+            span_tolerance_candidate_count=(
+                (
+                    0
+                    if span_selection is None
+                    else span_selection.tolerance_candidate_count
+                )
+                if policy
+                in {
+                    CONTIGUOUS_BAR_PITCH_SPAN,
+                    TRACK_BAR_PITCH_SPAN,
+                }
+                else None
+            ),
+            span_admissible_pool_count=(
+                (
+                    0
+                    if span_selection is None
+                    else span_selection.admissible_pool_count
+                )
+                if policy
+                in {
+                    CONTIGUOUS_BAR_PITCH_SPAN,
+                    TRACK_BAR_PITCH_SPAN,
+                }
+                else None
+            ),
+            span_configured_pool_size_limit=(
+                config.span_selection_pool_size
+                if policy
+                in {
+                    CONTIGUOUS_BAR_PITCH_SPAN,
+                    TRACK_BAR_PITCH_SPAN,
+                }
+                else None
+            ),
+            span_configured_budget_error_slack=(
+                config.span_budget_error_slack
+                if policy
+                in {
+                    CONTIGUOUS_BAR_PITCH_SPAN,
+                    TRACK_BAR_PITCH_SPAN,
+                }
+                else None
+            ),
+            span_selection_method=(
+                SPAN_SELECTION_METHOD
+                if policy
+                in {
+                    CONTIGUOUS_BAR_PITCH_SPAN,
+                    TRACK_BAR_PITCH_SPAN,
+                }
+                else None
+            ),
         ),
         collateral_feature_masks=(),
         pitched_note_count=index.note_count,
@@ -2613,10 +3040,36 @@ def _hierarchical_plan_from_index(
         requested_mask_rate,
     )
     if requested_mask_rate == 0.0:
+        zero_rate_span_selection: _SpanSelection | None = None
+        if policy in {
+            CONTIGUOUS_BAR_PITCH_SPAN,
+            TRACK_BAR_PITCH_SPAN,
+        }:
+            zero_rate_candidates = (
+                _bar_span_candidates(index=index, config=config)
+                if policy == CONTIGUOUS_BAR_PITCH_SPAN
+                else _track_bar_span_candidates(
+                    index=index,
+                    config=config,
+                )
+            )
+            zero_rate_candidate_count = len(
+                zero_rate_candidates
+            )
+            zero_rate_span_selection = _select_span(
+                candidates=zero_rate_candidates,
+                target_count=target_count,
+                seed=seed,
+                config=config,
+            )
+        else:
+            zero_rate_candidate_count = len(
+                _unit_candidates(policy, index)
+            )
         return _unavailable_plan(
             policy=policy,
             code="zero_requested_mask_rate",
-            candidate_count=0,
+            candidate_count=zero_rate_candidate_count,
             index=index,
             identity=identity,
             config=config,
@@ -2627,6 +3080,7 @@ def _hierarchical_plan_from_index(
             rate=requested_mask_rate,
             target_count=target_count,
             seed=seed,
+            span_selection=zero_rate_span_selection,
         )
     if (
         index.note_count == 0
@@ -2691,7 +3145,7 @@ def _hierarchical_plan_from_index(
                 policy=policy,
                 selected_local_unit_indices=units,
                 selected_local_note_descendants=notes,
-                candidate_count=candidate_count,
+                total_valid_candidate_count=candidate_count,
             )
     else:
         candidates = (
@@ -2712,9 +3166,10 @@ def _hierarchical_plan_from_index(
             candidates=candidates,
             target_count=target_count,
             seed=seed,
+            config=config,
         )
         if chosen_span is not None:
-            start, end, track, notes = chosen_span
+            start, end, track, notes = chosen_span.candidate
             selection = SelectedHierarchyUnits.create(
                 policy=policy,
                 selected_local_unit_indices=tuple(
@@ -2725,7 +3180,30 @@ def _hierarchical_plan_from_index(
                 span_length_bars=end - start + 1,
                 selected_local_track_index=track,
                 selected_local_note_descendants=notes,
-                candidate_count=candidate_count,
+                total_valid_candidate_count=candidate_count,
+                span_best_budget_error=(
+                    chosen_span.best_budget_error
+                ),
+                span_tolerance_candidate_count=(
+                    chosen_span.tolerance_candidate_count
+                ),
+                span_admissible_pool_count=(
+                    chosen_span.admissible_pool_count
+                ),
+                span_configured_pool_size_limit=(
+                    config.span_selection_pool_size
+                ),
+                span_configured_budget_error_slack=(
+                    config.span_budget_error_slack
+                ),
+                span_selected_budget_error=(
+                    chosen_span.selected_budget_error
+                ),
+                span_selected_descendant_count=len(notes),
+                span_realized_mask_rate=(
+                    len(notes) / index.note_count
+                ),
+                span_selection_method=SPAN_SELECTION_METHOD,
             )
     if selection is None:
         return _unavailable_plan(
@@ -3160,6 +3638,8 @@ build_batched_hierarchical_mask_resolutions = (
 __all__ = [
     "BEAT_PITCH_DESCENDANTS",
     "CONTIGUOUS_BAR_PITCH_SPAN",
+    "DEFAULT_SPAN_BUDGET_ERROR_SLACK",
+    "DEFAULT_SPAN_SELECTION_POOL_SIZE",
     "HIERARCHICAL_MASK_PLAN_CONTRACT_VERSION",
     "HIERARCHY_MASK_POLICIES",
     "HIERARCHY_MASK_POLICY_CONTRACT_FINGERPRINT",
@@ -3171,7 +3651,10 @@ __all__ = [
     "HIERARCHY_UNAVAILABLE_REASON_CONTRACT_VERSION",
     "INDEPENDENT_NOTE_PITCH",
     "MAX_SPAN_BARS",
+    "MAX_SPAN_BUDGET_ERROR_SLACK",
+    "MAX_SPAN_SELECTION_POOL_SIZE",
     "ONSET_PITCH_DESCENDANTS",
+    "SPAN_SELECTION_METHOD",
     "TRACK_BAR_PITCH_SPAN",
     "HierarchicalMaskPlan",
     "HierarchyMaskContractError",
