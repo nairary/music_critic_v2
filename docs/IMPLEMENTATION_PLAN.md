@@ -2932,8 +2932,10 @@ named production-cache execution, and any future production/full-corpus claim.
   primary and one visible pitched note;
 - for span policies, select by versioned bounded near-optimal pool: first
   derive best budget error, admit error within configured slack, retain the
-  canonical top `K <= 8`, and use stable seed SHA-256 rank inside that pool;
-  defaults are `K=4` and slack `1`, while `K=1` is the exact-closest control;
+  seed-ranked top `K <= 8` over the complete tolerance set, and use a separate
+  domain-separated stable-seed SHA-256 rank for final choice; the canonical
+  candidate key is only a collision fallback; defaults are `K=4` and slack
+  `1`, while slack `0` is the exact-best control;
 - return structured unavailable evidence without fallback;
 - add versioned policy configuration, deterministic eligible-weight
   renormalization/resolution evidence, and realized-frequency reporting;
@@ -2950,9 +2952,10 @@ named production-cache execution, and any future production/full-corpus claim.
   exclusion, and track/bar intersection;
 - plans are target/provenance/diagnostic blind, batch/worker/order invariant,
   validation-epoch canonical, serializable, and graph-immutable;
-- a crafted unique-closest fixture varies actual selected spans over epochs
-  `0..63`, replays exactly, stays in the canonical pool and within the
-  configured budget-error bound, while pool size `1` stays exact-closest;
+- a crafted unique-closest, many-near-optimal, multi-track fixture over epochs
+  `0..255` replays exactly, selects early/middle/late bars and multiple tracks,
+  escapes the obsolete canonical prefix, permits every tolerance candidate to
+  enter a pool, and stays within the configured budget-error bound;
 - every policy can be enabled/disabled; impossible policies retain a
   structured reason and never enter the encoder;
 - prepared feature/store mutation fails before encoder computation and no
@@ -2968,9 +2971,9 @@ named production-cache execution, and any future production/full-corpus claim.
 
 Hierarchical plan, policy, policy configuration, selection evidence, prepared
 profile, prepared hierarchy envelope, bounded acceptance, and benchmark
-contracts are `1.1.0`. Mixture, unavailable reason, hierarchy output, fixture,
+contracts are `1.2.0`. Mixture, unavailable reason, hierarchy output, fixture,
 and leakage audit remain `1.0.0`. Optional
-`Phase8ACudaAmpHardwareEvidence` begins at `1.0.0`. These changes do not alter
+`Phase8ACudaAmpHardwareEvidence` advances to `1.1.0`. These changes do not alter
 Phase 7A, graph, data, model, checkpoint, or Phase 6 numerical contracts.
 
 Phase 8A makes only a mechanics claim. It adds no new objective head and does

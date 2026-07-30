@@ -1911,3 +1911,66 @@ This log is append-only.
 - Consequences: Phase 8B objectives, Dilemmadata, PDMX, PLL, adaptive masking,
   preference or critic learning, production training, and
   representation-quality claims remain out of scope.
+
+## 2026-07-30 — ADR-057: Phase 8A span pools rank the complete tolerance set
+
+- Status: Accepted for the remaining pre-merge remediation of draft PR #16.
+  This supersedes ADR-056 only where it retained a canonical prefix before
+  applying a seed rank. The PR remains draft; Phase 8B and production
+  training remain unauthorized.
+- Context: ADR-056 admitted every candidate through `best + slack` but then
+  retained the canonically first `K` by error/track/start/end/descendants.
+  With more than `K` equally near-optimal candidates, later tracks and bars
+  could never enter the pool under any seed or epoch. Diversity inside that
+  prefix did not establish coverage of the full tolerance-qualified set.
+- Decision: `bounded_near_optimal_seed_rank_v2` first scans for best budget
+  error and preserves the same `candidate_error <= best + configured_slack`
+  admission rule. For every admitted candidate it computes
+  `stable_seed_sha256_pool_membership_v1`, binding dataset/piece identity,
+  canonical epoch, encoder view, global seed, policy/version, configuration
+  fingerprint, and full canonical candidate identity. A bounded streaming
+  selector retains the `K` smallest ranks. Canonical candidate identity is
+  only the collision fallback.
+- Decision: Final choice uses the distinct
+  `stable_seed_sha256_final_choice_v1` domain over the retained pool. The
+  membership hash is not reused. Enumeration order, Python hash, process RNG,
+  global random state, and unordered iteration cannot affect membership or
+  choice. Validation still canonicalizes epoch to zero.
+- Decision: `span_selection_pool_size` now unambiguously means seed-ranked
+  retained-pool size over the complete tolerance set. `K=1` is a seed-ranked
+  singleton, not a canonical exact-closest control. Slack `0` remains the
+  exact-best admission control. Primary/visible-note rules, start-anchored
+  descendants, track/sample boundaries, and `active_at` exclusion do not
+  change.
+- Decision: Selection evidence binds tolerance and retained counts, both rank
+  method identifiers, the complete selected canonical identity, selected
+  error, and existing budget/realized-rate evidence. The bounded acceptance
+  additionally reports selected start-bar min/max, distinct selected tracks,
+  and obsolete-canonical-prefix escape count.
+- Decision: The positional-bias oracle has 36 tolerance-qualified candidates
+  over three tracks and bars `0..11`, with one unique error-0 candidate and
+  35 error-1 candidates. Across train epochs `0..255`, all 36 enter a retained
+  pool and all 36 are selected; start bars span `0..11`, all three tracks are
+  selected, 224 choices escape the obsolete four-candidate prefix, and error
+  histogram is `0:7, 1:249`. Replay and reverse/permuted enumeration are
+  bit-exact. This is deterministic reachability/mechanics evidence, not a
+  claim of unbiased or uniform random sampling.
+- Decision: Candidate generation retains its existing `O(C+S)` sparse
+  candidates/descendants. Best-error scan plus bounded top-K insertion costs
+  `O(C*K)=O(C)` for contract-fixed `K <= 8`, with `O(K)` selector scratch and
+  no full sort, dense track/bar grid, or `O(B²)` span materialization.
+- Decision: Use a minor rather than patch bump because the meaning of the
+  serialized pool-size field and the plan/evidence selection semantics change
+  incompatibly. Hierarchical plan, policy, configuration, selection evidence,
+  prepared hierarchy profile/envelope, CPU acceptance, and benchmark advance
+  from `1.1.0` to `1.2.0`. CUDA hardware evidence advances from `1.0.0` to
+  `1.1.0` because it binds those portable contracts. Mixture, unavailable
+  reason, hierarchy output, fixture, and leakage audit remain `1.0.0`.
+- Consequences: Policy fingerprint becomes
+  `2d39eb5e1ddf6ad53c626a18b364d0ffae0896663008a4e1422215c0c20fbdb1`;
+  default configuration becomes
+  `e38651e00726ce9681dc015634c5d1f48f11586d07e0faf3187e20bda9ffee67`.
+  Phase 7A, device-transfer, raw graph, feature registry, canonical/cache/
+  split, Phase 6 numerical, model architecture, and checkpoint contracts do
+  not change. Any RTX result for an earlier head is intermediate evidence;
+  exact-final RTX 3090 execution remains a separate pre-merge gate.

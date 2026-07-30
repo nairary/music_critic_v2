@@ -747,14 +747,16 @@ boundaries; and the local bar chain. Unit selection uses a seed-derived
 SplitMix64/Fisher-Yates permutation and linear scans; span enumeration is
 bounded by contract-fixed `max_span_bars <= 8`.
 
-Span policy/configuration/selection `1.1.0` uses a deterministic bounded
-near-optimal pool. A first pass finds the best hidden-note budget error. A
-second admits candidates within configured integer slack, keeps the
-canonically smallest `K` by error/track/start/end/descendants, then chooses
-from that pool by domain-separated seed SHA-256 rank. Defaults are
-`K=4`, slack `1`; contract bounds are `K <= 8`, slack `<= 8`. Pool size `1`
-is the canonical exact-closest control. Candidate enumeration remains sparse
-and no unbounded sort or dense matrix is constructed. Selection uses
+Span policy/configuration/selection `1.2.0` uses a deterministic bounded
+near-optimal pool over the complete tolerance-qualified set. A first pass
+finds the best hidden-note budget error. A second admits candidates within
+configured integer slack and keeps the `K` smallest domain-separated
+seed-dependent membership ranks. A separate SHA-256 domain chooses the final
+candidate from that pool; the canonical track/start/end/descendants key is
+only the collision fallback. Defaults are `K=4`, slack `1`; bounds are
+`K <= 8`, slack `<= 8`. Pool size `1` means a seed-ranked singleton, while
+slack `0` is the exact-best control. Candidate enumeration remains sparse and
+no unbounded sort or dense matrix is constructed. Selection uses
 `O(C*K)=O(C)` time under the fixed bound and `O(K)` scratch beyond existing
 `O(C+S)` candidate/descendant retention.
 
@@ -764,7 +766,7 @@ renormalized weights, and resolved policy.
 
 The pitch-only overlay and collateral closure are unchanged. Hierarchy
 execution uses the distinct versioned
-`PreparedHierarchyMaskBinding@1.1.0` envelope and
+`PreparedHierarchyMaskBinding@1.2.0` envelope and
 `Phase8AHierarchySSLForwardOutput@1.0.0`; both remain outside the portable
 Phase 7A binding/output shapes. The hierarchy binding reuses the exact
 `PreparedMaskBinding@1.1.0` graph/store/tensor attestation kernel, HMAC, opaque
@@ -778,12 +780,12 @@ Phase 8A changes no canonical/raw graph/cache/target contract, does not insert
 mask evidence into PyG stores, and adds no model parameter or checkpoint
 metadata. Its supplemental oracle wraps rather than modifies the immutable
 Phase 7A fixture. Hierarchical plan, policy, configuration, selection,
-prepared profile, and prepared envelope are `1.1.0`; mixture, unavailable
+prepared profile, and prepared envelope are `1.2.0`; mixture, unavailable
 reason, hierarchy output, fixture, and leakage audit remain `1.0.0`.
 Portable CPU acceptance excludes GPU name, driver/runtime observations,
 timing, and VRAM. Optional explicit-`cuda:0` AMP acceptance emits those
 observations only in a separate
-`Phase8ACudaAmpHardwareEvidence@1.0.0` artifact and skips honestly when CUDA
+`Phase8ACudaAmpHardwareEvidence@1.1.0` artifact and skips honestly when CUDA
 is unavailable. An independent exact-final RTX 3090 artifact remains a
 pre-merge gate, not portable CPU evidence.
 Detailed policy, leakage, complexity, version, bounded default audit, and

@@ -20,7 +20,11 @@ from music_critic.ssl.bounded_fixture import (
     build_phase7a_bounded_fixture,
     mutate_piece_pitch_group,
 )
-from music_critic.ssl.contracts import MaskPlan, StableSeed
+from music_critic.ssl.contracts import (
+    MaskPlan,
+    SampleIdentity,
+    StableSeed,
+)
 from music_critic.ssl.data import collate_ssl_samples
 from music_critic.ssl.field_registry import NOTE_PITCH_GROUP
 from music_critic.ssl.hierarchical_masking import (
@@ -38,6 +42,8 @@ from music_critic.ssl.hierarchical_masking import (
     MAX_SPAN_BUDGET_ERROR_SLACK,
     MAX_SPAN_SELECTION_POOL_SIZE,
     ONSET_PITCH_DESCENDANTS,
+    SPAN_FINAL_CHOICE_RANK_METHOD,
+    SPAN_POOL_MEMBERSHIP_RANK_METHOD,
     SPAN_SELECTION_METHOD,
     TRACK_BAR_PITCH_SPAN,
     HierarchicalMaskPlan,
@@ -68,6 +74,7 @@ from music_critic.ssl.hierarchy_leakage import (
     build_phase8a_pitch_leakage_audit,
 )
 from music_critic.ssl.masking import (
+    derive_stable_seed,
     prepare_hierarchy_mask_binding,
     prepare_mask_binding,
 )
@@ -90,10 +97,10 @@ _HIERARCHICAL_POLICIES = (
 )
 
 _ORACLE_PLANNER_PARAMETERS = {
-    ONSET_PITCH_DESCENDANTS: (1, 0.23),
+    ONSET_PITCH_DESCENDANTS: (6, 0.23),
     BEAT_PITCH_DESCENDANTS: (4, 0.34),
     CONTIGUOUS_BAR_PITCH_SPAN: (0, 0.34),
-    TRACK_BAR_PITCH_SPAN: (0, 0.23),
+    TRACK_BAR_PITCH_SPAN: (4, 0.23),
 }
 
 
@@ -327,8 +334,8 @@ def test_hand_computed_policy_oracles(
     assert isinstance(plan, HierarchicalMaskPlan)
     assert plan.contract_version == (
         HIERARCHICAL_MASK_PLAN_CONTRACT_VERSION
-    ) == "1.1.0"
-    assert plan.policy_version == HIERARCHY_MASK_POLICY_VERSION == "1.1.0"
+    ) == "1.2.0"
+    assert plan.policy_version == HIERARCHY_MASK_POLICY_VERSION == "1.2.0"
     assert plan.available
     assert plan.resolved_policy == oracle.policy
     assert plan.selected_unit_node_type == oracle.selected_unit_node_type
@@ -370,7 +377,7 @@ def test_onset_polyphony_is_selected_as_an_indivisible_descendant_unit(
         oracle_graph,
         oracle_piece,
         ONSET_PITCH_DESCENDANTS,
-        global_seed=20,
+        global_seed=1,
         requested_mask_rate=0.23,
         config=_single_policy_config(
             ONSET_PITCH_DESCENDANTS,
@@ -615,10 +622,71 @@ def _single_bar_track_candidates(
     return tuple(candidates)
 
 
-def test_unique_closest_track_span_has_repeatable_near_optimal_diversity(
-    oracle_graph,
-    oracle_piece,
-) -> None:
+def _positional_bias_oracle_candidates() -> tuple[
+    tuple[int, int, int, tuple[int, ...]], ...
+]:
+    candidates = []
+    next_note = 2
+    for track in range(3):
+        for bar in range(12):
+            if track == 0 and bar == 0:
+                descendants = (0, 1)
+            else:
+                descendants = (next_note,)
+                next_note += 1
+            candidates.append((bar, bar, track, descendants))
+    return tuple(candidates)
+
+
+def _positional_bias_oracle_sequence(
+    *,
+    candidates: tuple[
+        tuple[int, int, int, tuple[int, ...]], ...
+    ],
+    config: HierarchyMaskPolicyConfig,
+    stage: str = "train",
+    requested_epochs: range = range(256),
+) -> tuple[object, ...]:
+    identity = SampleIdentity(
+        "phase8a-selection-bias-oracle",
+        "piece:early-middle-late-multitrack",
+    )
+    selections = []
+    for requested_epoch in requested_epochs:
+        canonical_epoch = (
+            requested_epoch if stage == "train" else 0
+        )
+        seed = derive_stable_seed(
+            namespace="music_critic.ssl.test.span_rank_oracle.v1",
+            global_seed=42,
+            dataset_id=identity.dataset_id,
+            piece_id=identity.piece_id,
+            epoch=canonical_epoch,
+            view_index=0,
+            extra={
+                "stage": stage,
+                "policy": TRACK_BAR_PITCH_SPAN,
+                "policy_configuration_fingerprint": config.fingerprint,
+            },
+        )
+        selection = hierarchy_masking_module._select_span(
+            candidates=candidates,
+            target_count=2,
+            seed=seed,
+            config=config,
+            identity=identity,
+            stage=stage,
+            epoch=canonical_epoch,
+            encoder_view_index=0,
+            global_seed=42,
+            policy=TRACK_BAR_PITCH_SPAN,
+        )
+        assert selection is not None
+        selections.append(selection)
+    return tuple(selections)
+
+
+def test_seed_ranked_pool_escapes_old_canonical_prefix_bit_exact() -> None:
     config = _single_policy_config(
         TRACK_BAR_PITCH_SPAN,
         min_span_bars=1,
@@ -626,17 +694,16 @@ def test_unique_closest_track_span_has_repeatable_near_optimal_diversity(
         span_selection_pool_size=4,
         span_budget_error_slack=1,
     )
-    target_count = 2
-    candidates = _single_bar_track_candidates(oracle_graph)
+    candidates = _positional_bias_oracle_candidates()
     errors = tuple(
-        abs(len(candidate[3]) - target_count)
+        abs(len(candidate[3]) - 2)
         for candidate in candidates
     )
-    canonical_pool = tuple(
+    old_canonical_prefix = tuple(
         sorted(
             candidates,
             key=lambda candidate: (
-                abs(len(candidate[3]) - target_count),
+                abs(len(candidate[3]) - 2),
                 candidate[2],
                 candidate[0],
                 candidate[1],
@@ -644,70 +711,78 @@ def test_unique_closest_track_span_has_repeatable_near_optimal_diversity(
             ),
         )[: config.span_selection_pool_size]
     )
-
-    def sequence() -> tuple[HierarchicalMaskPlan, ...]:
-        return tuple(
-            _plan(
-                oracle_graph,
-                oracle_piece,
-                TRACK_BAR_PITCH_SPAN,
-                global_seed=42,
-                epoch=epoch,
-                requested_mask_rate=0.30,
-                config=config,
-            )
-            for epoch in range(64)
-        )
-
-    first = sequence()
-    repeated = sequence()
-    actual = tuple(_actual_span(plan) for plan in first)
-
-    assert len(candidates) == 6
-    assert errors.count(0) == 1
-    assert errors.count(1) == 5
-    assert first == repeated
-    assert actual == tuple(_actual_span(plan) for plan in repeated)
-    assert len(set(actual)) == 4
-    assert sum(
-        plan.selection.span_selected_budget_error == 0
-        for plan in first
-    ) == 14
-    assert sum(
-        plan.selection.span_selected_budget_error == 1
-        for plan in first
-    ) == 50
-    assert all(
-        (
-            plan.span_start_bar_index,
-            plan.span_end_bar_index,
-            plan.selected_local_track_index,
-            plan.selected_local_note_indices,
-        )
-        in canonical_pool
-        for plan in first
+    permuted = candidates[::2] + candidates[1::2]
+    first = _positional_bias_oracle_sequence(
+        candidates=candidates,
+        config=config,
     )
-    for plan in first:
-        selection = plan.selection
-        assert selection.total_valid_candidate_count == 6
-        assert selection.span_best_budget_error == 0
-        assert selection.span_tolerance_candidate_count == 6
-        assert selection.span_admissible_pool_count == 4
-        assert selection.span_configured_pool_size_limit == 4
-        assert selection.span_configured_budget_error_slack == 1
-        assert selection.span_selected_budget_error in {0, 1}
-        assert selection.span_selected_descendant_count == len(
-            plan.selected_local_note_indices
-        )
-        assert (
-            selection.span_realized_mask_rate
-            == plan.realized_mask_rate
-        )
-        assert selection.span_selection_method == SPAN_SELECTION_METHOD
-        assert plan.visible_pitched_note_count >= 1
+    repeated = _positional_bias_oracle_sequence(
+        candidates=candidates,
+        config=config,
+    )
+    reversed_order = _positional_bias_oracle_sequence(
+        candidates=tuple(reversed(candidates)),
+        config=config,
+    )
+    permuted_order = _positional_bias_oracle_sequence(
+        candidates=permuted,
+        config=config,
+    )
+    actual = tuple(selection.candidate for selection in first)
+    retained_union = {
+        candidate
+        for selection in first
+        for candidate in selection.retained_pool_candidates
+    }
+    selected_bars = tuple(candidate[0] for candidate in actual)
+    selected_tracks = {candidate[2] for candidate in actual}
+    canonical_prefix_escape_count = sum(
+        candidate not in old_canonical_prefix
+        for candidate in actual
+    )
+
+    assert len(candidates) == 36
+    assert errors.count(0) == 1
+    assert errors.count(1) == 35
+    assert first == repeated
+    assert actual == tuple(
+        selection.candidate for selection in repeated
+    )
+    assert first == reversed_order == permuted_order
+    assert set(actual) == set(candidates)
+    assert retained_union == set(candidates)
+    assert canonical_prefix_escape_count > 0
+    assert max(selected_bars) >= 10
+    assert min(selected_bars) == 0
+    assert len(selected_tracks) > 1
+    assert all(
+        selection.best_budget_error == 0
+        and selection.tolerance_candidate_count == 36
+        and selection.admissible_pool_count == 4
+        and selection.selected_budget_error <= 1
+        and selection.candidate in candidates
+        for selection in first
+    )
+    validation_zero = _positional_bias_oracle_sequence(
+        candidates=candidates,
+        config=config,
+        stage="validation",
+        requested_epochs=range(1),
+    )
+    validation_later = _positional_bias_oracle_sequence(
+        candidates=candidates,
+        config=config,
+        stage="validation",
+        requested_epochs=range(999, 1000),
+    )
+    assert validation_zero == validation_later
+    assert (
+        validation_zero[0].candidate
+        == validation_later[0].candidate
+    )
 
 
-def test_span_pool_one_is_exact_closest_control_and_config_is_bound(
+def test_span_pool_one_is_seed_ranked_and_slack_zero_is_exact_control(
     oracle_graph,
     oracle_piece,
 ) -> None:
@@ -718,7 +793,7 @@ def test_span_pool_one_is_exact_closest_control_and_config_is_bound(
         span_selection_pool_size=4,
         span_budget_error_slack=1,
     )
-    closest = _single_policy_config(
+    singleton = _single_policy_config(
         TRACK_BAR_PITCH_SPAN,
         min_span_bars=1,
         max_span_bars=1,
@@ -732,14 +807,14 @@ def test_span_pool_one_is_exact_closest_control_and_config_is_bound(
         span_selection_pool_size=4,
         span_budget_error_slack=0,
     )
-    closest_plans = tuple(
+    singleton_plans = tuple(
         _plan(
             oracle_graph,
             oracle_piece,
             TRACK_BAR_PITCH_SPAN,
             epoch=epoch,
             requested_mask_rate=0.30,
-            config=closest,
+            config=singleton,
         )
         for epoch in range(64)
     )
@@ -763,16 +838,20 @@ def test_span_pool_one_is_exact_closest_control_and_config_is_bound(
         config=diverse,
     )
 
-    assert len({_actual_span(plan) for plan in closest_plans}) == 1
+    assert len({_actual_span(plan) for plan in singleton_plans}) > 1
     assert len({_actual_span(plan) for plan in strict_plans}) == 1
+    assert all(
+        plan.selection.span_admissible_pool_count == 1
+        for plan in singleton_plans
+    )
     assert all(
         plan.selection.span_selected_budget_error == 0
         and plan.selection.span_admissible_pool_count == 1
-        for plan in (*closest_plans, *strict_plans)
+        for plan in strict_plans
     )
-    assert closest.fingerprint != diverse.fingerprint
+    assert singleton.fingerprint != diverse.fingerprint
     assert strict.fingerprint != diverse.fingerprint
-    assert closest_plans[0].fingerprint != diverse_plan.fingerprint
+    assert singleton_plans[0].fingerprint != diverse_plan.fingerprint
 
 
 def test_span_sequence_binds_seed_view_and_canonical_validation_epoch(
@@ -840,6 +919,50 @@ def test_span_sequence_binds_seed_view_and_canonical_validation_epoch(
     assert zero == later
     assert _actual_span(zero) == _actual_span(later)
     assert zero.epoch == later.epoch == 0
+    selection = zero.selection
+    assert selection.span_selection_method == SPAN_SELECTION_METHOD
+    assert selection.span_pool_membership_rank_method == (
+        SPAN_POOL_MEMBERSHIP_RANK_METHOD
+    )
+    assert selection.span_final_choice_rank_method == (
+        SPAN_FINAL_CHOICE_RANK_METHOD
+    )
+    assert selection.to_dict()[
+        "span_selected_candidate_canonical_identity"
+    ] == {
+        "start": zero.span_start_bar_index,
+        "end": zero.span_end_bar_index,
+        "track": zero.selected_local_track_index,
+        "descendants": list(zero.selected_local_note_indices),
+    }
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    (
+        ("span_selection_method", "forged"),
+        ("span_pool_membership_rank_method", "forged"),
+        ("span_final_choice_rank_method", "forged"),
+    ),
+)
+def test_span_rank_method_evidence_fails_closed(
+    oracle_graph,
+    oracle_piece,
+    field_name: str,
+    value: str,
+) -> None:
+    plan = _plan(
+        oracle_graph,
+        oracle_piece,
+        TRACK_BAR_PITCH_SPAN,
+        requested_mask_rate=0.30,
+    )
+
+    with pytest.raises(
+        HierarchyMaskContractError,
+        match="selection_span_.*method_incompatible",
+    ):
+        replace(plan.selection, **{field_name: value})
 
 
 def test_span_candidate_enumeration_order_does_not_change_selection(
@@ -1410,18 +1533,27 @@ def test_span_pool_configuration_fails_closed(
 def test_span_selection_contract_versions_defaults_and_fingerprints() -> None:
     config = HierarchyMaskPolicyConfig()
 
-    assert HIERARCHICAL_MASK_PLAN_CONTRACT_VERSION == "1.1.0"
-    assert HIERARCHY_MASK_POLICY_VERSION == "1.1.0"
-    assert HIERARCHY_POLICY_CONFIG_CONTRACT_VERSION == "1.1.0"
-    assert HIERARCHY_SELECTION_EVIDENCE_CONTRACT_VERSION == "1.1.0"
-    assert HIERARCHY_PREPARED_BINDING_PROFILE_VERSION == "1.1.0"
+    assert HIERARCHICAL_MASK_PLAN_CONTRACT_VERSION == "1.2.0"
+    assert HIERARCHY_MASK_POLICY_VERSION == "1.2.0"
+    assert HIERARCHY_POLICY_CONFIG_CONTRACT_VERSION == "1.2.0"
+    assert HIERARCHY_SELECTION_EVIDENCE_CONTRACT_VERSION == "1.2.0"
+    assert HIERARCHY_PREPARED_BINDING_PROFILE_VERSION == "1.2.0"
     assert config.span_selection_pool_size == 4
     assert config.span_budget_error_slack == 1
     assert config.fingerprint == (
-        "2e53d771d67a33d2db426033850ca57bccf0d6e284954141ccdeb28e8af3d760"
+        "e38651e00726ce9681dc015634c5d1f48f11586d07e0faf3187e20bda9ffee67"
     )
     assert HIERARCHY_MASK_POLICY_CONTRACT_FINGERPRINT == (
-        "a2ad4fdd4c283413a1a7050a7471ea7fe86f29c95f17bf011cf4948f72547954"
+        "2d39eb5e1ddf6ad53c626a18b364d0ffae0896663008a4e1422215c0c20fbdb1"
+    )
+    assert SPAN_SELECTION_METHOD == (
+        "bounded_near_optimal_seed_rank_v2"
+    )
+    assert SPAN_POOL_MEMBERSHIP_RANK_METHOD == (
+        "stable_seed_sha256_pool_membership_v1"
+    )
+    assert SPAN_FINAL_CHOICE_RANK_METHOD == (
+        "stable_seed_sha256_final_choice_v1"
     )
 
 

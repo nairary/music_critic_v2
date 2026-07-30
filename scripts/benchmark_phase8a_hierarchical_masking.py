@@ -50,7 +50,7 @@ from music_critic.ssl.model import (
 )
 from music_critic.ssl.views import build_feature_mask_overlay
 
-PHASE8A_MASKING_BENCHMARK_CONTRACT_VERSION = "1.1.0"
+PHASE8A_MASKING_BENCHMARK_CONTRACT_VERSION = "1.2.0"
 
 _ONSET_STARTS_NOTE = ("onset", "starts_note", "note")
 _BEAT_CONTAINS_ONSET = ("beat", "contains_onset", "onset")
@@ -521,9 +521,10 @@ def benchmark_phase8a_policy(
                 "CUDA allocation, or checkpoint size"
             ),
             "span_selection_complexity": (
-                "two passes over C candidates plus bounded insertion: "
-                "O(C*K)=O(C) because K<=8; O(K) selection scratch; "
-                "no full candidate sort"
+                "best-error pass plus seed-ranked streaming top-K "
+                "membership selection and separately domain-ranked final "
+                "choice: O(C*K)=O(C) because K<=8; O(K) selector "
+                "scratch; no full candidate sort"
             ),
             "candidate_generation_retained_state": (
                 "existing sparse generators retain O(C+S) candidate and "

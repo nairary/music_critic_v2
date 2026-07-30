@@ -47,19 +47,25 @@ from music_critic.ssl.masking import (
 )
 
 
-HIERARCHICAL_MASK_PLAN_CONTRACT_VERSION = "1.1.0"
-HIERARCHY_MASK_POLICY_VERSION = "1.1.0"
-HIERARCHY_POLICY_CONFIG_CONTRACT_VERSION = "1.1.0"
+HIERARCHICAL_MASK_PLAN_CONTRACT_VERSION = "1.2.0"
+HIERARCHY_MASK_POLICY_VERSION = "1.2.0"
+HIERARCHY_POLICY_CONFIG_CONTRACT_VERSION = "1.2.0"
 HIERARCHY_POLICY_MIXTURE_CONTRACT_VERSION = "1.0.0"
-HIERARCHY_SELECTION_EVIDENCE_CONTRACT_VERSION = "1.1.0"
+HIERARCHY_SELECTION_EVIDENCE_CONTRACT_VERSION = "1.2.0"
 HIERARCHY_UNAVAILABLE_REASON_CONTRACT_VERSION = "1.0.0"
-HIERARCHY_PREPARED_BINDING_PROFILE_VERSION = "1.1.0"
+HIERARCHY_PREPARED_BINDING_PROFILE_VERSION = "1.2.0"
 MAX_SPAN_BARS = 8
 MAX_SPAN_SELECTION_POOL_SIZE = 8
 MAX_SPAN_BUDGET_ERROR_SLACK = 8
 DEFAULT_SPAN_SELECTION_POOL_SIZE = 4
 DEFAULT_SPAN_BUDGET_ERROR_SLACK = 1
-SPAN_SELECTION_METHOD = "bounded_near_optimal_seed_rank_v1"
+SPAN_SELECTION_METHOD = "bounded_near_optimal_seed_rank_v2"
+SPAN_POOL_MEMBERSHIP_RANK_METHOD = (
+    "stable_seed_sha256_pool_membership_v1"
+)
+SPAN_FINAL_CHOICE_RANK_METHOD = (
+    "stable_seed_sha256_final_choice_v1"
+)
 
 INDEPENDENT_NOTE_PITCH = "independent_note_pitch"
 ONSET_PITCH_DESCENDANTS = "onset_pitch_descendants"
@@ -131,7 +137,13 @@ HIERARCHY_MASK_POLICY_CONTRACT_FINGERPRINT = canonical_sha256(
         "unit_order": "splitmix64_fisher_yates_v1",
         "budget_crossing": "closest_valid_before_or_after_v1",
         "span_selection": SPAN_SELECTION_METHOD,
-        "span_pool_order": "budget_error_track_start_end_descendants_v1",
+        "span_pool_membership_rank": (
+            SPAN_POOL_MEMBERSHIP_RANK_METHOD
+        ),
+        "span_final_choice_rank": SPAN_FINAL_CHOICE_RANK_METHOD,
+        "span_rank_collision_fallback": (
+            "track_start_end_descendants_v1"
+        ),
         "max_span_selection_pool_size": MAX_SPAN_SELECTION_POOL_SIZE,
         "max_span_budget_error_slack": MAX_SPAN_BUDGET_ERROR_SLACK,
         "default_span_selection_pool_size": (
@@ -598,6 +610,8 @@ class SelectedHierarchyUnits:
     span_selected_descendant_count: int | None
     span_realized_mask_rate: float | None
     span_selection_method: str | None
+    span_pool_membership_rank_method: str | None
+    span_final_choice_rank_method: str | None
 
     @classmethod
     def create(
@@ -620,6 +634,8 @@ class SelectedHierarchyUnits:
         span_selected_descendant_count: int | None = None,
         span_realized_mask_rate: float | None = None,
         span_selection_method: str | None = None,
+        span_pool_membership_rank_method: str | None = None,
+        span_final_choice_rank_method: str | None = None,
     ) -> SelectedHierarchyUnits:
         resolved_policy = _validate_policy(policy)
         return cls(
@@ -660,6 +676,12 @@ class SelectedHierarchyUnits:
             ),
             span_realized_mask_rate=span_realized_mask_rate,
             span_selection_method=span_selection_method,
+            span_pool_membership_rank_method=(
+                span_pool_membership_rank_method
+            ),
+            span_final_choice_rank_method=(
+                span_final_choice_rank_method
+            ),
         )
 
     def __post_init__(self) -> None:
@@ -735,6 +757,8 @@ class SelectedHierarchyUnits:
             self.span_selected_descendant_count,
             self.span_realized_mask_rate,
             self.span_selection_method,
+            self.span_pool_membership_rank_method,
+            self.span_final_choice_rank_method,
         )
         if is_span:
             for name, value, lower, upper in (
@@ -763,6 +787,16 @@ class SelectedHierarchyUnits:
                 raise HierarchyMaskContractError(
                     "phase8a.hierarchy."
                     "selection_span_method_incompatible"
+                )
+            if (
+                self.span_pool_membership_rank_method
+                != SPAN_POOL_MEMBERSHIP_RANK_METHOD
+                or self.span_final_choice_rank_method
+                != SPAN_FINAL_CHOICE_RANK_METHOD
+            ):
+                raise HierarchyMaskContractError(
+                    "phase8a.hierarchy."
+                    "selection_span_rank_method_incompatible"
                 )
             for name, value in (
                 (
@@ -950,6 +984,24 @@ class SelectedHierarchyUnits:
                 self.span_realized_mask_rate
             ),
             "span_selection_method": self.span_selection_method,
+            "span_pool_membership_rank_method": (
+                self.span_pool_membership_rank_method
+            ),
+            "span_final_choice_rank_method": (
+                self.span_final_choice_rank_method
+            ),
+            "span_selected_candidate_canonical_identity": (
+                None
+                if self.span_start_bar_index is None
+                else {
+                    "start": self.span_start_bar_index,
+                    "end": self.span_end_bar_index,
+                    "track": self.selected_local_track_index,
+                    "descendants": list(
+                        self.selected_local_note_descendants
+                    ),
+                }
+            ),
             "descendant_semantics": "start_anchored_v1",
         }
 
@@ -1275,6 +1327,10 @@ class HierarchicalMaskPlan:
             != config.span_budget_error_slack
             or self.selection.span_selection_method
             != SPAN_SELECTION_METHOD
+            or self.selection.span_pool_membership_rank_method
+            != SPAN_POOL_MEMBERSHIP_RANK_METHOD
+            or self.selection.span_final_choice_rank_method
+            != SPAN_FINAL_CHOICE_RANK_METHOD
         ):
             raise HierarchyMaskContractError(
                 "phase8a.hierarchy."
@@ -2769,6 +2825,9 @@ def _track_bar_span_candidates(
 @dataclass(frozen=True, slots=True)
 class _SpanSelection:
     candidate: tuple[int, int, int | None, tuple[int, ...]]
+    retained_pool_candidates: tuple[
+        tuple[int, int, int | None, tuple[int, ...]], ...
+    ]
     best_budget_error: int
     tolerance_candidate_count: int
     admissible_pool_count: int
@@ -2786,17 +2845,51 @@ def _span_candidate_identity(
     }
 
 
-def _span_canonical_pool_key(
+def _span_canonical_candidate_key(
     candidate: tuple[int, int, int | None, tuple[int, ...]],
-    *,
-    target_count: int,
-) -> tuple[int, int, int, int, tuple[int, ...]]:
+) -> tuple[int, int, int, tuple[int, ...]]:
     return (
-        abs(len(candidate[3]) - target_count),
         candidate[2] if candidate[2] is not None else -1,
         candidate[0],
         candidate[1],
         candidate[3],
+    )
+
+
+def _span_candidate_rank(
+    *,
+    candidate: tuple[int, int, int | None, tuple[int, ...]],
+    rank_method: str,
+    seed: StableSeed,
+    identity: SampleIdentity,
+    stage: MaskStage,
+    epoch: int,
+    encoder_view_index: int,
+    global_seed: int,
+    policy: HierarchyMaskPolicy,
+    config: HierarchyMaskPolicyConfig,
+) -> str:
+    """Return a domain-separated rank binding the full plan identity."""
+
+    return canonical_sha256(
+        {
+            "rank_method": rank_method,
+            "stable_seed_sha256": seed.sha256,
+            "sample_identity": {
+                "dataset_id": identity.dataset_id,
+                "piece_id": identity.piece_id,
+            },
+            "stage": stage,
+            "canonical_epoch": epoch,
+            "encoder_view_index": encoder_view_index,
+            "global_seed": global_seed,
+            "policy": policy,
+            "policy_version": HIERARCHY_MASK_POLICY_VERSION,
+            "policy_configuration_fingerprint": config.fingerprint,
+            "candidate_canonical_identity": (
+                _span_candidate_identity(candidate)
+            ),
+        }
     )
 
 
@@ -2808,6 +2901,12 @@ def _select_span(
     target_count: int,
     seed: StableSeed,
     config: HierarchyMaskPolicyConfig,
+    identity: SampleIdentity,
+    stage: MaskStage,
+    epoch: int,
+    encoder_view_index: int,
+    global_seed: int,
+    policy: HierarchyMaskPolicy,
 ) -> _SpanSelection | None:
     if not candidates:
         return None
@@ -2818,51 +2917,84 @@ def _select_span(
     maximum_error = best_error + config.span_budget_error_slack
     pool: list[
         tuple[
-            tuple[int, int, int, int, tuple[int, ...]],
+            str,
+            tuple[int, int, int, tuple[int, ...]],
+            int,
             tuple[int, int, int | None, tuple[int, ...]],
         ]
     ] = []
     tolerance_candidate_count = 0
     for candidate in candidates:
-        key = _span_canonical_pool_key(
-            candidate,
-            target_count=target_count,
-        )
-        if key[0] > maximum_error:
+        candidate_error = abs(len(candidate[3]) - target_count)
+        if candidate_error > maximum_error:
             continue
         tolerance_candidate_count += 1
+        canonical_key = _span_canonical_candidate_key(candidate)
+        membership_rank = _span_candidate_rank(
+            candidate=candidate,
+            rank_method=SPAN_POOL_MEMBERSHIP_RANK_METHOD,
+            seed=seed,
+            identity=identity,
+            stage=stage,
+            epoch=epoch,
+            encoder_view_index=encoder_view_index,
+            global_seed=global_seed,
+            policy=policy,
+            config=config,
+        )
+        ranked_key = (membership_rank, canonical_key)
         insert_at = 0
-        while insert_at < len(pool) and pool[insert_at][0] < key:
+        while (
+            insert_at < len(pool)
+            and (pool[insert_at][0], pool[insert_at][1])
+            < ranked_key
+        ):
             insert_at += 1
         if (
             insert_at >= config.span_selection_pool_size
             and len(pool) >= config.span_selection_pool_size
         ):
             continue
-        pool.insert(insert_at, (key, candidate))
+        pool.insert(
+            insert_at,
+            (
+                membership_rank,
+                canonical_key,
+                candidate_error,
+                candidate,
+            ),
+        )
         if len(pool) > config.span_selection_pool_size:
             pool.pop()
     if not pool:
         raise HierarchyMaskContractError(
             "phase8a.hierarchy.span_pool_empty_after_best_candidate"
         )
-    selected_key, selected_candidate = min(
+    _, _, selected_error, selected_candidate = min(
         pool,
         key=lambda item: (
-            _score(
-                seed,
-                purpose=SPAN_SELECTION_METHOD,
-                value=_span_candidate_identity(item[1]),
+            _span_candidate_rank(
+                candidate=item[3],
+                rank_method=SPAN_FINAL_CHOICE_RANK_METHOD,
+                seed=seed,
+                identity=identity,
+                stage=stage,
+                epoch=epoch,
+                encoder_view_index=encoder_view_index,
+                global_seed=global_seed,
+                policy=policy,
+                config=config,
             ),
-            item[0],
+            item[1],
         ),
     )
     return _SpanSelection(
         candidate=selected_candidate,
+        retained_pool_candidates=tuple(item[3] for item in pool),
         best_budget_error=best_error,
         tolerance_candidate_count=tolerance_candidate_count,
         admissible_pool_count=len(pool),
-        selected_budget_error=selected_key[0],
+        selected_budget_error=selected_error,
     )
 
 
@@ -3002,6 +3134,24 @@ def _unavailable_plan(
                 }
                 else None
             ),
+            span_pool_membership_rank_method=(
+                SPAN_POOL_MEMBERSHIP_RANK_METHOD
+                if policy
+                in {
+                    CONTIGUOUS_BAR_PITCH_SPAN,
+                    TRACK_BAR_PITCH_SPAN,
+                }
+                else None
+            ),
+            span_final_choice_rank_method=(
+                SPAN_FINAL_CHOICE_RANK_METHOD
+                if policy
+                in {
+                    CONTIGUOUS_BAR_PITCH_SPAN,
+                    TRACK_BAR_PITCH_SPAN,
+                }
+                else None
+            ),
         ),
         collateral_feature_masks=(),
         pitched_note_count=index.note_count,
@@ -3061,6 +3211,12 @@ def _hierarchical_plan_from_index(
                 target_count=target_count,
                 seed=seed,
                 config=config,
+                identity=identity,
+                stage=stage,
+                epoch=epoch,
+                encoder_view_index=encoder_view_index,
+                global_seed=global_seed,
+                policy=policy,
             )
         else:
             zero_rate_candidate_count = len(
@@ -3167,6 +3323,12 @@ def _hierarchical_plan_from_index(
             target_count=target_count,
             seed=seed,
             config=config,
+            identity=identity,
+            stage=stage,
+            epoch=epoch,
+            encoder_view_index=encoder_view_index,
+            global_seed=global_seed,
+            policy=policy,
         )
         if chosen_span is not None:
             start, end, track, notes = chosen_span.candidate
@@ -3204,6 +3366,12 @@ def _hierarchical_plan_from_index(
                     len(notes) / index.note_count
                 ),
                 span_selection_method=SPAN_SELECTION_METHOD,
+                span_pool_membership_rank_method=(
+                    SPAN_POOL_MEMBERSHIP_RANK_METHOD
+                ),
+                span_final_choice_rank_method=(
+                    SPAN_FINAL_CHOICE_RANK_METHOD
+                ),
             )
     if selection is None:
         return _unavailable_plan(
@@ -3654,6 +3822,8 @@ __all__ = [
     "MAX_SPAN_BUDGET_ERROR_SLACK",
     "MAX_SPAN_SELECTION_POOL_SIZE",
     "ONSET_PITCH_DESCENDANTS",
+    "SPAN_FINAL_CHOICE_RANK_METHOD",
+    "SPAN_POOL_MEMBERSHIP_RANK_METHOD",
     "SPAN_SELECTION_METHOD",
     "TRACK_BAR_PITCH_SPAN",
     "HierarchicalMaskPlan",

@@ -254,7 +254,7 @@ def test_all_phase8a_policies_and_mixture_on_explicit_cuda_zero() -> None:
 
     assert report["hardware_evidence_contract_version"] == (
         PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION
-    ) == "1.0.0"
+    ) == "1.1.0"
     assert report["portable"] is False
     assert report["runtime"]["requested_device"] == "cuda:0"
     assert report["runtime"]["resolved_device"] == "cuda:0"
@@ -291,7 +291,7 @@ def test_all_phase8a_policies_and_mixture_on_explicit_cuda_zero() -> None:
     ]["provided"] is False
     assert report["contracts"]["ssl_training_report"] == "1.2.2"
     assert report["contracts"]["prepared_binding"] == "1.1.0"
-    assert report["contracts"]["hierarchy_prepared_binding"] == "1.1.0"
+    assert report["contracts"]["hierarchy_prepared_binding"] == "1.2.0"
     assert report["contracts"]["hierarchy_unavailable_reason"] == "1.0.0"
     fingerprint = report["hardware_evidence_fingerprint"]
     fingerprint_payload = dict(report)

@@ -218,15 +218,15 @@
   both Required workflow runs, and independent exact-final RTX 3090 CUDA/AMP
   evidence are merge gates. Do not merge from this implementation task.
 - Phase 8A hierarchical plan/policy/config/selection/prepared-profile/
-  prepared-hierarchy-binding/acceptance/benchmark contracts: `1.1.0`
+  prepared-hierarchy-binding/acceptance/benchmark contracts: `1.2.0`
 - Phase 8A mixture/unavailable-reason/hierarchy-output/leakage-audit/fixture
   contracts: `1.0.0`
-- Optional `Phase8ACudaAmpHardwareEvidence`: `1.0.0`
+- Optional `Phase8ACudaAmpHardwareEvidence`: `1.1.0`
 - Phase 8A pitch-leakage audit fingerprint:
   `27fc135b61649e5b892036dd0aacc92f679493ff671320c8235d33396a7c9949`
 - Phase 8A hierarchy fixture fingerprint:
   `ffd0d4c7db80323b8f1f8d72c1e4b7e530151c1b95dd68033e1a30273dd98a1b`
-- Phase 8A uses distinct `PreparedHierarchyMaskBinding@1.1.0` and
+- Phase 8A uses distinct `PreparedHierarchyMaskBinding@1.2.0` and
   `Phase8AHierarchySSLForwardOutput@1.0.0` portable envelopes over the shared
   Phase 7A attestation/encoder kernel. It preserves
   `PreparedMaskBinding@1.1.0`, `SSLForwardOutput@1.2.0`, all other existing
@@ -386,24 +386,29 @@
   its owning beat's bar. SplitMix64/Fisher-Yates unit permutation, linear
   scans, bounded `max_span_bars <= 8` enumeration, and sparse occupied
   track/bar cells avoid pairwise or dense hierarchy matrices.
-- Span method `bounded_near_optimal_seed_rank_v1` first derives best budget
-  error, admits candidates through `best + slack`, retains the canonical top
-  `K`, and selects inside that pool by stable seed SHA-256 rank. Defaults are
-  `K=4`, slack `1`; bounds are `K <= 8`, slack `<= 8`; `K=1` is the
-  canonical exact-closest control.
+- Span method `bounded_near_optimal_seed_rank_v2` first derives best budget
+  error, admits candidates through `best + slack`, and retains the `K`
+  smallest seed-dependent membership ranks from the complete tolerance set.
+  A separately domain-separated rank chooses the final span; canonical
+  track/start/end/descendants identity is only the collision fallback.
+  Defaults are `K=4`, slack `1`; bounds are `K <= 8`, slack `<= 8`. `K=1`
+  is a seed-ranked singleton and slack `0` is the exact-best control.
 - Existing candidate generation retains `O(C+S)` sparse state. Selection uses
   two passes, `O(C*K)=O(C)` time under the fixed `K` bound, and `O(K)` scratch;
   it performs no unbounded/full candidate sort or dense construction.
-- The crafted unique-closest oracle has six single-bar track candidates: one
-  at error `0` and five at error `1`. Epochs `0..63` choose four actual spans
-  with error distribution `0:14, 1:50` and exact replay. Pool size `1` and
-  slack `0` retain the unique exact-closest selection.
+- The positional-bias oracle has 36 tolerance candidates over three tracks
+  and bars `0..11`: one at error `0` and 35 at error `1`. Epochs `0..255`
+  put every candidate into a retained pool and select all 36; start bars cover
+  `0..11`, all three tracks occur, 224 selections escape the obsolete
+  canonical prefix, and the error histogram is `0:7, 1:249`. Replay and
+  reverse/permuted enumeration are bit-exact. This is deterministic mechanics
+  evidence, not an unbiased/uniform sampling claim.
 - Unavailable policies return a structured reason and never silently fall
   back. Mixture resolution records the full eligibility set, exact normalized
   weights, stable resolution seed, selected policy, and explicit realized
   denominator/frequency.
 - Hierarchy execution returns distinct
-  `PreparedHierarchyMaskBinding@1.1.0` and
+  `PreparedHierarchyMaskBinding@1.2.0` and
   `Phase8AHierarchySSLForwardOutput@1.0.0` artifacts over the shared Phase 7A
   full-attestation/HMAC/token/transfer implementation. Normal `forward()`
   remains Phase 7A-only; `forward_hierarchy()` is explicit. An
@@ -413,31 +418,31 @@
   93 notes, 39 polyphonic onsets, one multi-onset beat, one cross-bar
   sustained note, and 34 occupied track/bar cells. Train/validation identities
   are disjoint.
-- The default bounded audit over epochs `0..63` finds actual diversity for
+- The default bounded audit over epochs `0..255` finds actual diversity for
   both span policies on all four train identities. Every selected error is
   within `best + 1`; the exact per-piece candidate/pool/error table is in
   `PHASE8A_HIERARCHICAL_MASKING.md`. This justifies bounded defaults, not
   policy quality.
-- Two final local CPU acceptance processes emitted byte-identical canonical
-  JSON: 81,302 bytes and SHA-256
-  `d845b38fcb283fc7d0c993f993b7008c88aa23c7ebd82d6cb54272d05422ecc8`.
-  The remediated policy/default-configuration fingerprints are
-  `a2ad4fdd4c283413a1a7050a7471ea7fe86f29c95f17bf011cf4948f72547954`
+- Two fresh-process remediated CPU reports are byte-identical: 93,062 bytes
+  each, SHA-256
+  `b21cf11e018130e7270abdfa47d56b0414a4a5a01ea14db973e125e8590c6fb1`.
+  Policy/default-configuration fingerprints are
+  `2d39eb5e1ddf6ad53c626a18b364d0ffae0896663008a4e1422215c0c20fbdb1`
   and
-  `2e53d771d67a33d2db426033850ca57bccf0d6e284954141ccdeb28e8af3d760`.
-- Final local remediation verification passed focused Phase 8A
-  (`110 passed, 2 skipped`), workers `0/2` parity (`1 passed`), complete SSL
-  (`316 passed, 8 skipped`), model/graph/device (`165 passed, 1 skipped`),
-  training/evaluation (`94 passed, 6 skipped`), checkpoint/resume/transfer
-  (`21 passed`), deterministic held-out plus repository audit (`6 passed`),
-  and the complete repository (`1184 passed, 29 skipped`). The complete
-  repository run had 10 warnings. Bounded benchmark, `compileall`, and
-  `git diff --check` passed. Required GitHub workflows remain pending until
-  the final commit is pushed.
+  `e38651e00726ce9681dc015634c5d1f48f11586d07e0faf3187e20bda9ffee67`.
+- Final local verification passed focused Phase 8A
+  (`113 passed, 2 skipped`), fresh-process plus workers `0/2` parity
+  (`2 passed`), complete SSL (`319 passed, 8 skipped`), model/graph/device
+  (`165 passed, 1 skipped`), training/evaluation (`94 passed, 6 skipped`),
+  checkpoint/resume/transfer (`21 passed`), deterministic held-out plus
+  repository audit (`7 passed`), and the complete repository
+  (`1187 passed, 29 skipped, 10 warnings`). The no-threshold benchmark passed
+  all five policies. Required GitHub workflows remain pending the new
+  exact-final commit.
 - Optional explicit-`cuda:0` AMP acceptance covers all five policies and the
   mixture, concrete bindings, finite forward/loss/gradients, and peak
   allocated/reserved VRAM in separate
-  `Phase8ACudaAmpHardwareEvidence@1.0.0`. Local CUDA absence must skip
+  `Phase8ACudaAmpHardwareEvidence@1.1.0`. Local CUDA absence must skip
   honestly. Independent exact-final RTX 3090 evidence is still required.
 - Anti-collapse streaming diagnostics retain `O(D)` state, but current
   `from_values` creates float64 `N x D` values and normalized temporaries.

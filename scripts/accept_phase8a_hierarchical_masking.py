@@ -27,6 +27,7 @@ from music_critic.ssl.contracts import (
     PREPARED_MASK_BINDING_CONTRACT_VERSION,
     SSL_CONTRACT_VERSION,
     MaskPlan,
+    SampleIdentity,
     canonical_sha256,
 )
 from music_critic.ssl.data import SSLBatch, collate_ssl_samples
@@ -41,6 +42,9 @@ from music_critic.ssl.hierarchical_masking import (
     HIERARCHY_PREPARED_BINDING_PROFILE_VERSION,
     HIERARCHY_SELECTION_EVIDENCE_CONTRACT_VERSION,
     HIERARCHY_UNAVAILABLE_REASON_CONTRACT_VERSION,
+    SPAN_FINAL_CHOICE_RANK_METHOD,
+    SPAN_POOL_MEMBERSHIP_RANK_METHOD,
+    SPAN_SELECTION_METHOD,
     TRACK_BAR_PITCH_SPAN,
     HierarchicalMaskPlan,
     HierarchyMaskPolicyConfig,
@@ -58,6 +62,7 @@ from music_critic.ssl.hierarchy_fixture import (
 )
 from music_critic.ssl.masking import (
     PREPARED_HIERARCHY_MASK_BINDING_CONTRACT_VERSION,
+    derive_stable_seed,
     move_ssl_batch_with_prepared_binding,
     prepare_hierarchy_mask_binding,
 )
@@ -76,8 +81,8 @@ from music_critic.ssl.objective import (
 )
 
 
-PHASE8A_BOUNDED_ACCEPTANCE_CONTRACT_VERSION = "1.1.0"
-PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION = "1.0.0"
+PHASE8A_BOUNDED_ACCEPTANCE_CONTRACT_VERSION = "1.2.0"
+PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION = "1.1.0"
 _GLOBAL_SEED = 42
 _EPOCH = 0
 _MASK_RATE = 0.30
@@ -509,8 +514,6 @@ def _accept_policy(
 
 
 def _span_diversity_audit(fixture: Any) -> dict[str, object]:
-    sample = fixture.raw_samples("train")[-1]
-    piece = fixture.supplemental_piece
     config = HierarchyMaskPolicyConfig.create(
         weights={TRACK_BAR_PITCH_SPAN: 1.0},
         min_span_bars=1,
@@ -518,115 +521,190 @@ def _span_diversity_audit(fixture: Any) -> dict[str, object]:
         span_selection_pool_size=4,
         span_budget_error_slack=1,
     )
-    kwargs = {
-        "dataset_id": piece.dataset_name,
-        "piece_id": piece.piece_id,
-        "policy": TRACK_BAR_PITCH_SPAN,
-        "global_seed": _GLOBAL_SEED,
-        "requested_mask_rate": _MASK_RATE,
-        "stage": "train",
-        "policy_config": config,
-    }
-
-    def build_sequence() -> tuple[HierarchicalMaskPlan, ...]:
-        return tuple(
-            build_hierarchy_mask_plan(
-                sample.raw_graph,
-                epoch=epoch,
-                **kwargs,
+    identity = SampleIdentity(
+        "phase8a-selection-bias-oracle",
+        "piece:early-middle-late-multitrack",
+    )
+    candidates = []
+    next_note = 2
+    for track in range(3):
+        for bar in range(12):
+            descendants = (
+                (0, 1)
+                if track == 0 and bar == 0
+                else (next_note,)
             )
-            for epoch in range(64)
-        )
+            if descendants == (next_note,):
+                next_note += 1
+            candidates.append((bar, bar, track, descendants))
+    canonical_candidates = tuple(candidates)
+    old_canonical_prefix = tuple(
+        sorted(
+            canonical_candidates,
+            key=lambda candidate: (
+                abs(len(candidate[3]) - 2),
+                candidate[2],
+                candidate[0],
+                candidate[1],
+                candidate[3],
+            ),
+        )[: config.span_selection_pool_size]
+    )
 
-    plans = build_sequence()
-    repeated = build_sequence()
+    def selector_sequence(
+        candidate_order: tuple[
+            tuple[int, int, int, tuple[int, ...]], ...
+        ],
+        *,
+        stage: str = "train",
+        requested_epochs: range = range(256),
+    ) -> tuple[object, ...]:
+        selections = []
+        for requested_epoch in requested_epochs:
+            canonical_epoch = (
+                requested_epoch if stage == "train" else 0
+            )
+            seed = derive_stable_seed(
+                namespace=(
+                    "music_critic.ssl.acceptance."
+                    "span_rank_oracle.v1"
+                ),
+                global_seed=_GLOBAL_SEED,
+                dataset_id=identity.dataset_id,
+                piece_id=identity.piece_id,
+                epoch=canonical_epoch,
+                view_index=0,
+                extra={
+                    "stage": stage,
+                    "policy": TRACK_BAR_PITCH_SPAN,
+                    "policy_configuration_fingerprint": (
+                        config.fingerprint
+                    ),
+                },
+            )
+            selection = hierarchy_masking_module._select_span(
+                candidates=candidate_order,
+                target_count=2,
+                seed=seed,
+                config=config,
+                identity=identity,
+                stage=stage,
+                epoch=canonical_epoch,
+                encoder_view_index=0,
+                global_seed=_GLOBAL_SEED,
+                policy=TRACK_BAR_PITCH_SPAN,
+            )
+            if selection is None:
+                raise RuntimeError(
+                    "Phase 8A positional-bias oracle empty"
+                )
+            selections.append(selection)
+        return tuple(selections)
+
+    selections = selector_sequence(canonical_candidates)
+    repeated = selector_sequence(canonical_candidates)
+    reversed_order = selector_sequence(
+        tuple(reversed(canonical_candidates))
+    )
+    permuted_order = selector_sequence(
+        canonical_candidates[::2] + canonical_candidates[1::2]
+    )
     signatures = tuple(
-        (
-            plan.selected_local_track_index,
-            plan.span_start_bar_index,
-            plan.span_end_bar_index,
-            plan.selected_local_note_indices,
-        )
-        for plan in plans
+        selection.candidate for selection in selections
     )
     repeated_signatures = tuple(
-        (
-            plan.selected_local_track_index,
-            plan.span_start_bar_index,
-            plan.span_end_bar_index,
-            plan.selected_local_note_indices,
-        )
-        for plan in repeated
+        selection.candidate for selection in repeated
     )
     signature_counts = Counter(signatures)
     error_counts = Counter(
-        plan.selection.span_selected_budget_error
-        for plan in plans
+        selection.selected_budget_error
+        for selection in selections
     )
-    index = hierarchy_masking_module._build_hierarchy_indices(
-        sample.raw_graph
-    )[0]
-    candidates = (
-        hierarchy_masking_module._track_bar_span_candidates(
-            index=index,
-            config=config,
-        )
-    )
-    target_count = plans[0].requested_hidden_note_count
     candidate_error_counts = Counter(
-        abs(len(candidate[3]) - target_count)
-        for candidate in candidates
+        abs(len(candidate[3]) - 2)
+        for candidate in canonical_candidates
     )
-    control = HierarchyMaskPolicyConfig.create(
+    strict = HierarchyMaskPolicyConfig.create(
         weights={TRACK_BAR_PITCH_SPAN: 1.0},
         min_span_bars=1,
         max_span_bars=1,
-        span_selection_pool_size=1,
-        span_budget_error_slack=1,
+        span_selection_pool_size=4,
+        span_budget_error_slack=0,
     )
-    control_plans = tuple(
-        build_hierarchy_mask_plan(
-            sample.raw_graph,
+    strict_selections = []
+    for epoch in range(256):
+        seed = derive_stable_seed(
+            namespace=(
+                "music_critic.ssl.acceptance.span_rank_oracle.v1"
+            ),
+            global_seed=_GLOBAL_SEED,
+            dataset_id=identity.dataset_id,
+            piece_id=identity.piece_id,
             epoch=epoch,
-            **{
-                **kwargs,
-                "policy_config": control,
+            view_index=0,
+            extra={
+                "stage": "train",
+                "policy": TRACK_BAR_PITCH_SPAN,
+                "policy_configuration_fingerprint": strict.fingerprint,
             },
         )
-        for epoch in range(64)
-    )
-    control_signatures = {
-        (
-            plan.selected_local_track_index,
-            plan.span_start_bar_index,
-            plan.span_end_bar_index,
-            plan.selected_local_note_indices,
+        selected = hierarchy_masking_module._select_span(
+            candidates=canonical_candidates,
+            target_count=2,
+            seed=seed,
+            config=strict,
+            identity=identity,
+            stage="train",
+            epoch=epoch,
+            encoder_view_index=0,
+            global_seed=_GLOBAL_SEED,
+            policy=TRACK_BAR_PITCH_SPAN,
         )
-        for plan in control_plans
-    }
-    validation_zero = build_hierarchy_mask_plan(
-        sample.raw_graph,
-        epoch=0,
-        **{
-            **kwargs,
-            "stage": "validation",
-        },
+        if selected is None:
+            raise RuntimeError("Phase 8A strict selector empty")
+        strict_selections.append(selected)
+    validation_zero = selector_sequence(
+        canonical_candidates,
+        stage="validation",
+        requested_epochs=range(1),
     )
-    validation_later = build_hierarchy_mask_plan(
-        sample.raw_graph,
-        epoch=999,
-        **{
-            **kwargs,
-            "stage": "validation",
-        },
+    validation_later = selector_sequence(
+        canonical_candidates,
+        stage="validation",
+        requested_epochs=range(999, 1000),
+    )
+    retained_union = {
+        candidate
+        for selection in selections
+        for candidate in selection.retained_pool_candidates
+    }
+    canonical_prefix_escape_count = sum(
+        candidate not in old_canonical_prefix
+        for candidate in signatures
     )
     if (
-        plans != repeated
+        selections != repeated
         or signatures != repeated_signatures
+        or selections != reversed_order
+        or selections != permuted_order
         or len(signature_counts) <= 1
-        or len(control_signatures) != 1
         or validation_zero != validation_later
         or candidate_error_counts[0] != 1
+        or retained_union != set(canonical_candidates)
+        or canonical_prefix_escape_count <= 0
+        or max(signature[0] for signature in signatures) < 10
+        or len({signature[2] for signature in signatures}) <= 1
+        or any(
+            selection.selected_budget_error
+            > selection.best_budget_error
+            + config.span_budget_error_slack
+            for selection in selections
+        )
+        or {
+            selection.candidate
+            for selection in strict_selections
+        }
+        != {canonical_candidates[0]}
     ):
         raise RuntimeError("Phase 8A span diversity audit failed")
 
@@ -656,7 +734,7 @@ def _span_diversity_audit(fixture: Any) -> dict[str, object]:
                         epoch=epoch,
                         **sequence_kwargs,
                     )
-                    for epoch in range(64)
+                    for epoch in range(256)
                 )
 
             default_plans = default_sequence()
@@ -709,6 +787,10 @@ def _span_diversity_audit(fixture: Any) -> dict[str, object]:
                 == selection.span_tolerance_candidate_count
                 and plan.selection.span_admissible_pool_count
                 == selection.span_admissible_pool_count
+                and plan.selection.span_pool_membership_rank_method
+                == SPAN_POOL_MEMBERSHIP_RANK_METHOD
+                and plan.selection.span_final_choice_rank_method
+                == SPAN_FINAL_CHOICE_RANK_METHOD
                 for plan in default_plans
             )
             actual_unique_count = len(set(default_signatures))
@@ -784,15 +866,30 @@ def _span_diversity_audit(fixture: Any) -> dict[str, object]:
             )
     return {
         "crafted_fixture_identity": [
-            sample.dataset_id,
-            sample.piece_id,
+            identity.dataset_id,
+            identity.piece_id,
         ],
-        "epoch_range": [0, 63],
+        "epoch_range": [0, 255],
         "global_seed": _GLOBAL_SEED,
         "encoder_view_index": 0,
-        "requested_mask_rate": _MASK_RATE,
+        "requested_hidden_note_count": 2,
         "config": config.to_dict(),
-        "total_valid_candidate_count": len(candidates),
+        "selection_method": SPAN_SELECTION_METHOD,
+        "pool_membership_rank_method": (
+            SPAN_POOL_MEMBERSHIP_RANK_METHOD
+        ),
+        "final_choice_rank_method": SPAN_FINAL_CHOICE_RANK_METHOD,
+        "total_valid_candidate_count": len(canonical_candidates),
+        "tolerance_qualified_candidate_count": len(
+            canonical_candidates
+        ),
+        "retained_pool_count_per_epoch": (
+            config.span_selection_pool_size
+        ),
+        "all_tolerance_candidates_entered_a_retained_pool": (
+            retained_union == set(canonical_candidates)
+        ),
+        "distinct_retained_pool_member_count": len(retained_union),
         "candidate_budget_error_distribution": {
             str(error): count
             for error, count in sorted(candidate_error_counts.items())
@@ -803,14 +900,27 @@ def _span_diversity_audit(fixture: Any) -> dict[str, object]:
         "actual_unique_selection_count": len(signature_counts),
         "actual_selection_counts": [
             {
-                "track": signature[0],
-                "start_bar": signature[1],
-                "end_bar": signature[2],
+                "track": signature[2],
+                "start_bar": signature[0],
+                "end_bar": signature[1],
                 "selected_local_note_indices": list(signature[3]),
                 "count": count,
             }
             for signature, count in sorted(signature_counts.items())
         ],
+        "min_selected_start_bar": min(
+            signature[0] for signature in signatures
+        ),
+        "max_selected_start_bar": max(
+            signature[0] for signature in signatures
+        ),
+        "distinct_selected_track_count": len(
+            {signature[2] for signature in signatures}
+        ),
+        "old_canonical_prefix_size": len(old_canonical_prefix),
+        "canonical_prefix_escape_count": (
+            canonical_prefix_escape_count
+        ),
         "selected_budget_error_distribution": {
             str(error): count
             for error, count in sorted(error_counts.items())
@@ -819,9 +929,9 @@ def _span_diversity_audit(fixture: Any) -> dict[str, object]:
             canonical_sha256(
                 [
                     {
-                        "track": signature[0],
-                        "start_bar": signature[1],
-                        "end_bar": signature[2],
+                        "track": signature[2],
+                        "start_bar": signature[0],
+                        "end_bar": signature[1],
                         "selected_local_note_indices": list(
                             signature[3]
                         ),
@@ -831,33 +941,29 @@ def _span_diversity_audit(fixture: Any) -> dict[str, object]:
             )
         ),
         "fresh_replay_bit_exact": True,
+        "reverse_enumeration_bit_exact": True,
+        "permuted_enumeration_bit_exact": True,
         "all_selected_errors_within_best_plus_slack": all(
-            plan.selection.span_selected_budget_error
-            is not None
-            and plan.selection.span_best_budget_error
-            is not None
-            and plan.selection.span_selected_budget_error
-            <= plan.selection.span_best_budget_error
+            selection.selected_budget_error
+            <= selection.best_budget_error
             + config.span_budget_error_slack
-            for plan in plans
+            for selection in selections
         ),
-        "pool_size_one_control": {
-            "config_fingerprint": control.fingerprint,
-            "actual_unique_selection_count": len(
-                control_signatures
-            ),
-            "selection": {
-                "track": next(iter(control_signatures))[0],
-                "start_bar": next(iter(control_signatures))[1],
-                "end_bar": next(iter(control_signatures))[2],
+        "slack_zero_exact_best_control": {
+            "config_fingerprint": strict.fingerprint,
+            "actual_unique_selection_count": 1,
+            "selected_candidate_canonical_identity": {
+                "track": canonical_candidates[0][2],
+                "start_bar": canonical_candidates[0][0],
+                "end_bar": canonical_candidates[0][1],
                 "selected_local_note_indices": list(
-                    next(iter(control_signatures))[3]
+                    canonical_candidates[0][3]
                 ),
             },
         },
         "validation_epochs_0_and_999_bit_exact": True,
         "default_bounded_fixture_audit": {
-            "epoch_range": [0, 63],
+            "epoch_range": [0, 255],
             "global_seed": _GLOBAL_SEED,
             "encoder_view_index": 0,
             "requested_mask_rate": _MASK_RATE,
@@ -965,6 +1071,18 @@ def build_phase8a_bounded_acceptance_report() -> dict[str, object]:
         "hierarchy_mask_policy_contract_fingerprint": (
             HIERARCHY_MASK_POLICY_CONTRACT_FINGERPRINT
         ),
+        "span_selection_rank_contract": {
+            "selection_method": SPAN_SELECTION_METHOD,
+            "pool_membership_rank_method": (
+                SPAN_POOL_MEMBERSHIP_RANK_METHOD
+            ),
+            "final_choice_rank_method": (
+                SPAN_FINAL_CHOICE_RANK_METHOD
+            ),
+            "collision_fallback": (
+                "track_start_end_descendants_v1"
+            ),
+        },
         "model_contract_metadata_fingerprint": canonical_sha256(
             model_metadata
         ),

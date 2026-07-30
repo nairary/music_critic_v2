@@ -64,6 +64,9 @@ from music_critic.ssl.hierarchical_masking import (
     HIERARCHY_UNAVAILABLE_REASON_CONTRACT_VERSION,
     INDEPENDENT_NOTE_PITCH,
     CONTIGUOUS_BAR_PITCH_SPAN,
+    SPAN_FINAL_CHOICE_RANK_METHOD,
+    SPAN_POOL_MEMBERSHIP_RANK_METHOD,
+    SPAN_SELECTION_METHOD,
     HierarchyMaskPolicyConfig,
     HierarchyMaskUnavailableError,
     build_batched_hierarchy_mask_resolutions,
@@ -101,7 +104,7 @@ from music_critic.ssl.objective import (
 )
 
 
-PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION = "1.0.0"
+PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION = "1.1.0"
 _EXACT_RTX_3090_DEVICE_NAME = "NVIDIA GeForce RTX 3090"
 _GLOBAL_SEED = 42
 _EPOCH = 0
@@ -1861,6 +1864,18 @@ def _build_phase8a_cuda_amp_hardware_report(
         "hierarchy_policy_contract_fingerprint": (
             HIERARCHY_MASK_POLICY_CONTRACT_FINGERPRINT
         ),
+        "span_selection_rank_contract": {
+            "selection_method": SPAN_SELECTION_METHOD,
+            "pool_membership_rank_method": (
+                SPAN_POOL_MEMBERSHIP_RANK_METHOD
+            ),
+            "final_choice_rank_method": (
+                SPAN_FINAL_CHOICE_RANK_METHOD
+            ),
+            "collision_fallback": (
+                "track_start_end_descendants_v1"
+            ),
+        },
         "fixture_fingerprints": fixture.fingerprint_bundle(),
         "model_metadata_fingerprint": model_metadata_fingerprint,
         "policies": portable_policies,

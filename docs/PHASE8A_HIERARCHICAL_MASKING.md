@@ -17,8 +17,8 @@ better representations than another.
 
 ## Contract versions
 
-The seed-dependent near-optimal span remediation changes portable plan
-semantics. These contracts are `1.1.0`:
+The seed-ranked full-tolerance-set remediation changes portable plan
+semantics. These contracts are `1.2.0`:
 
 - hierarchical mask plan;
 - hierarchy mask policy;
@@ -38,7 +38,8 @@ These unchanged Phase 8A contracts remain `1.0.0`:
 - supplemental hierarchy fixture.
 
 The separate optional
-`Phase8ACudaAmpHardwareEvidence@1.0.0` artifact begins at `1.0.0`.
+`Phase8ACudaAmpHardwareEvidence@1.1.0` artifact binds the remediated portable
+contracts. A result for an earlier draft head is intermediate evidence only.
 Hardware identity, timing, and peak allocated/reserved VRAM never enter the
 portable deterministic CPU report fingerprint.
 
@@ -56,9 +57,9 @@ builder and preserves its type, dictionary, fingerprint, tensors, and
 numerical outputs. Public `forward()` remains Phase 7A-only; hierarchy
 integration is explicit through `forward_hierarchy()`. The remediated policy
 contract fingerprint is
-`a2ad4fdd4c283413a1a7050a7471ea7fe86f29c95f17bf011cf4948f72547954`;
+`2d39eb5e1ddf6ad53c626a18b364d0ffae0896663008a4e1422215c0c20fbdb1`;
 the default all-policy configuration fingerprint is
-`2e53d771d67a33d2db426033850ca57bccf0d6e284954141ccdeb28e8af3d760`.
+`e38651e00726ce9681dc015634c5d1f48f11586d07e0faf3187e20bda9ffee67`.
 The current model metadata fingerprint is
 `7f98ff6e79fa7515986d22287c601723a1329e6b5ec294fc45cbdaae3e304bb7`.
 Pre-remediation fingerprints are historical evidence only.
@@ -170,27 +171,35 @@ Span bounds satisfy:
 
 Bar candidates enumerate only bounded contiguous ranges. Track/bar candidates
 are generated around occupied sparse cells, never a dense tracks-by-bars
-matrix. Selection method `bounded_near_optimal_seed_rank_v1` is:
+matrix. Selection method `bounded_near_optimal_seed_rank_v2` is:
 
 1. Scan all valid candidates to find the best absolute hidden-note budget
    error.
 2. Admit candidates with error at most
    `best_error + span_budget_error_slack`.
-3. Retain only the canonically smallest `span_selection_pool_size`
-   candidates, ordered by error, track, start, end, and exact descendants.
-4. Select one retained candidate by domain-separated stable-seed SHA-256
-   rank, using the same canonical key as the collision fallback.
+3. Compute `stable_seed_sha256_pool_membership_v1` independently for every
+   tolerance-qualified candidate. The rank binds dataset/piece identity,
+   canonical epoch, view, global seed, policy/version, configuration
+   fingerprint, and the full canonical candidate identity.
+4. Retain the `span_selection_pool_size` smallest membership ranks by a
+   streaming bounded selector. The canonical
+   track/start/end/descendants key is only the hash-collision fallback.
+5. Select one retained candidate with the separate
+   `stable_seed_sha256_final_choice_v1` domain. The membership hash is never
+   reused as the final-choice hash.
 
-Configuration `1.1.0` binds pool size in `[1, 8]` and integer slack in
-`[0, 8]`. Defaults are pool size `4` and slack `1`. Pool size `1` is the
-canonical exact-closest control; slack `0` restricts admission to exact-best
-error. The bounded canonical pool makes selection independent of candidate
-enumeration order without a full candidate sort.
+Configuration `1.2.0` binds pool size in `[1, 8]` and integer slack in
+`[0, 8]`. Defaults are pool size `4` and slack `1`. Pool size `1` now means a
+one-entry seed-ranked pool over the complete tolerance set; it is not a
+canonical prefix or exact-closest control. Slack `0` restricts admission to
+exact-best error. Enumeration order cannot affect membership or choice, and
+no full candidate sort is performed.
 
 Selection evidence records total valid candidates, best error,
 tolerance-qualified count, retained-pool count, configured pool limit and
 slack, selected error/start/end/track, selected descendant count, realized
-rate, and the method identifier.
+rate, the complete selected canonical identity, and separate overall,
+membership-rank, and final-choice method identifiers.
 
 Every available plan masks at least one primary note and leaves at least one
 pitched note visible. Spans cannot cross sample or selected-track boundaries.
@@ -211,7 +220,7 @@ diagnostics are excluded.
 
 ## Diversity and budget audit
 
-The default pool `4`/slack `1` was audited over train epochs `0..63`, seed
+The default pool `4`/slack `1` was audited over train epochs `0..255`, seed
 `42`, mask rate `0.30`, and the four bounded train identities (`t0`, `t1`,
 `t2`, and supplemental oracle `o`). The table reports
 `valid / best / tolerance / retained`, distinct actual selections, and the
@@ -219,31 +228,35 @@ selected-error histogram:
 
 | Policy | Piece | Candidate evidence | Distinct | Selected errors |
 |---|---:|---:|---:|---|
-| bar span | t0 | 5 / 1 / 3 / 3 | 3 | `1:64` |
-| bar span | t1 | 2 / 4 / 2 / 2 | 2 | `4:64` |
-| bar span | t2 | 2 / 3 / 2 / 2 | 2 | `3:64` |
-| bar span | o | 5 / 0 / 2 / 2 | 2 | `0:32, 1:32` |
-| track/bar | t0 | 10 / 1 / 10 / 4 | 4 | `1:64` |
-| track/bar | t1 | 9 / 1 / 9 / 4 | 4 | `1:44, 2:20` |
-| track/bar | t2 | 6 / 0 / 4 / 4 | 4 | `0:64` |
-| track/bar | o | 10 / 0 / 9 / 4 | 4 | `0:31, 1:33` |
+| bar span | t0 | 5 / 1 / 3 / 3 | 3 | `1:256` |
+| bar span | t1 | 2 / 4 / 2 / 2 | 2 | `4:256` |
+| bar span | t2 | 2 / 3 / 2 / 2 | 2 | `3:256` |
+| bar span | o | 5 / 0 / 2 / 2 | 2 | `0:130, 1:126` |
+| track/bar | t0 | 10 / 1 / 10 / 4 | 10 | `1:100, 2:156` |
+| track/bar | t1 | 9 / 1 / 9 / 4 | 9 | `1:88, 2:168` |
+| track/bar | t2 | 6 / 0 / 4 / 4 | 4 | `0:256` |
+| track/bar | o | 10 / 0 / 9 / 4 | 9 | `0:63, 1:193` |
 
 Every selected error is within `best + 1`, and every audited piece has actual
 span diversity. This is bounded fixture justification for defaults, not a
 quality or corpus-distribution result.
 
-A crafted single-bar track/span case has six valid candidates: exactly one at
-best error `0` and five at error `1`. Across epochs `0..63`, the default
-four-candidate pool selects all four retained candidates, with errors
-`0:14, 1:50`; a fresh repeat is identical. Pool size `1` selects the single
-exact-closest candidate in all 64 epochs, and slack `0` does the same. Tests
-also bind seed/view, validation epoch zero, canonical enumeration order,
-batch order, workers, fresh processes, sample/track boundaries, and sustained
-note exclusion.
+A crafted positional-bias oracle has 36 tolerance-qualified single-bar
+track spans over three tracks and bars `0..11`: one unique error-0 candidate
+and 35 error-1 candidates. Across epochs `0..255`, all 36 candidates enter a
+retained pool and all 36 are actually selected. Selected start bars cover
+`0..11`, all three tracks occur, and 224 selections escape the first four
+candidates of the obsolete canonical order. The selected-error histogram is
+`0:7, 1:249`; ordered replay fingerprint is
+`4c02e60f26498e6a78633ede6631d313696ef2318ab054073a52842534f539a7`.
+Fresh repeat, reverse enumeration, and a deterministic permutation are
+bit-exact. Validation epochs 0 and 999 canonicalize to one actual selection;
+slack `0` is the exact-best control. This proves removal of canonical
+positional exclusion, not unbiased or uniform random sampling.
 
 ## Prepared-input security and model integration
 
-`PreparedHierarchyMaskBinding@1.1.0` reuses the exact
+`PreparedHierarchyMaskBinding@1.2.0` reuses the exact
 `PreparedMaskBinding@1.1.0` runtime graph evidence, process-local HMAC, opaque
 prepared token, transfer renewal, and private Phase 6 prepared encoder. It is
 a distinct portable envelope over one shared security kernel, not a copied
@@ -292,7 +305,8 @@ and leakage contracts remain `1.0.0`.
 
 Let `C` be emitted valid span candidates and `S` their stored descendant
 entries. Candidate generation retains `O(C + S)` sparse state. Span selection
-uses two passes plus bounded insertion into at most `K <= 8` entries:
+uses a best-error pass followed by seed-ranked bounded insertion into at most
+`K <= 8` entries and a separately ranked final choice:
 
 ```text
 O(C * K) = O(C) time under the contract-fixed K bound
@@ -315,19 +329,18 @@ requires a separate profiler/optimization gate.
 
 ## CPU and optional CUDA acceptance
 
-Portable deterministic acceptance runs on CPU and must be rebuilt twice with
-byte-identical canonical JSON. The final local pair is 81,302 bytes per report
-with SHA-256
-`d845b38fcb283fc7d0c993f993b7008c88aa23c7ebd82d6cb54272d05422ecc8`.
+Portable deterministic acceptance runs on CPU and was rebuilt in two fresh
+processes with byte-identical canonical JSON: 93,062 bytes each, SHA-256
+`b21cf11e018130e7270abdfa47d56b0414a4a5a01ea14db973e125e8590c6fb1`.
 Its single-policy fingerprints and bounded objective observations are:
 
 | Policy | Config | Overlay | Prepared binding | Total loss | Grad tensors present/nonzero |
 |---|---|---|---|---:|---:|
-| independent | `dc548903ef651c0069a0723f6484a9b7323f3a9954bf830391b47416b6bc72bf` | `0dced56d924d8d6a78116817b12bd09927cdbdc349326e8bbffebb372e95a20f` | `d26ec7aab9074c1afe7ae6811a82716192a2d7d8ce5c2d9136e5d5a702cbf1aa` | 3.1845867634 | 380/361 |
-| onset | `d5eb72f7a82f81b31bc50e82f7581caccd2c32a3793ce8a498cf174b00bb6d95` | `701f937cc519539e09d267f29849e822edf7b430d3f5ee1d8141c2f304277eec` | `f00a3ae5b59dddd77941237244432c1563e1fb2410df51591aabb3ae4df45c44` | 3.0596354008 | 380/361 |
-| beat | `29d43e9cede0100fa9b3161951d2cd64030d8ff635fc22f63a0704ba28523251` | `7578837966c1df6768bc7fa87bb94ec68fe8dc5c193e6d4803bdb52561476ae2` | `ea5d8a409d27b5b9f8f0d874ffa983152635962536638d4cd0a5f30e6ae7f27d` | 3.0024542809 | 380/361 |
-| bar span | `ecaa2af3962924fdd1ec17641044402dc1cd86f85590f95238f00fa339ed0fb6` | `896a40eb8d64ac1bfc37efb2142e82d6221cbe7953e2f92805f371b3f5b98c90` | `fd4e4b4b58d8778abaa2e614e49f5a41b9ffee613618d8d47e4a5510c5e9aa5e` | 3.0673878193 | 380/361 |
-| track/bar | `543d0e07b225f36b3d7aec869259cd12ce583fe3dec47bf1bc4ee938e27bd8d7` | `5fa5fb523ac34a0a90424bdb0ba1626bed87e2f8dea10df8e00a06e091f0c3d5` | `44c522307d855b507855b62c9a1bcd546d7112212c8918818b05810bbd0fe871` | 3.1767163277 | 380/376 |
+| independent | `24bc6c071aad797dcb6b40143546e7e6af968a63b44be235d73c863b40f4efa4` | `0dced56d924d8d6a78116817b12bd09927cdbdc349326e8bbffebb372e95a20f` | `d26ec7aab9074c1afe7ae6811a82716192a2d7d8ce5c2d9136e5d5a702cbf1aa` | 3.1845867634 | 380/361 |
+| onset | `c5984122052d5ecb08e02a8e9ac3d8d76a7f32e6f308a31ddd4b2fb2045abbd6` | `7e3011644abc61989fc70281cc23fecc4732ffec3c6f85d5031822e87abd088e` | `7d09ae45e8640eac33da58d595528b1c3b25ad1eccde57d92262cc37132b12eb` | 3.0620796680 | 380/361 |
+| beat | `da4e0f33328f0e3eafa5040741e74a93aa34e627f83eca4341f85a8465816bd4` | `8cfa89745238ac3d297dbdf24499d75984adcdce05d90db3e2926a351a12ec09` | `3dbf4e8abba7afc119e6b7634e9ef2f33743638d98b1ed7323a3c77c7f06faa5` | 3.1490781307 | 380/361 |
+| bar span | `de33e468d4edccb9fe4d13280edb10a6e408e6b5fc7fda70a7dc62e1aa622b9e` | `1de24d9cfc414d09e549b0b092c61fdc96ca9165d2426733b0ec78d45410c2a7` | `bcc40f182e46cf15157a79f883e9591b6c21af9a857a197a9fc9a841d1fdc760` | 3.0673878193 | 380/361 |
+| track/bar | `1355a41c7d40c3585fba05d588cd53f1899467f8c3624c3fa11b5c77fc659c54` | `6e22d5edb04e873a2a3a82f99a0ac55f09c293b16a29ccd65b0093e6adfbea7d` | `c2cd4cb05e55e70279a6b5240afd44feccf932f3575e5283dff6d128ae3fc6b1` | 3.2411322594 | 380/376 |
 
 These losses are deterministic bounded mechanics observations, not training
 or representation-quality results.
@@ -386,14 +399,14 @@ training, or quality/likelihood interpretation is part of Phase 8A.
 
 Final local verification before commit:
 
-- focused Phase 8A: `110 passed, 2 skipped, 2 warnings`;
-- workers `0/2` parity: `1 passed, 2 warnings`;
-- complete SSL: `316 passed, 8 skipped, 8 warnings`;
+- focused Phase 8A: `113 passed, 2 skipped, 2 warnings`;
+- fresh-process plus workers `0/2` parity: `2 passed, 2 warnings`;
+- complete SSL: `319 passed, 8 skipped, 8 warnings`;
 - model/graph/device regressions: `165 passed, 1 skipped, 2 warnings`;
 - training/evaluation regressions: `94 passed, 6 skipped, 4 warnings`;
 - checkpoint/resume/transfer regressions: `21 passed, 2 warnings`;
-- deterministic held-out plus repository audit: `6 passed, 2 warnings`;
-- complete repository: `1184 passed, 29 skipped, 10 warnings`;
+- deterministic held-out plus repository audit: `7 passed, 2 warnings`;
+- complete repository: `1187 passed, 29 skipped, 10 warnings`;
 - bounded benchmark: all five policies, no timing threshold;
 - `compileall` and `git diff --check`: passed.
 

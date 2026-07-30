@@ -516,14 +516,18 @@ The model and training phases remain pending.
   onset-descendant, beat-descendant, contiguous-bar-span, and sparse
   track/bar-span policies; start-anchored semantics; deterministic policy
   mixtures; structured unavailable evidence; bounded near-optimal span
-  selection with versioned pool size/slack; unchanged pitch-only overlay;
+  selection whose retained pool is the seed-ranked top-K over the complete
+  tolerance set and whose final choice uses a separate rank domain; unchanged
+  pitch-only overlay;
   distinct hierarchy binding/output envelopes over the shared prepared-input
   attestation kernel; bounded oracle/benchmark; and a separate optional
   CUDA/AMP hardware-evidence artifact.
 - Tests: exact descendant/collateral oracles, polyphony, sustained-note
   exclusion, sample/track boundaries, mixtures/unavailability, worker/batch
-  and fresh-process invariance, crafted unique-closest actual-span diversity,
-  pool/error bounds and pool-size-one control, prepared mutation rejection,
+  and fresh-process invariance, crafted epochs-0..255 positional-bias
+  regression with canonical-prefix escape, late-bar/multi-track actual
+  selections and complete retained-pool reachability, pool/error bounds,
+  prepared mutation rejection,
   Phase 7A bit-exact CPU/CUDA-AMP compatibility, and bounded
   existing-objective forward/backward smoke.
 - Non-goals: new objective heads, quality improvement claims, theory/PDMX

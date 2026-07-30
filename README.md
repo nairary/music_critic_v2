@@ -29,8 +29,9 @@ no-leakage from pitch-sensitive reconstruction evidence.
 Phase 8A adds deterministic onset, beat, contiguous-bar, and track/bar
 start-descendant pitch masks, explicit policy-mixture/unavailable contracts,
 and distinct hierarchy binding/output envelopes over the same prepared-input
-attestation path. Span policies choose from a versioned, seed-dependent
-bounded near-optimal pool instead of varying only on exact-budget ties. Phase
+attestation path. Span policies retain the seed-ranked top-K from the complete
+near-optimal tolerance set and use a separate rank domain for final choice,
+so early canonical track/bar prefixes cannot exclude later candidates. Phase
 8A uses the unchanged Phase 7A objectives only for bounded mechanics evidence
 and remains in draft PR #16 pending final-head review, Required CI, and an
 independent exact-final RTX 3090 acceptance run.

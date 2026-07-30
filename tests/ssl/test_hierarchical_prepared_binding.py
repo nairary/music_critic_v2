@@ -197,7 +197,7 @@ def test_each_policy_prepares_and_has_finite_forward_backward_gradients(
         assert type(binding) is PreparedHierarchyMaskBinding
         assert binding.contract_version == (
             PREPARED_HIERARCHY_MASK_BINDING_CONTRACT_VERSION
-        ) == "1.1.0"
+        ) == "1.2.0"
     assert type(output) is Phase8AHierarchySSLForwardOutput
     assert output.contract_version == (
         PHASE8A_HIERARCHY_SSL_OUTPUT_CONTRACT_VERSION
@@ -766,18 +766,30 @@ def test_bounded_acceptance_publishes_each_policy_mechanics() -> None:
     )
     assert report["quality_claim"] is None
     diversity = report["span_diversity_audit"]
-    assert diversity["total_valid_candidate_count"] == 6
+    assert diversity["total_valid_candidate_count"] == 36
+    assert diversity["tolerance_qualified_candidate_count"] == 36
     assert diversity["unique_closest_candidate_count"] == 1
-    assert diversity["actual_unique_selection_count"] == 4
+    assert diversity["actual_unique_selection_count"] == 36
     assert diversity["selected_budget_error_distribution"] == {
-        "0": 14,
-        "1": 50,
+        "0": 7,
+        "1": 249,
     }
+    assert diversity["epoch_range"] == [0, 255]
+    assert diversity["min_selected_start_bar"] == 0
+    assert diversity["max_selected_start_bar"] == 11
+    assert diversity["distinct_selected_track_count"] == 3
+    assert diversity["canonical_prefix_escape_count"] == 224
+    assert diversity[
+        "all_tolerance_candidates_entered_a_retained_pool"
+    ] is True
+    assert diversity["distinct_retained_pool_member_count"] == 36
     assert diversity["fresh_replay_bit_exact"] is True
+    assert diversity["reverse_enumeration_bit_exact"] is True
+    assert diversity["permuted_enumeration_bit_exact"] is True
     assert diversity[
         "validation_epochs_0_and_999_bit_exact"
     ] is True
-    assert diversity["pool_size_one_control"][
+    assert diversity["slack_zero_exact_best_control"][
         "actual_unique_selection_count"
     ] == 1
     default_audit = diversity["default_bounded_fixture_audit"]
@@ -825,7 +837,7 @@ def test_bounded_acceptance_publishes_each_policy_mechanics() -> None:
             ],
             "candidate_evidence": [5, 1, 3, 3],
             "actual_unique_selection_count": 3,
-            "selected_budget_error_distribution": {"1": 64},
+            "selected_budget_error_distribution": {"1": 256},
             "configured_pool_size_limit": 4,
             "configured_budget_error_slack": 1,
             "fresh_replay_bit_exact": True,
@@ -839,7 +851,7 @@ def test_bounded_acceptance_publishes_each_policy_mechanics() -> None:
             ],
             "candidate_evidence": [2, 4, 2, 2],
             "actual_unique_selection_count": 2,
-            "selected_budget_error_distribution": {"4": 64},
+            "selected_budget_error_distribution": {"4": 256},
             "configured_pool_size_limit": 4,
             "configured_budget_error_slack": 1,
             "fresh_replay_bit_exact": True,
@@ -853,7 +865,7 @@ def test_bounded_acceptance_publishes_each_policy_mechanics() -> None:
             ],
             "candidate_evidence": [2, 3, 2, 2],
             "actual_unique_selection_count": 2,
-            "selected_budget_error_distribution": {"3": 64},
+            "selected_budget_error_distribution": {"3": 256},
             "configured_pool_size_limit": 4,
             "configured_budget_error_slack": 1,
             "fresh_replay_bit_exact": True,
@@ -868,8 +880,8 @@ def test_bounded_acceptance_publishes_each_policy_mechanics() -> None:
             "candidate_evidence": [5, 0, 2, 2],
             "actual_unique_selection_count": 2,
             "selected_budget_error_distribution": {
-                "0": 32,
-                "1": 32,
+                "0": 130,
+                "1": 126,
             },
             "configured_pool_size_limit": 4,
             "configured_budget_error_slack": 1,
@@ -883,8 +895,11 @@ def test_bounded_acceptance_publishes_each_policy_mechanics() -> None:
                 "piece:phase7a-train-00",
             ],
             "candidate_evidence": [10, 1, 10, 4],
-            "actual_unique_selection_count": 4,
-            "selected_budget_error_distribution": {"1": 64},
+            "actual_unique_selection_count": 10,
+            "selected_budget_error_distribution": {
+                "1": 100,
+                "2": 156,
+            },
             "configured_pool_size_limit": 4,
             "configured_budget_error_slack": 1,
             "fresh_replay_bit_exact": True,
@@ -897,10 +912,10 @@ def test_bounded_acceptance_publishes_each_policy_mechanics() -> None:
                 "piece:phase7a-train-01",
             ],
             "candidate_evidence": [9, 1, 9, 4],
-            "actual_unique_selection_count": 4,
+            "actual_unique_selection_count": 9,
             "selected_budget_error_distribution": {
-                "1": 44,
-                "2": 20,
+                "1": 88,
+                "2": 168,
             },
             "configured_pool_size_limit": 4,
             "configured_budget_error_slack": 1,
@@ -915,7 +930,7 @@ def test_bounded_acceptance_publishes_each_policy_mechanics() -> None:
             ],
             "candidate_evidence": [6, 0, 4, 4],
             "actual_unique_selection_count": 4,
-            "selected_budget_error_distribution": {"0": 64},
+            "selected_budget_error_distribution": {"0": 256},
             "configured_pool_size_limit": 4,
             "configured_budget_error_slack": 1,
             "fresh_replay_bit_exact": True,
@@ -928,10 +943,10 @@ def test_bounded_acceptance_publishes_each_policy_mechanics() -> None:
                 "piece:phase8a-hierarchy-oracle",
             ],
             "candidate_evidence": [10, 0, 9, 4],
-            "actual_unique_selection_count": 4,
+            "actual_unique_selection_count": 9,
             "selected_budget_error_distribution": {
-                "0": 31,
-                "1": 33,
+                "0": 63,
+                "1": 193,
             },
             "configured_pool_size_limit": 4,
             "configured_budget_error_slack": 1,
