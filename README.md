@@ -15,19 +15,26 @@ Phases 0 through 5B.2, the Phase 6A/6B representation baselines, and the
 Phase 6C reproducible supervised training harness are implemented and merged.
 Phase 6D-A adds deterministic supervised checkpoint evaluation, train-only
 trivial baselines, and bounded performance evidence for those unchanged
-baselines. Phase 7A is merged in PR #15 as a deterministic
+baselines. Phase 7A is accepted and merged as a deterministic
 GraphMAE2-inspired masked-graph SSL baseline over the unchanged raw-only graph.
 It adds note pitch-group masking, owner-track-statistic and peer-note leakage
 closure, shared stop-gradient full-view representation targets, contextual
 decoder re-masking, bar/song latent prediction, target-free raw-cache loading,
 and strict SSL checkpoint/resume and encoder-transfer contracts.
-A blocking post-merge hotfix remains in draft PR #17. Its first independent
-RTX 3090 run confirmed that bare CUDA now resolves to concrete `cuda:N` and
-that exact graph/binding transfer succeeds, then exposed follow-up gaps in
-explicit-index validation, AMP representation-loss precision, and two CUDA
-acceptance assertions. The remediation validates every CUDA index before
-transfer and computes low-precision SSL cosine objectives in FP32. Phase 8 has
-not started.
+The accepted CUDA/AMP hotfix is merged through PR #17 at main
+`5afec305cfa62ab2c200c5b1e7270ae35cd8a102`. It resolves runtime CUDA
+requests to a concrete `cuda:N`, validates explicit indices before transfer,
+computes low-precision representation objectives in FP32, and separates
+no-leakage from pitch-sensitive reconstruction evidence.
+Phase 8A adds deterministic onset, beat, contiguous-bar, and track/bar
+start-descendant pitch masks, explicit policy-mixture/unavailable contracts,
+and distinct hierarchy binding/output envelopes over the same prepared-input
+attestation path. Span policies retain the seed-ranked top-K from the complete
+near-optimal tolerance set and use a separate rank domain for final choice,
+so early canonical track/bar prefixes cannot exclude later candidates. Phase
+8A uses the unchanged Phase 7A objectives only for bounded mechanics evidence
+and remains in draft PR #16 pending final-head review, Required CI, and an
+independent exact-final RTX 3090 acceptance run.
 Decoder context mode
 `online_owner_track_bar_song_temporal_neighbors` retains masked-online
 owner/bar/song/temporal context after latent re-masking, avoiding predictions
@@ -53,13 +60,15 @@ fully-supervised heads, inspectable losses, local reconstruction plumbing,
 strict checkpoints, and CPU diagnostics. Phase 6B adds deterministic raw-edge
 ownership, bar/track pooling, a per-sample coarse Transformer, contextual SONG
 rows, top-down gated residual fusion, strict hierarchical checkpoints, and a
-controlled three-way ablation. Hierarchical/adaptive SSL, corruption training,
+controlled three-way ablation. Phase 8B multi-level objectives, adaptive SSL,
+corruption training,
 preference training, PLL, and deployable scoring inference are not implemented
 yet.
 Phase 7A reconstruction is SSL representation plumbing only: it is not a
 masked-note likelihood, PLL, critic, quality score, or full-scale effectiveness
-claim. Hierarchical masking remains Phase 8, and PDMX-scale SSL evaluation
-remains Phase 10.
+claim. Phase 8A is not completion of Phase 8; comparative multi-level
+objectives remain Phase 8B, Dilemmadata remains Phase 9, and PDMX-scale SSL
+evaluation remains Phase 10.
 
 ## Layout
 
@@ -80,9 +89,9 @@ remains Phase 10.
 - `src/music_critic/evaluation/`: candidate-first checkpoint evaluation,
   streaming metrics, train-only priors, and the opt-in bounded profiler;
 - `src/music_critic/ssl/`: versioned field masks and overlays, deterministic
-  MaskPlans and contextual decoder views, representation objectives, bounded
-  and production-cache raw-only loading, masked hierarchical model,
-  checkpoints, transfer, and training CLI;
+  MaskPlans and hierarchy-aware planners, contextual decoder views,
+  representation objectives, bounded and production-cache raw-only loading,
+  masked hierarchical model, checkpoints, transfer, and training CLI;
 - `docs/`: authoritative plan, architecture, contracts, decisions, and status;
 - `configs/`: reserved for phase-owned configuration;
 - `scripts/`: audits, rendering/smoke tools, and graph benchmark;
@@ -129,7 +138,22 @@ PYTHONPATH=src python scripts/benchmark_phase6b.py \
   --larger-repeats 4 --overfit-steps 30
 PYTHONPATH=src python -m music_critic.ssl.run \
   experiment=one_batch model=hierarchical data=bounded device=cpu
+PYTHONPATH=src python scripts/accept_phase8a_hierarchical_masking.py \
+  --output /tmp/phase8a-cpu-acceptance.json
+PYTHONPATH=src python scripts/benchmark_phase8a_hierarchical_masking.py
+PYTHONPATH=src python scripts/accept_phase8a_cuda_amp.py \
+  --device cuda:0 --amp --amp-dtype float16 \
+  --expected-head "$(git rev-parse HEAD)" \
+  --expected-device-name "NVIDIA GeForce RTX 3090" \
+  --portable-report /tmp/phase8a-cpu-acceptance.json \
+  --output /tmp/phase8a-cuda-amp-hardware.json
 ```
+
+The final command is optional hardware acceptance. It requires real CUDA and
+emits a separate `Phase8ACudaAmpHardwareEvidence@1.2.0` artifact; a CPU run or
+CUDA skip is not GPU evidence. Both documented Phase 8A script files are thin
+wrappers over importable `music_critic.ssl` acceptance modules and work from
+the repository root without modifying `sys.path`.
 
 For production-cache SSL, the target-free dataset loads each canonical cache
 piece and rebuilds its raw graph without projecting supervised targets. SSL
@@ -191,6 +215,9 @@ artifacts, test-split acknowledgement, and profiling are in
 The deterministic GraphMAE2-inspired Phase 7A mask, model, objective,
 checkpoint, transfer, and bounded-science contracts are in
 `docs/PHASE7A_SSL_BASELINE.md`.
+Phase 8A hierarchy policies, start-descendant semantics, mixtures, prepared
+profile, leakage audit, bounded fixture, and non-claim boundary are in
+`docs/PHASE8A_HIERARCHICAL_MASKING.md`.
 
 Evaluate a checkpoint on fixed validation:
 

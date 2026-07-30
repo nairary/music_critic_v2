@@ -54,6 +54,7 @@ from music_critic.ssl.views import (
 
 
 DEFAULT_ENCODER_MASK_RATE = 0.30
+PREPARED_HIERARCHY_MASK_BINDING_CONTRACT_VERSION = "1.2.0"
 TRACK_CONTAINS_NOTE_EDGE = ("track", "contains_note", "note")
 
 _PREPARED_BINDING_ATTESTATION_KEY = secrets.token_bytes(32)
@@ -117,7 +118,7 @@ def _base_order(
     stage: MaskStage,
     encoder_view_index: int,
 ) -> tuple[int, ...]:
-    """Create a stable sample-specific permutation from per-index SHA-256 keys."""
+    """Create the exact SHA-key order with fixed-width stable radix passes."""
 
     common = {
         "namespace": "music_critic.ssl.encoder_mask.base_order.v1",
@@ -133,20 +134,36 @@ def _base_order(
             MASKABLE_FIELD_REGISTRY_FINGERPRINT
         ),
     }
-    return tuple(
-        sorted(
-            range(node_count),
-            key=lambda local_index: (
+    keyed = [
+        (
+            bytes.fromhex(
                 canonical_sha256(
                     {
                         **common,
                         "local_node_index": local_index,
                     }
-                ),
-                local_index,
+                )
             ),
+            local_index,
         )
-    )
+        for local_index in range(node_count)
+    ]
+    # SHA-256 keys are fixed-width.  Stable least-significant-byte passes
+    # reproduce lexicographic digest ordering in O(32 * N).  ``keyed`` starts
+    # in local-index order, so a hypothetical digest collision retains the
+    # former ``(digest, local_index)`` tie-break exactly.
+    for byte_position in range(31, -1, -1):
+        buckets: list[list[tuple[bytes, int]]] = [
+            [] for _ in range(256)
+        ]
+        for item in keyed:
+            buckets[item[0][byte_position]].append(item)
+        keyed = [
+            item
+            for bucket in buckets
+            for item in bucket
+        ]
+    return tuple(local_index for _, local_index in keyed)
 
 
 def _sample_local_indices(
@@ -187,7 +204,12 @@ def _sample_local_indices(
     # subset for adjacent epochs whenever 0 < selected_count < node_count.
     offset = (offset_seed.value + epoch) % node_count
     rotated = order[offset:] + order[:offset]
-    return tuple(sorted(rotated[:selected_count]))
+    selected = set(rotated[:selected_count])
+    return tuple(
+        local_index
+        for local_index in range(node_count)
+        if local_index in selected
+    )
 
 
 def _validated_ptr(
@@ -252,9 +274,17 @@ def _binding_payload(
     ordered_plan_fingerprints: tuple[str, ...],
     feature_overlay_fingerprint: str,
     selected_global_note_indices: tuple[int, ...],
+    hierarchy_profile_version: str | None = None,
+    hierarchy_policy_config_fingerprint: str | None = None,
+    hierarchy_resolution_fingerprints: tuple[str, ...] = (),
 ) -> dict[str, object]:
-    return {
-        "contract_version": PREPARED_MASK_BINDING_CONTRACT_VERSION,
+    contract_version = (
+        PREPARED_HIERARCHY_MASK_BINDING_CONTRACT_VERSION
+        if hierarchy_profile_version is not None
+        else PREPARED_MASK_BINDING_CONTRACT_VERSION
+    )
+    payload = {
+        "contract_version": contract_version,
         "sample_identities": [
             {"dataset_id": dataset_id, "piece_id": piece_id}
             for dataset_id, piece_id in zip(
@@ -292,6 +322,20 @@ def _binding_payload(
             selected_global_note_indices
         ),
     }
+    if hierarchy_profile_version is not None:
+        payload["shared_attestation_contract_version"] = (
+            PREPARED_MASK_BINDING_CONTRACT_VERSION
+        )
+        payload["hierarchy_profile"] = {
+            "profile_version": hierarchy_profile_version,
+            "policy_config_fingerprint": (
+                hierarchy_policy_config_fingerprint
+            ),
+            "ordered_resolution_fingerprints": list(
+                hierarchy_resolution_fingerprints
+            ),
+        }
+    return payload
 
 
 def _semantic_attestation(fingerprint: str) -> str:
@@ -737,10 +781,20 @@ class PreparedMaskBinding:
     edge_counts: tuple[tuple[tuple[str, str, str], int], ...]
     validated_structure_sha256: str
     note_track_ownership_sha256: str
-    mask_plans: tuple[MaskPlan, ...]
+    mask_plans: tuple[object, ...]
     ordered_plan_fingerprints: tuple[str, ...]
     feature_overlay: FeatureMaskOverlay
     selected_global_note_indices: tuple[int, ...]
+    hierarchy_profile_version: str | None
+    hierarchy_policy_config: object | None = field(
+        repr=False,
+        compare=True,
+    )
+    hierarchy_resolutions: tuple[object, ...] = field(
+        repr=False,
+        compare=True,
+    )
+    hierarchy_resolution_fingerprints: tuple[str, ...]
     selected_global_note_indices_tensor: Tensor = field(
         repr=False,
         compare=False,
@@ -775,14 +829,27 @@ class PreparedMaskBinding:
         edge_counts: tuple[tuple[tuple[str, str, str], int], ...],
         validated_structure_sha256: str,
         note_track_ownership_sha256: str,
-        mask_plans: tuple[MaskPlan, ...],
+        mask_plans: tuple[object, ...],
         feature_overlay: FeatureMaskOverlay,
         selected_global_note_indices: tuple[int, ...],
+        hierarchy_profile_version: str | None = None,
+        hierarchy_policy_config: object | None = None,
+        hierarchy_resolutions: tuple[object, ...] = (),
         bound_graph: HeteroData,
     ) -> PreparedMaskBinding:
         if not isinstance(bound_graph, Batch):
             raise SSLContractError(
                 "prepared binding construction requires a PyG Batch"
+            )
+        if (
+            hierarchy_profile_version is None
+            and cls is not PreparedMaskBinding
+        ) or (
+            hierarchy_profile_version is not None
+            and cls is not PreparedHierarchyMaskBinding
+        ):
+            raise SSLContractError(
+                "prepared binding envelope type is incompatible"
             )
         (
             canonical_node_counts,
@@ -806,16 +873,85 @@ class PreparedMaskBinding:
             raise SSLContractError(
                 "prepared binding construction evidence is non-canonical"
             )
-        canonical_plans = build_batched_mask_plans(
-            bound_graph,
-            dataset_ids=dataset_ids,
-            piece_ids=piece_ids,
-            global_seed=global_seed,
-            epoch=epoch,
-            encoder_view_index=encoder_view_index,
-            requested_mask_rate=requested_mask_rate,
-            stage=stage,
-        )
+        hierarchy_resolution_fingerprints: tuple[str, ...] = ()
+        hierarchy_policy_config_fingerprint: str | None = None
+        if hierarchy_profile_version is None:
+            if (
+                hierarchy_policy_config is not None
+                or hierarchy_resolutions
+            ):
+                raise SSLContractError(
+                    "Phase 7A binding cannot contain hierarchy evidence"
+                )
+            canonical_plans: tuple[object, ...] = (
+                build_batched_mask_plans(
+                    bound_graph,
+                    dataset_ids=dataset_ids,
+                    piece_ids=piece_ids,
+                    global_seed=global_seed,
+                    epoch=epoch,
+                    encoder_view_index=encoder_view_index,
+                    requested_mask_rate=requested_mask_rate,
+                    stage=stage,
+                )
+            )
+        else:
+            from music_critic.ssl.hierarchical_masking import (
+                HIERARCHY_PREPARED_BINDING_PROFILE_VERSION,
+                HierarchyMaskPolicyConfig,
+                HierarchyMaskResolution,
+                build_batched_hierarchy_mask_resolutions,
+            )
+
+            if (
+                hierarchy_profile_version
+                != HIERARCHY_PREPARED_BINDING_PROFILE_VERSION
+                or type(hierarchy_policy_config)
+                is not HierarchyMaskPolicyConfig
+                or not isinstance(hierarchy_resolutions, tuple)
+                or not all(
+                    type(resolution) is HierarchyMaskResolution
+                    for resolution in hierarchy_resolutions
+                )
+            ):
+                raise SSLContractError(
+                    "prepared hierarchy binding evidence is incompatible"
+                )
+            canonical_resolutions = (
+                build_batched_hierarchy_mask_resolutions(
+                    bound_graph,
+                    dataset_ids=dataset_ids,
+                    piece_ids=piece_ids,
+                    global_seed=global_seed,
+                    epoch=epoch,
+                    encoder_view_index=encoder_view_index,
+                    requested_mask_rate=requested_mask_rate,
+                    stage=stage,
+                    policy_config=hierarchy_policy_config,
+                )
+            )
+            if (
+                hierarchy_resolutions != canonical_resolutions
+                or any(
+                    resolution.plan is None
+                    for resolution in canonical_resolutions
+                )
+            ):
+                raise SSLContractError(
+                    "prepared hierarchy binding resolutions are non-canonical"
+                )
+            canonical_plans = tuple(
+                resolution.plan
+                for resolution in canonical_resolutions
+                if resolution.plan is not None
+            )
+            hierarchy_resolution_fingerprints = tuple(
+                resolution.fingerprint
+                for resolution in canonical_resolutions
+            )
+            hierarchy_policy_config_fingerprint = (
+                hierarchy_policy_config.fingerprint
+            )
         if mask_plans != canonical_plans:
             raise SSLContractError(
                 "prepared binding construction plans are non-canonical"
@@ -862,6 +998,13 @@ class PreparedMaskBinding:
             selected_global_note_indices=(
                 selected_global_note_indices
             ),
+            hierarchy_profile_version=hierarchy_profile_version,
+            hierarchy_policy_config_fingerprint=(
+                hierarchy_policy_config_fingerprint
+            ),
+            hierarchy_resolution_fingerprints=(
+                hierarchy_resolution_fingerprints
+            ),
         )
         fingerprint = canonical_sha256(payload)
         selected_tensor = torch.tensor(
@@ -877,7 +1020,11 @@ class PreparedMaskBinding:
             location="binding:selected_global_note_indices_tensor",
         )
         return cls(
-            contract_version=PREPARED_MASK_BINDING_CONTRACT_VERSION,
+            contract_version=(
+                PREPARED_HIERARCHY_MASK_BINDING_CONTRACT_VERSION
+                if hierarchy_profile_version is not None
+                else PREPARED_MASK_BINDING_CONTRACT_VERSION
+            ),
             dataset_ids=dataset_ids,
             piece_ids=piece_ids,
             stage=stage,
@@ -898,6 +1045,12 @@ class PreparedMaskBinding:
             feature_overlay=feature_overlay,
             selected_global_note_indices=(
                 selected_global_note_indices
+            ),
+            hierarchy_profile_version=hierarchy_profile_version,
+            hierarchy_policy_config=hierarchy_policy_config,
+            hierarchy_resolutions=hierarchy_resolutions,
+            hierarchy_resolution_fingerprints=(
+                hierarchy_resolution_fingerprints
             ),
             selected_global_note_indices_tensor=selected_tensor,
             fingerprint=fingerprint,
@@ -945,17 +1098,48 @@ class PreparedMaskBinding:
             selected_global_note_indices=(
                 self.selected_global_note_indices
             ),
+            hierarchy_profile_version=(
+                self.hierarchy_profile_version
+            ),
+            hierarchy_policy_config_fingerprint=(
+                None
+                if self.hierarchy_policy_config is None
+                else getattr(
+                    self.hierarchy_policy_config,
+                    "fingerprint",
+                    None,
+                )
+            ),
+            hierarchy_resolution_fingerprints=(
+                self.hierarchy_resolution_fingerprints
+            ),
         )
         payload["fingerprint"] = self.fingerprint
         return payload
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedHierarchyMaskBinding(PreparedMaskBinding):
+    """Phase 8A envelope reusing the Phase 7A attestation kernel."""
+
+
 def _validate_prepared_mask_binding_contract(
     binding: PreparedMaskBinding,
 ) -> None:
+    hierarchy_mode = binding.hierarchy_profile_version is not None
+    expected_type = (
+        PreparedHierarchyMaskBinding
+        if hierarchy_mode
+        else PreparedMaskBinding
+    )
+    expected_contract_version = (
+        PREPARED_HIERARCHY_MASK_BINDING_CONTRACT_VERSION
+        if hierarchy_mode
+        else PREPARED_MASK_BINDING_CONTRACT_VERSION
+    )
     if (
-        binding.contract_version
-        != PREPARED_MASK_BINDING_CONTRACT_VERSION
+        type(binding) is not expected_type
+        or binding.contract_version != expected_contract_version
     ):
         raise SSLContractError(
             "prepared mask binding contract version is incompatible"
@@ -1064,15 +1248,90 @@ def _validate_prepared_mask_binding_contract(
         raise SSLContractError(
             "prepared binding structure evidence must use SHA-256"
         )
+    if hierarchy_mode:
+        from music_critic.ssl.hierarchical_masking import (
+            HIERARCHY_PREPARED_BINDING_PROFILE_VERSION,
+            HierarchicalMaskPlan,
+            HierarchyMaskPolicyConfig,
+            HierarchyMaskResolution,
+            hierarchy_mask_resolution_fingerprint,
+            hierarchy_policy_config_fingerprint,
+            hierarchical_mask_plan_fingerprint,
+        )
+
+        if (
+            binding.hierarchy_profile_version
+            != HIERARCHY_PREPARED_BINDING_PROFILE_VERSION
+            or type(binding.hierarchy_policy_config)
+            is not HierarchyMaskPolicyConfig
+            or not isinstance(binding.hierarchy_resolutions, tuple)
+            or len(binding.hierarchy_resolutions)
+            != binding.sample_count
+            or not all(
+                type(resolution) is HierarchyMaskResolution
+                for resolution in binding.hierarchy_resolutions
+            )
+            or binding.hierarchy_resolution_fingerprints
+            != tuple(
+                hierarchy_mask_resolution_fingerprint(resolution)
+                for resolution in binding.hierarchy_resolutions
+            )
+            or binding.hierarchy_policy_config.fingerprint
+            != hierarchy_policy_config_fingerprint(
+                binding.hierarchy_policy_config
+            )
+            or any(
+                resolution.plan is None
+                for resolution in binding.hierarchy_resolutions
+            )
+        ):
+            raise SSLContractError(
+                "prepared hierarchy binding profile is invalid"
+            )
+        def prepared_plan_fingerprint(plan: object) -> str:
+            if type(plan) is MaskPlan:
+                return mask_plan_fingerprint(plan)
+            if type(plan) is HierarchicalMaskPlan:
+                if not plan.available:
+                    raise SSLContractError(
+                        "prepared hierarchy binding contains "
+                        "an unavailable plan"
+                    )
+                return hierarchical_mask_plan_fingerprint(plan)
+            raise SSLContractError(
+                "prepared hierarchy binding contains an invalid plan type"
+            )
+
+        if tuple(
+            resolution.plan
+            for resolution in binding.hierarchy_resolutions
+        ) != binding.mask_plans:
+            raise SSLContractError(
+                "prepared hierarchy plans differ from their resolutions"
+            )
+    else:
+        if (
+            binding.hierarchy_policy_config is not None
+            or binding.hierarchy_resolutions
+            or binding.hierarchy_resolution_fingerprints
+        ):
+            raise SSLContractError(
+                "prepared Phase 7A binding contains hierarchy evidence"
+            )
+
+        def prepared_plan_fingerprint(plan: object) -> str:
+            if type(plan) is not MaskPlan:
+                raise SSLContractError(
+                    "prepared Phase 7A binding requires MaskPlan values"
+                )
+            return mask_plan_fingerprint(plan)
+
     if (
         not isinstance(binding.mask_plans, tuple)
         or len(binding.mask_plans) != binding.sample_count
-        or not all(
-            isinstance(plan, MaskPlan) for plan in binding.mask_plans
-        )
     ):
         raise SSLContractError(
-            "prepared binding requires one MaskPlan per sample"
+            "prepared binding requires one plan per sample"
         )
     if (
         not isinstance(binding.ordered_plan_fingerprints, tuple)
@@ -1090,7 +1349,7 @@ def _validate_prepared_mask_binding_contract(
     expected_selected: list[int] = []
     for sample_index, plan in enumerate(binding.mask_plans):
         if (
-            plan.fingerprint != mask_plan_fingerprint(plan)
+            plan.fingerprint != prepared_plan_fingerprint(plan)
             or plan.dataset_id != binding.dataset_ids[sample_index]
             or plan.piece_id != binding.piece_ids[sample_index]
             or plan.stage != binding.stage
@@ -1102,7 +1361,7 @@ def _validate_prepared_mask_binding_contract(
             != note_ptr[sample_index + 1] - note_ptr[sample_index]
         ):
             raise SSLContractError(
-                "prepared binding contains a non-canonical bound MaskPlan"
+                "prepared binding contains a non-canonical bound plan"
             )
         expected_selected.extend(
             note_ptr[sample_index] + local_index
@@ -1155,6 +1414,19 @@ def _validate_prepared_mask_binding_contract(
         ),
         selected_global_note_indices=(
             binding.selected_global_note_indices
+        ),
+        hierarchy_profile_version=binding.hierarchy_profile_version,
+        hierarchy_policy_config_fingerprint=(
+            None
+            if binding.hierarchy_policy_config is None
+            else getattr(
+                binding.hierarchy_policy_config,
+                "fingerprint",
+                None,
+            )
+        ),
+        hierarchy_resolution_fingerprints=(
+            binding.hierarchy_resolution_fingerprints
         ),
     )
     if (
@@ -1406,7 +1678,11 @@ def _one_plan(
     track_statistics_collateral = CollateralFeatureMask(
         reason=NOTE_PITCH_GROUP.collateral_reason,
         node_type="track",
-        local_node_indices=tuple(sorted(set(owner_tracks))),
+        local_node_indices=tuple(
+            local_track_index
+            for local_track_index in range(track_end - track_start)
+            if local_track_index in owner_track_set
+        ),
         features=NOTE_PITCH_GROUP.collateral_fields,
     )
     stable_seed = derive_stable_seed(
@@ -1642,6 +1918,137 @@ def prepare_mask_binding(
         selected_global_note_indices=selected_global_indices,
         bound_graph=graph_batch,
     )
+
+
+def prepare_hierarchy_mask_binding(
+    batch: object,
+    *,
+    policy_config: object,
+    global_seed: int,
+    epoch: int,
+    requested_mask_rate: float = DEFAULT_ENCODER_MASK_RATE,
+    stage: MaskStage = "train",
+    encoder_view_index: int = 0,
+) -> PreparedMaskBinding | PreparedHierarchyMaskBinding:
+    """Prepare a Phase 8A view through the shared attested binding kernel.
+
+    An independent-only configuration delegates to ``prepare_mask_binding``
+    exactly, preserving the complete Phase 7A portable binding and runtime
+    behavior.  Every other configuration binds its mixture-resolution
+    evidence in the hierarchy profile while reusing the same full graph
+    attestation, opaque token, and transfer implementation.
+    """
+
+    from music_critic.ssl.data import SSLBatch, validate_ssl_batch
+    from music_critic.ssl.hierarchical_masking import (
+        HIERARCHY_PREPARED_BINDING_PROFILE_VERSION,
+        INDEPENDENT_NOTE_PITCH,
+        HierarchyMaskPolicyConfig,
+        HierarchyMaskUnavailableError,
+        build_batched_hierarchy_mask_resolutions,
+        validate_hierarchy_policy_config,
+    )
+
+    if not isinstance(batch, SSLBatch):
+        raise SSLContractError(
+            "prepare_hierarchy_mask_binding requires a raw-only SSLBatch"
+        )
+    if type(policy_config) is not HierarchyMaskPolicyConfig:
+        raise SSLContractError(
+            "prepare_hierarchy_mask_binding requires an exact "
+            "HierarchyMaskPolicyConfig"
+        )
+    canonical_config = validate_hierarchy_policy_config(
+        policy_config
+    )
+    if encoder_view_index != 0:
+        raise SSLContractError(
+            "prepared Phase 8A bindings require encoder view zero"
+        )
+    if canonical_config.enabled_policies() == (
+        INDEPENDENT_NOTE_PITCH,
+    ):
+        return prepare_mask_binding(
+            batch,
+            global_seed=global_seed,
+            epoch=epoch,
+            requested_mask_rate=requested_mask_rate,
+            stage=stage,
+            encoder_view_index=encoder_view_index,
+        )
+    validate_ssl_batch(batch)
+    graph_batch = batch.raw_graph_batch
+    if not isinstance(graph_batch, Batch):
+        raise SSLContractError(
+            "prepare_hierarchy_mask_binding requires a PyG Batch"
+        )
+    (
+        node_counts,
+        node_ptrs,
+        edge_counts,
+        structure_sha256,
+        ownership_sha256,
+    ) = _cpu_graph_evidence(
+        graph_batch,
+        sample_count=batch.sample_count,
+    )
+    resolutions = build_batched_hierarchy_mask_resolutions(
+        graph_batch,
+        dataset_ids=batch.dataset_ids,
+        piece_ids=batch.piece_ids,
+        global_seed=global_seed,
+        epoch=epoch,
+        encoder_view_index=encoder_view_index,
+        requested_mask_rate=requested_mask_rate,
+        stage=stage,
+        policy_config=canonical_config,
+    )
+    if any(resolution.plan is None for resolution in resolutions):
+        raise HierarchyMaskUnavailableError(resolutions)
+    plans = tuple(
+        resolution.plan
+        for resolution in resolutions
+        if resolution.plan is not None
+    )
+    feature_overlay = build_feature_mask_overlay(
+        graph_batch,
+        plans,
+    )
+    canonical_epoch = plans[0].epoch
+    canonical_rate = plans[0].requested_mask_rate
+    note_ptr = dict(node_ptrs)["note"]
+    selected_global_indices = tuple(
+        note_ptr[sample_index] + local_index
+        for sample_index, plan in enumerate(plans)
+        for local_index in plan.selected_local_node_indices
+    )
+    return PreparedHierarchyMaskBinding._create(
+        dataset_ids=batch.dataset_ids,
+        piece_ids=batch.piece_ids,
+        stage=stage,
+        epoch=canonical_epoch,
+        encoder_view_index=encoder_view_index,
+        global_seed=global_seed,
+        requested_mask_rate=canonical_rate,
+        sample_count=batch.sample_count,
+        node_counts=node_counts,
+        node_ptrs=node_ptrs,
+        edge_counts=edge_counts,
+        validated_structure_sha256=structure_sha256,
+        note_track_ownership_sha256=ownership_sha256,
+        mask_plans=plans,
+        feature_overlay=feature_overlay,
+        selected_global_note_indices=selected_global_indices,
+        hierarchy_profile_version=(
+            HIERARCHY_PREPARED_BINDING_PROFILE_VERSION
+        ),
+        hierarchy_policy_config=canonical_config,
+        hierarchy_resolutions=resolutions,
+        bound_graph=graph_batch,
+    )
+
+
+prepare_hierarchical_mask_binding = prepare_hierarchy_mask_binding
 
 
 def _validate_prepared_mask_binding_runtime(
@@ -1928,6 +2335,8 @@ def build_mask_plans_for_batch(
 
 __all__ = [
     "DEFAULT_ENCODER_MASK_RATE",
+    "PREPARED_HIERARCHY_MASK_BINDING_CONTRACT_VERSION",
+    "PreparedHierarchyMaskBinding",
     "PreparedMaskBinding",
     "TRACK_CONTAINS_NOTE_EDGE",
     "build_batch_mask_plans",
@@ -1936,6 +2345,8 @@ __all__ = [
     "build_mask_plans_for_batch",
     "derive_stable_seed",
     "move_ssl_batch_with_prepared_binding",
+    "prepare_hierarchical_mask_binding",
+    "prepare_hierarchy_mask_binding",
     "prepare_mask_binding",
     "validate_prepared_mask_binding",
 ]

@@ -115,7 +115,7 @@ def _validate_indices(
         for value in values
     ):
         raise SSLContractError(f"{name} must contain non-negative integers")
-    if values != tuple(sorted(values)) or len(values) != len(set(values)):
+    if any(left >= right for left, right in zip(values, values[1:])):
         raise SSLContractError(f"{name} must be uniquely sorted")
     if upper_bound is not None and any(value >= upper_bound for value in values):
         raise SSLContractError(f"{name} contains an out-of-range local index")

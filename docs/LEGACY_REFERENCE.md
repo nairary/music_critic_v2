@@ -315,3 +315,16 @@ detached full-view representations with masked-online owner/bar/song/temporal
 decoder context, and keeps raw graph fingerprints unchanged. Its production
 cache dataset rebuilds raw graphs without projecting supervised targets. No
 legacy checkpoint, vocabulary, model class, or runtime module participates.
+
+## Phase 8A hierarchy-aware masking
+
+No legacy repository file was inspected for Phase 8A. No legacy code, planner,
+randomness, hierarchy representation, objective, checkpoint, or configuration
+was reused or adapted.
+
+Phase 8A derives exclusively from current V2 raw relations, the accepted
+Phase 7A `MaskPlan`/overlay/prepared-attestation contracts, and the Phase 6
+hierarchical encoder. In particular, start-anchored onset/beat/bar/track
+descendants, deterministic policy mixtures, structured unavailable evidence,
+and the supplemental bounded oracle are new V2 contracts. The V2 package
+continues to run without the legacy checkout.

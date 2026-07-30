@@ -85,7 +85,8 @@
 - Evaluation/artifact contracts: `1.1.1`; profiler: `1.1.0`; macro-summary
   sub-contract: `1.0.0`; unchanged train-prior: `1.0.0`
 - Phase 7A branch: `phase/7a-graphmae2-ssl-baseline`
-- Phase 7A PR #15: merged at
+- Phase 7A: accepted and merged in PR #15
+- Phase 7A merge SHA:
   `a850207897b5abf6eebccf72d44b8814260323c6`
 - Phase 7A final-remediation base:
   `791ef19b1dbd7c26b7a2ef87f36d4ee5b08391a6`
@@ -117,14 +118,13 @@
   `1.0.1`
 - Phase 7A maskable-field registry fingerprint:
   `97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`
-- Blocking post-merge hotfix branch:
-  `hotfix/cuda-device-canonicalization`
-- Runtime device-resolution contract: `1.0.1`
-- Draft hotfix PR: #17
-- Next gate: Required CI on the exact remediation head and independent RTX
-  3090 verification; Phase 8 has not started
+- Phase 7A CUDA/AMP and split-evidence hotfix: accepted and merged through
+  PR #17 at main `5afec305cfa62ab2c200c5b1e7270ae35cd8a102`
+- Device-transfer contract after the accepted hotfix: `1.0.2`
+- Phase 8A pre-merge remediation is active in draft PR #16; Phase 8B has not
+  started
 
-## CUDA device-canonicalization hotfix status
+## Accepted CUDA device-canonicalization hotfix status
 
 - Independent RTX 3090 execution of `python -m pytest -q tests/ssl` against
   merged Phase 7A produced `157 passed, 2 failed, 8 warnings`.
@@ -185,8 +185,9 @@
   fingerprints. Historical Phase 7A `1.2.0` hashes remain historical and are
   not rewritten. Prepared binding, masking, model/output, graph, ontology,
   encoding, canonical, and checkpoint container contracts are unchanged.
-- Local development is CPU-only, so all real-CUDA tests remain unverified
-  locally. The hotfix must remain draft pending new RTX 3090 evidence.
+- Local development for that remediation was CPU-only, so local skips were
+  not presented as accelerator evidence. PR #17 is now accepted and merged;
+  the paragraphs above retain its historical failure and correction evidence.
 - Previous indexed-CUDA/AMP local remediation verification passed
   runtime/config/device checks
   (`73 passed, 1 skipped, 2 warnings`), focused objective/diagnostic/CUDA
@@ -211,6 +212,30 @@
   policies, model architecture, graph schema, ontology, dataset, cache, and
   production-training behavior are unchanged. Only the required AMP compute
   dtype semantics changed. No Phase 8 implementation is part of this hotfix.
+
+- Phase 8A branch: `phase/8a-hierarchical-masking`
+- Phase 8A status: pre-merge remediation in draft PR #16. Final-head review,
+  both Required workflow runs, and independent exact-final RTX 3090 CUDA/AMP
+  evidence are merge gates. Do not merge from this implementation task.
+- Phase 8A hierarchical plan/policy/config/selection/prepared-profile/
+  prepared-hierarchy-binding/acceptance/benchmark contracts: `1.2.0`
+- Phase 8A mixture/unavailable-reason/hierarchy-output/leakage-audit/fixture
+  contracts: `1.0.0`
+- Optional `Phase8ACudaAmpHardwareEvidence`: `1.2.0`
+- Phase 8A pitch-leakage audit fingerprint:
+  `27fc135b61649e5b892036dd0aacc92f679493ff671320c8235d33396a7c9949`
+- Phase 8A hierarchy fixture fingerprint:
+  `ffd0d4c7db80323b8f1f8d72c1e4b7e530151c1b95dd68033e1a30273dd98a1b`
+- Phase 8A uses distinct `PreparedHierarchyMaskBinding@1.2.0` and
+  `Phase8AHierarchySSLForwardOutput@1.0.0` portable envelopes over the shared
+  Phase 7A attestation/encoder kernel. It preserves
+  `PreparedMaskBinding@1.1.0`, `SSLForwardOutput@1.2.0`, all other existing
+  Phase 7A and Phase 6 contract versions, checkpoint metadata/state, raw
+  graph/canonical/cache/split contracts, and independent-control artifacts.
+- Exact final policy/configuration/acceptance fingerprints and test counts are
+  pending the final-head rerun and are not replaced by pre-remediation hashes.
+- Next gate: finish deterministic CPU evidence, Required CI, and independent
+  exact-final RTX 3090 acceptance. Phase 8B has not started.
 
 ## Phase 7A implementation status
 
@@ -341,8 +366,144 @@
   `git diff --check`, and `git show --check` passed. CUDA was unavailable, so
   its prepared-forward test skipped and no GPU evidence is claimed.
 - Production SSL training has not been performed for Phase 7A acceptance.
-  Phase 8 has not started, PDMX has not been added, PLL has not been
-  implemented, and no critic or quality score has been implemented.
+  Phase 8A adds bounded hierarchy-aware mask/view mechanics only; Phase 8B
+  has not started. PDMX has not been added, PLL has not been implemented, and
+  no critic or quality score has been implemented.
+
+## Phase 8A implementation status
+
+- Exactly five policies are versioned: the bit-exact Phase 7A
+  `independent_note_pitch` control plus onset descendants, beat descendants,
+  one start-anchored contiguous bar span, and the sparse intersection of one
+  raw track with one start-anchored bar span.
+- Every new policy hides only the four note pitch fields and availability,
+  then applies the unchanged Phase 7A peer-relative-pitch and owner-track
+  pitch-statistic collateral closure. The fail-closed audit classifies all 68
+  raw registry fields as four primary identities, four unique owner-track
+  collateral identities, and an exact ordered 60-field visible remainder.
+- The target-blind CPU index validates note/onset/beat/bar/track ownership,
+  including beat-bar ownership and agreement between an onset's direct bar and
+  its owning beat's bar. SplitMix64/Fisher-Yates unit permutation, linear
+  scans, bounded `max_span_bars <= 8` enumeration, and sparse occupied
+  track/bar cells avoid pairwise or dense hierarchy matrices.
+- Span method `bounded_near_optimal_seed_rank_v2` first derives best budget
+  error, admits candidates through `best + slack`, and retains the `K`
+  smallest seed-dependent membership ranks from the complete tolerance set.
+  A separately domain-separated rank chooses the final span; canonical
+  track/start/end/descendants identity is only the collision fallback.
+  Defaults are `K=4`, slack `1`; bounds are `K <= 8`, slack `<= 8`. `K=1`
+  is a seed-ranked singleton and slack `0` is the exact-best control.
+- Existing candidate generation retains `O(C+S)` sparse state. Selection uses
+  two passes, `O(C*K)=O(C)` time under the fixed `K` bound, and `O(K)` scratch;
+  it performs no unbounded/full candidate sort or dense construction.
+- The positional-bias oracle has 36 tolerance candidates over three tracks
+  and bars `0..11`: one at error `0` and 35 at error `1`. Epochs `0..255`
+  put every candidate into a retained pool and select all 36; start bars cover
+  `0..11`, all three tracks occur, 224 selections escape the obsolete
+  canonical prefix, and the error histogram is `0:7, 1:249`. Replay and
+  reverse/permuted enumeration are bit-exact. This is deterministic mechanics
+  evidence, not an unbiased/uniform sampling claim.
+- Unavailable policies return a structured reason and never silently fall
+  back. Mixture resolution records the full eligibility set, exact normalized
+  weights, stable resolution seed, selected policy, and explicit realized
+  denominator/frequency.
+- Hierarchy execution returns distinct
+  `PreparedHierarchyMaskBinding@1.2.0` and
+  `Phase8AHierarchySSLForwardOutput@1.0.0` artifacts over the shared Phase 7A
+  full-attestation/HMAC/token/transfer implementation. Normal `forward()`
+  remains Phase 7A-only; `forward_hierarchy()` is explicit. An
+  independent-only configuration returns the exact old Phase 7A binding,
+  overlay, logits/embeddings, and losses.
+- The bounded fixture has 6 pieces, 14 tracks, 15 bars, 60 beats, 42 onsets,
+  93 notes, 39 polyphonic onsets, one multi-onset beat, one cross-bar
+  sustained note, and 34 occupied track/bar cells. Train/validation identities
+  are disjoint.
+- The default bounded audit over epochs `0..255` finds actual diversity for
+  both span policies on all four train identities. Every selected error is
+  within `best + 1`; the exact per-piece candidate/pool/error table is in
+  `PHASE8A_HIERARCHICAL_MASKING.md`. This justifies bounded defaults, not
+  policy quality.
+- Two fresh-process remediated CPU reports in the local Python
+  3.13.5/PyTorch `2.13.0+cpu`/PyG `2.8.0.post1` runtime are byte-identical:
+  93,062 bytes each, SHA-256
+  `2d107944c38d8ee465d73f2f71f07b224451f5a31213e86e0049dbaf3958c8f4`.
+  The independent RTX host likewise reproduced its own CPU report twice, with
+  host-local SHA-256
+  `076bb56126dd1ba262014b553a5009e93bd464dac99564531b01fcea09f941b1`.
+  The complete report includes CPU FP32 observations and promises byte replay
+  only inside one compatible runtime, not cross-environment file identity.
+  Cross-host validation binds the versioned semantic/fingerprint projection,
+  while the eventual hardware artifact binds the exact consumed report SHA.
+  Policy/default-configuration fingerprints are
+  `2d39eb5e1ddf6ad53c626a18b364d0ffae0896663008a4e1422215c0c20fbdb1`
+  and
+  `e38651e00726ce9681dc015634c5d1f48f11586d07e0faf3187e20bda9ffee67`.
+- Final local verification passed focused Phase 8A plus CLI contracts
+  (`139 passed, 7 skipped`), direct CPU CUDA-acceptance helper and atomicity
+  contracts (`34 passed, 2 skipped`), worker `0/2` parity (`1 passed`) plus two
+  byte-identical direct-CLI portable reports, complete SSL
+  (`345 passed, 13 skipped`), model/graph/device
+  (`165 passed, 1 skipped`), training/evaluation (`94 passed, 6 skipped`),
+  checkpoint/resume/transfer (`21 passed`), deterministic held-out plus
+  repository audit (`7 passed`), and the complete repository
+  (`1213 passed, 34 skipped, 10 warnings`). The no-threshold benchmark passed
+  all five policies. Both Required GitHub workflows remain mandatory on the
+  new final head.
+- Optional explicit-`cuda:0` AMP acceptance covers all five policies and the
+  mixture, concrete bindings, finite forward/loss/gradients, and peak
+  allocated/reserved VRAM in separate
+  `Phase8ACudaAmpHardwareEvidence@1.2.0`. Its serialized bounded numerical
+  diagnostic compares CPU FP32 and CUDA FP32 per policy and encoder node type
+  with fixed `rtol=1e-3`, `atol=5e-5`, cosine floor `0.999`, exact
+  shape/dtype/finite checks, predictions/targets/losses, and objective
+  difference. Plans, selections, bindings, overlays/masks, indices,
+  graph/topology, same-device replay, Phase 7A control, blindness, and leakage
+  remain bit-exact.
+- Both acceptance scripts are thin wrappers over importable
+  `music_critic.ssl` modules. The documented root command
+  `python scripts/accept_phase8a_cuda_amp.py` no longer imports through an
+  unresolved `scripts` package. Subprocess regressions cover successful
+  portable output plus wrong-SHA, dirty-tree, and missing-portable-report
+  rejection before CUDA; absence of CUDA cannot create hardware evidence.
+- Required CI on `25ac6c7` exposed a shallow-checkout-only ordering defect:
+  `fetch-depth: 1` did not contain the hotfix object, so a dirty-tree negative
+  test reached `merge-base` first and surfaced raw `CalledProcessError`.
+  Exact-final preflight now checks exact HEAD and dirty state before ancestry;
+  a clean shallow checkout that cannot prove ancestry receives structured
+  `phase8a.cuda.hotfix_ancestor_missing_or_unavailable`. Clean independent
+  acceptance still must prove the hotfix ancestor before CUDA execution.
+- The independent RTX 3090 run on
+  `4da09885bb7f97e1eb80dd51d25768881c434f15` then reached the cross-device raw
+  graph parity gate and exposed one GPU-only import defect repeated seven
+  times: `_graphs_cross_device_bit_exact` referenced the common private
+  `_store_items` helper without importing it after the acceptance-module
+  migration. Targeted CUDA was `40 passed, 7 failed, 2 warnings`; full SSL was
+  `330 passed, 7 failed, 1 skipped, 8 warnings`; standalone CUDA exited 1 and
+  emitted no hardware artifact. The failed run is not hardware acceptance.
+- CUDA parity now imports and reuses the common global/node/edge store
+  enumerator. It reads only existing PyG stores, distinguishes ordered node
+  and edge identities, and requires exact ordered attributes plus tensor
+  shape/dtype/value and metadata equality. CPU tests execute the path without
+  CUDA and cover value/dtype/shape changes, missing/extra node and edge
+  attributes, global mutation, reordered stores/attributes, target non-access,
+  input non-mutation, and failure-atomic output replacement. Artifact versions
+  and fingerprints do not change because this restores the already documented
+  exact parity gate rather than changing its schema or semantics.
+- The earlier independent RTX 3090 run at intermediate
+  `00ba0f38f3ebc85c7056d1ad3a77ece75816d0c4` confirmed exact head/hotfix
+  ancestry, portable CPU acceptance, and one targeted CUDA+AMP test, but is
+  forbidden as final evidence. Full SSL was `322 passed, 1 failed, 1 skipped`;
+  the direct CUDA CLI failed with `ModuleNotFoundError: scripts`, and no
+  hardware report was created. A repeat on the new exact final SHA is required.
+  Local CUDA absence must skip honestly.
+- Anti-collapse streaming diagnostics retain `O(D)` state, but current
+  `from_values` creates float64 `N x D` values and normalized temporaries.
+  Real CUDA cost is unmeasured; production SSL requires a separate RTX 3090
+  profiler/optimization gate.
+- No legacy source was inspected. No HookTheory or POP909-CL corpus scan,
+  Dilemmadata or PDMX integration, production cache rebuild,
+  production/full-corpus SSL training, PLL, critic training, or Phase 8B
+  objective work was performed.
 
 ## Scientific context and evaluation backlog
 
