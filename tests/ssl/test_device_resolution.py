@@ -8,6 +8,11 @@ import torch
 from music_critic.device import RuntimeDeviceError
 from music_critic.graph import MANDATORY_EDGE_TYPES
 from music_critic.ssl.contracts import SSL_CONTRACT_VERSION
+from music_critic.ssl.checkpoint import (
+    SSL_CHECKPOINT_CONTRACT_VERSION,
+    SSL_EPOCH_JOURNAL_CONTRACT_VERSION,
+    SSL_METRIC_ROW_VERSION,
+)
 from music_critic.ssl.data import (
     SSLDataError,
     _require_ssl_tensor_device,
@@ -16,6 +21,10 @@ from music_critic.ssl.data import (
     move_ssl_batch,
 )
 from music_critic.ssl.engine import (
+    NO_LEAKAGE_MUTATION_EVIDENCE_CONTRACT_VERSION,
+    PITCH_SENSITIVE_RECONSTRUCTION_EVIDENCE_CONTRACT_VERSION,
+    SSL_PERFORMANCE_ROW_VERSION,
+    SSL_RUN_MANIFEST_VERSION,
     SSL_TRAINING_REPORT_VERSION,
     _resolve_device,
 )
@@ -107,9 +116,19 @@ def test_ssl_runtime_preserves_cuda_index_error(
         )
 
 
-def test_ssl_device_hotfix_contract_versions_are_patch_bumps() -> None:
+def test_ssl_evidence_remediation_versions_are_narrow() -> None:
     assert SSL_CONTRACT_VERSION == "1.2.2"
-    assert SSL_TRAINING_REPORT_VERSION == "1.2.1"
+    assert SSL_TRAINING_REPORT_VERSION == "1.2.2"
+    assert NO_LEAKAGE_MUTATION_EVIDENCE_CONTRACT_VERSION == "1.0.0"
+    assert (
+        PITCH_SENSITIVE_RECONSTRUCTION_EVIDENCE_CONTRACT_VERSION
+        == "1.0.0"
+    )
+    assert SSL_CHECKPOINT_CONTRACT_VERSION == "1.2.0"
+    assert SSL_EPOCH_JOURNAL_CONTRACT_VERSION == "1.2.0"
+    assert SSL_METRIC_ROW_VERSION == "1.2.0"
+    assert SSL_RUN_MANIFEST_VERSION == "1.2.0"
+    assert SSL_PERFORMANCE_ROW_VERSION == "1.2.0"
 
 
 def test_ssl_transfer_rejects_unavailable_cuda_structurally(

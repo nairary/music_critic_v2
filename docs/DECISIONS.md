@@ -1667,3 +1667,66 @@ This log is append-only.
   unchanged. PR #17 stays draft until the exact final commit passes Required
   CI and an independent RTX 3090 rerun records passed/skipped counts plus
   bounded-smoke peak allocated/reserved VRAM.
+
+## 2026-07-30 — ADR-054: Leakage safety, reconstruction sensitivity, and target preference are separate evidence
+
+- Status: Accepted as continued remediation of draft PR #17. This decision
+  supersedes only ADR-050's bounded positive-margin acceptance gate. It does
+  not change the masking/model objective, begin Phase 8, or authorize
+  production training.
+- Context: Independent RTX 3090 execution at exact head `145ee10` produced
+  `195 passed, 1 failed, 1 skipped` for the complete SSL suite,
+  `15 passed, 1 skipped` for the training CUDA suite, and a passing prepared
+  CUDA AMP test. The sole failure was the bounded two-step CUDA AMP smoke.
+  Raw stores remained bit-exact, runtime-source binding passed, MaskPlan and
+  prepared-binding fingerprint stayed fixed, masked-online embeddings and
+  predictions stayed bit-exact, the hidden full-view target and reconstruction
+  loss changed, metrics were finite, and target distance was positive. The
+  only rejected field was a correct-minus-mutated cosine margin of
+  `-0.04540175199508667` from an FP16 prediction with an FP16-derived floor of
+  `0.0078125`.
+- Decision: A signed correct-target-preference margin after two optimizer
+  steps is not a no-leakage invariant and is not required to prove that a
+  controlled pitch mutation forms an effective reconstruction challenge. A
+  nearly untrained model may prefer either target without implying leakage or
+  broken CUDA/AMP plumbing. Preserve the signed value; never relabel a
+  negative margin as leakage, hide it, clamp it, or adjust a tolerance to
+  change its sign.
+- Decision: Introduce independent
+  `no_leakage_mutation_evidence@1.0.0` and
+  `pitch_sensitive_reconstruction_evidence@1.0.0` objects. Each is a separate
+  dictionary with its own domain-separated canonical SHA-256 fingerprint.
+  The report must not alias one mutable object under both keys.
+- Decision: No-leakage `passed` requires an applicable mutation; bit-exact raw
+  graph stores; valid runtime-source binding; fixed MaskPlan; fixed prepared
+  binding fingerprint; strict `torch.equal` masked-online embeddings and
+  predictions; an actually changed hidden full-view target; and finite
+  metrics. Reconstruction-loss change, target-distance magnitude, margin, and
+  correct-target preference do not participate.
+- Decision: Pitch-sensitive reconstruction `passed` requires an applicable
+  mutation, changed hidden full-view target, positive correct-to-mutated target
+  distance, changed reconstruction loss, and finite metrics. Raw-online
+  leakage flags and correct-target preference do not participate.
+- Decision: Compute decoder-view averaging, both target cosines, target L2
+  distance, signed margin, and numerical floors in FP32 under explicitly
+  disabled autocast regardless of FP16/BF16/FP32 source dtype. Record
+  `source_dtype`, `diagnostic_compute_dtype="float32"`, and
+  `margin_floor=8*finfo(float32).eps`. Reject nonfinite sources, diagnostics,
+  or reconstruction losses before fingerprinting/JSON serialization.
+- Decision: Retain correct-target preference as a finite diagnostic with
+  `correct_target_preference_observed`, signed
+  `correct_minus_mutated_margin`, both cosines,
+  `preference_status=observed|not_observed`, and
+  `preference_is_acceptance_criterion=false`. A scientific claim that a model
+  prefers the correct target requires a genuinely trained checkpoint and
+  held-out evaluation, not a bounded two-step smoke.
+- Consequences: SSL training report advances from `1.2.1` to `1.2.2`; both
+  new evidence contracts begin at `1.0.0`. Umbrella SSL remains `1.2.2`;
+  model/output, checkpoint/journal/metric-row, run-manifest/performance-row,
+  representation objective/loss, anti-collapse diagnostics, pitch mutation,
+  prepared binding, masking, graph/canonical schema, ontology, encoding,
+  dataset, cache, and model architecture contracts remain unchanged.
+  Historical Phase 7A positive-margin values and fingerprints remain
+  historical diagnostics. PR #17 remains draft until Required CI and an
+  independent RTX 3090 rerun pass on the exact final commit with exact
+  passed/skipped counts and bounded-smoke peak allocated/reserved VRAM.

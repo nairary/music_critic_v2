@@ -105,7 +105,9 @@
 - Phase 7A deterministic GraphMAE2-inspired masked-graph SSL implementation
   and bounded acceptance are merged. Required CI for that historical head is
   recorded in the final PR #15 evidence comment.
-- Phase 7A umbrella SSL contract: `1.2.2`; training-report contract: `1.2.1`
+- Phase 7A umbrella SSL contract: `1.2.2`; training-report contract: `1.2.2`
+- Phase 7A no-leakage mutation evidence: `1.0.0`; pitch-sensitive
+  reconstruction evidence: `1.0.0`
 - Phase 7A model/output, checkpoint/journal/metric-row, and
   run-manifest/performance-row contracts remain `1.2.0`
 - Phase 7A prepared binding: `1.1.0`; anti-collapse diagnostics: `1.1.1`
@@ -160,13 +162,33 @@
   canonicalizes only JSON container representation for comparison, and keeps
   byte-identical metric journals. Production validation, placeholder,
   membership, fingerprint, and resume contracts are unchanged.
+- Independent RTX 3090 execution at exact head `145ee10` produced
+  `195 passed, 1 failed, 1 skipped` for the complete SSL suite,
+  `15 passed, 1 skipped` for the training CUDA suite, and a passing prepared
+  CUDA AMP test. The sole bounded-smoke failure had every strict no-leakage
+  invariant true, finite metrics, changed target/loss, and positive target
+  distance. Its only false field was the old correct-target-preference gate:
+  signed margin `-0.04540175199508667`, FP16 source, and FP16-derived floor
+  `0.0078125`. This is not leakage evidence and is not final-head acceptance.
+- Training report `1.2.2` now emits independent, canonical-fingerprinted
+  `no_leakage_mutation_evidence@1.0.0` and
+  `pitch_sensitive_reconstruction_evidence@1.0.0` objects. The first requires
+  strict raw/source/plan/binding and `torch.equal` online invariants plus a
+  changed hidden target; the second requires an effective target-distance and
+  reconstruction-loss challenge. Neither requires a positive margin.
+- Correct-target preference remains visible through finite FP32 cosines,
+  signed margin, FP32-epsilon floor, boolean observation, and
+  `observed|not_observed` status, with
+  `preference_is_acceptance_criterion=false`. A trained-preference claim is
+  deferred to held-out evaluation after real training.
 - Umbrella SSL `1.2.2` changes newly generated model/checkpoint binding
   fingerprints. Historical Phase 7A `1.2.0` hashes remain historical and are
   not rewritten. Prepared binding, masking, model/output, graph, ontology,
   encoding, canonical, and checkpoint container contracts are unchanged.
 - Local development is CPU-only, so all real-CUDA tests remain unverified
   locally. The hotfix must remain draft pending new RTX 3090 evidence.
-- Final local remediation verification passed runtime/config/device checks
+- Previous indexed-CUDA/AMP local remediation verification passed
+  runtime/config/device checks
   (`73 passed, 1 skipped, 2 warnings`), focused objective/diagnostic/CUDA
   collection (`53 passed, 5 skipped, 2 warnings`), complete SSL
   (`191 passed, 6 skipped, 8 warnings`), related training/evaluation device
@@ -176,6 +198,15 @@
   deterministic membership checks passed `12 passed, 2 warnings`; compileall
   and diff checks passed. These are CPU/skip results, not hardware
   verification.
+- Current evidence-semantics remediation passed focused truth-table,
+  fingerprint, FP32-diagnostic, checkpoint, and optional-CUDA collection
+  (`18 passed, 1 skipped, 2 warnings`), complete SSL
+  (`206 passed, 6 skipped, 8 warnings`), related training/evaluation
+  CUDA-device checks (`41 passed, 6 skipped, 2 warnings`), the complete default
+  suite (`1074 passed, 27 skipped, 10 warnings`), and the explicit
+  deterministic repository/resume audit (`12 passed, 2 warnings`). Compileall
+  and diff checks passed. These are also CPU/skip results; exact-final RTX 3090
+  evidence remains required.
 - The representation objective formula, weights, zero-vector policy, masking
   policies, model architecture, graph schema, ontology, dataset, cache, and
   production-training behavior are unchanged. Only the required AMP compute
@@ -266,7 +297,8 @@
   `0.005206167697906494`, and mean target L2 distance `1.1555137634277344`;
   runtime-source binding, raw-store immutability,
   no-leakage, deterministic repeat, and checkpoint reload passed. This
-  one-batch final state is not used as non-collapse evidence.
+  historical positive margin is diagnostic rather than an acceptance
+  constant; the one-batch final state is not used as non-collapse evidence.
 - Fixed held-out loss was `3.1229397773742678` before optimizer step zero,
   then `2.5964468638102214`, `2.2769506017367043`, and
   `2.0780126730600994` over three epochs. Initial/final note/bar/song aggregate

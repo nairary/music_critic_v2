@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 from pathlib import Path
 import random
 from types import SimpleNamespace
@@ -18,6 +19,8 @@ from music_critic.ssl.checkpoint import (
 )
 from music_critic.ssl.config import register_ssl_configs
 from music_critic.ssl.engine import (
+    NO_LEAKAGE_MUTATION_EVIDENCE_CONTRACT_VERSION,
+    PITCH_SENSITIVE_RECONSTRUCTION_EVIDENCE_CONTRACT_VERSION,
     SSLTrainingError,
     _Accumulator,
     _optimize_batch,
@@ -599,6 +602,7 @@ def test_one_batch_report_has_trajectory_reload_transfer_and_cpu_evidence(
     config.optimizer.learning_rate = None
     report = run_ssl_training(config)
 
+    assert report["training_report_version"] == "1.2.2"
     assert report["evidence_kind"] == "bounded_phase7a_ssl_plumbing"
     assert report["sample_count"] == 3
     assert report["node_count"] == 114
@@ -653,7 +657,21 @@ def test_one_batch_report_has_trajectory_reload_transfer_and_cpu_evidence(
     )
     assert all(report["deterministic_repeat"].values())
     leakage = report["no_leakage_mutation_evidence"]
+    pitch = report["pitch_sensitive_reconstruction_evidence"]
+    assert leakage is not pitch
+    assert leakage["evidence_kind"] == "no_leakage_mutation"
+    assert pitch["evidence_kind"] == "pitch_sensitive_reconstruction"
+    assert leakage["contract_version"] == (
+        NO_LEAKAGE_MUTATION_EVIDENCE_CONTRACT_VERSION
+    )
+    assert pitch["contract_version"] == (
+        PITCH_SENSITIVE_RECONSTRUCTION_EVIDENCE_CONTRACT_VERSION
+    )
+    assert len(leakage["fingerprint"]) == 64
+    assert len(pitch["fingerprint"]) == 64
+    assert leakage["fingerprint"] != pitch["fingerprint"]
     assert leakage["applicable"] is True
+    assert leakage["mutation_applicable"] is True
     assert leakage["fixed_mask_plan"] is True
     assert leakage["raw_graph_stores_bit_exact_after_view"] is True
     assert (
@@ -669,7 +687,6 @@ def test_one_batch_report_has_trajectory_reload_transfer_and_cpu_evidence(
         is True
     )
     assert leakage["full_view_target_changed"] is True
-    assert leakage["reconstruction_loss_changed"] is True
     assert leakage["fixed_prepared_binding_fingerprint"] is True
     assert leakage["mutation_contract_version"] == "1.0.0"
     assert leakage["mutation_policy"] == "midi_axis_reflection_v1"
@@ -696,12 +713,34 @@ def test_one_batch_report_has_trajectory_reload_transfer_and_cpu_evidence(
         for mutation in leakage["coherent_mutations"]
     )
     assert leakage["metrics_finite"] is True
-    assert leakage["positive_margin"] is True
-    assert leakage["correct_minus_mutated_margin"] > (
-        leakage["positive_margin_floor"]
-    )
-    assert leakage["target_to_mutated_target_mean_l2_distance"] > 0
     assert leakage["passed"] is True
+    assert "correct_minus_mutated_margin" not in leakage
+    assert "reconstruction_loss_changed" not in leakage
+    assert pitch["applicable"] is True
+    assert pitch["mutation_applicable"] is True
+    assert pitch["full_view_target_changed"] is True
+    assert pitch["reconstruction_loss_changed"] is True
+    assert pitch["positive_target_distance"] is True
+    assert pitch["target_to_mutated_target_mean_l2_distance"] > 0
+    assert pitch["metrics_finite"] is True
+    assert pitch["diagnostic_compute_dtype"] == "float32"
+    assert pitch["source_dtype"] == "float32"
+    assert pitch["margin_floor"] == pytest.approx(
+        8.0 * torch.finfo(torch.float32).eps
+    )
+    assert math.isfinite(pitch["correct_minus_mutated_margin"])
+    assert math.isfinite(pitch["cosine_prediction_correct_target"])
+    assert math.isfinite(pitch["cosine_prediction_mutated_target"])
+    assert pitch["correct_target_preference_observed"] is (
+        pitch["correct_minus_mutated_margin"] > pitch["margin_floor"]
+    )
+    assert pitch["preference_status"] == (
+        "observed"
+        if pitch["correct_target_preference_observed"]
+        else "not_observed"
+    )
+    assert pitch["preference_is_acceptance_criterion"] is False
+    assert pitch["passed"] is True
     assert report["checkpoint_reload"] == {
         "next_epoch": 0,
         "bit_exact": True,
@@ -749,6 +788,16 @@ def test_one_batch_report_has_trajectory_reload_transfer_and_cpu_evidence(
     assert report["full_corpus_ssl_training_unavailable_reason"] is None
     assert (output / "one_batch_report.json").is_file()
     assert (output / "one_batch.pt").is_file()
+    persisted = json.loads(
+        (output / "one_batch_report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert persisted["no_leakage_mutation_evidence"] == leakage
+    assert persisted["pitch_sensitive_reconstruction_evidence"] == pitch
+    assert persisted["no_leakage_mutation_evidence"] != persisted[
+        "pitch_sensitive_reconstruction_evidence"
+    ]
 
 
 def test_training_scope_evidence_distinguishes_data_use_and_coverage() -> None:
@@ -841,12 +890,18 @@ def test_zero_mask_one_batch_report_is_explicitly_unavailable(
         assert report[stage]["masking"]["realized_mask_rate"] == 0.0
     assert all(report["deterministic_repeat"].values())
     leakage = report["no_leakage_mutation_evidence"]
+    pitch = report["pitch_sensitive_reconstruction_evidence"]
+    assert leakage is not pitch
     assert leakage["applicable"] is False
+    assert pitch["applicable"] is False
     assert leakage["unavailable_reason"] == "no_masked_rows"
+    assert pitch["unavailable_reason"] == "no_masked_rows"
     assert leakage["fixed_mask_plan"] is True
     assert leakage["raw_graph_stores_bit_exact_after_view"] is True
     assert leakage["passed"] is None
-    assert leakage["correct_minus_mutated_margin"] is None
+    assert pitch["passed"] is None
+    assert pitch["correct_minus_mutated_margin"] is None
+    assert leakage["fingerprint"] != pitch["fingerprint"]
     assert report["checkpoint_reload"]["bit_exact"] is True
 
 

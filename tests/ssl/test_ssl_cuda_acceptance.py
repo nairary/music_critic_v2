@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from hydra import compose, initialize
@@ -119,6 +120,7 @@ def test_bounded_cuda_amp_smoke(tmp_path: Path) -> None:
                 "model.dropout=0",
                 "data=bounded",
                 "device=cuda",
+                "device.name=cuda:0",
                 "device.amp=true",
                 "ssl.decoder_hidden_dim=8",
                 "ssl.projector_hidden_dim=8",
@@ -128,9 +130,7 @@ def test_bounded_cuda_amp_smoke(tmp_path: Path) -> None:
 
     report = run_ssl_training(config)
 
-    assert report["device"]["resolved_device"] == (
-        f"cuda:{torch.cuda.current_device()}"
-    )
+    assert report["device"]["resolved_device"] == "cuda:0"
     assert report["device"]["cuda_available"] is True
     assert report["device"]["cuda_device_name"]
     assert report["device"]["deterministic_algorithms"] is True
@@ -146,9 +146,42 @@ def test_bounded_cuda_amp_smoke(tmp_path: Path) -> None:
     assert report["scaler_enabled"] is True
     assert report["initial"]["total_ssl_loss"] is not None
     assert report["final"]["total_ssl_loss"] is not None
+    for stage in ("initial", "final"):
+        assert math.isfinite(report[stage]["total_ssl_loss"])
+        for component in (
+            "note_reconstruction",
+            "bar_latent",
+            "song_latent",
+        ):
+            assert math.isfinite(report[stage][component]["mean"])
     assert report["checkpoint_reload"]["bit_exact"] is True
     assert all(report["deterministic_repeat"].values())
-    assert report["no_leakage_mutation_evidence"]["passed"] is True
+    leakage = report["no_leakage_mutation_evidence"]
+    pitch = report["pitch_sensitive_reconstruction_evidence"]
+    assert leakage is not pitch
+    assert leakage["passed"] is True
+    assert pitch["passed"] is True
+    assert pitch["full_view_target_changed"] is True
+    assert pitch["reconstruction_loss_changed"] is True
+    assert pitch["positive_target_distance"] is True
+    assert pitch["metrics_finite"] is True
+    assert pitch["source_dtype"] == "float16"
+    assert pitch["diagnostic_compute_dtype"] == "float32"
+    assert pitch["margin_floor"] == pytest.approx(
+        8.0 * torch.finfo(torch.float32).eps
+    )
+    assert math.isfinite(pitch["correct_minus_mutated_margin"])
+    assert math.isfinite(pitch["cosine_prediction_correct_target"])
+    assert math.isfinite(pitch["cosine_prediction_mutated_target"])
+    assert pitch["correct_target_preference_observed"] is (
+        pitch["correct_minus_mutated_margin"] > pitch["margin_floor"]
+    )
+    assert pitch["preference_status"] == (
+        "observed"
+        if pitch["correct_target_preference_observed"]
+        else "not_observed"
+    )
+    assert pitch["preference_is_acceptance_criterion"] is False
 
 
 @pytest.mark.skipif(

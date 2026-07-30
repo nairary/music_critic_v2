@@ -2857,16 +2857,24 @@ raw-graph rebuild under the same fixed MaskPlan. Contract `1.0.0` fixes
 source to the actual runtime graph fingerprints, and fingerprints each
 selection-specific mutation. It reports
 `cos(prediction, correct_target)`,
-`cos(prediction, mutated_target)`, their positive margin, and the
-correct-to-mutated target distance. This is a pitch-sensitive representation
-check only; it introduces no label, cross-entropy, normalized distribution,
-likelihood, or PLL.
+`cos(prediction, mutated_target)`, their signed margin, and the
+correct-to-mutated target distance. Two independent versioned evidence objects
+separate the acceptance semantics. Strict no-leakage evidence requires
+bit-exact raw stores, fixed plan/binding, bit-exact online embeddings and
+predictions, a changed hidden full-view target, valid runtime-source binding,
+and finite metrics. Pitch-sensitive reconstruction evidence requires an
+applicable mutation, changed full-view target, positive target distance,
+changed reconstruction loss, and finite metrics. Whether the prediction
+already prefers the correct target is recorded as a signed diagnostic and is
+not a bounded two-step plumbing gate. This introduces no label, cross-entropy,
+normalized distribution, likelihood, or PLL.
 
 When the Phase 7A one-batch optimizer rate is unset, the SSL runner resolves it
 to `3e-4`; an explicit override remains authoritative. This does not alter the
 generic supervised one-batch preset. The bounded acceptance profile uses the
-resolved `3e-4` rate so that the shared target retains a conservative,
-cross-environment positive pitch-counterfactual margin.
+resolved `3e-4` rate to exercise deterministic optimizer, masking,
+reconstruction, and checkpoint plumbing; it does not make a trained
+correct-target-preference claim.
 
 Multi-epoch execution evaluates a fixed, disjoint validation set before the
 first optimizer step and after every epoch. Train/validation losses and exact
@@ -2883,6 +2891,14 @@ checkpoint, epoch journal, metric row, run manifest, training report, and
 performance row advance to `1.2.0`. Anti-collapse diagnostics remain `1.1.0`.
 MaskPlan/policy, maskable-field registry, representation loss/objective/target,
 decoder, and encoder-export semantics remain `1.0.0`.
+
+The post-merge CUDA/evidence remediation leaves umbrella SSL at `1.2.2` and
+advances only training report to `1.2.2`. Independent
+`no_leakage_mutation` and `pitch_sensitive_reconstruction` evidence contracts
+begin at `1.0.0`, each with a domain-separated canonical fingerprint. Their
+cosine, L2, margin, and floor diagnostics compute in FP32 with autocast
+disabled. Model/output, checkpoint/journal/metric, run-manifest/performance,
+masking, graph, data, and architecture contracts do not change.
 
 Phase 7A does not implement hierarchy masks (Phase 8), a PDMX projection or
 scaled-effectiveness claim (Phase 10), masked conditional likelihood,

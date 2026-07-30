@@ -665,9 +665,17 @@ graph and all dependent raw features while preserving the fixed MaskPlan. The
 versioned `midi_axis_reflection_v1` policy maps `pitch -> 127 - pitch` and binds
 the rebuilt source to actual runtime graph fingerprints. The evidence reports
 cosine to the correct target, cosine to the mutated target,
-their positive margin, and correct-to-mutated target distance. These are
-representation-sensitivity diagnostics, not labels, cross-entropy,
-probabilities, likelihood, or PLL.
+their signed margin, and correct-to-mutated target distance. Report contract
+`1.2.2` exposes two independent, fingerprinted subcontracts. No-leakage
+`1.0.0` accepts only strict raw/source/plan/binding/online bit-exact invariants,
+an applicable changed hidden target, and finite metrics. Pitch-sensitive
+reconstruction `1.0.0` accepts an applicable mutation that changes the hidden
+target and reconstruction loss with positive target distance and finite
+metrics. Correct-target preference is a sign-agnostic training diagnostic, not
+a two-step plumbing acceptance criterion. Cosine, L2, signed margin, and
+floors compute in FP32 with autocast disabled regardless of prediction source
+dtype. These are representation-sensitivity diagnostics, not labels,
+cross-entropy, probabilities, likelihood, or PLL.
 
 Held-out execution evaluates the fixed, disjoint validation membership once
 before any optimizer step and after every training epoch. Epoch rows retain
@@ -684,10 +692,11 @@ boundaries, while SSL model/output remain `1.2.0` at unchanged architecture
 and output schema. Representation loss, multi-view loss, and the combined SSL
 objective are `1.0.1`; anti-collapse diagnostics are `1.1.1`. Checkpoint,
 epoch-journal, metric-row, run-manifest, and performance-row contracts remain
-`1.2.0`; training report `1.2.1` exposes concrete `cuda:N`. The performance
-row separates CPU plan preparation from transfer/compute. MaskPlan, mask
-policy, maskable-field registry, representation target, decoder, and
-encoder-export semantics remain `1.0.0`; prepared binding remains `1.1.0`.
+`1.2.0`; training report `1.2.2` exposes concrete `cuda:N` and the two
+independent evidence objects. The performance row separates CPU plan
+preparation from transfer/compute. MaskPlan, mask policy, maskable-field
+registry, representation target, decoder, and encoder-export semantics remain
+`1.0.0`; prepared binding remains `1.1.0`.
 
 SSL checkpoint `1.2.0` binds the model/SSL contracts, field-registry
 fingerprint, resolved config, data index/split/composition/fixed-validation

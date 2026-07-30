@@ -288,6 +288,20 @@ the out-of-place FP32 prediction cast remains differentiable. Anti-collapse
 diagnostics `1.1.1` use the same normalization. Multi-view loss and combined
 SSL objective are `1.0.1`; the umbrella SSL contract is `1.2.2`.
 
+SSL training report `1.2.2` separates bounded mutation reporting into two
+independent `1.0.0` evidence objects with domain-separated canonical
+fingerprints. No-leakage acceptance requires strict raw-store,
+runtime-source, fixed-plan/binding, and `torch.equal` online
+embedding/prediction invariants plus an applicable changed hidden target and
+finite metrics. Pitch-sensitive reconstruction acceptance requires an
+applicable mutation, changed target, positive target distance, changed
+reconstruction loss, and finite metrics. Correct-target preference is a
+diagnostic only: reports retain both cosines, signed margin,
+`correct_target_preference_observed`, `observed|not_observed` status, and
+`preference_is_acceptance_criterion=false`. These diagnostics always compute
+in FP32 with autocast disabled; `margin_floor` is derived from FP32 epsilon and
+never changes a negative margin into a positive one.
+
 Normal multi-epoch training does not collect parameter-by-parameter gradient
 evidence. The default engine/device hot path has no tensor-to-Python
 conversion. Joint visible reconstruction computes field availability
@@ -316,3 +330,10 @@ CUDA hardware is absent. Additional optional tests exercise a real
 hierarchical supervised train/validation path with AMP, fixed validation,
 uninterrupted versus epoch-boundary-resumed equivalence, finite losses and
 gradient scans, checkpoint reload, and bounded retained metric VRAM.
+
+`tests/ssl/test_ssl_cuda_acceptance.py::test_bounded_cuda_amp_smoke` pins
+`cuda:0`, requires active CUDA/AMP/GradScaler, positive allocated/reserved
+VRAM, finite initial/final losses, exact checkpoint reload, deterministic
+repeat, and both mutation-evidence objects to pass. It also requires target
+and reconstruction-loss changes plus finite FP32 preference diagnostics, but
+does not require either margin sign after two optimizer steps.
