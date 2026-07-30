@@ -23,8 +23,10 @@ from music_critic.ssl.phase8a_acceptance import (
     PHASE8A_BOUNDED_ACCEPTANCE_CONTRACT_VERSION,
     PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION,
     _graph_matches_snapshot,
+    _metadata_signature,
     _model,
     _snapshot_graph,
+    _store_items,
 )
 from music_critic.device import (
     DEVICE_TRANSFER_CONTRACT_VERSION,
@@ -276,8 +278,8 @@ def _graphs_cross_device_bit_exact(left: Any, right: Any) -> bool:
     ):
         if left_name != right_name:
             return False
-        left_keys = tuple(sorted(str(key) for key in left_store.keys()))
-        right_keys = tuple(sorted(str(key) for key in right_store.keys()))
+        left_keys = tuple(str(key) for key in left_store.keys())
+        right_keys = tuple(str(key) for key in right_store.keys())
         if left_keys != right_keys:
             return False
         for key in left_keys:

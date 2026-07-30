@@ -19,6 +19,8 @@ from music_critic.ssl.phase8a_cuda_acceptance import (
     PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION,
     PHASE8A_CPU_CUDA_NUMERICAL_PARITY_ATOL,
     PHASE8A_CPU_CUDA_NUMERICAL_PARITY_RTOL,
+    _atomic_write,
+    _graphs_cross_device_bit_exact,
     _guard_host_materialization,
     _mutate_unmasked_velocity,
     _pitch_mutation_evidence,
@@ -41,6 +43,164 @@ from music_critic.ssl.hierarchical_masking import (
 from music_critic.ssl.hierarchy_fixture import (
     build_phase8a_hierarchy_fixture,
 )
+
+
+def _equivalent_cpu_raw_graphs() -> tuple[object, object]:
+    fixture = build_phase8a_hierarchy_fixture()
+    graph = collate_ssl_samples(
+        fixture.raw_samples("train")
+    ).raw_graph_batch
+    return graph, deepcopy(graph)
+
+
+def _graph_surface(graph: object) -> tuple[object, ...]:
+    return (
+        tuple(graph.node_types),
+        tuple(graph.edge_types),
+        tuple(str(key) for key in graph._global_store.keys()),
+        tuple(
+            (
+                node_type,
+                tuple(str(key) for key in store.keys()),
+            )
+            for node_type, store in graph.node_items()
+        ),
+        tuple(
+            (
+                edge_type,
+                tuple(str(key) for key in store.keys()),
+            )
+            for edge_type, store in graph.edge_items()
+        ),
+    )
+
+
+def test_cpu_graph_cross_device_path_accepts_equivalent_batches_without_mutation(
+) -> None:
+    left, right = _equivalent_cpu_raw_graphs()
+    left_surface = _graph_surface(left)
+    right_surface = _graph_surface(right)
+
+    assert _graphs_cross_device_bit_exact(left, right) is True
+    assert _graph_surface(left) == left_surface
+    assert _graph_surface(right) == right_surface
+
+
+@pytest.mark.parametrize("mutation", ("value", "dtype", "shape"))
+def test_cpu_graph_cross_device_path_rejects_tensor_changes(
+    mutation: str,
+) -> None:
+    left, right = _equivalent_cpu_raw_graphs()
+    if mutation == "value":
+        right["note"].x_cat[0, 0].add_(1)
+    elif mutation == "dtype":
+        right["note"].x_cont = right["note"].x_cont.to(torch.float64)
+    else:
+        right["note"].x_cont = right["note"].x_cont[:, :-1].clone()
+
+    assert _graphs_cross_device_bit_exact(left, right) is False
+
+
+@pytest.mark.parametrize("mutation", ("missing", "extra"))
+def test_cpu_graph_cross_device_path_rejects_node_attribute_delta(
+    mutation: str,
+) -> None:
+    left, right = _equivalent_cpu_raw_graphs()
+    if mutation == "missing":
+        del right["note"]["x_cont"]
+    else:
+        right["note"]["phase8a_test_extra"] = torch.zeros(
+            right["note"].num_nodes,
+            dtype=torch.int64,
+        )
+
+    assert _graphs_cross_device_bit_exact(left, right) is False
+
+
+@pytest.mark.parametrize("mutation", ("missing", "extra"))
+def test_cpu_graph_cross_device_path_rejects_edge_attribute_delta(
+    mutation: str,
+) -> None:
+    left, right = _equivalent_cpu_raw_graphs()
+    edge_type = right.edge_types[0]
+    if mutation == "missing":
+        del right[edge_type]["edge_index"]
+    else:
+        right[edge_type]["phase8a_test_extra"] = torch.zeros(
+            right[edge_type].edge_index.shape[1],
+            dtype=torch.float32,
+        )
+
+    assert _graphs_cross_device_bit_exact(left, right) is False
+
+
+def test_cpu_graph_cross_device_path_rejects_global_attribute_change(
+) -> None:
+    left, right = _equivalent_cpu_raw_graphs()
+    right.raw_only.logical_not_()
+
+    assert _graphs_cross_device_bit_exact(left, right) is False
+
+
+@pytest.mark.parametrize("surface", ("attribute", "node_store", "edge_store"))
+def test_cpu_graph_cross_device_path_rejects_reordered_surface(
+    surface: str,
+) -> None:
+    left, right = _equivalent_cpu_raw_graphs()
+    if surface == "attribute":
+        value = right["note"]["x_cat"]
+        del right["note"]["x_cat"]
+        right["note"]["x_cat"] = value
+    elif surface == "node_store":
+        node_type = right.node_types[0]
+        store = right._node_store_dict.pop(node_type)
+        right._node_store_dict[node_type] = store
+    else:
+        edge_type = right.edge_types[0]
+        store = right._edge_store_dict.pop(edge_type)
+        right._edge_store_dict[edge_type] = store
+
+    assert _graphs_cross_device_bit_exact(left, right) is False
+
+
+@pytest.mark.parametrize(
+    ("store_kind", "mutation"),
+    (
+        ("node", "missing"),
+        ("node", "extra"),
+        ("edge", "missing"),
+        ("edge", "extra"),
+    ),
+)
+def test_cpu_graph_cross_device_path_rejects_store_delta(
+    store_kind: str,
+    mutation: str,
+) -> None:
+    left, right = _equivalent_cpu_raw_graphs()
+    if store_kind == "node" and mutation == "missing":
+        right._node_store_dict.pop(right.node_types[0])
+    elif store_kind == "node":
+        right["phase8a_test_extra_node"].num_nodes = 0
+    elif mutation == "missing":
+        right._edge_store_dict.pop(right.edge_types[0])
+    else:
+        right[
+            ("song", "phase8a_test_extra_edge", "song")
+        ].edge_index = torch.empty((2, 0), dtype=torch.int64)
+
+    assert _graphs_cross_device_bit_exact(left, right) is False
+
+
+def test_cpu_graph_cross_device_path_rejects_extra_target_without_access(
+) -> None:
+    class ForbiddenTarget:
+        def __repr__(self) -> str:
+            raise AssertionError("target/provenance value must not be read")
+
+    left, right = _equivalent_cpu_raw_graphs()
+    right["note"]["target"] = ForbiddenTarget()
+
+    assert _graphs_cross_device_bit_exact(left, right) is False
 
 
 def test_phase8a_cuda_acceptance_rejects_abstract_cuda() -> None:
@@ -192,6 +352,82 @@ def test_documented_cuda_cli_rejects_dirty_worktree_before_cuda(
     assert completed.returncode != 0
     assert "phase8a.cuda.source_tree_dirty" in completed.stderr
     assert not output.exists()
+
+
+@pytest.mark.parametrize("existing", (False, True))
+def test_cuda_cli_build_failure_preserves_artifact_atomically(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    existing: bool,
+) -> None:
+    portable_report = tmp_path / "portable.json"
+    portable_report.write_text("{}\n", encoding="utf-8")
+    output = tmp_path / "hardware.json"
+    original = b'{"complete":true}\n'
+    if existing:
+        output.write_bytes(original)
+
+    def fail_build(**_: object) -> dict[str, object]:
+        raise RuntimeError("phase8a.cuda.synthetic_build_failure")
+
+    monkeypatch.setattr(
+        cuda_acceptance_module,
+        "build_phase8a_cuda_amp_hardware_report",
+        fail_build,
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "accept_phase8a_cuda_amp.py",
+            "--device",
+            "cuda:0",
+            "--amp",
+            "--amp-dtype",
+            "float16",
+            "--expected-head",
+            "a" * 40,
+            "--expected-device-name",
+            "NVIDIA GeForce RTX 3090",
+            "--portable-report",
+            str(portable_report),
+            "--output",
+            str(output),
+        ],
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="phase8a.cuda.synthetic_build_failure",
+    ):
+        cuda_acceptance_module.main()
+
+    if existing:
+        assert output.read_bytes() == original
+    else:
+        assert not output.exists()
+    assert tuple(tmp_path.glob(".hardware.json.*.tmp")) == ()
+
+
+def test_atomic_write_failure_preserves_existing_artifact_and_cleans_temp(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "hardware.json"
+    original = b'{"complete":true}\n'
+    output.write_bytes(original)
+
+    def fail_replace(self: Path, target: Path) -> Path:
+        del self, target
+        raise OSError("synthetic replace failure")
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+
+    with pytest.raises(OSError, match="synthetic replace failure"):
+        _atomic_write(output, '{"replacement":true}')
+
+    assert output.read_bytes() == original
+    assert tuple(tmp_path.glob(".hardware.json.*.tmp")) == ()
 
 
 def test_exact_final_source_checks_dirty_before_shallow_ancestry(

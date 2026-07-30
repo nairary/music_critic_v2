@@ -2040,3 +2040,52 @@ This log is append-only.
   dirty-before-ancestry ordering and clean shallow-history failure. No
   serialized Phase 8A contract, fingerprint, model/checkpoint version, graph
   schema, or Phase 6 numerical output changes.
+
+## 2026-07-30 — ADR-060: CUDA raw-graph parity reuses the common store surface and portable report hashes are runtime-local
+
+- Status: Accepted as narrow Phase 8A GPU-only remediation in draft PR #16.
+  Phase 8B and production training remain unauthorized; independent
+  exact-final RTX 3090 evidence is still pending.
+- Context: The independent RTX 3090 run on `4da0988` produced two mutually
+  byte-identical CPU reports, then all seven CUDA failures stopped in
+  `_graphs_cross_device_bit_exact` with
+  `NameError: name '_store_items' is not defined`. Commit `25ac6c7` moved the
+  acceptance implementations into `music_critic.ssl` and added this parity
+  function, but imported only three of its common CPU-acceptance dependencies.
+  `_store_items` and the subsequent `_metadata_signature` dependency remained
+  defined in `phase8a_acceptance.py`. CPU CI skipped every call to the
+  CUDA-gated parity function.
+- Decision: Import and reuse the existing common private store enumerator
+  rather than create a second implementation. The enumerator reads the
+  existing global store and existing `node_items()`/`edge_items()` only,
+  discriminates node and edge identities, and does not create stores. Raw
+  cross-device equality requires exact ordered node/edge type surfaces, exact
+  ordered attribute surfaces, tensor shape/dtype/value equality after the
+  explicit evidence-only CPU transfer, and exact non-tensor metadata
+  signatures. A mismatched key surface rejects before an injected
+  target/provenance-like value is read.
+- Decision: Execute this helper on ordinary CPU graph pairs in Required CI.
+  Regressions cover equivalent batches, value/dtype/shape changes,
+  missing/extra node and edge attributes, global mutation, reordered
+  attributes and stores, target non-access, input-surface non-mutation, and
+  failure-atomic artifact creation/replacement/temporary cleanup. The parity
+  gate, all five policies, mixture, standalone CUDA CLI, AMP objective and
+  gradient finiteness, and complete-success-only hardware artifact remain
+  enabled.
+- Decision: `portable` CPU acceptance means hardware-independent content, not
+  byte identity across arbitrary Python/PyTorch/CPU-kernel environments. The
+  report deliberately includes bounded FP32 loss observations. Fresh processes
+  in one compatible runtime must be byte-identical; cross-host acceptance
+  compares versioned contracts and deterministic fixture/model/policy/plan/
+  overlay/binding fingerprints, while hardware evidence binds the SHA-256 of
+  the exact host-local report consumed. Local
+  `2d107944c38d8ee465d73f2f71f07b224451f5a31213e86e0049dbaf3958c8f4`
+  and independent-host
+  `076bb56126dd1ba262014b553a5009e93bd464dac99564531b01fcea09f941b1`
+  therefore are not claimed globally equal.
+- Consequences: This restores an already specified exact semantic/security
+  gate and clarifies its evidence boundary. No public or serialized schema,
+  contract version, acceptance/model/checkpoint fingerprint, graph/model/
+  ontology contract, or Phase 6 numerical output changes. The failed
+  `4da0988` run emitted no hardware report and cannot be used as successful
+  CUDA evidence.

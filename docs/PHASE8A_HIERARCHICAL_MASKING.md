@@ -331,9 +331,22 @@ requires a separate profiler/optimization gate.
 
 ## CPU and optional CUDA acceptance
 
-Portable deterministic acceptance runs on CPU and was rebuilt in two fresh
-processes with byte-identical canonical JSON: 93,062 bytes each, SHA-256
+Portable deterministic acceptance runs on CPU. In the local verification
+runtime (Python 3.13.5, PyTorch `2.13.0+cpu`, PyG `2.8.0.post1`) two fresh
+processes emitted byte-identical canonical JSON: 93,062 bytes each, SHA-256
 `2d107944c38d8ee465d73f2f71f07b224451f5a31213e86e0049dbaf3958c8f4`.
+Two fresh CPU processes on the independent RTX host were also mutually
+byte-identical, with host-local SHA-256
+`076bb56126dd1ba262014b553a5009e93bd464dac99564531b01fcea09f941b1`.
+The complete file contains bounded CPU FP32 loss observations, so byte
+identity is promised only for replay in the same compatible runtime, not
+between different Python/PyTorch/CPU-kernel environments. Here `portable`
+means that GPU identity, driver/runtime observations, timing, and VRAM are
+absent. Cross-host acceptance validates versioned contracts, fixture/model/
+policy/plan/overlay/binding fingerprints, CPU-only status, and non-claim
+fields; the hardware artifact separately binds the SHA-256 of the exact
+host-local report it consumed. The differing file hashes are therefore not
+described as globally bit-exact and do not change an acceptance fingerprint.
 Its single-policy fingerprints and bounded objective observations are:
 
 | Policy | Config | Overlay | Prepared binding | Total loss | Grad tensors present/nonzero |
@@ -379,6 +392,24 @@ shallow `fetch-depth: 1` checkout. A clean checkout whose history is too
 shallow to prove ancestry receives the structured
 `phase8a.cuda.hotfix_ancestor_missing_or_unavailable` error; an independent
 exact-final runner must fetch enough history for that proof.
+
+Raw graph parity reuses the common private acceptance store enumerator. It
+reads only already-existing global, node, and edge stores through
+`node_items()`/`edge_items()`, preserves the node-versus-edge type identity and
+order, and never indexes an absent PyG store. Equality requires exact node and
+edge type sequences, exact store and attribute sequences, exact tensor
+shape/dtype/value, and exact non-tensor metadata signatures. Tensor values are
+copied to CPU only inside this explicit hardware-evidence comparison; the
+model forward fast path is unchanged. A key-set mismatch rejects before any
+extra target/provenance-like value is read. CPU regressions execute this path
+without CUDA and prove value/dtype/shape, node/edge/global attribute, reordered
+surface, target non-access, and input non-mutation behavior.
+
+The hardware JSON is written only after every policy, mixture, parity,
+objective, gradient, and portable-binding gate succeeds. The atomic writer
+uses a same-directory temporary followed by replacement; build or replacement
+failure creates no new artifact, preserves an existing complete artifact, and
+removes its temporary file.
 
 Focused and regression commands are:
 
@@ -427,23 +458,28 @@ training, or quality/likelihood interpretation is part of Phase 8A.
 Final local verification before commit:
 
 - focused Phase 8A plus CLI contracts:
-  `119 passed, 7 skipped, 2 warnings`;
+  `139 passed, 7 skipped, 2 warnings`;
+- direct CPU execution of the CUDA acceptance helper and atomicity contracts:
+  `34 passed, 2 skipped, 2 warnings`;
 - worker `0/2` parity: `1 passed, 2 warnings`; two direct-CLI portable
   reports were byte-identical;
-- complete SSL: `325 passed, 13 skipped, 8 warnings`;
+- complete SSL: `345 passed, 13 skipped, 8 warnings`;
 - model/graph/device regressions: `165 passed, 1 skipped, 2 warnings`;
 - training/evaluation regressions: `94 passed, 6 skipped, 4 warnings`;
 - checkpoint/resume/transfer regressions: `21 passed, 2 warnings`;
 - deterministic held-out plus repository audit: `7 passed, 2 warnings`;
-- complete repository: `1193 passed, 34 skipped, 10 warnings`;
+- complete repository: `1213 passed, 34 skipped, 10 warnings`;
 - bounded benchmark: all five policies, no timing threshold;
 - `compileall` and `git diff --check`: passed.
 
 CUDA was unavailable locally. The CUDA skips above are not GPU evidence.
-The independent RTX 3090 run at intermediate SHA
-`00ba0f38f3ebc85c7056d1ad3a77ece75816d0c4` is explicitly invalid as final
-acceptance: its targeted CUDA test passed, but the full SSL suite had one
-CPU/CUDA tolerance failure, direct CUDA CLI import failed before execution,
-and no hardware report was created. Both Required GitHub workflows pass on the
-final documentation-inclusive head; a repeat against that exact SHA remains
-the independent hardware pre-merge gate.
+The independent RTX 3090 run at SHA
+`4da09885bb7f97e1eb80dd51d25768881c434f15` produced two mutually identical
+CPU reports, then found seven failures with the single root cause
+`NameError: name '_store_items' is not defined`. Targeted CUDA was
+`40 passed, 7 failed, 2 warnings`; full SSL was
+`330 passed, 7 failed, 1 skipped, 8 warnings`; the standalone CUDA CLI exited
+with code 1 and created no hardware report. That run is failed diagnostic
+evidence, not successful hardware acceptance. Both Required workflows must
+pass on the new final head, and an independent RTX 3090 repeat against that
+exact SHA remains the hardware pre-merge gate.

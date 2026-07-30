@@ -423,23 +423,32 @@
   within `best + 1`; the exact per-piece candidate/pool/error table is in
   `PHASE8A_HIERARCHICAL_MASKING.md`. This justifies bounded defaults, not
   policy quality.
-- Two fresh-process remediated CPU reports are byte-identical: 93,062 bytes
-  each, SHA-256
+- Two fresh-process remediated CPU reports in the local Python
+  3.13.5/PyTorch `2.13.0+cpu`/PyG `2.8.0.post1` runtime are byte-identical:
+  93,062 bytes each, SHA-256
   `2d107944c38d8ee465d73f2f71f07b224451f5a31213e86e0049dbaf3958c8f4`.
+  The independent RTX host likewise reproduced its own CPU report twice, with
+  host-local SHA-256
+  `076bb56126dd1ba262014b553a5009e93bd464dac99564531b01fcea09f941b1`.
+  The complete report includes CPU FP32 observations and promises byte replay
+  only inside one compatible runtime, not cross-environment file identity.
+  Cross-host validation binds the versioned semantic/fingerprint projection,
+  while the eventual hardware artifact binds the exact consumed report SHA.
   Policy/default-configuration fingerprints are
   `2d39eb5e1ddf6ad53c626a18b364d0ffae0896663008a4e1422215c0c20fbdb1`
   and
   `e38651e00726ce9681dc015634c5d1f48f11586d07e0faf3187e20bda9ffee67`.
 - Final local verification passed focused Phase 8A plus CLI contracts
-  (`119 passed, 7 skipped`), worker `0/2` parity (`1 passed`) plus two
+  (`139 passed, 7 skipped`), direct CPU CUDA-acceptance helper and atomicity
+  contracts (`34 passed, 2 skipped`), worker `0/2` parity (`1 passed`) plus two
   byte-identical direct-CLI portable reports, complete SSL
-  (`325 passed, 13 skipped`), model/graph/device
+  (`345 passed, 13 skipped`), model/graph/device
   (`165 passed, 1 skipped`), training/evaluation (`94 passed, 6 skipped`),
   checkpoint/resume/transfer (`21 passed`), deterministic held-out plus
   repository audit (`7 passed`), and the complete repository
-  (`1193 passed, 34 skipped, 10 warnings`). The no-threshold benchmark passed
-  all five policies. Both Required GitHub workflows pass on the final
-  documentation-inclusive head.
+  (`1213 passed, 34 skipped, 10 warnings`). The no-threshold benchmark passed
+  all five policies. Both Required GitHub workflows remain mandatory on the
+  new final head.
 - Optional explicit-`cuda:0` AMP acceptance covers all five policies and the
   mixture, concrete bindings, finite forward/loss/gradients, and peak
   allocated/reserved VRAM in separate
@@ -463,7 +472,24 @@
   a clean shallow checkout that cannot prove ancestry receives structured
   `phase8a.cuda.hotfix_ancestor_missing_or_unavailable`. Clean independent
   acceptance still must prove the hotfix ancestor before CUDA execution.
-- The independent RTX 3090 run at intermediate
+- The independent RTX 3090 run on
+  `4da09885bb7f97e1eb80dd51d25768881c434f15` then reached the cross-device raw
+  graph parity gate and exposed one GPU-only import defect repeated seven
+  times: `_graphs_cross_device_bit_exact` referenced the common private
+  `_store_items` helper without importing it after the acceptance-module
+  migration. Targeted CUDA was `40 passed, 7 failed, 2 warnings`; full SSL was
+  `330 passed, 7 failed, 1 skipped, 8 warnings`; standalone CUDA exited 1 and
+  emitted no hardware artifact. The failed run is not hardware acceptance.
+- CUDA parity now imports and reuses the common global/node/edge store
+  enumerator. It reads only existing PyG stores, distinguishes ordered node
+  and edge identities, and requires exact ordered attributes plus tensor
+  shape/dtype/value and metadata equality. CPU tests execute the path without
+  CUDA and cover value/dtype/shape changes, missing/extra node and edge
+  attributes, global mutation, reordered stores/attributes, target non-access,
+  input non-mutation, and failure-atomic output replacement. Artifact versions
+  and fingerprints do not change because this restores the already documented
+  exact parity gate rather than changing its schema or semantics.
+- The earlier independent RTX 3090 run at intermediate
   `00ba0f38f3ebc85c7056d1ad3a77ece75816d0c4` confirmed exact head/hotfix
   ancestry, portable CPU acceptance, and one targeted CUDA+AMP test, but is
   forbidden as final evidence. Full SSL was `322 passed, 1 failed, 1 skipped`;

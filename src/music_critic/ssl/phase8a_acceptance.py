@@ -102,18 +102,22 @@ class _GraphSnapshot:
 
 
 def _store_items(graph: Any) -> tuple[tuple[str, Any], ...]:
+    """Enumerate existing global/node/edge stores without creating stores."""
+
+    node_items = tuple(graph.node_items())
+    edge_items = tuple(graph.edge_items())
     return (
         (f"global:{graph._global_store._key!r}", graph._global_store),
         *(
-            (f"node:{node_type}", graph[node_type])
-            for node_type in graph.node_types
+            (f"node:{node_type}", store)
+            for node_type, store in node_items
         ),
         *(
             (
                 "edge:" + "|".join(edge_type),
-                graph[edge_type],
+                store,
             )
-            for edge_type in graph.edge_types
+            for edge_type, store in edge_items
         ),
     )
 
