@@ -11,7 +11,10 @@ from hydra import compose, initialize
 import pytest
 import torch
 
-from music_critic.graph import RAW_FEATURE_REGISTRY
+from music_critic.graph import (
+    RAW_FEATURE_REGISTRY,
+    validate_raw_graph_batch,
+)
 from music_critic.training.config import register_training_configs
 from music_critic.training.device import (
     move_multisource_batch,
@@ -144,11 +147,31 @@ def test_real_cuda_cli_runner_uses_amp_scaler_and_checkpoint(
 
 
 def test_cuda_feature_perturbation_changes_only_its_sample(
-    bounded_batch,
+    bounded_runtime,
 ) -> None:
+    velocity_column = RAW_FEATURE_REGISTRY.names(
+        "note", "continuous"
+    ).index("velocity")
+    source_batch = next(
+        (
+            candidate
+            for candidate in bounded_runtime.train_loader(0)
+            if bool(
+                (
+                    (candidate.raw_graph_batch["note"].batch == 0)
+                    & candidate.raw_graph_batch[
+                        "note"
+                    ].x_cont_available[:, velocity_column]
+                ).any()
+            )
+        ),
+        None,
+    )
+    assert source_batch is not None
+
     config = _small_hierarchical_config()
     batch = move_multisource_batch(
-        bounded_batch, "cuda", non_blocking=True
+        source_batch, "cuda", non_blocking=True
     )
     _assert_batch_is_on_exact_device(
         batch,
@@ -159,12 +182,18 @@ def test_cuda_feature_perturbation_changes_only_its_sample(
         before = model(batch)
 
     note = batch.raw_graph_batch["note"]
-    velocity_column = RAW_FEATURE_REGISTRY.names(
-        "note", "continuous"
-    ).index("velocity")
+    availability_before = note.x_cont_available[
+        :, velocity_column
+    ].clone()
+    values_before = note.x_cont[:, velocity_column].clone()
+    changed_mask = (
+        (note.batch == 0)
+        & note.x_cont_available[:, velocity_column]
+    )
     changed_rows = torch.nonzero(
-        note.batch == 0, as_tuple=False
+        changed_mask, as_tuple=False
     ).flatten()
+    assert changed_rows.numel() > 0
     values = note.x_cont[changed_rows, velocity_column]
     note.x_cont[changed_rows, velocity_column] = torch.where(
         values < 127,
@@ -176,6 +205,23 @@ def test_cuda_feature_perturbation_changes_only_its_sample(
     )
     assert bool(
         note.x_cont[changed_rows, velocity_column].le(127).all()
+    )
+    assert torch.equal(
+        note.x_cont_available[:, velocity_column],
+        availability_before,
+    )
+    assert torch.equal(
+        note.x_cont[~changed_mask, velocity_column],
+        values_before[~changed_mask],
+    )
+    unavailable_rows = ~availability_before
+    assert torch.equal(
+        note.x_cont[unavailable_rows, velocity_column],
+        values_before[unavailable_rows],
+    )
+    validate_raw_graph_batch(
+        batch.raw_graph_batch,
+        sample_count=len(batch.dataset_ids),
     )
     with torch.no_grad():
         after = model(batch)
@@ -248,6 +294,17 @@ def _metric_rows(path: Path):
     ]
 
 
+def _json_normalized(value):
+    return json.loads(
+        json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    )
+
+
 def test_hierarchical_cuda_supervised_resume_and_fixed_validation(
     tmp_path: Path,
 ) -> None:
@@ -307,9 +364,32 @@ def test_hierarchical_cuda_supervised_resume_and_fixed_validation(
         ]
         assert validation_evidence["retained_device_tensor_count"] == 0
         assert validation_evidence["retained_device_tensor_bytes"] == 0
-        assert row["validation"]["membership"] == resumed[
-            "validation_membership"
+        membership = row["validation"]["membership"]
+        expected_membership = resumed["validation_membership"]
+        assert membership["membership_fingerprint"] == (
+            expected_membership["membership_fingerprint"]
+        )
+        assert membership["selected_count"] == expected_membership[
+            "selected_count"
         ]
+        assert membership["dataset_counts"] == expected_membership[
+            "dataset_counts"
+        ]
+        assert membership["subset_limit"] == expected_membership[
+            "subset_limit"
+        ]
+        assert membership["full_view_count"] == expected_membership[
+            "full_view_count"
+        ]
+        assert _json_normalized(
+            membership["identities"]
+        ) == _json_normalized(expected_membership["identities"])
+        assert _json_normalized(membership) == _json_normalized(
+            expected_membership
+        )
+        assert row["validation"]["dataset_counts"] == (
+            expected_membership["dataset_counts"]
+        )
 
 
 def test_cuda_metric_retention_is_constant_across_many_batches(

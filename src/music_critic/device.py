@@ -5,8 +5,8 @@ from __future__ import annotations
 import torch
 
 
-RUNTIME_DEVICE_RESOLUTION_CONTRACT_VERSION = "1.0.0"
-DEVICE_TRANSFER_CONTRACT_VERSION = "1.0.1"
+RUNTIME_DEVICE_RESOLUTION_CONTRACT_VERSION = "1.0.1"
+DEVICE_TRANSFER_CONTRACT_VERSION = "1.0.2"
 
 
 class RuntimeDeviceError(ValueError):
@@ -17,12 +17,21 @@ class RuntimeDeviceError(ValueError):
         category: str,
         *,
         requested_device: str,
+        visible_device_count: int | None = None,
+        resolved_index: int | None = None,
     ) -> None:
         self.category = category
         self.requested_device = requested_device
-        super().__init__(
-            f"{category}:requested={requested_device}"
-        )
+        self.visible_device_count = visible_device_count
+        self.resolved_index = resolved_index
+        evidence = [f"requested={requested_device}"]
+        if visible_device_count is not None:
+            evidence.append(
+                f"visible_device_count={visible_device_count}"
+            )
+        if resolved_index is not None:
+            evidence.append(f"resolved_index={resolved_index}")
+        super().__init__(f"{category}:" + ";".join(evidence))
 
 
 def resolve_runtime_device(
@@ -54,19 +63,47 @@ def resolve_runtime_device(
             "runtime.device.cuda_unavailable",
             requested_device=str(requested),
         )
-    if requested.index is not None:
-        return torch.device("cuda", requested.index)
-    current_device = torch.cuda.current_device()
+    visible_device_count = torch.cuda.device_count()
     if (
-        isinstance(current_device, bool)
-        or not isinstance(current_device, int)
-        or current_device < 0
+        isinstance(visible_device_count, bool)
+        or not isinstance(visible_device_count, int)
+        or visible_device_count < 0
     ):
         raise RuntimeDeviceError(
-            "runtime.device.cuda_current_device_invalid",
+            "runtime.device.cuda_device_count_invalid",
             requested_device=str(requested),
         )
-    return torch.device("cuda", current_device)
+    resolved_from_current = requested.index is None
+    if resolved_from_current:
+        try:
+            resolved_index = torch.cuda.current_device()
+        except (AssertionError, RuntimeError) as exc:
+            raise RuntimeDeviceError(
+                "runtime.device.cuda_current_device_invalid",
+                requested_device=str(requested),
+                visible_device_count=visible_device_count,
+            ) from exc
+        if isinstance(resolved_index, bool) or not isinstance(
+            resolved_index,
+            int,
+        ):
+            raise RuntimeDeviceError(
+                "runtime.device.cuda_current_device_invalid",
+                requested_device=str(requested),
+                visible_device_count=visible_device_count,
+            )
+    else:
+        resolved_index = requested.index
+    if not 0 <= resolved_index < visible_device_count:
+        raise RuntimeDeviceError(
+            "runtime.device.cuda_index_out_of_range",
+            requested_device=str(requested),
+            visible_device_count=visible_device_count,
+            resolved_index=(
+                resolved_index if resolved_from_current else None
+            ),
+        )
+    return torch.device("cuda", resolved_index)
 
 
 __all__ = [

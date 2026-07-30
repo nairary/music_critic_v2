@@ -26,7 +26,8 @@ Hydra composes only registered structured groups:
 - `optimizer=adamw`;
 - `objective=preset|one_batch_joint|supervised_harmonic|joint_visible_reconstruction`;
 - `scheduler=none|cosine`;
-- `device=cpu|cuda|auto`.
+- `device=cpu|cuda|auto`; an explicit index uses the registered CUDA group plus
+  an exact name override, for example `device=cuda device.name=cuda:0`.
 
 The schema has explicit values for seed, batch size, worker count, epoch size,
 mixture weights, learning rate, weight decay, gradient clipping, epochs, AMP,
@@ -250,10 +251,15 @@ ablation; missing labels never become negative or zero-loss examples.
 ## Device-transfer boundary and CUDA acceptance
 
 `move_multisource_batch(batch, device, non_blocking=...)` is the official
-non-mutating boundary under device-transfer contract `1.0.1`. One shared
+non-mutating boundary under device-transfer contract `1.0.2`. One shared
 runtime resolver canonicalizes CPU to `cpu`, bare CUDA to the concrete
-`cuda:<torch.cuda.current_device()>`, and preserves an explicit `cuda:N`.
-Every CUDA request fails structurally when CUDA is unavailable. It deep-copies
+`cuda:<torch.cuda.current_device()>`, and preserves an explicit `cuda:N` only
+when the index is smaller than `torch.cuda.device_count()`. The current index
+is checked against the same count. Every CUDA request fails structurally when
+CUDA is unavailable; a nonexistent explicit or current index fails before
+`.to(...)` with `runtime.device.cuda_index_out_of_range`, requested-device
+evidence, and the visible count. Runtime device-resolution contract `1.0.1`
+performs no tensor allocation or value materialization. It deep-copies
 the raw PyG batch and transfers only
 tensor attributes, preserving tuple-valued graph metadata. Model-facing target
 tensors move to the same device, while strings, provenance, diagnostics,
@@ -269,6 +275,18 @@ index. They never accept a tensor merely because its device type is `cuda`;
 an expected `cuda:1` rejects an actual `cuda:0`. Evaluation uses the same
 resolver and transfer boundary. Device evidence reports the concrete runtime
 device, for example `cuda:0`, rather than the unresolved selector `cuda`.
+Training, SSL, and evaluation accept `cpu`, `cuda`, `cuda:N`, and `auto`
+through the shared resolver. AMP is accepted only when the resolved device
+type is CUDA, so `device.name=cuda:0` and CUDA-resolving `auto` are valid while
+CPU AMP is rejected.
+
+Phase 7A representation loss `1.0.1` keeps exact shape/device validation but
+allows FP16/BF16/FP32 prediction-target pairs by computing cosine, numerator,
+mean, multi-view aggregation, and the combined SSL objective in FP32 with
+autocast disabled. Only matching FP64 pairs remain FP64. Targets are detached;
+the out-of-place FP32 prediction cast remains differentiable. Anti-collapse
+diagnostics `1.1.1` use the same normalization. Multi-view loss and combined
+SSL objective are `1.0.1`; the umbrella SSL contract is `1.2.2`.
 
 Normal multi-epoch training does not collect parameter-by-parameter gradient
 evidence. The default engine/device hot path has no tensor-to-Python
@@ -283,10 +301,15 @@ evidence is reserved for one-batch mode or an explicit
 `tests/training/test_cuda_acceptance.py` executes the documented CLI itself
 with `device.amp=true`, checks the enabled scaler, backward/optimizer steps,
 finite loss curves, checkpoint save/reload, and reported VRAM. A second test
-perturbs the existing bounded note `x_cont` velocity field while preserving
-dtype/range, requires the changed sample's fused embeddings and logits to
-change, and requires every other sample's logits and fused embeddings to
-remain bit-exact. A CPU-only CI runner reports explicit skips. Manual GPU
+perturbs only sample-zero note rows whose velocity availability bit is true,
+keeps unavailable placeholders bit-exact, revalidates the raw graph, requires
+the changed sample's fused embeddings and logits to change, and requires every
+other sample's logits and fused embeddings to remain bit-exact. The CUDA
+resume test compares JSON-loaded and in-memory membership through canonical
+JSON normalization while separately preserving the exact membership
+fingerprint, counts, limits, ordered identities, and byte-identical
+`metrics.jsonl`; production selection and resume binding are unchanged. A
+CPU-only CI runner reports explicit skips. Manual GPU
 evidence must name the actual device and report peak allocated/reserved bytes
 from `one_batch_report.json`; GPU or VRAM results must not be inferred when
 CUDA hardware is absent. Additional optional tests exercise a real

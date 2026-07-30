@@ -21,6 +21,7 @@ from music_critic.ssl.masking import (
     prepare_mask_binding,
     validate_prepared_mask_binding,
 )
+from music_critic.ssl.objective import representation_cosine_loss
 from music_critic.training.config import DataConfig
 
 
@@ -29,6 +30,72 @@ def _assert_ssl_batch_device(batch, device: torch.device) -> None:
         for value in store.values():
             if isinstance(value, torch.Tensor):
                 assert value.device == device
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available(),
+    reason="CUDA AMP numerical contract requires CUDA",
+)
+@pytest.mark.parametrize("amp_dtype", (torch.float16, torch.bfloat16))
+def test_cuda_amp_representation_loss_uses_float32_kernel_and_gradients(
+    amp_dtype: torch.dtype,
+) -> None:
+    if (
+        amp_dtype == torch.bfloat16
+        and not torch.cuda.is_bf16_supported()
+    ):
+        pytest.skip("CUDA backend does not support bfloat16")
+    torch.manual_seed(29)
+    device = torch.device("cuda", torch.cuda.current_device())
+    layer = torch.nn.Linear(4, 4).to(device)
+    optimizer = torch.optim.AdamW(layer.parameters(), lr=1e-3)
+    scaler = torch.amp.GradScaler("cuda", enabled=True)
+    inputs = torch.randn(3, 4, device=device)
+    target = torch.randn(
+        3,
+        4,
+        device=device,
+        dtype=torch.float32,
+        requires_grad=True,
+    )
+    target_before = target.detach().clone()
+    optimizer.zero_grad(set_to_none=True)
+
+    with torch.autocast(
+        device_type="cuda",
+        dtype=amp_dtype,
+    ):
+        prediction = layer(inputs)
+        report = representation_cosine_loss(
+            prediction,
+            target,
+            component="note_reconstruction",
+        )
+
+    assert prediction.dtype == amp_dtype
+    assert prediction.device == device
+    assert report.numerator.dtype == torch.float32
+    assert report.numerator.device == device
+    assert report.mean is not None
+    assert report.mean.dtype == torch.float32
+    assert report.mean.device == device
+    assert torch.isfinite(report.mean)
+    scaler.scale(report.mean).backward()
+    scaler.unscale_(optimizer)
+    gradients = [
+        parameter.grad
+        for parameter in layer.parameters()
+        if parameter.grad is not None
+    ]
+    assert gradients
+    assert all(torch.isfinite(gradient).all() for gradient in gradients)
+    assert any(torch.count_nonzero(gradient) for gradient in gradients)
+    assert target.grad is None
+    assert target.dtype == torch.float32
+    assert target.device == device
+    assert torch.equal(target.detach(), target_before)
+    scaler.step(optimizer)
+    scaler.update()
 
 
 @pytest.mark.skipif(

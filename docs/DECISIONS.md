@@ -1622,3 +1622,48 @@ This log is append-only.
   narrow hotfix. Graph/canonical schema, ontology, encoding, datasets, caches,
   model architecture, numerical objectives, and production artifacts do not
   change.
+
+## 2026-07-30 — ADR-053: CUDA indices and AMP representation objectives fail closed
+
+- Status: Accepted as remediation of draft PR #17. This decision extends
+  ADR-052, does not begin Phase 8, and does not authorize production training.
+- Context: An independent RTX 3090 run at hotfix head `fb54e85` confirmed that
+  bare `cuda` resolves to `cuda:0`; the original
+  `ssl.data.device_transfer_tensor_mismatch` disappeared, and graph plus
+  prepared-binding tensors passed exact `cuda:0` assertions. The remaining
+  failures exposed four separate issues: explicit CUDA indices were not
+  checked against visible devices; subsystem allowlists and a string-based AMP
+  check rejected valid `cuda:N`; decoder predictions under AMP were FP16 while
+  stop-gradient targets were FP32; and two CUDA acceptance assertions mutated
+  unavailable raw values or compared JSON lists directly with live tuples.
+- Decision: Runtime resolution `1.0.1` validates both explicit and current CUDA
+  indices against `torch.cuda.device_count()` before any tensor transfer.
+  `runtime.device.cuda_index_out_of_range` carries the requested device and
+  visible count; a bare-current failure also records the resolved index.
+  Training, SSL, and evaluation accept `cpu`, `cuda`, `cuda:N`, and `auto`
+  through the shared resolver. AMP eligibility depends on
+  `resolved_device.type == "cuda"`, never the unresolved input string.
+- Decision: Representation loss `1.0.1` requires equal shape and concrete
+  device and floating inputs. Any FP16/BF16/FP32 pair computes row-wise cosine,
+  differentiable empty and non-empty numerators, means, and reductions in FP32
+  with autocast disabled. Only a matching FP64 pair remains FP64; incompatible
+  combinations fail. The target is detached before an out-of-place cast, and
+  the prediction cast retains gradient flow. Multi-view loss and combined SSL
+  objective advance to `1.0.1`. Immediate and streaming anti-collapse
+  diagnostics apply the same numerical normalization and advance to `1.1.1`.
+- Decision: CUDA velocity perturbation selects only available sample-zero
+  values, preserves unavailable placeholders exactly, and reruns raw-graph
+  validation before model execution. JSON-loaded membership evidence is
+  compared with live evidence only after canonical JSON normalization, while
+  fingerprint, selected count, dataset counts, subset limit, full-view count,
+  ordered identities, and byte-identical metric journals remain separate
+  exact assertions. Production membership selection, fingerprints, resume
+  binding, raw validation, and placeholder policy are not weakened.
+- Consequences: Device transfer advances to `1.0.2`; umbrella SSL advances to
+  `1.2.2`. SSL training report remains `1.2.1`, and SSL model/output,
+  checkpoint/journal/metric-row, run-manifest/performance-row, prepared
+  binding, representation target, decoder, masking, graph/canonical schema,
+  ontology, encoding, dataset, cache, and model-architecture contracts remain
+  unchanged. PR #17 stays draft until the exact final commit passes Required
+  CI and an independent RTX 3090 rerun records passed/skipped counts plus
+  bounded-smoke peak allocated/reserved VRAM.

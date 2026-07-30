@@ -442,9 +442,12 @@ The model and training phases remain pending.
 - Goal: add masked observable-feature representation learning.
 - Dependencies: Phase 6D-A evaluation evidence.
 - Phase 7A status: merged in PR #15 at `a850207`. A blocking post-merge
-  CUDA-device-canonicalization hotfix is in progress after independent RTX
-  3090 execution exposed abstract `cuda` versus concrete `cuda:N` validation.
-  Phase 8 has not started. The Phase 7A implementation is
+  CUDA-device-canonicalization hotfix remains draft in PR #17. Its first
+  independent RTX 3090 rerun confirmed the original abstract `cuda` versus
+  concrete `cuda:N` transfer fix, then exposed explicit-index validation,
+  mixed-precision representation-loss, and two test-assertion remediation
+  items. Exact-final hardware evidence remains the merge gate. Phase 8 has not
+  started. The Phase 7A implementation is
   GraphMAE2-inspired, not a faithful reproduction. Exact bounded-run evidence
   belongs to `PHASE7A_SSL_BASELINE.md`; head-relative Required CI belongs to
   the historical final PR #15 evidence comment, while the hotfix requires its

@@ -33,6 +33,7 @@ def test_ssl_cuda_resolution_is_concrete_before_exact_validation(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
     monkeypatch.setattr(torch.cuda, "current_device", lambda: 0)
 
     resolved = _resolve_device({"device": {"name": "cuda"}})
@@ -42,8 +43,72 @@ def test_ssl_cuda_resolution_is_concrete_before_exact_validation(
     assert resolved.index == 0
 
 
+@pytest.mark.parametrize("name", ("cuda:0", "auto"))
+def test_ssl_runtime_accepts_concrete_or_auto_cuda_with_amp(
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+) -> None:
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+    monkeypatch.setattr(torch.cuda, "current_device", lambda: 0)
+
+    resolved = _resolve_device(
+        {"device": {"name": name, "amp": True}}
+    )
+
+    assert resolved == torch.device("cuda:0")
+
+
+def test_ssl_runtime_rejects_cpu_amp() -> None:
+    with pytest.raises(
+        ValueError,
+        match=r"^ssl\.training\.amp_requires_cuda$",
+    ):
+        _resolve_device(
+            {"device": {"name": "cpu", "amp": True}}
+        )
+
+
+@pytest.mark.parametrize(
+    ("name", "category"),
+    (
+        ("mps", "runtime.device.type_unsupported"),
+        ("cuda:not-an-index", "runtime.device.request_invalid"),
+    ),
+)
+def test_ssl_runtime_preserves_structured_device_error(
+    name: str,
+    category: str,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match=rf"ssl\.training\.device_invalid:{category}:",
+    ):
+        _resolve_device(
+            {"device": {"name": name, "amp": False}}
+        )
+
+
+def test_ssl_runtime_preserves_cuda_index_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"runtime\.device\.cuda_index_out_of_range:"
+            r"requested=cuda:1;visible_device_count=1"
+        ),
+    ):
+        _resolve_device(
+            {"device": {"name": "cuda:1", "amp": False}}
+        )
+
+
 def test_ssl_device_hotfix_contract_versions_are_patch_bumps() -> None:
-    assert SSL_CONTRACT_VERSION == "1.2.1"
+    assert SSL_CONTRACT_VERSION == "1.2.2"
     assert SSL_TRAINING_REPORT_VERSION == "1.2.1"
 
 

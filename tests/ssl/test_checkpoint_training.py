@@ -485,7 +485,9 @@ def test_epoch_boundary_resume_matches_uninterrupted_state_and_metrics(
             dropout=0.2,
         )
         config.scheduler.name = "cosine"
-        config.device.amp = True
+        # CPU resume determinism is independent of the CUDA-only AMP
+        # contract. Real AMP resume remains covered by optional CUDA tests.
+        config.device.amp = False
         return config
 
     uninterrupted = run_ssl_training(

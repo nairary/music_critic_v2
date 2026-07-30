@@ -246,10 +246,8 @@ def _resolve_device(config: dict[str, Any]) -> torch.device:
     name = config["device"]["name"]
     if name == "auto":
         name = "cuda" if torch.cuda.is_available() else "cpu"
-    if name not in {"cpu", "cuda"}:
-        raise SSLTrainingError(f"ssl.training.device_unknown:{name}")
     try:
-        return resolve_runtime_device(name)
+        device = resolve_runtime_device(name)
     except RuntimeDeviceError as exc:
         if exc.category == "runtime.device.cuda_unavailable":
             raise SSLTrainingError(
@@ -258,6 +256,9 @@ def _resolve_device(config: dict[str, Any]) -> torch.device:
         raise SSLTrainingError(
             f"ssl.training.device_invalid:{exc}"
         ) from exc
+    if config["device"].get("amp", False) and device.type != "cuda":
+        raise SSLTrainingError("ssl.training.amp_requires_cuda")
+    return device
 
 
 def _configure_cublas_determinism() -> None:

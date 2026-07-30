@@ -276,7 +276,6 @@ def _validate_config(config: dict[str, Any]) -> None:
             "joint_visible_reconstruction",
         },
         "scheduler": {"none", "cosine"},
-        "device": {"cpu", "cuda", "auto"},
     }
     for group, names in accepted.items():
         if config[group]["name"] not in names:
@@ -412,7 +411,7 @@ def _resolve_device(config: dict[str, Any]) -> torch.device:
         raise TrainingContractError(
             f"training.device.invalid:{exc}"
         ) from exc
-    if config["device"]["amp"] and name != "cuda":
+    if config["device"].get("amp", False) and device.type != "cuda":
         raise TrainingContractError("training.device.amp_requires_cuda")
     return device
 

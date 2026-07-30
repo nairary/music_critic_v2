@@ -409,10 +409,17 @@ on CUDA.
 
 Runtime device resolution is shared by training, evaluation, and SSL. CPU
 canonicalizes to bare `cpu`; bare CUDA resolves to the current concrete index;
-and explicit `cuda:N` preserves its index. Unavailable CUDA is a structured
-contract failure. Transfer validation compares exact devices, never only
-`device.type`, because `cuda:0` and `cuda:1` are different placement
-boundaries. Device-transfer contract `1.0.1` records this patch-level rule.
+and explicit `cuda:N` preserves its index only when
+`0 <= N < torch.cuda.device_count()`. The current index is checked against the
+same visible count. Unavailable CUDA is a structured contract failure, while
+an invisible explicit or current index fails before tensor transfer as
+`runtime.device.cuda_index_out_of_range`, with requested device and visible
+count evidence. Training, evaluation, and SSL accept `cpu`, `cuda`, `cuda:N`,
+and `auto` through this resolver rather than subsystem allowlists. AMP is
+eligible only when the resolved device type is CUDA. Transfer validation
+compares exact devices, never only `device.type`, because `cuda:0` and
+`cuda:1` are different placement boundaries. Runtime resolution contract
+`1.0.1` and device-transfer contract `1.0.2` record these patch-level rules.
 
 One-batch mode repeats exactly one bounded or first real cached train batch,
 reports harmonic/reconstruction/total losses, finite gradients, clipping,
@@ -610,19 +617,29 @@ view from reducing every prediction to the same learned mask token. All online
 bar and song rows pass through separate projector/predictors.
 
 Every component uses row-wise `1 - cosine` with contract-fixed `eps=1e-8` and
-`sum_count_mean` reduction. Numerator, denominator, mean, zero-norm count, and
-unavailable reason remain explicit. Zero-vector rows are counted, and a
-positively weighted component with no eligible rows makes total SSL loss
-unavailable. Anti-collapse diagnostics contract `1.1.0` accumulates target and
-prediction rows separately for note, bar, and song over the complete
-train/validation stage. For each side and level it reports row count, embedding
-dimension, the contract variance formula, mean L2 norm, zero-norm count, and
-global mean off-diagonal cosine; fewer than two rows produce a structured
-unavailable result. Mergeable `O(D)` sufficient statistics retain no embedding
-history or production pairwise matrix and reproduce the dense stage-level
-formula independently of batch partition, batch order, and worker count. The
-artifact field is `anti_collapse_aggregate`; the former
-`anti_collapse_last_batch` snapshot is not an acceptance statistic.
+`sum_count_mean` reduction. Prediction and detached target must have identical
+shape and concrete device and must both be floating-point. Any pair drawn from
+FP16, BF16, and FP32 is cast out of place and computed in FP32 with autocast
+disabled; only a matching FP64 pair retains FP64. Mixed FP64 or unsupported
+floating combinations are rejected. The FP32 prediction cast preserves
+gradient flow, while the target remains stop-gradient. Empty differentiable
+numerators, ordinary numerators, means, multi-view reduction, and the combined
+SSL objective follow the same compute-dtype rule. Numerator, denominator,
+mean, zero-norm count, and unavailable reason remain explicit. Zero-vector
+rows are counted, and a positively weighted component with no eligible rows
+makes total SSL loss unavailable.
+
+Anti-collapse diagnostics contract `1.1.1` applies the same compatible
+compute-dtype normalization before accumulating target and prediction rows
+separately for note, bar, and song over the complete train/validation stage.
+For each side and level it reports row count, embedding dimension, the contract
+variance formula, mean L2 norm, zero-norm count, and global mean off-diagonal
+cosine; fewer than two rows produce a structured unavailable result. Mergeable
+`O(D)` sufficient statistics retain no embedding history or production
+pairwise matrix and reproduce the dense stage-level formula independently of
+batch partition, batch order, and worker count. The artifact field is
+`anti_collapse_aggregate`; the former `anti_collapse_last_batch` snapshot is
+not an acceptance statistic.
 
 The `O(D)` statement is limited to retained accumulator state. The current
 `from_values` reduction allocates float64 `N x D` `values64` and normalized
@@ -662,15 +679,15 @@ note/bar/song aggregates, no zero vectors, nondegenerate variance/norm, and
 embeddings that are not all near-identical. These checks validate bounded
 mechanics, not generalization or scaled effectiveness.
 
-Umbrella SSL `1.2.1` requires the canonical runtime-device boundary, while SSL
-model/output remain `1.2.0` at unchanged numerical semantics. Checkpoint,
+Umbrella SSL `1.2.2` requires the indexed runtime-device and AMP-safe numerical
+boundaries, while SSL model/output remain `1.2.0` at unchanged architecture
+and output schema. Representation loss, multi-view loss, and the combined SSL
+objective are `1.0.1`; anti-collapse diagnostics are `1.1.1`. Checkpoint,
 epoch-journal, metric-row, run-manifest, and performance-row contracts remain
 `1.2.0`; training report `1.2.1` exposes concrete `cuda:N`. The performance
 row separates CPU plan preparation from transfer/compute. MaskPlan, mask
-policy, maskable-field
-registry, representation target/objective, and encoder-export semantics remain
-`1.0.0`; anti-collapse diagnostics remain `1.1.0`, and prepared binding is
-`1.1.0`.
+policy, maskable-field registry, representation target, decoder, and
+encoder-export semantics remain `1.0.0`; prepared binding remains `1.1.0`.
 
 SSL checkpoint `1.2.0` binds the model/SSL contracts, field-registry
 fingerprint, resolved config, data index/split/composition/fixed-validation

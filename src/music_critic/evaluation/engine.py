@@ -221,12 +221,8 @@ def _resolve_device(config: dict[str, Any]) -> torch.device:
     name = config["device"]["name"]
     if name == "auto":
         name = "cuda" if torch.cuda.is_available() else "cpu"
-    if name not in {"cpu", "cuda"}:
-        raise EvaluationContractError(
-            f"evaluation.device.unknown:{name}"
-        )
     try:
-        return resolve_runtime_device(name)
+        device = resolve_runtime_device(name)
     except RuntimeDeviceError as exc:
         if exc.category == "runtime.device.cuda_unavailable":
             raise EvaluationContractError(
@@ -235,6 +231,11 @@ def _resolve_device(config: dict[str, Any]) -> torch.device:
         raise EvaluationContractError(
             f"evaluation.device.invalid:{exc}"
         ) from exc
+    if config["device"].get("amp", False) and device.type != "cuda":
+        raise EvaluationContractError(
+            "evaluation.device.amp_requires_cuda"
+        )
+    return device
 
 
 def _prepare_output(path: Path, *, overwrite: bool) -> None:

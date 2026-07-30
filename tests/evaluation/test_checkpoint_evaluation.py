@@ -89,6 +89,7 @@ def test_evaluation_runtime_resolves_abstract_cuda_to_current_index(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 2)
     monkeypatch.setattr(torch.cuda, "current_device", lambda: 1)
 
     resolved = _resolve_device(
@@ -96,6 +97,70 @@ def test_evaluation_runtime_resolves_abstract_cuda_to_current_index(
     )
 
     assert resolved == torch.device("cuda:1")
+
+
+@pytest.mark.parametrize("name", ("cuda:0", "auto"))
+def test_evaluation_runtime_accepts_concrete_or_auto_cuda_with_amp(
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+) -> None:
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+    monkeypatch.setattr(torch.cuda, "current_device", lambda: 0)
+
+    resolved = _resolve_device(
+        {"device": {"name": name, "amp": True}}
+    )
+
+    assert resolved == torch.device("cuda:0")
+
+
+def test_evaluation_runtime_rejects_cpu_amp() -> None:
+    with pytest.raises(
+        EvaluationContractError,
+        match=r"^evaluation\.device\.amp_requires_cuda$",
+    ):
+        _resolve_device(
+            {"device": {"name": "cpu", "amp": True}}
+        )
+
+
+@pytest.mark.parametrize(
+    ("name", "category"),
+    (
+        ("meta", "runtime.device.type_unsupported"),
+        ("cuda:not-an-index", "runtime.device.request_invalid"),
+    ),
+)
+def test_evaluation_runtime_preserves_structured_device_error(
+    name: str,
+    category: str,
+) -> None:
+    with pytest.raises(
+        EvaluationContractError,
+        match=rf"evaluation\.device\.invalid:{category}:",
+    ):
+        _resolve_device(
+            {"device": {"name": name, "amp": False}}
+        )
+
+
+def test_evaluation_runtime_preserves_cuda_index_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+
+    with pytest.raises(
+        EvaluationContractError,
+        match=(
+            r"runtime\.device\.cuda_index_out_of_range:"
+            r"requested=cuda:1;visible_device_count=1"
+        ),
+    ):
+        _resolve_device(
+            {"device": {"name": "cuda:1", "amp": False}}
+        )
 
 
 def test_direct_evaluation_checkpoint_rejects_unavailable_cuda(

@@ -76,7 +76,7 @@
   `05501d8247f60d540e79841f89da42988a76b3e3`
 - POP909-CL identity hotfix: Accepted and merged in PR #12 at
   `d3590d18550ba4a47bb8386786295d4905544fb5`
-- Device-transfer contract: `1.0.1` after the post-merge CUDA hotfix
+- Device-transfer contract: `1.0.2` after indexed-CUDA remediation
 - Training-checkpoint contract: `1.0.0`
 - Phase 6D-A: Accepted and merged in PR #13 at
   `18ebf5b69797f5d40ff38607cf8e8b5dad2f86e7`
@@ -105,20 +105,22 @@
 - Phase 7A deterministic GraphMAE2-inspired masked-graph SSL implementation
   and bounded acceptance are merged. Required CI for that historical head is
   recorded in the final PR #15 evidence comment.
-- Phase 7A umbrella SSL and training-report contracts: `1.2.1`
+- Phase 7A umbrella SSL contract: `1.2.2`; training-report contract: `1.2.1`
 - Phase 7A model/output, checkpoint/journal/metric-row, and
   run-manifest/performance-row contracts remain `1.2.0`
-- Phase 7A prepared binding and anti-collapse diagnostics contracts: `1.1.0`
+- Phase 7A prepared binding: `1.1.0`; anti-collapse diagnostics: `1.1.1`
 - Phase 7A MaskPlan/policy/overlay, maskable registry, decoder,
-  representation target/objective/loss, pitch-mutation fixture, and encoder
-  export contracts remain `1.0.0`
+  representation target, pitch-mutation fixture, and encoder export contracts
+  remain `1.0.0`; representation loss, multi-view loss, and SSL objective are
+  `1.0.1`
 - Phase 7A maskable-field registry fingerprint:
   `97836b2adb610529994ae609e89913eb6b21ad0f07d4bf695c911251d5f8ac85`
 - Blocking post-merge hotfix branch:
   `hotfix/cuda-device-canonicalization`
-- Runtime device-resolution contract: `1.0.0`
-- Next gate: draft hotfix PR, Required CI, and independent RTX 3090
-  verification; Phase 8 has not started
+- Runtime device-resolution contract: `1.0.1`
+- Draft hotfix PR: #17
+- Next gate: Required CI on the exact remediation head and independent RTX
+  3090 verification; Phase 8 has not started
 
 ## CUDA device-canonicalization hotfix status
 
@@ -128,29 +130,56 @@
   `ssl.data.device_transfer_tensor_mismatch`. The confirmed root cause is exact
   comparison of abstract `torch.device("cuda")` (`index=None`) with tensors
   concretely placed by PyTorch on `cuda:0`.
+- Independent execution of the initial PR #17 head `fb54e85` confirmed the
+  original correction: bare CUDA resolved to `cuda:0`, exact graph and
+  prepared-binding checks passed, and the device-transfer mismatch category
+  disappeared. The result was `165 passed, 2 failed, 1 skipped` for SSL and
+  `7 passed, 2 failed, 1 skipped` for the training CUDA tests.
+- Those four remaining failures were separate: explicit CUDA indices were not
+  range-checked/accepted end to end; AMP decoder prediction FP16 did not match
+  detached target FP32; the velocity acceptance test modified an unavailable
+  placeholder; and a resume assertion compared JSON list containers directly
+  with live tuples.
 - One shared resolver now canonicalizes CPU, resolves bare CUDA through the
-  current device, preserves explicit CUDA indices, and rejects unavailable
-  CUDA structurally. SSL graph transfer, prepared binding sidecars, Phase 6C
+  current device, validates explicit/current indices against visible device
+  count, and rejects unavailable or out-of-range CUDA structurally before
+  transfer. SSL graph transfer, prepared binding sidecars, Phase 6C
   graph/target transfer, evaluation, and direct evaluation checkpoint
-  placement use it.
+  placement use it. All three engines accept `cpu`, `cuda`, `cuda:N`, and
+  `auto`; AMP eligibility is based on the resolved CUDA type.
 - Strict validation is preserved. Type-only CUDA acceptance is forbidden,
   wrong indices are rejected, and SSL mismatch evidence names exact
   global/node/edge/binding location plus expected and actual devices.
-- Umbrella SSL `1.2.1` changes newly generated model/checkpoint binding
+- Low-precision representation pairs now compute cosine loss, empty and
+  ordinary numerators, means, multi-view reduction, combined objective, and
+  diagnostics in FP32 with autocast disabled. Matching FP64 remains FP64;
+  shapes and concrete devices remain exact, prediction gradients survive the
+  cast, and targets stay detached.
+- The velocity test now mutates only available rows and revalidates the raw
+  graph. Resume membership retains exact fingerprint/count/limit assertions,
+  canonicalizes only JSON container representation for comparison, and keeps
+  byte-identical metric journals. Production validation, placeholder,
+  membership, fingerprint, and resume contracts are unchanged.
+- Umbrella SSL `1.2.2` changes newly generated model/checkpoint binding
   fingerprints. Historical Phase 7A `1.2.0` hashes remain historical and are
-  not rewritten. Prepared binding, objectives, masking, model/output, graph,
-  ontology, encoding, canonical, and checkpoint container contracts are
-  unchanged.
+  not rewritten. Prepared binding, masking, model/output, graph, ontology,
+  encoding, canonical, and checkpoint container contracts are unchanged.
 - Local development is CPU-only, so all real-CUDA tests remain unverified
   locally. The hotfix must remain draft pending new RTX 3090 evidence.
-- Local hotfix verification passed focused device/SSL/training/evaluation
-  checks (`28 passed, 1 skipped, 2 warnings`), complete SSL
-  (`164 passed, 4 skipped, 8 warnings`), related Phase 6C/evaluation device
-  checks (`12 passed, 6 skipped, 2 warnings`), and the complete default suite
-  (`1009 passed, 25 skipped, 10 warnings`). These are CPU/skip results, not
-  hardware verification.
-- No SSL objective, graph schema, ontology, dataset, cache, production
-  training, or Phase 8 implementation is part of this hotfix.
+- Final local remediation verification passed runtime/config/device checks
+  (`73 passed, 1 skipped, 2 warnings`), focused objective/diagnostic/CUDA
+  collection (`53 passed, 5 skipped, 2 warnings`), complete SSL
+  (`191 passed, 6 skipped, 8 warnings`), related training/evaluation device
+  checks (`60 passed, 6 skipped, 2 warnings`), resume/checkpoint checks
+  (`33 passed, 2 warnings`), and the complete default suite
+  (`1059 passed, 27 skipped, 10 warnings`). Repository/import plus
+  deterministic membership checks passed `12 passed, 2 warnings`; compileall
+  and diff checks passed. These are CPU/skip results, not hardware
+  verification.
+- The representation objective formula, weights, zero-vector policy, masking
+  policies, model architecture, graph schema, ontology, dataset, cache, and
+  production-training behavior are unchanged. Only the required AMP compute
+  dtype semantics changed. No Phase 8 implementation is part of this hotfix.
 
 ## Phase 7A implementation status
 

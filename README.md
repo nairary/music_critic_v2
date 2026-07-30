@@ -21,8 +21,13 @@ It adds note pitch-group masking, owner-track-statistic and peer-note leakage
 closure, shared stop-gradient full-view representation targets, contextual
 decoder re-masking, bar/song latent prediction, target-free raw-cache loading,
 and strict SSL checkpoint/resume and encoder-transfer contracts.
-A blocking post-merge hotfix canonicalizes bare CUDA requests to concrete
-`cuda:N`; Phase 8 has not started.
+A blocking post-merge hotfix remains in draft PR #17. Its first independent
+RTX 3090 run confirmed that bare CUDA now resolves to concrete `cuda:N` and
+that exact graph/binding transfer succeeds, then exposed follow-up gaps in
+explicit-index validation, AMP representation-loss precision, and two CUDA
+acceptance assertions. The remediation validates every CUDA index before
+transfer and computes low-precision SSL cosine objectives in FP32. Phase 8 has
+not started.
 Decoder context mode
 `online_owner_track_bar_song_temporal_neighbors` retains masked-online
 owner/bar/song/temporal context after latent re-masking, avoiding predictions
