@@ -4,9 +4,10 @@
 
 Phase 8A implements hierarchy-aware mask contracts, sparse planners,
 model-side overlays, the shared prepared-input security path, and bounded
-mechanics evidence. Draft PR #16 is pending final-head review, Required CI,
-and an independent exact-final RTX 3090 CUDA/AMP acceptance run. It must remain
-draft and must not be merged by this implementation task.
+mechanics evidence. Required CI passes on the final documentation-inclusive
+head are mandatory evidence. Draft PR #16 is pending final-head review and an
+independent exact-final RTX 3090 CUDA/AMP acceptance run. It must remain draft
+and must not be merged by this implementation task.
 
 Phase 8B has not started. Phase 8A adds no onset, beat, bar, or track
 objective head; no role/voice labels; no Dilemmadata, PDMX, or PLL path; no
@@ -443,5 +444,6 @@ The independent RTX 3090 run at intermediate SHA
 `00ba0f38f3ebc85c7056d1ad3a77ece75816d0c4` is explicitly invalid as final
 acceptance: its targeted CUDA test passed, but the full SSL suite had one
 CPU/CUDA tolerance failure, direct CUDA CLI import failed before execution,
-and no hardware report was created. Required GitHub CI and a repeat against
-the new exact final SHA remain pre-merge gates.
+and no hardware report was created. Both Required GitHub workflows pass on the
+final documentation-inclusive head; a repeat against that exact SHA remains
+the independent hardware pre-merge gate.

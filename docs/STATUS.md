@@ -438,8 +438,8 @@
   checkpoint/resume/transfer (`21 passed`), deterministic held-out plus
   repository audit (`7 passed`), and the complete repository
   (`1193 passed, 34 skipped, 10 warnings`). The no-threshold benchmark passed
-  all five policies. Required GitHub workflows remain pending the new
-  exact-final commit.
+  all five policies. Both Required GitHub workflows pass on the final
+  documentation-inclusive head.
 - Optional explicit-`cuda:0` AMP acceptance covers all five policies and the
   mixture, concrete bindings, finite forward/loss/gradients, and peak
   allocated/reserved VRAM in separate
