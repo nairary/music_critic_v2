@@ -371,7 +371,13 @@ The two documented script files are thin wrappers over importable
 `python scripts/...` execution is the normative CLI contract; no global or
 uncontrolled `sys.path` modification is used. Exact-final CUDA preflight
 rejects a missing portable report, wrong expected SHA, or dirty tree before
-device execution and never creates hardware evidence on failure.
+device execution and never creates hardware evidence on failure. It checks
+exact HEAD and dirtiness before proving the accepted-hotfix ancestry, so a
+dirty checkout is rejected deterministically even when GitHub Actions uses a
+shallow `fetch-depth: 1` checkout. A clean checkout whose history is too
+shallow to prove ancestry receives the structured
+`phase8a.cuda.hotfix_ancestor_missing_or_unavailable` error; an independent
+exact-final runner must fetch enough history for that proof.
 
 Focused and regression commands are:
 
@@ -420,15 +426,15 @@ training, or quality/likelihood interpretation is part of Phase 8A.
 Final local verification before commit:
 
 - focused Phase 8A plus CLI contracts:
-  `117 passed, 7 skipped, 2 warnings`;
+  `119 passed, 7 skipped, 2 warnings`;
 - worker `0/2` parity: `1 passed, 2 warnings`; two direct-CLI portable
   reports were byte-identical;
-- complete SSL: `323 passed, 13 skipped, 8 warnings`;
+- complete SSL: `325 passed, 13 skipped, 8 warnings`;
 - model/graph/device regressions: `165 passed, 1 skipped, 2 warnings`;
 - training/evaluation regressions: `94 passed, 6 skipped, 4 warnings`;
 - checkpoint/resume/transfer regressions: `21 passed, 2 warnings`;
 - deterministic held-out plus repository audit: `7 passed, 2 warnings`;
-- complete repository: `1191 passed, 34 skipped, 10 warnings`;
+- complete repository: `1193 passed, 34 skipped, 10 warnings`;
 - bounded benchmark: all five policies, no timing threshold;
 - `compileall` and `git diff --check`: passed.
 

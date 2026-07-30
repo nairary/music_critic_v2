@@ -14,6 +14,7 @@ import warnings
 import pytest
 import torch
 
+import music_critic.ssl.phase8a_cuda_acceptance as cuda_acceptance_module
 from music_critic.ssl.phase8a_cuda_acceptance import (
     PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION,
     PHASE8A_CPU_CUDA_NUMERICAL_PARITY_ATOL,
@@ -24,6 +25,7 @@ from music_critic.ssl.phase8a_cuda_acceptance import (
     _portable_contract_bindings,
     _portable_policy_projection,
     _tensor_numerical_parity_evidence,
+    _validate_exact_final_source,
     _validate_portable_cpu_report,
     build_phase8a_cuda_amp_hardware_report,
 )
@@ -190,6 +192,56 @@ def test_documented_cuda_cli_rejects_dirty_worktree_before_cuda(
     assert completed.returncode != 0
     assert "phase8a.cuda.source_tree_dirty" in completed.stderr
     assert not output.exists()
+
+
+def test_exact_final_source_checks_dirty_before_shallow_ancestry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected_head = "a" * 40
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git(*arguments: str) -> str:
+        calls.append(arguments)
+        if arguments == ("rev-parse", "HEAD"):
+            return expected_head
+        if arguments == ("status", "--porcelain=v1"):
+            return "?? dirty"
+        raise AssertionError("ancestry must not run for a dirty tree")
+
+    monkeypatch.setattr(cuda_acceptance_module, "_git", fake_git)
+
+    with pytest.raises(
+        RuntimeError,
+        match="phase8a.cuda.source_tree_dirty",
+    ):
+        _validate_exact_final_source(expected_head=expected_head)
+    assert calls == [
+        ("rev-parse", "HEAD"),
+        ("status", "--porcelain=v1"),
+    ]
+
+
+def test_exact_final_source_structures_shallow_ancestry_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected_head = "a" * 40
+
+    def fake_git(*arguments: str) -> str:
+        if arguments == ("rev-parse", "HEAD"):
+            return expected_head
+        if arguments == ("status", "--porcelain=v1"):
+            return ""
+        raise subprocess.CalledProcessError(128, ("git", *arguments))
+
+    monkeypatch.setattr(cuda_acceptance_module, "_git", fake_git)
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "phase8a.cuda.hotfix_ancestor_missing_or_unavailable"
+        ),
+    ):
+        _validate_exact_final_source(expected_head=expected_head)
 
 
 def test_cross_backend_tolerance_contract_has_fixed_boundary() -> None:

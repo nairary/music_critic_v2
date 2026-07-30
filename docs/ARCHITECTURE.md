@@ -795,8 +795,12 @@ finite checks, per-policy/per-node-type max absolute/relative errors, and
 objective difference. Close results do not prove identical backend floating
 operations. Both acceptance CLIs are thin root-invoked wrappers over
 importable `music_critic.ssl` modules; exact-final source/report preflight is
-failure-closed before CUDA execution. An independent exact-final RTX 3090
-artifact remains a pre-merge gate, not portable CPU evidence.
+failure-closed before CUDA execution. Exact HEAD and dirty-tree checks precede
+the accepted-hotfix ancestry proof: dirty shallow checkouts therefore reject
+with the dirty-tree contract, while a clean checkout without enough history
+gets a structured unavailable-ancestry error and must fetch sufficient
+history. An independent exact-final RTX 3090 artifact remains a pre-merge
+gate, not portable CPU evidence.
 Detailed policy, leakage, complexity, version, bounded default audit, and
 optional CUDA hardware-evidence boundaries are in
 `PHASE8A_HIERARCHICAL_MASKING.md`.

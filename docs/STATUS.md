@@ -431,13 +431,13 @@
   and
   `e38651e00726ce9681dc015634c5d1f48f11586d07e0faf3187e20bda9ffee67`.
 - Final local verification passed focused Phase 8A plus CLI contracts
-  (`117 passed, 7 skipped`), worker `0/2` parity (`1 passed`) plus two
+  (`119 passed, 7 skipped`), worker `0/2` parity (`1 passed`) plus two
   byte-identical direct-CLI portable reports, complete SSL
-  (`323 passed, 13 skipped`), model/graph/device
+  (`325 passed, 13 skipped`), model/graph/device
   (`165 passed, 1 skipped`), training/evaluation (`94 passed, 6 skipped`),
   checkpoint/resume/transfer (`21 passed`), deterministic held-out plus
   repository audit (`7 passed`), and the complete repository
-  (`1191 passed, 34 skipped, 10 warnings`). The no-threshold benchmark passed
+  (`1193 passed, 34 skipped, 10 warnings`). The no-threshold benchmark passed
   all five policies. Required GitHub workflows remain pending the new
   exact-final commit.
 - Optional explicit-`cuda:0` AMP acceptance covers all five policies and the
@@ -456,6 +456,13 @@
   unresolved `scripts` package. Subprocess regressions cover successful
   portable output plus wrong-SHA, dirty-tree, and missing-portable-report
   rejection before CUDA; absence of CUDA cannot create hardware evidence.
+- Required CI on `25ac6c7` exposed a shallow-checkout-only ordering defect:
+  `fetch-depth: 1` did not contain the hotfix object, so a dirty-tree negative
+  test reached `merge-base` first and surfaced raw `CalledProcessError`.
+  Exact-final preflight now checks exact HEAD and dirty state before ancestry;
+  a clean shallow checkout that cannot prove ancestry receives structured
+  `phase8a.cuda.hotfix_ancestor_missing_or_unavailable`. Clean independent
+  acceptance still must prove the hotfix ancestor before CUDA execution.
 - The independent RTX 3090 run at intermediate
   `00ba0f38f3ebc85c7056d1ad3a77ece75816d0c4` confirmed exact head/hotfix
   ancestry, portable CPU acceptance, and one targeted CUDA+AMP test, but is

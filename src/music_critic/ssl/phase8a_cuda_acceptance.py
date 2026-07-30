@@ -151,15 +151,20 @@ def _validate_exact_final_source(
             "phase8a.cuda.expected_head_mismatch:"
             f"expected={expected_head}:actual={head}"
         )
-    _git(
-        "merge-base",
-        "--is-ancestor",
-        "a20393293a9ba4fad5721a9f7b90edb82bb67752",
-        "HEAD",
-    )
     clean = not bool(_git("status", "--porcelain=v1"))
     if not clean:
         raise RuntimeError("phase8a.cuda.source_tree_dirty")
+    try:
+        _git(
+            "merge-base",
+            "--is-ancestor",
+            "a20393293a9ba4fad5721a9f7b90edb82bb67752",
+            "HEAD",
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            "phase8a.cuda.hotfix_ancestor_missing_or_unavailable"
+        ) from exc
     return head, clean
 
 

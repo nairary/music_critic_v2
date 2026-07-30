@@ -2016,3 +2016,27 @@ This log is append-only.
   Hierarchical mask/selection/prepared contracts, portable CPU acceptance,
   benchmark, Phase 7A, device transfer, graph/feature/data, model/checkpoint,
   and Phase 6 numerical contracts do not change.
+
+## 2026-07-30 — ADR-059: Exact-final CUDA preflight is deterministic in shallow CI checkouts
+
+- Status: Accepted as Required-CI remediation for draft PR #16. Phase 8B and
+  production training remain unauthorized.
+- Context: Both Required runs for SHA `25ac6c7` failed the same negative
+  subprocess test under GitHub Actions `fetch-depth: 1`. The test deliberately
+  dirtied the checkout, but exact-final preflight attempted
+  `git merge-base --is-ancestor` first. Because the accepted-hotfix ancestor
+  was absent from the shallow object set, Git returned status 128 and leaked a
+  raw `CalledProcessError` instead of the required structured dirty-tree
+  rejection.
+- Decision: After portable-report readability, exact-final preflight checks
+  exact HEAD and then dirtiness before the ancestry proof. A dirty checkout
+  always raises `phase8a.cuda.source_tree_dirty` without consulting ancestry.
+  A clean checkout must still prove that the accepted hotfix is an ancestor;
+  a missing or unavailable proof raises the structured
+  `phase8a.cuda.hotfix_ancestor_missing_or_unavailable` error.
+- Consequences: The exact-final gate is not weakened and no CUDA resolution or
+  hardware-evidence output occurs on either failure path. Independent hardware
+  execution must fetch enough Git history to prove ancestry. Unit tests cover
+  dirty-before-ancestry ordering and clean shallow-history failure. No
+  serialized Phase 8A contract, fingerprint, model/checkpoint version, graph
+  schema, or Phase 6 numerical output changes.
