@@ -48,19 +48,27 @@ from music_critic.ssl.model import (
 )
 from music_critic.ssl.multilevel import (
     PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT,
+    PHASE8B_SCHEDULED_VIEW_AGGREGATION,
     Phase8BMultilevelSSLForwardOutput,
     Phase8BMultilevelSSLModel,
     Phase8BObjectiveAccumulator,
     Phase8BObjectiveConfig,
+    aggregate_phase8b_policy_pass_losses,
     build_phase8b_model_from_config,
     prepare_phase8b_objective_binding,
 )
+from music_critic.ssl.multilevel_checkpoint import (
+    PHASE8B_CHECKPOINT_BINDING_CONTRACT_VERSION,
+)
+from music_critic.ssl.phase8b_acceptance import (
+    phase8b_cross_policy_manual_oracle,
+)
 
 
-PHASE8B_ENGINE_CONTRACT_VERSION = "1.0.0"
-PHASE8B_MASKING_CONFIG_CONTRACT_VERSION = "1.0.0"
-PHASE8B_RUN_MANIFEST_VERSION = "1.0.0"
-PHASE8B_TRAINING_REPORT_VERSION = "1.0.0"
+PHASE8B_ENGINE_CONTRACT_VERSION = "1.1.0"
+PHASE8B_MASKING_CONFIG_CONTRACT_VERSION = "1.1.0"
+PHASE8B_RUN_MANIFEST_VERSION = "1.1.0"
+PHASE8B_TRAINING_REPORT_VERSION = "1.1.0"
 
 _HIERARCHY_SCHEDULE = (
     ONSET_PITCH_DESCENDANTS,
@@ -149,7 +157,7 @@ class ResolvedPhase8BMaskingConfig:
             "mode": mode,
             "phase8a_policy_mixture": policy_config.to_dict(),
             "scheduled_policies": list(scheduled),
-            "pass_aggregation": "sum_available_losses_divided_by_fixed_schedule",
+            "pass_aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
         }
         return cls(
             contract_version=PHASE8B_MASKING_CONFIG_CONTRACT_VERSION,
@@ -165,7 +173,7 @@ class ResolvedPhase8BMaskingConfig:
             "mode": self.mode,
             "phase8a_policy_mixture": self.policy_config.to_dict(),
             "scheduled_policies": list(self.scheduled_policies),
-            "pass_aggregation": "sum_available_losses_divided_by_fixed_schedule",
+            "pass_aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
         }
         payload["fingerprint"] = self.fingerprint
         return payload
@@ -195,6 +203,8 @@ class _Accounting:
     forward_pass_count: int = 0
     scheduled_policy_pass_count: int = 0
     objective_evaluation_count: int = 0
+    family_view_pass_count: int = 0
+    eligible_prediction_row_count: int = 0
     sample_count: int = 0
     node_count: int = 0
     edge_count: int = 0
@@ -273,6 +283,10 @@ def _materialize(
     materialized = copy.deepcopy(config)
     materialized["phase8b_runtime"] = {
         "engine_contract_version": PHASE8B_ENGINE_CONTRACT_VERSION,
+        "checkpoint_binding_contract_version": (
+            PHASE8B_CHECKPOINT_BINDING_CONTRACT_VERSION
+        ),
+        "scheduled_view_aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
         "execution_mode": execution_mode,
         "objective_registry_fingerprint": (
             PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT
@@ -521,7 +535,14 @@ def _stage(
         if training:
             assert optimizer is not None
             optimizer.zero_grad(set_to_none=True)
-        losses: list[torch.Tensor] = []
+        policy_outputs: list[
+            tuple[
+                str,
+                SSLForwardOutput
+                | Phase8AHierarchySSLForwardOutput
+                | Phase8BMultilevelSSLForwardOutput,
+            ]
+        ] = []
         for policy in masking.scheduled_policies:
             accounting.scheduled_policy_pass_count += 1
             policy_pass_counts[policy] += 1
@@ -557,22 +578,30 @@ def _stage(
                     )
             accounting.forward_pass_count += 1
             accounting.objective_evaluation_count += 1
-            accumulator.update(output)
-            current_loss = _loss(output)
-            if current_loss is not None:
-                if not bool(torch.isfinite(current_loss)):
-                    raise Phase8BEngineError(
-                        "phase8b.engine.nonfinite_total_loss"
-                    )
-                losses.append(current_loss)
-        if losses:
+            policy_outputs.append((policy, output))
+        batch_objective = aggregate_phase8b_policy_pass_losses(
+            tuple(policy_outputs), objective_config=objective
+        )
+        try:
+            accumulator.update_batch(batch_objective)
+        except ValueError as exc:
+            if "non-finite" in str(exc):
+                raise Phase8BEngineError(
+                    "phase8b.engine.nonfinite_total_loss"
+                ) from exc
+            raise
+        accounting.family_view_pass_count += (
+            batch_objective.family_view_pass_count
+        )
+        accounting.eligible_prediction_row_count += (
+            batch_objective.eligible_prediction_row_count
+        )
+        current_loss = batch_objective.total_loss
+        if current_loss is not None:
             available_batch_count += 1
-        if training and losses:
+        if training and current_loss is not None:
             assert optimizer is not None and scaler is not None
-            combined = torch.stack(losses).sum() / len(
-                masking.scheduled_policies
-            )
-            scaler.scale(combined).backward()
+            scaler.scale(current_loss).backward()
             scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(
                 model.parameters(),
@@ -583,6 +612,7 @@ def _stage(
             scaler.step(optimizer)
             scaler.update()
             accounting.optimizer_step_count += 1
+        del policy_outputs, batch_objective, current_loss
     aggregate = accumulator.finalize()
     metric: dict[str, object] = {
         "engine_contract_version": PHASE8B_ENGINE_CONTRACT_VERSION,
@@ -616,6 +646,23 @@ def _stage(
         "retained_prediction_tensor_count": aggregate[
             "retained_prediction_tensor_count"
         ],
+        "metrics_transfer": {
+            "packed_host_materialization_count": aggregate[
+                "packed_host_materialization_count"
+            ],
+            "packed_device_to_host_transfer_count": aggregate[
+                "packed_device_to_host_transfer_count"
+            ],
+            "maximum_packed_d2h_transfers_per_cpu_batch": aggregate[
+                "maximum_packed_d2h_transfers_per_cpu_batch"
+            ],
+            "retained_cuda_tensor_count": aggregate[
+                "retained_cuda_tensor_count"
+            ],
+            "retained_prediction_tensor_count": aggregate[
+                "retained_prediction_tensor_count"
+            ],
+        },
     }
     return metric, gradient_evidence
 
@@ -626,6 +673,12 @@ def _phase8b_bindings(
     runtime = config["phase8b_runtime"]
     return {
         "engine_contract_version": runtime["engine_contract_version"],
+        "checkpoint_binding_contract_version": runtime[
+            "checkpoint_binding_contract_version"
+        ],
+        "scheduled_view_aggregation": runtime[
+            "scheduled_view_aggregation"
+        ],
         "execution_mode": runtime["execution_mode"],
         "model_class": type(model).__name__,
         "objective_registry_fingerprint": runtime[
@@ -783,6 +836,13 @@ def _report_common(
             if weight > 0.0
         ],
         "resolved_mask_policies": list(masking.scheduled_policies),
+        "scheduled_policy_pass_count_per_cpu_batch": len(
+            masking.scheduled_policies
+        ),
+        "scheduled_view_aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
+        "cross_policy_manual_oracle": (
+            phase8b_cross_policy_manual_oracle()
+        ),
         "objective_registry_fingerprint": (
             PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT
         ),
@@ -1188,7 +1248,9 @@ def _run_epochs(
         "configured_epochs": epochs,
         "initial_validation": initial_validation,
         "best_validation_loss": best,
-        "best_checkpoint_selection": "minimum_fixed_validation_total_ssl_loss",
+        "best_checkpoint_selection": (
+            "minimum_family_global_validation_total_ssl_loss"
+        ),
         "best_checkpoint": None if best is None else str(output / "best.pt"),
         "last_checkpoint": str(output / "last.pt"),
         "metrics": str(output / "metrics.jsonl"),

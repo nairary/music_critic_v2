@@ -827,9 +827,14 @@ registry entries with different encoder sources and independent weights.
 The loss layer records numerator, eligible denominator, mean, availability,
 reason, configured weight, and active state per family. A zero denominator is
 unavailable rather than zero. A zero weight bypasses the new head and its
-gradient path. Aggregation is the fixed sum of configured-weight times each
-available mean, without active-weight normalization or unavailable-family
-rescaling. Streaming reports keep only detached CPU scalar/O(D) state.
+gradient path. For each CPU batch all scheduled views run first; numerators
+and eligible denominators are summed per family across views, then each
+available family mean is multiplied by its configured weight exactly once.
+There is no policy-count division, active-weight normalization, or
+unavailable-family rescaling. Repeated entity identities in distinct views
+remain distinct prediction observations. Streaming reports use one packed
+metrics D2H transfer at most per CPU batch and keep only detached CPU scalar/
+O(D) state.
 
 `phase7a_control` constructs the literal old `MaskedGraphSSLModel`.
 `Phase8BMultilevelSSLModel` is an additive subtype used only for the four new
@@ -856,13 +861,16 @@ the Phase 8A policy-mixture fingerprint. Fixed validation always uses epoch
 zero with stable membership, sample identities, seed coordinates, and policy
 order. The stage accumulator retains CPU scalars only and the report separates
 optimizer steps from model forwards, scheduled policy passes, objective
-evaluations, eligible entities, and primary/collateral masked entities.
+evaluations, family-view passes, eligible prediction rows, and primary/
+collateral masked entities.
 Single/control schedules use one forward per batch; equal/mask-only use four,
 so these mechanics runs are explicitly not compute matched or scientific
 effectiveness comparisons.
 
-All new registry/config/eligibility/binding/loss/model/output/metric/
-checkpoint-transfer/bounded-comparison contracts begin at `1.0.0`. The full
+Cross-policy registry/config/loss/model/output/metric/engine/report/checkpoint
+and bounded-comparison contracts are `1.1.0`; identity-only eligibility,
+prepared-binding, latent-row, and new batch-aggregate contracts remain
+`1.0.0`. The full
 architecture, policy mapping, parameter formula, bounded comparison, and
 non-claim boundary are in `PHASE8B_MULTILEVEL_OBJECTIVES.md`.
 

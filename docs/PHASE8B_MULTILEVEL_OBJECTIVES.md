@@ -92,7 +92,7 @@ similarity matrix.
 
 ## Family loss and weighting contract
 
-Each `Phase8BFamilyLoss@1.0.0` carries:
+Each `Phase8BFamilyLoss@1.1.0` carries:
 
 - summed numerator;
 - eligible entity denominator;
@@ -102,20 +102,33 @@ Each `Phase8BFamilyLoss@1.0.0` carries:
 - active/inactive state;
 - zero-norm count.
 
-A zero denominator is `unavailable` with `mean_loss=None`; it is never a fake
-zero. A zero weight is `inactive_zero_weight`: its new head is not executed
-and receives no gradient path. The total is
+A zero denominator is `unavailable` with `numerator=None` and
+`mean_loss=None`; it is never a fake zero. A zero weight is
+`inactive_zero_weight`: its new head is not executed and receives no gradient
+path.
+
+For one CPU batch, every scheduled policy view runs first. For each active
+family `f`, the engine then computes
 
 ```text
-sum_f configured_weight_f * available_mean_f
+N_f = sum_v numerator_(f,v)
+D_f = sum_v eligible_denominator_(f,v)
+mean_f = N_f / D_f                         when D_f > 0
+total_ssl_loss = sum_(available f) configured_weight_f * mean_f
 ```
 
-There is no division by active-weight sum and no redistribution when another
-family is unavailable. Multi-policy bounded training divides by the fixed
-scheduled pass count, not by the number of available families.
+One configured family weight is applied once after all of that family's views
+have been aggregated. There is no division by scheduled-policy count, active
+weight sum, or available-family count, and no redistribution when another
+family is unavailable. The same raw entity predicted in two distinct views is
+two prediction observations in `N_f` and `D_f`; it is not deduplicated across
+views. In particular, hierarchy-bar rows from contiguous-bar and track/bar
+passes share one family-global mean and one bar-weight application.
 
-Metrics aggregate only fixed-size detached CPU scalar/O(D) sufficient state.
-They retain neither prediction tensors nor CUDA tensors.
+Metrics pack all available family numerators and the optimizer total into at
+most one device-to-host transfer per CPU batch, then retain only fixed-size
+detached CPU scalar/O(D) sufficient state. Reports retain neither prediction
+tensors, graph tensors, nor CUDA tensors.
 
 ## Configuration and public API
 
@@ -177,6 +190,7 @@ The principal APIs are:
 - `build_phase8b_model(...)`;
 - `build_phase8b_model_from_config(...)`;
 - `Phase8BObjectiveAccumulator`;
+- `aggregate_phase8b_policy_pass_losses(...)`;
 - `ResolvedPhase8BMaskingConfig` and `run_phase8b_training(...)`;
 - `transfer_phase7a_checkpoint_to_phase8b(...)`;
 - `run_phase8b_bounded_comparison(...)`.
@@ -197,8 +211,9 @@ Official Phase 8B checkpoint metadata and its resolved config bind:
 
 - objective registry version and fingerprint;
 - complete objective config, weights, and fingerprint;
-- target mode and fixed aggregation rule;
-- exact new-head parameter count.
+- target mode and family-global scheduled-view aggregation rule;
+- exact new-head parameter count;
+- Phase 8B checkpoint-binding contract version;
 - concrete model class and execution mode;
 - active families and exact active weights;
 - masking config and Phase 8A policy-mixture fingerprints.
@@ -207,12 +222,14 @@ The explicit Phase 7A transfer validates the complete old model contract,
 keys, shapes, and dtypes before mutation. It loads every old encoder/decoder/
 projector tensor, leaves every `phase8b_latent_heads.*` tensor at its separate
 initialization, and lists both sets plus counts and source checkpoint SHA-256
-in `Phase7AToPhase8BTransferReport@1.0.0`. New checkpoint save/load/resume is
+in `Phase7AToPhase8BTransferReport@1.1.0`. New checkpoint save/load/resume is
 strict; an incompatible objective fingerprint rejects before mutation.
 Changing objective mode/weight, masking mode/span policy, model contract, or
 active weights also rejects before checkpoint application. An old Phase 7A
 checkpoint cannot be resumed as Phase 8B; the separately named explicit
-transfer API starts a new run instead.
+transfer API starts a new run instead. Phase 8B engine/report/checkpoint
+bindings created before the family-global remediation are incompatible and
+reject fail-closed; the null Phase 7A checkpoint path is unchanged.
 
 ## Official training, validation, and accounting
 
@@ -221,13 +238,16 @@ last checkpoints, metric journal, fixed epoch-zero validation schedule, and
 exact epoch-boundary resume. Validation membership, global seed, policy order,
 and per-sample plan coordinates do not depend on validation loader order or
 batch partition. `Phase8BObjectiveAccumulator` combines family numerators and
-eligible denominators without retaining prediction or CUDA tensors. A zero
-denominator stays unavailable and never rescales another family.
+eligible denominators across both policies and CPU batches without retaining
+prediction or CUDA tensors. Training batches, validation, epoch aggregates,
+best selection, and resume journals all use the same family-global formula. A
+zero denominator stays unavailable and never rescales another family.
 
 Every official report records the concrete model class, active families,
 resolved policies, registry/objective/masking/mixture fingerprints, eligible
 counts, retained-tensor counts, optimizer steps, model forwards, scheduled
-policy passes, objective evaluations, and primary/collateral masked entities.
+policy passes, family-view passes, eligible prediction rows, objective
+evaluations, packed D2H counters, and primary/collateral masked entities.
 The variants intentionally have different forward-pass counts: control and
 single-family modes schedule one pass per batch, while mask-only and equal
 weight schedule four. These runs are therefore not compute matched and are
@@ -236,18 +256,24 @@ model selection.
 
 ## Contracts
 
-All new contracts begin at `1.0.0`:
+Contracts that bind the corrected cross-policy semantics are `1.1.0`:
 
 - objective registry and objective config;
-- eligible entities and prepared objective binding;
 - family loss and combined objective loss;
-- latent prediction, model metadata, and forward output;
+- model metadata and forward output;
 - metric aggregate;
+- official engine, masking config, run manifest, and training report;
 - Phase 8B checkpoint binding and Phase 7A transfer report;
 - bounded comparison report.
 
+Exact-identity eligible entities, prepared objective bindings, latent
+prediction rows, and the newly introduced batch-objective aggregate remain
+`1.0.0` because their local identity/prediction contracts did not encode the
+superseded pass-average rule. Existing Phase 7A/8A and checkpoint-container
+contracts are unchanged.
+
 Objective registry fingerprint:
-`39af7500c6cee09d5d84c73f3968572eb5408e557fda0c9b094cf6e4cc660b7e`.
+`47a9e38c3a82107956b2225c82fece50d841e3250afaec43d758964207dbadc3`.
 No existing Phase 7A, Phase 8A, graph, canonical, cache, target, model-output,
 or checkpoint-container contract is revised.
 
@@ -273,24 +299,25 @@ point. Its variants use one scheduled forward for the Phase 7A/single-family
 cases and four scheduled forwards for mask-only/equal cases. Equal optimizer
 step counts do not make those variants compute matched.
 
-The complete report fingerprint is
-`a6c94fb685dd3116b090e64ef0f777f78519df2bd7c5b73373d19624c45d9470`;
-its mask-schedule fingerprint is
+The pre-remediation 783,207-byte report and its SHA-256 are invalid evidence
+for this contract. Two fresh reports are byte-identical at 976,674 bytes with
+report fingerprint
+`651c00f33dfcfe52aa2e2e9729f78d9d7a2e2b55ba5fce984b1eebb735374b46`
+and file SHA-256
+`13e0a5b931fe70bc948ffc2540a8f1f8c2439757b154a6cffc0c47d0c32aa653`.
+The unchanged mask-schedule fingerprint is
 `dd1527b66dd8ba41b10f66f176bea77c305b2ba772496a6142a7252ec52ad6b7`.
-Two fresh serialized reports were byte-identical at 783,207 bytes and file
-SHA-256
-`4417a45921971af272c47c3f087abf8988f53ad6df4c0eab1158a28f8c380f4e`.
 Train initial to final family means were:
 
 | Variant | Train family means, initial -> final |
 | --- | --- |
 | Phase 7A control | note `0.899657 -> 0.026215`; bar `0.625743 -> 0.071998`; song `0.599986 -> 0.048333` |
-| Phase 8A masks, old objectives | note `0.878062 -> 0.036332`; bar `0.633308 -> 0.060867`; song `0.601537 -> 0.037862` |
+| Phase 8A masks, old objectives | note `0.878062 -> 0.036044`; bar `0.633308 -> 0.060953`; song `0.601537 -> 0.037271` |
 | onset only | onset `1.079324 -> 0.115920` |
 | beat only | beat `1.000747 -> 0.042573` |
 | bar only | hierarchy bar `1.119422 -> 0.140495` |
 | track only | track `0.905188 -> 0.020764` |
-| equal weight | onset `1.079324 -> 0.148207`; beat `1.000747 -> 0.014227`; hierarchy bar `1.133926 -> 0.062851`; track `0.905188 -> 0.034363` |
+| equal weight | onset `1.079324 -> 0.147759`; beat `1.000747 -> 0.021558`; hierarchy bar `1.133926 -> 0.062153`; track `0.905188 -> 0.024600` |
 
 The artifact also records initial/final held-out family means, exact
 denominators, O(D) anti-collapse diagnostics, and finite/non-zero gradient
@@ -300,7 +327,11 @@ mechanics observations, not a model-selection or musical-quality result.
 
 ## Acceptance and remaining limits
 
-Tests cover all five policy eligibility rules; exact masked/full row identity;
+Tests cover the independent cross-policy arithmetic oracle (`bar=(6+15)/
+(3+5)=2.625`, equal-weight total `6.875`, superseded pass average `2.3125`),
+bar-weight-once gradients, policy-order invariance, unavailable-family and
+single-policy semantics, mask-only old-family global aggregation, all five
+policy eligibility rules; exact masked/full row identity;
 sample boundaries; empty eligibility; independent toggles; loss arithmetic;
 batch partition/order invariance; target/provenance blindness; graph/binding
 immutability; stop-gradient behavior; finite non-zero head and encoder

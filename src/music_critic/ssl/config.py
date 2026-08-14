@@ -23,7 +23,7 @@ from music_critic.training.config import (
 class Phase8BObjectiveModeConfig:
     """Hydra-facing fixed Phase 8B.1 objective registry weights."""
 
-    contract_version: str = "1.0.0"
+    contract_version: str = "1.1.0"
     mode: str = "phase7a_control"
     phase7a_note_reconstruction: float = 1.0
     phase7a_bar_latent: float = 1.0
@@ -38,7 +38,7 @@ class Phase8BObjectiveModeConfig:
 class Phase8BMaskingModeConfig:
     """Hydra-facing Phase 8A policy schedule for an explicit Phase 8B run."""
 
-    contract_version: str = "1.0.0"
+    contract_version: str = "1.1.0"
     mode: str = "phase7a_control"
     independent_note_pitch: float = 1.0
     onset_pitch_descendants: float = 0.0

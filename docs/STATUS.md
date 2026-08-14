@@ -583,17 +583,24 @@
   track/bar spans select one track plus corresponding bars. Independent note
   masking remains the literal Phase 7A control. Rows are canonical,
   deduplicated, and sample-bounded.
-- Every new objective registry/config/eligibility/binding/family-loss/
-  aggregate/model/output/metric/checkpoint-transfer/comparison contract begins
-  at `1.0.0`. Registry fingerprint:
-  `39af7500c6cee09d5d84c73f3968572eb5408e557fda0c9b094cf6e4cc660b7e`.
+- Cross-policy objective registry/config/family-loss/model/output/metric/
+  engine/report/checkpoint/comparison contracts are now `1.1.0`; identity-only
+  eligibility/prepared-binding/latent-row contracts and the new batch
+  aggregate remain `1.0.0`. Registry fingerprint:
+  `47a9e38c3a82107956b2225c82fece50d841e3250afaec43d758964207dbadc3`.
 - A family records numerator, eligible denominator, mean, availability/reason,
   configured weight, active state, and zero norms. Zero denominator is
   unavailable, zero weight bypasses its new head, and fixed weighted sums are
-  never renormalized around unavailable families.
+  never renormalized around unavailable families. Per CPU batch, numerators
+  and eligible denominators are first summed per family across every scheduled
+  view; each available family mean then receives its configured weight once.
+  There is no policy-count divisor. The independent equal-weight oracle is
+  `bar=(6+15)/(3+5)=2.625`, corrected total `6.875`, versus superseded
+  pass-average `2.3125`.
 - Four separate projector/predictor heads add 266,240 parameters at default
   hidden/projector width 128 and 1,280 in the bounded width-8 comparison.
-  Metrics retain fixed CPU scalar/O(D) state and no prediction/CUDA tensors.
+  Metrics use at most one packed D2H transfer per CPU batch and retain fixed
+  CPU scalar/O(D) state with no graph, prediction, or CUDA tensors.
 - Hydra provides `phase7a_control`, `onset_only`, `beat_only`, `bar_only`,
   `track_only`, and `multilevel_equal_weight`. The control constructs the
   literal old model and remains model-facing bit-exact. Official explicit
@@ -617,16 +624,22 @@
   validation, best/last checkpoints, ordered journal, and exact epoch-boundary
   resume. Reports expose model class, active families, policies, all binding
   fingerprints, eligible counts, retained tensor counts, optimizer steps,
-  forwards, scheduled passes, objective evaluations, and primary/collateral
-  masked entities.
+  forwards, scheduled passes, family-view passes, eligible prediction rows,
+  objective evaluations, packed-transfer counts, and primary/collateral masked
+  entities. Training, validation, epoch aggregate, and best selection use the
+  same family-global formula.
 - The deterministic 12-step CPU report compares Phase 7A control, Phase 8A
   masks with old objectives, each new family, and equal weight on four fixed
   train plus two disjoint held-out pieces. Every available train family
   decreased; initial/final held-out values, exact denominators, anti-collapse
-  diagnostics, and finite/non-zero gradient coverage remain visible. Report
-  fingerprint:
-  `a6c94fb685dd3116b090e64ef0f777f78519df2bd7c5b73373d19624c45d9470`;
-  schedule fingerprint:
+  diagnostics, and finite/non-zero gradient coverage remain visible. The old
+  783,207-byte report, fingerprint, and SHA-256 are invalid after the
+  aggregation contract correction. Two fresh reports are byte-identical at
+  976,674 bytes with report fingerprint
+  `651c00f33dfcfe52aa2e2e9729f78d9d7a2e2b55ba5fce984b1eebb735374b46`
+  and file SHA-256
+  `13e0a5b931fe70bc948ffc2540a8f1f8c2439757b154a6cffc0c47d0c32aa653`.
+  The mask-schedule fingerprint remains
   `dd1527b66dd8ba41b10f66f176bea77c305b2ba772496a6142a7252ec52ad6b7`.
 - That standalone report predates official-engine integration and remains a
   bounded mechanics audit, not a production path. The control/single variants
@@ -639,38 +652,47 @@
   Phase 8B.1 audit (`18 passed, 2 warnings`), and the complete repository
   (`1247 passed, 39 skipped, 10 warnings`). The optional CUDA+AMP test skips
   honestly because CUDA is unavailable locally. Compileall and diff checks
-  passed. Two fresh 12-step bounded artifacts are byte-identical at 783,207
-  bytes and file SHA-256
-  `4417a45921971af272c47c3f087abf8988f53ad6df4c0eab1158a28f8c380f4e`.
+  passed. Its 783,207-byte bounded artifacts and SHA-256
+  `4417a45921971af272c47c3f087abf8988f53ad6df4c0eab1158a28f8c380f4e`
+  are historical and invalid under the corrected aggregation contract.
   Required GitHub CI passed for the pre-remediation head only and must rerun on
   the remediation commit.
-- Current remediation verification: real official-engine CLI/resume/binding
-  suite `11 passed, 2 skipped, 2 warnings`; existing Phase 8B plus Phase 7A
-  training/checkpoint/held-out regressions `40 passed, 1 skipped, 2 warnings`;
-  complete SSL `390 passed, 20 skipped, 8 warnings`; combined model/training/
-  checkpoint/resume `170 passed, 8 skipped, 2 warnings`; complete repository
-  `1258 passed, 41 skipped, 10 warnings`. Compileall and diff checks passed.
-  Skips are optional CUDA/hardware paths on this CPU-only host.
-- Two fresh 12-step bounded reports are byte-identical at 783,207 bytes with
-  SHA-256
-  `4417a45921971af272c47c3f087abf8988f53ad6df4c0eab1158a28f8c380f4e`;
-  report fingerprint remains
-  `a6c94fb685dd3116b090e64ef0f777f78519df2bd7c5b73373d19624c45d9470`.
-- Exact official CPU CLI evidence used two steps. Null Phase 7A remained
-  `MaskedGraphSSLModel`, reduced total loss `2.13145112991333 ->
-  0.928695559501648`, reloaded bit-exactly, and produced manifest SHA-256
-  `11bb881be82cc38c632aacac8bb0dc0035d049c3184ef98e9bba770681a5d487`.
-  Onset-only used `Phase8BMultilevelSSLModel`, active family `onset_latent`,
-  reduced `1.1152309417724608 -> 0.5074081420898438`, reloaded bit-exactly,
-  and produced manifest SHA-256
-  `45367df5de85f22a63ccc6369cb0a70b1034c3e96ff24462a61c6a6c54fdd462`.
-  Its total accounting was 2 optimizer steps, 4 forwards/policy passes/
-  objective evaluations, 92 primary + 100 collateral-note + 28
-  collateral-track masked entities, and zero retained CUDA/prediction tensors.
+- Current family-global remediation verification: independent cross-policy
+  oracle `5 passed, 2 warnings`; official CLI/resume `12 passed, 2 skipped,
+  2 warnings`; model/training/checkpoint/resume `172 passed, 8 skipped,
+  2 warnings`; deterministic repository/runtime/bounded/resume audit
+  `19 passed, 2 warnings`. The SSL suite excluding one reproducibly hanging
+  sandbox `num_workers>0` case passed `396 passed, 20 skipped, 1 deselected,
+  2 warnings`. The complete repository excluding four reproducibly hanging
+  sandbox `num_workers>0` cases passed `1261 passed, 41 skipped, 4 deselected,
+  2 warnings`. Skips are optional CUDA/hardware paths; the four deselections
+  are local sandbox multiprocessing limitations and remain mandatory in
+  Required GitHub CI. Compileall, diff, and final commit checks are recorded
+  after the exact remediation commit.
+- The pre-aggregation-remediation 783,207-byte SHA-256
+  `4417a45921971af272c47c3f087abf8988f53ad6df4c0eab1158a28f8c380f4e`
+  and old report fingerprint are explicitly invalid evidence.
+- Exact official bounded CPU CLI evidence used two optimizer steps.
+  Onset-only reduced family-global total `1.1152309417724608 ->
+  0.5074081420898438`, reloaded bit-exactly, and produced manifest SHA-256
+  `d61efd1b5cb1d234516d56e2928185630d709821aca5bf1c422d723a1031a4d7`.
+  Equal-weight reduced `4.173366964224613 -> 1.6974003018754902`; its initial
+  hierarchy-bar view count was 2 and weight-application count was 1, with
+  optimizer total `4.173367023468018`, reported/stage total
+  `4.173366964224613`, consistent within `5.924340484853019e-8`. Its manifest
+  SHA-256 is
+  `9eb830e7f287ee79bc66281e27c12f30910132890b0f05bb5df592533716e306`.
+  Mask-only old objectives reduced `2.1311029820215133 ->
+  0.9089047671930347`; each old family had four views and one weight
+  application. Its manifest SHA-256 is
+  `d6718910cc1613067ced57374e8cc4426044c3369f995d7d4e301a54f90e3004`.
+  All three reports used one packed CPU materialization per batch, zero actual
+  D2H on CPU, and retained zero CUDA/prediction tensors. Equal accounting was
+  2 optimizer steps, 16 forwards/policy passes, 20 family-view passes, and 132
+  eligible prediction rows across initial, two optimization, and final stages.
 - The exact two-epoch onset resume starts at epoch 1, completes epoch 2, and
   matches uninterrupted model/optimizer/scheduler/scaler/RNG/journal state
-  bit-exactly. The resumed journal SHA-256 is
-  `81c37474c89e3a3d04ad7535d9cfa2f2bc4f9a37a767c722c5fc5f08f155cd72`.
+  bit-exactly under the corrected report/checkpoint bindings.
 - A direct old-head versus remediated-tree Phase 7A CLI replay used identical
   command/output path. `resolved_config.json`, `fingerprints.json`, and
   `run_manifest.json` SHA-256 values matched; the complete checkpoint payload,

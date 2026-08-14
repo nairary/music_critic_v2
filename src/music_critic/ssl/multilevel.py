@@ -24,6 +24,7 @@ from music_critic.ssl.data import SSLBatch
 from music_critic.ssl.hierarchical_masking import (
     BEAT_PITCH_DESCENDANTS,
     CONTIGUOUS_BAR_PITCH_SPAN,
+    INDEPENDENT_NOTE_PITCH,
     ONSET_PITCH_DESCENDANTS,
     TRACK_BAR_PITCH_SPAN,
     HierarchicalMaskPlan,
@@ -47,16 +48,17 @@ from music_critic.ssl.objective import (
 )
 
 
-PHASE8B_OBJECTIVE_REGISTRY_CONTRACT_VERSION = "1.0.0"
-PHASE8B_OBJECTIVE_CONFIG_CONTRACT_VERSION = "1.0.0"
+PHASE8B_OBJECTIVE_REGISTRY_CONTRACT_VERSION = "1.1.0"
+PHASE8B_OBJECTIVE_CONFIG_CONTRACT_VERSION = "1.1.0"
 PHASE8B_ELIGIBLE_ENTITY_CONTRACT_VERSION = "1.0.0"
 PHASE8B_PREPARED_OBJECTIVE_BINDING_CONTRACT_VERSION = "1.0.0"
-PHASE8B_FAMILY_LOSS_CONTRACT_VERSION = "1.0.0"
-PHASE8B_OBJECTIVE_LOSS_CONTRACT_VERSION = "1.0.0"
+PHASE8B_FAMILY_LOSS_CONTRACT_VERSION = "1.1.0"
+PHASE8B_OBJECTIVE_LOSS_CONTRACT_VERSION = "1.1.0"
+PHASE8B_BATCH_OBJECTIVE_AGGREGATE_CONTRACT_VERSION = "1.0.0"
 PHASE8B_LATENT_PREDICTION_CONTRACT_VERSION = "1.0.0"
-PHASE8B_MODEL_CONTRACT_VERSION = "1.0.0"
-PHASE8B_MODEL_OUTPUT_CONTRACT_VERSION = "1.0.0"
-PHASE8B_METRIC_AGGREGATE_CONTRACT_VERSION = "1.0.0"
+PHASE8B_MODEL_CONTRACT_VERSION = "1.1.0"
+PHASE8B_MODEL_OUTPUT_CONTRACT_VERSION = "1.1.0"
+PHASE8B_METRIC_AGGREGATE_CONTRACT_VERSION = "1.1.0"
 
 PHASE7A_NOTE_RECONSTRUCTION = "phase7a_note_reconstruction"
 PHASE7A_BAR_LATENT = "phase7a_bar_latent"
@@ -80,6 +82,13 @@ PHASE8B_NEW_OBJECTIVE_FAMILIES = (
     BEAT_LATENT,
     HIERARCHY_BAR_LATENT,
     TRACK_LATENT,
+)
+PHASE8B_CANONICAL_POLICY_ORDER = (
+    INDEPENDENT_NOTE_PITCH,
+    ONSET_PITCH_DESCENDANTS,
+    BEAT_PITCH_DESCENDANTS,
+    CONTIGUOUS_BAR_PITCH_SPAN,
+    TRACK_BAR_PITCH_SPAN,
 )
 
 Phase8BObjectiveFamily = Literal[
@@ -112,6 +121,10 @@ PHASE8B_OBJECTIVE_MODES = (
 _NO_ELIGIBLE_ENTITIES = "no_eligible_entities_for_resolved_policies"
 _INACTIVE_ZERO_WEIGHT = "inactive_zero_weight"
 _NO_AVAILABLE_ACTIVE_FAMILY = "no_available_active_objective_family"
+PHASE8B_SCHEDULED_VIEW_AGGREGATION = (
+    "sum_family_numerators_across_scheduled_views_divided_by_"
+    "sum_family_denominators_then_apply_each_family_weight_once"
+)
 
 
 def _canonical_sha256(value: object) -> str:
@@ -218,6 +231,7 @@ PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT = _canonical_sha256(
         "cosine_epsilon": 1e-8,
         "target_mode": "shared_stop_gradient_full_view_no_ema",
         "alignment": "exact_raw_graph_identity_and_canonical_ordering",
+        "scheduled_view_aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
         "families": [spec.to_dict() for spec in PHASE8B_OBJECTIVE_REGISTRY],
     }
 )
@@ -258,7 +272,7 @@ class Phase8BObjectiveConfig:
             "objective_registry_fingerprint": (
                 PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT
             ),
-            "aggregation": "fixed_weighted_sum_without_renormalization",
+            "aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
             "family_weights": [list(row) for row in ordered],
         }
         return cls(
@@ -353,7 +367,7 @@ class Phase8BObjectiveConfig:
                 "objective_registry_fingerprint": (
                     PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT
                 ),
-                "aggregation": "fixed_weighted_sum_without_renormalization",
+                "aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
                 "family_weights": [list(row) for row in self.family_weights],
             }
         )
@@ -375,7 +389,7 @@ class Phase8BObjectiveConfig:
             "objective_registry_fingerprint": (
                 PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT
             ),
-            "aggregation": "fixed_weighted_sum_without_renormalization",
+            "aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
             "family_weights": [list(row) for row in self.family_weights],
             "fingerprint": self.fingerprint,
         }
@@ -624,7 +638,7 @@ class Phase8BFamilyLoss:
 
     contract_version: str
     family: Phase8BObjectiveFamily
-    numerator: Tensor
+    numerator: Tensor | None
     eligible_denominator: int
     mean_loss: Tensor | None
     available: bool
@@ -642,10 +656,7 @@ class Phase8BFamilyLoss:
         if self.active != (self.configured_weight > 0.0):
             raise ValueError("Phase 8B.1 family active state is inconsistent")
         if (
-            not isinstance(self.numerator, Tensor)
-            or self.numerator.ndim != 0
-            or not self.numerator.is_floating_point()
-            or isinstance(self.eligible_denominator, bool)
+            isinstance(self.eligible_denominator, bool)
             or not isinstance(self.eligible_denominator, int)
             or self.eligible_denominator < 0
             or isinstance(self.zero_norm_count, bool)
@@ -656,12 +667,28 @@ class Phase8BFamilyLoss:
         if self.available != (self.eligible_denominator > 0):
             raise ValueError("Phase 8B.1 family availability is inconsistent")
         if self.active and self.available:
-            if self.mean_loss is None or self.unavailable_reason is not None:
+            if (
+                not isinstance(self.numerator, Tensor)
+                or self.numerator.ndim != 0
+                or not self.numerator.is_floating_point()
+                or self.mean_loss is None
+                or self.unavailable_reason is not None
+            ):
                 raise ValueError("active available Phase 8B.1 family needs a mean")
         elif self.active:
-            if self.mean_loss is not None or self.unavailable_reason != _NO_ELIGIBLE_ENTITIES:
+            if (
+                self.numerator is not None
+                or self.mean_loss is not None
+                or self.unavailable_reason != _NO_ELIGIBLE_ENTITIES
+            ):
                 raise ValueError("empty active Phase 8B.1 family must be unavailable")
-        elif self.mean_loss is not None or self.unavailable_reason != _INACTIVE_ZERO_WEIGHT:
+        elif (
+            self.numerator is not None
+            or self.eligible_denominator != 0
+            or self.available
+            or self.mean_loss is not None
+            or self.unavailable_reason != _INACTIVE_ZERO_WEIGHT
+        ):
             raise ValueError("inactive Phase 8B.1 family must be explicit")
 
 
@@ -676,13 +703,14 @@ def _family_loss_from_representation(
     mean = getattr(loss, "mean")
     zero_norm_count = getattr(loss, "zero_norm_count")
     active = configured_weight > 0.0
+    available = active and denominator > 0
     return Phase8BFamilyLoss(
         contract_version=PHASE8B_FAMILY_LOSS_CONTRACT_VERSION,
         family=family,
-        numerator=numerator if active else numerator.detach(),
-        eligible_denominator=denominator,
-        mean_loss=mean if active else None,
-        available=denominator > 0,
+        numerator=numerator if available else None,
+        eligible_denominator=denominator if active else 0,
+        mean_loss=mean if available else None,
+        available=available,
         unavailable_reason=(
             None
             if active and denominator > 0
@@ -692,7 +720,7 @@ def _family_loss_from_representation(
         ),
         configured_weight=configured_weight,
         active=active,
-        zero_norm_count=zero_norm_count,
+        zero_norm_count=zero_norm_count if active else 0,
     )
 
 
@@ -704,10 +732,10 @@ def _inactive_new_family_loss(
     return Phase8BFamilyLoss(
         contract_version=PHASE8B_FAMILY_LOSS_CONTRACT_VERSION,
         family=family,
-        numerator=reference.detach().new_zeros((), dtype=torch.float32),
-        eligible_denominator=len(selection.global_entity_indices),
+        numerator=None,
+        eligible_denominator=0,
         mean_loss=None,
-        available=selection.available,
+        available=False,
         unavailable_reason=_INACTIVE_ZERO_WEIGHT,
         configured_weight=0.0,
         active=False,
@@ -746,7 +774,9 @@ class Phase8BObjectiveLoss:
         if available_active:
             if self.total_loss is None or self.unavailable_reason is not None:
                 raise ValueError("Phase 8B.1 objective requires a scalar total")
-        elif self.total_loss is not None or self.unavailable_reason != _NO_AVAILABLE_ACTIVE_FAMILY:
+        elif self.total_loss is not None or self.unavailable_reason != (
+            _NO_AVAILABLE_ACTIVE_FAMILY
+        ):
             raise ValueError("Phase 8B.1 all-unavailable objective is invalid")
 
     @property
@@ -862,7 +892,9 @@ class Phase8BMultilevelSSLModel(MaskedGraphSSLModel):
         ),
     ) -> None:
         if objective_config.mode == "phase7a_control":
-            raise ValueError("phase7a_control must construct the unchanged Phase 7A model")
+            raise ValueError(
+                "phase7a_control must construct the unchanged Phase 7A model"
+            )
         super().__init__(encoder_config, ssl_config)
         self.phase8b_objective_config = objective_config
         hidden_dim = encoder_config.hidden_dim
@@ -887,7 +919,7 @@ class Phase8BMultilevelSSLModel(MaskedGraphSSLModel):
             ),
             "objective_config": self.phase8b_objective_config.to_dict(),
             "target_mode": "shared_stop_gradient_full_view_no_ema",
-            "aggregation": "fixed_weighted_sum_without_renormalization",
+            "aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
             "new_head_parameter_count": self.new_head_parameter_count(),
         }
         return metadata
@@ -1117,15 +1149,309 @@ def build_phase8b_model_from_config(
 
 
 @dataclass(frozen=True, slots=True)
+class Phase8BDifferentiableFamilyAggregate:
+    """One active family aggregated canonically across scheduled views."""
+
+    family: Phase8BObjectiveFamily
+    numerator: Tensor | None
+    eligible_denominator: int
+    mean_loss: Tensor | None
+    family_view_pass_count: int
+    configured_weight: float
+    active: bool
+    available: bool
+    unavailable_reason: str | None
+    applied_family_weight_count: int
+
+    def __post_init__(self) -> None:
+        if self.family not in PHASE8B_OBJECTIVE_FAMILIES:
+            raise ValueError("Phase 8B.1 batch aggregate family is invalid")
+        if (
+            isinstance(self.eligible_denominator, bool)
+            or not isinstance(self.eligible_denominator, int)
+            or self.eligible_denominator < 0
+            or isinstance(self.family_view_pass_count, bool)
+            or not isinstance(self.family_view_pass_count, int)
+            or self.family_view_pass_count < 0
+        ):
+            raise ValueError("Phase 8B.1 batch aggregate counts are invalid")
+        if self.active != (self.configured_weight > 0.0):
+            raise ValueError("Phase 8B.1 batch aggregate active state is invalid")
+        if self.available != (self.eligible_denominator > 0):
+            raise ValueError("Phase 8B.1 batch aggregate availability is invalid")
+        if self.available:
+            if (
+                not isinstance(self.numerator, Tensor)
+                or self.numerator.ndim != 0
+                or not self.numerator.is_floating_point()
+                or not isinstance(self.mean_loss, Tensor)
+                or self.mean_loss.ndim != 0
+                or not self.mean_loss.is_floating_point()
+                or self.mean_loss.device != self.numerator.device
+                or self.mean_loss.dtype != self.numerator.dtype
+                or self.family_view_pass_count <= 0
+                or self.unavailable_reason is not None
+                or self.applied_family_weight_count != 1
+            ):
+                raise ValueError("available Phase 8B.1 batch family is invalid")
+        else:
+            expected_reason = (
+                _NO_ELIGIBLE_ENTITIES if self.active else _INACTIVE_ZERO_WEIGHT
+            )
+            if (
+                self.numerator is not None
+                or self.mean_loss is not None
+                or self.family_view_pass_count != 0
+                or self.unavailable_reason != expected_reason
+                or self.applied_family_weight_count != 0
+            ):
+                raise ValueError("unavailable Phase 8B.1 batch family is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class Phase8BBatchObjectiveAggregate:
+    """Differentiable family-global objective for exactly one CPU batch."""
+
+    contract_version: str
+    objective_config_fingerprint: str
+    scheduled_policy_pass_count: int
+    families: tuple[Phase8BDifferentiableFamilyAggregate, ...]
+    total_loss: Tensor | None
+    unavailable_reason: str | None
+
+    def __post_init__(self) -> None:
+        if (
+            self.contract_version
+            != PHASE8B_BATCH_OBJECTIVE_AGGREGATE_CONTRACT_VERSION
+            or not is_sha256(self.objective_config_fingerprint)
+            or isinstance(self.scheduled_policy_pass_count, bool)
+            or not isinstance(self.scheduled_policy_pass_count, int)
+            or self.scheduled_policy_pass_count <= 0
+            or tuple(row.family for row in self.families)
+            != PHASE8B_OBJECTIVE_FAMILIES
+        ):
+            raise ValueError("Phase 8B.1 batch aggregate contract is invalid")
+        available = tuple(row for row in self.families if row.active and row.available)
+        if available:
+            first = available[0].mean_loss
+            if (
+                not isinstance(self.total_loss, Tensor)
+                or self.total_loss.ndim != 0
+                or not self.total_loss.is_floating_point()
+                or not isinstance(first, Tensor)
+                or self.total_loss.device != first.device
+                or self.total_loss.dtype != first.dtype
+                or self.unavailable_reason is not None
+            ):
+                raise ValueError("available Phase 8B.1 batch aggregate needs a total")
+        elif self.total_loss is not None or self.unavailable_reason != (
+            _NO_AVAILABLE_ACTIVE_FAMILY
+        ):
+            raise ValueError("unavailable Phase 8B.1 batch aggregate is invalid")
+
+    @property
+    def family_view_pass_count(self) -> int:
+        return sum(row.family_view_pass_count for row in self.families)
+
+    @property
+    def eligible_prediction_row_count(self) -> int:
+        return sum(
+            row.eligible_denominator for row in self.families if row.active
+        )
+
+
+def _active_family_rows(
+    output: (
+        Phase8BMultilevelSSLForwardOutput
+        | Phase8AHierarchySSLForwardOutput
+        | SSLForwardOutput
+    ),
+    objective_config: Phase8BObjectiveConfig,
+) -> tuple[Phase8BFamilyLoss, ...]:
+    if type(output) is Phase8BMultilevelSSLForwardOutput:
+        if output.objective.objective_config_fingerprint != (
+            objective_config.fingerprint
+        ):
+            raise ValueError("Phase 8B.1 policy output/config mismatch")
+        rows = output.objective.family_losses
+    elif type(output) in {Phase8AHierarchySSLForwardOutput, SSLForwardOutput}:
+        if objective_config.mode != "phase7a_control":
+            raise ValueError("old-objective output requires phase7a_control config")
+        rows = (
+            _family_loss_from_representation(
+                PHASE7A_NOTE_RECONSTRUCTION,
+                output.note_loss,
+                configured_weight=objective_config.weight(
+                    PHASE7A_NOTE_RECONSTRUCTION
+                ),
+            ),
+            _family_loss_from_representation(
+                PHASE7A_BAR_LATENT,
+                output.bar_latent.loss,
+                configured_weight=objective_config.weight(PHASE7A_BAR_LATENT),
+            ),
+            _family_loss_from_representation(
+                PHASE7A_SONG_LATENT,
+                output.song_latent.loss,
+                configured_weight=objective_config.weight(PHASE7A_SONG_LATENT),
+            ),
+        )
+    else:
+        raise TypeError("Phase 8B.1 policy output type is invalid")
+    return tuple(row for row in rows if row.active)
+
+
+def aggregate_phase8b_family_loss_views(
+    policy_family_losses: tuple[tuple[str, tuple[Phase8BFamilyLoss, ...]], ...],
+    *,
+    objective_config: Phase8BObjectiveConfig,
+) -> Phase8BBatchObjectiveAggregate:
+    """Aggregate each family across views before applying its weight once."""
+
+    if not policy_family_losses:
+        raise ValueError("Phase 8B.1 requires at least one scheduled view")
+    policies = tuple(policy for policy, _rows in policy_family_losses)
+    if len(set(policies)) != len(policies):
+        raise ValueError("Phase 8B.1 scheduled policy views must be unique")
+    if any(policy not in PHASE8B_CANONICAL_POLICY_ORDER for policy in policies):
+        raise ValueError("Phase 8B.1 scheduled policy view is unknown")
+    order = {
+        policy: index
+        for index, policy in enumerate(PHASE8B_CANONICAL_POLICY_ORDER)
+    }
+    canonical = tuple(
+        sorted(
+            policy_family_losses,
+            key=lambda row: (order.get(row[0], len(order)), row[0]),
+        )
+    )
+    by_family: dict[Phase8BObjectiveFamily, list[Tensor]] = {
+        family: [] for family in PHASE8B_OBJECTIVE_FAMILIES
+    }
+    denominators = {family: 0 for family in PHASE8B_OBJECTIVE_FAMILIES}
+    view_counts = {family: 0 for family in PHASE8B_OBJECTIVE_FAMILIES}
+    for _policy, rows in canonical:
+        seen: set[str] = set()
+        for row in rows:
+            if row.family in seen:
+                raise ValueError("Phase 8B.1 view repeats one objective family")
+            seen.add(row.family)
+            if not row.active:
+                continue
+            if row.configured_weight != objective_config.weight(row.family):
+                raise ValueError("Phase 8B.1 view family weight/config mismatch")
+            if row.eligible_denominator == 0:
+                if row.numerator is not None or row.mean_loss is not None:
+                    raise ValueError("unavailable Phase 8B.1 view fabricated zero")
+                continue
+            if row.numerator is None:
+                raise ValueError("available Phase 8B.1 view lacks a numerator")
+            by_family[row.family].append(row.numerator)
+            denominators[row.family] += row.eligible_denominator
+            view_counts[row.family] += 1
+    families = []
+    for family in PHASE8B_OBJECTIVE_FAMILIES:
+        weight = objective_config.weight(family)
+        active = weight > 0.0
+        numerators = by_family[family] if active else []
+        denominator = denominators[family] if active else 0
+        if numerators:
+            first = numerators[0]
+            if any(
+                value.device != first.device or value.dtype != first.dtype
+                for value in numerators[1:]
+            ):
+                raise ValueError("Phase 8B.1 view numerators differ in device/dtype")
+            with torch.autocast(device_type=first.device.type, enabled=False):
+                numerator = torch.stack(numerators).sum()
+                mean = numerator / denominator
+        else:
+            numerator = None
+            mean = None
+        families.append(
+            Phase8BDifferentiableFamilyAggregate(
+                family=family,
+                numerator=numerator,
+                eligible_denominator=denominator,
+                mean_loss=mean,
+                family_view_pass_count=view_counts[family] if active else 0,
+                configured_weight=weight,
+                active=active,
+                available=denominator > 0,
+                unavailable_reason=(
+                    None
+                    if denominator > 0
+                    else (
+                        _NO_ELIGIBLE_ENTITIES
+                        if active
+                        else _INACTIVE_ZERO_WEIGHT
+                    )
+                ),
+                applied_family_weight_count=1 if denominator > 0 else 0,
+            )
+        )
+    available = tuple(row for row in families if row.active and row.available)
+    if available:
+        means = tuple(row.mean_loss for row in available)
+        assert all(mean is not None for mean in means)
+        first_mean = means[0]
+        assert first_mean is not None
+        with torch.autocast(device_type=first_mean.device.type, enabled=False):
+            total = torch.stack(
+                [
+                    mean * row.configured_weight
+                    for row, mean in zip(available, means, strict=True)
+                    if mean is not None
+                ]
+            ).sum()
+    else:
+        total = None
+    return Phase8BBatchObjectiveAggregate(
+        contract_version=PHASE8B_BATCH_OBJECTIVE_AGGREGATE_CONTRACT_VERSION,
+        objective_config_fingerprint=objective_config.fingerprint,
+        scheduled_policy_pass_count=len(canonical),
+        families=tuple(families),
+        total_loss=total,
+        unavailable_reason=None if total is not None else _NO_AVAILABLE_ACTIVE_FAMILY,
+    )
+
+
+def aggregate_phase8b_policy_pass_losses(
+    policy_outputs: tuple[
+        tuple[
+            str,
+            Phase8BMultilevelSSLForwardOutput
+            | Phase8AHierarchySSLForwardOutput
+            | SSLForwardOutput,
+        ],
+        ...,
+    ],
+    *,
+    objective_config: Phase8BObjectiveConfig,
+) -> Phase8BBatchObjectiveAggregate:
+    """Convert official policy outputs into the canonical batch objective."""
+
+    return aggregate_phase8b_family_loss_views(
+        tuple(
+            (policy, _active_family_rows(output, objective_config))
+            for policy, output in policy_outputs
+        ),
+        objective_config=objective_config,
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class Phase8BAggregatedFamilyLoss:
     family: Phase8BObjectiveFamily
-    numerator: float
+    numerator: float | None
     eligible_denominator: int
     mean_loss: float | None
     available: bool
     unavailable_reason: str | None
     configured_weight: float
     active: bool
+    family_view_pass_count: int
+    applied_family_weight_count: int
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -1140,7 +1466,18 @@ class Phase8BObjectiveAccumulator:
         self.objective_config = objective_config
         self._numerators = {family: 0.0 for family in PHASE8B_OBJECTIVE_FAMILIES}
         self._denominators = {family: 0 for family in PHASE8B_OBJECTIVE_FAMILIES}
+        self._family_view_pass_counts = {
+            family: 0 for family in PHASE8B_OBJECTIVE_FAMILIES
+        }
         self.update_count = 0
+        self.packed_host_materialization_count = 0
+        self.packed_device_to_host_transfer_count = 0
+        self.packed_metric_scalar_count = 0
+        self._batch_consistency_count = 0
+        self._batch_consistency_all = True
+        self._batch_consistency_max_absolute_difference = 0.0
+        self._batch_optimizer_total_loss_sum = 0.0
+        self._batch_reported_total_loss_sum = 0.0
         self.retained_cuda_tensor_count = 0
         self.retained_prediction_tensor_count = 0
 
@@ -1152,54 +1489,87 @@ class Phase8BObjectiveAccumulator:
             | SSLForwardOutput
         ),
     ) -> None:
-        """Consume either the additive output or the explicit old-objective control."""
+        """Backward-compatible single-view update using one packed transfer."""
 
-        if type(output) is Phase8BMultilevelSSLForwardOutput:
-            if output.objective.objective_config_fingerprint != (
-                self.objective_config.fingerprint
+        active = _active_family_rows(output, self.objective_config)
+        policy = next(
+            (
+                spec.eligible_mask_policies[0]
+                for spec in PHASE8B_OBJECTIVE_REGISTRY
+                if spec.family == active[0].family
+                and spec.eligible_mask_policies[0] in PHASE8B_CANONICAL_POLICY_ORDER
+            ),
+            INDEPENDENT_NOTE_PITCH,
+        )
+        self.update_batch(
+            aggregate_phase8b_family_loss_views(
+                ((policy, active),),
+                objective_config=self.objective_config,
+            )
+        )
+
+    def update_batch(self, batch: Phase8BBatchObjectiveAggregate) -> None:
+        """Consume one CPU-batch aggregate with at most one packed D2H."""
+
+        if batch.objective_config_fingerprint != self.objective_config.fingerprint:
+            raise ValueError("Phase 8B.1 accumulator/config mismatch")
+        available = tuple(
+            row for row in batch.families if row.active and row.available
+        )
+        if available:
+            tensors = []
+            for row in available:
+                if row.numerator is None:
+                    raise ValueError("available Phase 8B.1 batch row lacks numerator")
+                tensors.append(row.numerator.detach())
+            if batch.total_loss is None:
+                raise ValueError("available Phase 8B.1 batch lacks optimizer total")
+            tensors.append(batch.total_loss.detach())
+            first = tensors[0]
+            if any(
+                value.device != first.device or value.dtype != first.dtype
+                for value in tensors[1:]
             ):
-                raise ValueError("Phase 8B.1 accumulator/config mismatch")
-            rows = tuple(
-                (
-                    row.family,
-                    row.numerator,
-                    row.eligible_denominator,
-                )
-                for row in output.objective.family_losses
+                raise ValueError("Phase 8B.1 packed metric tensors mismatch")
+            packed_device = torch.stack(tensors)
+            packed = packed_device.to(device="cpu", dtype=torch.float64)
+            if not bool(torch.isfinite(packed).all()):
+                raise ValueError("Phase 8B.1 batch metrics are non-finite")
+            self.packed_host_materialization_count += 1
+            self.packed_device_to_host_transfer_count += int(
+                packed_device.device.type != "cpu"
             )
-        elif type(output) in {
-            Phase8AHierarchySSLForwardOutput,
-            SSLForwardOutput,
-        }:
-            if self.objective_config.mode != "phase7a_control":
-                raise ValueError(
-                    "old-objective output requires phase7a_control config"
+            self.packed_metric_scalar_count += packed.numel()
+            for index, row in enumerate(available):
+                numerator = float(packed[index])
+                self._numerators[row.family] += numerator
+                self._denominators[row.family] += row.eligible_denominator
+                self._family_view_pass_counts[row.family] += (
+                    row.family_view_pass_count
                 )
-            rows = (
-                (
-                    PHASE7A_NOTE_RECONSTRUCTION,
-                    output.note_loss.numerator,
-                    output.note_loss.denominator,
-                ),
-                (
-                    PHASE7A_BAR_LATENT,
-                    output.bar_latent.loss.numerator,
-                    output.bar_latent.loss.denominator,
-                ),
-                (
-                    PHASE7A_SONG_LATENT,
-                    output.song_latent.loss.numerator,
-                    output.song_latent.loss.denominator,
-                ),
+            optimizer_total = float(packed[-1])
+            reported_total = sum(
+                row.configured_weight
+                * (float(packed[index]) / row.eligible_denominator)
+                for index, row in enumerate(available)
             )
-        else:
-            raise TypeError("Phase 8B.1 accumulator output type is invalid")
-        packed = torch.stack(
-            [numerator.detach() for _family, numerator, _count in rows]
-        ).to(device="cpu", dtype=torch.float64)
-        for index, (family, _numerator, denominator) in enumerate(rows):
-            self._numerators[family] += float(packed[index])
-            self._denominators[family] += denominator
+            difference = abs(optimizer_total - reported_total)
+            tolerance = max(
+                1e-12,
+                16.0
+                * torch.finfo(first.dtype).eps
+                * max(1.0, abs(optimizer_total), abs(reported_total)),
+            )
+            self._batch_consistency_count += 1
+            self._batch_consistency_all = (
+                self._batch_consistency_all and difference <= tolerance
+            )
+            self._batch_consistency_max_absolute_difference = max(
+                self._batch_consistency_max_absolute_difference,
+                difference,
+            )
+            self._batch_optimizer_total_loss_sum += optimizer_total
+            self._batch_reported_total_loss_sum += reported_total
         self.update_count += 1
 
     def finalize(self) -> dict[str, object]:
@@ -1210,7 +1580,9 @@ class Phase8BObjectiveAccumulator:
             families.append(
                 Phase8BAggregatedFamilyLoss(
                     family=family,
-                    numerator=self._numerators[family],
+                    numerator=(
+                        self._numerators[family] if denominator > 0 else None
+                    ),
                     eligible_denominator=denominator,
                     mean_loss=(
                         self._numerators[family] / denominator
@@ -1223,6 +1595,10 @@ class Phase8BObjectiveAccumulator:
                     ),
                     configured_weight=weight,
                     active=weight > 0.0,
+                    family_view_pass_count=self._family_view_pass_counts[family],
+                    applied_family_weight_count=(
+                        1 if weight > 0.0 and denominator > 0 else 0
+                    ),
                 )
             )
         total = sum(
@@ -1236,11 +1612,59 @@ class Phase8BObjectiveAccumulator:
         return {
             "contract_version": self.contract_version,
             "objective_config_fingerprint": self.objective_config.fingerprint,
-            "aggregation": "fixed_weighted_sum_without_renormalization",
+            "aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
             "families": [row.to_dict() for row in families],
             "total_loss": total if any_available else None,
-            "unavailable_reason": None if any_available else _NO_AVAILABLE_ACTIVE_FAMILY,
+            "differentiable_family_numerators": {
+                row.family: row.numerator for row in families
+            },
+            "family_denominators": {
+                row.family: row.eligible_denominator for row in families
+            },
+            "family_means": {row.family: row.mean_loss for row in families},
+            "family_view_pass_counts": {
+                row.family: row.family_view_pass_count for row in families
+            },
+            "applied_family_weight_count": {
+                row.family: row.applied_family_weight_count for row in families
+            },
+            "optimizer_total_loss": (
+                self._batch_optimizer_total_loss_sum
+                if self._batch_consistency_count
+                else None
+            ),
+            "reported_total_loss": (
+                self._batch_reported_total_loss_sum
+                if self._batch_consistency_count
+                else None
+            ),
+            "stage_family_global_total_loss": (
+                total if any_available else None
+            ),
+            "optimizer_reported_total_consistency": {
+                "consistent": self._batch_consistency_all,
+                "checked_batch_count": self._batch_consistency_count,
+                "max_absolute_difference": (
+                    self._batch_consistency_max_absolute_difference
+                ),
+                "stage_formula_values_equal": self._batch_consistency_all,
+            },
+            "unavailable_reason": (
+                None if any_available else _NO_AVAILABLE_ACTIVE_FAMILY
+            ),
             "update_count": self.update_count,
+            "family_view_pass_count": sum(self._family_view_pass_counts.values()),
+            "eligible_prediction_row_count": sum(self._denominators.values()),
+            "batch_optimizer_total_loss_sum": self._batch_optimizer_total_loss_sum,
+            "batch_reported_total_loss_sum": self._batch_reported_total_loss_sum,
+            "packed_host_materialization_count": self.packed_host_materialization_count,
+            "packed_device_to_host_transfer_count": (
+                self.packed_device_to_host_transfer_count
+            ),
+            "maximum_packed_d2h_transfers_per_cpu_batch": (
+                1 if self.packed_device_to_host_transfer_count else 0
+            ),
+            "packed_metric_scalar_count": self.packed_metric_scalar_count,
             "retained_cuda_tensor_count": self.retained_cuda_tensor_count,
             "retained_prediction_tensor_count": self.retained_prediction_tensor_count,
         }
@@ -1254,6 +1678,8 @@ __all__ = [
     "PHASE7A_NOTE_RECONSTRUCTION",
     "PHASE7A_SONG_LATENT",
     "PHASE8B_ELIGIBLE_ENTITY_CONTRACT_VERSION",
+    "PHASE8B_BATCH_OBJECTIVE_AGGREGATE_CONTRACT_VERSION",
+    "PHASE8B_CANONICAL_POLICY_ORDER",
     "PHASE8B_FAMILY_LOSS_CONTRACT_VERSION",
     "PHASE8B_LATENT_PREDICTION_CONTRACT_VERSION",
     "PHASE8B_METRIC_AGGREGATE_CONTRACT_VERSION",
@@ -1268,7 +1694,11 @@ __all__ = [
     "PHASE8B_OBJECTIVE_REGISTRY_CONTRACT_VERSION",
     "PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT",
     "PHASE8B_PREPARED_OBJECTIVE_BINDING_CONTRACT_VERSION",
+    "PHASE8B_SCHEDULED_VIEW_AGGREGATION",
     "TRACK_LATENT",
+    "Phase8BAggregatedFamilyLoss",
+    "Phase8BBatchObjectiveAggregate",
+    "Phase8BDifferentiableFamilyAggregate",
     "Phase8BEligibleEntities",
     "Phase8BFamilyLoss",
     "Phase8BLatentPrediction",
@@ -1279,6 +1709,8 @@ __all__ = [
     "Phase8BObjectiveLoss",
     "Phase8BObjectiveSpec",
     "PreparedPhase8BObjectiveBinding",
+    "aggregate_phase8b_family_loss_views",
+    "aggregate_phase8b_policy_pass_losses",
     "build_phase8b_model",
     "build_phase8b_model_from_config",
     "combine_phase8b_family_losses",

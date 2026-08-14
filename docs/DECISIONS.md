@@ -2280,3 +2280,56 @@ This log is append-only.
   fail-before-output incompatibility, one-batch optimization, checkpoint
   bindings, and exact two-epoch stop/resume. Optional onset/equal CUDA+AMP
   smoke uses the same official engine and may skip honestly without hardware.
+
+## 2026-08-14 — ADR-064: Phase 8B.1 aggregates scheduled views per family before weighting
+
+- Status: Accepted as cross-policy aggregation remediation in draft PR #18.
+  The PR remains draft and unmerged; this decision does not authorize Phase
+  8B.2, production/full-corpus training, PDMX, PLL, critic, or quality scoring.
+- Context: ADR-062 specified a fixed family-weighted sum and ADR-063 connected
+  explicit Phase 8B configs to the official engine. The engine nevertheless
+  optimized the average of complete per-policy totals. A family present in
+  two views therefore received its configured weight twice before the
+  policy-count divisor, while reporting independently accumulated that
+  family's numerator and denominator. Hierarchy-bar appears in both
+  contiguous-bar and track/bar views, so optimizer and report semantics
+  diverged. ADR-062's scheduled-pass-divisor sentence is superseded by this
+  decision.
+- Decision: For each CPU batch, run every scheduled policy view, then compute
+  `N_f=sum_v N_(f,v)`, `D_f=sum_v D_(f,v)`, and `mean_f=N_f/D_f` for each
+  active family with `D_f>0`. Optimize and report
+  `sum_f weight_f*mean_f`, applying each available family's configured weight
+  exactly once. Never divide by policy count, active-weight sum, or available-
+  family count.
+- Decision: Preserve each prediction made in a distinct view as one
+  observation in that family's numerator and denominator even when the raw
+  entity identity repeats. Do not deduplicate across views. Denominator zero
+  remains unavailable with `numerator=None` and `mean=None`; do not fabricate
+  zero or rescale another family.
+- Decision: Use the same family-global formula for differentiable batch
+  training totals, stage/epoch aggregates, validation, best-checkpoint
+  selection, and resume journals. Reports expose family numerators,
+  denominators, means, view-pass counts, one-or-zero family-weight application
+  counts, optimizer/reported totals, and consistency evidence.
+- Decision: Pack the available family numerators and optimizer total into at
+  most one metrics D2H transfer per CPU batch. Reports retain no graph,
+  prediction, or CUDA tensor. Separately count CPU batches, optimizer steps,
+  forwards, scheduled policy passes, family-view passes, and eligible
+  prediction rows. Four-view modes remain more compute and are not described
+  as compute matched.
+- Decision: Move the registry/config/family-loss/objective/model/output/metric,
+  official engine/masking/report/manifest, checkpoint-binding/transfer-report,
+  and bounded-comparison contracts that bind this semantic boundary to
+  `1.1.0`. Bind the exact aggregation string and revised fingerprints in
+  resolved config, manifests, model metadata, reports, and checkpoints. Reject
+  Phase 8B remediation checkpoints created under the old rule. Leave the null
+  Phase 7A route and its checkpoint container unchanged.
+- Consequences: The independent equal-weight oracle is
+  `bar=(6+15)/(3+5)=2.625` and total `6.875`; the superseded pass average is
+  `2.3125`. Tests cover bar weight once, eligibility mutation isolation,
+  policy-order invariance, unavailable-family non-rescaling, single-policy and
+  Phase 7 controls, mask-only old-family aggregation, validation/best/resume,
+  and optional CUDA AMP transfer/finite-gradient evidence. All prior
+  783,207-byte bounded artifacts and fingerprints are invalid evidence and
+  were replaced by fresh byte-identical family-global artifacts for the exact
+  remediation tree.

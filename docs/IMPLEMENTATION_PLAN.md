@@ -3045,6 +3045,30 @@ representation improvement.
   one-batch decrease, exact two-epoch stop/resume, and optional official-engine
   CUDA+AMP onset/equal smoke.
 
+### Phase 8B.1 cross-policy aggregation remediation
+
+- Replace the superseded average of per-policy weighted totals with one
+  family-global batch objective: sum every active family's numerators and
+  eligible denominators across all scheduled views, divide once per family,
+  then apply that family's configured weight once.
+- Preserve distinct prediction observations when one entity appears in two
+  views; do not divide by policy count, renormalize available families, or
+  fabricate a zero for an unavailable family.
+- Use this formula for differentiable training totals, batch and epoch
+  reports, validation, best-checkpoint selection, and resume journals. Pack
+  metrics into at most one D2H transfer per CPU batch and retain no graph,
+  prediction, or CUDA tensor in reports.
+- Separate optimizer-step, forward-pass, scheduled-policy-pass, family-view-
+  pass, and eligible-prediction-row accounting. Four-view modes remain more
+  compute and are not compute-matched claims.
+- Bump every Phase 8B engine/report/checkpoint/objective surface that bound the
+  old rule to `1.1.0`, reject old Phase 8B remediation checkpoints, and leave
+  the null Phase 7A path unchanged.
+- Prove the rule with an independent repeated-bar arithmetic oracle, policy
+  order and eligibility mutations, mask-only old-family aggregation,
+  single-policy compatibility, validation/best/resume tests, deterministic
+  bounded artifacts, and optional CUDA AMP packed-transfer evidence.
+
 ### Phase 8B.1 acceptance criteria
 
 - every objective family can be enabled and disabled independently;

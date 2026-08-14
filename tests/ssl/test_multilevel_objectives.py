@@ -38,6 +38,7 @@ from music_critic.ssl.multilevel import (
     Phase8BMultilevelSSLModel,
     Phase8BObjectiveAccumulator,
     Phase8BObjectiveConfig,
+    aggregate_phase8b_policy_pass_losses,
     build_phase8b_model,
     prepare_phase8b_objective_binding,
 )
@@ -301,6 +302,7 @@ def test_unavailable_family_is_not_fabricated_as_zero(train_batch):
         row for row in output.objective.family_losses if row.family == ONSET_LATENT
     )
     assert onset.eligible_denominator == 0
+    assert onset.numerator is None
     assert onset.mean_loss is None
     assert not onset.available
     assert output.objective.total_loss is None
@@ -564,4 +566,18 @@ def test_optional_cuda_amp_uses_shared_deterministic_runtime(train_batch):
             )
         assert output.objective.total_loss is not None
         assert torch.isfinite(output.objective.total_loss)
-        output.objective.total_loss.backward()
+        batch_objective = aggregate_phase8b_policy_pass_losses(
+            ((ONSET_PITCH_DESCENDANTS, output),),
+            objective_config=model.phase8b_objective_config,
+        )
+        assert batch_objective.total_loss is not None
+        accumulator = Phase8BObjectiveAccumulator(
+            model.phase8b_objective_config
+        )
+        accumulator.update_batch(batch_objective)
+        report = accumulator.finalize()
+        assert report["packed_device_to_host_transfer_count"] == 1
+        assert report["maximum_packed_d2h_transfers_per_cpu_batch"] == 1
+        assert report["retained_cuda_tensor_count"] == 0
+        assert report["retained_prediction_tensor_count"] == 0
+        batch_objective.total_loss.backward()

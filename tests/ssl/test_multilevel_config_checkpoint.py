@@ -12,6 +12,7 @@ from music_critic.ssl.checkpoint import (
     SSLCheckpointError,
     load_ssl_checkpoint,
     save_ssl_checkpoint,
+    ssl_checkpoint_metadata,
 )
 from music_critic.ssl.config import register_ssl_configs
 from music_critic.ssl.model import MaskedGraphSSLConfig, MaskedGraphSSLModel
@@ -248,3 +249,36 @@ def test_phase8b_checkpoint_round_trip_binds_objective_fingerprint_and_is_atomic
         )
     for name, value in before.items():
         assert torch.equal(value, incompatible.state_dict()[name])
+
+
+def test_old_phase8b_runtime_binding_is_rejected_but_phase7a_is_unchanged() -> None:
+    old_runtime = {
+        "engine_contract_version": "1.0.0",
+        "execution_mode": "onset_only",
+        "model_class": "Phase8BMultilevelSSLModel",
+        "objective_registry_fingerprint": "1" * 64,
+        "objective_config": {},
+        "objective_config_fingerprint": "2" * 64,
+        "active_objective_families": ["onset_latent"],
+        "active_objective_weights": [["onset_latent", 1.0]],
+        "masking_config": {},
+        "masking_config_fingerprint": "3" * 64,
+        "mask_policy_mixture_fingerprint": "4" * 64,
+    }
+    with pytest.raises(
+        SSLCheckpointError,
+        match="phase8b_runtime_binding_invalid",
+    ):
+        ssl_checkpoint_metadata(
+            _multilevel("onset_only"),
+            resolved_config={"phase8b_runtime": old_runtime},
+            data_fingerprints=_DATA_FINGERPRINTS,
+        )
+
+    phase7a = MaskedGraphSSLModel(_encoder_config(), _ssl_config())
+    metadata = ssl_checkpoint_metadata(
+        phase7a,
+        resolved_config={"phase8b_objective": None},
+        data_fingerprints=_DATA_FINGERPRINTS,
+    )
+    assert "phase8b_binding" not in metadata

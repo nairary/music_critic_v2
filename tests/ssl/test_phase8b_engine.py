@@ -103,14 +103,14 @@ def _report(output: Path) -> dict[str, object]:
     )
 
 
-def _pretrain_config(output: Path):
+def _pretrain_config(output: Path, mode: str = "onset_only"):
     register_ssl_configs()
     with initialize(version_base="1.3", config_path=None):
         return compose(
             config_name="ssl_training",
             overrides=[
-                "+phase8b_objective=onset_only",
-                "+phase8b_masking=onset_only",
+                f"+phase8b_objective={mode}",
+                f"+phase8b_masking={mode}",
                 "experiment=pretrain",
                 "experiment.epochs=2",
                 "experiment.collect_gradient_evidence=false",
@@ -154,6 +154,22 @@ def _assert_tree_equal(left: object, right: object) -> None:
             _assert_tree_equal(a, b)
     else:
         assert left == right
+
+
+def _assert_family_global_total(stage: dict[str, object]) -> None:
+    objective = stage["objective"]
+    expected = sum(
+        float(row["configured_weight"])
+        * float(row["numerator"])
+        / int(row["eligible_denominator"])
+        for row in objective["families"]
+        if row["active"] and row["available"]
+    )
+    assert stage["total_ssl_loss"] == pytest.approx(expected)
+    assert objective["total_loss"] == pytest.approx(expected)
+    assert objective["optimizer_total_loss"] == pytest.approx(expected)
+    assert objective["reported_total_loss"] == pytest.approx(expected)
+    assert objective["optimizer_reported_total_consistency"]["consistent"]
 
 
 def test_real_cli_without_phase8_config_uses_exact_phase7a_path(
@@ -214,6 +230,28 @@ def test_real_cli_equal_and_mask_only_exercise_all_hierarchy_policies(
     ]
     assert equal_report["resolved_mask_policies"] == _HIERARCHY_POLICIES
     assert equal_report["accounting"]["forward_pass_count"] == 12
+    assert equal_report["accounting"]["scheduled_policy_pass_count"] == 12
+    assert equal_report["accounting"]["family_view_pass_count"] == 15
+    assert equal_report["cross_policy_manual_oracle"][
+        "family_global_total"
+    ] == 6.875
+    assert equal_report["cross_policy_manual_oracle"][
+        "family_weight_application_counts"
+    ]["hierarchy_bar_latent"] == 1
+    assert equal_report["initial"]["objective"][
+        "family_view_pass_counts"
+    ]["hierarchy_bar_latent"] == 2
+    assert equal_report["initial"]["objective"][
+        "applied_family_weight_count"
+    ]["hierarchy_bar_latent"] == 1
+    assert equal_report["initial"]["metrics_transfer"] == {
+        "packed_device_to_host_transfer_count": 0,
+        "packed_host_materialization_count": 1,
+        "maximum_packed_d2h_transfers_per_cpu_batch": 0,
+        "retained_cuda_tensor_count": 0,
+        "retained_prediction_tensor_count": 0,
+    }
+    _assert_family_global_total(equal_report["initial"])
     assert all(
         row["eligible_denominator"] > 0
         for row in equal_report["initial"]["objective"]["families"]
@@ -315,6 +353,39 @@ def test_one_batch_loss_decreases_and_artifacts_bind_every_phase8b_surface(
     )
     assert binding["mask_policy_mixture_fingerprint"] == (
         report["mask_policy_mixture_fingerprint"]
+    )
+    assert binding["scheduled_view_aggregation"] == (
+        report["scheduled_view_aggregation"]
+    )
+
+
+def test_validation_and_best_checkpoint_use_family_global_formula(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "equal-validation"
+    config = _pretrain_config(output, "multilevel_equal_weight")
+    config.experiment.epochs = 1
+    config.experiment.overwrite_output = True
+    report = run_ssl_training(config)
+    row = json.loads(
+        (output / "metrics.jsonl").read_text(encoding="utf-8").splitlines()[0]
+    )
+    _assert_family_global_total(report["initial_validation"])
+    _assert_family_global_total(row["validation"])
+    assert row["validation"]["objective"]["family_view_pass_counts"][
+        "hierarchy_bar_latent"
+    ] == 2 * row["validation"]["batch_count"]
+    assert report["best_checkpoint_selection"] == (
+        "minimum_family_global_validation_total_ssl_loss"
+    )
+    assert report["best_validation_loss"] == pytest.approx(
+        row["validation"]["total_ssl_loss"]
+    )
+    best = torch.load(
+        output / "best.pt", map_location="cpu", weights_only=True
+    )
+    assert best["best_validation_loss"] == pytest.approx(
+        row["validation"]["total_ssl_loss"]
     )
 
 

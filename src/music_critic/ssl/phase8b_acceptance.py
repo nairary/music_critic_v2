@@ -12,7 +12,6 @@ import json
 from typing import Any
 
 import torch
-from torch import Tensor
 
 from music_critic.models import HierarchicalBaselineConfig
 from music_critic.ssl.data import SSLBatch, collate_ssl_samples
@@ -38,18 +37,20 @@ from music_critic.ssl.multilevel import (
     PHASE7A_NOTE_RECONSTRUCTION,
     PHASE7A_SONG_LATENT,
     PHASE8B_NEW_OBJECTIVE_FAMILIES,
-    PHASE8B_OBJECTIVE_FAMILIES,
     PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT,
+    PHASE8B_SCHEDULED_VIEW_AGGREGATION,
     TRACK_LATENT,
     Phase8BMultilevelSSLForwardOutput,
     Phase8BMultilevelSSLModel,
+    Phase8BObjectiveAccumulator,
     Phase8BObjectiveConfig,
+    aggregate_phase8b_policy_pass_losses,
     prepare_phase8b_objective_binding,
 )
 from music_critic.ssl.objective import StreamingAntiCollapseDiagnostics
 
 
-PHASE8B_BOUNDED_COMPARISON_CONTRACT_VERSION = "1.0.0"
+PHASE8B_BOUNDED_COMPARISON_CONTRACT_VERSION = "1.1.0"
 PHASE8B_BOUNDED_COMPARISON_SCOPE = (
     "bounded_representation_recovery_mechanics_only"
 )
@@ -87,6 +88,48 @@ def _canonical_fingerprint(value: object) -> str:
             separators=(",", ":"),
         ).encode("utf-8")
     ).hexdigest()
+
+
+def phase8b_cross_policy_manual_oracle() -> dict[str, object]:
+    """Independent arithmetic oracle for the repeated bar-family view."""
+
+    family_observations = {
+        ONSET_LATENT: [[3.0, 2]],
+        BEAT_LATENT: [[5.0, 4]],
+        HIERARCHY_BAR_LATENT: [[6.0, 3], [15.0, 5]],
+        TRACK_LATENT: [[9.0, 6]],
+    }
+    family_means = {
+        family: sum(row[0] for row in observations)
+        / sum(row[1] for row in observations)
+        for family, observations in family_observations.items()
+    }
+    family_weight_application_counts = {
+        family: 1 for family in family_observations
+    }
+    family_global_total = sum(family_means.values())
+    old_policy_pass_totals = [1.5, 1.25, 2.0, 4.5]
+    old_policy_pass_average = sum(old_policy_pass_totals) / 4
+    payload = {
+        "kind": "independent_manual_arithmetic_oracle",
+        "equal_family_weights": True,
+        "family_observations": family_observations,
+        "family_means": family_means,
+        "family_weight_application_counts": (
+            family_weight_application_counts
+        ),
+        "family_global_total": family_global_total,
+        "bar_family_global_numerator": 21.0,
+        "bar_family_global_denominator": 8,
+        "bar_family_global_mean": 2.625,
+        "old_policy_pass_totals": old_policy_pass_totals,
+        "old_policy_pass_average": old_policy_pass_average,
+        "old_and_new_formulas_differ": (
+            family_global_total != old_policy_pass_average
+        ),
+    }
+    payload["fingerprint"] = _canonical_fingerprint(payload)
+    return payload
 
 
 def _state_fingerprint(
@@ -229,30 +272,6 @@ def _forward_outputs(
     return tuple(outputs)
 
 
-def _loss(output: object) -> Tensor | None:
-    if type(output) is Phase8BMultilevelSSLForwardOutput:
-        return output.objective.total_loss
-    return output.objective.total_loss
-
-
-def _old_rows(output: object) -> tuple[tuple[str, object, float], ...]:
-    return (
-        (PHASE7A_NOTE_RECONSTRUCTION, output.note_loss, 1.0),
-        (PHASE7A_BAR_LATENT, output.bar_latent.loss, 1.0),
-        (PHASE7A_SONG_LATENT, output.song_latent.loss, 1.0),
-    )
-
-
-def _active_rows(output: object) -> tuple[tuple[str, object, float], ...]:
-    if type(output) is not Phase8BMultilevelSSLForwardOutput:
-        return _old_rows(output)
-    return tuple(
-        (row.family, row, row.configured_weight)
-        for row in output.objective.family_losses
-        if row.active
-    )
-
-
 def _update_diagnostics(
     diagnostics: dict[str, StreamingAntiCollapseDiagnostics],
     output: object,
@@ -289,10 +308,12 @@ def _stage_evidence(
 ) -> dict[str, object]:
     was_training = model.training
     model.eval()
-    numerators = {family: 0.0 for family in PHASE8B_OBJECTIVE_FAMILIES}
-    denominators = {family: 0 for family in PHASE8B_OBJECTIVE_FAMILIES}
-    weights: dict[str, float] = {}
     diagnostics: dict[str, StreamingAntiCollapseDiagnostics] = {}
+    objective_config = (
+        Phase8BObjectiveConfig.for_mode("phase7a_control")
+        if type(model) is MaskedGraphSSLModel
+        else model.phase8b_objective_config
+    )
     try:
         with torch.no_grad():
             outputs = _forward_outputs(
@@ -304,56 +325,34 @@ def _stage_evidence(
                 stage=stage,
             )
             for _policy, output in outputs:
-                for family, row, weight in _active_rows(output):
-                    numerators[family] += float(row.numerator.detach())
-                    denominators[family] += int(
-                        getattr(
-                            row,
-                            "eligible_denominator",
-                            getattr(row, "denominator", 0),
-                        )
-                    )
-                    weights[family] = weight
                 _update_diagnostics(diagnostics, output)
+            batch_objective = aggregate_phase8b_policy_pass_losses(
+                outputs, objective_config=objective_config
+            )
+            accumulator = Phase8BObjectiveAccumulator(objective_config)
+            accumulator.update_batch(batch_objective)
+            aggregate = accumulator.finalize()
     finally:
         model.train(was_training)
-    families = []
-    for family in PHASE8B_OBJECTIVE_FAMILIES:
-        if family not in weights:
-            continue
-        denominator = denominators[family]
-        mean = numerators[family] / denominator if denominator > 0 else None
-        families.append(
-            {
-                "family": family,
-                "numerator": numerators[family],
-                "eligible_denominator": denominator,
-                "mean_loss": mean,
-                "available": denominator > 0,
-                "unavailable_reason": (
-                    None if denominator > 0 else "no_eligible_entities"
-                ),
-                "configured_weight": weights[family],
-                "active": True,
-                "anti_collapse": (
-                    diagnostics[family].to_dict()
-                    if family in diagnostics
-                    else None
-                ),
-            }
-        )
-    total = sum(
-        row["configured_weight"] * row["mean_loss"]
-        for row in families
-        if row["mean_loss"] is not None
-    )
+    families = [
+        {
+            **row,
+            "anti_collapse": (
+                diagnostics[str(row["family"])].to_dict()
+                if str(row["family"]) in diagnostics
+                else None
+            ),
+        }
+        for row in aggregate["families"]
+        if bool(row["active"])
+    ]
     return {
         "stage": stage,
         "scheduled_pass_count": len(_policies(variant)),
+        "aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
         "families": families,
-        "total_loss": total if any(
-            row["mean_loss"] is not None for row in families
-        ) else None,
+        "total_loss": aggregate["total_loss"],
+        "objective": aggregate,
         "retained_cuda_tensor_count": 0,
         "retained_prediction_tensor_count": 0,
     }
@@ -415,16 +414,17 @@ def _train(
             epoch=step,
             stage="train",
         )
-        losses = tuple(
-            value
-            for _policy, output in outputs
-            if (value := _loss(output)) is not None
+        objective_config = (
+            Phase8BObjectiveConfig.for_mode("phase7a_control")
+            if type(model) is MaskedGraphSSLModel
+            else model.phase8b_objective_config
         )
-        if not losses:
+        batch_objective = aggregate_phase8b_policy_pass_losses(
+            outputs, objective_config=objective_config
+        )
+        objective = batch_objective.total_loss
+        if objective is None:
             raise ValueError("bounded variant has no available active loss")
-        # The divisor is the fixed scheduled pass count, never the count of
-        # available families, so missing evidence cannot rescale another loss.
-        objective = torch.stack(losses).sum() / len(_policies(variant))
         if not bool(torch.isfinite(objective)):
             raise ValueError("bounded variant produced a non-finite loss")
         objective.backward()
@@ -581,7 +581,10 @@ def run_phase8b_bounded_comparison(
                     "variant": variant,
                     "model_type": type(model).__name__,
                     "applied_mask_policies": list(_policies(variant)),
-                    "scheduled_pass_divisor": len(_policies(variant)),
+                    "scheduled_policy_pass_count": len(_policies(variant)),
+                    "scheduled_view_aggregation": (
+                        PHASE8B_SCHEDULED_VIEW_AGGREGATION
+                    ),
                     "base_initialization_fingerprint": base_initialization,
                     "new_head_initialization_fingerprint": new_initialization,
                     "new_head_parameter_count": (
@@ -625,6 +628,7 @@ def run_phase8b_bounded_comparison(
         "objective_registry_fingerprint": (
             PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT
         ),
+        "cross_policy_manual_oracle": phase8b_cross_policy_manual_oracle(),
         "fixture_fingerprint": fixture.fixture_fingerprint,
         "train_membership": [list(row) for row in fixture.identities("train")],
         "held_out_membership": [
@@ -640,7 +644,9 @@ def run_phase8b_bounded_comparison(
             "initialization": "torch_manual_seed_per_variant",
             "batch_membership_fixed": True,
             "masking_schedule_fingerprint": schedule["fingerprint"],
-            "fixed_pass_divisor_no_availability_renormalization": True,
+            "family_global_numerator_denominator_aggregation": True,
+            "one_weight_application_per_available_family": True,
+            "availability_renormalization": False,
         },
         "masking_schedule": schedule,
         "shared_base_initialization": len(base_initializations) == 1,
@@ -664,5 +670,6 @@ def run_phase8b_bounded_comparison(
 __all__ = [
     "PHASE8B_BOUNDED_COMPARISON_CONTRACT_VERSION",
     "PHASE8B_BOUNDED_COMPARISON_SCOPE",
+    "phase8b_cross_policy_manual_oracle",
     "run_phase8b_bounded_comparison",
 ]

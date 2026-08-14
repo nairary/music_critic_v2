@@ -206,6 +206,8 @@ def ssl_checkpoint_metadata(
             )
         required = {
             "engine_contract_version",
+            "checkpoint_binding_contract_version",
+            "scheduled_view_aggregation",
             "execution_mode",
             "model_class",
             "objective_registry_fingerprint",

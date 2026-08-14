@@ -557,7 +557,9 @@ The model and training phases remain pending.
   checkpoint transfer, strict new checkpoint binding, and deterministic
   bounded train/held-out mechanics comparison; remediated official one-batch/
   multi-epoch/fixed-validation/resume routing; an independent masking group;
-  and the old-model Phase 8A mask-only control.
+  the old-model Phase 8A mask-only control; and corrected family-global
+  cross-policy numerator/denominator aggregation with each family weight
+  applied once.
 - Phase 8B.2 future output: scaled scientific comparison, model selection, and
   only then any evidence-justified curriculum.
 - Tests: level-specific target/denominator semantics, unavailable-level
@@ -565,7 +567,8 @@ The model and training phases remain pending.
   checkpoint compatibility/atomicity, bounded optimization, optional CUDA AMP,
   zero retained report tensors, real CLI routing, fail-before-optimizer
   incompatibility, complete step/forward/policy/objective/masked-entity
-  accounting, and exact two-epoch resume.
+  accounting, independent repeated-bar manual oracle, one packed metrics D2H
+  transfer at most per CPU batch, and exact two-epoch resume.
 - Non-goals: claiming scaled effectiveness before the Phase 10
   raw-compatible PDMX projection and rerun; Phase 8B.2, Phase 9, PLL,
   preference critic, quality scoring, or production/full-corpus SSL training.
