@@ -2089,3 +2089,73 @@ This log is append-only.
   ontology contract, or Phase 6 numerical output changes. The failed
   `4da0988` run emitted no hardware report and cannot be used as successful
   CUDA evidence.
+
+## 2026-08-14 — ADR-061: Phase 8A exact replay owns a scoped deterministic evidence runtime
+
+- Status: Accepted as pre-merge remediation in draft PR #16. This does not
+  accept Phase 8A: both Required workflows and independent exact-final RTX
+  3090 evidence remain mandatory. The PR stays draft; Phase 8B and production
+  training remain unauthorized.
+- Context: Independent execution at
+  `4c71990f0df715afee9040908da4c99b17f9d99d` produced two byte-identical
+  host-local CPU reports at SHA-256
+  `076bb56126dd1ba262014b553a5009e93bd464dac99564531b01fcea09f941b1`.
+  The isolated two-file CUDA invocation then failed all five policies only at
+  first-versus-repeated same-device output equality
+  (`5 failed, 62 passed, 2 warnings`). Full SSL immediately afterward passed
+  (`357 passed, 1 skipped, 8 warnings`), and standalone CUDA acceptance also
+  passed and emitted hardware fingerprint
+  `1d7f904afa538c71111c33f72c78a90b4739814ee3d75343fd4438bfe57c5a5d`.
+  Overall orchestration correctly failed, so that artifact is insufficient and
+  is invalid for every later head.
+- Context: The standalone builder entered a private deterministic context,
+  but the optional five-policy pytest performed its repeated forwards
+  directly. Separately, training tests invoked run-scoped configuration that
+  set process-global Torch deterministic and cuDNN flags without test-scoped
+  restoration. The later full suite could therefore make the direct CUDA test
+  pass as an accidental order effect. The scientific/model operation was not
+  shown to require an equality relaxation.
+- Decision: Introduce public package contract
+  `DeterministicCudaEvidenceRuntime@1.0.0` and use it for standalone Phase 8A
+  CUDA acceptance, the five-policy CUDA pytest, and all repeated same-device
+  hierarchy-output evidence. It validates an existing
+  `CUBLAS_WORKSPACE_CONFIG` against `:4096:8|:16:8`, installs `:4096:8` when
+  absent, enables Torch deterministic algorithms with `warn_only=false`,
+  disables cuDNN benchmarking, and enables cuDNN determinism before CUDA
+  model/device work. A nondeterministic operation raises; it is not converted
+  into a warning, skip, xfail, or tolerance.
+- Decision: The context snapshots and failure-atomically restores the CPU RNG,
+  all CUDA RNG states, deterministic-algorithm enabled/warning state, both
+  cuDNN flags, and the prior CUBLAS environment presence/value. Normal,
+  exception, nested, and repeated paths are covered by CPU-accessible tests;
+  mocked CUDA RNG proves the same restoration surface without pretending to
+  be hardware evidence. The pytest boundary independently restores Torch,
+  cuDNN, and CUBLAS flags after every test so one training test cannot
+  authorize a later evidence test. Production training configuration remains
+  unchanged.
+- Decision: Keep exact same-device replay as a strict gate. Add bounded
+  `Phase8AOutputDifferenceDiagnostic@1.0.0`, which recursively compares the
+  hierarchy-output dataclass and reports the first path, all retained paths up
+  to a fixed maximum of 64, total/group counts, shape/dtype/device,
+  differing-element count, max absolute/relative difference, and finite
+  FP16/FP32 ULP distance. Embeddings, predictions, targets, loss tensors, and
+  other fields are grouped separately. Diagnostics retain only bounded
+  scalar/string/tuple evidence and never modify or retain production outputs.
+- Decision: Preserve the existing cross-backend boundary. CPU FP32 versus CUDA
+  FP32 remains bounded by fixed `rtol=1e-3`, `atol=5e-5`, and cosine floor
+  `0.999`; no bit-equality promise is introduced across backends. Deterministic
+  mask planning is a separate seed/structure contract. Ordinary production
+  training has no Phase 8A promise of bit identity across arbitrary processes,
+  hosts, Torch versions, or backend kernels without equivalent configuration.
+- Decision: CUDA regressions invoke fresh subprocesses for the isolated
+  five-policy node, the targeted two-file suite, complete `tests/ssl` followed
+  by the targeted suite, and reversed module order. A sentinel prevents the
+  full-suite child from recursively launching itself. CUDA absence remains an
+  honest skip and never counts as hardware evidence.
+- Consequences: No masking, model, objective, graph/canonical, dataset/cache,
+  ontology, checkpoint, or successful serialized hardware-report schema
+  changes. `Phase8ACudaAmpHardwareEvidence` remains `1.2.0`; the new runtime
+  and diagnostic contracts are evidence-only `1.0.0`. The next exact head
+  requires new Required runs plus host-local CPU replay, isolated/targeted/
+  full/post-full/reverse-order CUDA pytest evidence and standalone RTX 3090
+  acceptance with exact counts before any successful final evidence comment.

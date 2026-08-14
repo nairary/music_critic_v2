@@ -54,6 +54,9 @@ from music_critic.ssl.data import (
     SSLRawSample,
     collate_ssl_samples,
 )
+from music_critic.ssl.deterministic_runtime import (
+    deterministic_cuda_evidence_runtime,
+)
 from music_critic.ssl.hierarchical_masking import (
     HIERARCHICAL_MASK_PLAN_CONTRACT_VERSION,
     HIERARCHY_MASK_POLICIES,
@@ -97,12 +100,16 @@ from music_critic.ssl.model import (
     PHASE8A_HIERARCHY_SSL_OUTPUT_CONTRACT_VERSION,
     SSL_MODEL_CONTRACT_VERSION,
     SSL_MODEL_OUTPUT_CONTRACT_VERSION,
+    Phase8AHierarchySSLForwardOutput,
 )
 from music_critic.ssl.objective import (
     ANTI_COLLAPSE_DIAGNOSTICS_CONTRACT_VERSION,
     MULTI_VIEW_REPRESENTATION_LOSS_CONTRACT_VERSION,
     REPRESENTATION_LOSS_CONTRACT_VERSION,
     SSL_OBJECTIVE_CONTRACT_VERSION,
+)
+from music_critic.ssl.phase8a_output_diagnostics import (
+    compare_phase8a_hierarchy_outputs,
 )
 
 
@@ -195,59 +202,6 @@ def _driver_version() -> str | None:
         if line.strip()
     )
     return values[0] if values else None
-
-
-def _configure_cublas_determinism() -> None:
-    configured = os.environ.get("CUBLAS_WORKSPACE_CONFIG")
-    if configured is None:
-        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-    elif configured not in {":4096:8", ":16:8"}:
-        raise RuntimeError(
-            "phase8a.cuda.cublas_workspace_config_invalid"
-        )
-
-
-@contextmanager
-def _preserved_deterministic_cuda_runtime() -> Iterator[None]:
-    """Apply deterministic CUDA settings without polluting a pytest process."""
-
-    previous_workspace_present = "CUBLAS_WORKSPACE_CONFIG" in os.environ
-    previous_workspace = os.environ.get("CUBLAS_WORKSPACE_CONFIG")
-    previous_algorithms = torch.are_deterministic_algorithms_enabled()
-    previous_warn_only = (
-        torch.is_deterministic_algorithms_warn_only_enabled()
-    )
-    previous_benchmark = torch.backends.cudnn.benchmark
-    previous_cudnn_deterministic = torch.backends.cudnn.deterministic
-    previous_cpu_rng = torch.get_rng_state().clone()
-    previous_cuda_rng: list[Tensor] | None = None
-    _configure_cublas_determinism()
-    try:
-        if torch.cuda.is_available():
-            previous_cuda_rng = [
-                value.clone() for value in torch.cuda.get_rng_state_all()
-            ]
-        torch.use_deterministic_algorithms(True)
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
-        yield
-    finally:
-        torch.set_rng_state(previous_cpu_rng)
-        if previous_cuda_rng is not None:
-            torch.cuda.set_rng_state_all(previous_cuda_rng)
-        torch.backends.cudnn.benchmark = previous_benchmark
-        torch.backends.cudnn.deterministic = (
-            previous_cudnn_deterministic
-        )
-        torch.use_deterministic_algorithms(
-            previous_algorithms,
-            warn_only=previous_warn_only,
-        )
-        if previous_workspace_present:
-            assert previous_workspace is not None
-            os.environ["CUBLAS_WORKSPACE_CONFIG"] = previous_workspace
-        else:
-            os.environ.pop("CUBLAS_WORKSPACE_CONFIG", None)
 
 
 def _assert_batch_device(batch: SSLBatch, device: torch.device) -> None:
@@ -665,6 +619,25 @@ def _outputs_bit_exact(
         ):
             return False
     return True
+
+
+def _require_phase8a_outputs_bit_exact(
+    left: Phase8AHierarchySSLForwardOutput,
+    right: Phase8AHierarchySSLForwardOutput,
+    *,
+    category: str,
+) -> None:
+    diagnostic = compare_phase8a_hierarchy_outputs(left, right)
+    if diagnostic.bit_exact:
+        return
+    rendered = json.dumps(
+        diagnostic.to_dict(),
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    raise RuntimeError(f"{category}:{rendered}")
 
 
 def _iter_tensors(
@@ -1527,10 +1500,11 @@ def _policy_acceptance(
             batch,
             prepared_mask_binding=moved_binding,
         )
-    if not _outputs_bit_exact(cuda_fp32, cuda_fp32_repeated):
-        raise RuntimeError(
-            "phase8a.cuda.same_device_fp32_repeat_not_bit_exact"
-        )
+    _require_phase8a_outputs_bit_exact(
+        cuda_fp32,
+        cuda_fp32_repeated,
+        category="phase8a.cuda.same_device_fp32_repeat_not_bit_exact",
+    )
     if (
         cpu_fp32.mask_plans != cuda_fp32.mask_plans
         or cpu_fp32.feature_overlay.to_dict()
@@ -1568,8 +1542,11 @@ def _policy_acceptance(
         )
     torch.cuda.synchronize(device)
     elapsed = time.perf_counter() - started
-    if not _outputs_bit_exact(first, repeated):
-        raise RuntimeError("Phase 8A CUDA repeat is not bit-exact")
+    _require_phase8a_outputs_bit_exact(
+        first,
+        repeated,
+        category="phase8a.cuda.same_device_amp_repeat_not_bit_exact",
+    )
     forward_tensor_evidence = _output_tensor_evidence(
         first,
         device=device,
@@ -2414,7 +2391,7 @@ def build_phase8a_cuda_amp_hardware_report(
     if require_clean:
         assert expected_head is not None
         _validate_exact_final_source(expected_head=expected_head)
-    with _preserved_deterministic_cuda_runtime():
+    with deterministic_cuda_evidence_runtime():
         return _build_phase8a_cuda_amp_hardware_report(
             device=device,
             expected_head=expected_head,

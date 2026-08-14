@@ -38,6 +38,12 @@ These unchanged Phase 8A contracts remain `1.0.0`:
 - pitch-leakage audit;
 - supplemental hierarchy fixture.
 
+The evidence-only deterministic CUDA runtime and bounded hierarchy-output
+difference diagnostic also start at `1.0.0`. They govern how an exact replay
+gate is executed and explained; they do not change a model output, mask plan,
+objective, or successful hardware-report schema. The hardware evidence
+contract therefore remains `1.2.0`.
+
 The separate optional
 `Phase8ACudaAmpHardwareEvidence@1.2.0` artifact binds the remediated portable
 contracts and adds serialized bounded CPU-FP32/CUDA-FP32 numerical-parity
@@ -303,6 +309,48 @@ target-free oracle; combined bounded composition remains 6 pieces, 14 tracks,
 beat, one cross-bar sustained note, and 34 occupied track/bar cells. Fixture
 and leakage contracts remain `1.0.0`.
 
+## Determinism boundaries
+
+Deterministic mask planning and same-device model replay are separate
+promises. Planning is CPU, seed-ranked, target-blind, and independent of
+Torch backend state. Exact same-device CUDA replay is evidence produced only
+inside `DeterministicCudaEvidenceRuntime@1.0.0`: it validates an existing
+`CUBLAS_WORKSPACE_CONFIG` or installs `:4096:8`, enables deterministic
+algorithms in error mode, disables cuDNN benchmarking, and enables cuDNN
+determinism before model/device work. A nondeterministic Torch operation is
+therefore an error and is not hidden by a tolerance or warning mode.
+
+The context snapshots and failure-atomically restores the CPU RNG, all CUDA
+RNG states, deterministic-algorithm and warning-mode flags, both cuDNN flags,
+and the prior CUBLAS environment value. Normal, exception, nested, and repeated
+use leave no evidence-runtime state behind. The standalone CUDA acceptance and
+the optional five-policy CUDA pytest use this one implementation; no separate
+copy configures Torch, cuDNN, or CUBLAS.
+
+The independent RTX run at `4c71990f0df715afee9040908da4c99b17f9d99d`
+proved why the scope is required. The isolated five-policy test performed
+repeated forwards outside the context and failed exact equality for all five
+policies (`5 failed, 62 passed, 2 warnings`). A later full `tests/ssl` run in
+the same environment passed (`357 passed, 1 skipped, 8 warnings`) because
+earlier training tests had enabled process-global Torch/cuDNN deterministic
+flags without restoring them. Standalone acceptance already used the scoped
+context and also passed. Test isolation now restores those backend flags after
+every test, so test order can no longer authorize a later evidence gate.
+
+`Phase8AOutputDifferenceDiagnostic@1.0.0` keeps the exact gate. On failure it
+walks the full hierarchy-output dataclass, reports the first path and at most
+64 detailed paths, counts all differences, and groups embeddings,
+predictions, targets, loss tensors, and other fields. Tensor evidence contains
+shape, dtype, device, differing-element count, maximum absolute/relative
+difference, and finite FP16/FP32 ULP distance. The returned diagnostic retains
+only bounded scalar/string/tuple data and never retains output tensors.
+
+CPU FP32 versus CUDA FP32 remains a different contract: it uses the existing
+fixed `rtol=1e-3`, `atol=5e-5`, and cosine floor `0.999`. Ordinary production
+training still configures deterministic execution for its own run, but Phase
+8A does not promise bit identity between arbitrary processes, hosts, backend
+versions, or CPU and CUDA kernels.
+
 ## Complexity and memory boundary
 
 Let `C` be emitted valid span candidates and `S` their stored descendant
@@ -416,7 +464,9 @@ Focused and regression commands are:
 ```bash
 .venv/bin/python -m pytest -q tests/ssl/test_hierarchy_fixture.py \
   tests/ssl/test_hierarchical_masking.py \
-  tests/ssl/test_hierarchical_prepared_binding.py
+  tests/ssl/test_hierarchical_prepared_binding.py \
+  tests/ssl/test_deterministic_runtime.py \
+  tests/ssl/test_phase8a_cuda_order_independence.py
 .venv/bin/python -m pytest -q \
   tests/ssl/test_data_config.py::test_workers_zero_and_two_preserve_per_identity_inputs_and_plans
 .venv/bin/python scripts/accept_phase8a_hierarchical_masking.py \
@@ -428,15 +478,26 @@ cmp /tmp/phase8a-cpu-acceptance-a.json \
 sha256sum /tmp/phase8a-cpu-acceptance-a.json \
   /tmp/phase8a-cpu-acceptance-b.json
 .venv/bin/python scripts/benchmark_phase8a_hierarchical_masking.py
-.venv/bin/python scripts/accept_phase8a_cuda_amp.py \
+CUBLAS_WORKSPACE_CONFIG=:4096:8 .venv/bin/python -m pytest -q \
+  tests/ssl/test_hierarchical_prepared_binding.py::test_optional_cuda_prepared_policy_parity \
+  -rs
+CUBLAS_WORKSPACE_CONFIG=:4096:8 .venv/bin/python -m pytest -q \
+  tests/ssl/test_hierarchical_prepared_binding.py \
+  tests/ssl/test_phase8a_cuda_amp_acceptance.py -rs
+CUBLAS_WORKSPACE_CONFIG=:4096:8 .venv/bin/python -m pytest -q tests/ssl -rs
+CUBLAS_WORKSPACE_CONFIG=:4096:8 .venv/bin/python -m pytest -q \
+  tests/ssl/test_hierarchical_prepared_binding.py \
+  tests/ssl/test_phase8a_cuda_amp_acceptance.py -rs
+CUBLAS_WORKSPACE_CONFIG=:4096:8 .venv/bin/python -m pytest -q \
+  tests/ssl/test_phase8a_cuda_amp_acceptance.py \
+  tests/ssl/test_hierarchical_prepared_binding.py -rs
+CUBLAS_WORKSPACE_CONFIG=:4096:8 \
+  .venv/bin/python scripts/accept_phase8a_cuda_amp.py \
   --device cuda:0 --amp --amp-dtype float16 \
   --expected-head "$(git rev-parse HEAD)" \
   --expected-device-name "NVIDIA GeForce RTX 3090" \
   --portable-report /tmp/phase8a-cpu-acceptance-a.json \
   --output /tmp/phase8a-cuda-amp-hardware.json
-.venv/bin/python -m pytest -q \
-  tests/ssl/test_phase8a_cuda_amp_acceptance.py -rs
-.venv/bin/python -m pytest -q tests/ssl
 .venv/bin/python -m pytest -q \
   tests/models tests/graph tests/test_device.py
 .venv/bin/python -m pytest -q tests/training tests/evaluation
@@ -473,6 +534,26 @@ Final local verification before commit:
 - `compileall` and `git diff --check`: passed.
 
 CUDA was unavailable locally. The CUDA skips above are not GPU evidence.
+The deterministic-runtime remediation was then verified locally with:
+
+- focused hierarchy/runtime/order tests:
+  `117 passed, 9 skipped, 2 warnings`;
+- runtime/acceptance/prepared focused tests:
+  `72 passed, 11 skipped, 2 warnings`;
+- complete SSL: `357 passed, 17 skipped, 8 warnings`;
+- targeted two-file repeat after complete SSL:
+  `60 passed, 7 skipped, 2 warnings`;
+- complete repository: `1225 passed, 38 skipped, 10 warnings`;
+- deterministic target-manifest check: passed;
+- repository plus epoch-boundary-resume audit:
+  `6 passed, 2 warnings`;
+- two fresh local portable reports: byte-identical, 93,062 bytes each,
+  SHA-256
+  `2d107944c38d8ee465d73f2f71f07b224451f5a31213e86e0049dbaf3958c8f4`;
+- `compileall` and `git diff --check`: passed.
+
+These are CPU/skip results. In particular, the four order-matrix cases are
+not hardware evidence until their fresh subprocesses execute on the RTX host.
 The independent RTX 3090 run at SHA
 `4da09885bb7f97e1eb80dd51d25768881c434f15` produced two mutually identical
 CPU reports, then found seven failures with the single root cause
@@ -483,3 +564,18 @@ with code 1 and created no hardware report. That run is failed diagnostic
 evidence, not successful hardware acceptance. Both Required workflows must
 pass on the new final head, and an independent RTX 3090 repeat against that
 exact SHA remains the hardware pre-merge gate.
+
+The newer independent run at exact SHA
+`4c71990f0df715afee9040908da4c99b17f9d99d` supersedes that diagnostic for
+current remediation. Its two host-local portable reports matched at SHA-256
+`076bb56126dd1ba262014b553a5009e93bd464dac99564531b01fcea09f941b1`.
+The isolated required two-file CUDA invocation failed only the five
+same-device repeated forwards (`5 failed, 62 passed, 2 warnings`), while the
+subsequent complete SSL invocation passed (`357 passed, 1 skipped, 8
+warnings`). Standalone CUDA+AMP acceptance exited zero and emitted
+`Phase8ACudaAmpHardwareEvidence@1.2.0` fingerprint
+`1d7f904afa538c71111c33f72c78a90b4739814ee3d75343fd4438bfe57c5a5d`,
+but orchestration correctly reported overall failure. That artifact belongs
+only to the old SHA and is insufficient for final acceptance. The remediation
+head requires fresh isolated, targeted, full-SSL, post-full targeted, reverse
+module-order, and standalone exact-head RTX evidence with exact counts.

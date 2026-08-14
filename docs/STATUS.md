@@ -2,7 +2,7 @@
 
 ## Current phase
 
-- Date: 2026-07-30
+- Date: 2026-08-14
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -222,6 +222,8 @@
 - Phase 8A mixture/unavailable-reason/hierarchy-output/leakage-audit/fixture
   contracts: `1.0.0`
 - Optional `Phase8ACudaAmpHardwareEvidence`: `1.2.0`
+- Deterministic CUDA evidence runtime: `1.0.0`; bounded Phase 8A hierarchy
+  output difference diagnostic: `1.0.0`
 - Phase 8A pitch-leakage audit fingerprint:
   `27fc135b61649e5b892036dd0aacc92f679493ff671320c8235d33396a7c9949`
 - Phase 8A hierarchy fixture fingerprint:
@@ -489,6 +491,48 @@
   input non-mutation, and failure-atomic output replacement. Artifact versions
   and fingerprints do not change because this restores the already documented
   exact parity gate rather than changing its schema or semantics.
+- The next independent RTX 3090 run at exact head
+  `4c71990f0df715afee9040908da4c99b17f9d99d` produced two identical
+  host-local portable reports (SHA-256
+  `076bb56126dd1ba262014b553a5009e93bd464dac99564531b01fcea09f941b1`).
+  Its isolated required two-file invocation was
+  `5 failed, 62 passed, 2 warnings`: every policy failed only exact equality
+  between the first and repeated same-device CUDA output. The complete SSL
+  suite immediately afterward was `357 passed, 1 skipped, 8 warnings`, and
+  standalone CUDA acceptance passed and emitted hardware fingerprint
+  `1d7f904afa538c71111c33f72c78a90b4739814ee3d75343fd4438bfe57c5a5d`.
+  Overall orchestration correctly failed, so that old-head artifact is not
+  final acceptance.
+- Root cause is order/process-dependent evidence configuration. Standalone
+  acceptance entered its deterministic runtime, while the direct five-policy
+  pytest did not. Earlier training tests also enabled process-global Torch and
+  cuDNN deterministic flags without restoration, allowing suite order to mask
+  the missing context. A single
+  `DeterministicCudaEvidenceRuntime@1.0.0` now validates CUBLAS configuration,
+  enables deterministic algorithms in error mode, applies cuDNN settings, and
+  failure-atomically restores CPU/CUDA RNG plus every prior flag/environment
+  value. Both CUDA evidence paths use it; per-test backend-state restoration
+  prevents unrelated tests from authorizing later evidence.
+- Exact same-device replay remains strict. A bounded
+  `Phase8AOutputDifferenceDiagnostic@1.0.0` reports first/all retained paths,
+  groups embeddings/predictions/targets/loss tensors, and records tensor
+  shape/dtype/device, changed-element count, max absolute/relative error, and
+  FP16/FP32 ULP evidence without retaining tensors. CPU-to-CUDA parity keeps
+  its existing fixed numerical bounds. Mask planning, production training,
+  model architecture, objectives, and successful artifact schemas are
+  unchanged.
+- Local CPU verification for this runtime remediation passed focused
+  hierarchy/runtime/order tests (`117 passed, 9 skipped, 2 warnings`), focused
+  runtime/acceptance/prepared tests (`72 passed, 11 skipped, 2 warnings`),
+  complete SSL (`357 passed, 17 skipped, 8 warnings`), the post-full targeted
+  two-file repeat (`60 passed, 7 skipped, 2 warnings`), and the complete
+  repository (`1225 passed, 38 skipped, 10 warnings`). The deterministic
+  target-manifest check passed; repository plus epoch-boundary resume passed
+  `6 passed, 2 warnings`. Two fresh portable reports were byte-identical at
+  93,062 bytes and SHA-256
+  `2d107944c38d8ee465d73f2f71f07b224451f5a31213e86e0049dbaf3958c8f4`.
+  Compileall and diff checks passed. CUDA/order subprocess skips are not GPU
+  evidence.
 - The earlier independent RTX 3090 run at intermediate
   `00ba0f38f3ebc85c7056d1ad3a77ece75816d0c4` confirmed exact head/hotfix
   ancestry, portable CPU acceptance, and one targeted CUDA+AMP test, but is

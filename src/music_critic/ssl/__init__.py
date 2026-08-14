@@ -50,6 +50,20 @@ from music_critic.ssl.model import (
     PHASE8A_HIERARCHY_SSL_OUTPUT_CONTRACT_VERSION,
     Phase8AHierarchySSLForwardOutput,
 )
+from music_critic.ssl.deterministic_runtime import (
+    DEFAULT_DETERMINISTIC_CUBLAS_WORKSPACE_CONFIG,
+    DETERMINISTIC_CUBLAS_WORKSPACE_CONFIGS,
+    DETERMINISTIC_CUDA_EVIDENCE_RUNTIME_CONTRACT_VERSION,
+    DeterministicCudaEvidenceRuntimeError,
+    deterministic_cuda_evidence_runtime,
+)
+from music_critic.ssl.phase8a_output_diagnostics import (
+    PHASE8A_OUTPUT_DIFFERENCE_DIAGNOSTIC_CONTRACT_VERSION,
+    PHASE8A_OUTPUT_DIFFERENCE_MAX_RETAINED,
+    Phase8AOutputDifference,
+    Phase8AOutputDifferenceDiagnostic,
+    compare_phase8a_hierarchy_outputs,
+)
 from music_critic.ssl.hierarchical_masking import (
     BEAT_PITCH_DESCENDANTS,
     CONTIGUOUS_BAR_PITCH_SPAN,
@@ -124,6 +138,9 @@ from music_critic.ssl.views import (
 
 __all__ = [
     "DEFAULT_ENCODER_MASK_RATE",
+    "DEFAULT_DETERMINISTIC_CUBLAS_WORKSPACE_CONFIG",
+    "DETERMINISTIC_CUBLAS_WORKSPACE_CONFIGS",
+    "DETERMINISTIC_CUDA_EVIDENCE_RUNTIME_CONTRACT_VERSION",
     "BEAT_PITCH_DESCENDANTS",
     "AUDITED_RAW_FEATURE_REGISTRY_FINGERPRINT",
     "CONTIGUOUS_BAR_PITCH_SPAN",
@@ -162,6 +179,8 @@ __all__ = [
     "PHASE8A_HIERARCHY_FIXTURE_CONTRACT_VERSION",
     "PHASE8A_HIERARCHY_POLICY_ORACLES",
     "PHASE8A_HIERARCHY_SSL_OUTPUT_CONTRACT_VERSION",
+    "PHASE8A_OUTPUT_DIFFERENCE_DIAGNOSTIC_CONTRACT_VERSION",
+    "PHASE8A_OUTPUT_DIFFERENCE_MAX_RETAINED",
     "OWNER_TRACK_PEER_RELATIVE_PITCH_REASON",
     "OWNER_TRACK_PITCH_STATISTICS_REASON",
     "SSL_CONTRACT_VERSION",
@@ -185,6 +204,9 @@ __all__ = [
     "Phase8AHierarchyOracleComposition",
     "Phase8AHierarchyPolicyOracle",
     "Phase8AHierarchySSLForwardOutput",
+    "Phase8AOutputDifference",
+    "Phase8AOutputDifferenceDiagnostic",
+    "DeterministicCudaEvidenceRuntimeError",
     "ResolvedFeatureColumn",
     "SSLContractError",
     "SampleIdentity",
@@ -216,6 +238,8 @@ __all__ = [
     "build_mask_plans_for_batch",
     "build_masked_feature_overlay",
     "derive_stable_seed",
+    "deterministic_cuda_evidence_runtime",
+    "compare_phase8a_hierarchy_outputs",
     "mask_plan_fingerprint",
     "hierarchical_mask_plan_fingerprint",
     "hierarchy_mask_resolution_fingerprint",
