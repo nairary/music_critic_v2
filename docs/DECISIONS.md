@@ -2226,3 +2226,57 @@ This log is append-only.
   representation quality, musical quality, likelihood, downstream gains, or
   scientific model preference. Those claims require separately authorized
   Phase 8B.2/scaled evaluation after the raw-compatible corpus boundary.
+
+## 2026-08-14 — ADR-063: Explicit Phase 8B configs control the official SSL engine fail-closed
+
+- Status: Accepted as integration remediation in draft PR #18. The PR remains
+  draft and unmerged; this decision does not authorize Phase 8B.2, Phase 9,
+  PDMX/full-corpus training, PLL, preference critic, or quality scoring.
+- Context: ADR-062 introduced the registry, Hydra objective group, builder,
+  multilevel forward, checkpoint transfer, and standalone bounded comparison.
+  The official `music_critic.ssl.run`/`ssl.engine` implementation nevertheless
+  still called `build_ssl_model()`, prepared independent Phase 7A masks, and
+  invoked the Phase 7A forward unconditionally. An explicit Phase 8B Hydra
+  config could therefore be present but ignored. The bounded runner was not a
+  supported production training path.
+- Decision: Preserve the literal old engine branch whenever
+  `phase8b_objective` is absent/null. Elide the new inactive masking key from
+  its plain config so accepted Phase 7A resolved artifacts, model/state, loss,
+  checkpoint payload, and report fields remain bit-exact.
+- Decision: An explicit objective must have a separately materialized and
+  fingerprinted `phase8b_masking` config. Onset, beat, bar, and track schedule
+  only onset descendants, beat descendants, contiguous bars, and track/bar,
+  respectively. Equal weight schedules those four in canonical order. The
+  Phase 7A control schedules independent note masking. The explicit mask-only
+  control pairs Phase 7A objectives with the four hierarchy policies. Reject
+  every incompatible mode/policy pair; never substitute a policy.
+- Decision: Build explicit runs only with
+  `build_phase8b_model_from_config()`. New objective modes require the exact
+  additive model, a prepared hierarchy binding, prepared objective binding,
+  and `forward_multilevel`. Mask-only requires the literal old model and
+  `forward_hierarchy`; explicit Phase 7A control uses the old public forward.
+  Validate the pair and model/forward contract before the first optimizer
+  step, with no silent fallback.
+- Decision: Use the official path for one-batch and multi-epoch training,
+  fixed epoch-zero validation, best/last checkpoints, ordered journal, and
+  exact epoch-boundary resume. Aggregate family numerators and eligible
+  denominators with `Phase8BObjectiveAccumulator`; keep zero denominators
+  unavailable and never renormalize another family.
+- Decision: Bind the registry, complete objective config and active weights,
+  masking config, Phase 8A mixture, execution mode, and concrete model class
+  in resolved config, run manifest, report, and checkpoint metadata. Any
+  objective mode/weight, policy/span, model, or active-weight change rejects
+  before checkpoint application. Old checkpoints are not implicit Phase 8B
+  resume inputs; the explicit transfer API starts a new run.
+- Decision: Reports separately count optimizer steps, forwards, scheduled
+  policy passes, objective evaluations, eligible entities, retained tensors,
+  and primary/collateral masked entities. Single/control variants use one
+  scheduled forward per batch while equal/mask-only use four. Neither the
+  official bounded runs nor the earlier standalone comparison are described
+  as compute matched or as effectiveness/model-selection evidence; Phase 8B.2
+  owns that scientific decision.
+- Consequences: Real CLI subprocesses now prove routing for null Phase 7A,
+  each single family, equal weight, and mask-only, plus weight binding,
+  fail-before-output incompatibility, one-batch optimization, checkpoint
+  bindings, and exact two-epoch stop/resume. Optional onset/equal CUDA+AMP
+  smoke uses the same official engine and may skip honestly without hardware.

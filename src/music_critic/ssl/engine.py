@@ -91,6 +91,11 @@ def _plain_config(config: object) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise SSLTrainingError("ssl.training.config_root_invalid")
     value.pop("defaults", None)
+    # This key did not exist in the accepted Phase 7A/initial Phase 8B.1
+    # resolved artifact.  Elide only its inactive default so the null-objective
+    # path remains byte-for-byte compatible.
+    if value.get("phase8b_masking") is None:
+        value.pop("phase8b_masking", None)
     if value["optimizer"]["learning_rate"] is None:
         value["optimizer"]["learning_rate"] = (
             SSL_ONE_BATCH_DEFAULT_LEARNING_RATE
@@ -2940,6 +2945,15 @@ def run_ssl_training(
     entry_rng = capture_rng_state()
     try:
         resolved = _plain_config(config)
+        if resolved.get("phase8b_objective") is not None:
+            from music_critic.ssl.phase8b_engine import (
+                run_phase8b_training,
+            )
+
+            return run_phase8b_training(
+                resolved,
+                stop_after_epoch=stop_after_epoch,
+            )
         if resolved["experiment"]["name"] == "one_batch":
             if stop_after_epoch is not None:
                 raise SSLTrainingError(

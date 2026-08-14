@@ -13,6 +13,24 @@ This increment neither changes the canonical/raw graph nor reads theory
 targets, dataset identity, split, provenance, annotations, diagnostics, or
 quality flags as objective inputs. No full corpus was scanned or trained.
 
+The initial draft registered the Hydra objective group, public builder, and a
+bounded comparison runner, but the official `music_critic.ssl.run` /
+`ssl.engine` path still called `build_ssl_model()` and the Phase 7A forward
+unconditionally. Consequently, an explicit Phase 8B config could be present
+without controlling official training. That pre-remediation runner was useful
+bounded mechanics evidence, but it was not a production training path.
+
+The remediated official dispatcher now has two fail-closed branches:
+
+- absent or null `phase8b_objective` enters the literal pre-remediation Phase
+  7A builder, binding, forward, state, loss, checkpoint, and artifact path;
+- an explicit objective requires an explicit compatible `phase8b_masking`,
+  materializes both configs, builds through
+  `build_phase8b_model_from_config()`, and validates the model/binding/forward
+  contract before the first optimizer step.
+
+No explicit Phase 8B run silently falls back to Phase 7A.
+
 ## Separation of concerns
 
 | Concern | Current role |
@@ -111,10 +129,45 @@ Hydra group `phase8b_objective` provides:
 - `multilevel_equal_weight`.
 
 The unchanged Phase 7A root defaults to `phase8b_objective=null`; select a mode
-with `+phase8b_objective=<mode>`. Every resolved objective config binds the
-registry fingerprint and has its own canonical fingerprint. Explicit Hydra
-weight overrides are materialized with `Phase8BObjectiveConfig.from_hydra()`;
-their resolved values, including zero-valued toggles, enter that fingerprint.
+with `+phase8b_objective=<mode>`. An official explicit run must also select
+`+phase8b_masking=<mode>`. The masking group provides the same six names plus
+`phase8a_mask_only`. The only additional compatible pair is
+`phase8b_objective=phase7a_control` with
+`phase8b_masking=phase8a_mask_only`; it uses the exact old model/objectives
+with the four Phase 8A hierarchy policies.
+
+| Execution mode | Scheduled Phase 8A policy passes |
+| --- | --- |
+| Phase 7A control | independent note pitch |
+| mask-only control | onset, beat, contiguous bar, track/bar |
+| onset only | onset descendants |
+| beat only | beat descendants |
+| bar only | contiguous bar span |
+| track only | track/bar span |
+| equal weight | onset, beat, contiguous bar, track/bar |
+
+Every resolved objective config binds the registry fingerprint and has its own
+canonical fingerprint. Explicit Hydra weight overrides are materialized with
+`Phase8BObjectiveConfig.from_hydra()`; their resolved values, including
+zero-valued toggles, enter that fingerprint. The masking config independently
+binds the Phase 8A policy-mixture fingerprint, fixed scheduled policies, span
+parameters, and its own fingerprint. Incompatible mode/policy pairs reject;
+there are no policy substitutions.
+
+Exact bounded CPU CLI examples are:
+
+```bash
+# Literal Phase 7A control: no Phase 8 config is present.
+.venv/bin/python -m music_critic.ssl.run \
+  experiment=one_batch model=hierarchical data=bounded device=cpu \
+  output_dir=/tmp/phase7a-control
+
+# Official onset-only Phase 8B.1 route.
+.venv/bin/python -m music_critic.ssl.run \
+  +phase8b_objective=onset_only +phase8b_masking=onset_only \
+  experiment=one_batch model=hierarchical data=bounded device=cpu \
+  output_dir=/tmp/phase8b1-onset
+```
 
 The principal APIs are:
 
@@ -124,6 +177,7 @@ The principal APIs are:
 - `build_phase8b_model(...)`;
 - `build_phase8b_model_from_config(...)`;
 - `Phase8BObjectiveAccumulator`;
+- `ResolvedPhase8BMaskingConfig` and `run_phase8b_training(...)`;
 - `transfer_phase7a_checkpoint_to_phase8b(...)`;
 - `run_phase8b_bounded_comparison(...)`.
 
@@ -139,12 +193,15 @@ projector width `P`, each family owns two MLPs; its scalar parameter count is
 the default `D=P=128`, and `1,280` in the bounded `D=P=8` fixture.
 
 New checkpoints continue to use the existing failure-atomic SSL container.
-Additive model metadata binds:
+Official Phase 8B checkpoint metadata and its resolved config bind:
 
 - objective registry version and fingerprint;
 - complete objective config, weights, and fingerprint;
 - target mode and fixed aggregation rule;
 - exact new-head parameter count.
+- concrete model class and execution mode;
+- active families and exact active weights;
+- masking config and Phase 8A policy-mixture fingerprints.
 
 The explicit Phase 7A transfer validates the complete old model contract,
 keys, shapes, and dtypes before mutation. It loads every old encoder/decoder/
@@ -152,6 +209,30 @@ projector tensor, leaves every `phase8b_latent_heads.*` tensor at its separate
 initialization, and lists both sets plus counts and source checkpoint SHA-256
 in `Phase7AToPhase8BTransferReport@1.0.0`. New checkpoint save/load/resume is
 strict; an incompatible objective fingerprint rejects before mutation.
+Changing objective mode/weight, masking mode/span policy, model contract, or
+active weights also rejects before checkpoint application. An old Phase 7A
+checkpoint cannot be resumed as Phase 8B; the separately named explicit
+transfer API starts a new run instead.
+
+## Official training, validation, and accounting
+
+The official path supports one-batch, multi-epoch train/validation, best and
+last checkpoints, metric journal, fixed epoch-zero validation schedule, and
+exact epoch-boundary resume. Validation membership, global seed, policy order,
+and per-sample plan coordinates do not depend on validation loader order or
+batch partition. `Phase8BObjectiveAccumulator` combines family numerators and
+eligible denominators without retaining prediction or CUDA tensors. A zero
+denominator stays unavailable and never rescales another family.
+
+Every official report records the concrete model class, active families,
+resolved policies, registry/objective/masking/mixture fingerprints, eligible
+counts, retained-tensor counts, optimizer steps, model forwards, scheduled
+policy passes, objective evaluations, and primary/collateral masked entities.
+The variants intentionally have different forward-pass counts: control and
+single-family modes schedule one pass per batch, while mask-only and equal
+weight schedule four. These runs are therefore not compute matched and are
+not an effectiveness comparison. Phase 8B.2 owns scientific comparison and
+model selection.
 
 ## Contracts
 
@@ -185,6 +266,12 @@ fixture, four train and two disjoint held-out pieces, hidden/projector width
 and a versioned five-policy schedule. Every variant reconstructs its model
 from the same seed. Base-component initialization is identical across all
 seven variants; all new-model head initializations are also identical.
+
+This standalone bounded runner predates official-engine integration. It
+remains a deterministic mechanics audit, not the supported training entry
+point. Its variants use one scheduled forward for the Phase 7A/single-family
+cases and four scheduled forwards for mask-only/equal cases. Equal optimizer
+step counts do not make those variants compute matched.
 
 The complete report fingerprint is
 `a6c94fb685dd3116b090e64ef0f777f78519df2bd7c5b73373d19624c45d9470`;
@@ -220,6 +307,14 @@ immutability; stop-gradient behavior; finite non-zero head and encoder
 gradients; Phase 7A bit identity; checkpoint transfer/round-trip/atomic
 fingerprint rejection; per-family and combined CPU overfit; optional CUDA AMP
 through the shared deterministic runtime; and zero retained report tensors.
+
+Official-engine tests additionally invoke the real CLI subprocess for the
+null Phase 7A route, every single family, equal weight, and mask-only; verify
+weight/fingerprint changes, structured incompatibility before output/optimizer
+mutation, one-batch decrease, manifest/checkpoint bindings, fixed validation,
+and uninterrupted two epochs versus stop/resume bit-exact state and journal.
+Optional onset/equal CUDA+AMP subprocesses use this same official engine and
+skip honestly on CPU-only hosts.
 
 CUDA is optional in Phase 8B.1 and an unavailable local CUDA test is an honest
 skip, not hardware evidence. Phase 8B.1 does not run full HookTheory/POP909-CL

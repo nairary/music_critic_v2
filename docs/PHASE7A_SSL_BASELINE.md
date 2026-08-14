@@ -489,6 +489,16 @@ graphs; it never projects supervised targets. Reading a production cache is
 not itself a claim that production or full-corpus SSL training occurred, and a
 full corpus run is not part of Phase 7A acceptance.
 
+Phase 8B.1 official-engine remediation preserves this path literally whenever
+`phase8b_objective` is absent/null. The inactive Phase 8B masking key is not
+written into the Phase 7A resolved config. The old builder, independent-note
+prepared binding, public forward, model/state keys, losses, report schema, and
+checkpoint payload remain unchanged. A direct replay of the same bounded CLI
+command at the pre-remediation and remediated trees produced matching SHA-256
+for `resolved_config.json`, `fingerprints.json`, and `run_manifest.json`, plus
+a bit-exact checkpoint payload and deterministic report fields. Only explicit
+Phase 8B objective and masking groups enter the separate new engine route.
+
 Checkpoints bind the complete SSL/model contract, maskable-field registry
 version and fingerprint, resolved-config fingerprint, data index/split/
 composition/fixed-validation fingerprints, model/optimizer/scheduler/scaler

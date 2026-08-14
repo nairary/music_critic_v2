@@ -35,6 +35,23 @@ class Phase8BObjectiveModeConfig:
 
 
 @dataclass
+class Phase8BMaskingModeConfig:
+    """Hydra-facing Phase 8A policy schedule for an explicit Phase 8B run."""
+
+    contract_version: str = "1.0.0"
+    mode: str = "phase7a_control"
+    independent_note_pitch: float = 1.0
+    onset_pitch_descendants: float = 0.0
+    beat_pitch_descendants: float = 0.0
+    contiguous_bar_pitch_span: float = 0.0
+    track_bar_pitch_span: float = 0.0
+    min_span_bars: int = 1
+    max_span_bars: int = 2
+    span_selection_pool_size: int = 4
+    span_budget_error_slack: int = 1
+
+
+@dataclass
 class SSLObjectiveConfig:
     mask_rate: float = 0.30
     decoder_views: int = 3
@@ -70,6 +87,7 @@ class SSLTrainingConfig:
     device: DeviceConfig = MISSING
     ssl: SSLObjectiveConfig = field(default_factory=SSLObjectiveConfig)
     phase8b_objective: Phase8BObjectiveModeConfig | None = None
+    phase8b_masking: Phase8BMaskingModeConfig | None = None
 
 
 _REGISTERED = False
@@ -147,6 +165,47 @@ def register_ssl_configs() -> None:
     }
     for name, node in phase8b_modes.items():
         store.store(group="phase8b_objective", name=name, node=node)
+    masking_modes = {
+        "phase7a_control": Phase8BMaskingModeConfig(),
+        "phase8a_mask_only": Phase8BMaskingModeConfig(
+            mode="phase8a_mask_only",
+            independent_note_pitch=0.0,
+            onset_pitch_descendants=1.0,
+            beat_pitch_descendants=1.0,
+            contiguous_bar_pitch_span=1.0,
+            track_bar_pitch_span=1.0,
+        ),
+        "onset_only": Phase8BMaskingModeConfig(
+            mode="onset_only",
+            independent_note_pitch=0.0,
+            onset_pitch_descendants=1.0,
+        ),
+        "beat_only": Phase8BMaskingModeConfig(
+            mode="beat_only",
+            independent_note_pitch=0.0,
+            beat_pitch_descendants=1.0,
+        ),
+        "bar_only": Phase8BMaskingModeConfig(
+            mode="bar_only",
+            independent_note_pitch=0.0,
+            contiguous_bar_pitch_span=1.0,
+        ),
+        "track_only": Phase8BMaskingModeConfig(
+            mode="track_only",
+            independent_note_pitch=0.0,
+            track_bar_pitch_span=1.0,
+        ),
+        "multilevel_equal_weight": Phase8BMaskingModeConfig(
+            mode="multilevel_equal_weight",
+            independent_note_pitch=0.0,
+            onset_pitch_descendants=1.0,
+            beat_pitch_descendants=1.0,
+            contiguous_bar_pitch_span=1.0,
+            track_bar_pitch_span=1.0,
+        ),
+    }
+    for name, node in masking_modes.items():
+        store.store(group="phase8b_masking", name=name, node=node)
     _REGISTERED = True
 
 
@@ -155,6 +214,7 @@ register_ssl_configs()
 
 __all__ = [
     "Phase8BObjectiveModeConfig",
+    "Phase8BMaskingModeConfig",
     "SSLObjectiveConfig",
     "SSLTrainingConfig",
     "register_ssl_configs",

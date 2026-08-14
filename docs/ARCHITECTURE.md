@@ -839,6 +839,28 @@ existing failure-atomic container; an explicit transfer path validates and
 loads all Phase 7A state while enumerating separately initialized
 `phase8b_latent_heads.*` tensors.
 
+The initial Phase 8B.1 draft exposed these components but did not connect them
+to the official SSL engine: `ssl.run` still built the old model and invoked
+the Phase 7A binding/forward unconditionally. The remediated architecture
+keeps that literal branch for a null objective and delegates only explicit
+Phase 8B configs to `phase8b_engine`. The explicit branch independently
+materializes objective and masking bindings, requires a compatible exact
+policy schedule, builds through `build_phase8b_model_from_config`, and chooses
+only the contract-matching `forward`, `forward_hierarchy`, or
+`forward_multilevel` surface. Incompatibility fails before optimization with
+no fallback.
+
+Official Phase 8B manifests and checkpoints bind concrete model class,
+registry/config/active-weight fingerprints, masking-config fingerprint, and
+the Phase 8A policy-mixture fingerprint. Fixed validation always uses epoch
+zero with stable membership, sample identities, seed coordinates, and policy
+order. The stage accumulator retains CPU scalars only and the report separates
+optimizer steps from model forwards, scheduled policy passes, objective
+evaluations, eligible entities, and primary/collateral masked entities.
+Single/control schedules use one forward per batch; equal/mask-only use four,
+so these mechanics runs are explicitly not compute matched or scientific
+effectiveness comparisons.
+
 All new registry/config/eligibility/binding/loss/model/output/metric/
 checkpoint-transfer/bounded-comparison contracts begin at `1.0.0`. The full
 architecture, policy mapping, parameter formula, bounded comparison, and

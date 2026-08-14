@@ -177,7 +177,7 @@ def ssl_checkpoint_metadata(
     validated_data = _validated_data_fingerprints(
         data_fingerprints
     )
-    return {
+    metadata = {
         "ssl_checkpoint_contract_version": (
             SSL_CHECKPOINT_CONTRACT_VERSION
         ),
@@ -198,6 +198,40 @@ def ssl_checkpoint_metadata(
         "data_fingerprint": _canonical_fingerprint(validated_data),
         "resume_boundary": "epoch_only",
     }
+    phase8b_runtime = resolved_config.get("phase8b_runtime")
+    if phase8b_runtime is not None:
+        if not isinstance(phase8b_runtime, dict):
+            raise SSLCheckpointError(
+                "ssl.checkpoint.phase8b_runtime_binding_invalid"
+            )
+        required = {
+            "engine_contract_version",
+            "execution_mode",
+            "model_class",
+            "objective_registry_fingerprint",
+            "objective_config",
+            "objective_config_fingerprint",
+            "active_objective_families",
+            "active_objective_weights",
+            "masking_config",
+            "masking_config_fingerprint",
+            "mask_policy_mixture_fingerprint",
+        }
+        if set(phase8b_runtime) != required:
+            raise SSLCheckpointError(
+                "ssl.checkpoint.phase8b_runtime_binding_invalid"
+            )
+        for name in (
+            "objective_registry_fingerprint",
+            "objective_config_fingerprint",
+            "masking_config_fingerprint",
+            "mask_policy_mixture_fingerprint",
+        ):
+            _sha256_field(phase8b_runtime[name], name=name)
+        metadata["phase8b_binding"] = copy.deepcopy(
+            phase8b_runtime
+        )
+    return metadata
 
 
 def _validate_epoch_state(

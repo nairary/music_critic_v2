@@ -566,9 +566,14 @@
 ## Phase 8B.1 implementation status
 
 - Branch: `phase/8b1-multilevel-objectives`, based on merged Phase 8A main
-  `e97377c450a368d6b46d7ba8bc1c7697bdd5dd63`. Status: implementation and
-  local acceptance complete; draft PR and Required CI are pending final local
-  gates.
+  `e97377c450a368d6b46d7ba8bc1c7697bdd5dd63`. Existing draft PR: #18; it
+  remains draft and unmerged. Phase 8B.2 has not started.
+- Integration remediation is active. Before remediation, the registered Hydra
+  objective modes, `build_phase8b_model_from_config()`, and bounded comparison
+  existed, but official `music_critic.ssl.run`/`ssl.engine` still called the
+  old builder and Phase 7A forward unconditionally. The previous bounded
+  runner was therefore evidence plumbing, not the official/production
+  training path.
 - New independently weighted families are `onset_latent`, `beat_latent`,
   `hierarchy_bar_latent`, and `track_latent`. They consume exact contextual
   onset/beat fused rows and coarse bar/track rows. Targets are detached
@@ -591,11 +596,29 @@
   Metrics retain fixed CPU scalar/O(D) state and no prediction/CUDA tensors.
 - Hydra provides `phase7a_control`, `onset_only`, `beat_only`, `bar_only`,
   `track_only`, and `multilevel_equal_weight`. The control constructs the
-  literal old model and remains model-facing bit-exact.
+  literal old model and remains model-facing bit-exact. Official explicit
+  runs now also require an independent matching `phase8b_masking` group;
+  `phase8a_mask_only` is the one extra compatible pair with the Phase 7A
+  objective control.
+- Official policy schedules are exact and fail-closed: independent note for
+  Phase 7A control; onset/beat/contiguous-bar/track-bar for the corresponding
+  single modes; all four hierarchy policies for equal weight and mask-only.
+  No incompatible policy is substituted. New modes use prepared hierarchy
+  plus objective bindings and `forward_multilevel`; mask-only uses the old
+  model's `forward_hierarchy` and old objectives.
 - Explicit old-checkpoint transfer validates and loads all Phase 7A state,
   enumerates separately initialized new heads, and is failure-atomic. New
-  checkpoint metadata binds objective registry, weights, and fingerprints;
-  round-trip/resume and incompatible-fingerprint rejection are tested.
+  checkpoint metadata binds objective registry/config/active weights, masking
+  config/Phase 8A mixture, concrete model class, and fingerprints;
+  round-trip/resume and incompatible objective/weight/policy rejection are
+  tested before live-state mutation. Old checkpoints require explicit
+  transfer and cannot be implicitly resumed as Phase 8B.
+- The official path now implements one-batch, multi-epoch, fixed epoch-zero
+  validation, best/last checkpoints, ordered journal, and exact epoch-boundary
+  resume. Reports expose model class, active families, policies, all binding
+  fingerprints, eligible counts, retained tensor counts, optimizer steps,
+  forwards, scheduled passes, objective evaluations, and primary/collateral
+  masked entities.
 - The deterministic 12-step CPU report compares Phase 7A control, Phase 8A
   masks with old objectives, each new family, and equal weight on four fixed
   train plus two disjoint held-out pieces. Every available train family
@@ -605,7 +628,11 @@
   `a6c94fb685dd3116b090e64ef0f777f78519df2bd7c5b73373d19624c45d9470`;
   schedule fingerprint:
   `dd1527b66dd8ba41b10f66f176bea77c305b2ba772496a6142a7252ec52ad6b7`.
-- Final local verification passed focused Phase 8B.1
+- That standalone report predates official-engine integration and remains a
+  bounded mechanics audit, not a production path. The control/single variants
+  use one scheduled forward per optimizer step while mask-only/equal use four;
+  they are not compute matched and establish no relative effectiveness.
+- Pre-remediation local verification passed focused Phase 8B.1
   (`22 passed, 1 skipped, 2 warnings`), complete SSL
   (`379 passed, 18 skipped, 8 warnings`), model/training/checkpoint regression
   (`180 passed, 7 skipped, 2 warnings`), deterministic runtime/repository/
@@ -615,7 +642,39 @@
   passed. Two fresh 12-step bounded artifacts are byte-identical at 783,207
   bytes and file SHA-256
   `4417a45921971af272c47c3f087abf8988f53ad6df4c0eab1158a28f8c380f4e`.
-  Required GitHub CI remains pending until the draft PR is pushed.
+  Required GitHub CI passed for the pre-remediation head only and must rerun on
+  the remediation commit.
+- Current remediation verification: real official-engine CLI/resume/binding
+  suite `11 passed, 2 skipped, 2 warnings`; existing Phase 8B plus Phase 7A
+  training/checkpoint/held-out regressions `40 passed, 1 skipped, 2 warnings`;
+  complete SSL `390 passed, 20 skipped, 8 warnings`; combined model/training/
+  checkpoint/resume `170 passed, 8 skipped, 2 warnings`; complete repository
+  `1258 passed, 41 skipped, 10 warnings`. Compileall and diff checks passed.
+  Skips are optional CUDA/hardware paths on this CPU-only host.
+- Two fresh 12-step bounded reports are byte-identical at 783,207 bytes with
+  SHA-256
+  `4417a45921971af272c47c3f087abf8988f53ad6df4c0eab1158a28f8c380f4e`;
+  report fingerprint remains
+  `a6c94fb685dd3116b090e64ef0f777f78519df2bd7c5b73373d19624c45d9470`.
+- Exact official CPU CLI evidence used two steps. Null Phase 7A remained
+  `MaskedGraphSSLModel`, reduced total loss `2.13145112991333 ->
+  0.928695559501648`, reloaded bit-exactly, and produced manifest SHA-256
+  `11bb881be82cc38c632aacac8bb0dc0035d049c3184ef98e9bba770681a5d487`.
+  Onset-only used `Phase8BMultilevelSSLModel`, active family `onset_latent`,
+  reduced `1.1152309417724608 -> 0.5074081420898438`, reloaded bit-exactly,
+  and produced manifest SHA-256
+  `45367df5de85f22a63ccc6369cb0a70b1034c3e96ff24462a61c6a6c54fdd462`.
+  Its total accounting was 2 optimizer steps, 4 forwards/policy passes/
+  objective evaluations, 92 primary + 100 collateral-note + 28
+  collateral-track masked entities, and zero retained CUDA/prediction tensors.
+- The exact two-epoch onset resume starts at epoch 1, completes epoch 2, and
+  matches uninterrupted model/optimizer/scheduler/scaler/RNG/journal state
+  bit-exactly. The resumed journal SHA-256 is
+  `81c37474c89e3a3d04ad7535d9cfa2f2bc4f9a37a767c722c5fc5f08f155cd72`.
+- A direct old-head versus remediated-tree Phase 7A CLI replay used identical
+  command/output path. `resolved_config.json`, `fingerprints.json`, and
+  `run_manifest.json` SHA-256 values matched; the complete checkpoint payload,
+  deterministic report fields, and initial/final losses were bit-exact.
 - This is bounded mechanics/optimization evidence only. No quality,
   downstream, likelihood, critic, or model-selection improvement is claimed.
   Phase 8B.2, Phase 9, PLL, critic/quality scoring, full corpora, and legacy

@@ -544,7 +544,10 @@ The model and training phases remain pending.
 
 ## Phase 8B — multi-level objectives and comparison
 
-- Status: Phase 8B.1 implemented in draft PR; Phase 8B.2 not started.
+- Status: Phase 8B.1 official-engine integration remediation is implemented
+  in draft PR #18; Phase 8B.2 has not started. Before remediation, the Hydra
+  group/builder/bounded runner existed but `ssl.run`/`ssl.engine` still used
+  the old model and Phase 7A forward unconditionally.
 - Goal: add independently ablatable onset/beat/bar/track objective families
   and compare them against Phase 7A/8A controls.
 - Dependencies: accepted and merged Phase 8A contracts at main
@@ -552,19 +555,25 @@ The model and training phases remain pending.
 - Phase 8B.1 outputs: versioned exact-identity eligibility/binding,
   independently weighted multi-level heads/losses, six Hydra modes, old
   checkpoint transfer, strict new checkpoint binding, and deterministic
-  bounded train/held-out mechanics comparison.
+  bounded train/held-out mechanics comparison; remediated official one-batch/
+  multi-epoch/fixed-validation/resume routing; an independent masking group;
+  and the old-model Phase 8A mask-only control.
 - Phase 8B.2 future output: scaled scientific comparison, model selection, and
   only then any evidence-justified curriculum.
 - Tests: level-specific target/denominator semantics, unavailable-level
   handling, exact alignment/sample isolation, independent ablation,
   checkpoint compatibility/atomicity, bounded optimization, optional CUDA AMP,
-  and zero retained report tensors.
+  zero retained report tensors, real CLI routing, fail-before-optimizer
+  incompatibility, complete step/forward/policy/objective/masked-entity
+  accounting, and exact two-epoch resume.
 - Non-goals: claiming scaled effectiveness before the Phase 10
   raw-compatible PDMX projection and rerun; Phase 8B.2, Phase 9, PLL,
   preference critic, quality scoring, or production/full-corpus SSL training.
 - Acceptance: objective families remain independently ablatable and their
   held-out mechanics/comparisons are reported without likelihood, critic, or
-  quality-score interpretation.
+  quality-score interpretation. Bounded variants with different scheduled
+  forward counts are not described as compute matched or as effectiveness
+  evidence.
 
 ## Phase 9 — Dilemmadata adapter and theory supervision
 

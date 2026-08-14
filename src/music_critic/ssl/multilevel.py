@@ -36,6 +36,7 @@ from music_critic.ssl.model import (
     MaskedGraphSSLConfig,
     MaskedGraphSSLModel,
     Phase8AHierarchySSLForwardOutput,
+    SSLForwardOutput,
 )
 from music_critic.ssl.objective import (
     AntiCollapseDiagnostics,
@@ -1143,15 +1144,62 @@ class Phase8BObjectiveAccumulator:
         self.retained_cuda_tensor_count = 0
         self.retained_prediction_tensor_count = 0
 
-    def update(self, output: Phase8BMultilevelSSLForwardOutput) -> None:
-        if output.objective.objective_config_fingerprint != self.objective_config.fingerprint:
-            raise ValueError("Phase 8B.1 accumulator/config mismatch")
+    def update(
+        self,
+        output: (
+            Phase8BMultilevelSSLForwardOutput
+            | Phase8AHierarchySSLForwardOutput
+            | SSLForwardOutput
+        ),
+    ) -> None:
+        """Consume either the additive output or the explicit old-objective control."""
+
+        if type(output) is Phase8BMultilevelSSLForwardOutput:
+            if output.objective.objective_config_fingerprint != (
+                self.objective_config.fingerprint
+            ):
+                raise ValueError("Phase 8B.1 accumulator/config mismatch")
+            rows = tuple(
+                (
+                    row.family,
+                    row.numerator,
+                    row.eligible_denominator,
+                )
+                for row in output.objective.family_losses
+            )
+        elif type(output) in {
+            Phase8AHierarchySSLForwardOutput,
+            SSLForwardOutput,
+        }:
+            if self.objective_config.mode != "phase7a_control":
+                raise ValueError(
+                    "old-objective output requires phase7a_control config"
+                )
+            rows = (
+                (
+                    PHASE7A_NOTE_RECONSTRUCTION,
+                    output.note_loss.numerator,
+                    output.note_loss.denominator,
+                ),
+                (
+                    PHASE7A_BAR_LATENT,
+                    output.bar_latent.loss.numerator,
+                    output.bar_latent.loss.denominator,
+                ),
+                (
+                    PHASE7A_SONG_LATENT,
+                    output.song_latent.loss.numerator,
+                    output.song_latent.loss.denominator,
+                ),
+            )
+        else:
+            raise TypeError("Phase 8B.1 accumulator output type is invalid")
         packed = torch.stack(
-            [row.numerator.detach() for row in output.objective.family_losses]
+            [numerator.detach() for _family, numerator, _count in rows]
         ).to(device="cpu", dtype=torch.float64)
-        for index, row in enumerate(output.objective.family_losses):
-            self._numerators[row.family] += float(packed[index])
-            self._denominators[row.family] += row.eligible_denominator
+        for index, (family, _numerator, denominator) in enumerate(rows):
+            self._numerators[family] += float(packed[index])
+            self._denominators[family] += denominator
         self.update_count += 1
 
     def finalize(self) -> dict[str, object]:

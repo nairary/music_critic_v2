@@ -3012,6 +3012,39 @@ representation improvement.
 - keep all new contracts at `1.0.0` and preserve existing Phase 7A/8A,
   graph/data/cache/target/checkpoint-container versions.
 
+### Phase 8B.1 official-engine integration remediation
+
+- Record that the initial draft's Hydra objective group, builder, and bounded
+  runner were disconnected from the official `ssl.run`/`ssl.engine` path;
+  the old builder/forward remained unconditional, so that runner was not a
+  production training path.
+- Preserve the literal existing Phase 7A route when the objective is null,
+  including resolved artifacts, model/state, prepared binding, loss, and
+  checkpoint payload. Route only explicit Phase 8B config through the new
+  engine branch.
+- Require an independently fingerprinted masking config. Route onset to onset
+  descendants, beat to beat descendants, bar to contiguous bars, track to
+  track/bar, equal weight to the deterministic four-policy schedule, and the
+  Phase 7A control to independent note masking. Add the explicit mask-only
+  control using the old model/objectives and the four hierarchy policies.
+- Build explicit runs only through `build_phase8b_model_from_config`, require
+  prepared hierarchy and objective bindings for new heads, call
+  `forward_multilevel`, and optimize its objective total. Reject incompatible
+  model/mode/policy/binding/forward combinations before the first optimizer
+  step without fallback.
+- Integrate one-batch and multi-epoch operation, fixed epoch-zero validation,
+  best/last checkpoints, journal, and exact epoch-boundary resume. Bind
+  objective registry/config/active weights, masking config/mixture, and model
+  class in resolved config, manifest, report, and failure-atomic checkpoint.
+- Report optimizer steps, forwards, scheduled policy passes, objective
+  evaluations, eligible rows, retained tensors, and masked entities. State
+  explicitly that one-pass and four-pass variants are not compute matched and
+  that effectiveness/model selection belongs to Phase 8B.2.
+- Exercise the real CLI for null Phase 7A, all single families, equal weight,
+  and mask-only; cover weight fingerprints/loss, fail-before-output,
+  one-batch decrease, exact two-epoch stop/resume, and optional official-engine
+  CUDA+AMP onset/equal smoke.
+
 ### Phase 8B.1 acceptance criteria
 
 - every objective family can be enabled and disabled independently;
