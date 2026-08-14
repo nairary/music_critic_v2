@@ -3069,6 +3069,37 @@ representation improvement.
   single-policy compatibility, validation/best/resume tests, deterministic
   bounded artifacts, and optional CUDA AMP packed-transfer evidence.
 
+### Phase 8B.1 CUDA/AMP real-update remediation
+
+- Treat the independent RTX 3090 artifact for `b41dd410...` as blocking
+  negative evidence: CUDA/AMP execution occurred, but both onset and equal
+  runs applied zero real updates and did not reduce loss.
+- Execute only the new Phase 8B projector/predictor normalization path and
+  cosine/reduction in FP32 inside the wider encoder AMP autocast region. Keep
+  the online gradient path, detach only the full-view target, and leave Phase
+  7A/null-config mechanics unchanged.
+- Use a public GradScaler initial scale of `16384` and report optimizer step
+  attempts, applied steps, skipped steps, and public scale transitions. Count
+  `optimizer_step_count` as applied steps only.
+- Bind optimizer membership and packed finite/non-zero gradient plus exact
+  parameter-update evidence for the online encoder, every active Phase 8B
+  head, every inactive Phase 8B head, and the Phase 7A mask-only control.
+  Fail bounded acceptance on zero applied steps, active-path zero/non-finite
+  gradients, unchanged active parameters, fixture mismatch, non-finite final
+  loss, or absent loss decrease.
+- Add deterministic CPU autocast-FP16 overflow/safe-scale oracles, a public
+  skip/apply scaler oracle, all-mode optional CUDA+AMP coverage, and CUDA FP32
+  versus AMP structural parity with documented `rtol=atol=0.02` rather than a
+  bit-exact requirement.
+- Add one independent RTX command that runs onset/beat/bar/track/equal and
+  mask-only under CUDA FP32 and AMP, saves full logs/reports/counters/
+  gradients/updates/losses/scaler/VRAM evidence, and archives every artifact.
+- Advance only affected Phase 8B contracts and reject pre-fix Phase 8B
+  checkpoints. Do not bump graph, canonical, ontology, Phase 7A, or unchanged
+  masking/eligibility contracts.
+- Do not claim the CUDA fix successful until that runner passes on an
+  independently operated RTX 3090 at the exact final commit.
+
 ### Phase 8B.1 acceptance criteria
 
 - every objective family can be enabled and disabled independently;

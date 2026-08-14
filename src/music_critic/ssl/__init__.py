@@ -132,6 +132,7 @@ from music_critic.ssl.multilevel import (
     PHASE7A_NOTE_RECONSTRUCTION,
     PHASE7A_SONG_LATENT,
     PHASE8B_BATCH_OBJECTIVE_AGGREGATE_CONTRACT_VERSION,
+    PHASE8B_AMP_COMPUTE_CONTRACT,
     PHASE8B_CANONICAL_POLICY_ORDER,
     PHASE8B_ELIGIBLE_ENTITY_CONTRACT_VERSION,
     PHASE8B_FAMILY_LOSS_CONTRACT_VERSION,
@@ -180,6 +181,13 @@ from music_critic.ssl.phase8b_acceptance import (
     PHASE8B_BOUNDED_COMPARISON_CONTRACT_VERSION,
     PHASE8B_BOUNDED_COMPARISON_SCOPE,
     run_phase8b_bounded_comparison,
+)
+from music_critic.ssl.phase8b_cuda_acceptance import (
+    PHASE8B_CUDA_PARITY_ABSOLUTE_TOLERANCE,
+    PHASE8B_CUDA_PARITY_RELATIVE_TOLERANCE,
+    PHASE8B_CUDA_TRAINING_ACCEPTANCE_CONTRACT_VERSION,
+    Phase8BCudaAcceptanceError,
+    run_phase8b_cuda_training_acceptance,
 )
 from music_critic.ssl.views import (
     BoundFeatureMaskOverlay,
@@ -316,9 +324,13 @@ __all__ = [
     "PHASE7A_SONG_LATENT",
     "PHASE8B_CHECKPOINT_BINDING_CONTRACT_VERSION",
     "PHASE8B_BATCH_OBJECTIVE_AGGREGATE_CONTRACT_VERSION",
+    "PHASE8B_AMP_COMPUTE_CONTRACT",
     "PHASE8B_CANONICAL_POLICY_ORDER",
     "PHASE8B_BOUNDED_COMPARISON_CONTRACT_VERSION",
     "PHASE8B_BOUNDED_COMPARISON_SCOPE",
+    "PHASE8B_CUDA_PARITY_ABSOLUTE_TOLERANCE",
+    "PHASE8B_CUDA_PARITY_RELATIVE_TOLERANCE",
+    "PHASE8B_CUDA_TRAINING_ACCEPTANCE_CONTRACT_VERSION",
     "PHASE8B_ELIGIBLE_ENTITY_CONTRACT_VERSION",
     "PHASE8B_FAMILY_LOSS_CONTRACT_VERSION",
     "PHASE8B_LATENT_PREDICTION_CONTRACT_VERSION",
@@ -338,6 +350,7 @@ __all__ = [
     "PHASE8B_SCHEDULED_VIEW_AGGREGATION",
     "TRACK_LATENT",
     "Phase7AToPhase8BTransferReport",
+    "Phase8BCudaAcceptanceError",
     "Phase8BAggregatedFamilyLoss",
     "Phase8BBatchObjectiveAggregate",
     "Phase8BDifferentiableFamilyAggregate",
@@ -359,4 +372,5 @@ __all__ = [
     "prepare_phase8b_objective_binding",
     "transfer_phase7a_checkpoint_to_phase8b",
     "run_phase8b_bounded_comparison",
+    "run_phase8b_cuda_training_acceptance",
 ]

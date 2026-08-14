@@ -836,6 +836,17 @@ remain distinct prediction observations. Streaming reports use one packed
 metrics D2H transfer at most per CPU batch and keep only detached CPU scalar/
 O(D) state.
 
+The Phase 8B latent head is an explicit FP32 island inside the official AMP
+encoder autocast region. Its projector/predictor linear, GELU, and LayerNorm
+operations, plus cosine normalization and reduction, execute in FP32; only
+the detached full-view target loses its graph. This Phase 8B-only boundary
+does not alter the Phase 7A model or heads. The Phase 8B GradScaler starts at
+`16384` and retains public dynamic scaling. Reports distinguish optimizer
+step attempts, publicly observed scaler skips, and applied steps, and bind
+finite/non-zero gradient plus exact parameter-change evidence for the online
+encoder and each active/inactive Phase 8B head. A bounded run with no applied
+step, no active-path update, or no loss decrease fails closed.
+
 `phase7a_control` constructs the literal old `MaskedGraphSSLModel`.
 `Phase8BMultilevelSSLModel` is an additive subtype used only for the four new
 single-family modes and equal-weight mode. Its metadata binds registry and
@@ -860,17 +871,20 @@ registry/config/active-weight fingerprints, masking-config fingerprint, and
 the Phase 8A policy-mixture fingerprint. Fixed validation always uses epoch
 zero with stable membership, sample identities, seed coordinates, and policy
 order. The stage accumulator retains CPU scalars only and the report separates
-optimizer steps from model forwards, scheduled policy passes, objective
-evaluations, family-view passes, eligible prediction rows, and primary/
-collateral masked entities.
+optimizer step attempts/applied/skipped counts from model forwards, scheduled
+policy passes, objective evaluations, family-view passes, eligible prediction
+rows, and primary/collateral masked entities. It also records public scaler
+transitions, optimizer membership, model/input fingerprints, parameter-update
+evidence, and CUDA peak allocated/reserved memory.
 Single/control schedules use one forward per batch; equal/mask-only use four,
 so these mechanics runs are explicitly not compute matched or scientific
 effectiveness comparisons.
 
-Cross-policy registry/config/loss/model/output/metric/engine/report/checkpoint
-and bounded-comparison contracts are `1.1.0`; identity-only eligibility,
-prepared-binding, latent-row, and new batch-aggregate contracts remain
-`1.0.0`. The full
+AMP-sensitive registry/config/loss/model/output/metric/engine/report/
+checkpoint and bounded-comparison contracts are `1.2.0`; latent prediction is
+`1.1.0`, masking remains `1.1.0`, and identity-only eligibility,
+prepared-binding and the batch aggregate remain `1.0.0`. Optimizer evidence
+and independent CUDA training acceptance begin at `1.0.0`. The full
 architecture, policy mapping, parameter formula, bounded comparison, and
 non-claim boundary are in `PHASE8B_MULTILEVEL_OBJECTIVES.md`.
 

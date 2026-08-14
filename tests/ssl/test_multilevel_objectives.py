@@ -33,6 +33,7 @@ from music_critic.ssl.multilevel import (
     PHASE7A_NOTE_RECONSTRUCTION,
     PHASE7A_SONG_LATENT,
     PHASE8B_NEW_OBJECTIVE_FAMILIES,
+    PHASE8B_AMP_COMPUTE_CONTRACT,
     PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT,
     TRACK_LATENT,
     Phase8BMultilevelSSLModel,
@@ -285,6 +286,78 @@ def test_zero_weight_heads_have_no_gradient_path(train_batch):
         assert all(
             parameter.grad is None for parameter in inactive_module.parameters()
         )
+
+
+@pytest.mark.parametrize(
+    ("mode", "policies"),
+    (
+        ("onset_only", (ONSET_PITCH_DESCENDANTS,)),
+        (
+            "multilevel_equal_weight",
+            (
+                ONSET_PITCH_DESCENDANTS,
+                BEAT_PITCH_DESCENDANTS,
+                CONTIGUOUS_BAR_PITCH_SPAN,
+                TRACK_BAR_PITCH_SPAN,
+            ),
+        ),
+    ),
+)
+def test_cpu_fp16_oracle_keeps_phase8b_head_and_scaled_backward_fp32_safe(
+    train_batch, mode, policies
+):
+    model = _model(mode)
+    outputs = []
+    for policy in policies:
+        binding = _prepared(train_batch, policy)
+        objective_binding = prepare_phase8b_objective_binding(
+            binding, model.phase8b_objective_config
+        )
+        with torch.autocast("cpu", dtype=torch.float16):
+            output = model.forward_multilevel(
+                train_batch,
+                prepared_mask_binding=binding,
+                prepared_objective_binding=objective_binding,
+            )
+        outputs.append((policy, output))
+        for row in output.latent_predictions:
+            assert row.prediction.dtype == torch.float32
+            assert row.target.dtype == torch.float32
+    batch_objective = aggregate_phase8b_policy_pass_losses(
+        tuple(outputs), objective_config=model.phase8b_objective_config
+    )
+    assert PHASE8B_AMP_COMPUTE_CONTRACT.endswith("float32")
+    assert batch_objective.total_loss is not None
+    assert batch_objective.total_loss.dtype == torch.float32
+    assert batch_objective.total_loss.grad_fn is not None
+    (batch_objective.total_loss * 16384.0).backward()
+    gradients = tuple(
+        parameter.grad
+        for parameter in model.parameters()
+        if parameter.grad is not None
+    )
+    assert gradients
+    assert all(torch.isfinite(gradient).all() for gradient in gradients)
+    assert any(torch.count_nonzero(gradient) for gradient in gradients)
+    for family in PHASE8B_NEW_OBJECTIVE_FAMILIES:
+        head_gradients = tuple(
+            parameter.grad
+            for parameter in model.phase8b_latent_heads[family].parameters()
+        )
+        if model.phase8b_objective_config.weight(family) > 0.0:
+            assert all(gradient is not None for gradient in head_gradients)
+            assert all(
+                torch.isfinite(gradient).all()
+                for gradient in head_gradients
+                if gradient is not None
+            )
+            assert any(
+                torch.count_nonzero(gradient)
+                for gradient in head_gradients
+                if gradient is not None
+            )
+        else:
+            assert all(gradient is None for gradient in head_gradients)
 
 
 def test_unavailable_family_is_not_fabricated_as_zero(train_batch):

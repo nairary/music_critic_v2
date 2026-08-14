@@ -19,8 +19,8 @@ from music_critic.ssl.checkpoint import SSLCheckpointError
 from music_critic.ssl.multilevel import Phase8BMultilevelSSLModel
 
 
-PHASE8B_CHECKPOINT_BINDING_CONTRACT_VERSION = "1.1.0"
-PHASE8B_PHASE7A_TRANSFER_REPORT_CONTRACT_VERSION = "1.1.0"
+PHASE8B_CHECKPOINT_BINDING_CONTRACT_VERSION = "1.2.0"
+PHASE8B_PHASE7A_TRANSFER_REPORT_CONTRACT_VERSION = "1.2.0"
 _NEW_HEAD_PREFIX = "phase8b_latent_heads."
 
 

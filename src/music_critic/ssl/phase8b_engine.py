@@ -11,6 +11,7 @@ import copy
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 import json
+import math
 from pathlib import Path
 import time
 from typing import Any, Iterable
@@ -47,8 +48,17 @@ from music_critic.ssl.model import (
     SSLForwardOutput,
 )
 from music_critic.ssl.multilevel import (
+    BEAT_LATENT,
+    HIERARCHY_BAR_LATENT,
+    ONSET_LATENT,
+    PHASE7A_BAR_LATENT,
+    PHASE7A_NOTE_RECONSTRUCTION,
+    PHASE7A_SONG_LATENT,
+    PHASE8B_AMP_COMPUTE_CONTRACT,
+    PHASE8B_NEW_OBJECTIVE_FAMILIES,
     PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT,
     PHASE8B_SCHEDULED_VIEW_AGGREGATION,
+    TRACK_LATENT,
     Phase8BMultilevelSSLForwardOutput,
     Phase8BMultilevelSSLModel,
     Phase8BObjectiveAccumulator,
@@ -65,10 +75,12 @@ from music_critic.ssl.phase8b_acceptance import (
 )
 
 
-PHASE8B_ENGINE_CONTRACT_VERSION = "1.1.0"
+PHASE8B_ENGINE_CONTRACT_VERSION = "1.2.0"
 PHASE8B_MASKING_CONFIG_CONTRACT_VERSION = "1.1.0"
-PHASE8B_RUN_MANIFEST_VERSION = "1.1.0"
-PHASE8B_TRAINING_REPORT_VERSION = "1.1.0"
+PHASE8B_RUN_MANIFEST_VERSION = "1.2.0"
+PHASE8B_TRAINING_REPORT_VERSION = "1.2.0"
+PHASE8B_OPTIMIZER_EVIDENCE_CONTRACT_VERSION = "1.0.0"
+PHASE8B_GRAD_SCALER_INITIAL_SCALE = 16384.0
 
 _HIERARCHY_SCHEDULE = (
     ONSET_PITCH_DESCENDANTS,
@@ -199,7 +211,9 @@ class ResolvedPhase8BMaskingConfig:
 @dataclass(slots=True)
 class _Accounting:
     cpu_batch_count: int = 0
-    optimizer_step_count: int = 0
+    optimizer_step_attempt_count: int = 0
+    optimizer_step_applied_count: int = 0
+    optimizer_step_skipped_count: int = 0
     forward_pass_count: int = 0
     scheduled_policy_pass_count: int = 0
     objective_evaluation_count: int = 0
@@ -217,7 +231,15 @@ class _Accounting:
             setattr(self, name, getattr(self, name) + getattr(other, name))
 
     def to_dict(self) -> dict[str, int]:
+        if self.optimizer_step_attempt_count != (
+            self.optimizer_step_applied_count
+            + self.optimizer_step_skipped_count
+        ):
+            raise Phase8BEngineError(
+                "phase8b.engine.optimizer_step_accounting_invalid"
+            )
         result = asdict(self)
+        result["optimizer_step_count"] = self.optimizer_step_applied_count
         result["total_masked_entity_count"] = (
             self.primary_masked_entity_count
             + self.collateral_note_entity_count
@@ -232,6 +254,419 @@ class _PreparedPass:
     batch: SSLBatch
     binding: PreparedMaskBinding
     objective_binding: object | None
+
+
+_EVIDENCE_GROUP_PREFIXES = {
+    "online_encoder": ("encoder.",),
+    "online_local_encoder": ("encoder.local_baseline.encoder.",),
+    "hierarchy_pooling": ("encoder.context_encoder.pooling.",),
+    "transformer": ("encoder.context_encoder.transformer.",),
+    "fusion": ("encoder.context_encoder.fusion.",),
+    "decoder": ("decoder.",),
+    "phase7a_bar_projector": ("bar_projector_predictor.projector.",),
+    "phase7a_bar_predictor": ("bar_projector_predictor.predictor.",),
+    "phase7a_song_projector": ("song_projector_predictor.projector.",),
+    "phase7a_song_predictor": ("song_projector_predictor.predictor.",),
+    ONSET_LATENT: (f"phase8b_latent_heads.{ONSET_LATENT}.",),
+    BEAT_LATENT: (f"phase8b_latent_heads.{BEAT_LATENT}.",),
+    HIERARCHY_BAR_LATENT: (
+        f"phase8b_latent_heads.{HIERARCHY_BAR_LATENT}.",
+    ),
+    TRACK_LATENT: (f"phase8b_latent_heads.{TRACK_LATENT}.",),
+}
+
+
+def _evidence_parameter_groups(
+    model: MaskedGraphSSLModel,
+) -> dict[str, tuple[tuple[str, torch.nn.Parameter], ...]]:
+    named = tuple(model.named_parameters())
+    return {
+        group: tuple(
+            (name, parameter)
+            for name, parameter in named
+            if any(name.startswith(prefix) for prefix in prefixes)
+        )
+        for group, prefixes in _EVIDENCE_GROUP_PREFIXES.items()
+    }
+
+
+def _parameter_snapshots(
+    groups: dict[str, tuple[tuple[str, torch.nn.Parameter], ...]],
+) -> dict[str, torch.Tensor]:
+    snapshots: dict[str, torch.Tensor] = {}
+    for rows in groups.values():
+        for name, parameter in rows:
+            if name not in snapshots:
+                snapshots[name] = parameter.detach().clone()
+    return snapshots
+
+
+def _expected_group_activity(
+    group: str,
+    *,
+    objective: Phase8BObjectiveConfig,
+    parameter_count: int,
+) -> str:
+    if group in PHASE8B_NEW_OBJECTIVE_FAMILIES:
+        if parameter_count == 0:
+            return "absent_old_control_model"
+        return "active" if objective.weight(group) > 0.0 else "inactive"
+    if group == "decoder":
+        return (
+            "active"
+            if objective.weight(PHASE7A_NOTE_RECONSTRUCTION) > 0.0
+            else "inactive"
+        )
+    if group in {"phase7a_bar_projector", "phase7a_bar_predictor"}:
+        return (
+            "active"
+            if objective.weight(PHASE7A_BAR_LATENT) > 0.0
+            else "inactive"
+        )
+    if group in {"phase7a_song_projector", "phase7a_song_predictor"}:
+        return (
+            "active"
+            if objective.weight(PHASE7A_SONG_LATENT) > 0.0
+            else "inactive"
+        )
+    return "required_shared_path" if group == "online_encoder" else "observed"
+
+
+def _sum_scalar_tensors(
+    values: list[torch.Tensor], reference: torch.Tensor
+) -> torch.Tensor:
+    if not values:
+        return reference.new_zeros((), dtype=torch.float32)
+    return torch.stack(
+        [value.to(dtype=torch.float32) for value in values]
+    ).sum()
+
+
+def _max_scalar_tensors(
+    values: list[torch.Tensor], reference: torch.Tensor
+) -> torch.Tensor:
+    if not values:
+        return reference.new_zeros((), dtype=torch.float32)
+    return torch.stack(
+        [value.to(dtype=torch.float32) for value in values]
+    ).max()
+
+
+def _optimization_step_evidence(
+    model: MaskedGraphSSLModel,
+    *,
+    objective: Phase8BObjectiveConfig,
+    groups: dict[str, tuple[tuple[str, torch.nn.Parameter], ...]],
+    snapshots: dict[str, torch.Tensor],
+    scaler_enabled: bool,
+    scale_before: float,
+    scale_after: float,
+    optimizer_step_applied: bool,
+) -> dict[str, object]:
+    """Pack finite-gradient and exact parameter-update evidence once."""
+
+    reference = next(model.parameters()).detach()
+    packed_values: list[torch.Tensor] = []
+    layouts: list[tuple[str, int, int]] = []
+    python_counts: dict[str, tuple[int, int]] = {}
+    for group, rows in groups.items():
+        gradients = tuple(
+            parameter.grad.detach()
+            for _name, parameter in rows
+            if parameter.grad is not None
+        )
+        finite_flags = [torch.isfinite(gradient).all() for gradient in gradients]
+        nonzero_flags = [
+            (torch.isfinite(gradient) & gradient.ne(0)).any()
+            for gradient in gradients
+        ]
+        nonfinite_elements = [
+            (~torch.isfinite(gradient)).count_nonzero()
+            for gradient in gradients
+        ]
+        finite_nonzero_elements = [
+            (torch.isfinite(gradient) & gradient.ne(0)).count_nonzero()
+            for gradient in gradients
+        ]
+        gradient_maxima = [
+            torch.where(
+                torch.isfinite(gradient),
+                gradient.abs(),
+                torch.zeros_like(gradient),
+            ).max()
+            for gradient in gradients
+        ]
+        changed_flags = []
+        changed_elements = []
+        update_maxima = []
+        finite_parameter_flags = []
+        for name, parameter in rows:
+            current = parameter.detach()
+            difference = current - snapshots[name]
+            changed_flags.append(difference.ne(0).any())
+            changed_elements.append(difference.ne(0).count_nonzero())
+            update_maxima.append(difference.abs().max())
+            finite_parameter_flags.append(torch.isfinite(current).all())
+        start = len(packed_values)
+        packed_values.extend(
+            (
+                _sum_scalar_tensors(finite_flags, reference),
+                _sum_scalar_tensors(nonzero_flags, reference),
+                _sum_scalar_tensors(nonfinite_elements, reference),
+                _sum_scalar_tensors(finite_nonzero_elements, reference),
+                _max_scalar_tensors(gradient_maxima, reference),
+                _sum_scalar_tensors(changed_flags, reference),
+                _sum_scalar_tensors(changed_elements, reference),
+                _max_scalar_tensors(update_maxima, reference),
+                _sum_scalar_tensors(finite_parameter_flags, reference),
+            )
+        )
+        layouts.append((group, start, len(packed_values)))
+        python_counts[group] = (len(rows), len(gradients))
+    packed_device = torch.stack(packed_values)
+    packed = packed_device.to(device="cpu", dtype=torch.float64)
+    group_evidence: dict[str, object] = {}
+    for group, start, _end in layouts:
+        parameter_count, with_gradient_count = python_counts[group]
+        values = packed[start : start + 9]
+        group_evidence[group] = {
+            "expected_activity": _expected_group_activity(
+                group,
+                objective=objective,
+                parameter_count=parameter_count,
+            ),
+            "parameter_count": parameter_count,
+            "with_gradient_count": with_gradient_count,
+            "finite_gradient_count": int(values[0]),
+            "nonzero_gradient_count": int(values[1]),
+            "nonfinite_gradient_element_count": int(values[2]),
+            "finite_nonzero_gradient_element_count": int(values[3]),
+            "maximum_finite_absolute_gradient": float(values[4]),
+            "changed_parameter_count": int(values[5]),
+            "changed_element_count": int(values[6]),
+            "maximum_absolute_parameter_update": float(values[7]),
+            "finite_parameter_count_after_step": int(values[8]),
+        }
+    failures: list[str] = []
+    if not optimizer_step_applied:
+        failures.append("optimizer_step_not_applied")
+    encoder = group_evidence["online_encoder"]
+    if (
+        encoder["with_gradient_count"] <= 0
+        or encoder["finite_gradient_count"]
+        != encoder["with_gradient_count"]
+        or encoder["nonzero_gradient_count"] <= 0
+        or encoder["changed_parameter_count"] <= 0
+    ):
+        failures.append("online_encoder_finite_nonzero_update_missing")
+    for family in PHASE8B_NEW_OBJECTIVE_FAMILIES:
+        row = group_evidence[family]
+        if objective.weight(family) > 0.0:
+            if (
+                row["parameter_count"] <= 0
+                or row["with_gradient_count"] != row["parameter_count"]
+                or row["finite_gradient_count"] != row["with_gradient_count"]
+                or row["nonzero_gradient_count"] <= 0
+                or row["changed_parameter_count"] <= 0
+            ):
+                failures.append(f"active_head_invalid:{family}")
+        elif (
+            row["with_gradient_count"] != 0
+            or row["changed_parameter_count"] != 0
+        ):
+            failures.append(f"inactive_head_changed:{family}")
+    legacy_groups = (
+        "decoder",
+        "phase7a_bar_projector",
+        "phase7a_bar_predictor",
+        "phase7a_song_projector",
+        "phase7a_song_predictor",
+    )
+    for group in legacy_groups:
+        row = group_evidence[group]
+        expected_active = row["expected_activity"] == "active"
+        if expected_active and (
+            row["with_gradient_count"] <= 0
+            or row["finite_gradient_count"] != row["with_gradient_count"]
+            or row["nonzero_gradient_count"] <= 0
+            or row["changed_parameter_count"] <= 0
+        ):
+            failures.append(f"active_legacy_path_invalid:{group}")
+        if not expected_active and (
+            row["with_gradient_count"] != 0
+            or row["changed_parameter_count"] != 0
+        ):
+            failures.append(f"inactive_legacy_path_changed:{group}")
+    if objective.mode == "phase7a_control":
+        for group in (
+            "online_local_encoder",
+            "hierarchy_pooling",
+            "transformer",
+            "fusion",
+        ):
+            row = group_evidence[group]
+            if (
+                row["with_gradient_count"] <= 0
+                or row["finite_gradient_count"]
+                != row["with_gradient_count"]
+                or row["nonzero_gradient_count"] <= 0
+                or row["changed_parameter_count"] <= 0
+            ):
+                failures.append(f"phase7a_control_path_invalid:{group}")
+    return {
+        "contract_version": PHASE8B_OPTIMIZER_EVIDENCE_CONTRACT_VERSION,
+        "optimizer_step_applied": optimizer_step_applied,
+        "scaler": {
+            "enabled": scaler_enabled,
+            "scale_before": scale_before,
+            "scale_after": scale_after,
+            "step_skipped_by_scaler": not optimizer_step_applied,
+        },
+        "groups": group_evidence,
+        "packed_host_materialization_count": 1,
+        "packed_device_to_host_transfer_count": int(
+            packed_device.device.type == "cuda"
+        ),
+        "retained_cuda_tensor_count": 0,
+        "retained_prediction_tensor_count": 0,
+        "acceptance": {
+            "passed": not failures,
+            "failures": failures,
+        },
+    }
+
+
+def _optimizer_parameter_coverage(
+    model: MaskedGraphSSLModel,
+    optimizer: torch.optim.Optimizer,
+) -> dict[str, object]:
+    named = tuple(model.named_parameters())
+    optimizer_parameters = tuple(
+        parameter
+        for parameter_group in optimizer.param_groups
+        for parameter in parameter_group["params"]
+    )
+    optimizer_ids = tuple(id(parameter) for parameter in optimizer_parameters)
+    optimizer_id_set = set(optimizer_ids)
+    trainable = tuple(
+        (name, parameter) for name, parameter in named if parameter.requires_grad
+    )
+    groups = _evidence_parameter_groups(model)
+    return {
+        "optimizer_parameter_group_count": len(optimizer.param_groups),
+        "optimizer_parameter_count": len(optimizer_parameters),
+        "duplicate_optimizer_parameter_count": (
+            len(optimizer_ids) - len(optimizer_id_set)
+        ),
+        "trainable_parameter_count": len(trainable),
+        "missing_trainable_parameter_count": sum(
+            id(parameter) not in optimizer_id_set
+            for _name, parameter in trainable
+        ),
+        "all_trainable_parameters_present_exactly_once": (
+            len(optimizer_ids) == len(optimizer_id_set)
+            and all(
+                id(parameter) in optimizer_id_set
+                for _name, parameter in trainable
+            )
+        ),
+        "evidence_groups": {
+            group: {
+                "parameter_count": len(rows),
+                "all_in_optimizer": all(
+                    id(parameter) in optimizer_id_set
+                    for _name, parameter in rows
+                ),
+            }
+            for group, rows in groups.items()
+        },
+    }
+
+
+def _model_state_fingerprint(model: torch.nn.Module) -> str:
+    digest = sha256()
+    for name, value in model.state_dict().items():
+        detached = value.detach().to(device="cpu").contiguous()
+        digest.update(
+            json.dumps(
+                {
+                    "name": name,
+                    "shape": list(detached.shape),
+                    "dtype": str(detached.dtype),
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        )
+        digest.update(detached.view(torch.uint8).numpy().tobytes())
+    return digest.hexdigest()
+
+
+def _input_batch_fingerprint(batch: SSLBatch) -> str:
+    return _fingerprint(
+        {
+            "dataset_ids": list(batch.dataset_ids),
+            "piece_ids": list(batch.piece_ids),
+            "sample_count": batch.sample_count,
+            "node_count": batch.node_count,
+            "edge_count": batch.edge_count,
+        }
+    )
+
+
+def _cuda_peak_memory(device: torch.device) -> dict[str, object]:
+    if device.type != "cuda":
+        return {
+            "available": False,
+            "peak_allocated_bytes": None,
+            "peak_reserved_bytes": None,
+        }
+    return {
+        "available": True,
+        "peak_allocated_bytes": torch.cuda.max_memory_allocated(device),
+        "peak_reserved_bytes": torch.cuda.max_memory_reserved(device),
+    }
+
+
+def _one_batch_mechanics_acceptance(
+    report: dict[str, object],
+) -> dict[str, object]:
+    failures: list[str] = []
+    accounting = report["accounting"]
+    if accounting["optimizer_step_attempt_count"] != (
+        accounting["optimizer_step_applied_count"]
+        + accounting["optimizer_step_skipped_count"]
+    ):
+        failures.append("optimizer_step_accounting_inconsistent")
+    if accounting["optimizer_step_applied_count"] <= 0:
+        failures.append("no_optimizer_step_applied")
+    if not report["loss_decreased"]:
+        failures.append("bounded_loss_did_not_decrease")
+    gradient = report["gradient_coverage"]
+    if (
+        not isinstance(gradient, dict)
+        or not gradient.get("acceptance", {}).get("passed", False)
+    ):
+        failures.append("finite_nonzero_gradient_or_update_evidence_missing")
+    fingerprints = report["model_state_fingerprints"]
+    if fingerprints["initial"] == fingerprints["final"]:
+        failures.append("model_state_unchanged")
+    if report["initial"]["input_batch_fingerprints"] != report["final"][
+        "input_batch_fingerprints"
+    ]:
+        failures.append("initial_final_input_fixture_mismatch")
+    final_loss = report["final"]["total_ssl_loss"]
+    if final_loss is None or not math.isfinite(float(final_loss)):
+        failures.append("final_loss_nonfinite_or_unavailable")
+    coverage = report["optimizer_parameter_coverage"]
+    if not coverage["all_trainable_parameters_present_exactly_once"]:
+        failures.append("optimizer_parameter_coverage_incomplete")
+    return {
+        "contract_version": PHASE8B_OPTIMIZER_EVIDENCE_CONTRACT_VERSION,
+        "failure_closed": True,
+        "passed": not failures,
+        "failures": failures,
+    }
 
 
 def _validate_pair(
@@ -287,6 +722,11 @@ def _materialize(
             PHASE8B_CHECKPOINT_BINDING_CONTRACT_VERSION
         ),
         "scheduled_view_aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
+        "amp_compute_contract": PHASE8B_AMP_COMPUTE_CONTRACT,
+        "optimizer_evidence_contract_version": (
+            PHASE8B_OPTIMIZER_EVIDENCE_CONTRACT_VERSION
+        ),
+        "grad_scaler_initial_scale": PHASE8B_GRAD_SCALER_INITIAL_SCALE,
         "execution_mode": execution_mode,
         "objective_registry_fingerprint": (
             PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT
@@ -363,7 +803,9 @@ def _prepare(
     optimizer = _optimizer(model, resolved)
     scheduler = _scheduler(optimizer, resolved)
     scaler = torch.amp.GradScaler(
-        device.type, enabled=bool(resolved["device"]["amp"])
+        device.type,
+        init_scale=PHASE8B_GRAD_SCALER_INITIAL_SCALE,
+        enabled=bool(resolved["device"]["amp"]),
     )
     return (
         Path(resolved["output_dir"]).resolve(),
@@ -512,8 +954,6 @@ def _stage(
     scaler: torch.amp.GradScaler | None = None,
     collect_gradient_evidence: bool = False,
 ) -> tuple[dict[str, object], dict[str, object] | None]:
-    from music_critic.ssl.engine import _gradient_evidence
-
     training = optimizer is not None
     if training != (scaler is not None) or stage not in {"train", "validation"}:
         raise Phase8BEngineError("phase8b.engine.stage_arguments_invalid")
@@ -522,16 +962,26 @@ def _stage(
     accounting = _Accounting()
     available_batch_count = 0
     binding_fingerprints: list[str] = []
+    objective_binding_fingerprints: list[str] = []
     plan_fingerprints: list[str] = []
+    input_batch_fingerprints: list[str] = []
     policy_pass_counts = {
         policy: 0 for policy in masking.scheduled_policies
     }
     gradient_evidence = None
+    collected_step_evidence: list[dict[str, object]] = []
+    scaler_scale_before_first: float | None = None
+    scaler_scale_after_last: float | None = None
+    scaler_minimum_scale: float | None = None
+    scaler_maximum_scale: float | None = None
+    scaler_scale_decrease_count = 0
+    scaler_scale_non_decrease_count = 0
     for cpu_batch in loader:
         accounting.cpu_batch_count += 1
         accounting.sample_count += cpu_batch.sample_count
         accounting.node_count += cpu_batch.node_count
         accounting.edge_count += cpu_batch.edge_count
+        input_batch_fingerprints.append(_input_batch_fingerprint(cpu_batch))
         if training:
             assert optimizer is not None
             optimizer.zero_grad(set_to_none=True)
@@ -564,6 +1014,17 @@ def _stage(
             accounting.collateral_note_entity_count += collateral_note
             accounting.collateral_track_entity_count += collateral_track
             binding_fingerprints.append(prepared.binding.fingerprint)
+            if prepared.objective_binding is not None:
+                objective_binding_fingerprint = getattr(
+                    prepared.objective_binding, "fingerprint", None
+                )
+                if not isinstance(objective_binding_fingerprint, str):
+                    raise Phase8BEngineError(
+                        "phase8b.engine.objective_binding_fingerprint_missing"
+                    )
+                objective_binding_fingerprints.append(
+                    objective_binding_fingerprint
+                )
             plan_fingerprints.extend(
                 plan.fingerprint for plan in prepared.binding.mask_plans
             )
@@ -582,14 +1043,6 @@ def _stage(
         batch_objective = aggregate_phase8b_policy_pass_losses(
             tuple(policy_outputs), objective_config=objective
         )
-        try:
-            accumulator.update_batch(batch_objective)
-        except ValueError as exc:
-            if "non-finite" in str(exc):
-                raise Phase8BEngineError(
-                    "phase8b.engine.nonfinite_total_loss"
-                ) from exc
-            raise
         accounting.family_view_pass_count += (
             batch_objective.family_view_pass_count
         )
@@ -601,17 +1054,80 @@ def _stage(
             available_batch_count += 1
         if training and current_loss is not None:
             assert optimizer is not None and scaler is not None
+            accounting.optimizer_step_attempt_count += 1
+            scale_before = float(scaler.get_scale())
+            if scaler_scale_before_first is None:
+                scaler_scale_before_first = scale_before
             scaler.scale(current_loss).backward()
             scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(
                 model.parameters(),
                 float(config["optimizer"]["gradient_clip_norm"]),
             )
-            if collect_gradient_evidence and gradient_evidence is None:
-                gradient_evidence = _gradient_evidence(model)
+            should_collect = (
+                collect_gradient_evidence and gradient_evidence is None
+            )
+            groups = (
+                _evidence_parameter_groups(model)
+                if should_collect
+                else None
+            )
+            snapshots = (
+                _parameter_snapshots(groups)
+                if groups is not None
+                else None
+            )
             scaler.step(optimizer)
             scaler.update()
-            accounting.optimizer_step_count += 1
+            scale_after = float(scaler.get_scale())
+            scaler_scale_after_last = scale_after
+            scaler_minimum_scale = min(
+                scale_before,
+                scale_after,
+                scaler_minimum_scale
+                if scaler_minimum_scale is not None
+                else scale_before,
+            )
+            scaler_maximum_scale = max(
+                scale_before,
+                scale_after,
+                scaler_maximum_scale
+                if scaler_maximum_scale is not None
+                else scale_before,
+            )
+            step_skipped = scaler.is_enabled() and scale_after < scale_before
+            if step_skipped:
+                accounting.optimizer_step_skipped_count += 1
+                scaler_scale_decrease_count += 1
+            else:
+                accounting.optimizer_step_applied_count += 1
+                scaler_scale_non_decrease_count += 1
+            if groups is not None and snapshots is not None:
+                step_evidence = _optimization_step_evidence(
+                    model,
+                    objective=objective,
+                    groups=groups,
+                    snapshots=snapshots,
+                    scaler_enabled=scaler.is_enabled(),
+                    scale_before=scale_before,
+                    scale_after=scale_after,
+                    optimizer_step_applied=not step_skipped,
+                )
+                collected_step_evidence.append(step_evidence)
+                if not step_skipped:
+                    gradient_evidence = step_evidence
+                del snapshots, groups
+        # Metrics materialize only after backward/optimizer handling.  The
+        # differentiable family-global loss itself is never detached, moved,
+        # converted to Python, or replaced before backward.
+        try:
+            accumulator.update_batch(batch_objective)
+        except ValueError as exc:
+            if "non-finite" in str(exc):
+                raise Phase8BEngineError(
+                    "phase8b.engine.nonfinite_total_loss"
+                ) from exc
+            raise
         del policy_outputs, batch_objective, current_loss
     aggregate = accumulator.finalize()
     metric: dict[str, object] = {
@@ -633,7 +1149,11 @@ def _stage(
         "resolved_policies": list(masking.scheduled_policies),
         "policy_pass_counts": policy_pass_counts,
         "prepared_binding_fingerprints": sorted(binding_fingerprints),
+        "prepared_objective_binding_fingerprints": sorted(
+            objective_binding_fingerprints
+        ),
         "mask_plan_fingerprints": sorted(plan_fingerprints),
+        "input_batch_fingerprints": input_batch_fingerprints,
         "validation_schedule_batch_partition_independent_coordinates": (
             stage == "validation"
         ),
@@ -663,6 +1183,40 @@ def _stage(
                 "retained_prediction_tensor_count"
             ],
         },
+        "amp_scaler_evidence": {
+            "enabled": bool(scaler is not None and scaler.is_enabled()),
+            "public_scale_api": "torch.amp.GradScaler.get_scale",
+            "initial_scale_contract": PHASE8B_GRAD_SCALER_INITIAL_SCALE,
+            "scale_before_first_attempt": scaler_scale_before_first,
+            "scale_after_last_attempt": scaler_scale_after_last,
+            "minimum_observed_scale": scaler_minimum_scale,
+            "maximum_observed_scale": scaler_maximum_scale,
+            "scale_decrease_skip_count": scaler_scale_decrease_count,
+            "scale_non_decrease_applied_count": (
+                scaler_scale_non_decrease_count
+            ),
+        },
+        "optimizer_step_evidence": collected_step_evidence,
+        "optimizer_evidence_transfer": {
+            "packed_host_materialization_count": sum(
+                int(row["packed_host_materialization_count"])
+                for row in collected_step_evidence
+            ),
+            "packed_device_to_host_transfer_count": sum(
+                int(row["packed_device_to_host_transfer_count"])
+                for row in collected_step_evidence
+            ),
+            "maximum_packed_d2h_transfers_per_collected_cpu_batch": (
+                1
+                if any(
+                    row["packed_device_to_host_transfer_count"]
+                    for row in collected_step_evidence
+                )
+                else 0
+            ),
+            "retained_cuda_tensor_count": 0,
+            "retained_prediction_tensor_count": 0,
+        },
     }
     return metric, gradient_evidence
 
@@ -678,6 +1232,13 @@ def _phase8b_bindings(
         ],
         "scheduled_view_aggregation": runtime[
             "scheduled_view_aggregation"
+        ],
+        "amp_compute_contract": runtime["amp_compute_contract"],
+        "optimizer_evidence_contract_version": runtime[
+            "optimizer_evidence_contract_version"
+        ],
+        "grad_scaler_initial_scale": runtime[
+            "grad_scaler_initial_scale"
         ],
         "execution_mode": runtime["execution_mode"],
         "model_class": type(model).__name__,
@@ -811,6 +1372,7 @@ def _report_common(
     masking: ResolvedPhase8BMaskingConfig,
     execution_mode: str,
     device: torch.device,
+    optimizer: torch.optim.Optimizer,
     scaler: torch.amp.GradScaler,
 ) -> dict[str, object]:
     from music_critic.ssl.engine import _device_evidence
@@ -840,6 +1402,14 @@ def _report_common(
             masking.scheduled_policies
         ),
         "scheduled_view_aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
+        "amp_compute_contract": PHASE8B_AMP_COMPUTE_CONTRACT,
+        "optimizer_evidence_contract_version": (
+            PHASE8B_OPTIMIZER_EVIDENCE_CONTRACT_VERSION
+        ),
+        "grad_scaler_initial_scale": PHASE8B_GRAD_SCALER_INITIAL_SCALE,
+        "optimizer_parameter_coverage": _optimizer_parameter_coverage(
+            model, optimizer
+        ),
         "cross_policy_manual_oracle": (
             phase8b_cross_policy_manual_oracle()
         ),
@@ -894,6 +1464,13 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
     )
     _write_initial_artifacts(output, resolved, runtime, model)
     batch = runtime.first_train_batch
+    input_fixture_fingerprint = _fingerprint(
+        {
+            "data_fingerprints": runtime.fingerprints,
+            "first_train_batch": _input_batch_fingerprint(batch),
+        }
+    )
+    initial_model_state_fingerprint = _model_state_fingerprint(model)
     initial, _ = _stage(
         model,
         (batch,),
@@ -974,7 +1551,9 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
 
     clone_optimizer = _optimizer(clone, resolved)
     clone_scaler = torch.amp.GradScaler(
-        device.type, enabled=bool(resolved["device"]["amp"])
+        device.type,
+        init_scale=PHASE8B_GRAD_SCALER_INITIAL_SCALE,
+        enabled=bool(resolved["device"]["amp"]),
     )
     state = load_ssl_checkpoint(
         checkpoint_path,
@@ -992,6 +1571,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
     )
     initial_loss = initial["total_ssl_loss"]
     final_loss = final["total_ssl_loss"]
+    final_model_state_fingerprint = _model_state_fingerprint(model)
     report = {
         **_report_common(
             config=resolved,
@@ -1001,10 +1581,20 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
             masking=masking,
             execution_mode=execution_mode,
             device=device,
+            optimizer=optimizer,
             scaler=scaler,
         ),
         "run_scope": "one_batch_plumbing",
         "steps": int(resolved["experiment"]["steps"]),
+        "input_fixture_fingerprint": input_fixture_fingerprint,
+        "model_state_fingerprints": {
+            "initial": initial_model_state_fingerprint,
+            "final": final_model_state_fingerprint,
+            "changed": (
+                initial_model_state_fingerprint
+                != final_model_state_fingerprint
+            ),
+        },
         "initial": initial,
         "final": final,
         "loss_decreased": (
@@ -1021,9 +1611,23 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         "optimization_stage_accounting": [
             row["accounting"] for row in step_metrics
         ],
+        "optimization_step_evidence": [
+            evidence
+            for row in step_metrics
+            for evidence in row["optimizer_step_evidence"]
+        ],
+        "cuda_peak_memory": _cuda_peak_memory(device),
         "duration_seconds": time.perf_counter() - started,
     }
+    report["mechanics_acceptance"] = _one_batch_mechanics_acceptance(
+        report
+    )
     _write_json_atomic(output / "one_batch_report.json", report)
+    if not report["mechanics_acceptance"]["passed"]:
+        raise Phase8BEngineError(
+            "phase8b.engine.one_batch_mechanics_acceptance_failed:"
+            + ",".join(report["mechanics_acceptance"]["failures"])
+        )
     return report
 
 
@@ -1105,6 +1709,7 @@ def _run_epochs(
         )
         _write_jsonl_atomic(output / "metrics.jsonl", ())
         _write_jsonl_atomic(output / "epoch_performance.jsonl", ())
+    starting_model_state_fingerprint = _model_state_fingerprint(model)
     completed = start_epoch
     epochs = int(resolved["experiment"]["epochs"])
     performance_rows = []
@@ -1136,6 +1741,17 @@ def _run_epochs(
         )
         if train["batch_count"] == 0:
             raise Phase8BEngineError("phase8b.engine.empty_train_epoch")
+        if train["accounting"]["optimizer_step_applied_count"] <= 0:
+            raise Phase8BEngineError(
+                "phase8b.engine.epoch_all_optimizer_steps_skipped"
+            )
+        if bool(resolved["experiment"]["collect_gradient_evidence"]) and (
+            gradient is None
+            or not gradient["acceptance"]["passed"]
+        ):
+            raise Phase8BEngineError(
+                "phase8b.engine.epoch_gradient_acceptance_failed"
+            )
         if scheduler is not None:
             scheduler.step()
         next_learning_rate = optimizer.param_groups[0]["lr"]
@@ -1240,12 +1856,17 @@ def _run_epochs(
             masking=masking,
             execution_mode=execution_mode,
             device=device,
+            optimizer=optimizer,
             scaler=scaler,
         ),
         "run_scope": "epoch_pretraining",
         "start_epoch": start_epoch,
         "completed_epochs": completed,
         "configured_epochs": epochs,
+        "model_state_fingerprints": {
+            "start_or_resume": starting_model_state_fingerprint,
+            "final": _model_state_fingerprint(model),
+        },
         "initial_validation": initial_validation,
         "best_validation_loss": best,
         "best_checkpoint_selection": (
@@ -1254,6 +1875,7 @@ def _run_epochs(
         "best_checkpoint": None if best is None else str(output / "best.pt"),
         "last_checkpoint": str(output / "last.pt"),
         "metrics": str(output / "metrics.jsonl"),
+        "cuda_peak_memory": _cuda_peak_memory(device),
         "epoch_performance": str(output / "epoch_performance.jsonl"),
         "resume_boundary": "epoch_only",
         "mid_epoch_resume_supported": False,
@@ -1280,7 +1902,9 @@ def run_phase8b_training(
 
 __all__ = [
     "PHASE8B_ENGINE_CONTRACT_VERSION",
+    "PHASE8B_GRAD_SCALER_INITIAL_SCALE",
     "PHASE8B_MASKING_CONFIG_CONTRACT_VERSION",
+    "PHASE8B_OPTIMIZER_EVIDENCE_CONTRACT_VERSION",
     "PHASE8B_RUN_MANIFEST_VERSION",
     "PHASE8B_TRAINING_REPORT_VERSION",
     "Phase8BEngineError",

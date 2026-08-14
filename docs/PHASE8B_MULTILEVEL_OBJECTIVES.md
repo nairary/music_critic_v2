@@ -13,6 +13,15 @@ This increment neither changes the canonical/raw graph nor reads theory
 targets, dataset identity, split, provenance, annotations, diagnostics, or
 quality flags as objective inputs. No full corpus was scanned or trained.
 
+Independent RTX 3090 acceptance on head
+`b41dd410e757db1f595880074c106c67327fb13e` invalidated the prior CUDA success
+claim: onset and equal-weight executed under AMP but applied no real parameter
+updates and did not decrease loss, while mask-only trained normally. That
+artifact is retained only as negative evidence for the zero-update defect.
+The remediation below is locally verified on CPU and with deterministic CPU
+autocast-FP16/scaler oracles; successful CUDA remediation remains pending an
+independent RTX rerun on the exact final head.
+
 The initial draft registered the Hydra objective group, public builder, and a
 bounded comparison runner, but the official `music_critic.ssl.run` /
 `ssl.engine` path still called `build_ssl_model()` and the Phase 7A forward
@@ -68,6 +77,14 @@ The online path uses the Phase 8A pitch overlay. The full-view target reuses
 the same encoder with no overlay, `eval()` behavior, `torch.no_grad()`, and no
 EMA teacher. Both are indexed by the same exact global raw-graph row indices.
 
+The official encoder may run in AMP float16, but each new Phase 8B
+projector/predictor is an explicit disabled-autocast FP32 island. Its linear,
+GELU, and LayerNorm operations receive FP32-cast online/full-view rows, and
+cosine normalization plus reduction remain FP32. The online cast is
+differentiable back to the encoder; only the full-view target is detached.
+This boundary does not alter Phase 7A heads. Phase 8B's public GradScaler
+starts at `16384` and retains normal public growth/backoff behavior.
+
 ## Exact entity eligibility and alignment
 
 `PreparedPhase8BObjectiveBinding@1.0.0` is a portable sidecar over one exact
@@ -92,7 +109,7 @@ similarity matrix.
 
 ## Family loss and weighting contract
 
-Each `Phase8BFamilyLoss@1.1.0` carries:
+Each `Phase8BFamilyLoss@1.2.0` carries:
 
 - summed numerator;
 - eligible entity denominator;
@@ -129,6 +146,10 @@ Metrics pack all available family numerators and the optimizer total into at
 most one device-to-host transfer per CPU batch, then retain only fixed-size
 detached CPU scalar/O(D) sufficient state. Reports retain neither prediction
 tensors, graph tensors, nor CUDA tensors.
+
+Metric detachment occurs after backward/step handling for a training batch;
+the differentiable optimizer total is not moved to CPU, detached, converted
+with `item()`/`float()`, or replaced before backward.
 
 ## Configuration and public API
 
@@ -217,19 +238,22 @@ Official Phase 8B checkpoint metadata and its resolved config bind:
 - concrete model class and execution mode;
 - active families and exact active weights;
 - masking config and Phase 8A policy-mixture fingerprints.
+- the FP32 projector/predictor compute boundary, optimizer-evidence contract,
+  and public GradScaler initial scale.
 
 The explicit Phase 7A transfer validates the complete old model contract,
 keys, shapes, and dtypes before mutation. It loads every old encoder/decoder/
 projector tensor, leaves every `phase8b_latent_heads.*` tensor at its separate
 initialization, and lists both sets plus counts and source checkpoint SHA-256
-in `Phase7AToPhase8BTransferReport@1.1.0`. New checkpoint save/load/resume is
+in `Phase7AToPhase8BTransferReport@1.2.0`. New checkpoint save/load/resume is
 strict; an incompatible objective fingerprint rejects before mutation.
 Changing objective mode/weight, masking mode/span policy, model contract, or
 active weights also rejects before checkpoint application. An old Phase 7A
 checkpoint cannot be resumed as Phase 8B; the separately named explicit
 transfer API starts a new run instead. Phase 8B engine/report/checkpoint
-bindings created before the family-global remediation are incompatible and
-reject fail-closed; the null Phase 7A checkpoint path is unchanged.
+bindings created before this CUDA/AMP remediation, including the invalid
+`b41dd410...` artifacts, lack the required compute/scaler/evidence bindings
+and reject fail-closed. The null Phase 7A checkpoint path is unchanged.
 
 ## Official training, validation, and accounting
 
@@ -245,9 +269,18 @@ zero denominator stays unavailable and never rescales another family.
 
 Every official report records the concrete model class, active families,
 resolved policies, registry/objective/masking/mixture fingerprints, eligible
-counts, retained-tensor counts, optimizer steps, model forwards, scheduled
-policy passes, family-view passes, eligible prediction rows, objective
-evaluations, packed D2H counters, and primary/collateral masked entities.
+counts, retained-tensor counts, optimizer step attempts/applied/skipped,
+public scaler values and skip decisions, optimizer parameter membership,
+per-path finite/non-zero gradients and exact parameter updates, initial/final
+model and input fingerprints, CUDA peak allocated/reserved bytes, model
+forwards, scheduled policy passes, family-view passes, eligible prediction
+rows, objective evaluations, packed D2H counters, and primary/collateral
+masked entities. One-batch acceptance writes its diagnostic report and then
+fails closed unless at least one update was really applied, loss decreased,
+model state changed, the fixture stayed identical, the encoder and every
+active head had finite non-zero gradients plus parameter updates, and inactive
+heads remained untouched. A scaler-skipped attempt is never counted as an
+optimizer step.
 The variants intentionally have different forward-pass counts: control and
 single-family modes schedule one pass per batch, while mask-only and equal
 weight schedule four. These runs are therefore not compute matched and are
@@ -256,24 +289,25 @@ model selection.
 
 ## Contracts
 
-Contracts that bind the corrected cross-policy semantics are `1.1.0`:
+Contracts that bind the corrected CUDA/AMP and cross-policy semantics are
+`1.2.0`:
 
 - objective registry and objective config;
 - family loss and combined objective loss;
 - model metadata and forward output;
 - metric aggregate;
-- official engine, masking config, run manifest, and training report;
+- official engine, run manifest, and training report;
 - Phase 8B checkpoint binding and Phase 7A transfer report;
 - bounded comparison report.
 
-Exact-identity eligible entities, prepared objective bindings, latent
-prediction rows, and the newly introduced batch-objective aggregate remain
-`1.0.0` because their local identity/prediction contracts did not encode the
-superseded pass-average rule. Existing Phase 7A/8A and checkpoint-container
-contracts are unchanged.
+The latent-prediction row contract is `1.1.0` because predictions and targets
+must now be FP32. The masking config remains `1.1.0`; exact-identity eligible
+entities, prepared objective bindings, and the batch-objective aggregate
+remain `1.0.0`. The new optimizer evidence contract is `1.0.0`. Existing
+Phase 7A/8A and checkpoint-container contracts are unchanged.
 
 Objective registry fingerprint:
-`47a9e38c3a82107956b2225c82fece50d841e3250afaec43d758964207dbadc3`.
+`f22dd98c64d6551848a8614b6af2f9de09f27a47fa8377c0d1cea6c1eae5e4a3`.
 No existing Phase 7A, Phase 8A, graph, canonical, cache, target, model-output,
 or checkpoint-container contract is revised.
 
@@ -302,9 +336,9 @@ step counts do not make those variants compute matched.
 The pre-remediation 783,207-byte report and its SHA-256 are invalid evidence
 for this contract. Two fresh reports are byte-identical at 976,674 bytes with
 report fingerprint
-`651c00f33dfcfe52aa2e2e9729f78d9d7a2e2b55ba5fce984b1eebb735374b46`
+`a84985a15cddf58c76f8cda99209fd6536c03e7a62c8b268e33f5942a534a1a8`
 and file SHA-256
-`13e0a5b931fe70bc948ffc2540a8f1f8c2439757b154a6cffc0c47d0c32aa653`.
+`2bef7c02e47ca22db0a42d7eeae985f0aa63b73a165361fbba85d9a3aa0548ba`.
 The unchanged mask-schedule fingerprint is
 `dd1527b66dd8ba41b10f66f176bea77c305b2ba772496a6142a7252ec52ad6b7`.
 Train initial to final family means were:
@@ -344,10 +378,33 @@ null Phase 7A route, every single family, equal weight, and mask-only; verify
 weight/fingerprint changes, structured incompatibility before output/optimizer
 mutation, one-batch decrease, manifest/checkpoint bindings, fixed validation,
 and uninterrupted two epochs versus stop/resume bit-exact state and journal.
-Optional onset/equal CUDA+AMP subprocesses use this same official engine and
-skip honestly on CPU-only hosts.
+Optional official CUDA subprocesses cover onset, beat, bar, track, equal, and
+mask-only in both FP32 and AMP float16, and skip honestly on CPU-only hosts.
+CPU autocast-FP16 oracles cover onset and equal with manual scale `16384` and
+require every observed encoder/active-head gradient tensor to be finite with
+non-zero coverage.
+
+The independent RTX command is:
+
+```bash
+CUBLAS_WORKSPACE_CONFIG=:4096:8 .venv/bin/python \
+  scripts/accept_phase8b_cuda_amp_training.py \
+  --expected-head <EXACT_FINAL_SHA> \
+  --output-dir /tmp/phase8b1-rtx3090-exact-final \
+  --steps 12
+```
+
+The runner rejects a dirty source tree or wrong exact head before training.
+For every mode it runs the official engine in FP32 and AMP, requires exit code
+zero and the fail-closed real-update evidence, then checks structural parity
+and the documented initial/final-loss tolerance (`rtol=0.02`, `atol=0.02`; no
+bit-exact FP32/AMP claim). It archives the full environment, commands, logs,
+reports, counters, per-path evidence, CUDA peak memory, combined result, and
+archive SHA-256. A launch failure or timeout is negative evidence, not a
+success. The archive is accepted only if every run and parity check passes.
 
 CUDA is optional in Phase 8B.1 and an unavailable local CUDA test is an honest
-skip, not hardware evidence. Phase 8B.1 does not run full HookTheory/POP909-CL
+skip, not hardware evidence. Independent RTX success on the exact final head
+is still pending. Phase 8B.1 does not run full HookTheory/POP909-CL
 SSL training, PDMX, Dilemmadata, Phase 8B.2 scientific comparison, Phase 9,
 PLL, preference critic, or quality scoring.

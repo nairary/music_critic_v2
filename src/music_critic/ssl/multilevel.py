@@ -48,17 +48,17 @@ from music_critic.ssl.objective import (
 )
 
 
-PHASE8B_OBJECTIVE_REGISTRY_CONTRACT_VERSION = "1.1.0"
-PHASE8B_OBJECTIVE_CONFIG_CONTRACT_VERSION = "1.1.0"
+PHASE8B_OBJECTIVE_REGISTRY_CONTRACT_VERSION = "1.2.0"
+PHASE8B_OBJECTIVE_CONFIG_CONTRACT_VERSION = "1.2.0"
 PHASE8B_ELIGIBLE_ENTITY_CONTRACT_VERSION = "1.0.0"
 PHASE8B_PREPARED_OBJECTIVE_BINDING_CONTRACT_VERSION = "1.0.0"
-PHASE8B_FAMILY_LOSS_CONTRACT_VERSION = "1.1.0"
-PHASE8B_OBJECTIVE_LOSS_CONTRACT_VERSION = "1.1.0"
+PHASE8B_FAMILY_LOSS_CONTRACT_VERSION = "1.2.0"
+PHASE8B_OBJECTIVE_LOSS_CONTRACT_VERSION = "1.2.0"
 PHASE8B_BATCH_OBJECTIVE_AGGREGATE_CONTRACT_VERSION = "1.0.0"
-PHASE8B_LATENT_PREDICTION_CONTRACT_VERSION = "1.0.0"
-PHASE8B_MODEL_CONTRACT_VERSION = "1.1.0"
-PHASE8B_MODEL_OUTPUT_CONTRACT_VERSION = "1.1.0"
-PHASE8B_METRIC_AGGREGATE_CONTRACT_VERSION = "1.1.0"
+PHASE8B_LATENT_PREDICTION_CONTRACT_VERSION = "1.1.0"
+PHASE8B_MODEL_CONTRACT_VERSION = "1.2.0"
+PHASE8B_MODEL_OUTPUT_CONTRACT_VERSION = "1.2.0"
+PHASE8B_METRIC_AGGREGATE_CONTRACT_VERSION = "1.2.0"
 
 PHASE7A_NOTE_RECONSTRUCTION = "phase7a_note_reconstruction"
 PHASE7A_BAR_LATENT = "phase7a_bar_latent"
@@ -124,6 +124,9 @@ _NO_AVAILABLE_ACTIVE_FAMILY = "no_available_active_objective_family"
 PHASE8B_SCHEDULED_VIEW_AGGREGATION = (
     "sum_family_numerators_across_scheduled_views_divided_by_"
     "sum_family_denominators_then_apply_each_family_weight_once"
+)
+PHASE8B_AMP_COMPUTE_CONTRACT = (
+    "phase8b_projector_predictor_normalization_cosine_and_reduction_float32"
 )
 
 
@@ -232,6 +235,7 @@ PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT = _canonical_sha256(
         "target_mode": "shared_stop_gradient_full_view_no_ema",
         "alignment": "exact_raw_graph_identity_and_canonical_ordering",
         "scheduled_view_aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
+        "amp_compute": PHASE8B_AMP_COMPUTE_CONTRACT,
         "families": [spec.to_dict() for spec in PHASE8B_OBJECTIVE_REGISTRY],
     }
 )
@@ -273,6 +277,7 @@ class Phase8BObjectiveConfig:
                 PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT
             ),
             "aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
+            "amp_compute": PHASE8B_AMP_COMPUTE_CONTRACT,
             "family_weights": [list(row) for row in ordered],
         }
         return cls(
@@ -368,6 +373,7 @@ class Phase8BObjectiveConfig:
                     PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT
                 ),
                 "aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
+                "amp_compute": PHASE8B_AMP_COMPUTE_CONTRACT,
                 "family_weights": [list(row) for row in self.family_weights],
             }
         )
@@ -390,6 +396,7 @@ class Phase8BObjectiveConfig:
                 PHASE8B_OBJECTIVE_REGISTRY_FINGERPRINT
             ),
             "aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
+            "amp_compute": PHASE8B_AMP_COMPUTE_CONTRACT,
             "family_weights": [list(row) for row in self.family_weights],
             "fingerprint": self.fingerprint,
         }
@@ -854,6 +861,8 @@ class Phase8BLatentPrediction:
             or self.prediction.shape != self.target.shape
             or self.prediction.ndim != 2
             or self.prediction.shape[0] != self.global_entity_indices.shape[0]
+            or self.prediction.dtype != torch.float32
+            or self.target.dtype != torch.float32
         ):
             raise ValueError("Phase 8B.1 latent rows are incompatible")
 
@@ -920,6 +929,7 @@ class Phase8BMultilevelSSLModel(MaskedGraphSSLModel):
             "objective_config": self.phase8b_objective_config.to_dict(),
             "target_mode": "shared_stop_gradient_full_view_no_ema",
             "aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
+            "amp_compute": PHASE8B_AMP_COMPUTE_CONTRACT,
             "new_head_parameter_count": self.new_head_parameter_count(),
         }
         return metadata
@@ -1039,10 +1049,19 @@ class Phase8BMultilevelSSLModel(MaskedGraphSSLModel):
             selected_full = self._level_rows(full_view, family).index_select(
                 0, indices
             )
-            prediction, target = self.phase8b_latent_heads[family](
-                selected_online,
-                selected_full,
-            )
+            # The outer official-engine autocast covers the encoder, but the
+            # new projector/predictor contains LayerNorm and feeds cosine
+            # recovery.  Keep this numerically sensitive boundary in FP32 so
+            # GradScaler does not spend the first bounded steps repeatedly
+            # backing off from non-finite FP16 gradients.
+            with torch.autocast(
+                device_type=selected_online.device.type,
+                enabled=False,
+            ):
+                prediction, target = self.phase8b_latent_heads[family](
+                    selected_online.to(dtype=torch.float32),
+                    selected_full.to(dtype=torch.float32),
+                )
             loss = representation_cosine_loss(
                 prediction,
                 target,
@@ -1678,6 +1697,7 @@ __all__ = [
     "PHASE7A_NOTE_RECONSTRUCTION",
     "PHASE7A_SONG_LATENT",
     "PHASE8B_ELIGIBLE_ENTITY_CONTRACT_VERSION",
+    "PHASE8B_AMP_COMPUTE_CONTRACT",
     "PHASE8B_BATCH_OBJECTIVE_AGGREGATE_CONTRACT_VERSION",
     "PHASE8B_CANONICAL_POLICY_ORDER",
     "PHASE8B_FAMILY_LOSS_CONTRACT_VERSION",

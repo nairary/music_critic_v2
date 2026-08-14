@@ -251,9 +251,14 @@ def test_phase8b_checkpoint_round_trip_binds_objective_fingerprint_and_is_atomic
         assert torch.equal(value, incompatible.state_dict()[name])
 
 
-def test_old_phase8b_runtime_binding_is_rejected_but_phase7a_is_unchanged() -> None:
+def test_b41_phase8b_runtime_binding_is_rejected_but_phase7a_is_unchanged() -> None:
     old_runtime = {
-        "engine_contract_version": "1.0.0",
+        "engine_contract_version": "1.1.0",
+        "checkpoint_binding_contract_version": "1.1.0",
+        "scheduled_view_aggregation": (
+            "sum_family_numerators_across_scheduled_views_divided_by_"
+            "sum_family_denominators_then_apply_each_family_weight_once"
+        ),
         "execution_mode": "onset_only",
         "model_class": "Phase8BMultilevelSSLModel",
         "objective_registry_fingerprint": "1" * 64,

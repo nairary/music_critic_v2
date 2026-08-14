@@ -50,7 +50,7 @@ from music_critic.ssl.multilevel import (
 from music_critic.ssl.objective import StreamingAntiCollapseDiagnostics
 
 
-PHASE8B_BOUNDED_COMPARISON_CONTRACT_VERSION = "1.1.0"
+PHASE8B_BOUNDED_COMPARISON_CONTRACT_VERSION = "1.2.0"
 PHASE8B_BOUNDED_COMPARISON_SCOPE = (
     "bounded_representation_recovery_mechanics_only"
 )

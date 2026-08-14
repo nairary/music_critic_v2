@@ -208,6 +208,9 @@ def ssl_checkpoint_metadata(
             "engine_contract_version",
             "checkpoint_binding_contract_version",
             "scheduled_view_aggregation",
+            "amp_compute_contract",
+            "optimizer_evidence_contract_version",
+            "grad_scaler_initial_scale",
             "execution_mode",
             "model_class",
             "objective_registry_fingerprint",
@@ -230,6 +233,30 @@ def ssl_checkpoint_metadata(
             "mask_policy_mixture_fingerprint",
         ):
             _sha256_field(phase8b_runtime[name], name=name)
+        for name in (
+            "engine_contract_version",
+            "checkpoint_binding_contract_version",
+            "scheduled_view_aggregation",
+            "amp_compute_contract",
+            "optimizer_evidence_contract_version",
+        ):
+            if (
+                not isinstance(phase8b_runtime[name], str)
+                or not phase8b_runtime[name]
+            ):
+                raise SSLCheckpointError(
+                    "ssl.checkpoint.phase8b_runtime_binding_invalid"
+                )
+        scale = phase8b_runtime["grad_scaler_initial_scale"]
+        if (
+            isinstance(scale, bool)
+            or not isinstance(scale, (int, float))
+            or not math.isfinite(float(scale))
+            or float(scale) <= 0.0
+        ):
+            raise SSLCheckpointError(
+                "ssl.checkpoint.phase8b_runtime_binding_invalid"
+            )
         metadata["phase8b_binding"] = copy.deepcopy(
             phase8b_runtime
         )

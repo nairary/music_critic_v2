@@ -2333,3 +2333,66 @@ This log is append-only.
   783,207-byte bounded artifacts and fingerprints are invalid evidence and
   were replaced by fresh byte-identical family-global artifacts for the exact
   remediation tree.
+
+## 2026-08-14 — ADR-065: Phase 8B.1 AMP training requires real-update evidence
+
+- Status: Accepted as CUDA/AMP zero-update remediation in draft PR #18. The
+  PR remains draft and unmerged. This does not authorize Phase 8B.2,
+  production/full-corpus training, PDMX, PLL, critic, or quality scoring.
+- Context: Independent RTX 3090 acceptance on exact head
+  `b41dd410e757db1f595880074c106c67327fb13e` showed successful CUDA execution
+  and two nominal optimizer steps but identical initial/final onset and
+  equal-weight losses, with zero non-zero-gradient counts for every online
+  encoder component. The Phase 8A mask-only control trained normally on the
+  same machine. The old CUDA smoke asserted only device/AMP/scaler routing,
+  and the engine counted a `scaler.step()` attempt as an optimizer step even
+  when public GradScaler overflow handling skipped the update.
+- Context: A deterministic CPU autocast-FP16 oracle reproduced the numerical
+  mechanism. The broad encoder autocast also covered each new Phase 8B
+  projector/predictor, including LayerNorm, and scale `65536` produced
+  non-finite head/encoder gradients. Equal-weight execution additionally had
+  no explicit online/full-view dtype boundary. Dynamic scaling could back off,
+  but two bounded steps were consumed by skipped updates while accounting
+  claimed success.
+- Decision: Keep only new `phase8b_latent_heads.*` projection, GELU,
+  LayerNorm, cosine normalization, and reduction in FP32 inside an explicit
+  disabled-autocast island. Preserve the differentiable cast back to the
+  online encoder and stop-gradient only the full-view target. Do not change
+  Phase 7A heads or the null-config route. Start the public Phase 8B GradScaler
+  at `16384`; retain normal public growth/backoff behavior.
+- Decision: Count `optimizer_step_attempt_count`,
+  `optimizer_step_applied_count`, and `optimizer_step_skipped_count`
+  separately. Infer an AMP skip only from the public `get_scale()` decrease
+  across `step()`/`update()`; retain `optimizer_step_count` as an alias for
+  applied steps. Record the first applied step's packed finite/non-zero
+  gradient counts and exact changed-parameter/element counts for the online
+  encoder, each Phase 8B head, and Phase 7A control paths. Record optimizer
+  membership and public scaler transitions without private PyTorch APIs.
+- Decision: An official bounded run fails closed unless at least one step is
+  applied, active Phase 8B heads and the online encoder have finite non-zero
+  gradients and exact parameter changes, inactive Phase 8B heads have neither,
+  the initial/final input fixture matches, model state changes, final loss is
+  finite, and bounded loss decreases. Phase 8A mask-only additionally requires
+  finite non-zero updates in its encoder/fusion/hierarchy/transformer,
+  decoder, and old projector paths.
+- Decision: Add an independent CUDA runner that executes FP32 and AMP on the
+  same seed, fixture, policies, and initialization for onset, beat, bar,
+  track, equal, and mask-only. Require exact identities/denominators/family
+  structure and initial/final loss parity within documented `rtol=0.02,
+  atol=0.02`; do not require FP32/FP16 bit identity. Save complete subprocess
+  logs, official reports, counters, gradients, parameter updates, losses,
+  scaler evidence, CUDA peaks, environment, and an archive.
+- Decision: Advance affected Phase 8B objective/model/engine/report/checkpoint
+  and bounded-comparison contracts to `1.2.0`; latent prediction advances to
+  `1.1.0`; new optimizer and CUDA-training-acceptance evidence begin at
+  `1.0.0`. Masking remains `1.1.0`; eligibility/prepared binding/batch
+  aggregate remain `1.0.0`; graph/canonical/ontology and Phase 7 contracts do
+  not change. Bind the FP32 AMP compute rule, scaler initial scale, and
+  optimizer-evidence contract into Phase 8B checkpoints so head
+  `b41dd410...` artifacts reject fail-closed.
+- Consequences: The RTX artifact from `b41dd410...` is invalid as successful
+  training evidence. It remains valid negative evidence proving CUDA routing
+  and exposing the zero-update defect. Local CPU/FP16 and contract tests can
+  prove the code path and failure semantics, but successful CUDA remediation
+  remains unclaimed until the independent RTX 3090 runner passes on the exact
+  final head.

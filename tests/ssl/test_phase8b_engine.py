@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 from hashlib import sha256
 import json
+import math
 import os
 from pathlib import Path
 import random
@@ -15,7 +16,15 @@ import torch
 
 from music_critic.ssl.config import register_ssl_configs
 from music_critic.ssl.engine import _plain_config, run_ssl_training
-from music_critic.ssl.phase8b_engine import Phase8BEngineError
+from music_critic.ssl.multilevel import PHASE8B_NEW_OBJECTIVE_FAMILIES
+from music_critic.ssl.phase8b_engine import (
+    Phase8BEngineError,
+    _evidence_parameter_groups,
+    _optimization_step_evidence,
+    _parameter_snapshots,
+    _prepare,
+    _stage,
+)
 from music_critic.training.checkpoint import capture_rng_state
 
 
@@ -172,6 +181,131 @@ def _assert_family_global_total(stage: dict[str, object]) -> None:
     assert objective["optimizer_reported_total_consistency"]["consistent"]
 
 
+class _SkipOncePublicScalerOracle:
+    """Public GradScaler-surface oracle: first step skips, second applies."""
+
+    def __init__(self) -> None:
+        self._scale = 16.0
+        self._step_index = 0
+
+    def is_enabled(self) -> bool:
+        return True
+
+    def get_scale(self) -> float:
+        return self._scale
+
+    def scale(self, loss: torch.Tensor) -> torch.Tensor:
+        return loss
+
+    def unscale_(self, _optimizer: torch.optim.Optimizer) -> None:
+        return None
+
+    def step(self, optimizer: torch.optim.Optimizer) -> None:
+        if self._step_index > 0:
+            optimizer.step()
+
+    def update(self) -> None:
+        if self._step_index == 0:
+            self._scale /= 2.0
+        self._step_index += 1
+
+
+def test_optimizer_attempt_applied_skipped_accounting_uses_public_scaler_state(
+    tmp_path: Path,
+) -> None:
+    config = _pretrain_config(tmp_path / "skip-oracle")
+    config.experiment.name = "one_batch"
+    config.experiment.steps = 2
+    (
+        _output,
+        device,
+        runtime,
+        model,
+        optimizer,
+        _scheduler,
+        _scaler,
+        objective,
+        masking,
+        execution_mode,
+        resolved,
+    ) = _prepare(_plain_config(config))
+    scaler = _SkipOncePublicScalerOracle()
+    metric, gradient = _stage(
+        model,
+        (runtime.first_train_batch, runtime.first_train_batch),
+        objective=objective,
+        masking=masking,
+        execution_mode=execution_mode,
+        config=resolved,
+        device=device,
+        epoch=0,
+        stage="train",
+        optimizer=optimizer,
+        scaler=scaler,
+        collect_gradient_evidence=True,
+    )
+    accounting = metric["accounting"]
+    assert accounting["optimizer_step_attempt_count"] == 2
+    assert accounting["optimizer_step_applied_count"] == 1
+    assert accounting["optimizer_step_skipped_count"] == 1
+    assert accounting["optimizer_step_count"] == 1
+    assert metric["amp_scaler_evidence"]["scale_decrease_skip_count"] == 1
+    assert metric["amp_scaler_evidence"][
+        "scale_non_decrease_applied_count"
+    ] == 1
+    assert len(metric["optimizer_step_evidence"]) == 2
+    assert not metric["optimizer_step_evidence"][0][
+        "optimizer_step_applied"
+    ]
+    assert metric["optimizer_step_evidence"][1][
+        "optimizer_step_applied"
+    ]
+    assert gradient is not None
+    assert gradient["acceptance"]["passed"]
+
+
+def test_zero_gradient_and_zero_update_evidence_fails_closed(
+    tmp_path: Path,
+) -> None:
+    config = _pretrain_config(tmp_path / "zero-gradient")
+    (
+        _output,
+        _device,
+        _runtime,
+        model,
+        _optimizer,
+        _scheduler,
+        _scaler,
+        objective,
+        _masking,
+        _execution_mode,
+        _resolved,
+    ) = _prepare(_plain_config(config))
+    groups = _evidence_parameter_groups(model)
+    snapshots = _parameter_snapshots(groups)
+    for _name, parameter in groups["online_encoder"]:
+        parameter.grad = torch.zeros_like(parameter)
+    for _name, parameter in groups["onset_latent"]:
+        parameter.grad = torch.zeros_like(parameter)
+    evidence = _optimization_step_evidence(
+        model,
+        objective=objective,
+        groups=groups,
+        snapshots=snapshots,
+        scaler_enabled=True,
+        scale_before=16384.0,
+        scale_after=16384.0,
+        optimizer_step_applied=True,
+    )
+    assert not evidence["acceptance"]["passed"]
+    assert "online_encoder_finite_nonzero_update_missing" in evidence[
+        "acceptance"
+    ]["failures"]
+    assert "active_head_invalid:onset_latent" in evidence["acceptance"][
+        "failures"
+    ]
+
+
 def test_real_cli_without_phase8_config_uses_exact_phase7a_path(
     tmp_path: Path,
 ) -> None:
@@ -205,11 +339,23 @@ def test_real_cli_single_level_routes_only_its_family_and_policy(
     assert report["active_objective_families"] == [_FAMILY[mode]]
     assert report["resolved_mask_policies"] == [_POLICY[mode]]
     assert report["accounting"]["optimizer_step_count"] == 1
+    assert report["accounting"]["optimizer_step_attempt_count"] == 1
+    assert report["accounting"]["optimizer_step_applied_count"] == 1
+    assert report["accounting"]["optimizer_step_skipped_count"] == 0
     assert report["accounting"]["forward_pass_count"] == 3
     assert report["accounting"]["scheduled_policy_pass_count"] == 3
     assert report["accounting"]["objective_evaluation_count"] == 3
     assert report["initial"]["retained_cuda_tensor_count"] == 0
     assert report["initial"]["retained_prediction_tensor_count"] == 0
+    assert report["mechanics_acceptance"]["passed"]
+    evidence = report["gradient_coverage"]["groups"]
+    active = evidence[_FAMILY[mode]]
+    assert active["finite_gradient_count"] == active["with_gradient_count"]
+    assert active["nonzero_gradient_count"] > 0
+    assert active["changed_parameter_count"] > 0
+    for family in set(PHASE8B_NEW_OBJECTIVE_FAMILIES) - {_FAMILY[mode]}:
+        assert evidence[family]["with_gradient_count"] == 0
+        assert evidence[family]["changed_parameter_count"] == 0
 
 
 def test_real_cli_equal_and_mask_only_exercise_all_hierarchy_policies(
@@ -456,25 +602,158 @@ def test_changed_policy_resume_rejects_before_rng_or_artifact_mutation(
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA unavailable")
-@pytest.mark.parametrize("mode", ("onset_only", "multilevel_equal_weight"))
+@pytest.mark.parametrize(
+    "mode",
+    (
+        "onset_only",
+        "beat_only",
+        "bar_only",
+        "track_only",
+        "multilevel_equal_weight",
+        "phase8a_mask_only",
+    ),
+)
 def test_official_engine_cuda_amp_smoke(tmp_path: Path, mode: str) -> None:
     output = tmp_path / f"cuda-{mode}"
     command = _common_cli(output)
     command[command.index("device=cpu")] = "device=cuda"
+    command[command.index("experiment.steps=1")] = "experiment.steps=8"
+    overrides = (
+        (
+            "+phase8b_objective=phase7a_control",
+            "+phase8b_masking=phase8a_mask_only",
+        )
+        if mode == "phase8a_mask_only"
+        else (
+            f"+phase8b_objective={mode}",
+            f"+phase8b_masking={mode}",
+        )
+    )
     subprocess.run(
         [
             *command,
-            f"+phase8b_objective={mode}",
-            f"+phase8b_masking={mode}",
+            *overrides,
             "device.amp=true",
         ],
         cwd=_ROOT,
         check=True,
         capture_output=True,
         text=True,
-        timeout=180,
+        timeout=360,
     )
     report = _report(output)
     assert report["device"]["resolved_device"].startswith("cuda")
     assert report["amp_enabled"]
     assert report["scaler_enabled"]
+    assert report["mechanics_acceptance"]["passed"]
+    assert report["accounting"]["optimizer_step_attempt_count"] == 8
+    assert report["accounting"]["optimizer_step_applied_count"] > 0
+    assert report["accounting"]["optimizer_step_attempt_count"] == (
+        report["accounting"]["optimizer_step_applied_count"]
+        + report["accounting"]["optimizer_step_skipped_count"]
+    )
+    assert report["model_state_fingerprints"]["changed"]
+    assert report["initial"]["input_batch_fingerprints"] == report["final"][
+        "input_batch_fingerprints"
+    ]
+    assert report["loss_decreased"]
+    assert math.isfinite(report["final"]["total_ssl_loss"])
+    assert report["cuda_peak_memory"]["peak_allocated_bytes"] > 0
+    assert report["cuda_peak_memory"]["peak_reserved_bytes"] > 0
+    gradient = report["gradient_coverage"]
+    assert gradient["acceptance"]["passed"]
+    encoder = gradient["groups"]["online_encoder"]
+    assert encoder["finite_gradient_count"] == encoder["with_gradient_count"]
+    assert encoder["nonzero_gradient_count"] > 0
+    assert encoder["changed_parameter_count"] > 0
+    active_new = (
+        set(PHASE8B_NEW_OBJECTIVE_FAMILIES)
+        if mode == "multilevel_equal_weight"
+        else ({_FAMILY[mode]} if mode in _FAMILY else set())
+    )
+    for family in PHASE8B_NEW_OBJECTIVE_FAMILIES:
+        row = gradient["groups"][family]
+        if family in active_new:
+            assert row["finite_gradient_count"] == row["with_gradient_count"]
+            assert row["nonzero_gradient_count"] > 0
+            assert row["changed_parameter_count"] > 0
+        else:
+            assert row["with_gradient_count"] == 0
+            assert row["changed_parameter_count"] == 0
+    if mode == "phase8a_mask_only":
+        for group in (
+            "online_local_encoder",
+            "hierarchy_pooling",
+            "transformer",
+            "fusion",
+            "decoder",
+            "phase7a_bar_projector",
+            "phase7a_bar_predictor",
+            "phase7a_song_projector",
+            "phase7a_song_predictor",
+        ):
+            row = gradient["groups"][group]
+            assert row["finite_gradient_count"] == row["with_gradient_count"]
+            assert row["nonzero_gradient_count"] > 0
+            assert row["changed_parameter_count"] > 0
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA unavailable")
+@pytest.mark.parametrize("mode", ("onset_only", "multilevel_equal_weight"))
+def test_official_engine_cuda_fp32_amp_bounded_parity(
+    tmp_path: Path, mode: str
+) -> None:
+    reports = {}
+    for precision, amp in (("fp32", False), ("amp", True)):
+        output = tmp_path / f"parity-{mode}-{precision}"
+        command = _common_cli(output)
+        command[command.index("device=cpu")] = "device=cuda"
+        command[command.index("experiment.steps=1")] = "experiment.steps=8"
+        subprocess.run(
+            [
+                *command,
+                f"+phase8b_objective={mode}",
+                f"+phase8b_masking={mode}",
+                f"device.amp={'true' if amp else 'false'}",
+            ],
+            cwd=_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=360,
+        )
+        reports[precision] = _report(output)
+    fp32, amp = reports["fp32"], reports["amp"]
+    assert fp32["input_fixture_fingerprint"] == amp["input_fixture_fingerprint"]
+    assert fp32["model_state_fingerprints"]["initial"] == (
+        amp["model_state_fingerprints"]["initial"]
+    )
+    assert fp32["resolved_mask_policies"] == amp["resolved_mask_policies"]
+    assert fp32["initial"]["prepared_binding_fingerprints"] == (
+        amp["initial"]["prepared_binding_fingerprints"]
+    )
+    assert fp32["initial"]["prepared_objective_binding_fingerprints"] == (
+        amp["initial"]["prepared_objective_binding_fingerprints"]
+    )
+    assert fp32["initial"]["objective"]["family_denominators"] == (
+        amp["initial"]["objective"]["family_denominators"]
+    )
+    assert fp32["initial"]["objective"]["family_view_pass_counts"] == (
+        amp["initial"]["objective"]["family_view_pass_counts"]
+    )
+    assert fp32["final"]["objective"]["family_denominators"] == (
+        amp["final"]["objective"]["family_denominators"]
+    )
+    assert fp32["final"]["objective"]["family_view_pass_counts"] == (
+        amp["final"]["objective"]["family_view_pass_counts"]
+    )
+    assert fp32["initial"]["total_ssl_loss"] == pytest.approx(
+        amp["initial"]["total_ssl_loss"], rel=0.02, abs=0.02
+    )
+    assert fp32["mechanics_acceptance"]["passed"]
+    assert amp["mechanics_acceptance"]["passed"]
+    assert math.isfinite(fp32["final"]["total_ssl_loss"])
+    assert math.isfinite(amp["final"]["total_ssl_loss"])
+    assert fp32["final"]["total_ssl_loss"] == pytest.approx(
+        amp["final"]["total_ssl_loss"], rel=0.02, abs=0.02
+    )
