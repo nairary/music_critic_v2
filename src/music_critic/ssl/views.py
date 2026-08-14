@@ -55,7 +55,10 @@ class FeatureSlotMask:
             raise SSLContractError(
                 "global feature-mask indices must be non-negative integers"
             )
-        if indices != tuple(sorted(indices)) or len(indices) != len(set(indices)):
+        if any(
+            left >= right
+            for left, right in zip(indices, indices[1:])
+        ):
             raise SSLContractError(
                 "global feature-mask indices must be uniquely sorted"
             )
@@ -145,8 +148,13 @@ class FeatureMaskOverlay:
             raise SSLContractError("feature overlay graph count must be positive")
         node_types = tuple(node_type for node_type, _ in self.node_counts)
         if (
-            node_types != tuple(sorted(node_types))
-            or len(node_types) != len(set(node_types))
+            any(
+                left >= right
+                for left, right in zip(
+                    node_types,
+                    node_types[1:],
+                )
+            )
             or any(
                 not isinstance(node_type, str)
                 or not node_type
@@ -438,7 +446,7 @@ def _ptr(
 
 
 def _validate_collateral(
-    plan: MaskPlan,
+    plan: object,
 ) -> tuple[CollateralFeatureMask, CollateralFeatureMask]:
     expected = NOTE_PITCH_GROUP
     if plan.primary_feature_group != expected.name:
@@ -465,6 +473,37 @@ def _validate_collateral(
             "mask plan collateral fields differ from the Phase 7A registry"
         )
     return peer, track
+
+
+def _validated_plan_fingerprint(plan: object) -> str:
+    """Dispatch only exact known portable plan contracts."""
+
+    if type(plan) is MaskPlan:
+        return mask_plan_fingerprint(plan)
+    from music_critic.ssl.hierarchical_masking import (
+        HierarchicalMaskPlan,
+        hierarchical_mask_plan_fingerprint,
+    )
+
+    if type(plan) is not HierarchicalMaskPlan:
+        raise SSLContractError(
+            "feature overlay received an unsupported plan type"
+        )
+    if not plan.available:
+        raise SSLContractError(
+            "feature overlay cannot bind an unavailable hierarchy plan"
+        )
+    return hierarchical_mask_plan_fingerprint(plan)
+
+
+def _is_supported_plan(plan: object) -> bool:
+    if type(plan) is MaskPlan:
+        return True
+    from music_critic.ssl.hierarchical_masking import (
+        HierarchicalMaskPlan,
+    )
+
+    return type(plan) is HierarchicalMaskPlan
 
 
 def _owner_track_by_note(graph: HeteroData) -> tuple[int, ...]:
@@ -494,13 +533,40 @@ def _owner_track_by_note(graph: HeteroData) -> tuple[int, ...]:
     return tuple(owners)
 
 
+def _merge_sorted_unique_indices(
+    left: tuple[int, ...],
+    right: tuple[int, ...],
+) -> tuple[int, ...]:
+    """Return a sorted union in linear time."""
+
+    merged: list[int] = []
+    left_index = 0
+    right_index = 0
+    while left_index < len(left) and right_index < len(right):
+        left_value = left[left_index]
+        right_value = right[right_index]
+        if left_value < right_value:
+            merged.append(left_value)
+            left_index += 1
+        elif right_value < left_value:
+            merged.append(right_value)
+            right_index += 1
+        else:
+            merged.append(left_value)
+            left_index += 1
+            right_index += 1
+    merged.extend(left[left_index:])
+    merged.extend(right[right_index:])
+    return tuple(merged)
+
+
 def build_feature_mask_overlay(
     graph: HeteroData,
-    plans: MaskPlan | Sequence[MaskPlan],
+    plans: object | Sequence[object],
 ) -> FeatureMaskOverlay:
     """Build global row masks without copying or mutating the raw graph."""
 
-    if isinstance(plans, MaskPlan):
+    if _is_supported_plan(plans):
         prepared = (plans,)
     elif isinstance(plans, (str, bytes)) or not isinstance(plans, Sequence):
         raise SSLContractError("feature overlay plans must be a sequence")
@@ -511,15 +577,26 @@ def build_feature_mask_overlay(
         raise SSLContractError(
             "feature overlay requires exactly one plan per source graph"
         )
-    if not all(isinstance(plan, MaskPlan) for plan in prepared):
-        raise SSLContractError("feature overlay received a non-MaskPlan value")
+    if not all(_is_supported_plan(plan) for plan in prepared):
+        raise SSLContractError(
+            "feature overlay received an unsupported plan value"
+        )
     if isinstance(graph, Batch):
         validate_raw_graph_batch(graph, sample_count=graph_count)
     else:
         validate_raw_graph(graph)
+    if any(type(plan) is not MaskPlan for plan in prepared):
+        from music_critic.ssl.hierarchical_masking import (
+            validate_hierarchical_mask_plans_against_graph,
+        )
+
+        validate_hierarchical_mask_plans_against_graph(
+            graph,
+            prepared,
+        )
     collateral_by_plan = []
     for plan in prepared:
-        if plan.fingerprint != mask_plan_fingerprint(plan):
+        if plan.fingerprint != _validated_plan_fingerprint(plan):
             raise SSLContractError("feature overlay received a mutated mask plan")
         collateral_by_plan.append(_validate_collateral(plan))
 
@@ -553,16 +630,17 @@ def build_feature_mask_overlay(
             for index in track_collateral.local_node_indices
         ):
             raise SSLContractError("collateral track index is out of range")
+        selected_owner_tracks = {
+            owner_track_by_note[
+                note_ptr[sample_index] + local_index
+            ]
+            - track_ptr[sample_index]
+            for local_index in plan.selected_local_node_indices
+        }
         expected_track_collateral = tuple(
-            sorted(
-                {
-                    owner_track_by_note[
-                        note_ptr[sample_index] + local_index
-                    ]
-                    - track_ptr[sample_index]
-                    for local_index in plan.selected_local_node_indices
-                }
-            )
+            local_track_index
+            for local_track_index in range(track_count)
+            if local_track_index in selected_owner_tracks
         )
         if (
             track_collateral.local_node_indices
@@ -630,7 +708,10 @@ def build_feature_mask_overlay(
             ),
             field=field,
             global_node_indices=(
-                tuple(sorted(set(primary_indices) | set(peer_indices)))
+                _merge_sorted_unique_indices(
+                    primary_indices,
+                    peer_indices,
+                )
                 if field
                 in NOTE_PITCH_GROUP.peer_note_collateral_fields
                 else primary_indices
@@ -664,7 +745,7 @@ def build_feature_mask_overlay(
 
 def build_masked_feature_overlay(
     graph: HeteroData,
-    plans: MaskPlan | Sequence[MaskPlan],
+    plans: object | Sequence[object],
     *,
     mask_token: Tensor | None = None,
 ) -> FeatureMaskOverlay | BoundFeatureMaskOverlay:

@@ -1727,6 +1727,435 @@ This log is append-only.
   prepared binding, masking, graph/canonical schema, ontology, encoding,
   dataset, cache, and model architecture contracts remain unchanged.
   Historical Phase 7A positive-margin values and fingerprints remain
-  historical diagnostics. PR #17 remains draft until Required CI and an
-  independent RTX 3090 rerun pass on the exact final commit with exact
-  passed/skipped counts and bounded-smoke peak allocated/reserved VRAM.
+  historical diagnostics. At this decision point PR #17 remained draft
+  pending Required CI and independent RTX 3090 evidence; it was subsequently
+  accepted and merged at main
+  `5afec305cfa62ab2c200c5b1e7270ae35cd8a102`.
+
+## 2026-07-30 — ADR-055: Phase 8A adds start-anchored hierarchy views without new objectives
+
+- Status: Accepted for implementation on the Phase 8A draft branch. Merge
+  still requires maintainer review and both final-head Required workflow runs.
+  This ADR does not start Phase 8B or authorize production training.
+- Context: Accepted Phase 7A masks independent note-pitch rows. Musical events
+  also have raw onset, beat, bar, and track ownership that can define coherent
+  views without adding theory labels or changing the graph. The increment must
+  preserve Phase 7A artifacts/checkpoints and its complete prepared-input
+  security boundary.
+- Decision: Define exactly five Phase 8A policy names. Control
+  `independent_note_pitch` dispatches directly to the unchanged Phase 7A
+  `uniform_note_without_replacement` builder. New
+  `onset_pitch_descendants` follows `onset -> starts_note -> note`;
+  `beat_pitch_descendants` follows
+  `beat -> contains_onset -> onset -> starts_note -> note`;
+  `contiguous_bar_pitch_span` follows
+  `bar -> contains_onset -> onset -> starts_note -> note` over one contiguous
+  bounded bar range; and `track_bar_pitch_span` intersects that range with one
+  raw `track -> contains_note -> note` ownership set. No melody/chord/bass/
+  voice role is accepted.
+- Decision: Span semantics are start-anchored. A note beginning before a
+  selected span is not primary merely because it remains active inside it.
+  `active_at`/`has_active_note` remain visible encoder topology and are never
+  traversed by the planner.
+- Decision: Every new policy is pitch-only. Primary rows mask note `pitch`,
+  `pitch_class`, `octave`, and `track_relative_pitch`, including availability.
+  The unchanged Phase 7A closure also masks relative pitch/availability on
+  unselected affected-track peers and mean/std/min/max pitch/availability on
+  affected tracks. Rhythm, velocity, membership, and topology remain visible;
+  collateral rows are not reconstruction targets.
+- Decision: The fail-closed audit pins all 68 raw feature identities and raw
+  registry fingerprint
+  `567a5fdbb0d132010af4716c5988686c2bdf998cf6f1b2eec897f8af3ca8c0e2`.
+  It serializes the four primary fields, four unique owner-track collateral
+  fields, and the exact ordered 60-field visible remainder; the peer-note
+  relative-pitch field is already one of the primary identities but applies
+  to a different row population. The resulting leakage-audit fingerprint is
+  `27fc135b61649e5b892036dd0aacc92f679493ff671320c8235d33396a7c9949`.
+  The eight unique note/track fields above are the only current exact pitch
+  values, duplicates, or aggregates. Same-track simultaneous-note topology
+  can expose relative rank because canonical ordering uses a pitch tie-break;
+  it is deliberately visible and is not described as pitch-information-free.
+- Decision: Build one target-blind CPU sparse hierarchy index. It rejects
+  duplicate/missing note-onset, onset-beat/bar, beat-bar, and note-track
+  ownership, disagreement between an onset's direct bar and its owning beat's
+  bar, duplicate relevant edges, cross-sample endpoints, disagreement between
+  direct and composed start-bar ownership, and malformed bar continuity.
+  Its portable structure fingerprint contains local counts/endpoints, never
+  batch position, feature values, entity IDs, targets, provenance, or
+  diagnostics.
+- Decision: For onset/beat policies, apply a versioned linear deterministic
+  permutation, visit units once, deduplicate descendants, and compare valid
+  prefixes immediately before/after crossing the requested hidden-note
+  budget. For spans, enforce
+  `1 <= min_span_bars <= max_span_bars <= 8`, enumerate bounded contiguous
+  candidates, and use stable seed evidence for equal-distance ties.
+  Track/bar enumeration is sparse around occupied cells rather than dense
+  tracks-by-bars. Every available hierarchy plan masks at least one note and
+  leaves at least one pitched note visible.
+- Decision: An impossible or disabled policy produces a versioned structured
+  reason and never silently falls back. A versioned configuration records all
+  ordered weights and span bounds. Mixture resolution explicitly records the
+  eligible set, deterministic renormalized weights, resolution seed, selected
+  policy, and report-level realized frequencies.
+- Decision: Introduce a distinct portable
+  `PreparedHierarchyMaskBinding@1.0.0` envelope and
+  `Phase8AHierarchySSLForwardOutput@1.0.0` instead of changing the existing
+  Phase 7A binding/output shapes. The hierarchy binding reuses the exact
+  `PreparedMaskBinding@1.1.0` graph/store/tensor runtime-evidence kernel, HMAC,
+  opaque token, transfer renewal, and private prepared encoder, and
+  additionally binds configuration and ordered resolution fingerprints.
+  There is no parallel validator or public bypass. The portable Phase 7A
+  `to_dict()`/fingerprint is the compatibility boundary even though the
+  internal shared dataclass has hierarchy-only optional fields used by its
+  strict subclass. An independent-only configuration delegates to the old
+  preparation function, preserving old plan, overlay, binding, and numerical
+  artifacts exactly.
+- Decision: Phase 8A adds no model parameter, head, objective, Hydra root
+  field, checkpoint metadata field, or training-engine artifact. Existing
+  Phase 7A note/bar/song objectives are bounded integration smoke only.
+  Phase 8B owns future onset/beat/bar/track objectives, held-out comparison,
+  and ablations.
+- Decision: Phase 8A is mechanics evidence, not likelihood, PLL, critic,
+  quality, representation-improvement, or scaled-effectiveness evidence.
+  No HookTheory/POP909 full scan, PDMX projection, production cache rebuild, or
+  production/full-corpus SSL training is authorized.
+- Consequences: New hierarchical plan, policy, configuration, mixture,
+  unit/descendant evidence, unavailable reason, prepared hierarchy binding,
+  hierarchy output, profile, leakage-audit, fixture, acceptance, and benchmark
+  contracts start at `1.0.0`. The policy contract fingerprint is
+  `b188e90a60d3ec6184dfdb3233ef37b1a0ea133cd5957a10fad3eddf58d77ccd`.
+  Existing MaskPlan/policy/overlay, `PreparedMaskBinding@1.1.0`,
+  `SSLForwardOutput@1.2.0`, SSL model/checkpoint/config, graph/canonical/cache/
+  split, target, and Phase 6 contracts do not change.
+- Consequences: Planner/index work is
+  `O(nodes + relevant edges + emitted candidate/mask entries)` for the
+  contract-fixed span bound. SplitMix64/Fisher-Yates unit permutation and
+  linear scans avoid comparison sorts on node-sized planner inputs. No dense
+  node-unit/note-note matrix, clique, full `O(B²)` spans, or all-note-pairs
+  loop is constructed.
+  Benchmark
+  retained JSON bytes are not Python/CUDA/total peak-memory evidence, and no
+  GPU performance claim is made.
+
+## 2026-07-30 — ADR-056: Phase 8A span choice uses a bounded near-optimal seed-dependent pool
+
+- Status: Accepted for the final pre-merge remediation of draft PR #16.
+  Merge still requires both Required workflow runs and independent
+  exact-final RTX 3090 CUDA/AMP evidence. This decision does not start Phase
+  8B or authorize production training. It supersedes only ADR-055's
+  exact-closest span-selection sentence and its initial versions for the
+  contracts listed below.
+- Context: ADR-055 selected the exact-closest span and used the seed only to
+  break equal-error ties. A graph with one unique closest candidate therefore
+  chose the same actual span across epochs even though a seed was bound. Phase
+  8A requires deterministic, seed-dependent view diversity without permitting
+  unbounded budget error, dense candidate structures, or accelerator-to-host
+  planning.
+- Decision: Replace only the span selector with
+  `bounded_near_optimal_seed_rank_v1`. First scan all valid candidates for the
+  best absolute hidden-note budget error. In a second pass admit candidates
+  through `best_error + span_budget_error_slack`, retain the canonically
+  smallest configured number ordered by error, track, start, end, and exact
+  descendants, then choose one retained candidate by domain-separated stable
+  seed SHA-256 rank with the canonical key as collision fallback.
+- Decision: Policy configuration binds integer
+  `span_selection_pool_size` in `[1, 8]` and
+  `span_budget_error_slack` in `[0, 8]`. Defaults are pool size `4` and slack
+  `1`. Pool size `1` is the canonical exact-closest control; slack `0`
+  restricts admission to exact-best error. The pool is canonical and therefore
+  independent of candidate enumeration order.
+- Decision: Selection evidence records total valid candidates, best error,
+  tolerance-qualified candidates, retained-pool count, configured pool/slack,
+  selected error/start/end/track, selected descendant count, realized mask
+  rate, and method identifier. Plan validation binds these fields to the
+  configuration and canonical graph-aware recomputation.
+- Decision: Bounded-fixture audit uses seed `42`, mask rate `0.30`, and train
+  epochs `0..63`. Both span policies produce actual selection diversity for
+  every one of the four train identities and every selected error is within
+  `best + 1`. In the crafted unique-closest single-bar track case, six valid
+  candidates contain one error-0 candidate and five error-1 candidates; the
+  default pool selects four actual spans with error distribution
+  `0:14, 1:50` and exact replay. Pool size `1` and slack `0` each retain the
+  unique closest selection. This audit justifies bounded defaults, not masking
+  quality or corpus representativeness.
+- Decision: Existing candidate construction retains `O(C+S)` candidates and
+  descendant entries. The bounded selector uses `O(C*K)=O(C)` time because
+  `K <= 8`, plus `O(K)` selection scratch. It performs no full/unbounded
+  candidate sort, dense tracks-by-bars representation, or pairwise note
+  construction.
+- Decision: Preserve the independent Phase 7A control exactly and reprove it
+  on CPU and, when available, explicit indexed-CUDA with AMP. The optional
+  command emits `Phase8ACudaAmpHardwareEvidence@1.0.0` separately from
+  portable CPU acceptance. All five policies and the mixture must bind
+  concrete `cuda:0`, complete finite forward/loss/gradient execution, and
+  record peak allocated/reserved VRAM. CUDA absence is an honest skip, never
+  substituted CPU evidence. Independent exact-final RTX 3090 execution remains
+  a pre-merge gate.
+- Decision: Streaming anti-collapse diagnostics are not redesigned here.
+  Retained state is `O(D)`, but current `from_values` creates temporary
+  float64 `N x D` values and normalized working tensors. No `O(D)` peak
+  temporary-memory claim is permitted; real CUDA cost remains unmeasured, and
+  production SSL requires a separate RTX 3090 profiler/optimization gate.
+- Consequences: Hierarchical plan, policy, configuration, selection evidence,
+  prepared hierarchy profile, prepared hierarchy envelope, bounded acceptance,
+  and benchmark contracts advance to `1.1.0`. Mixture, unavailable reason,
+  `Phase8AHierarchySSLForwardOutput`, fixture, and leakage audit remain
+  `1.0.0`. The hardware-evidence artifact begins at `1.0.0`.
+- Consequences: Accepted post-hotfix semantics remain fixed: device transfer
+  `1.0.2`, representation/multi-view/objective `1.0.1`, umbrella SSL `1.2.2`,
+  training report `1.2.2`, `PreparedMaskBinding@1.1.0`, and independent
+  no-leakage/pitch-sensitive-reconstruction evidence `1.0.0`. Correct-target
+  preference remains a signed non-gating diagnostic. Graph, feature,
+  canonical/cache/split, Phase 6 numerical, model, checkpoint, and
+  independent-control contracts do not change.
+- Consequences: Phase 8B objectives, Dilemmadata, PDMX, PLL, adaptive masking,
+  preference or critic learning, production training, and
+  representation-quality claims remain out of scope.
+
+## 2026-07-30 — ADR-057: Phase 8A span pools rank the complete tolerance set
+
+- Status: Accepted for the remaining pre-merge remediation of draft PR #16.
+  This supersedes ADR-056 only where it retained a canonical prefix before
+  applying a seed rank. The PR remains draft; Phase 8B and production
+  training remain unauthorized.
+- Context: ADR-056 admitted every candidate through `best + slack` but then
+  retained the canonically first `K` by error/track/start/end/descendants.
+  With more than `K` equally near-optimal candidates, later tracks and bars
+  could never enter the pool under any seed or epoch. Diversity inside that
+  prefix did not establish coverage of the full tolerance-qualified set.
+- Decision: `bounded_near_optimal_seed_rank_v2` first scans for best budget
+  error and preserves the same `candidate_error <= best + configured_slack`
+  admission rule. For every admitted candidate it computes
+  `stable_seed_sha256_pool_membership_v1`, binding dataset/piece identity,
+  canonical epoch, encoder view, global seed, policy/version, configuration
+  fingerprint, and full canonical candidate identity. A bounded streaming
+  selector retains the `K` smallest ranks. Canonical candidate identity is
+  only the collision fallback.
+- Decision: Final choice uses the distinct
+  `stable_seed_sha256_final_choice_v1` domain over the retained pool. The
+  membership hash is not reused. Enumeration order, Python hash, process RNG,
+  global random state, and unordered iteration cannot affect membership or
+  choice. Validation still canonicalizes epoch to zero.
+- Decision: `span_selection_pool_size` now unambiguously means seed-ranked
+  retained-pool size over the complete tolerance set. `K=1` is a seed-ranked
+  singleton, not a canonical exact-closest control. Slack `0` remains the
+  exact-best admission control. Primary/visible-note rules, start-anchored
+  descendants, track/sample boundaries, and `active_at` exclusion do not
+  change.
+- Decision: Selection evidence binds tolerance and retained counts, both rank
+  method identifiers, the complete selected canonical identity, selected
+  error, and existing budget/realized-rate evidence. The bounded acceptance
+  additionally reports selected start-bar min/max, distinct selected tracks,
+  and obsolete-canonical-prefix escape count.
+- Decision: The positional-bias oracle has 36 tolerance-qualified candidates
+  over three tracks and bars `0..11`, with one unique error-0 candidate and
+  35 error-1 candidates. Across train epochs `0..255`, all 36 enter a retained
+  pool and all 36 are selected; start bars span `0..11`, all three tracks are
+  selected, 224 choices escape the obsolete four-candidate prefix, and error
+  histogram is `0:7, 1:249`. Replay and reverse/permuted enumeration are
+  bit-exact. This is deterministic reachability/mechanics evidence, not a
+  claim of unbiased or uniform random sampling.
+- Decision: Candidate generation retains its existing `O(C+S)` sparse
+  candidates/descendants. Best-error scan plus bounded top-K insertion costs
+  `O(C*K)=O(C)` for contract-fixed `K <= 8`, with `O(K)` selector scratch and
+  no full sort, dense track/bar grid, or `O(B²)` span materialization.
+- Decision: Use a minor rather than patch bump because the meaning of the
+  serialized pool-size field and the plan/evidence selection semantics change
+  incompatibly. Hierarchical plan, policy, configuration, selection evidence,
+  prepared hierarchy profile/envelope, CPU acceptance, and benchmark advance
+  from `1.1.0` to `1.2.0`. CUDA hardware evidence advances from `1.0.0` to
+  `1.1.0` because it binds those portable contracts. Mixture, unavailable
+  reason, hierarchy output, fixture, and leakage audit remain `1.0.0`.
+- Consequences: Policy fingerprint becomes
+  `2d39eb5e1ddf6ad53c626a18b364d0ffae0896663008a4e1422215c0c20fbdb1`;
+  default configuration becomes
+  `e38651e00726ce9681dc015634c5d1f48f11586d07e0faf3187e20bda9ffee67`.
+  Phase 7A, device-transfer, raw graph, feature registry, canonical/cache/
+  split, Phase 6 numerical, model architecture, and checkpoint contracts do
+  not change. Any RTX result for an earlier head is intermediate evidence;
+  exact-final RTX 3090 execution remains a separate pre-merge gate.
+
+## 2026-07-30 — ADR-058: Phase 8A CUDA evidence separates exact semantics from bounded backend numerics
+
+- Status: Accepted for the final pre-merge remediation of draft PR #16. The
+  PR remains draft; Phase 8B and production training remain unauthorized.
+- Context: An independent RTX 3090 run at intermediate SHA `00ba0f38` found
+  two evidence-path defects. Direct
+  `python scripts/accept_phase8a_cuda_amp.py` could not resolve an import from
+  the `scripts` package, so no hardware artifact was emitted. Separately, the
+  all-policy SSL run treated CPU FP32 and CUDA FP32 embeddings as nearly
+  bit-exact and exceeded `rtol=1e-4`, `atol=1e-5` by a maximum absolute
+  difference of `3.632158041000366e-05`; all preceding semantic invariants
+  were exact.
+- Decision: Move reusable CPU and CUDA acceptance implementations under
+  `music_critic.ssl` and keep both documented `scripts/accept_phase8a_*.py`
+  entrypoints as thin wrappers. Direct root execution is normative; module
+  execution remains supported. No wrapper mutates `sys.path`. Exact-final
+  host preflight validates the portable report path, exact HEAD, hotfix
+  ancestry, and clean tree before CUDA resolution or output creation.
+- Decision: Preserve bit-exact gates for hierarchy plans and selection,
+  prepared bindings, overlay/masks, selected indices, raw graph/topology,
+  target/provenance blindness, leakage mutations, same-device replay, and the
+  independent Phase 7A-versus-Phase 8A CUDA control. No tolerance applies to
+  those contracts.
+- Decision: Treat CPU FP32 versus CUDA FP32 embeddings, predictions, targets,
+  and required losses only as bounded numerical-parity diagnostics. Fix
+  `rtol=1e-3`, `atol=5e-5`, and minimum cosine similarity `0.999` before the
+  final hardware rerun. Record exact shape/dtype/finite status, total tensor
+  and element counts, max absolute/relative error, cosine, and total-objective
+  difference. Report per policy and per encoder node type. Tests prove a
+  value just inside the elementwise boundary passes, a value just outside
+  fails, and a large direction change fails the cosine gate. Thresholds are
+  not searched or widened from observed runs.
+- Decision: Cross-backend closeness is not evidence that CPU and CUDA execute
+  identical floating operations. The final artifact must be regenerated on
+  the exact final SHA; the targeted success at `00ba0f38` is intermediate
+  evidence only, and its failed CLI produced no hardware acceptance.
+- Consequences: Serialized hardware evidence changes incompatibly and
+  advances from `Phase8ACudaAmpHardwareEvidence@1.1.0` to `1.2.0`.
+  Hierarchical mask/selection/prepared contracts, portable CPU acceptance,
+  benchmark, Phase 7A, device transfer, graph/feature/data, model/checkpoint,
+  and Phase 6 numerical contracts do not change.
+
+## 2026-07-30 — ADR-059: Exact-final CUDA preflight is deterministic in shallow CI checkouts
+
+- Status: Accepted as Required-CI remediation for draft PR #16. Phase 8B and
+  production training remain unauthorized.
+- Context: Both Required runs for SHA `25ac6c7` failed the same negative
+  subprocess test under GitHub Actions `fetch-depth: 1`. The test deliberately
+  dirtied the checkout, but exact-final preflight attempted
+  `git merge-base --is-ancestor` first. Because the accepted-hotfix ancestor
+  was absent from the shallow object set, Git returned status 128 and leaked a
+  raw `CalledProcessError` instead of the required structured dirty-tree
+  rejection.
+- Decision: After portable-report readability, exact-final preflight checks
+  exact HEAD and then dirtiness before the ancestry proof. A dirty checkout
+  always raises `phase8a.cuda.source_tree_dirty` without consulting ancestry.
+  A clean checkout must still prove that the accepted hotfix is an ancestor;
+  a missing or unavailable proof raises the structured
+  `phase8a.cuda.hotfix_ancestor_missing_or_unavailable` error.
+- Consequences: The exact-final gate is not weakened and no CUDA resolution or
+  hardware-evidence output occurs on either failure path. Independent hardware
+  execution must fetch enough Git history to prove ancestry. Unit tests cover
+  dirty-before-ancestry ordering and clean shallow-history failure. No
+  serialized Phase 8A contract, fingerprint, model/checkpoint version, graph
+  schema, or Phase 6 numerical output changes.
+
+## 2026-07-30 — ADR-060: CUDA raw-graph parity reuses the common store surface and portable report hashes are runtime-local
+
+- Status: Accepted as narrow Phase 8A GPU-only remediation in draft PR #16.
+  Phase 8B and production training remain unauthorized; independent
+  exact-final RTX 3090 evidence is still pending.
+- Context: The independent RTX 3090 run on `4da0988` produced two mutually
+  byte-identical CPU reports, then all seven CUDA failures stopped in
+  `_graphs_cross_device_bit_exact` with
+  `NameError: name '_store_items' is not defined`. Commit `25ac6c7` moved the
+  acceptance implementations into `music_critic.ssl` and added this parity
+  function, but imported only three of its common CPU-acceptance dependencies.
+  `_store_items` and the subsequent `_metadata_signature` dependency remained
+  defined in `phase8a_acceptance.py`. CPU CI skipped every call to the
+  CUDA-gated parity function.
+- Decision: Import and reuse the existing common private store enumerator
+  rather than create a second implementation. The enumerator reads the
+  existing global store and existing `node_items()`/`edge_items()` only,
+  discriminates node and edge identities, and does not create stores. Raw
+  cross-device equality requires exact ordered node/edge type surfaces, exact
+  ordered attribute surfaces, tensor shape/dtype/value equality after the
+  explicit evidence-only CPU transfer, and exact non-tensor metadata
+  signatures. A mismatched key surface rejects before an injected
+  target/provenance-like value is read.
+- Decision: Execute this helper on ordinary CPU graph pairs in Required CI.
+  Regressions cover equivalent batches, value/dtype/shape changes,
+  missing/extra node and edge attributes, global mutation, reordered
+  attributes and stores, target non-access, input-surface non-mutation, and
+  failure-atomic artifact creation/replacement/temporary cleanup. The parity
+  gate, all five policies, mixture, standalone CUDA CLI, AMP objective and
+  gradient finiteness, and complete-success-only hardware artifact remain
+  enabled.
+- Decision: `portable` CPU acceptance means hardware-independent content, not
+  byte identity across arbitrary Python/PyTorch/CPU-kernel environments. The
+  report deliberately includes bounded FP32 loss observations. Fresh processes
+  in one compatible runtime must be byte-identical; cross-host acceptance
+  compares versioned contracts and deterministic fixture/model/policy/plan/
+  overlay/binding fingerprints, while hardware evidence binds the SHA-256 of
+  the exact host-local report consumed. Local
+  `2d107944c38d8ee465d73f2f71f07b224451f5a31213e86e0049dbaf3958c8f4`
+  and independent-host
+  `076bb56126dd1ba262014b553a5009e93bd464dac99564531b01fcea09f941b1`
+  therefore are not claimed globally equal.
+- Consequences: This restores an already specified exact semantic/security
+  gate and clarifies its evidence boundary. No public or serialized schema,
+  contract version, acceptance/model/checkpoint fingerprint, graph/model/
+  ontology contract, or Phase 6 numerical output changes. The failed
+  `4da0988` run emitted no hardware report and cannot be used as successful
+  CUDA evidence.
+
+## 2026-08-14 — ADR-061: Phase 8A exact replay owns a scoped deterministic evidence runtime
+
+- Status: Accepted as pre-merge remediation in draft PR #16. This does not
+  accept Phase 8A: both Required workflows and independent exact-final RTX
+  3090 evidence remain mandatory. The PR stays draft; Phase 8B and production
+  training remain unauthorized.
+- Context: Independent execution at
+  `4c71990f0df715afee9040908da4c99b17f9d99d` produced two byte-identical
+  host-local CPU reports at SHA-256
+  `076bb56126dd1ba262014b553a5009e93bd464dac99564531b01fcea09f941b1`.
+  The isolated two-file CUDA invocation then failed all five policies only at
+  first-versus-repeated same-device output equality
+  (`5 failed, 62 passed, 2 warnings`). Full SSL immediately afterward passed
+  (`357 passed, 1 skipped, 8 warnings`), and standalone CUDA acceptance also
+  passed and emitted hardware fingerprint
+  `1d7f904afa538c71111c33f72c78a90b4739814ee3d75343fd4438bfe57c5a5d`.
+  Overall orchestration correctly failed, so that artifact is insufficient and
+  is invalid for every later head.
+- Context: The standalone builder entered a private deterministic context,
+  but the optional five-policy pytest performed its repeated forwards
+  directly. Separately, training tests invoked run-scoped configuration that
+  set process-global Torch deterministic and cuDNN flags without test-scoped
+  restoration. The later full suite could therefore make the direct CUDA test
+  pass as an accidental order effect. The scientific/model operation was not
+  shown to require an equality relaxation.
+- Decision: Introduce public package contract
+  `DeterministicCudaEvidenceRuntime@1.0.0` and use it for standalone Phase 8A
+  CUDA acceptance, the five-policy CUDA pytest, and all repeated same-device
+  hierarchy-output evidence. It validates an existing
+  `CUBLAS_WORKSPACE_CONFIG` against `:4096:8|:16:8`, installs `:4096:8` when
+  absent, enables Torch deterministic algorithms with `warn_only=false`,
+  disables cuDNN benchmarking, and enables cuDNN determinism before CUDA
+  model/device work. A nondeterministic operation raises; it is not converted
+  into a warning, skip, xfail, or tolerance.
+- Decision: The context snapshots and failure-atomically restores the CPU RNG,
+  all CUDA RNG states, deterministic-algorithm enabled/warning state, both
+  cuDNN flags, and the prior CUBLAS environment presence/value. Normal,
+  exception, nested, and repeated paths are covered by CPU-accessible tests;
+  mocked CUDA RNG proves the same restoration surface without pretending to
+  be hardware evidence. The pytest boundary independently restores Torch,
+  cuDNN, and CUBLAS flags after every test so one training test cannot
+  authorize a later evidence test. Production training configuration remains
+  unchanged.
+- Decision: Keep exact same-device replay as a strict gate. Add bounded
+  `Phase8AOutputDifferenceDiagnostic@1.0.0`, which recursively compares the
+  hierarchy-output dataclass and reports the first path, all retained paths up
+  to a fixed maximum of 64, total/group counts, shape/dtype/device,
+  differing-element count, max absolute/relative difference, and finite
+  FP16/FP32 ULP distance. Embeddings, predictions, targets, loss tensors, and
+  other fields are grouped separately. Diagnostics retain only bounded
+  scalar/string/tuple evidence and never modify or retain production outputs.
+- Decision: Preserve the existing cross-backend boundary. CPU FP32 versus CUDA
+  FP32 remains bounded by fixed `rtol=1e-3`, `atol=5e-5`, and cosine floor
+  `0.999`; no bit-equality promise is introduced across backends. Deterministic
+  mask planning is a separate seed/structure contract. Ordinary production
+  training has no Phase 8A promise of bit identity across arbitrary processes,
+  hosts, Torch versions, or backend kernels without equivalent configuration.
+- Decision: CUDA regressions invoke fresh subprocesses for the isolated
+  five-policy node, the targeted two-file suite, complete `tests/ssl` followed
+  by the targeted suite, and reversed module order. A sentinel prevents the
+  full-suite child from recursively launching itself. CUDA absence remains an
+  honest skip and never counts as hardware evidence.
+- Consequences: No masking, model, objective, graph/canonical, dataset/cache,
+  ontology, checkpoint, or successful serialized hardware-report schema
+  changes. `Phase8ACudaAmpHardwareEvidence` remains `1.2.0`; the new runtime
+  and diagnostic contracts are evidence-only `1.0.0`. The next exact head
+  requires new Required runs plus host-local CPU replay, isolated/targeted/
+  full/post-full/reverse-order CUDA pytest evidence and standalone RTX 3090
+  acceptance with exact counts before any successful final evidence comment.
