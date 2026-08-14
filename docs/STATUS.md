@@ -121,8 +121,10 @@
 - Phase 7A CUDA/AMP and split-evidence hotfix: accepted and merged through
   PR #17 at main `5afec305cfa62ab2c200c5b1e7270ae35cd8a102`
 - Device-transfer contract after the accepted hotfix: `1.0.2`
-- Phase 8A pre-merge remediation is active in draft PR #16; Phase 8B has not
-  started
+- Phase 8A: accepted and merged in PR #16 at main
+  `e97377c450a368d6b46d7ba8bc1c7697bdd5dd63`
+- Phase 8B.1 branch: `phase/8b1-multilevel-objectives`; independently
+  ablatable multi-level objective implementation is active in a draft PR
 
 ## Accepted CUDA device-canonicalization hotfix status
 
@@ -214,9 +216,9 @@
   dtype semantics changed. No Phase 8 implementation is part of this hotfix.
 
 - Phase 8A branch: `phase/8a-hierarchical-masking`
-- Phase 8A status: pre-merge remediation in draft PR #16. Final-head review,
-  both Required workflow runs, and independent exact-final RTX 3090 CUDA/AMP
-  evidence are merge gates. Do not merge from this implementation task.
+- Phase 8A status: accepted and merged in PR #16. Exact implementation head
+  `fef66bef898333ebd28c86c8634340fb527cdc8a`; merge commit
+  `e97377c450a368d6b46d7ba8bc1c7697bdd5dd63`.
 - Phase 8A hierarchical plan/policy/config/selection/prepared-profile/
   prepared-hierarchy-binding/acceptance/benchmark contracts: `1.2.0`
 - Phase 8A mixture/unavailable-reason/hierarchy-output/leakage-audit/fixture
@@ -234,10 +236,22 @@
   `PreparedMaskBinding@1.1.0`, `SSLForwardOutput@1.2.0`, all other existing
   Phase 7A and Phase 6 contract versions, checkpoint metadata/state, raw
   graph/canonical/cache/split contracts, and independent-control artifacts.
-- Exact final policy/configuration/acceptance fingerprints and test counts are
-  pending the final-head rerun and are not replaced by pre-remediation hashes.
-- Next gate: finish deterministic CPU evidence, Required CI, and independent
-  exact-final RTX 3090 acceptance. Phase 8B has not started.
+- Independent exact-final RTX 3090 evidence passed at `fef66be`: isolated
+  five-policy `5 passed`; targeted/full/post-full/reverse-order counts were
+  `67 passed`, `373 passed, 1 skipped`, `67 passed`, and `67 passed`; every
+  command exited zero. The expected skip requires at least two CUDA devices.
+  Both host-local CPU reports were byte-identical at 93,064 bytes and SHA-256
+  `076bb56126dd1ba262014b553a5009e93bd464dac99564531b01fcea09f941b1`.
+  Hardware evidence fingerprint:
+  `a424cab1fdd0593d20ae810c05b1b63a844b30374eef14f73171324bb7ba1d7a`;
+  artifact SHA-256:
+  `c96dd4d7f1dd73cc977db5e7997e80145bb1ff7e2d68aa5aaa6f161e22752666`.
+  The artifact bound exact head `fef66be`, a clean source tree, all five
+  policies, bit-exact mixture/control replay, 112 finite `cuda:0` forward
+  tensors, finite non-zero mandatory gradients, and global peak allocated/
+  reserved bytes `68,635,648`/`69,206,016`.
+- Next gate: Phase 8B.1 implementation, bounded mechanics evidence, draft-PR
+  review, and Required CI. Phase 8B.2 has not started.
 
 ## Phase 7A implementation status
 
@@ -547,7 +561,65 @@
 - No legacy source was inspected. No HookTheory or POP909-CL corpus scan,
   Dilemmadata or PDMX integration, production cache rebuild,
   production/full-corpus SSL training, PLL, critic training, or Phase 8B
-  objective work was performed.
+  objective work was performed during Phase 8A.
+
+## Phase 8B.1 implementation status
+
+- Branch: `phase/8b1-multilevel-objectives`, based on merged Phase 8A main
+  `e97377c450a368d6b46d7ba8bc1c7697bdd5dd63`. Status: implementation and
+  local acceptance complete; draft PR and Required CI are pending final local
+  gates.
+- New independently weighted families are `onset_latent`, `beat_latent`,
+  `hierarchy_bar_latent`, and `track_latent`. They consume exact contextual
+  onset/beat fused rows and coarse bar/track rows. Targets are detached
+  shared-encoder full views; there is no EMA teacher.
+- Policy eligibility is exact: onset descendants select onset rows, beat
+  descendants select beat rows, contiguous bars select bar rows, and
+  track/bar spans select one track plus corresponding bars. Independent note
+  masking remains the literal Phase 7A control. Rows are canonical,
+  deduplicated, and sample-bounded.
+- Every new objective registry/config/eligibility/binding/family-loss/
+  aggregate/model/output/metric/checkpoint-transfer/comparison contract begins
+  at `1.0.0`. Registry fingerprint:
+  `39af7500c6cee09d5d84c73f3968572eb5408e557fda0c9b094cf6e4cc660b7e`.
+- A family records numerator, eligible denominator, mean, availability/reason,
+  configured weight, active state, and zero norms. Zero denominator is
+  unavailable, zero weight bypasses its new head, and fixed weighted sums are
+  never renormalized around unavailable families.
+- Four separate projector/predictor heads add 266,240 parameters at default
+  hidden/projector width 128 and 1,280 in the bounded width-8 comparison.
+  Metrics retain fixed CPU scalar/O(D) state and no prediction/CUDA tensors.
+- Hydra provides `phase7a_control`, `onset_only`, `beat_only`, `bar_only`,
+  `track_only`, and `multilevel_equal_weight`. The control constructs the
+  literal old model and remains model-facing bit-exact.
+- Explicit old-checkpoint transfer validates and loads all Phase 7A state,
+  enumerates separately initialized new heads, and is failure-atomic. New
+  checkpoint metadata binds objective registry, weights, and fingerprints;
+  round-trip/resume and incompatible-fingerprint rejection are tested.
+- The deterministic 12-step CPU report compares Phase 7A control, Phase 8A
+  masks with old objectives, each new family, and equal weight on four fixed
+  train plus two disjoint held-out pieces. Every available train family
+  decreased; initial/final held-out values, exact denominators, anti-collapse
+  diagnostics, and finite/non-zero gradient coverage remain visible. Report
+  fingerprint:
+  `a6c94fb685dd3116b090e64ef0f777f78519df2bd7c5b73373d19624c45d9470`;
+  schedule fingerprint:
+  `dd1527b66dd8ba41b10f66f176bea77c305b2ba772496a6142a7252ec52ad6b7`.
+- Final local verification passed focused Phase 8B.1
+  (`22 passed, 1 skipped, 2 warnings`), complete SSL
+  (`379 passed, 18 skipped, 8 warnings`), model/training/checkpoint regression
+  (`180 passed, 7 skipped, 2 warnings`), deterministic runtime/repository/
+  Phase 8B.1 audit (`18 passed, 2 warnings`), and the complete repository
+  (`1247 passed, 39 skipped, 10 warnings`). The optional CUDA+AMP test skips
+  honestly because CUDA is unavailable locally. Compileall and diff checks
+  passed. Two fresh 12-step bounded artifacts are byte-identical at 783,207
+  bytes and file SHA-256
+  `4417a45921971af272c47c3f087abf8988f53ad6df4c0eab1158a28f8c380f4e`.
+  Required GitHub CI remains pending until the draft PR is pushed.
+- This is bounded mechanics/optimization evidence only. No quality,
+  downstream, likelihood, critic, or model-selection improvement is claimed.
+  Phase 8B.2, Phase 9, PLL, critic/quality scoring, full corpora, and legacy
+  code remain out of scope.
 
 ## Scientific context and evaluation backlog
 

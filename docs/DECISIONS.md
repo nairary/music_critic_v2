@@ -2159,3 +2159,70 @@ This log is append-only.
   requires new Required runs plus host-local CPU replay, isolated/targeted/
   full/post-full/reverse-order CUDA pytest evidence and standalone RTX 3090
   acceptance with exact counts before any successful final evidence comment.
+
+## 2026-08-14 — ADR-062: Phase 8B.1 adds exact-identity independently weighted hierarchy recovery objectives
+
+- Status: Accepted for implementation in the Phase 8B.1 draft PR. This ADR
+  authorizes bounded mechanics only; it does not authorize merge, Phase 8B.2,
+  production/full-corpus SSL training, Phase 9, PLL, preference critic, or
+  quality scoring.
+- Context: Phase 7A supplies unchanged note reconstruction and bar/song latent
+  integration objectives. Phase 8A supplies deterministic leakage-closed
+  hierarchy masks, exact prepared bindings, and a shared deterministic CUDA
+  evidence runtime, but intentionally adds no objective. Phase 8B.1 needs
+  independently ablatable recovery signals at onset, beat, bar, and track
+  levels without converting descendants into duplicate latent targets or
+  allowing target/theory sidecars into SSL inputs.
+- Decision: Define a seven-entry registry containing the three existing
+  Phase 7A families and four new families: `onset_latent`, `beat_latent`,
+  `hierarchy_bar_latent`, and `track_latent`. Keep the new hierarchy-bar name
+  separate from `phase7a_bar_latent`; the former uses contextual coarse bars,
+  while the latter retains the accepted fused-bar integration semantics.
+- Decision: Use retained fused contextual/local rows for onset and beat, and
+  contextual coarse rows for hierarchy bar and track. Each new family owns a
+  separate `LatentProjectorPredictor`. Its masked online rows predict a
+  detached, no-EMA full-view target from the shared encoder under the existing
+  full-view evaluation behavior and cosine recovery formula.
+- Decision: Align exclusively through exact Phase 8A plan identities and
+  attested node pointers. Onset and beat policies select their units once;
+  contiguous spans select bars once; track/bar spans select the track once and
+  their bars once. Canonically sort and deduplicate `(sample, local, global)`
+  rows and reject any row outside its sample interval. Do not use temporal
+  snapping, nearest neighbours, theory labels, targets, provenance, dataset/
+  split identity, derived topology, missing-store creation, dense membership,
+  or cross-sample alignment.
+- Decision: Record numerator, eligible denominator, mean, availability,
+  unavailable reason, configured weight, active state, and zero norms for each
+  family. Denominator zero means unavailable with no fabricated mean. Weight
+  zero bypasses the new head and gradient path. Aggregate the fixed sum of
+  weight times each available mean without normalization by active weights or
+  redistribution around unavailable families. A bounded multi-policy step
+  uses its fixed scheduled-pass divisor, not an availability-dependent one.
+- Decision: `phase7a_control` constructs the exact old
+  `MaskedGraphSSLModel`; it has no Phase 8B heads, state keys, or output
+  wrapper. Other modes use the additive multilevel model and one immutable
+  objective config. Hydra exposes control, four single-family modes, and equal
+  weight. The default Phase 7A root keeps Phase 8B inactive.
+- Decision: Continue using the existing failure-atomic SSL checkpoint
+  container. Additive model metadata binds the complete objective registry,
+  fixed weights, fingerprints, target mode, aggregation, and head count. An
+  explicit transfer validates every old key/shape/dtype before mutation,
+  loads all old components, preserves and enumerates every separately
+  initialized `phase8b_latent_heads.*` tensor, and reports the source SHA-256.
+  Incompatible new objective fingerprints reject before live state changes.
+- Decision: All new objective, eligibility, prepared-objective, loss,
+  model/output, metric, checkpoint-transfer, and bounded-comparison contracts
+  begin at `1.0.0`. Existing Phase 7A/8A, graph, canonical, data/cache/target,
+  and checkpoint-container versions do not change.
+- Decision: The bounded comparison uses the accepted Phase 8A synthetic
+  fixture, fixed train/held-out membership, seed, initialization discipline,
+  five-policy schedule, optimizer, and step count. It reports initial/final
+  train and held-out family losses, denominators, O(D) anti-collapse
+  diagnostics, and gradient coverage for Phase 7A control, Phase 8A hierarchy
+  masks with old objectives, four single-family variants, and equal weight.
+  Metrics retain detached CPU scalar/O(D) state and no prediction/CUDA tensors.
+- Consequences: Phase 8B.1 can prove exact routing, ablation, gradients,
+  checkpoint compatibility, and bounded overfit mechanics. It cannot prove
+  representation quality, musical quality, likelihood, downstream gains, or
+  scientific model preference. Those claims require separately authorized
+  Phase 8B.2/scaled evaluation after the raw-compatible corpus boundary.

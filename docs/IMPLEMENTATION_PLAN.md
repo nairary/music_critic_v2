@@ -2988,20 +2988,55 @@ representation improvement.
 
 ## Phase 8B. Multi-level hierarchy objectives and comparison
 
-### Future implement
+### Phase 8B.1 implemented increment
 
-- independently ablatable onset, beat, bar, and track latent objectives;
-- an explicit held-out comparison against Phase 7A and Phase 8A controls;
-- level-specific unavailable/denominator semantics;
-- bounded ablations and any justified mask curriculum.
+- add independently ablatable onset, beat, hierarchy-bar, and track latent
+  recovery objectives over exact Phase 8A prepared entity identities;
+- bind onset/beat to retained contextual/local fused rows and hierarchy-bar/
+  track to contextual coarse rows, with separate projector/predictor heads;
+- use masked online rows against shared-encoder, no-EMA, stop-gradient
+  full-view targets;
+- retain Phase 7A note/bar/song families without renaming or redefining them,
+  and construct the literal old model for `phase7a_control`;
+- record family numerator, eligible denominator, mean, availability/reason,
+  configured weight, and active state;
+- aggregate with fixed coefficients and no active-weight normalization or
+  unavailable-family rescaling; zero weight bypasses the new family head and
+  gradient path;
+- derive sorted/deduplicated exact `(sample, local, global)` rows solely from
+  prepared plan identities and node pointers, never from descendants counts,
+  theory/target/provenance data, timing proximity, or cross-sample matching;
+- add six Hydra modes, additive fingerprint-bound checkpoint metadata,
+  explicit failure-atomic Phase 7A transfer, and bounded deterministic
+  train/held-out mechanics evidence;
+- keep all new contracts at `1.0.0` and preserve existing Phase 7A/8A,
+  graph/data/cache/target/checkpoint-container versions.
 
-### Future acceptance criteria
+### Phase 8B.1 acceptance criteria
 
 - every objective family can be enabled and disabled independently;
-- held-out comparison and ablation artifacts bind exact configurations and
-  membership;
+- exact eligibility/alignment, sample isolation, unavailable semantics,
+  numerator/denominator/mean arithmetic, batch partition/order invariance,
+  target/provenance blindness, graph/binding immutability, stop-gradient, and
+  finite non-zero required gradient paths are tested;
+- the old control stays model-facing bit-exact; old checkpoint transfer and
+  new strict save/load/resume plus incompatible-fingerprint failure atomicity
+  are tested;
+- a fixed CPU comparison covers the Phase 7A control, Phase 8A hierarchy masks
+  with old objectives, each new family, and equal weight using the same seed,
+  initialization discipline, optimizer, step count, membership, and
+  fingerprinted masking schedule;
+- the report contains initial/final train and held-out family loss,
+  denominators, gradient coverage, anti-collapse diagnostics, and zero
+  retained prediction/CUDA tensors;
 - no scaled-effectiveness claim is made before rerunning accepted objectives
   after the Phase 10 PDMX raw-compatible corpus/cache exists.
+
+Phase 8B.2 remains future work for scientific comparison/model selection on
+appropriately scaled raw-compatible data. Phase 8B.1 does not add a mask
+curriculum, likelihood/PLL, theory supervision, preference critic, or quality
+score. The complete current contract is in
+[`PHASE8B_MULTILEVEL_OBJECTIVES.md`](PHASE8B_MULTILEVEL_OBJECTIVES.md).
 
 ## Phase 9. Dilemmadata adapter and theory heads
 
