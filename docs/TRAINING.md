@@ -248,6 +248,50 @@ supervised preset, a batch without eligible harmonic rows is skipped
 gracefully. It optimizes reconstruction only in the explicitly selected joint
 ablation; missing labels never become negative or zero-loss examples.
 
+## Official Phase 8B.1 SSL routing
+
+`python -m music_critic.ssl.run` preserves its exact Phase 7A path when
+`phase8b_objective` is absent/null. An explicit Phase 8B run requires both
+Hydra groups and is fail-closed:
+
+```bash
+python -m music_critic.ssl.run \
+  +phase8b_objective=onset_only \
+  +phase8b_masking=onset_only \
+  experiment=one_batch model=hierarchical data=bounded device=cpu \
+  output_dir=/tmp/phase8b1-onset
+```
+
+The compatible pairs are the four matching single-family modes, matching
+`multilevel_equal_weight`, matching `phase7a_control`, and the mask-only pair
+`phase8b_objective=phase7a_control` /
+`phase8b_masking=phase8a_mask_only`. The latter uses the literal old
+`MaskedGraphSSLModel` and old Phase 7A objectives with four hierarchy-policy
+passes. Every other mismatch rejects before optimizer construction and before
+managed output creation.
+
+The objective and masking configs are materialized independently. Resolved
+config, run manifest, report, and checkpoint bind the objective registry,
+objective config/active weights, masking config, Phase 8A policy mixture,
+concrete model class, and their fingerprints. Resume requires all bindings to
+match. A Phase 7A checkpoint is never implicitly resumed as Phase 8B; use the
+explicit transfer API and a new run.
+
+One-batch and multi-epoch modes both optimize `output.objective.total_loss`.
+New-family forwards use a prepared hierarchy binding, prepared objective
+binding, and `forward_multilevel`; the mask-only forward uses
+`forward_hierarchy`. Family numerators/eligible denominators are aggregated by
+`Phase8BObjectiveAccumulator` with zero-denominator unavailability and no
+renormalization. Multi-epoch training keeps fixed epoch-zero validation,
+best/last checkpoints, an ordered metric journal, and exact epoch-boundary
+resume.
+
+Reports give explicit optimizer-step, forward-pass, scheduled-policy-pass,
+objective-evaluation, eligible-row, retained-tensor, and masked-entity counts.
+Single-family/control and equal/mask-only schedules have different forward
+counts, so the bounded commands are neither compute matched nor an
+effectiveness comparison. Phase 8B.2 owns scientific comparison.
+
 ## Device-transfer boundary and CUDA acceptance
 
 `move_multisource_batch(batch, device, non_blocking=...)` is the official

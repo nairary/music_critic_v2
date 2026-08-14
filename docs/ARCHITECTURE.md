@@ -6,8 +6,9 @@ Transformer context, and top-down fusion; Phase 6C supplies reproducible
 supervised execution without changing those semantics. Phase 7A adds a
 deterministic GraphMAE2-inspired masked representation baseline over that
 unchanged encoder. Phase 8A adds deterministic hierarchy-aware mask planning
-and views over the same encoder/security boundary. Phase 8B objectives,
-adaptive SSL, and critic paths remain future phases.
+and views over the same encoder/security boundary. Phase 8B.1 adds
+independently ablatable onset/beat/bar/track recovery objectives. Phase 8B.2
+scientific comparison, adaptive SSL, and critic paths remain future phases.
 
 ## System flow
 
@@ -19,7 +20,7 @@ flowchart LR
     D --> E[Phase 6B deterministic hierarchical pooling]
     E --> F[Coarse temporal Transformer]
     F --> G[Top-down fusion]
-    G --> H[SSL decoders]
+    G --> H[Phase 7A decoder and Phase 8B.1 latent heads]
     G --> I[Auxiliary theory heads]
     G --> J[Aspect critic heads]
     I --> J
@@ -805,12 +806,95 @@ Detailed policy, leakage, complexity, version, bounded default audit, and
 optional CUDA hardware-evidence boundaries are in
 `PHASE8A_HIERARCHICAL_MASKING.md`.
 
+## Phase 8B.1 multi-level objective boundary
+
+Phase 8B.1 adds an objective layer over the accepted Phase 8A planner without
+changing its mask, overlay, prepared-attestation, leakage, or deterministic
+CUDA-runtime semantics. Exact prepared plan rows and per-node-type batch
+pointers produce sorted, deduplicated `(sample, local, global)` identities.
+Those same global identities index both the masked online output and the
+detached full-view output; alignment never uses timing proximity, theory
+labels, target topology, provenance, dataset identity, or cross-sample rows.
+
+The new onset and beat families consume retained contextual/local fused rows.
+The new hierarchy-bar and track families consume contextual coarse rows.
+Each owns a small projector/predictor pair and uses mean cosine recovery against
+the shared encoder's no-EMA stop-gradient full-view target. The existing
+Phase 7A note/bar/song objectives and output types remain unchanged. In
+particular, `phase7a_bar_latent` and `hierarchy_bar_latent` are separate
+registry entries with different encoder sources and independent weights.
+
+The loss layer records numerator, eligible denominator, mean, availability,
+reason, configured weight, and active state per family. A zero denominator is
+unavailable rather than zero. A zero weight bypasses the new head and its
+gradient path. For each CPU batch all scheduled views run first; numerators
+and eligible denominators are summed per family across views, then each
+available family mean is multiplied by its configured weight exactly once.
+There is no policy-count division, active-weight normalization, or
+unavailable-family rescaling. Repeated entity identities in distinct views
+remain distinct prediction observations. Streaming reports use one packed
+metrics D2H transfer at most per CPU batch and keep only detached CPU scalar/
+O(D) state.
+
+The Phase 8B latent head is an explicit FP32 island inside the official AMP
+encoder autocast region. Its projector/predictor linear, GELU, and LayerNorm
+operations, plus cosine normalization and reduction, execute in FP32; only
+the detached full-view target loses its graph. This Phase 8B-only boundary
+does not alter the Phase 7A model or heads. The Phase 8B GradScaler starts at
+`16384` and retains public dynamic scaling. Reports distinguish optimizer
+step attempts, publicly observed scaler skips, and applied steps, and bind
+finite/non-zero gradient plus exact parameter-change evidence for the online
+encoder and each active/inactive Phase 8B head. A bounded run with no applied
+step, no active-path update, or no loss decrease fails closed.
+
+`phase7a_control` constructs the literal old `MaskedGraphSSLModel`.
+`Phase8BMultilevelSSLModel` is an additive subtype used only for the four new
+single-family modes and equal-weight mode. Its metadata binds registry and
+weight fingerprints. Strict Phase 8B checkpoints round-trip through the
+existing failure-atomic container; an explicit transfer path validates and
+loads all Phase 7A state while enumerating separately initialized
+`phase8b_latent_heads.*` tensors.
+
+The initial Phase 8B.1 draft exposed these components but did not connect them
+to the official SSL engine: `ssl.run` still built the old model and invoked
+the Phase 7A binding/forward unconditionally. The remediated architecture
+keeps that literal branch for a null objective and delegates only explicit
+Phase 8B configs to `phase8b_engine`. The explicit branch independently
+materializes objective and masking bindings, requires a compatible exact
+policy schedule, builds through `build_phase8b_model_from_config`, and chooses
+only the contract-matching `forward`, `forward_hierarchy`, or
+`forward_multilevel` surface. Incompatibility fails before optimization with
+no fallback.
+
+Official Phase 8B manifests and checkpoints bind concrete model class,
+registry/config/active-weight fingerprints, masking-config fingerprint, and
+the Phase 8A policy-mixture fingerprint. Fixed validation always uses epoch
+zero with stable membership, sample identities, seed coordinates, and policy
+order. The stage accumulator retains CPU scalars only and the report separates
+optimizer step attempts/applied/skipped counts from model forwards, scheduled
+policy passes, objective evaluations, family-view passes, eligible prediction
+rows, and primary/collateral masked entities. It also records public scaler
+transitions, optimizer membership, model/input fingerprints, parameter-update
+evidence, and CUDA peak allocated/reserved memory.
+Single/control schedules use one forward per batch; equal/mask-only use four,
+so these mechanics runs are explicitly not compute matched or scientific
+effectiveness comparisons.
+
+AMP-sensitive registry/config/loss/model/output/metric/engine/report/
+checkpoint and bounded-comparison contracts are `1.2.0`; latent prediction is
+`1.1.0`, masking remains `1.1.0`, and identity-only eligibility,
+prepared-binding and the batch aggregate remain `1.0.0`. Optimizer evidence
+and independent CUDA training acceptance begin at `1.0.0`. The full
+architecture, policy mapping, parameter formula, bounded comparison, and
+non-claim boundary are in `PHASE8B_MULTILEVEL_OBJECTIVES.md`.
+
 ## Incremental research scope
 
 Phase 7A implements GraphMAE2-inspired decoder remasking but is not a faithful
 GraphMAE2 reproduction. Phase 8A implements only Hi-GMAE-inspired
-hierarchy-aware mask/view mechanics. Phase 8B multi-level objectives and
-comparisons and UGMAE-inspired adaptive or structural objectives remain
-roadmap increments. PDMX-scale effectiveness must be evaluated after the
-Phase 10 raw-compatible corpus projection; PLL and critic/quality scoring
-remain separate future contracts.
+hierarchy-aware mask/view mechanics. Phase 8B.1 implements independently
+ablatable multi-level recovery mechanics; Phase 8B.2 scientific comparison
+and UGMAE-inspired adaptive or structural objectives remain roadmap
+increments. PDMX-scale effectiveness must be evaluated after the Phase 10
+raw-compatible corpus projection; PLL and critic/quality scoring remain
+separate future contracts.

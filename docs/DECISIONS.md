@@ -2159,3 +2159,240 @@ This log is append-only.
   requires new Required runs plus host-local CPU replay, isolated/targeted/
   full/post-full/reverse-order CUDA pytest evidence and standalone RTX 3090
   acceptance with exact counts before any successful final evidence comment.
+
+## 2026-08-14 — ADR-062: Phase 8B.1 adds exact-identity independently weighted hierarchy recovery objectives
+
+- Status: Accepted for implementation in the Phase 8B.1 draft PR. This ADR
+  authorizes bounded mechanics only; it does not authorize merge, Phase 8B.2,
+  production/full-corpus SSL training, Phase 9, PLL, preference critic, or
+  quality scoring.
+- Context: Phase 7A supplies unchanged note reconstruction and bar/song latent
+  integration objectives. Phase 8A supplies deterministic leakage-closed
+  hierarchy masks, exact prepared bindings, and a shared deterministic CUDA
+  evidence runtime, but intentionally adds no objective. Phase 8B.1 needs
+  independently ablatable recovery signals at onset, beat, bar, and track
+  levels without converting descendants into duplicate latent targets or
+  allowing target/theory sidecars into SSL inputs.
+- Decision: Define a seven-entry registry containing the three existing
+  Phase 7A families and four new families: `onset_latent`, `beat_latent`,
+  `hierarchy_bar_latent`, and `track_latent`. Keep the new hierarchy-bar name
+  separate from `phase7a_bar_latent`; the former uses contextual coarse bars,
+  while the latter retains the accepted fused-bar integration semantics.
+- Decision: Use retained fused contextual/local rows for onset and beat, and
+  contextual coarse rows for hierarchy bar and track. Each new family owns a
+  separate `LatentProjectorPredictor`. Its masked online rows predict a
+  detached, no-EMA full-view target from the shared encoder under the existing
+  full-view evaluation behavior and cosine recovery formula.
+- Decision: Align exclusively through exact Phase 8A plan identities and
+  attested node pointers. Onset and beat policies select their units once;
+  contiguous spans select bars once; track/bar spans select the track once and
+  their bars once. Canonically sort and deduplicate `(sample, local, global)`
+  rows and reject any row outside its sample interval. Do not use temporal
+  snapping, nearest neighbours, theory labels, targets, provenance, dataset/
+  split identity, derived topology, missing-store creation, dense membership,
+  or cross-sample alignment.
+- Decision: Record numerator, eligible denominator, mean, availability,
+  unavailable reason, configured weight, active state, and zero norms for each
+  family. Denominator zero means unavailable with no fabricated mean. Weight
+  zero bypasses the new head and gradient path. Aggregate the fixed sum of
+  weight times each available mean without normalization by active weights or
+  redistribution around unavailable families. A bounded multi-policy step
+  uses its fixed scheduled-pass divisor, not an availability-dependent one.
+- Decision: `phase7a_control` constructs the exact old
+  `MaskedGraphSSLModel`; it has no Phase 8B heads, state keys, or output
+  wrapper. Other modes use the additive multilevel model and one immutable
+  objective config. Hydra exposes control, four single-family modes, and equal
+  weight. The default Phase 7A root keeps Phase 8B inactive.
+- Decision: Continue using the existing failure-atomic SSL checkpoint
+  container. Additive model metadata binds the complete objective registry,
+  fixed weights, fingerprints, target mode, aggregation, and head count. An
+  explicit transfer validates every old key/shape/dtype before mutation,
+  loads all old components, preserves and enumerates every separately
+  initialized `phase8b_latent_heads.*` tensor, and reports the source SHA-256.
+  Incompatible new objective fingerprints reject before live state changes.
+- Decision: All new objective, eligibility, prepared-objective, loss,
+  model/output, metric, checkpoint-transfer, and bounded-comparison contracts
+  begin at `1.0.0`. Existing Phase 7A/8A, graph, canonical, data/cache/target,
+  and checkpoint-container versions do not change.
+- Decision: The bounded comparison uses the accepted Phase 8A synthetic
+  fixture, fixed train/held-out membership, seed, initialization discipline,
+  five-policy schedule, optimizer, and step count. It reports initial/final
+  train and held-out family losses, denominators, O(D) anti-collapse
+  diagnostics, and gradient coverage for Phase 7A control, Phase 8A hierarchy
+  masks with old objectives, four single-family variants, and equal weight.
+  Metrics retain detached CPU scalar/O(D) state and no prediction/CUDA tensors.
+- Consequences: Phase 8B.1 can prove exact routing, ablation, gradients,
+  checkpoint compatibility, and bounded overfit mechanics. It cannot prove
+  representation quality, musical quality, likelihood, downstream gains, or
+  scientific model preference. Those claims require separately authorized
+  Phase 8B.2/scaled evaluation after the raw-compatible corpus boundary.
+
+## 2026-08-14 — ADR-063: Explicit Phase 8B configs control the official SSL engine fail-closed
+
+- Status: Accepted as integration remediation in draft PR #18. The PR remains
+  draft and unmerged; this decision does not authorize Phase 8B.2, Phase 9,
+  PDMX/full-corpus training, PLL, preference critic, or quality scoring.
+- Context: ADR-062 introduced the registry, Hydra objective group, builder,
+  multilevel forward, checkpoint transfer, and standalone bounded comparison.
+  The official `music_critic.ssl.run`/`ssl.engine` implementation nevertheless
+  still called `build_ssl_model()`, prepared independent Phase 7A masks, and
+  invoked the Phase 7A forward unconditionally. An explicit Phase 8B Hydra
+  config could therefore be present but ignored. The bounded runner was not a
+  supported production training path.
+- Decision: Preserve the literal old engine branch whenever
+  `phase8b_objective` is absent/null. Elide the new inactive masking key from
+  its plain config so accepted Phase 7A resolved artifacts, model/state, loss,
+  checkpoint payload, and report fields remain bit-exact.
+- Decision: An explicit objective must have a separately materialized and
+  fingerprinted `phase8b_masking` config. Onset, beat, bar, and track schedule
+  only onset descendants, beat descendants, contiguous bars, and track/bar,
+  respectively. Equal weight schedules those four in canonical order. The
+  Phase 7A control schedules independent note masking. The explicit mask-only
+  control pairs Phase 7A objectives with the four hierarchy policies. Reject
+  every incompatible mode/policy pair; never substitute a policy.
+- Decision: Build explicit runs only with
+  `build_phase8b_model_from_config()`. New objective modes require the exact
+  additive model, a prepared hierarchy binding, prepared objective binding,
+  and `forward_multilevel`. Mask-only requires the literal old model and
+  `forward_hierarchy`; explicit Phase 7A control uses the old public forward.
+  Validate the pair and model/forward contract before the first optimizer
+  step, with no silent fallback.
+- Decision: Use the official path for one-batch and multi-epoch training,
+  fixed epoch-zero validation, best/last checkpoints, ordered journal, and
+  exact epoch-boundary resume. Aggregate family numerators and eligible
+  denominators with `Phase8BObjectiveAccumulator`; keep zero denominators
+  unavailable and never renormalize another family.
+- Decision: Bind the registry, complete objective config and active weights,
+  masking config, Phase 8A mixture, execution mode, and concrete model class
+  in resolved config, run manifest, report, and checkpoint metadata. Any
+  objective mode/weight, policy/span, model, or active-weight change rejects
+  before checkpoint application. Old checkpoints are not implicit Phase 8B
+  resume inputs; the explicit transfer API starts a new run.
+- Decision: Reports separately count optimizer steps, forwards, scheduled
+  policy passes, objective evaluations, eligible entities, retained tensors,
+  and primary/collateral masked entities. Single/control variants use one
+  scheduled forward per batch while equal/mask-only use four. Neither the
+  official bounded runs nor the earlier standalone comparison are described
+  as compute matched or as effectiveness/model-selection evidence; Phase 8B.2
+  owns that scientific decision.
+- Consequences: Real CLI subprocesses now prove routing for null Phase 7A,
+  each single family, equal weight, and mask-only, plus weight binding,
+  fail-before-output incompatibility, one-batch optimization, checkpoint
+  bindings, and exact two-epoch stop/resume. Optional onset/equal CUDA+AMP
+  smoke uses the same official engine and may skip honestly without hardware.
+
+## 2026-08-14 — ADR-064: Phase 8B.1 aggregates scheduled views per family before weighting
+
+- Status: Accepted as cross-policy aggregation remediation in draft PR #18.
+  The PR remains draft and unmerged; this decision does not authorize Phase
+  8B.2, production/full-corpus training, PDMX, PLL, critic, or quality scoring.
+- Context: ADR-062 specified a fixed family-weighted sum and ADR-063 connected
+  explicit Phase 8B configs to the official engine. The engine nevertheless
+  optimized the average of complete per-policy totals. A family present in
+  two views therefore received its configured weight twice before the
+  policy-count divisor, while reporting independently accumulated that
+  family's numerator and denominator. Hierarchy-bar appears in both
+  contiguous-bar and track/bar views, so optimizer and report semantics
+  diverged. ADR-062's scheduled-pass-divisor sentence is superseded by this
+  decision.
+- Decision: For each CPU batch, run every scheduled policy view, then compute
+  `N_f=sum_v N_(f,v)`, `D_f=sum_v D_(f,v)`, and `mean_f=N_f/D_f` for each
+  active family with `D_f>0`. Optimize and report
+  `sum_f weight_f*mean_f`, applying each available family's configured weight
+  exactly once. Never divide by policy count, active-weight sum, or available-
+  family count.
+- Decision: Preserve each prediction made in a distinct view as one
+  observation in that family's numerator and denominator even when the raw
+  entity identity repeats. Do not deduplicate across views. Denominator zero
+  remains unavailable with `numerator=None` and `mean=None`; do not fabricate
+  zero or rescale another family.
+- Decision: Use the same family-global formula for differentiable batch
+  training totals, stage/epoch aggregates, validation, best-checkpoint
+  selection, and resume journals. Reports expose family numerators,
+  denominators, means, view-pass counts, one-or-zero family-weight application
+  counts, optimizer/reported totals, and consistency evidence.
+- Decision: Pack the available family numerators and optimizer total into at
+  most one metrics D2H transfer per CPU batch. Reports retain no graph,
+  prediction, or CUDA tensor. Separately count CPU batches, optimizer steps,
+  forwards, scheduled policy passes, family-view passes, and eligible
+  prediction rows. Four-view modes remain more compute and are not described
+  as compute matched.
+- Decision: Move the registry/config/family-loss/objective/model/output/metric,
+  official engine/masking/report/manifest, checkpoint-binding/transfer-report,
+  and bounded-comparison contracts that bind this semantic boundary to
+  `1.1.0`. Bind the exact aggregation string and revised fingerprints in
+  resolved config, manifests, model metadata, reports, and checkpoints. Reject
+  Phase 8B remediation checkpoints created under the old rule. Leave the null
+  Phase 7A route and its checkpoint container unchanged.
+- Consequences: The independent equal-weight oracle is
+  `bar=(6+15)/(3+5)=2.625` and total `6.875`; the superseded pass average is
+  `2.3125`. Tests cover bar weight once, eligibility mutation isolation,
+  policy-order invariance, unavailable-family non-rescaling, single-policy and
+  Phase 7 controls, mask-only old-family aggregation, validation/best/resume,
+  and optional CUDA AMP transfer/finite-gradient evidence. All prior
+  783,207-byte bounded artifacts and fingerprints are invalid evidence and
+  were replaced by fresh byte-identical family-global artifacts for the exact
+  remediation tree.
+
+## 2026-08-14 — ADR-065: Phase 8B.1 AMP training requires real-update evidence
+
+- Status: Accepted as CUDA/AMP zero-update remediation in draft PR #18. The
+  PR remains draft and unmerged. This does not authorize Phase 8B.2,
+  production/full-corpus training, PDMX, PLL, critic, or quality scoring.
+- Context: Independent RTX 3090 acceptance on exact head
+  `b41dd410e757db1f595880074c106c67327fb13e` showed successful CUDA execution
+  and two nominal optimizer steps but identical initial/final onset and
+  equal-weight losses, with zero non-zero-gradient counts for every online
+  encoder component. The Phase 8A mask-only control trained normally on the
+  same machine. The old CUDA smoke asserted only device/AMP/scaler routing,
+  and the engine counted a `scaler.step()` attempt as an optimizer step even
+  when public GradScaler overflow handling skipped the update.
+- Context: A deterministic CPU autocast-FP16 oracle reproduced the numerical
+  mechanism. The broad encoder autocast also covered each new Phase 8B
+  projector/predictor, including LayerNorm, and scale `65536` produced
+  non-finite head/encoder gradients. Equal-weight execution additionally had
+  no explicit online/full-view dtype boundary. Dynamic scaling could back off,
+  but two bounded steps were consumed by skipped updates while accounting
+  claimed success.
+- Decision: Keep only new `phase8b_latent_heads.*` projection, GELU,
+  LayerNorm, cosine normalization, and reduction in FP32 inside an explicit
+  disabled-autocast island. Preserve the differentiable cast back to the
+  online encoder and stop-gradient only the full-view target. Do not change
+  Phase 7A heads or the null-config route. Start the public Phase 8B GradScaler
+  at `16384`; retain normal public growth/backoff behavior.
+- Decision: Count `optimizer_step_attempt_count`,
+  `optimizer_step_applied_count`, and `optimizer_step_skipped_count`
+  separately. Infer an AMP skip only from the public `get_scale()` decrease
+  across `step()`/`update()`; retain `optimizer_step_count` as an alias for
+  applied steps. Record the first applied step's packed finite/non-zero
+  gradient counts and exact changed-parameter/element counts for the online
+  encoder, each Phase 8B head, and Phase 7A control paths. Record optimizer
+  membership and public scaler transitions without private PyTorch APIs.
+- Decision: An official bounded run fails closed unless at least one step is
+  applied, active Phase 8B heads and the online encoder have finite non-zero
+  gradients and exact parameter changes, inactive Phase 8B heads have neither,
+  the initial/final input fixture matches, model state changes, final loss is
+  finite, and bounded loss decreases. Phase 8A mask-only additionally requires
+  finite non-zero updates in its encoder/fusion/hierarchy/transformer,
+  decoder, and old projector paths.
+- Decision: Add an independent CUDA runner that executes FP32 and AMP on the
+  same seed, fixture, policies, and initialization for onset, beat, bar,
+  track, equal, and mask-only. Require exact identities/denominators/family
+  structure and initial/final loss parity within documented `rtol=0.02,
+  atol=0.02`; do not require FP32/FP16 bit identity. Save complete subprocess
+  logs, official reports, counters, gradients, parameter updates, losses,
+  scaler evidence, CUDA peaks, environment, and an archive.
+- Decision: Advance affected Phase 8B objective/model/engine/report/checkpoint
+  and bounded-comparison contracts to `1.2.0`; latent prediction advances to
+  `1.1.0`; new optimizer and CUDA-training-acceptance evidence begin at
+  `1.0.0`. Masking remains `1.1.0`; eligibility/prepared binding/batch
+  aggregate remain `1.0.0`; graph/canonical/ontology and Phase 7 contracts do
+  not change. Bind the FP32 AMP compute rule, scaler initial scale, and
+  optimizer-evidence contract into Phase 8B checkpoints so head
+  `b41dd410...` artifacts reject fail-closed.
+- Consequences: The RTX artifact from `b41dd410...` is invalid as successful
+  training evidence. It remains valid negative evidence proving CUDA routing
+  and exposing the zero-update defect. Local CPU/FP16 and contract tests can
+  prove the code path and failure semantics, but successful CUDA remediation
+  remains unclaimed until the independent RTX 3090 runner passes on the exact
+  final head.

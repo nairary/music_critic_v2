@@ -121,8 +121,10 @@
 - Phase 7A CUDA/AMP and split-evidence hotfix: accepted and merged through
   PR #17 at main `5afec305cfa62ab2c200c5b1e7270ae35cd8a102`
 - Device-transfer contract after the accepted hotfix: `1.0.2`
-- Phase 8A pre-merge remediation is active in draft PR #16; Phase 8B has not
-  started
+- Phase 8A: accepted and merged in PR #16 at main
+  `e97377c450a368d6b46d7ba8bc1c7697bdd5dd63`
+- Phase 8B.1 branch: `phase/8b1-multilevel-objectives`; independently
+  ablatable multi-level objective implementation is active in a draft PR
 
 ## Accepted CUDA device-canonicalization hotfix status
 
@@ -214,9 +216,9 @@
   dtype semantics changed. No Phase 8 implementation is part of this hotfix.
 
 - Phase 8A branch: `phase/8a-hierarchical-masking`
-- Phase 8A status: pre-merge remediation in draft PR #16. Final-head review,
-  both Required workflow runs, and independent exact-final RTX 3090 CUDA/AMP
-  evidence are merge gates. Do not merge from this implementation task.
+- Phase 8A status: accepted and merged in PR #16. Exact implementation head
+  `fef66bef898333ebd28c86c8634340fb527cdc8a`; merge commit
+  `e97377c450a368d6b46d7ba8bc1c7697bdd5dd63`.
 - Phase 8A hierarchical plan/policy/config/selection/prepared-profile/
   prepared-hierarchy-binding/acceptance/benchmark contracts: `1.2.0`
 - Phase 8A mixture/unavailable-reason/hierarchy-output/leakage-audit/fixture
@@ -234,10 +236,22 @@
   `PreparedMaskBinding@1.1.0`, `SSLForwardOutput@1.2.0`, all other existing
   Phase 7A and Phase 6 contract versions, checkpoint metadata/state, raw
   graph/canonical/cache/split contracts, and independent-control artifacts.
-- Exact final policy/configuration/acceptance fingerprints and test counts are
-  pending the final-head rerun and are not replaced by pre-remediation hashes.
-- Next gate: finish deterministic CPU evidence, Required CI, and independent
-  exact-final RTX 3090 acceptance. Phase 8B has not started.
+- Independent exact-final RTX 3090 evidence passed at `fef66be`: isolated
+  five-policy `5 passed`; targeted/full/post-full/reverse-order counts were
+  `67 passed`, `373 passed, 1 skipped`, `67 passed`, and `67 passed`; every
+  command exited zero. The expected skip requires at least two CUDA devices.
+  Both host-local CPU reports were byte-identical at 93,064 bytes and SHA-256
+  `076bb56126dd1ba262014b553a5009e93bd464dac99564531b01fcea09f941b1`.
+  Hardware evidence fingerprint:
+  `a424cab1fdd0593d20ae810c05b1b63a844b30374eef14f73171324bb7ba1d7a`;
+  artifact SHA-256:
+  `c96dd4d7f1dd73cc977db5e7997e80145bb1ff7e2d68aa5aaa6f161e22752666`.
+  The artifact bound exact head `fef66be`, a clean source tree, all five
+  policies, bit-exact mixture/control replay, 112 finite `cuda:0` forward
+  tensors, finite non-zero mandatory gradients, and global peak allocated/
+  reserved bytes `68,635,648`/`69,206,016`.
+- Next gate: Phase 8B.1 implementation, bounded mechanics evidence, draft-PR
+  review, and Required CI. Phase 8B.2 has not started.
 
 ## Phase 7A implementation status
 
@@ -547,7 +561,201 @@
 - No legacy source was inspected. No HookTheory or POP909-CL corpus scan,
   Dilemmadata or PDMX integration, production cache rebuild,
   production/full-corpus SSL training, PLL, critic training, or Phase 8B
-  objective work was performed.
+  objective work was performed during Phase 8A.
+
+## Phase 8B.1 implementation status
+
+- Branch: `phase/8b1-multilevel-objectives`, based on merged Phase 8A main
+  `e97377c450a368d6b46d7ba8bc1c7697bdd5dd63`. Existing draft PR: #18; it
+  remains draft and unmerged. Phase 8B.2 has not started.
+- Independent RTX 3090 evidence at exact head
+  `b41dd410e757db1f595880074c106c67327fb13e` is blocking negative evidence,
+  not acceptance: onset-only and equal-weight AMP executed but their loss did
+  not decrease, encoder/new-head gradients and parameter updates were zero,
+  while the mask-only old-objective control trained. The old report also
+  counted a `GradScaler.step()` attempt as an optimizer step even when the
+  scaler skipped the update.
+- Root cause is confined to the new Phase 8B path. Its projector/predictor
+  Linear/GELU/LayerNorm stack inherited the broad encoder autocast region, and
+  initial scaler value `65536` produced non-finite gradients. The remediation
+  makes each new head plus cosine normalization/reduction a disabled-autocast
+  FP32 island, keeps the differentiable online cast and detached full target,
+  and starts the public Phase 8B scaler at `16384`. Phase 7A heads and the null
+  control path are unchanged.
+- Integration remediation is active. Before remediation, the registered Hydra
+  objective modes, `build_phase8b_model_from_config()`, and bounded comparison
+  existed, but official `music_critic.ssl.run`/`ssl.engine` still called the
+  old builder and Phase 7A forward unconditionally. The previous bounded
+  runner was therefore evidence plumbing, not the official/production
+  training path.
+- New independently weighted families are `onset_latent`, `beat_latent`,
+  `hierarchy_bar_latent`, and `track_latent`. They consume exact contextual
+  onset/beat fused rows and coarse bar/track rows. Targets are detached
+  shared-encoder full views; there is no EMA teacher.
+- Policy eligibility is exact: onset descendants select onset rows, beat
+  descendants select beat rows, contiguous bars select bar rows, and
+  track/bar spans select one track plus corresponding bars. Independent note
+  masking remains the literal Phase 7A control. Rows are canonical,
+  deduplicated, and sample-bounded.
+- Cross-policy objective registry/config/family-loss/model/output/metric/
+  engine/report/checkpoint/transfer/comparison contracts are now `1.2.0`;
+  latent prediction is `1.1.0`, masking remains `1.1.0`, and identity-only
+  eligibility/prepared binding, batch aggregate, and new optimizer evidence
+  remain `1.0.0`. Registry fingerprint:
+  `f22dd98c64d6551848a8614b6af2f9de09f27a47fa8377c0d1cea6c1eae5e4a3`.
+- A family records numerator, eligible denominator, mean, availability/reason,
+  configured weight, active state, and zero norms. Zero denominator is
+  unavailable, zero weight bypasses its new head, and fixed weighted sums are
+  never renormalized around unavailable families. Per CPU batch, numerators
+  and eligible denominators are first summed per family across every scheduled
+  view; each available family mean then receives its configured weight once.
+  There is no policy-count divisor. The independent equal-weight oracle is
+  `bar=(6+15)/(3+5)=2.625`, corrected total `6.875`, versus superseded
+  pass-average `2.3125`.
+- Four separate projector/predictor heads add 266,240 parameters at default
+  hidden/projector width 128 and 1,280 in the bounded width-8 comparison.
+  Metrics use at most one packed D2H transfer per CPU batch and retain fixed
+  CPU scalar/O(D) state with no graph, prediction, or CUDA tensors.
+- Hydra provides `phase7a_control`, `onset_only`, `beat_only`, `bar_only`,
+  `track_only`, and `multilevel_equal_weight`. The control constructs the
+  literal old model and remains model-facing bit-exact. Official explicit
+  runs now also require an independent matching `phase8b_masking` group;
+  `phase8a_mask_only` is the one extra compatible pair with the Phase 7A
+  objective control.
+- Official policy schedules are exact and fail-closed: independent note for
+  Phase 7A control; onset/beat/contiguous-bar/track-bar for the corresponding
+  single modes; all four hierarchy policies for equal weight and mask-only.
+  No incompatible policy is substituted. New modes use prepared hierarchy
+  plus objective bindings and `forward_multilevel`; mask-only uses the old
+  model's `forward_hierarchy` and old objectives.
+- Explicit old-checkpoint transfer validates and loads all Phase 7A state,
+  enumerates separately initialized new heads, and is failure-atomic. New
+  checkpoint metadata binds objective registry/config/active weights, masking
+  config/Phase 8A mixture, concrete model class, and fingerprints;
+  round-trip/resume and incompatible objective/weight/policy rejection are
+  tested before live-state mutation. Old checkpoints require explicit
+  transfer and cannot be implicitly resumed as Phase 8B.
+- The official path now implements one-batch, multi-epoch, fixed epoch-zero
+  validation, best/last checkpoints, ordered journal, and exact epoch-boundary
+  resume. Reports expose model class, active families, policies, all binding
+  fingerprints, eligible counts, retained tensor counts, optimizer step
+  attempts/applied/skipped, public scaler evidence, exact optimizer parameter
+  membership, per-path finite/non-zero gradient and parameter-update evidence,
+  initial/final model and input fingerprints, CUDA peak memory, forwards,
+  scheduled passes, family-view passes, eligible prediction rows, objective
+  evaluations, packed-transfer counts, and primary/collateral masked entities.
+  One-batch CUDA acceptance fails closed on no real update, no loss decrease,
+  changed input, unchanged model, invalid encoder/active-head evidence, or an
+  inactive head update. Training, validation, epoch aggregate, and best
+  selection use the same family-global formula.
+- The deterministic 12-step CPU report compares Phase 7A control, Phase 8A
+  masks with old objectives, each new family, and equal weight on four fixed
+  train plus two disjoint held-out pieces. Every available train family
+  decreased; initial/final held-out values, exact denominators, anti-collapse
+  diagnostics, and finite/non-zero gradient coverage remain visible. The old
+  783,207-byte report, fingerprint, and SHA-256 are invalid after the
+  aggregation contract correction. Two fresh reports are byte-identical at
+  976,674 bytes with report fingerprint
+  `a84985a15cddf58c76f8cda99209fd6536c03e7a62c8b268e33f5942a534a1a8`
+  and file SHA-256
+  `2bef7c02e47ca22db0a42d7eeae985f0aa63b73a165361fbba85d9a3aa0548ba`.
+  The mask-schedule fingerprint remains
+  `dd1527b66dd8ba41b10f66f176bea77c305b2ba772496a6142a7252ec52ad6b7`.
+- That standalone report predates official-engine integration and remains a
+  bounded mechanics audit, not a production path. The control/single variants
+  use one scheduled forward per optimizer step while mask-only/equal use four;
+  they are not compute matched and establish no relative effectiveness.
+- Pre-remediation local verification passed focused Phase 8B.1
+  (`22 passed, 1 skipped, 2 warnings`), complete SSL
+  (`379 passed, 18 skipped, 8 warnings`), model/training/checkpoint regression
+  (`180 passed, 7 skipped, 2 warnings`), deterministic runtime/repository/
+  Phase 8B.1 audit (`18 passed, 2 warnings`), and the complete repository
+  (`1247 passed, 39 skipped, 10 warnings`). The optional CUDA+AMP test skips
+  honestly because CUDA is unavailable locally. Compileall and diff checks
+  passed. Its 783,207-byte bounded artifacts and SHA-256
+  `4417a45921971af272c47c3f087abf8988f53ad6df4c0eab1158a28f8c380f4e`
+  are historical and invalid under the corrected aggregation contract.
+  Required GitHub CI passed for the pre-remediation head only and must rerun on
+  the remediation commit.
+- Pre-CUDA/AMP family-global remediation verification: independent cross-policy
+  oracle `5 passed, 2 warnings`; official CLI/resume `12 passed, 2 skipped,
+  2 warnings`; model/training/checkpoint/resume `172 passed, 8 skipped,
+  2 warnings`; deterministic repository/runtime/bounded/resume audit
+  `19 passed, 2 warnings`. The SSL suite excluding one reproducibly hanging
+  sandbox `num_workers>0` case passed `396 passed, 20 skipped, 1 deselected,
+  2 warnings`. The complete repository excluding four reproducibly hanging
+  sandbox `num_workers>0` cases passed `1261 passed, 41 skipped, 4 deselected,
+  2 warnings`. Skips are optional CUDA/hardware paths; the four deselections
+  are local sandbox multiprocessing limitations and remain mandatory in
+  Required GitHub CI. Compileall, diff, and final commit checks are recorded
+  after the exact remediation commit.
+- Final local CUDA/AMP zero-update remediation verification passed focused
+  Phase 8B objective/engine/aggregation/checkpoint/runner contracts
+  (`48 passed, 9 skipped, 2 warnings`), complete SSL except one reproducibly
+  hanging sandbox `num_workers>0` case (`404 passed, 26 skipped, 1 deselected,
+  2 warnings`), deterministic/repository/runtime/bounded audits (`74 passed,
+  2 warnings`), and the complete repository except four reproducibly hanging
+  sandbox worker cases (`1269 passed, 47 skipped, 4 deselected, 2 warnings`).
+  The four tests remain enabled and mandatory in Required GitHub CI. CPU
+  autocast-float16 onset/equal oracles use manual scale `16384` and require
+  every encoder/active-head gradient tensor finite with non-zero coverage.
+  Public-scaler oracles prove one skipped attempt followed by one applied
+  update and fail closed on a zero-gradient/no-update path. Compileall and
+  diff checks passed; exact-commit `git show --check` and both Required CI
+  workflows remain to be recorded after commit. The read-only legacy snapshot
+  check reports pre-existing external worktree drift; no legacy source or
+  logic was used or changed for this remediation.
+- One independent runner now executes onset, beat, bar, track, equal, and
+  mask-only with the official engine in both CUDA FP32 and AMP float16. It
+  requires an explicit exact expected head and clean source tree, validates
+  every run's real-update evidence and exit code, applies documented FP32/AMP
+  structural and initial/final-loss parity (`rtol=0.02`, `atol=0.02`, not bit
+  exact), and archives the complete environment, commands, logs, reports,
+  counters, evidence, CUDA peak memory, combined result, and SHA-256. Local
+  CUDA is unavailable and produced only the structured
+  `phase8b.cuda.cuda_unavailable` result; independent exact-final RTX success
+  remains unclaimed and pending.
+- The pre-aggregation-remediation 783,207-byte SHA-256
+  `4417a45921971af272c47c3f087abf8988f53ad6df4c0eab1158a28f8c380f4e`
+  and old report fingerprint are explicitly invalid evidence.
+- Exact official bounded CPU CLI evidence used two optimizer-step attempts;
+  both were applied and zero were skipped in every mode.
+  Onset-only reduced family-global total `1.1152309417724608 ->
+  0.5074081420898438`, reloaded bit-exactly, and produced manifest SHA-256
+  `fd08894f47119deb433d04c3e50c416374862b51090e63ec0398604843f2ee74`.
+  Its encoder evidence was 328/328 gradient tensors finite, 309 non-zero and
+  309 changed; its onset head was 12/12 finite, non-zero, and changed, with all
+  inactive heads untouched. Equal-weight reduced `4.173366877526948 ->
+  1.6974001381132338`; its initial
+  hierarchy-bar view count was 2 and weight-application count was 1, with
+  optimizer total `4.173367023468018`, reported/stage total
+  `4.173366877526948`, consistent within `1.459410698956276e-7`. Its manifest
+  SHA-256 is
+  `3a0a97959ae52c08fecdced1d277e63e4bc7a173b8dae0b78351b4b86c0446bb`.
+  Its encoder was 334/334 finite with 330 non-zero/changed, and every one of
+  the four 12-parameter new heads was finite, non-zero, and changed.
+  Mask-only old objectives reduced `2.1311030501411077 ->
+  0.9089046872308102`; each old family had four views and one weight
+  application. Its manifest SHA-256 is
+  `977cb3587786fe2aa315295e7d4d2cfa1575ec53f14b6239bb45e94516ebed82`.
+  Its encoder, decoder, hierarchy/transformer/fusion and all four old
+  projector/predictor paths had finite non-zero gradients and changed
+  parameters; all new Phase 8B heads stayed untouched.
+  All three reports used one packed CPU materialization per batch, zero actual
+  D2H on CPU, and retained zero CUDA/prediction tensors. Equal accounting was
+  2 optimizer steps, 16 forwards/policy passes, 20 family-view passes, and 132
+  eligible prediction rows across initial, two optimization, and final stages.
+- The exact two-epoch onset resume starts at epoch 1, completes epoch 2, and
+  matches uninterrupted model/optimizer/scheduler/scaler/RNG/journal state
+  bit-exactly under the corrected report/checkpoint bindings.
+- A direct old-head versus remediated-tree Phase 7A CLI replay used identical
+  command/output path. `resolved_config.json`, `fingerprints.json`, and
+  `run_manifest.json` SHA-256 values matched; the complete checkpoint payload,
+  deterministic report fields, and initial/final losses were bit-exact.
+- This is bounded mechanics/optimization evidence only. No quality,
+  downstream, likelihood, critic, or model-selection improvement is claimed.
+  Phase 8B.2, Phase 9, PLL, critic/quality scoring, full corpora, and legacy
+  code remain out of scope.
 
 ## Scientific context and evaluation backlog
 
