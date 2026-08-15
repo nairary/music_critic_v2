@@ -7,7 +7,7 @@ supervised auxiliary heads. It is not a critic score, calibration result, SSL
 objective, or new checkpoint-selection policy. It changes no model, graph,
 adapter, target, corpus, cache, ontology, or encoding semantics.
 
-Evaluation and evaluation-artifact contracts are version `1.1.1`. The
+Evaluation and evaluation-artifact contracts are version `1.2.0`. The
 profiler contract is `1.1.0`, the macro-summary sub-contract is `1.0.0`, and
 the unchanged train-prior contract remains `1.0.0`.
 
@@ -116,8 +116,9 @@ An undefined denominator produces:
 
 Absence of positive labels is therefore not reported as zero quality.
 Likelihood sums use exact accumulation of the observed binary64 values, and
-confusion/count state is fixed by the ontology size. Prediction tensors are
-not retained across batches.
+confusion/count state is fixed by the ontology size. Multilabel AP retains
+only CPU scalar `(score, positive-count, total-count)` groups per label for an
+exact global ordering; prediction tensors are not retained across batches.
 
 Primary evidence remains under `datasets[dataset_id][task_id]`. The versioned
 `macro_summaries` view groups task-level normalized metrics by
@@ -275,3 +276,27 @@ training checkpoint, run-manifest compatibility binding, or deterministic
 optimizer, RNG, checkpoint, and metric-journal evidence remains bit-exact. If
 a crash commits a checkpoint before timing is written, recovery emits an
 explicit unavailable timing row rather than replaying the mathematical epoch.
+
+## Phase 8B.2A downstream comparison
+
+Phase 8B.2A invokes this evaluator only after one supervised checkpoint exists.
+Raw candidate logits are still produced before target joining, train priors
+remain train-only, and every metric stays isolated by dataset/task/encoding.
+The comparison layer does not create a cross-source head or a hidden global
+score.
+
+Contract `1.2.0` adds `all_negative_prediction_count` and exact average
+precision for closed multilabel tasks. Scalar score groups are ordered
+globally, equal scores share one threshold, and per-label AP is undefined only
+when that label has no eligible positive support. Phase 8B.2A does not
+substitute an invalid average of per-batch AP values. Existing support,
+BCE/NLL, exact match, micro/macro metrics, per-label counts, train-prevalence
+baseline, and explicit undefined reasons remain unchanged.
+
+Validation artifacts feed the versioned mean-dataset-rank selection rule;
+test metrics cannot. The comparison test-lock additionally requires a matching
+validation selection, exactly one checkpoint per scope, acknowledgement, a
+new output directory, test-membership evidence recorded before inference, and
+a single-use experiment identity. Ordinary `acknowledge_test_evaluation` alone
+does not bypass that comparison-level lock. See
+`PHASE8B2_COMPARISON_PROTOCOL.md`.

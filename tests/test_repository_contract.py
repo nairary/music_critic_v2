@@ -25,6 +25,7 @@ REQUIRED_DOCS = {
     "MULTISOURCE_TARGET_CONTRACT.md",
     "PHASE6A_BASELINE.md",
     "PHASE7A_SSL_BASELINE.md",
+    "PHASE8B2_COMPARISON_PROTOCOL.md",
     "legacy_snapshot.json",
 }
 
@@ -39,6 +40,7 @@ REQUIRED_PACKAGES = {
     "evaluation",
     "adapters",
     "exporters",
+    "experiments",
 }
 
 
@@ -93,6 +95,10 @@ def test_package_has_no_legacy_or_heavy_imports() -> None:
                 {"hydra", "torch", "torch_geometric"}
             )
         if relative_parts[0] == "ssl":
+            allowed_roots.update(
+                {"hydra", "torch", "torch_geometric"}
+            )
+        if relative_parts[0] == "experiments":
             allowed_roots.update(
                 {"hydra", "torch", "torch_geometric"}
             )

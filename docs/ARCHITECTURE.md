@@ -7,8 +7,9 @@ supervised execution without changing those semantics. Phase 7A adds a
 deterministic GraphMAE2-inspired masked representation baseline over that
 unchanged encoder. Phase 8A adds deterministic hierarchy-aware mask planning
 and views over the same encoder/security boundary. Phase 8B.1 adds
-independently ablatable onset/beat/bar/track recovery objectives. Phase 8B.2
-scientific comparison, adaptive SSL, and critic paths remain future phases.
+independently ablatable onset/beat/bar/track recovery objectives. Phase 8B.2A
+adds the reproducible comparison/transfer control plane; scaled scientific
+evidence, adaptive SSL, and critic paths remain future work.
 
 ## System flow
 
@@ -888,13 +889,38 @@ and independent CUDA training acceptance begin at `1.0.0`. The full
 architecture, policy mapping, parameter formula, bounded comparison, and
 non-claim boundary are in `PHASE8B_MULTILEVEL_OBJECTIVES.md`.
 
+## Phase 8B.2A comparison control plane
+
+`music_critic.experiments.phase8b2` composes the existing SSL, supervised
+training, and candidate-first evaluation engines. It does not own a parallel
+model or trainer. `Phase8B2ComparisonProtocol@1.0.0` binds variants, model and
+objective/masking configs, all data/cache/split/membership identities, paired
+seed domains, compute budgets, downstream tasks/modes, validation ranking, and
+the locked test state.
+
+The primary `encoder_forward_matched` branch fixes 12 actual calls per logical
+update: six two-call control views or four three-call latent views over one raw
+batch, all independently seeded where a policy repeats. Phase 8B.1's
+family-global numerator/eligible-denominator loss remains unchanged. The
+secondary `natural_schedule` branch preserves one versus four view costs and
+is labelled compute unmatched. Official checkpoints bind the optional
+comparison schedule, and official downstream training binds the transfer
+source/protocol plus separate initialization and data-order seeds.
+
+The control plane emits immutable evidence and rejects incompatible aggregate
+inputs. Validation selection precedes a separate single-use test authorization.
+Piece-level uncertainty and bounded encoder diagnostics consume CPU scalars;
+they retain no prediction tensors and diagnostics never select a checkpoint.
+See `PHASE8B2_COMPARISON_PROTOCOL.md`.
+
 ## Incremental research scope
 
 Phase 7A implements GraphMAE2-inspired decoder remasking but is not a faithful
 GraphMAE2 reproduction. Phase 8A implements only Hi-GMAE-inspired
 hierarchy-aware mask/view mechanics. Phase 8B.1 implements independently
-ablatable multi-level recovery mechanics; Phase 8B.2 scientific comparison
-and UGMAE-inspired adaptive or structural objectives remain roadmap
+ablatable multi-level recovery mechanics; Phase 8B.2A implements comparison
+mechanics, while scaled scientific evidence and UGMAE-inspired adaptive or
+structural objectives remain roadmap
 increments. PDMX-scale effectiveness must be evaluated after the Phase 10
 raw-compatible corpus projection; PLL and critic/quality scoring remain
 separate future contracts.

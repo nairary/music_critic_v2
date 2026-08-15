@@ -52,6 +52,21 @@ class Phase8BMaskingModeConfig:
 
 
 @dataclass
+class Phase8B2ScheduleConfig:
+    """Explicit comparison view schedule supplied by Phase 8B.2A."""
+
+    contract_version: str = "1.0.0"
+    comparison_mode: str = "encoder_forward_matched"
+    variant_id: str = "phase7a_control"
+    protocol_fingerprint: str = ""
+    sample_schedule_fingerprint: str = ""
+    model_initialization_seed: int = 0
+    data_order_seed: int = 0
+    policy_view_names: list[str] = field(default_factory=list)
+    policy_view_seeds: list[int] = field(default_factory=list)
+
+
+@dataclass
 class SSLObjectiveConfig:
     mask_rate: float = 0.30
     decoder_views: int = 3
@@ -88,6 +103,7 @@ class SSLTrainingConfig:
     ssl: SSLObjectiveConfig = field(default_factory=SSLObjectiveConfig)
     phase8b_objective: Phase8BObjectiveModeConfig | None = None
     phase8b_masking: Phase8BMaskingModeConfig | None = None
+    phase8b2_schedule: Phase8B2ScheduleConfig | None = None
 
 
 _REGISTERED = False
@@ -206,6 +222,11 @@ def register_ssl_configs() -> None:
     }
     for name, node in masking_modes.items():
         store.store(group="phase8b_masking", name=name, node=node)
+    store.store(
+        group="phase8b2_schedule",
+        name="comparison",
+        node=Phase8B2ScheduleConfig(),
+    )
     _REGISTERED = True
 
 
@@ -215,6 +236,7 @@ register_ssl_configs()
 __all__ = [
     "Phase8BObjectiveModeConfig",
     "Phase8BMaskingModeConfig",
+    "Phase8B2ScheduleConfig",
     "SSLObjectiveConfig",
     "SSLTrainingConfig",
     "register_ssl_configs",

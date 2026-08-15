@@ -250,8 +250,9 @@
   policies, bit-exact mixture/control replay, 112 finite `cuda:0` forward
   tensors, finite non-zero mandatory gradients, and global peak allocated/
   reserved bytes `68,635,648`/`69,206,016`.
-- Next gate: Phase 8B.1 implementation, bounded mechanics evidence, draft-PR
-  review, and Required CI. Phase 8B.2 has not started.
+- Historical Phase 8A closure gate: Phase 8B.1 implementation, bounded
+  mechanics evidence, draft-PR review, and Required CI. This gate was later
+  completed by PR #18; current Phase 8B.2A status is recorded below.
 
 ## Phase 7A implementation status
 
@@ -565,9 +566,10 @@
 
 ## Phase 8B.1 implementation status
 
-- Branch: `phase/8b1-multilevel-objectives`, based on merged Phase 8A main
-  `e97377c450a368d6b46d7ba8bc1c7697bdd5dd63`. Existing draft PR: #18; it
-  remains draft and unmerged. Phase 8B.2 has not started.
+- Historical implementation branch: `phase/8b1-multilevel-objectives`, based
+  on merged Phase 8A main `e97377c450a368d6b46d7ba8bc1c7697bdd5dd63`.
+  The evidence in this section describes its pre-merge state; PR #18 was
+  subsequently merged and current Phase 8B.2A status is recorded below.
 - Independent RTX 3090 evidence at exact head
   `b41dd410e757db1f595880074c106c67327fb13e` is blocking negative evidence,
   not acceptance: onset-only and equal-weight AMP executed but their loss did
@@ -2301,3 +2303,55 @@ not clamped or mutated.
 - Phase 1B.2 validation: `b5c31c6`, with review fixes in `2c16d72`.
 - Phase 1B.3 serialization: `1dd4e00`, with accepted float-decoding fix in
   `396a2b5`.
+
+## Phase 8B.2A implementation status — 2026-08-15
+
+- Base and branch: started from clean `origin/main` merge `387b5bc` (PR #18)
+  on `phase/8b2a-scientific-comparison-protocol`.
+- Implemented `Phase8B2ComparisonProtocol@1.0.0`, compute accounting,
+  immutable artifacts, paired named seed domains and launch-order-invariant
+  natural/matched plans for all seven accepted SSL variants.
+- The primary matched schedule fixes 12 actual encoder forwards per logical
+  update: six two-forward control views or four three-forward latent views. A
+  real bounded official-engine cell applied two updates over four raw samples
+  and recorded 24 encoder forwards. Natural schedule preserves honest
+  one-/four-view and two-/three-forward-per-view differences.
+- Official SSL checkpoints bind the optional comparison schedule, protocol,
+  sample schedule and independent data/model/mask seeds. Initial/final encoder
+  fingerprints are first-class evidence; changed protocol bindings reject
+  resume.
+- Official supervised training accepts scratch/frozen/full transfer bindings.
+  Only representation state is loaded; task heads/optimizer are fresh; frozen
+  encoder parameters are outside the optimizer and checked bit-exact after
+  training. Both comparison SSL and downstream frozen-probe epoch-boundary
+  interrupted+resumed runs match uninterrupted state, RNG and metric journals.
+- Downstream task manifest is exactly the existing fully supervised
+  `ACTIVE_TASK_IDS`. PU/open-vocabulary boundary/no-chord/borrowed/key-mode
+  tasks remain excluded and source-native datasets/encodings stay isolated.
+- Candidate-first evaluation advanced to `1.2.0` for all-negative multilabel
+  prediction counts and exact tied-threshold per-label average precision from
+  CPU scalar score groups, without retaining prediction tensors.
+  Validation selection, single-use test lock, piece bootstrap/statistics,
+  bounded diagnostics and aggregate rejection are implemented at `1.0.0`.
+- Hydra presets: bounded two-seed acceptance, three-seed production pilot,
+  five-seed paper, and natural-schedule diagnostic. The plan CLI performs no
+  writes/training and derives official SSL/training/evaluation cell bindings.
+- Final local verification: Phase 8B.2A/evaluation/repository acceptance
+  `51 passed`; focused SSL/training/evaluation regression `130 passed,
+  9 skipped, 1 deselected`; deterministic audit tests `51 passed`; final
+  repository suite `1308 passed, 47 skipped, 3 deselected` in 290.64 seconds.
+  The three deselections are existing multiprocessing `DataLoader(workers>0)`
+  tests that reproducibly do not terminate in the local sandbox; each was also
+  observed hanging in isolation. All skips are existing environment/CUDA
+  gates. `compileall` and `git diff --check` pass; warnings are the upstream
+  PyTorch `torch.jit.script` deprecation only.
+- `scripts/check_legacy_unchanged.py` reports that the external read-only
+  legacy checkout no longer matches its previously captured dirty snapshot
+  (pre-existing renames/additions/modifications). Phase 8B.2A inspected and
+  changed no legacy file; the external checkout was not restored or staged.
+- Production corpora were not configured or scanned. No test split, PDMX,
+  production training, CUDA evidence, scientific superiority, PLL, critic, or
+  quality claim was produced.
+- Phase 8B.2A is implementation-complete on this branch. The next roadmap
+  implementation phase is Phase 9; scaled Phase 8B.2 evidence waits for the
+  Phase 10 raw-compatible PDMX projection.

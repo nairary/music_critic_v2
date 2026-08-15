@@ -2396,3 +2396,58 @@ This log is append-only.
   prove the code path and failure semantics, but successful CUDA remediation
   remains unclaimed until the independent RTX 3090 runner passes on the exact
   final head.
+
+## 2026-08-15 — ADR-066: Phase 8B.2A separates compute-matched comparison, validation selection, and held-out test access
+
+- Status: Accepted for implementation on the Phase 8B.2A draft branch. This
+  authorizes reproducible comparison mechanics and bounded CPU acceptance,
+  not full-corpus/PDMX training or a scientific superiority claim.
+- Context: Phase 8B.1 proved routing, aggregation, gradients, checkpointing,
+  and resume, but its natural schedules use one policy view for controls and
+  single-level objectives and four for mask-only/equal-weight. Those losses
+  and bounded decreases are not comparable representation-quality evidence.
+- Decision: Version the complete binding as
+  `Phase8B2ComparisonProtocol@1.0.0`. Treat `natural_schedule` as a secondary
+  compute-unmatched diagnostic and `encoder_forward_matched` as primary. The
+  primary branch fixes raw sample exposures, applied/skipped optimizer-update
+  budget, and encoder forwards. Repeat a single policy through independently
+  seeded views of the same raw batch; preserve the family-global loss without
+  hidden normalization.
+- Decision: Count actual encoder invocations, including detached full-view
+  passes. The default matched budget is 12 calls per logical update: controls
+  use six views at two calls each; latent objectives use four views at three
+  calls each. A nominal equal view count is not compute matching.
+- Decision: Pair exact encoder initialization, SSL/downstream sample schedules,
+  and memberships. Derive independent named model/data/mask/downstream/
+  bootstrap seed domains so launch permutation has no effect. Fingerprint
+  actual initial and transferred encoder states and reject incompatible resume
+  or aggregation.
+- Decision: Compare `frozen_probe` and `full_finetune` against
+  `supervised_scratch` using the current hierarchical supervised architecture,
+  fresh heads/optimizer, and the same downstream budget. Frozen exports are
+  excluded from the optimizer and remain bit-exact; full fine-tuning loads
+  only representation state failure-atomically. SSL decoders/heads/optimizer
+  never transfer.
+- Decision: Keep current fully supervised model-ready, source-native heads
+  only. Candidate-first validation and train priors remain authoritative.
+  Select by declared HookTheory/POP909-CL macro endpoints, mean dataset rank,
+  then lower NLL, lower compute, and lexical variant ID. Diagnostics do not
+  select.
+- Decision: The independent statistical unit is a piece. Use deterministic
+  paired piece bootstrap, per-seed mean/median, between-seed SD, and deltas
+  against scratch and Phase 7A; emit unavailable reasons rather than row-level
+  uncertainty. Bounded fixtures do not produce significance claims.
+- Decision: Test remains locked until a matching validation-selection artifact
+  chooses exactly one checkpoint per scope, explicit acknowledgement is given,
+  a new output and pre-inference test membership are bound, and an experiment
+  identity is consumed once. Unauthorized test artifacts invalidate an
+  aggregate.
+- Decision: Reuse official SSL/training/evaluation/checkpoint engines. Bind the
+  optional repeated-view schedule into Phase 8B checkpoints and transfer into
+  supervised checkpoints. Create immutable `1.0.0` comparison artifacts and
+  reject dirty production worktrees, stale/incomplete/duplicate/mixed bundles.
+- Consequences: Phase 8B.2A can establish fair mechanics and a production-ready
+  protocol without running long training. Phase 10 may supply PDMX raw caches
+  to the same binding. PDMX, Dilemmadata, PLL, preference/quality scoring,
+  curriculum masking, EMA, theory-as-input, schema/ontology changes, and any
+  effectiveness claim remain outside this decision.

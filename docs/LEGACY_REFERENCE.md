@@ -328,3 +328,16 @@ hierarchical encoder. In particular, start-anchored onset/beat/bar/track
 descendants, deterministic policy mixtures, structured unavailable evidence,
 and the supplemental bounded oracle are new V2 contracts. The V2 package
 continues to run without the legacy checkout.
+
+## Phase 8B.2A scientific comparison protocol
+
+No legacy repository file was inspected for Phase 8B.2A. No legacy trainer,
+evaluation path, checkpoint, data schedule, statistical routine, test access,
+or transfer logic was reused or adapted.
+
+The comparison protocol composes only current V2 Phase 8B.1 SSL, Phase 6C
+supervised training, Phase 6D candidate-first evaluation, and the accepted V2
+encoder export. Natural/matched analyses, named paired seed domains,
+validation-only ranking, the single-use test lock, piece bootstrap, and
+immutable aggregate artifacts are new V2 contracts. V2 and its plan CLI
+remain runnable without the legacy checkout.

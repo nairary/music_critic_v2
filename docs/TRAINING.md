@@ -381,3 +381,35 @@ VRAM, finite initial/final losses, exact checkpoint reload, deterministic
 repeat, and both mutation-evidence objects to pass. It also requires target
 and reconstruction-loss changes plus finite FP32 preference diagnostics, but
 does not require either margin sign after two optimizer steps.
+
+## Phase 8B.2A comparison and transfer bindings
+
+Phase 8B.2A reuses this official epoch/checkpoint/journal engine. The optional
+`transfer` block is `1.0.0` and defaults to `supervised_scratch`, preserving
+ordinary Phase 6C behavior. A protocol-bound run supplies independent
+downstream initialization/data-order seeds and one of:
+
+- `supervised_scratch`, with no encoder export;
+- `frozen_probe`, with loaded representation parameters frozen and absent
+  from the optimizer;
+- `full_finetune`, with loaded representation parameters trainable.
+
+Pretrained modes require the hierarchical architecture, encoder export path
+and SHA-256, source SSL checkpoint SHA-256, and comparison protocol
+fingerprint. The existing `ssl.transfer` contract validates and loads only
+local encoder, hierarchy pooling/Transformer, and fusion state
+failure-atomically. Task heads and AdamW are constructed fresh. No SSL decoder,
+latent head, optimizer, scaler, scheduler, or RNG state is transferred.
+
+Resolved config, manifest, and checkpoint include deterministic transfer
+evidence: source identities, loaded/fresh names, optimizer membership, and
+transferred encoder fingerprint. Frozen runs verify the encoder bit-exact at
+completion. Resume recreates the same fresh model/transfer boundary before the
+official failure-atomic checkpoint load; a changed protocol/export/seed cannot
+resume.
+
+`music_critic.experiments.phase8b2` emits official training overrides for each
+paired downstream cell. One batch per epoch makes the configured epoch count
+an exact downstream optimizer-update budget in bounded acceptance. See
+`PHASE8B2_COMPARISON_PROTOCOL.md`; these mechanics are not downstream quality
+evidence.

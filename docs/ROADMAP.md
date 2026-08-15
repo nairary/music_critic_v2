@@ -544,16 +544,18 @@ The model and training phases remain pending.
 
 ## Phase 8B — multi-level objectives and comparison
 
-- Status: Phase 8B.1 official-engine aggregation and CUDA/AMP real-update
-  remediation is implemented locally in draft PR #18; independent RTX 3090
-  confirmation remains pending, and Phase 8B.2 has not started. Before the
+- Status: Phase 8B.1 is merged through PR #18. Phase 8B.2A comparison,
+  transfer, selection, test-lock, statistics, artifact, and bounded CPU
+  mechanics are implemented on `phase/8b2a-scientific-comparison-protocol`;
+  production/PDMX effectiveness evidence and optional current-head CUDA
+  confirmation remain pending. Before the
   original integration remediation, the Hydra
   group/builder/bounded runner existed but `ssl.run`/`ssl.engine` still used
   the old model and Phase 7A forward unconditionally.
 - Goal: add independently ablatable onset/beat/bar/track objective families
   and compare them against Phase 7A/8A controls.
-- Dependencies: accepted and merged Phase 8A contracts at main
-  `e97377c450a368d6b46d7ba8bc1c7697bdd5dd63`.
+- Dependencies: accepted Phase 8B.1 merge through PR #18 at main
+  `387b5bc`.
 - Phase 8B.1 outputs: versioned exact-identity eligibility/binding,
   independently weighted multi-level heads/losses, six Hydra modes, old
   checkpoint transfer, strict new checkpoint binding, and deterministic
@@ -564,8 +566,15 @@ The model and training phases remain pending.
   applied once; plus FP32-safe new latent heads, honest applied/skipped step
   accounting, active/inactive parameter-update evidence, and an independent
   archived RTX FP32/AMP runner.
-- Phase 8B.2 future output: scaled scientific comparison, model selection, and
-  only then any evidence-justified curriculum.
+- Phase 8B.2A outputs: `Phase8B2ComparisonProtocol@1.0.0`, distinct natural
+  and encoder-forward-matched analyses, paired initialization/data schedules,
+  official frozen/full/scratch transfer, candidate-first validation metrics,
+  mean-dataset-rank selection, single-use test lock, deterministic paired
+  piece bootstrap, bounded encoder diagnostics, immutable artifacts,
+  aggregation validation, Hydra plans/presets, and official engine adapters.
+- Phase 8B.2 future output: execute the locked protocol at appropriate scale,
+  including the Phase 10 PDMX rerun, before any effectiveness or curriculum
+  conclusion.
 - Tests: level-specific target/denominator semantics, unavailable-level
   handling, exact alignment/sample isolation, independent ablation,
   checkpoint compatibility/atomicity, bounded optimization, optional CUDA AMP,
@@ -576,13 +585,19 @@ The model and training phases remain pending.
   public scaler skip/apply oracles, all-family CUDA+AMP real-update checks,
   FP32/AMP structural parity, and exact two-epoch resume.
 - Non-goals: claiming scaled effectiveness before the Phase 10
-  raw-compatible PDMX projection and rerun; Phase 8B.2, Phase 9, PLL,
+  raw-compatible PDMX projection and rerun; Phase 9, PLL,
   preference critic, quality scoring, or production/full-corpus SSL training.
 - Acceptance: objective families remain independently ablatable and their
   held-out mechanics/comparisons are reported without likelihood, critic, or
   quality-score interpretation. Bounded variants with different scheduled
   forward counts are not described as compute matched or as effectiveness
   evidence.
+- Phase 8B.2A acceptance: bounded CPU covers two paired seeds, scratch,
+  Phase 7A, Phase 8A mask-only, a single-level objective, equal-weight,
+  frozen/full transfer contracts, exact compute accounting, launch-order
+  invariance, resume binding, leakage mutation evidence, validation-only
+  selection, test-lock negatives, aggregation, piece uncertainty, and
+  diagnostics. It does not require SSL to beat scratch.
 
 ## Phase 9 — Dilemmadata adapter and theory supervision
 

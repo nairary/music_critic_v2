@@ -221,6 +221,7 @@ def ssl_checkpoint_metadata(
             "masking_config",
             "masking_config_fingerprint",
             "mask_policy_mixture_fingerprint",
+            "phase8b2_schedule",
         }
         if set(phase8b_runtime) != required:
             raise SSLCheckpointError(
@@ -256,6 +257,17 @@ def ssl_checkpoint_metadata(
         ):
             raise SSLCheckpointError(
                 "ssl.checkpoint.phase8b_runtime_binding_invalid"
+            )
+        comparison = phase8b_runtime["phase8b2_schedule"]
+        if comparison is not None and (
+            not isinstance(comparison, dict)
+            or comparison.get("contract_version") != "1.0.0"
+            or comparison.get("comparison_mode")
+            not in {"natural_schedule", "encoder_forward_matched"}
+            or not isinstance(comparison.get("fingerprint"), str)
+        ):
+            raise SSLCheckpointError(
+                "ssl.checkpoint.phase8b2_schedule_binding_invalid"
             )
         metadata["phase8b_binding"] = copy.deepcopy(
             phase8b_runtime

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
+import os
+from pathlib import Path
+import tempfile
 from typing import Mapping
 
 import torch
@@ -246,10 +249,33 @@ def load_pretrained_encoder_state(
     )
 
 
+def save_pretrained_encoder_export(
+    path: str | Path, model: nn.Module
+) -> None:
+    """Failure-atomically save a tensor-only encoder export."""
+
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{destination.name}.",
+        suffix=".tmp",
+        dir=destination.parent,
+    )
+    os.close(descriptor)
+    temporary = Path(temporary_name)
+    try:
+        torch.save(export_pretrained_encoder_state(model), temporary)
+        os.replace(temporary, destination)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
 __all__ = [
     "ENCODER_EXPORT_CONTRACT_VERSION",
     "EncoderTransferError",
     "EncoderTransferReport",
     "export_pretrained_encoder_state",
     "load_pretrained_encoder_state",
+    "save_pretrained_encoder_export",
 ]

@@ -93,6 +93,20 @@ class DeviceConfig:
 
 
 @dataclass
+class TransferConfig:
+    """Optional Phase 8B.2A downstream encoder initialization."""
+
+    contract_version: str = "1.0.0"
+    mode: str = "supervised_scratch"
+    encoder_export_path: str = ""
+    encoder_export_sha256: str = ""
+    source_ssl_checkpoint_sha256: str = ""
+    comparison_protocol_fingerprint: str = ""
+    downstream_initialization_seed: int = 0
+    downstream_data_order_seed: int = 0
+
+
+@dataclass
 class TrainingConfig:
     defaults: list[Any] = field(
         default_factory=lambda: [
@@ -115,6 +129,7 @@ class TrainingConfig:
     objective: ObjectiveConfig = MISSING
     scheduler: SchedulerConfig = MISSING
     device: DeviceConfig = MISSING
+    transfer: TransferConfig = field(default_factory=TransferConfig)
 
 
 def _model(name: str) -> ModelConfig:
@@ -332,5 +347,6 @@ __all__ = [
     "OptimizerConfig",
     "SchedulerConfig",
     "TrainingConfig",
+    "TransferConfig",
     "register_training_configs",
 ]

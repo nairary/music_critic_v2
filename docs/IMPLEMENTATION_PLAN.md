@@ -3120,11 +3120,56 @@ representation improvement.
 - no scaled-effectiveness claim is made before rerunning accepted objectives
   after the Phase 10 PDMX raw-compatible corpus/cache exists.
 
-Phase 8B.2 remains future work for scientific comparison/model selection on
-appropriately scaled raw-compatible data. Phase 8B.1 does not add a mask
+### Phase 8B.2A implemented comparison protocol
+
+- Add `Phase8B2ComparisonProtocol@1.0.0` and bind every variant, model,
+  objective/masking, seed, data/cache/split/membership, mixture, compute,
+  optimizer/scheduler/device, transfer, task, selection, and locked-test
+  field. Canonical fingerprint changes on every binding mutation.
+- Keep `natural_schedule` as a compute-unmatched diagnostic. Make
+  `encoder_forward_matched` primary with four independently seeded views over
+  each shared raw batch, exact raw exposure and applied/skipped update
+  accounting, and no loss renormalization.
+- Derive independent launch-order-invariant data, mask, initialization,
+  downstream, and bootstrap seed domains. Bind actual initial/final encoder,
+  sample schedule, validation membership, downstream schedule, and transferred
+  encoder fingerprints.
+- Extend the official Phase 8B engine with an optional checkpoint-bound
+  repeated-view schedule and encoder-forward counts. Preserve the null Phase
+  7A and ordinary Phase 8B.1 routes.
+- Extend official supervised training with `frozen_probe`, `full_finetune`,
+  and `supervised_scratch` initialization. Transfer representation prefixes
+  only, construct fresh heads/optimizer, exclude frozen parameters, and verify
+  frozen state bit-exactly.
+- Reuse candidate-first evaluation/train-only priors; keep metrics isolated by
+  dataset/task/encoding. Add multilabel all-negative counts and exact AP from
+  CPU scalar score groups with tied-score thresholds; retain no prediction
+  tensors and report explicit no-positive-support reasons.
+- Select on validation only by mean dataset rank, NLL, compute, then lexical
+  ID. Require a pre-inference, new-directory, one-checkpoint, acknowledged,
+  membership-bound, single-use authorization for test.
+- Aggregate paired seeds at independent-piece level with deterministic
+  bootstrap CIs, per-seed mean/median, between-seed SD, scratch and Phase 7A
+  deltas, and explicit insufficient-data reasons. Diagnostics never select.
+- Create immutable versioned artifact/manifest helpers and reject incomplete,
+  duplicate, stale, incompatible, mixed-mode, initial-state-mismatched, or
+  unauthorized-test bundles. Reuse epoch-boundary failure-atomic checkpoint
+  and journal recovery.
+- Register bounded, pilot, paper, and natural-schedule Hydra presets plus a
+  no-write plan CLI and official SSL/training/evaluation cell bindings. Never
+  hard-code production paths or scan/rebuild caches in read-only smoke.
+- Prove bounded mechanics with two paired seeds, required controls/transfer
+  modes, actual official-engine matched accounting, launch permutation,
+  protocol/resume rejection, leakage, aggregation/selection/test-lock,
+  statistics, and diagnostics. Make no production, PDMX, CUDA, or superiority
+  claim from CPU fixtures.
+
+Scaled Phase 8B.2 evidence remains future work on appropriately sized
+raw-compatible data. Phase 8B.2A does not add a mask
 curriculum, likelihood/PLL, theory supervision, preference critic, or quality
-score. The complete current contract is in
-[`PHASE8B_MULTILEVEL_OBJECTIVES.md`](PHASE8B_MULTILEVEL_OBJECTIVES.md).
+score. The objective and comparison contracts are in
+[`PHASE8B_MULTILEVEL_OBJECTIVES.md`](PHASE8B_MULTILEVEL_OBJECTIVES.md) and
+[`PHASE8B2_COMPARISON_PROTOCOL.md`](PHASE8B2_COMPARISON_PROTOCOL.md).
 
 ## Phase 9. Dilemmadata adapter and theory heads
 

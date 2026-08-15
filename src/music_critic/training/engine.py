@@ -39,8 +39,6 @@ from music_critic.training.models import (
     build_baseline_model,
     model_contract_fingerprint,
 )
-
-
 class TrainingContractError(ValueError):
     """Stable Phase 6C configuration or runtime contract failure."""
 
@@ -176,6 +174,14 @@ def _json_fingerprint(value: object) -> str:
         allow_nan=False,
     ).encode("utf-8")
     return sha256(payload).hexdigest()
+
+
+def _file_sha256(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _managed_artifacts(output: Path) -> tuple[Path, ...]:
@@ -395,6 +401,65 @@ def _validate_config(config: dict[str, Any]) -> None:
         raise TrainingContractError(
             "training.config.task_weights_invalid"
         )
+    transfer = config.get("transfer")
+    if not isinstance(transfer, dict) or transfer.get(
+        "contract_version"
+    ) != "1.0.0" or transfer.get("mode") not in {
+        "supervised_scratch",
+        "frozen_probe",
+        "full_finetune",
+    }:
+        raise TrainingContractError(
+            "training.config.transfer_invalid"
+        )
+    pretrained = transfer["mode"] != "supervised_scratch"
+    if pretrained and (
+        config["model"]["name"] != "hierarchical"
+        or not transfer.get("encoder_export_path")
+        or not transfer.get("encoder_export_sha256")
+        or not transfer.get("source_ssl_checkpoint_sha256")
+        or not transfer.get("comparison_protocol_fingerprint")
+    ):
+        raise TrainingContractError(
+            "training.config.pretrained_transfer_binding_incomplete"
+        )
+    for name in (
+        "encoder_export_sha256",
+        "source_ssl_checkpoint_sha256",
+        "comparison_protocol_fingerprint",
+    ):
+        value = transfer.get(name)
+        if pretrained and (
+            not isinstance(value, str)
+            or len(value) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in value
+            )
+        ):
+            raise TrainingContractError(
+                f"training.config.{name}_invalid"
+            )
+    if not pretrained and any(
+        transfer.get(name)
+        for name in (
+            "encoder_export_path",
+            "encoder_export_sha256",
+            "source_ssl_checkpoint_sha256",
+        )
+    ):
+        raise TrainingContractError(
+            "training.config.scratch_transfer_source_forbidden"
+        )
+    for name in (
+        "downstream_initialization_seed",
+        "downstream_data_order_seed",
+    ):
+        value = transfer.get(name)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise TrainingContractError(
+                f"training.config.{name}_invalid"
+            )
 
 
 def _resolve_device(config: dict[str, Any]) -> torch.device:
@@ -430,8 +495,15 @@ def _set_determinism(seed: int) -> None:
 def _optimizer(
     model: BaselineModel, config: dict[str, Any]
 ) -> torch.optim.Optimizer:
+    parameters = [
+        parameter for parameter in model.parameters() if parameter.requires_grad
+    ]
+    if not parameters:
+        raise TrainingContractError(
+            "training.optimizer.trainable_parameter_set_empty"
+        )
     return torch.optim.AdamW(
-        model.parameters(),
+        parameters,
         lr=float(config["optimizer"]["learning_rate"]),
         weight_decay=float(config["optimizer"]["weight_decay"]),
     )
@@ -720,16 +792,65 @@ def _prepare(
 ]:
     _validate_config(config)
     device = _resolve_device(config)
-    _set_determinism(int(config["seed"]))
+    transfer = config["transfer"]
+    comparison_bound = bool(transfer["comparison_protocol_fingerprint"])
+    data_seed = (
+        int(transfer["downstream_data_order_seed"])
+        if comparison_bound
+        else int(config["seed"])
+    )
+    _set_determinism(data_seed)
     if device.type == "cuda":
         torch.cuda.reset_peak_memory_stats(device)
     runtime = build_data_runtime(
-        OmegaConf.create(config["data"]), seed=config["seed"]
+        OmegaConf.create(config["data"]), seed=data_seed
     )
+    if comparison_bound:
+        _set_determinism(int(transfer["downstream_initialization_seed"]))
     model = build_baseline_model(
         OmegaConf.create(config["model"]),
         task_weights=config["objective"]["task_weights"],
     ).to(device)
+    encoder_export = None
+    if transfer["mode"] != "supervised_scratch":
+        export_path = Path(transfer["encoder_export_path"]).resolve()
+        if _file_sha256(export_path) != transfer["encoder_export_sha256"]:
+            raise TrainingContractError(
+                "training.transfer.encoder_export_sha256_mismatch"
+            )
+        try:
+            encoder_export = torch.load(
+                export_path, map_location="cpu", weights_only=True
+            )
+        except Exception as exc:
+            raise TrainingContractError(
+                f"training.transfer.encoder_export_unreadable:{exc}"
+            ) from exc
+    from music_critic.experiments.phase8b2.contracts import (
+        Phase8B2ContractError,
+    )
+    from music_critic.experiments.phase8b2.transfer import (
+        prepare_downstream_model,
+    )
+
+    try:
+        _, transfer_evidence = prepare_downstream_model(
+            model,
+            transfer_mode=transfer["mode"],
+            encoder_export=encoder_export,
+        )
+    except Phase8B2ContractError as exc:
+        raise TrainingContractError(str(exc)) from exc
+    transfer_evidence["comparison_protocol_fingerprint"] = transfer[
+        "comparison_protocol_fingerprint"
+    ] or None
+    transfer_evidence["source_ssl_checkpoint_sha256"] = transfer[
+        "source_ssl_checkpoint_sha256"
+    ] or None
+    transfer_evidence["encoder_export_sha256"] = transfer[
+        "encoder_export_sha256"
+    ] or None
+    config["phase8b2_transfer_runtime"] = transfer_evidence
     optimizer = _optimizer(model, config)
     scheduler = _scheduler(
         optimizer,
@@ -864,6 +985,14 @@ def _validate_resume_artifacts(
 
 
 def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
+    from music_critic.experiments.phase8b2.contracts import (
+        Phase8B2ContractError,
+    )
+    from music_critic.experiments.phase8b2.transfer import (
+        prepare_downstream_model,
+        verify_frozen_encoder,
+    )
+
     started_at = time.perf_counter()
     (
         output_dir,
@@ -976,6 +1105,21 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         OmegaConf.create(config["model"]),
         task_weights=config["objective"]["task_weights"],
     ).to(device)
+    reload_export = None
+    if config["transfer"]["mode"] != "supervised_scratch":
+        reload_export = torch.load(
+            Path(config["transfer"]["encoder_export_path"]).resolve(),
+            map_location="cpu",
+            weights_only=True,
+        )
+    try:
+        prepare_downstream_model(
+            reloaded,
+            transfer_mode=config["transfer"]["mode"],
+            encoder_export=reload_export,
+        )
+    except Phase8B2ContractError as exc:
+        raise TrainingContractError(str(exc)) from exc
     reloaded_optimizer = _optimizer(reloaded, config)
     reloaded_scheduler = _scheduler(
         reloaded_optimizer, config, one_batch=True
@@ -1019,6 +1163,14 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         "duration_seconds": time.perf_counter() - started_at,
         "device": _device_evidence(device),
         "fingerprints": runtime.fingerprints,
+        "phase8b2_transfer": config["phase8b2_transfer_runtime"],
+        "frozen_encoder_final": (
+            verify_frozen_encoder(
+                model, config["phase8b2_transfer_runtime"]
+            )
+            if config["transfer"]["mode"] == "frozen_probe"
+            else None
+        ),
     }
     _write_json(output_dir / "one_batch_report.json", report)
     return report
@@ -1310,6 +1462,10 @@ def _run_epochs(
     stop_after_epoch: int | None,
     crash_after: str | None,
 ) -> dict[str, object]:
+    from music_critic.experiments.phase8b2.transfer import (
+        verify_frozen_encoder,
+    )
+
     started_at = time.perf_counter()
     resume = config["experiment"]["resume_from"]
     entry_rng = capture_rng_state() if resume else None
@@ -1384,8 +1540,19 @@ def _run_epochs(
             ],
             task_weights=config["objective"]["task_weights"],
         )
+        downstream_batch_identities: list[list[list[str]]] = []
         train_started_at = time.perf_counter()
         for cpu_batch in runtime.train_loader(epoch):
+            downstream_batch_identities.append(
+                [
+                    [dataset_id, piece_id]
+                    for dataset_id, piece_id in zip(
+                        cpu_batch.dataset_ids,
+                        cpu_batch.piece_ids,
+                        strict=True,
+                    )
+                ]
+            )
             batch = move_multisource_batch(
                 cpu_batch,
                 device,
@@ -1444,6 +1611,16 @@ def _run_epochs(
             "train": train_metric,
             "validation": validation,
         }
+        if config["transfer"]["comparison_protocol_fingerprint"]:
+            row["phase8b2_downstream_schedule_fingerprint"] = (
+                _json_fingerprint(
+                    {
+                        "contract_version": "1.0.0",
+                        "epoch": epoch,
+                        "batch_identities": downstream_batch_identities,
+                    }
+                )
+            )
         validation_objective = (
             None
             if validation is None
@@ -1528,6 +1705,13 @@ def _run_epochs(
         completed = epoch + 1
         if stop_after_epoch is not None and completed >= stop_after_epoch:
             break
+    committed_rows = [
+        json.loads(line)
+        for line in (output_dir / "metrics.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line
+    ]
     report = {
         "evidence_kind": "bounded_supervised_training_plumbing",
         "resume_boundary": "epoch_only",
@@ -1552,6 +1736,24 @@ def _run_epochs(
             runtime.validation_membership
         ),
         "objective": config["objective"],
+        "phase8b2_transfer": config["phase8b2_transfer_runtime"],
+        "observed_downstream_schedule_fingerprint": (
+            _json_fingerprint(
+                [
+                    row["phase8b2_downstream_schedule_fingerprint"]
+                    for row in committed_rows
+                ]
+            )
+            if config["transfer"]["comparison_protocol_fingerprint"]
+            else None
+        ),
+        "frozen_encoder_final": (
+            verify_frozen_encoder(
+                model, config["phase8b2_transfer_runtime"]
+            )
+            if config["transfer"]["mode"] == "frozen_probe"
+            else None
+        ),
     }
     _write_json_atomic(output_dir / "training_report.json", report)
     return report

@@ -69,6 +69,7 @@ _MACRO_METRICS_BY_KIND = {
         "macro_precision",
         "macro_recall",
         "macro_f1",
+        "average_precision",
     ),
 }
 
@@ -657,6 +658,7 @@ def _evaluate(
                 "micro_precision",
                 "micro_recall",
                 "exact_match_accuracy",
+                "average_precision",
                 "nll",
                 "bce_nll",
             ):
