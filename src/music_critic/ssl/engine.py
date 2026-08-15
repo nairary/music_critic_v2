@@ -18,6 +18,10 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 from torch.nn import functional as F
 
+from music_critic.cuda_memory import (
+    CudaMemoryStatisticsLifecycleEvidence,
+    initialize_cuda_memory_statistics,
+)
 from music_critic.device import (
     CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION,
     RuntimeDeviceError,
@@ -73,7 +77,7 @@ from music_critic.training.checkpoint import (
 
 
 SSL_RUN_MANIFEST_VERSION = "1.2.0"
-SSL_TRAINING_REPORT_VERSION = "1.2.3"
+SSL_TRAINING_REPORT_VERSION = "1.2.4"
 SSL_PERFORMANCE_ROW_VERSION = "1.2.0"
 NO_LEAKAGE_MUTATION_EVIDENCE_CONTRACT_VERSION = "1.0.0"
 PITCH_SENSITIVE_RECONSTRUCTION_EVIDENCE_CONTRACT_VERSION = "1.0.0"
@@ -1369,7 +1373,12 @@ def _evaluate(
     return accumulator.finalize()
 
 
-def _device_evidence(device: torch.device) -> dict[str, object]:
+def _device_evidence(
+    device: torch.device,
+    cuda_memory_lifecycle: (
+        CudaMemoryStatisticsLifecycleEvidence | None
+    ),
+) -> dict[str, object]:
     common = {
         "resolved_device": str(device),
         "cuda_available": torch.cuda.is_available(),
@@ -1383,6 +1392,11 @@ def _device_evidence(device: torch.device) -> dict[str, object]:
         ),
         "cublas_workspace_config": os.environ.get(
             "CUBLAS_WORKSPACE_CONFIG"
+        ),
+        "cuda_memory_statistics_lifecycle": (
+            None
+            if cuda_memory_lifecycle is None
+            else cuda_memory_lifecycle.to_dict()
         ),
     }
     if device.type != "cuda":
@@ -1419,14 +1433,16 @@ def _prepare(
     torch.optim.Optimizer,
     Any,
     torch.amp.GradScaler,
+    CudaMemoryStatisticsLifecycleEvidence | None,
 ]:
     _validate_config(config)
     _set_determinism(int(config["seed"]))
     device = _resolve_device(config)
-    if device.type == "cuda":
-        torch.cuda.reset_peak_memory_stats(
-            resolve_cuda_device_index(device)
-        )
+    cuda_memory_lifecycle = (
+        initialize_cuda_memory_statistics(device)
+        if device.type == "cuda"
+        else None
+    )
     runtime = build_ssl_data_runtime(
         OmegaConf.create(config["data"]),
         seed=int(config["seed"]),
@@ -1449,6 +1465,7 @@ def _prepare(
         optimizer,
         scheduler,
         scaler,
+        cuda_memory_lifecycle,
     )
 
 
@@ -2399,6 +2416,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         optimizer,
         scheduler,
         scaler,
+        cuda_memory_lifecycle,
     ) = _prepare(config)
     del scheduler
     _initialize_output(
@@ -2596,7 +2614,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
             "total_seconds": time.perf_counter() - started,
             "checkpoint_binding_participation": False,
         },
-        "device": _device_evidence(device),
+        "device": _device_evidence(device, cuda_memory_lifecycle),
         "amp_enabled": bool(config["device"]["amp"]),
         "scaler_enabled": scaler.is_enabled(),
         "fingerprints": runtime.fingerprints,
@@ -2624,6 +2642,7 @@ def _run_epochs(
         optimizer,
         scheduler,
         scaler,
+        cuda_memory_lifecycle,
     ) = _prepare(config)
     resume_path = str(config["experiment"]["resume_from"])
     _initialize_output(
@@ -2960,7 +2979,7 @@ def _run_epochs(
         "validation_membership": asdict(runtime.validation_membership),
         "fingerprints": runtime.fingerprints,
         "data_composition": runtime.mixture_statistics,
-        "device": _device_evidence(device),
+        "device": _device_evidence(device, cuda_memory_lifecycle),
         "amp_enabled": bool(config["device"]["amp"]),
         "scaler_enabled": scaler.is_enabled(),
         "duration_seconds": time.perf_counter() - started,

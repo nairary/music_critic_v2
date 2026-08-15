@@ -21,6 +21,10 @@ from typing import Any, Iterable
 import torch
 from omegaconf import DictConfig, OmegaConf
 
+from music_critic.cuda_memory import (
+    CudaMemoryStatisticsLifecycleEvidence,
+    initialize_cuda_memory_statistics,
+)
 from music_critic.device import (
     CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION,
     RuntimeDeviceError,
@@ -821,12 +825,22 @@ def _validation_epoch(
     return result
 
 
-def _device_evidence(device: torch.device) -> dict[str, object]:
+def _device_evidence(
+    device: torch.device,
+    cuda_memory_lifecycle: (
+        CudaMemoryStatisticsLifecycleEvidence | None
+    ),
+) -> dict[str, object]:
     common = {
         "torch_version": torch.__version__,
         "cuda_runtime_version": torch.version.cuda,
         "deterministic_algorithms_enabled": (
             torch.are_deterministic_algorithms_enabled()
+        ),
+        "cuda_memory_statistics_lifecycle": (
+            None
+            if cuda_memory_lifecycle is None
+            else cuda_memory_lifecycle.to_dict()
         ),
     }
     if device.type != "cuda":
@@ -867,6 +881,7 @@ def _prepare(
     torch.optim.Optimizer,
     Any,
     torch.amp.GradScaler,
+    CudaMemoryStatisticsLifecycleEvidence | None,
 ]:
     _validate_config(config)
     device = _resolve_device(config)
@@ -878,10 +893,11 @@ def _prepare(
         else int(config["seed"])
     )
     _set_determinism(data_seed)
-    if device.type == "cuda":
-        torch.cuda.reset_peak_memory_stats(
-            resolve_cuda_device_index(device)
-        )
+    cuda_memory_lifecycle = (
+        initialize_cuda_memory_statistics(device)
+        if device.type == "cuda"
+        else None
+    )
     runtime = build_data_runtime(
         OmegaConf.create(config["data"]), seed=data_seed
     )
@@ -969,7 +985,16 @@ def _prepare(
         enabled=bool(config["device"]["amp"]),
     )
     output = Path(config["output_dir"]).resolve()
-    return output, device, runtime, model, optimizer, scheduler, scaler
+    return (
+        output,
+        device,
+        runtime,
+        model,
+        optimizer,
+        scheduler,
+        scaler,
+        cuda_memory_lifecycle,
+    )
 
 
 def _artifact_payloads(
@@ -1109,6 +1134,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         optimizer,
         scheduler,
         scaler,
+        cuda_memory_lifecycle,
     ) = _prepare(config)
     _initialize_fresh_output(
         output_dir,
@@ -1268,7 +1294,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         "scaler_enabled": scaler.is_enabled(),
         "optimizer_step_count": config["experiment"]["steps"],
         "duration_seconds": time.perf_counter() - started_at,
-        "device": _device_evidence(device),
+        "device": _device_evidence(device, cuda_memory_lifecycle),
         "fingerprints": runtime.fingerprints,
         "phase8b2_transfer": config["phase8b2_transfer_runtime"],
         "frozen_encoder_final": (
@@ -1585,6 +1611,7 @@ def _run_epochs(
             optimizer,
             scheduler,
             scaler,
+            cuda_memory_lifecycle,
         ) = _prepare(config)
     except Exception:
         if entry_rng is not None:
@@ -1936,7 +1963,7 @@ def _run_epochs(
         "scaler_enabled": scaler.is_enabled(),
         "duration_seconds": time.perf_counter() - started_at,
         "detailed_profiler_enabled": False,
-        "device": _device_evidence(device),
+        "device": _device_evidence(device, cuda_memory_lifecycle),
         "fingerprints": runtime.fingerprints,
         "validation_membership": asdict(
             runtime.validation_membership

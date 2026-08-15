@@ -3,6 +3,10 @@ from __future__ import annotations
 import pytest
 import torch
 
+from music_critic.cuda_memory import (
+    CUDA_MEMORY_STATISTICS_LIFECYCLE_CONTRACT_VERSION,
+    initialize_cuda_memory_statistics,
+)
 from music_critic.device import (
     CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION,
     DEVICE_TRANSFER_CONTRACT_VERSION,
@@ -30,6 +34,7 @@ def test_runtime_device_resolution_contract_has_index_validation_patch() -> None
     assert RUNTIME_DEVICE_RESOLUTION_CONTRACT_VERSION == "1.0.2"
     assert DEVICE_TRANSFER_CONTRACT_VERSION == "1.0.2"
     assert CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION == "1.0.0"
+    assert CUDA_MEMORY_STATISTICS_LIFECYCLE_CONTRACT_VERSION == "1.0.0"
 
 
 def test_cpu_resolves_to_canonical_cpu() -> None:
@@ -294,7 +299,11 @@ def test_real_cuda_statistics_and_name_accept_explicit_integer_index() -> None:
     cuda_device_index = resolve_cuda_device_index("cuda:0")
     assert cuda_device_index == 0
 
-    torch.cuda.reset_peak_memory_stats(cuda_device_index)
+    lifecycle = initialize_cuda_memory_statistics(
+        torch.device("cuda", cuda_device_index)
+    )
+    assert lifecycle.logical_device_index == cuda_device_index
+    assert lifecycle.initialized_after is True
     allocation = torch.empty(
         4096,
         dtype=torch.float32,

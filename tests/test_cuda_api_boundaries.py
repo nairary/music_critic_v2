@@ -6,6 +6,9 @@ from pathlib import Path
 import pytest
 import torch
 
+from music_critic.cuda_memory import (
+    CudaMemoryStatisticsLifecycleEvidence,
+)
 from music_critic.experiments.phase8b2 import artifacts
 from music_critic.ssl import engine as ssl_engine
 from music_critic.ssl import phase8b_engine
@@ -55,12 +58,20 @@ def test_cuda_evidence_apis_receive_logical_integers(
             lambda _device: 1,
         )
 
-    ssl_evidence = ssl_engine._device_evidence(torch.device("cuda:1"))
+    lifecycle = CudaMemoryStatisticsLifecycleEvidence(
+        contract_version="1.0.0",
+        logical_device_index=1,
+        initialized_before=False,
+        initialized_after=True,
+    )
+    ssl_evidence = ssl_engine._device_evidence(
+        torch.device("cuda:1"), lifecycle
+    )
     peak_evidence = phase8b_engine._cuda_peak_memory(
         torch.device("cuda:1")
     )
     training_evidence = training_engine._device_evidence(
-        torch.device("cuda:1")
+        torch.device("cuda:1"), lifecycle
     )
     environment = artifacts.environment_evidence(torch.device("cuda:1"))
 
@@ -78,16 +89,20 @@ def test_cuda_evidence_apis_receive_logical_integers(
         assert evidence["cuda_logical_device_index"] == 1
 
 
-def test_all_three_training_preflight_resets_receive_logical_integer(
+def test_all_three_training_preflights_use_shared_cuda_lifecycle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     observed: list[int] = []
 
-    def _reset(index: int) -> None:
-        assert type(index) is int
-        observed.append(index)
-
-    monkeypatch.setattr(torch.cuda, "reset_peak_memory_stats", _reset)
+    def _lifecycle(device: torch.device) -> object:
+        assert device == torch.device("cuda:1")
+        observed.append(1)
+        return CudaMemoryStatisticsLifecycleEvidence(
+            contract_version="1.0.0",
+            logical_device_index=1,
+            initialized_before=False,
+            initialized_after=True,
+        )
 
     monkeypatch.setattr(ssl_engine, "_validate_config", lambda _config: None)
     monkeypatch.setattr(ssl_engine, "_set_determinism", lambda _seed: None)
@@ -97,7 +112,7 @@ def test_all_three_training_preflight_resets_receive_logical_integer(
         lambda _config: torch.device("cuda:1"),
     )
     monkeypatch.setattr(
-        ssl_engine, "resolve_cuda_device_index", lambda _device: 1
+        ssl_engine, "initialize_cuda_memory_statistics", _lifecycle
     )
     monkeypatch.setattr(ssl_engine, "build_ssl_data_runtime", _raise_boundary)
     with pytest.raises(_BoundaryReached):
@@ -115,7 +130,7 @@ def test_all_three_training_preflight_resets_receive_logical_integer(
         ),
     )
     monkeypatch.setattr(
-        phase8b_engine, "resolve_cuda_device_index", lambda _device: 1
+        phase8b_engine, "initialize_cuda_memory_statistics", _lifecycle
     )
     monkeypatch.setattr(
         phase8b_engine, "build_ssl_data_runtime", _raise_boundary
@@ -135,7 +150,7 @@ def test_all_three_training_preflight_resets_receive_logical_integer(
         lambda _config: torch.device("cuda:1"),
     )
     monkeypatch.setattr(
-        training_engine, "resolve_cuda_device_index", lambda _device: 1
+        training_engine, "initialize_cuda_memory_statistics", _lifecycle
     )
     monkeypatch.setattr(
         training_engine, "build_data_runtime", _raise_boundary
@@ -153,6 +168,26 @@ def test_all_three_training_preflight_resets_receive_logical_integer(
         )
 
     assert observed == [1, 1, 1]
+
+
+def test_source_audit_allows_direct_peak_reset_only_in_shared_helper() -> None:
+    allowed = Path("src/music_critic/cuda_memory.py")
+    observed: list[tuple[Path, int]] = []
+    for path in sorted(Path("src/music_critic").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "reset_peak_memory_stats"
+            ):
+                observed.append((path, node.lineno))
+                assert path == allowed, f"direct CUDA reset outside helper: {path}:{node.lineno}"
+                assert len(node.args) == 1
+                assert isinstance(node.args[0], ast.Name)
+                assert node.args[0].id == "logical_device_index"
+
+    assert len(observed) == 1
 
 
 def test_runtime_device_cuda_api_source_audit_has_no_device_objects() -> None:

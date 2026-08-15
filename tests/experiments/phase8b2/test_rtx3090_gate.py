@@ -62,6 +62,12 @@ def _training_report(*, ssl: bool) -> dict[str, object]:
             "cuda_available": True,
             "cuda_logical_device_index": 0,
             "cuda_device_name": "NVIDIA GeForce RTX 3090",
+            "cuda_memory_statistics_lifecycle": {
+                "contract_version": "1.0.0",
+                "logical_device_index": 0,
+                "initialized_before": False,
+                "initialized_after": True,
+            },
         },
     }
     if ssl:
@@ -193,6 +199,9 @@ def _gate_fixture(root: Path) -> tuple[Path, Path]:
                 "cuda_available": True,
                 "cuda_logical_device_index": 0,
                 "cuda_device_name": "NVIDIA GeForce RTX 3090",
+                "cuda_memory_statistics_lifecycle_contract_version": (
+                    "1.0.0"
+                ),
             },
         },
     )
@@ -240,6 +249,25 @@ def _gate_fixture(root: Path) -> tuple[Path, Path]:
                 }
             },
         )
+    _write(
+        output
+        / "cells"
+        / "preflight"
+        / "control"
+        / "cell_manifest.json",
+        {
+            "runtime_binding_evidence": {
+                "status": "passed",
+                "resolved_device": "cuda:0",
+                "cuda_memory_statistics_lifecycle": {
+                    "contract_version": "1.0.0",
+                    "logical_device_index": 0,
+                    "initialized_before": False,
+                    "initialized_after": True,
+                },
+            }
+        },
+    )
     _write(
         output / "cells" / "ssl" / "control" / "engine" / "training_report.json",
         _training_report(ssl=True),
@@ -349,6 +377,36 @@ def test_rtx3090_verifier_rejects_hidden_cpu_fallback(tmp_path: Path) -> None:
     assert result["status"] == "failed"
     assert {row["check"] for row in result["failures"]} >= {
         "manifest.device"
+    }
+
+
+def test_rtx3090_verifier_rejects_uninitialized_cuda_lifecycle(
+    tmp_path: Path,
+) -> None:
+    output, invocation = _gate_fixture(tmp_path)
+    report_path = (
+        output
+        / "cells"
+        / "ssl"
+        / "control"
+        / "engine"
+        / "training_report.json"
+    )
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["device"]["cuda_memory_statistics_lifecycle"][
+        "initialized_after"
+    ] = False
+    _write(report_path, report)
+
+    result = verify_gate(
+        output,
+        expected_sha=EXACT_SHA,
+        invocation_config=invocation,
+    )
+
+    assert result["status"] == "failed"
+    assert {row["check"] for row in result["failures"]} >= {
+        "runtime.ssl.0.cuda_lifecycle_initialized_after"
     }
 
 

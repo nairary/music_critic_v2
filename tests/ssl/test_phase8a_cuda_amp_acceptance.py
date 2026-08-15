@@ -695,7 +695,7 @@ def test_documented_cuda_cli_creates_bound_hardware_report(
     )
 
     report = json.loads(hardware_report.read_text(encoding="utf-8"))
-    assert report["hardware_evidence_contract_version"] == "1.2.1"
+    assert report["hardware_evidence_contract_version"] == "1.2.2"
     assert report["source"]["expected_head_match"] is True
     assert report["source"]["source_tree_clean"] is True
     assert report["portable_binding"][
@@ -755,7 +755,7 @@ def test_all_phase8a_policies_and_mixture_on_explicit_cuda_zero() -> None:
 
     assert report["hardware_evidence_contract_version"] == (
         PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION
-    ) == "1.2.0"
+    ) == "1.2.2"
     assert report["portable"] is False
     assert report["runtime"]["requested_device"] == "cuda:0"
     assert report["runtime"]["resolved_device"] == "cuda:0"
@@ -790,7 +790,10 @@ def test_all_phase8a_policies_and_mixture_on_explicit_cuda_zero() -> None:
     assert report["portable_binding"][
         "portable_cpu_report_validation"
     ]["provided"] is False
-    assert report["contracts"]["ssl_training_report"] == "1.2.3"
+    assert report["contracts"]["ssl_training_report"] == "1.2.4"
+    assert report["contracts"][
+        "cuda_memory_statistics_lifecycle"
+    ] == "1.0.0"
     assert report["contracts"]["prepared_binding"] == "1.1.0"
     assert report["contracts"]["hierarchy_prepared_binding"] == "1.2.0"
     assert report["contracts"]["hierarchy_unavailable_reason"] == "1.0.0"
@@ -805,6 +808,15 @@ def test_all_phase8a_policies_and_mixture_on_explicit_cuda_zero() -> None:
         assert evidence["resolved_device"] == "cuda:0"
         assert evidence["amp_enabled"] is True
         assert evidence["amp_dtype"] == "torch.float16"
+        assert evidence["cuda_memory_statistics_lifecycle"][
+            "contract_version"
+        ] == "1.0.0"
+        assert evidence["cuda_memory_statistics_lifecycle"][
+            "logical_device_index"
+        ] == 0
+        assert evidence["cuda_memory_statistics_lifecycle"][
+            "initialized_after"
+        ] is True
         assert evidence["prepared_binding_validated_on_cuda"] is True
         assert evidence["all_model_facing_tensors_on_cuda_0"] is True
         assert evidence["deterministic_repeat_bit_exact"] is True

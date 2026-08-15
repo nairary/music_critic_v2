@@ -19,6 +19,10 @@ from typing import Any
 import torch
 from torch import Tensor
 
+from music_critic.cuda_memory import (
+    CUDA_MEMORY_STATISTICS_LIFECYCLE_CONTRACT_VERSION,
+    initialize_cuda_memory_statistics,
+)
 from music_critic.ssl.phase8a_acceptance import (
     PHASE8A_BOUNDED_ACCEPTANCE_CONTRACT_VERSION,
     PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION,
@@ -1524,7 +1528,7 @@ def _policy_acceptance(
         cpu_fp32,
         cuda_fp32,
     )
-    torch.cuda.reset_peak_memory_stats(cuda_device_index)
+    cuda_memory_lifecycle = initialize_cuda_memory_statistics(device)
     torch.cuda.synchronize(cuda_device_index)
     started = time.perf_counter()
     with torch.no_grad(), torch.autocast(
@@ -1681,6 +1685,9 @@ def _policy_acceptance(
             CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION
         ),
         "cuda_logical_device_index": cuda_device_index,
+        "cuda_memory_statistics_lifecycle": (
+            cuda_memory_lifecycle.to_dict()
+        ),
         "peak_allocated_bytes": torch.cuda.max_memory_allocated(
             cuda_device_index
         ),
@@ -2230,6 +2237,9 @@ def _build_phase8a_cuda_amp_hardware_report(
         ),
         "phase8a_cuda_amp_hardware_evidence": (
             PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION
+        ),
+        "cuda_memory_statistics_lifecycle": (
+            CUDA_MEMORY_STATISTICS_LIFECYCLE_CONTRACT_VERSION
         ),
     }
     portable_semantics = {

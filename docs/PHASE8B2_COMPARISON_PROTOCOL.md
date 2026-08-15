@@ -14,8 +14,9 @@ scratch.
 
 The CUDA pre-merge remediation does not change that scientific protocol. It
 routes runtime CUDA statistics and device evidence through the shared
-`CudaRuntimeDeviceIndex@1.0.0` logical-integer boundary and advances only the
-Phase 8B.2 artifact evidence contract to `1.2.1` plus the affected engine and
+`CudaRuntimeDeviceIndex@1.0.0` logical-integer boundary and the initialized
+`CudaMemoryStatisticsLifecycle@1.0.0` boundary. It advances only the Phase
+8B.2 artifact evidence contract to `1.2.2` plus the affected engine and
 hardware-report contracts.
 
 No PDMX or Dilemmadata adapter, PLL, pseudo-likelihood, fragility/preference/
@@ -205,10 +206,13 @@ N-by-N matrix and retain no prediction tensor after a batch.
 
 ## Artifacts and aggregation
 
-The protocol, plan, matrix-runner, cell-manifest, schedule, data-attestation,
-and test-lock contracts remain `1.2.0`. Artifact evidence advances to `1.2.1`
-to bind `CudaRuntimeDeviceIndex@1.0.0` and the logical CUDA index; the
-normalized data semantic projection remains `1.0.0`. A complete
+The protocol, plan, schedule, data-attestation, and test-lock contracts remain
+`1.2.0`. Matrix-runner and cell-manifest contracts plus the preflight worker
+evidence advance to `1.2.1` because CUDA preflight now publishes and validates
+the lifecycle binding. Artifact evidence advances to `1.2.2` to bind
+`CudaRuntimeDeviceIndex@1.0.0`, the logical CUDA index, and
+`CudaMemoryStatisticsLifecycle@1.0.0`; the normalized data semantic projection
+remains `1.0.0`. A complete
 experiment has:
 
 - `comparison_protocol.json`;
@@ -321,7 +325,9 @@ membership fingerprint across the plan, SSL/downstream schedules and training
 reports, and all evaluation metrics/checkpoint evidence. Downstream
 `validation_epoch_size` and evaluation `max_evaluation_samples` must both
 equal 128; matching dataset IDs without the exact count and fingerprint is
-insufficient. The resulting archive contains logs and attestations, never
+insufficient. Every CUDA worker report must also bind lifecycle contract
+`1.0.0`, logical index zero, and `initialized_after=true` before its indexed
+reset. The resulting archive contains logs and attestations, never
 caches, checkpoints, or corpus payloads. Bounded results remain non-scientific
 mechanics evidence.
 

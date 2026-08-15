@@ -228,6 +228,7 @@ def test_optimizer_attempt_applied_skipped_accounting_uses_public_scaler_state(
         masking,
         execution_mode,
         resolved,
+        _cuda_memory_lifecycle,
     ) = _prepare(_plain_config(config))
     scaler = _SkipOncePublicScalerOracle()
     metric, gradient = _stage(
@@ -280,6 +281,7 @@ def test_zero_gradient_and_zero_update_evidence_fails_closed(
         _masking,
         _execution_mode,
         _resolved,
+        _cuda_memory_lifecycle,
     ) = _prepare(_plain_config(config))
     groups = _evidence_parameter_groups(model)
     snapshots = _parameter_snapshots(groups)

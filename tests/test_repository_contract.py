@@ -102,7 +102,7 @@ def test_package_has_no_legacy_or_heavy_imports() -> None:
             allowed_roots.update(
                 {"hydra", "torch", "torch_geometric"}
             )
-        if relative_parts[0] == "device.py":
+        if relative_parts[0] in {"cuda_memory.py", "device.py"}:
             allowed_roots.add("torch")
         disallowed_roots = forbidden_roots - allowed_roots
         source = path.read_text(encoding="utf-8")

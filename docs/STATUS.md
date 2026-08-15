@@ -126,10 +126,11 @@
 - Phase 8B.1 branch: `phase/8b1-multilevel-objectives`; independently
   ablatable multi-level objective implementation is active in a draft PR
 - Phase 8B.2A branch: `phase/8b2a-scientific-comparison-protocol`; executable
-  protocol/artifact/schedule/attestation/orchestration/test-lock contracts:
-  `1.2.0`; unchanged selection/statistics/compute contracts: `1.1.0`; data
-  semantic projection: `1.0.0`; evaluation piece-sufficient-statistics output:
-  `1.3.0`
+  protocol/schedule/attestation/test-lock contracts: `1.2.0`; artifact:
+  `1.2.2`; preflight/matrix-runner/cell-manifest: `1.2.1`; unchanged
+  selection/statistics/compute contracts: `1.1.0`; CUDA memory-statistics
+  lifecycle: `1.0.0`; data semantic projection: `1.0.0`; evaluation
+  piece-sufficient-statistics output: `1.3.0`
 
 ## Accepted CUDA device-canonicalization hotfix status
 
@@ -2567,3 +2568,52 @@ not clamped or mutated.
   #19 remains draft and unmerged pending an independent execution at the new
   exact head. Phase 9 has not started, and no scientific-superiority or
   production-pilot claim is made.
+
+## Phase 8B.2A blocking CUDA memory-lifecycle remediation — 2026-08-15
+
+- Independent head `aa5fe538d45499f84cbf5ee8de99f7514ff111ce`
+  failed in fresh preflight worker
+  `preflight/encoder_forward_matched/17/phase7a_control` before model forward.
+  CUDA discovery was correct (NVIDIA GeForce RTX 3090, logical index 0, one
+  visible device, CUDA runtime 13.0), but the first indexed
+  `reset_peak_memory_stats(0)` raised `Invalid device argument`.
+- Authoritative fresh-process probe used PyTorch `2.13.0+cu130`; every case
+  began with `initialized_before=false`. Bare implicit reset passed and
+  initialized CUDA with peaks 0/0. Explicit integer zero and
+  `torch.device("cuda:0")` each failed. `set_device(0)` plus indexed reset,
+  public `torch.cuda.init()` plus indexed reset, and scoped device context plus
+  init plus indexed reset all passed with peaks 0/0. Dummy allocation passed
+  but left `peak_reserved=2097152` bytes and is forbidden because it
+  contaminates VRAM evidence.
+- The true contract is therefore not “integer instead of `torch.device`.” It
+  is an explicit logical index plus prior CUDA runtime initialization. The
+  shared `CudaMemoryStatisticsLifecycle@1.0.0` resolves the concrete device,
+  enters `torch.cuda.device(index)`, calls idempotent `torch.cuda.init()`, and
+  then calls `reset_peak_memory_stats(index)`. The context restores the prior
+  current device; there is no implicit reset, permanent `set_device`, dummy
+  allocation, CPU fallback, skipped reset, or fabricated evidence.
+- Initialization and reset failures are distinct structured categories.
+  Lifecycle evidence records contract version, logical index,
+  `initialized_before`, and `initialized_after`. Phase 7A SSL, Phase 8B SSL,
+  supervised training, Phase 8A/8B CUDA acceptance, and Phase 8B.2 workers use
+  the shared boundary; source audit permits no other direct reset call.
+- Affected versions only: SSL training report `1.2.4`; Phase 8B engine/report
+  `1.2.2`; Phase 8A CUDA AMP hardware evidence `1.2.2`; Phase 8B.2 artifact
+  evidence `1.2.2`; Phase 8B.2 preflight/matrix-runner/cell-manifest `1.2.1`;
+  lifecycle `1.0.0`. Graph, model, objective, data, schedule, ontology,
+  checkpoint, evaluation, comparison, transfer, runtime resolver, and
+  logical-index contracts are unchanged.
+- Focused lifecycle/device/engine/acceptance checks pass
+  `125 passed, 13 skipped` in 107.51 seconds. Phase 8B.2A passes
+  `72 passed, 2 skipped` in 324.10 seconds. SSL/training/evaluation passes
+  `497 passed, 32 skipped, 2 deselected` in 206.12 seconds. The complete
+  locally executable repository suite passes
+  `1363 passed, 52 skipped, 3 deselected` in 623.35 seconds. The three
+  deselections are the unchanged positive-worker tests that hang only in the
+  local sandbox and remain mandatory in Required CI. CUDA skips are
+  environment gates, not hardware evidence.
+- The fixed 128-piece validation subset, both corpus IDs and one membership
+  fingerprint, `bounded_acceptance`, one seed, one SSL update, one downstream
+  update, and locked test split remain mandatory. Local CPU results cannot
+  establish hardware success; draft PR #19 stays draft and Phase 9 remains
+  unstarted pending a new independent exact-head RTX 3090 run.

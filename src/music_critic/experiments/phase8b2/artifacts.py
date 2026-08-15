@@ -16,6 +16,9 @@ from typing import Iterable, Mapping
 
 import torch
 
+from music_critic.cuda_memory import (
+    CUDA_MEMORY_STATISTICS_LIFECYCLE_CONTRACT_VERSION,
+)
 from music_critic.device import (
     CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION,
     resolve_cuda_device_index,
@@ -161,6 +164,9 @@ def environment_evidence(device: torch.device) -> dict[str, object]:
         "device": str(device),
         "cuda_runtime_device_index_contract_version": (
             CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION
+        ),
+        "cuda_memory_statistics_lifecycle_contract_version": (
+            CUDA_MEMORY_STATISTICS_LIFECYCLE_CONTRACT_VERSION
         ),
         "cuda_logical_device_index": None,
     }

@@ -328,11 +328,17 @@ CPU AMP is rejected.
 CUDA-only runtime calls use `CudaRuntimeDeviceIndex@1.0.0`. The helper invokes
 the same resolver and returns an explicit logical integer index, including
 after `CUDA_VISIBLE_DEVICES` remapping; CPU is rejected with
-`runtime.device.cuda_operation_requires_cuda`. Phase 7A SSL, Phase 8B SSL and
-supervised `_prepare` pass that integer to `reset_peak_memory_stats`, and all
-allocated/reserved/name evidence does the same. Hardware acceptance also uses
-it for synchronization and device properties. No path relies on an abstract
-`cuda`, an implicit current device, or a duplicated local `.index` conversion.
+`runtime.device.cuda_operation_requires_cuda`. Indexed peak-memory reset uses
+the additional shared `CudaMemoryStatisticsLifecycle@1.0.0`: resolve the
+required concrete `torch.device("cuda:N")`, enter `torch.cuda.device(index)`,
+call idempotent
+`torch.cuda.init()`, and then call `reset_peak_memory_stats(index)`. The scoped
+context restores the previous current device. Phase 7A SSL, Phase 8B SSL,
+supervised training, and CUDA acceptance use this one boundary; no path uses
+an implicit reset, dummy allocation, permanent `set_device`, CPU fallback, or
+duplicated local initialization hack. Initialization and reset failures have
+different structured categories, and reports bind logical index plus
+`initialized_before`/`initialized_after` evidence.
 
 For the blocking independent Phase 8B.2A RTX 3090 gate, use only
 `scripts/run_phase8b2a_rtx3090_bounded_smoke.sh` at the exact final PR head.
@@ -359,7 +365,9 @@ and downstream schedule/training report. Each downstream config must use
 `validation_epoch_size=128`; each evaluation config must use
 `max_evaluation_samples=128`; and the evaluation metrics/checkpoint evidence
 must bind the same fingerprint and exact sample count. Dataset IDs alone are
-not sufficient evidence.
+not sufficient evidence. Every SSL/downstream CUDA report must additionally
+bind `CudaMemoryStatisticsLifecycle@1.0.0`, logical index zero, and successful
+initialization before the indexed reset.
 
 Phase 7A representation loss `1.0.1` keeps exact shape/device validation but
 allows FP16/BF16/FP32 prediction-target pairs by computing cosine, numerator,
@@ -369,7 +377,8 @@ the out-of-place FP32 prediction cast remains differentiable. Anti-collapse
 diagnostics `1.1.1` use the same normalization. Multi-view loss and combined
 SSL objective are `1.0.1`; the umbrella SSL contract is `1.2.2`.
 
-SSL training report `1.2.3` adds versioned logical CUDA-index evidence and
+SSL training report `1.2.4` adds versioned logical CUDA-index and initialized
+memory-statistics lifecycle evidence and
 continues to separate bounded mutation reporting into two independent `1.0.0`
 evidence objects with domain-separated canonical
 fingerprints. No-leakage acceptance requires strict raw-store,

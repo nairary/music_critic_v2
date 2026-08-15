@@ -12,6 +12,9 @@ from typing import Any, Callable, Iterable, Mapping
 
 import torch
 
+from music_critic.cuda_memory import (
+    CUDA_MEMORY_STATISTICS_LIFECYCLE_CONTRACT_VERSION,
+)
 from music_critic.experiments.phase8b2.accounting import (
     compute_accounting_from_ssl_report,
 )
@@ -46,8 +49,8 @@ from music_critic.experiments.phase8b2.statistics import (
 )
 
 
-MATRIX_RUNNER_CONTRACT_VERSION = "1.2.0"
-CELL_MANIFEST_CONTRACT_VERSION = "1.2.0"
+MATRIX_RUNNER_CONTRACT_VERSION = "1.2.1"
+CELL_MANIFEST_CONTRACT_VERSION = "1.2.1"
 
 
 def _read_json_dict(path: Path) -> dict[str, Any]:
@@ -545,11 +548,28 @@ def _preflight_binding(
 ) -> dict[str, object]:
     stdout = (staging / "stdout.log").read_text(encoding="utf-8").strip()
     evidence = json.loads(stdout.splitlines()[-1])
+    resolved_device = evidence.get("resolved_device")
+    lifecycle = evidence.get("cuda_memory_statistics_lifecycle")
     if (
         evidence.get("status") != "passed"
+        or evidence.get("preflight_contract_version") != "1.2.1"
         or evidence.get("protocol_fingerprint") != protocol_fingerprint
         or evidence.get("objective_available_for_every_planned_batch")
         is not True
+        or (
+            isinstance(resolved_device, str)
+            and resolved_device.startswith("cuda")
+            and (
+                not isinstance(lifecycle, dict)
+                or lifecycle.get("contract_version")
+                != CUDA_MEMORY_STATISTICS_LIFECYCLE_CONTRACT_VERSION
+                or f"cuda:{lifecycle.get('logical_device_index')}"
+                != resolved_device
+                or lifecycle.get("initialized_after") is not True
+                or type(lifecycle.get("initialized_before")) is not bool
+            )
+        )
+        or not isinstance(resolved_device, str)
     ):
         raise Phase8B2ContractError(
             "phase8b2.runner.preflight_evidence_invalid"

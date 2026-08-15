@@ -49,6 +49,7 @@ def _preflight(overrides_path: Path) -> dict[str, object]:
         masking,
         execution_mode,
         resolved,
+        cuda_memory_lifecycle,
     ) = _prepare(config)
     comparison = ResolvedPhase8B2Schedule.from_config(
         OmegaConf.create(resolved["phase8b2_schedule"]),
@@ -100,8 +101,14 @@ def _preflight(overrides_path: Path) -> dict[str, object]:
     if observed != comparison.sample_schedule_fingerprint:
         raise ValueError("phase8b2.worker.preflight_schedule_mismatch")
     return {
-        "preflight_contract_version": "1.2.0",
+        "preflight_contract_version": "1.2.1",
         "status": "passed",
+        "resolved_device": str(device),
+        "cuda_memory_statistics_lifecycle": (
+            None
+            if cuda_memory_lifecycle is None
+            else cuda_memory_lifecycle.to_dict()
+        ),
         "variant_id": comparison.variant_id,
         "protocol_fingerprint": comparison.protocol_fingerprint,
         "sample_schedule_fingerprint": observed,

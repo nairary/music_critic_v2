@@ -113,7 +113,7 @@ def test_bounded_cli_matrix_is_resumable_deterministic_and_complete(
     assert selection["complete_paired_seed_evidence"] is True
     assert selection["declared_seeds"] == [17, 29]
     assert len(selection["selected_checkpoints"]) == 2
-    assert run_manifest["artifact_contract_version"] == "1.2.1"
+    assert run_manifest["artifact_contract_version"] == "1.2.2"
     assert len(run_manifest["cells"]) == 60
 
     aggregated = _run_cli(output_root, action="aggregate")

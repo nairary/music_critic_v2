@@ -19,6 +19,10 @@ from typing import Any, Iterable
 import torch
 from omegaconf import OmegaConf
 
+from music_critic.cuda_memory import (
+    CudaMemoryStatisticsLifecycleEvidence,
+    initialize_cuda_memory_statistics,
+)
 from music_critic.device import (
     CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION,
     resolve_cuda_device_index,
@@ -80,10 +84,10 @@ from music_critic.ssl.phase8b_acceptance import (
 from music_critic.ssl.transfer import export_pretrained_encoder_state
 
 
-PHASE8B_ENGINE_CONTRACT_VERSION = "1.2.1"
+PHASE8B_ENGINE_CONTRACT_VERSION = "1.2.2"
 PHASE8B_MASKING_CONFIG_CONTRACT_VERSION = "1.1.0"
 PHASE8B_RUN_MANIFEST_VERSION = "1.2.0"
-PHASE8B_TRAINING_REPORT_VERSION = "1.2.1"
+PHASE8B_TRAINING_REPORT_VERSION = "1.2.2"
 PHASE8B_OPTIMIZER_EVIDENCE_CONTRACT_VERSION = "1.0.0"
 PHASE8B2_SCHEDULE_BINDING_CONTRACT_VERSION = "1.1.0"
 PHASE8B_GRAD_SCALER_INITIAL_SCALE = 16384.0
@@ -1099,6 +1103,7 @@ def _prepare(
     ResolvedPhase8BMaskingConfig,
     str,
     dict[str, Any],
+    CudaMemoryStatisticsLifecycleEvidence | None,
 ]:
     from music_critic.ssl.engine import (
         _optimizer,
@@ -1121,10 +1126,11 @@ def _prepare(
         _set_determinism(comparison.data_order_seed)
         data_seed = comparison.data_order_seed
     device = _resolve_device(resolved)
-    if device.type == "cuda":
-        torch.cuda.reset_peak_memory_stats(
-            resolve_cuda_device_index(device)
-        )
+    cuda_memory_lifecycle = (
+        initialize_cuda_memory_statistics(device)
+        if device.type == "cuda"
+        else None
+    )
     runtime = build_ssl_data_runtime(
         OmegaConf.create(resolved["data"]), seed=data_seed
     )
@@ -1169,6 +1175,7 @@ def _prepare(
         masking,
         execution_mode,
         resolved,
+        cuda_memory_lifecycle,
     )
 
 
@@ -1806,6 +1813,9 @@ def _report_common(
     device: torch.device,
     optimizer: torch.optim.Optimizer,
     scaler: torch.amp.GradScaler,
+    cuda_memory_lifecycle: (
+        CudaMemoryStatisticsLifecycleEvidence | None
+    ),
 ) -> dict[str, object]:
     from music_critic.ssl.engine import _device_evidence
 
@@ -1869,7 +1879,7 @@ def _report_common(
         "validation_schedule_fixed": True,
         "fingerprints": runtime.fingerprints,
         "data_composition": runtime.mixture_statistics,
-        "device": _device_evidence(device),
+        "device": _device_evidence(device, cuda_memory_lifecycle),
         "amp_enabled": bool(config["device"]["amp"]),
         "scaler_enabled": scaler.is_enabled(),
         "phase8_started": True,
@@ -1903,6 +1913,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         masking,
         execution_mode,
         resolved,
+        cuda_memory_lifecycle,
     ) = _prepare(config)
     comparison = ResolvedPhase8B2Schedule.from_config(
         OmegaConf.create(resolved["phase8b2_schedule"])
@@ -2042,6 +2053,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
             device=device,
             optimizer=optimizer,
             scaler=scaler,
+            cuda_memory_lifecycle=cuda_memory_lifecycle,
         ),
         "run_scope": "one_batch_plumbing",
         "steps": int(resolved["experiment"]["steps"]),
@@ -2119,6 +2131,7 @@ def _run_epochs(
         masking,
         execution_mode,
         resolved,
+        cuda_memory_lifecycle,
     ) = _prepare(config)
     comparison = ResolvedPhase8B2Schedule.from_config(
         OmegaConf.create(resolved["phase8b2_schedule"])
@@ -2408,6 +2421,7 @@ def _run_epochs(
             device=device,
             optimizer=optimizer,
             scaler=scaler,
+            cuda_memory_lifecycle=cuda_memory_lifecycle,
         ),
         "run_scope": "epoch_pretraining",
         "start_epoch": start_epoch,

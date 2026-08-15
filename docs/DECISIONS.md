@@ -2639,3 +2639,48 @@ This log is append-only.
   hardware smoke, not a production pilot or scientific comparison. A missing,
   zero, off-by-one, or fingerprint-divergent validation binding fails closed.
   CPU regression results cannot establish successful RTX 3090 execution.
+
+## 2026-08-15 — ADR-072: Indexed CUDA memory statistics require an initialized scoped device lifecycle
+
+- Status: Accepted as blocking CUDA lifecycle remediation in existing draft
+  PR #19. Independent success remains pending at the new exact head.
+- Context: The first preflight worker of the independent bounded smoke failed
+  again at head `aa5fe538d45499f84cbf5ee8de99f7514ff111ce`, before model
+  forward. Replacing `torch.device("cuda:0")` with integer zero was
+  insufficient: `reset_peak_memory_stats(0)` still raised
+  `RuntimeError: Invalid device argument` in the fresh process.
+- Hardware probe: On an NVIDIA GeForce RTX 3090 with one visible device,
+  PyTorch `2.13.0+cu130`, CUDA runtime 13.0, and
+  `initialized_before=false` in every fresh process: bare implicit reset
+  passed and initialized CUDA with peaks 0/0; explicit integer zero and
+  `torch.device("cuda:0")` both failed; `set_device(0)` then indexed reset,
+  `torch.cuda.init()` then indexed reset, and scoped device context plus init
+  then indexed reset all passed with peaks 0/0. A dummy allocation also
+  passed but left `peak_reserved=2097152` bytes and is rejected as contaminating
+  measurement evidence.
+- Decision: Add `CudaMemoryStatisticsLifecycle@1.0.0`. Resolve the concrete
+  CUDA device with `CudaRuntimeDeviceIndex@1.0.0`, enter
+  `torch.cuda.device(index)`, call the idempotent public `torch.cuda.init()`,
+  and only then call `reset_peak_memory_stats(index)`. The indexed reset stays
+  explicit; the scoped context restores the previous current device. Do not
+  use implicit reset, permanent `set_device`, dummy allocation, CPU fallback,
+  skipped reset, or fabricated peaks.
+- Decision: Distinguish
+  `runtime.cuda_memory_statistics.initialization_failed` from
+  `runtime.cuda_memory_statistics.reset_failed`. Evidence binds lifecycle
+  contract version, logical index, `initialized_before`, and
+  `initialized_after`. Route Phase 7A SSL, Phase 8B SSL, supervised training,
+  Phase 8A/8B CUDA acceptance, and Phase 8B.2 workers through the one helper;
+  source audit forbids every other direct reset call.
+- Decision: Advance only affected CUDA evidence/execution contracts: SSL
+  training report to `1.2.4`; Phase 8B engine/report to `1.2.2`; Phase 8A CUDA
+  AMP hardware evidence to `1.2.2`; and Phase 8B.2 artifact evidence to
+  `1.2.2`. Phase 8B.2 preflight worker, matrix runner, and cell manifest
+  advance to `1.2.1`. Runtime-device resolution, logical index, transfer, comparison,
+  graph, model, objective, data, schedule, ontology, checkpoint, and
+  evaluation contracts retain their versions and semantics.
+- Consequences: The earlier device-object remediation and the later
+  integer-only remediation are both insufficient hardware evidence. CPU/mock
+  and optional fresh-process CUDA regressions validate lifecycle ordering,
+  isolation, restoration, idempotence, structured failures, and non-mutation,
+  but only a new independent exact-head RTX 3090 run can close the gate.

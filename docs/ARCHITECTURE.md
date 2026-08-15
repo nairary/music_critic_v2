@@ -434,6 +434,20 @@ logical integer index seen after `CUDA_VISIBLE_DEVICES`. It preserves
 device evidence. Phase 7A SSL, Phase 8B SSL, supervised training, Phase 8A
 hardware acceptance, and Phase 8B.2 environment evidence share this boundary.
 
+Indexed CUDA memory statistics additionally cross
+`CudaMemoryStatisticsLifecycle@1.0.0`. An explicit logical index alone is not
+sufficient in a fresh worker under the independently probed PyTorch
+`2.13.0+cu130` runtime: both `torch.device("cuda:0")` and integer zero reset
+arguments fail before CUDA initialization. The lifecycle boundary first
+requires and resolves a concrete `torch.device("cuda:N")`, enters
+`torch.cuda.device(index)`, calls the idempotent public `torch.cuda.init()`,
+and only then calls
+`reset_peak_memory_stats(index)`. Exiting the scoped context restores the
+previous current device. No dummy tensor is allocated, no implicit reset is
+used, and initialization and reset failures have distinct structured
+categories. Its evidence records contract version, logical index, and the
+before/after initialization state.
+
 One-batch mode repeats exactly one bounded or first real cached train batch,
 reports harmonic/reconstruction/total losses, finite gradients, clipping,
 candidate counts, and gradient coverage, then requires both active objectives
@@ -705,8 +719,9 @@ boundaries, while SSL model/output remain `1.2.0` at unchanged architecture
 and output schema. Representation loss, multi-view loss, and the combined SSL
 objective are `1.0.1`; anti-collapse diagnostics are `1.1.1`. Checkpoint,
 epoch-journal, metric-row, run-manifest, and performance-row contracts remain
-`1.2.0`; training report `1.2.3` exposes concrete `cuda:N`, logical CUDA-index
-evidence, and the two independent evidence objects. The performance row
+`1.2.0`; training report `1.2.4` exposes concrete `cuda:N`, logical CUDA-index
+and memory-lifecycle evidence, and the two independent evidence objects. The
+performance row
 separates CPU plan preparation from transfer/compute. MaskPlan, mask policy,
 maskable-field
 registry, representation target, decoder, and encoder-export semantics remain
@@ -798,7 +813,7 @@ reason, hierarchy output, fixture, and leakage audit remain `1.0.0`.
 Portable CPU acceptance excludes GPU name, driver/runtime observations,
 timing, and VRAM. Optional explicit-`cuda:0` AMP acceptance emits those
 observations only in a separate
-`Phase8ACudaAmpHardwareEvidence@1.2.1` artifact and skips honestly when CUDA
+`Phase8ACudaAmpHardwareEvidence@1.2.2` artifact and skips honestly when CUDA
 is unavailable. The hardware artifact keeps plan/selection/binding/overlay/
 mask/index/raw-graph/topology, same-device replay, Phase 7A control, blindness,
 and leakage gates bit-exact. CPU FP32 versus CUDA FP32 embeddings,
@@ -827,6 +842,9 @@ across HookTheory and POP909-CL; it does not inherit the unbounded
 `validation_samples=0` default. The standalone verifier binds that count and
 one membership fingerprint across the plan, projected schedules, runtime
 training reports, and all three evaluation artifacts/configurations.
+For every CUDA training worker it also requires lifecycle contract `1.0.0`,
+logical index zero, a Boolean initialization-before observation, and
+`initialized_after=true` before indexed peak reset.
 Strict shell options are scoped to a subshell. Final evidence is a checksummed
 archive of configuration, logs, runtime/data attestations, and verifier output
 that excludes caches, checkpoints, and corpus payloads.
@@ -910,8 +928,9 @@ so these mechanics runs are explicitly not compute matched or scientific
 effectiveness comparisons.
 
 AMP-sensitive registry/config/loss/model/output/metric/checkpoint and bounded-
-comparison contracts remain `1.2.0`; the engine and training report advance
-to `1.2.1` for the integer CUDA-memory boundary. Latent prediction is `1.1.0`,
+comparison contracts remain `1.2.0`; the engine and training report are
+`1.2.2` for the initialized indexed CUDA-memory boundary. Latent prediction is
+`1.1.0`,
 masking remains `1.1.0`, and identity-only eligibility,
 prepared-binding and the batch aggregate remain `1.0.0`. Optimizer evidence
 and independent CUDA training acceptance begin at `1.0.0`. The full
@@ -925,9 +944,10 @@ training, and candidate-first evaluation engines. It does not own a parallel
 model or trainer. `Phase8B2ComparisonProtocol@1.2.0` binds variants, model and
 objective/masking configs, all data/cache/split/membership identities, paired
 seed domains, compute budgets, downstream tasks/modes, validation ranking, and
-the locked test state. Artifact contract `1.2.1` records the versioned logical
-CUDA index in environment evidence; comparison, schedule, data, model, and
-scientific semantics remain unchanged.
+the locked test state. Artifact contract `1.2.2` records the versioned logical
+CUDA index and memory-statistics lifecycle boundary in environment/runtime
+evidence; comparison, schedule, data, model, and scientific semantics remain
+unchanged.
 
 The original `7365286` implementation stopped at control-plane primitives.
 The remediated CLI resolves actual sampler identities before training and runs

@@ -12,6 +12,7 @@ from typing import Any, Mapping
 
 EXPECTED_DATASET_IDS = {"hooktheory", "pop909_cl"}
 EXPECTED_VALIDATION_SAMPLES = 128
+EXPECTED_CUDA_MEMORY_LIFECYCLE_VERSION = "1.0.0"
 
 
 def _json_value(value: object) -> object:
@@ -398,6 +399,13 @@ def verify_gate(
         environment.get("cuda_logical_device_index"),
         0,
     )
+    checks.equal(
+        "manifest.cuda_memory_statistics_lifecycle_contract_version",
+        environment.get(
+            "cuda_memory_statistics_lifecycle_contract_version"
+        ),
+        EXPECTED_CUDA_MEMORY_LIFECYCLE_VERSION,
+    )
     device_name = environment.get("cuda_device_name")
     checks.true(
         "manifest.cuda_device_name",
@@ -465,6 +473,44 @@ def verify_gate(
         evaluation_verified,
         3,
     )
+    preflight_manifests = tuple(
+        path
+        for path in manifests
+        if "preflight" in path.relative_to(root / "cells").parts
+    )
+    checks.equal(
+        "cells.preflight_manifest_count",
+        len(preflight_manifests),
+        1,
+    )
+    for ordinal, path in enumerate(preflight_manifests):
+        binding = _read_json(path).get("runtime_binding_evidence", {})
+        lifecycle = binding.get("cuda_memory_statistics_lifecycle", {})
+        checks.equal(
+            f"preflight.{ordinal}.resolved_device",
+            binding.get("resolved_device"),
+            "cuda:0",
+        )
+        checks.equal(
+            f"preflight.{ordinal}.cuda_lifecycle_contract_version",
+            lifecycle.get("contract_version"),
+            EXPECTED_CUDA_MEMORY_LIFECYCLE_VERSION,
+        )
+        checks.equal(
+            f"preflight.{ordinal}.cuda_lifecycle_logical_index",
+            lifecycle.get("logical_device_index"),
+            0,
+        )
+        checks.true(
+            f"preflight.{ordinal}.cuda_lifecycle_initialized_before",
+            type(lifecycle.get("initialized_before")) is bool,
+            lifecycle.get("initialized_before"),
+        )
+        checks.equal(
+            f"preflight.{ordinal}.cuda_lifecycle_initialized_after",
+            lifecycle.get("initialized_after"),
+            True,
+        )
 
     report_paths = {
         "ssl": tuple(sorted((root / "cells" / "ssl").rglob("training_report.json"))),
@@ -492,6 +538,29 @@ def verify_gate(
                 f"runtime.{kind}.{ordinal}.cuda_logical_device_index",
                 device.get("cuda_logical_device_index"),
                 0,
+            )
+            lifecycle = device.get(
+                "cuda_memory_statistics_lifecycle", {}
+            )
+            checks.equal(
+                f"runtime.{kind}.{ordinal}.cuda_lifecycle_contract_version",
+                lifecycle.get("contract_version"),
+                EXPECTED_CUDA_MEMORY_LIFECYCLE_VERSION,
+            )
+            checks.equal(
+                f"runtime.{kind}.{ordinal}.cuda_lifecycle_logical_index",
+                lifecycle.get("logical_device_index"),
+                0,
+            )
+            checks.true(
+                f"runtime.{kind}.{ordinal}.cuda_lifecycle_initialized_before",
+                type(lifecycle.get("initialized_before")) is bool,
+                lifecycle.get("initialized_before"),
+            )
+            checks.equal(
+                f"runtime.{kind}.{ordinal}.cuda_lifecycle_initialized_after",
+                lifecycle.get("initialized_after"),
+                True,
             )
             runtime_device_name = device.get("cuda_device_name")
             checks.true(
