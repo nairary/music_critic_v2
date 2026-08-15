@@ -44,6 +44,13 @@ def _cache_dataset(
         lineage_group_id = project_multisource_targets(
             piece
         ).lineage_group_id
+        suggested_split = (
+            "train"
+            if ordinal == 0
+            else "test"
+            if ordinal == len(pieces) - 1
+            else "validation"
+        )
         inputs.append(
             CanonicalCorpusInput(
                 piece=piece,
@@ -51,7 +58,7 @@ def _cache_dataset(
                 source_identity=f"{dataset_id}-source-{ordinal}",
                 source_relative_path=f"sources/{ordinal}.json",
                 source_sha256=sha256(source).hexdigest(),
-                suggested_split=("train", "validation", "test")[ordinal],
+                suggested_split=suggested_split,
             )
         )
     index, _ = cache_canonical_corpus(
@@ -70,10 +77,22 @@ def _cache_dataset(
     return index_path, cache, index
 
 
-def _production_fixture(root: Path) -> tuple[list[Path], list[Path], Path]:
+def _production_fixture(
+    root: Path,
+    *,
+    validation_pieces_per_dataset: int = 1,
+) -> tuple[list[Path], list[Path], Path]:
+    piece_count = validation_pieces_per_dataset + 2
     hook_pieces = tuple(
-        _hook_piece(f"production-hook-{ordinal}", ordinal + 1)
-        for ordinal in range(3)
+        _hook_piece(
+            f"production-hook-{ordinal}",
+            1
+            if ordinal == 0
+            else 7
+            if ordinal == piece_count - 1
+            else 2 + ordinal % 5,
+        )
+        for ordinal in range(piece_count)
     )
     pop_root = root / "pop-midi"
     pop_root.mkdir(parents=True)
@@ -82,11 +101,11 @@ def _production_fixture(root: Path) -> tuple[list[Path], list[Path], Path]:
             _pop_piece(
                 pop_root,
                 f"{ordinal + 101:03d}",
-                (60 + ordinal, 64 + ordinal, 67 + ordinal),
+                (20 + ordinal, 24 + ordinal, 27 + ordinal),
             ),
             source_group_id=f"pop909-production-source-{ordinal}",
         )
-        for ordinal in range(3)
+        for ordinal in range(piece_count)
     )
     hook_path, hook_cache, hook_index = _cache_dataset(
         root,
@@ -101,11 +120,14 @@ def _production_fixture(root: Path) -> tuple[list[Path], list[Path], Path]:
     assignments = {}
     for index in (hook_index, pop_index):
         for ordinal, record in enumerate(index.records):
-            assignments[(record.dataset_id, record.piece_id)] = (
-                "train",
-                "validation",
-                "test",
-            )[ordinal]
+            split = (
+                "train"
+                if ordinal == 0
+                else "test"
+                if ordinal == len(index.records) - 1
+                else "validation"
+            )
+            assignments[(record.dataset_id, record.piece_id)] = split
     manifest = create_split_manifest(
         (hook_index, pop_index),
         assignments,
@@ -170,7 +192,10 @@ def _run_production_cli(
 def test_published_real_corpus_one_seed_smoke_is_bounded_and_test_locked(
     tmp_path: Path,
 ) -> None:
-    index_paths, cache_roots, manifest = _production_fixture(tmp_path)
+    index_paths, cache_roots, manifest = _production_fixture(
+        tmp_path,
+        validation_pieces_per_dataset=64,
+    )
     result = _run_production_cli(
         tmp_path / "published-bounded-plan",
         index_paths=index_paths,
@@ -178,6 +203,7 @@ def test_published_real_corpus_one_seed_smoke_is_bounded_and_test_locked(
         split_manifest=manifest,
         action="plan",
         extra=(
+            "comparison.validation_samples=128",
             "device.name=cuda:0",
             "device.amp=true",
             "device.amp_dtype=float16",
@@ -194,6 +220,20 @@ def test_published_real_corpus_one_seed_smoke_is_bounded_and_test_locked(
     assert plan["protocol"]["runtime_execution_config"][
         "downstream_attempted_logical_updates"
     ] == 1
+    assert plan["protocol"]["runtime_execution_config"][
+        "validation_samples"
+    ] == 128
+    assert plan["data_attestation"]["validation_membership"][
+        "subset_limit"
+    ] == 128
+    assert plan["data_attestation"]["validation_membership"][
+        "selected_count"
+    ] == 128
+    assert set(
+        plan["data_attestation"]["validation_membership"][
+            "dataset_counts"
+        ]
+    ) == {"hooktheory", "pop909_cl"}
     assert plan["protocol"]["amp_device_config"] == {
         "amp": True,
         "amp_dtype": "float16",

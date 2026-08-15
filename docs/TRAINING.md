@@ -338,8 +338,12 @@ For the blocking independent Phase 8B.2A RTX 3090 gate, use only
 `scripts/run_phase8b2a_rtx3090_bounded_smoke.sh` at the exact final PR head.
 It is a production-format real-corpus bounded smoke: `bounded_acceptance`,
 `phase7a_control`, seed 17, one SSL update, one downstream update, `cuda:0`,
-and FP16 AMP. It is not a `production_pilot` and cannot support a scientific
-comparison or superiority claim. The earlier published combination
+FP16 AMP, and a fixed deterministic validation subset of exactly 128 pieces
+containing HookTheory and POP909-CL. It is not a `production_pilot` and cannot
+support a scientific comparison or superiority claim. The earlier published
+runner without `comparison.validation_samples=128` is invalid because the
+default zero selects the complete validation split and is not bounded. The
+earlier published combination
 `comparison=production_pilot comparison.seeds='[17]'` is invalid because the
 pilot contract requires at least three seeds. The earlier whole-worktree
 `git status --porcelain` emptiness test is also invalid on the evidence host:
@@ -347,6 +351,15 @@ untracked artifacts are preserved and listed, while only tracked unstaged and
 staged changes block detach. The script's strict mode is confined to a
 subshell, so a nonzero status preserves its log without terminating the
 operator's interactive tmux/SSH shell.
+
+The verifier fails closed unless the invocation and resolved runtime plan both
+declare 128 validation samples, the selected membership has exactly 128
+identities from both corpora, and its fingerprint is preserved by every SSL
+and downstream schedule/training report. Each downstream config must use
+`validation_epoch_size=128`; each evaluation config must use
+`max_evaluation_samples=128`; and the evaluation metrics/checkpoint evidence
+must bind the same fingerprint and exact sample count. Dataset IDs alone are
+not sufficient evidence.
 
 Phase 7A representation loss `1.0.1` keeps exact shape/device validation but
 allows FP16/BF16/FP32 prediction-target pairs by computing cosine, numerator,

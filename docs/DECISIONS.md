@@ -2614,3 +2614,28 @@ This log is append-only.
   not establish successful CUDA remediation. Phase 9, test inference,
   production-scale comparison, and scientific-effectiveness claims remain
   unauthorized.
+
+## 2026-08-15 — ADR-071: The RTX bounded smoke fixes validation at 128 pieces
+
+- Status: Accepted as the final boundedness correction for draft PR #19;
+  independent exact-head RTX 3090 success remains pending.
+- Context: The official one-seed runner bounded optimizer updates but omitted
+  `comparison.validation_samples`. Its zero default selects the complete
+  validation split, allowing each of the three downstream evaluation cells to
+  traverse an arbitrarily large validation corpus.
+- Decision: Set `comparison.validation_samples=128` explicitly and record 128
+  in the invocation artifact. Treat the selected validation membership as a
+  cross-stage runtime binding: it must contain exactly 128 identities and both
+  HookTheory and POP909-CL, while one fingerprint must agree across the plan,
+  projected schedules, SSL/downstream training reports, evaluation metrics,
+  and checkpoint evidence. Downstream validation epoch size and evaluation
+  maximum samples must each resolve to 128. Dataset-name agreement without
+  exact count and fingerprint agreement is not acceptance evidence.
+- Decision: Preserve `bounded_acceptance`, one variant, one seed, one SSL
+  update, one downstream update, locked test access, `cuda:0`, FP16 AMP,
+  artifact-preserving preflight, fresh output roots, and the payload-excluding
+  evidence archive. Do not change `production_pilot` or its three-seed minimum.
+- Consequences: The command is a fixed-cost production-format real-corpus
+  hardware smoke, not a production pilot or scientific comparison. A missing,
+  zero, off-by-one, or fingerprint-divergent validation binding fails closed.
+  CPU regression results cannot establish successful RTX 3090 execution.

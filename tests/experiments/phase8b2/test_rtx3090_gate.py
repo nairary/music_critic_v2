@@ -4,11 +4,14 @@ import json
 from pathlib import Path
 import subprocess
 
+import pytest
+
 from scripts.verify_phase8b2a_rtx3090_bounded_smoke import verify_gate
 
 
 EXACT_SHA = "a" * 40
-DATASET_COUNTS = {"hooktheory": 1, "pop909_cl": 1}
+VALIDATION_FINGERPRINT = "f" * 64
+DATASET_COUNTS = {"hooktheory": 64, "pop909_cl": 64}
 
 
 def _write(path: Path, payload: object) -> None:
@@ -31,7 +34,13 @@ def _schedule_row(kind: str) -> dict[str, object]:
                 "dataset_counts": [["hooktheory", 1], ["pop909_cl", 1]]
             },
             "validation_membership": {
-                "dataset_counts": [["hooktheory", 1], ["pop909_cl", 1]]
+                "dataset_counts": [
+                    ["hooktheory", 64],
+                    ["pop909_cl", 64],
+                ],
+                "membership_fingerprint": VALIDATION_FINGERPRINT,
+                "selected_count": 128,
+                "subset_limit": 128,
             },
         },
     }
@@ -42,7 +51,12 @@ def _training_report(*, ssl: bool) -> dict[str, object]:
         "amp_enabled": True,
         "scaler_enabled": True,
         "logical_update_budget_complete": True,
-        "validation_membership": {"dataset_counts": DATASET_COUNTS},
+        "validation_membership": {
+            "dataset_counts": DATASET_COUNTS,
+            "membership_fingerprint": VALIDATION_FINGERPRINT,
+            "selected_count": 128,
+            "subset_limit": 128,
+        },
         "device": {
             "resolved_device": "cuda:0",
             "cuda_available": True,
@@ -81,6 +95,10 @@ def _gate_fixture(root: Path) -> tuple[Path, Path]:
         "runtime_execution_config": {
             "ssl_attempted_logical_updates": 1,
             "downstream_attempted_logical_updates": 1,
+            "validation_samples": 128,
+        },
+        "data": {
+            "validation_membership_fingerprint": VALIDATION_FINGERPRINT
         },
         "test_unlock_state": {
             "acknowledged": False,
@@ -103,6 +121,19 @@ def _gate_fixture(root: Path) -> tuple[Path, Path]:
                 "split_manifest": "global.split.json",
             },
             "data_attestation": {
+                "validation_membership": {
+                    "dataset_counts": DATASET_COUNTS,
+                    "membership_fingerprint": VALIDATION_FINGERPRINT,
+                    "selected_count": 128,
+                    "selected_identities": [
+                        [
+                            "hooktheory" if ordinal < 64 else "pop909_cl",
+                            f"validation-piece-{ordinal:03d}",
+                        ]
+                        for ordinal in range(128)
+                    ],
+                    "subset_limit": 128,
+                },
                 "test_inference_performed": False,
                 "test_targets_accessed": False,
                 "test_metrics_accessed": False,
@@ -175,6 +206,7 @@ def _gate_fixture(root: Path) -> tuple[Path, Path]:
             "seeds": [17],
             "ssl_optimizer_steps": 1,
             "downstream_optimizer_steps": 1,
+            "validation_samples": 128,
             "device": "cuda:0",
             "amp": True,
             "amp_dtype": "float16",
@@ -214,23 +246,72 @@ def _gate_fixture(root: Path) -> tuple[Path, Path]:
     )
     _write(
         output / "cells" / "ssl" / "control" / "engine" / "resolved_config.json",
-        {"device": {"name": "cuda:0", "amp": True, "amp_dtype": "float16"}},
+        {
+            "data": {"validation_epoch_size": 128},
+            "device": {"name": "cuda:0", "amp": True, "amp_dtype": "float16"},
+        },
     )
     for mode in ("frozen_probe", "full_finetune", "supervised_scratch"):
         engine = output / "cells" / "downstream" / mode / "engine"
         _write(engine / "training_report.json", _training_report(ssl=False))
         _write(
             engine / "resolved_config.json",
-            {"device": {"name": "cuda:0", "amp": True, "amp_dtype": "float16"}},
+            {
+                "data": {"validation_epoch_size": 128},
+                "device": {
+                    "name": "cuda:0",
+                    "amp": True,
+                    "amp_dtype": "float16",
+                },
+            },
+        )
+        evaluation_engine = (
+            output / "cells" / "evaluation" / mode / "engine"
         )
         _write(
-            output
-            / "cells"
-            / "evaluation"
-            / mode
-            / "engine"
-            / "resolved_evaluation_config.json",
-            {"device": {"name": "cuda:0", "amp": True, "amp_dtype": "float16"}},
+            evaluation_engine / "resolved_evaluation_config.json",
+            {
+                "data": {"max_evaluation_samples": 128},
+                "device": {
+                    "name": "cuda:0",
+                    "amp": True,
+                    "amp_dtype": "float16",
+                },
+            },
+        )
+        _write(
+            evaluation_engine / "evaluation_report.json",
+            {
+                "sample_count": 128,
+                "data_verification": {
+                    "verified": True,
+                    "matched_fields": [
+                        "validation_membership_fingerprint"
+                    ],
+                },
+            },
+        )
+        _write(
+            evaluation_engine / "metrics.json",
+            {
+                "bindings": {
+                    "evaluation_membership_fingerprint": (
+                        VALIDATION_FINGERPRINT
+                    )
+                },
+                "counts": {"sample_count": 128},
+                "dataset_sample_counts": DATASET_COUNTS,
+            },
+        )
+        _write(
+            evaluation_engine / "checkpoint_evidence.json",
+            {
+                "training_data_fingerprints": {
+                    "validation_membership_fingerprint": (
+                        VALIDATION_FINGERPRINT
+                    )
+                }
+            },
         )
     return output, invocation
 
@@ -271,6 +352,78 @@ def test_rtx3090_verifier_rejects_hidden_cpu_fallback(tmp_path: Path) -> None:
     }
 
 
+@pytest.mark.parametrize("validation_samples", [0, 127, 129])
+def test_rtx3090_verifier_rejects_wrong_invocation_validation_bound(
+    tmp_path: Path,
+    validation_samples: int,
+) -> None:
+    output, invocation = _gate_fixture(tmp_path)
+    payload = json.loads(invocation.read_text(encoding="utf-8"))
+    payload["validation_samples"] = validation_samples
+    _write(invocation, payload)
+    plan_path = output / "plan.json"
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    plan["protocol"]["runtime_execution_config"][
+        "validation_samples"
+    ] = validation_samples
+    _write(plan_path, plan)
+    _write(
+        output / "final_bundle" / "comparison_protocol.json",
+        plan["protocol"],
+    )
+
+    result = verify_gate(
+        output,
+        expected_sha=EXACT_SHA,
+        invocation_config=invocation,
+    )
+
+    assert result["status"] == "failed"
+    assert {row["check"] for row in result["failures"]} >= {
+        "invocation.validation_samples",
+        "plan.validation_samples",
+    }
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "field_path", "expected_check"),
+    [
+        (
+            Path("cells/downstream/frozen_probe/engine/training_report.json"),
+            ("validation_membership", "membership_fingerprint"),
+            "runtime.downstream.0.validation_membership_fingerprint",
+        ),
+        (
+            Path("cells/evaluation/frozen_probe/engine/metrics.json"),
+            ("bindings", "evaluation_membership_fingerprint"),
+            "evaluation_report.0.validation_membership_fingerprint",
+        ),
+    ],
+)
+def test_rtx3090_verifier_rejects_validation_membership_fingerprint_mismatch(
+    tmp_path: Path,
+    relative_path: Path,
+    field_path: tuple[str, str],
+    expected_check: str,
+) -> None:
+    output, invocation = _gate_fixture(tmp_path)
+    artifact = output / relative_path
+    payload = json.loads(artifact.read_text(encoding="utf-8"))
+    payload[field_path[0]][field_path[1]] = "e" * 64
+    _write(artifact, payload)
+
+    result = verify_gate(
+        output,
+        expected_sha=EXACT_SHA,
+        invocation_config=invocation,
+    )
+
+    assert result["status"] == "failed"
+    assert {row["check"] for row in result["failures"]} >= {
+        expected_check
+    }
+
+
 def test_published_gate_script_is_subshell_safe_and_untracked_tolerant() -> None:
     script = Path("scripts/run_phase8b2a_rtx3090_bounded_smoke.sh")
     syntax = subprocess.run(
@@ -291,6 +444,8 @@ def test_published_gate_script_is_subshell_safe_and_untracked_tolerant() -> None
     assert "comparison=bounded_acceptance" in source
     assert "comparison.variants=[phase7a_control]" in source
     assert "comparison.seeds=[17]" in source
+    assert "comparison.validation_samples=128" in source
+    assert '"validation_samples":128' in source
     assert "comparison=production_pilot" not in source
     assert "git status --porcelain" not in source
     assert "rm " not in source

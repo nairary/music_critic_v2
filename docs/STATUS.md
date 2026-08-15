@@ -2526,3 +2526,44 @@ not clamped or mutated.
   exact-final RTX 3090 command passes and its evidence is reviewed. No
   scientific superiority, production pilot, held-out test, or Phase 9 claim
   is made.
+
+## Phase 8B.2A RTX 3090 fixed-validation boundedness remediation — 2026-08-15
+
+- The gate runner at pre-remediation head
+  `07e033cc4456b3e87e010e1aca640cf66cf36db7` bounded optimizer updates but
+  omitted `comparison.validation_samples`. Its zero default selected the full
+  validation split, so the three downstream evaluations were not actually
+  bounded by piece count. That published invocation is invalid and must not be
+  used as bounded hardware evidence.
+- The official production-format real-corpus bounded smoke now explicitly
+  records and resolves `comparison.validation_samples=128`: one
+  `phase7a_control` seed, one SSL update, one downstream update, and one fixed
+  deterministic 128-piece validation membership containing HookTheory and
+  POP909-CL. It remains neither a production pilot nor a scientific
+  comparison; `production_pilot` still requires at least three seeds.
+- The standalone verifier fails closed on any invocation or resolved-plan
+  validation bound other than 128. It requires an exact selected count of 128,
+  positive membership from both corpora, and one validation membership
+  fingerprint across the plan, projected SSL/downstream schedules, runtime
+  training reports, evaluation metrics, and checkpoint evidence. Every
+  downstream `validation_epoch_size` and evaluation
+  `max_evaluation_samples` must equal 128. Matching dataset IDs alone is not
+  sufficient.
+- Regression coverage includes a production-format plan with 64 validation
+  pieces per corpus, static runner/invocation assertions, rejection of bounds
+  0/127/129, and independent runtime-training/evaluation fingerprint mismatch
+  cases. Focused gate/production-path checks pass `21 passed, 1 skipped` in
+  52.56 seconds; the complete Phase 8B.2A suite passes
+  `71 passed, 2 skipped` in 322.37 seconds; the complete locally executable
+  repository suite passes
+  `1351 passed, 51 skipped, 3 deselected` in 547.64 seconds. The three
+  deselections are the unchanged sandbox-only `DataLoader(workers>0)` hangs
+  and remain mandatory in Required CI.
+- Runner `bash -n`, source plus verifier compileall, and `git diff --check`
+  pass. All prior artifact-preserving, tracked/staged-clean, subshell-safe,
+  CUDA logical-device-zero, FP16 AMP, fresh-root, locked-test, and payload-
+  excluding archive guarantees remain unchanged.
+- Local verification is CPU-only and does not claim RTX 3090 success. Draft PR
+  #19 remains draft and unmerged pending an independent execution at the new
+  exact head. Phase 9 has not started, and no scientific-superiority or
+  production-pilot claim is made.

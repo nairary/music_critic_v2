@@ -197,7 +197,7 @@ if (( ${#DATA_OVERRIDES[@]} != 3 )); then
 fi
 
 python -c \
-    'import json, pathlib, sys; payload={"run_label":"production-format real-corpus bounded smoke","expected_git_sha":sys.argv[2],"comparison":"bounded_acceptance","variants":["phase7a_control"],"seeds":[17],"ssl_optimizer_steps":1,"downstream_optimizer_steps":1,"optimizer_steps_per_epoch":1,"device":"cuda:0","amp":True,"amp_dtype":"float16","test_split_opened":False,"data_paths_source":"paths_only_from_existing_plan","source_plan":sys.argv[3],"output_root":sys.argv[4],"index_paths":sys.argv[5:7],"cache_roots":sys.argv[7:9],"split_manifest":sys.argv[9]}; pathlib.Path(sys.argv[1]).write_text(json.dumps(payload, indent=2, sort_keys=True)+"\n")' \
+    'import json, pathlib, sys; payload={"run_label":"production-format real-corpus bounded smoke","expected_git_sha":sys.argv[2],"comparison":"bounded_acceptance","variants":["phase7a_control"],"seeds":[17],"ssl_optimizer_steps":1,"downstream_optimizer_steps":1,"optimizer_steps_per_epoch":1,"validation_samples":128,"device":"cuda:0","amp":True,"amp_dtype":"float16","test_split_opened":False,"data_paths_source":"paths_only_from_existing_plan","source_plan":sys.argv[3],"output_root":sys.argv[4],"index_paths":sys.argv[5:7],"cache_roots":sys.argv[7:9],"split_manifest":sys.argv[9]}; pathlib.Path(sys.argv[1]).write_text(json.dumps(payload, indent=2, sort_keys=True)+"\n")' \
     "$INVOCATION_CONFIG" "$EXPECTED_SHA" "$SOURCE_PLAN" "$OUTPUT_ROOT" \
     "${INDEX_PATHS[@]}" "${CACHE_ROOTS[@]}" "$SPLIT_MANIFEST"
 
@@ -208,6 +208,7 @@ GATE_OVERRIDES=(
     comparison.ssl_optimizer_steps=1
     comparison.downstream_optimizer_steps=1
     comparison.optimizer_steps_per_epoch=1
+    comparison.validation_samples=128
     comparison.bootstrap_replicates=2
     device.name=cuda:0
     device.amp=true

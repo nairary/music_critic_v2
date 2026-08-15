@@ -11,6 +11,7 @@ from typing import Any, Mapping
 
 
 EXPECTED_DATASET_IDS = {"hooktheory", "pop909_cl"}
+EXPECTED_VALIDATION_SAMPLES = 128
 
 
 def _json_value(value: object) -> object:
@@ -46,6 +47,27 @@ def _dataset_ids(value: object) -> set[str]:
                 result.add(str(row[0]))
         return result
     return set()
+
+
+def _dataset_count_total(value: object) -> int | None:
+    if isinstance(value, Mapping):
+        counts = tuple(value.values())
+    elif isinstance(value, list):
+        counts = tuple(
+            row[1]
+            for row in value
+            if isinstance(row, list) and len(row) == 2
+        )
+        if len(counts) != len(value):
+            return None
+    else:
+        return None
+    if not all(
+        isinstance(count, int) and not isinstance(count, bool) and count >= 0
+        for count in counts
+    ):
+        return None
+    return sum(counts)
 
 
 class _Checks:
@@ -179,6 +201,11 @@ def verify_gate(
     checks.equal("invocation.amp", invocation.get("amp"), True)
     checks.equal("invocation.amp_dtype", invocation.get("amp_dtype"), "float16")
     checks.equal(
+        "invocation.validation_samples",
+        invocation.get("validation_samples"),
+        EXPECTED_VALIDATION_SAMPLES,
+    )
+    checks.equal(
         "invocation.expected_git_sha",
         invocation.get("expected_git_sha"),
         expected_sha,
@@ -202,6 +229,11 @@ def verify_gate(
         "plan.downstream_attempted_updates",
         runtime_config.get("downstream_attempted_logical_updates"),
         1,
+    )
+    checks.equal(
+        "plan.validation_samples",
+        runtime_config.get("validation_samples"),
+        EXPECTED_VALIDATION_SAMPLES,
     )
     amp_config = plan_protocol.get("amp_device_config", {})
     checks.equal("plan.device", amp_config.get("name"), "cuda:0")
@@ -232,6 +264,53 @@ def verify_gate(
         "plan.test_membership_has_no_identities",
         "selected_identities" in test_summary,
         False,
+    )
+    validation_membership = data_attestation.get("validation_membership", {})
+    validation_fingerprint = validation_membership.get(
+        "membership_fingerprint"
+    )
+    checks.true(
+        "plan.validation_membership_fingerprint_present",
+        isinstance(validation_fingerprint, str)
+        and len(validation_fingerprint) == 64
+        and all(
+            character in "0123456789abcdef"
+            for character in validation_fingerprint
+        ),
+        validation_fingerprint,
+    )
+    checks.equal(
+        "plan.validation_membership_selected_count",
+        validation_membership.get("selected_count"),
+        EXPECTED_VALIDATION_SAMPLES,
+    )
+    checks.equal(
+        "plan.validation_membership_subset_limit",
+        validation_membership.get("subset_limit"),
+        EXPECTED_VALIDATION_SAMPLES,
+    )
+    checks.equal(
+        "plan.validation_membership_dataset_ids",
+        _dataset_ids(validation_membership.get("dataset_counts")),
+        EXPECTED_DATASET_IDS,
+    )
+    checks.equal(
+        "plan.validation_membership_dataset_count_total",
+        _dataset_count_total(validation_membership.get("dataset_counts")),
+        EXPECTED_VALIDATION_SAMPLES,
+    )
+    selected_identities = validation_membership.get("selected_identities", [])
+    checks.equal(
+        "plan.validation_membership_identity_count",
+        len(selected_identities),
+        EXPECTED_VALIDATION_SAMPLES,
+    )
+    checks.equal(
+        "protocol.validation_membership_fingerprint",
+        plan_protocol.get("data", {}).get(
+            "validation_membership_fingerprint"
+        ),
+        validation_fingerprint,
     )
 
     runtime_paths = plan.get("runtime_paths", {})
@@ -280,12 +359,33 @@ def verify_gate(
                 ),
                 EXPECTED_DATASET_IDS,
             )
+            projected_validation = projection.get(
+                "validation_membership", {}
+            )
             checks.equal(
                 f"schedule.{kind}.{ordinal}.validation_membership_dataset_ids",
-                _dataset_ids(
-                    projection.get("validation_membership", {}).get("dataset_counts")
-                ),
+                _dataset_ids(projected_validation.get("dataset_counts")),
                 EXPECTED_DATASET_IDS,
+            )
+            checks.equal(
+                f"schedule.{kind}.{ordinal}.validation_dataset_count_total",
+                _dataset_count_total(projected_validation.get("dataset_counts")),
+                EXPECTED_VALIDATION_SAMPLES,
+            )
+            checks.equal(
+                f"schedule.{kind}.{ordinal}.validation_selected_count",
+                projected_validation.get("selected_count"),
+                EXPECTED_VALIDATION_SAMPLES,
+            )
+            checks.equal(
+                f"schedule.{kind}.{ordinal}.validation_subset_limit",
+                projected_validation.get("subset_limit"),
+                EXPECTED_VALIDATION_SAMPLES,
+            )
+            checks.equal(
+                f"schedule.{kind}.{ordinal}.validation_membership_fingerprint",
+                projected_validation.get("membership_fingerprint"),
+                validation_fingerprint,
             )
 
     repository = manifest.get("repository", {})
@@ -419,6 +519,29 @@ def verify_gate(
                 ),
                 EXPECTED_DATASET_IDS,
             )
+            runtime_validation = runtime_report.get(
+                "validation_membership", {}
+            )
+            checks.equal(
+                f"runtime.{kind}.{ordinal}.validation_dataset_count_total",
+                _dataset_count_total(runtime_validation.get("dataset_counts")),
+                EXPECTED_VALIDATION_SAMPLES,
+            )
+            checks.equal(
+                f"runtime.{kind}.{ordinal}.validation_selected_count",
+                runtime_validation.get("selected_count"),
+                EXPECTED_VALIDATION_SAMPLES,
+            )
+            checks.equal(
+                f"runtime.{kind}.{ordinal}.validation_subset_limit",
+                runtime_validation.get("subset_limit"),
+                EXPECTED_VALIDATION_SAMPLES,
+            )
+            checks.equal(
+                f"runtime.{kind}.{ordinal}.validation_membership_fingerprint",
+                runtime_validation.get("membership_fingerprint"),
+                validation_fingerprint,
+            )
             checks.equal(
                 f"runtime.{kind}.{ordinal}.logical_update_budget_complete",
                 runtime_report.get("logical_update_budget_complete"),
@@ -477,6 +600,26 @@ def verify_gate(
             "float16",
         )
 
+    downstream_configs = tuple(
+        sorted(
+            (root / "cells" / "downstream").rglob(
+                "resolved_config.json"
+            )
+        )
+    )
+    checks.equal(
+        "runtime.resolved_downstream_config_count",
+        len(downstream_configs),
+        3,
+    )
+    for ordinal, path in enumerate(downstream_configs):
+        config = _read_json(path)
+        checks.equal(
+            f"downstream_config.{ordinal}.validation_epoch_size",
+            config.get("data", {}).get("validation_epoch_size"),
+            EXPECTED_VALIDATION_SAMPLES,
+        )
+
     evaluation_configs = tuple(
         sorted(
             (root / "cells" / "evaluation").rglob(
@@ -498,6 +641,63 @@ def verify_gate(
             f"evaluation_config.{ordinal}.amp_dtype",
             device.get("amp_dtype"),
             "float16",
+        )
+        checks.equal(
+            f"evaluation_config.{ordinal}.max_evaluation_samples",
+            config.get("data", {}).get("max_evaluation_samples"),
+            EXPECTED_VALIDATION_SAMPLES,
+        )
+        engine = path.parent
+        evaluation_report = _read_json(engine / "evaluation_report.json")
+        checks.equal(
+            f"evaluation_report.{ordinal}.sample_count",
+            evaluation_report.get("sample_count"),
+            EXPECTED_VALIDATION_SAMPLES,
+        )
+        data_verification = evaluation_report.get("data_verification", {})
+        checks.equal(
+            f"evaluation_report.{ordinal}.data_verification",
+            data_verification.get("verified"),
+            True,
+        )
+        checks.true(
+            f"evaluation_report.{ordinal}.membership_field_matched",
+            "validation_membership_fingerprint"
+            in data_verification.get("matched_fields", []),
+            data_verification.get("matched_fields"),
+        )
+        metrics = _read_json(engine / "metrics.json")
+        checks.equal(
+            f"evaluation_report.{ordinal}.validation_membership_fingerprint",
+            metrics.get("bindings", {}).get(
+                "evaluation_membership_fingerprint"
+            ),
+            validation_fingerprint,
+        )
+        checks.equal(
+            f"evaluation_report.{ordinal}.metrics_sample_count",
+            metrics.get("counts", {}).get("sample_count"),
+            EXPECTED_VALIDATION_SAMPLES,
+        )
+        checks.equal(
+            f"evaluation_report.{ordinal}.dataset_ids",
+            _dataset_ids(metrics.get("dataset_sample_counts")),
+            EXPECTED_DATASET_IDS,
+        )
+        checks.equal(
+            f"evaluation_report.{ordinal}.dataset_sample_count_total",
+            _dataset_count_total(metrics.get("dataset_sample_counts")),
+            EXPECTED_VALIDATION_SAMPLES,
+        )
+        checkpoint_evidence = _read_json(
+            engine / "checkpoint_evidence.json"
+        )
+        checks.equal(
+            f"evaluation_report.{ordinal}.checkpoint_validation_fingerprint",
+            checkpoint_evidence.get("training_data_fingerprints", {}).get(
+                "validation_membership_fingerprint"
+            ),
+            validation_fingerprint,
         )
 
     return {

@@ -822,6 +822,11 @@ diagnostic untracked evidence, detaches the exact fetched SHA, consumes an old
 plan only as a source of production paths, and emits into a fresh root. The
 mechanical run is `bounded_acceptance` with one control variant and one seed;
 `production_pilot` retains its three-seed minimum and scientific protocol.
+The smoke fixes the deterministic validation membership at exactly 128 pieces
+across HookTheory and POP909-CL; it does not inherit the unbounded
+`validation_samples=0` default. The standalone verifier binds that count and
+one membership fingerprint across the plan, projected schedules, runtime
+training reports, and all three evaluation artifacts/configurations.
 Strict shell options are scoped to a subshell. Final evidence is a checksummed
 archive of configuration, logs, runtime/data attestations, and verifier output
 that excludes caches, checkpoints, and corpus payloads.
