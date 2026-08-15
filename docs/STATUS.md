@@ -2419,3 +2419,61 @@ not clamped or mutated.
 - Phase 8B.2A is implementation-complete on this branch, pending Required CI
   and review of draft PR #19. Phase 9 has not started; scaled Phase 8B.2
   evidence waits for the Phase 10 raw-compatible PDMX projection.
+
+## Phase 8B.2A blocking CUDA pre-merge remediation — 2026-08-15
+
+- Starting head was
+  `91c2d0c536cbe35fe40d83e0ad09a4c5200a3d97` on the existing draft PR #19
+  branch. An independent RTX 3090 real-corpus smoke read the HookTheory and
+  POP909-CL production caches and selected the expected batch, then failed in
+  the first preflight before model forward. The confirmed boundary defect was
+  `phase8b_engine._prepare` passing concrete `torch.device("cuda:0")` to
+  `torch.cuda.reset_peak_memory_stats`; that installed runtime required the
+  logical integer index. Equivalent device-object arguments existed in Phase
+  7A SSL, supervised training, Phase 8A hardware acceptance, and Phase 8B.2
+  environment evidence.
+- `CudaRuntimeDeviceIndex@1.0.0` now reuses canonical runtime resolution and
+  returns a validated logical integer for CUDA-only APIs. It distinguishes
+  `cuda:0`/`cuda:1`, follows the current logical device for abstract `cuda`,
+  honors PyTorch's `CUDA_VISIBLE_DEVICES` view, rejects CPU structurally, and
+  preserves unavailable/out-of-range categories. Runtime resolution advances
+  to `1.0.2` so CUDA probe failures cannot escape as raw runtime exceptions.
+- All audited reset, max allocated/reserved, memory allocated, synchronization,
+  device-name, properties, and capability boundaries now use explicit integer
+  arguments or an already explicit constant. The Phase 7A, Phase 8B, and
+  supervised `_prepare` reset calls use the shared helper; no local `.index`
+  conversions, implicit-current evidence, CPU fallback, disabled VRAM
+  evidence, or swallowed CUDA error was introduced.
+- A new optional production-format CUDA CLI regression binds one seed,
+  `phase7a_control`, one SSL update, frozen/full/scratch downstream modes,
+  three validation evaluations, explicit `cuda:0`, and FP16 AMP. It requires
+  8/8 scientific cells, 8/8 runtime bindings, 3/3 checkpoint-to-evaluation
+  bindings, positive allocated/reserved VRAM, and no test inference, target,
+  or metric access. Two direct real-CUDA helper tests cover reset/allocation/
+  peak/name evidence and invalid `cuda:1` when exactly one GPU is visible.
+- Narrow contract changes are runtime-device resolution `1.0.2`, logical CUDA
+  index `1.0.0`, SSL training report `1.2.3`, Phase 8B engine/report `1.2.1`,
+  Phase 8A CUDA AMP hardware evidence `1.2.1`, and Phase 8B.2 artifact evidence
+  `1.2.1`. Device transfer and Phase 8B.2 comparison protocol remain `1.0.2`
+  and `1.2.0`; graph, canonical, ontology, model, objective, schedule, data,
+  checkpoint, and scientific semantics are unchanged.
+- Local verification is CPU-only and does not claim successful hardware
+  remediation. CUDA boundary/runtime focus: `89 passed, 17 skipped`; Phase
+  8B.2A focus: `61 passed, 2 skipped` in 319.08 seconds; the explicit CPU
+  production mini-DAG: `1 passed` in 33.25 seconds; SSL/training/evaluation:
+  `497 passed, 32 skipped, 2 deselected` in 206.48 seconds; full repository:
+  `1341 passed, 51 skipped, 3 deselected` in 553.79 seconds. The deselections
+  are the three unchanged `DataLoader(workers>0)` cases that reproducibly hang
+  only in the local sandbox and remain mandatory in Required CI.
+- Audit/integration/repository contracts pass `56 passed, 14 skipped`;
+  deterministic/runtime-device/repository focus passes `45 passed, 2 skipped`;
+  compileall and `git diff --check` pass. The legacy snapshot audit still
+  reports the same pre-existing external dirty-worktree mismatch documented
+  above. Only that read-only snapshot/status check touched the legacy checkout;
+  no legacy source file was inspected or changed by this remediation.
+- Both failed independent output roots remain preserved and were not deleted
+  or overwritten:
+  `outputs/phase8b2a-real-gpu-smoke-20260815-142536` and
+  `outputs/phase8b2a-real-gpu-smoke-20260815-142857`. Phase 9 has not started;
+  draft PR #19 must remain draft and unmerged until independent exact-head RTX
+  evidence and Required CI are reviewed.

@@ -16,6 +16,10 @@ from typing import Iterable, Mapping
 
 import torch
 
+from music_critic.device import (
+    CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION,
+    resolve_cuda_device_index,
+)
 from music_critic.experiments.phase8b2.contracts import (
     PHASE8B2_ARTIFACT_CONTRACT_VERSION,
     Phase8B2ContractError,
@@ -155,13 +159,21 @@ def environment_evidence(device: torch.device) -> dict[str, object]:
         "cuda_runtime": torch.version.cuda,
         "cuda_available": torch.cuda.is_available(),
         "device": str(device),
+        "cuda_runtime_device_index_contract_version": (
+            CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION
+        ),
+        "cuda_logical_device_index": None,
     }
     if device.type == "cuda":
         if not torch.cuda.is_available():
             raise Phase8B2ContractError(
                 "phase8b2.environment.cuda_evidence_unavailable"
             )
-        result["cuda_device_name"] = torch.cuda.get_device_name(device)
+        cuda_device_index = resolve_cuda_device_index(device)
+        result["cuda_logical_device_index"] = cuda_device_index
+        result["cuda_device_name"] = torch.cuda.get_device_name(
+            cuda_device_index
+        )
     else:
         result["cuda_device_name"] = None
     return result

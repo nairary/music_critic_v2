@@ -302,9 +302,10 @@ when the index is smaller than `torch.cuda.device_count()`. The current index
 is checked against the same count. Every CUDA request fails structurally when
 CUDA is unavailable; a nonexistent explicit or current index fails before
 `.to(...)` with `runtime.device.cuda_index_out_of_range`, requested-device
-evidence, and the visible count. Runtime device-resolution contract `1.0.1`
-performs no tensor allocation or value materialization. It deep-copies
-the raw PyG batch and transfers only
+evidence, and the visible count. Runtime device-resolution contract `1.0.2`
+also converts CUDA availability/device-count probe failures to stable
+categories and performs no tensor allocation or value materialization. It
+deep-copies the raw PyG batch and transfers only
 tensor attributes, preserving tuple-valued graph metadata. Model-facing target
 tensors move to the same device, while strings, provenance, diagnostics,
 statistics, and other CPU sidecars remain CPU objects. Targets are never added
@@ -324,6 +325,15 @@ through the shared resolver. AMP is accepted only when the resolved device
 type is CUDA, so `device.name=cuda:0` and CUDA-resolving `auto` are valid while
 CPU AMP is rejected.
 
+CUDA-only runtime calls use `CudaRuntimeDeviceIndex@1.0.0`. The helper invokes
+the same resolver and returns an explicit logical integer index, including
+after `CUDA_VISIBLE_DEVICES` remapping; CPU is rejected with
+`runtime.device.cuda_operation_requires_cuda`. Phase 7A SSL, Phase 8B SSL and
+supervised `_prepare` pass that integer to `reset_peak_memory_stats`, and all
+allocated/reserved/name evidence does the same. Hardware acceptance also uses
+it for synchronization and device properties. No path relies on an abstract
+`cuda`, an implicit current device, or a duplicated local `.index` conversion.
+
 Phase 7A representation loss `1.0.1` keeps exact shape/device validation but
 allows FP16/BF16/FP32 prediction-target pairs by computing cosine, numerator,
 mean, multi-view aggregation, and the combined SSL objective in FP32 with
@@ -332,8 +342,9 @@ the out-of-place FP32 prediction cast remains differentiable. Anti-collapse
 diagnostics `1.1.1` use the same normalization. Multi-view loss and combined
 SSL objective are `1.0.1`; the umbrella SSL contract is `1.2.2`.
 
-SSL training report `1.2.2` separates bounded mutation reporting into two
-independent `1.0.0` evidence objects with domain-separated canonical
+SSL training report `1.2.3` adds versioned logical CUDA-index evidence and
+continues to separate bounded mutation reporting into two independent `1.0.0`
+evidence objects with domain-separated canonical
 fingerprints. No-leakage acceptance requires strict raw-store,
 runtime-source, fixed-plan/binding, and `torch.equal` online
 embedding/prediction invariants plus an applicable changed hidden target and
@@ -425,6 +436,14 @@ index/cache identities, split, normalized train dataset counts and size,
 fixed-validation membership and mixture weights. Dataset-count, membership or
 observed-schedule mismatches raise stable Phase 8B.2A errors before atomic cell
 publication; missing dictionary keys cannot escape as `KeyError`.
+
+The official optional CUDA regression uses the same production-format on-disk
+index/cache/split fixture with one seed, `phase7a_control`, one SSL update,
+frozen probe, full fine-tune, scratch, and three validation evaluations under
+explicit `cuda:0` plus FP16 AMP. It requires 8/8 scientific cells, 8/8 runtime
+bindings, 3/3 checkpoint-to-evaluation bindings, positive allocated and
+reserved VRAM, and zero test inference/target/metric access. A CPU-only skip is
+not hardware evidence.
 
 The validation subset uses a dedicated fixed seed, so it is common across
 downstream data-order seeds. Its membership fingerprint must match the

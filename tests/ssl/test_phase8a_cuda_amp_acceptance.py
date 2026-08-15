@@ -695,7 +695,7 @@ def test_documented_cuda_cli_creates_bound_hardware_report(
     )
 
     report = json.loads(hardware_report.read_text(encoding="utf-8"))
-    assert report["hardware_evidence_contract_version"] == "1.2.0"
+    assert report["hardware_evidence_contract_version"] == "1.2.1"
     assert report["source"]["expected_head_match"] is True
     assert report["source"]["source_tree_clean"] is True
     assert report["portable_binding"][
@@ -790,7 +790,7 @@ def test_all_phase8a_policies_and_mixture_on_explicit_cuda_zero() -> None:
     assert report["portable_binding"][
         "portable_cpu_report_validation"
     ]["provided"] is False
-    assert report["contracts"]["ssl_training_report"] == "1.2.2"
+    assert report["contracts"]["ssl_training_report"] == "1.2.3"
     assert report["contracts"]["prepared_binding"] == "1.1.0"
     assert report["contracts"]["hierarchy_prepared_binding"] == "1.2.0"
     assert report["contracts"]["hierarchy_unavailable_reason"] == "1.0.0"

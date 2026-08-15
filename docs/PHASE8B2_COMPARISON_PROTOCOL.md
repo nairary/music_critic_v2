@@ -12,6 +12,12 @@ Python subprocesses. It does not contain production training results and makes
 no claim that one SSL variant is better than another or better than supervised
 scratch.
 
+The CUDA pre-merge remediation does not change that scientific protocol. It
+routes runtime CUDA statistics and device evidence through the shared
+`CudaRuntimeDeviceIndex@1.0.0` logical-integer boundary and advances only the
+Phase 8B.2 artifact evidence contract to `1.2.1` plus the affected engine and
+hardware-report contracts.
+
 No PDMX or Dilemmadata adapter, PLL, pseudo-likelihood, fragility/preference/
 quality score, curriculum masking, EMA teacher, theory input, synthetic chord
 note, graph-schema change, or ontology change is part of this phase. Phase 10
@@ -47,8 +53,11 @@ renormalization.
 
 Every cell reports logical updates, policy views, encoder forwards, raw samples,
 nodes, edges, eligible objective rows, applied/skipped updates, wall time, and
-CUDA allocated/reserved peaks when a real CUDA device is used. Matched-mode
-validation fails closed if forward, raw-exposure, or update budgets differ.
+CUDA allocated/reserved peaks when a real CUDA device is used. CUDA memory
+statistics receive the explicit logical integer index resolved from the
+concrete runtime device; they never depend on an implicit current device.
+Matched-mode validation fails closed if forward, raw-exposure, or update
+budgets differ.
 
 ## Paired schedules and leakage boundary
 
@@ -196,9 +205,10 @@ N-by-N matrix and retain no prediction tensor after a batch.
 
 ## Artifacts and aggregation
 
-The protocol, artifact, plan, matrix-runner, cell-manifest, schedule, data-
-attestation, and test-lock contracts affected by this remediation are `1.2.0`.
-The normalized data semantic projection begins at `1.0.0`. A complete
+The protocol, plan, matrix-runner, cell-manifest, schedule, data-attestation,
+and test-lock contracts remain `1.2.0`. Artifact evidence advances to `1.2.1`
+to bind `CudaRuntimeDeviceIndex@1.0.0` and the logical CUDA index; the
+normalized data semantic projection remains `1.0.0`. A complete
 experiment has:
 
 - `comparison_protocol.json`;
@@ -225,7 +235,8 @@ cell is verified.
 
 JSON/JSONL creation is atomic and immutable. Production evidence records exact
 clean git SHA, environment, Python/PyTorch/PyG/CUDA versions, concrete device,
-all seed domains, data/cache/split/membership identities, protocol and contract
+logical CUDA index and its boundary version, all seed domains,
+data/cache/split/membership identities, protocol and contract
 fingerprints, checkpoint SHA-256, and compute counters. Aggregation rejects
 incomplete or duplicate cells, stale artifact fingerprints, mixed protocols,
 data bindings, initial encoders, natural/matched modes, and unauthorized test
@@ -294,6 +305,12 @@ immutable rerun, stale/incomplete rejection, resolved test-membership metadata,
 and zero test inference/target/metric access. It asserts mechanics only; SSL
 need not beat scratch on the tiny fixture.
 
-CUDA/AMP acceptance is optional and must use explicit `cuda:0`. A skip is not
-CUDA evidence. No production corpus, PDMX, long-training, effectiveness, or
-quality claim was produced in Phase 8B.2A.
+CUDA/AMP acceptance is optional and must use explicit `cuda:0`. In addition to
+the bounded matrix, the official production-format regression uses on-disk
+HookTheory/POP909-CL-style cache/index/split artifacts, one seed,
+`phase7a_control`, one SSL update, frozen/full/scratch downstream modes, and
+three validation evaluations. It requires 8/8 scientific cells, 8/8 runtime
+bindings, 3/3 checkpoint-to-evaluation bindings, positive allocated/reserved
+VRAM, and no test inference, target, or metric access. A CPU skip is not CUDA
+evidence. No production corpus, PDMX, long-training, effectiveness, or quality
+claim was produced in Phase 8B.2A.

@@ -2535,3 +2535,45 @@ This log is append-only.
   validation evaluation. The unchanged bounded 52-cell DAG remains mechanics
   evidence only. No Phase 9, production/PDMX training, held-out inference, or
   scientific-effectiveness claim is authorized.
+
+## 2026-08-15 — ADR-069: CUDA runtime evidence uses a logical integer device index
+
+- Status: Accepted as blocking CUDA pre-merge remediation in existing draft
+  PR #19. The PR remains draft and unmerged; successful hardware remediation
+  requires an independent exact-head RTX 3090 rerun.
+- Context: A real-corpus RTX 3090 smoke on
+  `91c2d0c536cbe35fe40d83e0ad09a4c5200a3d97` resolved `cuda:0` correctly and
+  read both production caches, but the first Phase 8B.2A preflight failed
+  before model forward. `phase8b_engine._prepare` passed the concrete
+  `torch.device("cuda:0")` to `torch.cuda.reset_peak_memory_stats`; the
+  installed CUDA/PyTorch runtime rejected that argument as `Invalid device
+  argument`. The same type mismatch existed in Phase 7A SSL, supervised
+  training, Phase 8A hardware acceptance, and Phase 8B.2 environment evidence.
+- Decision: Keep concrete `torch.device` objects for tensor/module placement.
+  Add `CudaRuntimeDeviceIndex@1.0.0`, which calls the canonical resolver and
+  returns only a validated logical integer CUDA index. It preserves explicit
+  `cuda:0`/`cuda:1`, resolves abstract CUDA through the current logical device,
+  honors `CUDA_VISIBLE_DEVICES` through PyTorch's visible count, rejects CPU
+  with `runtime.device.cuda_operation_requires_cuda`, and preserves stable
+  unavailable/out-of-range categories. CUDA discovery probe failures are also
+  structured by runtime-device resolution `1.0.2`.
+- Decision: Every runtime-device call to CUDA reset, allocated/reserved peaks,
+  synchronization, device name, and device properties receives that explicit
+  integer. Fixed device-zero acceptance calls remain explicit integers. Do not
+  disable VRAM evidence, catch the failure as unavailable evidence, fall back
+  to CPU, remove reset, or rely on an implicit current device.
+- Decision: Advance only affected evidence/execution contracts: SSL training
+  report `1.2.3`; Phase 8B engine and report `1.2.1`; Phase 8A CUDA AMP hardware
+  evidence `1.2.1`; Phase 8B.2 artifact evidence `1.2.1`; and runtime-device
+  resolution `1.0.2`. Device transfer, comparison protocol, graph, canonical,
+  ontology, model, objective, schedule, data, checkpoint, and scientific
+  contracts retain their versions and semantics.
+- Consequences: CPU/mock regressions enforce the integer boundary for all three
+  official training paths and all affected evidence APIs. Optional real-CUDA
+  tests execute reset, allocation, peak/name evidence and invalid-index
+  rejection. The official production-format CUDA mini-DAG executes one
+  `phase7a_control` seed, one SSL update, frozen/full/scratch training, and
+  three validation evaluations with 8/8 scientific cells, 8/8 runtime
+  bindings, 3/3 checkpoint-to-evaluation bindings, nonzero VRAM, and no test
+  inference/target/metric access. CPU results cannot establish that the RTX
+  blocker is fixed.

@@ -11,6 +11,7 @@ import subprocess
 import sys
 
 import pytest
+import torch
 
 from music_critic.experiments.phase8b2.attestation import (
     assert_data_semantic_projection_match,
@@ -282,6 +283,77 @@ def test_production_format_cli_run_completes_source_neutral_attestation(
         match="phase8b2.runner.ssl_runtime_evidence_malformed",
     ):
         _ssl_runtime_binding(plan, ssl_cell, malformed_ssl)
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available(),
+    reason="Phase 8B.2A production-path acceptance requires a CUDA runner",
+)
+def test_production_format_cli_runs_cuda_amp_with_integer_vram_boundary(
+    tmp_path: Path,
+) -> None:
+    index_paths, cache_roots, manifest = _production_fixture(tmp_path)
+    output_root = tmp_path / "production-cuda-mini-dag"
+
+    result = _run_production_cli(
+        output_root,
+        index_paths=index_paths,
+        cache_roots=cache_roots,
+        split_manifest=manifest,
+        extra=(
+            "device=cuda",
+            "device.name=cuda:0",
+            "device.amp=true",
+            "device.amp_dtype=float16",
+        ),
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout)["status"] == "complete"
+    report = json.loads(
+        (output_root / "final_bundle" / "final_comparison_report.json")
+        .read_text(encoding="utf-8")
+    )
+    assert report["executed_cell_count"] == 8
+    assert report["expected_cell_count"] == 8
+    assert report["verified_runtime_binding_cell_count"] == 8
+    assert report["checkpoint_to_evaluation_verified_cell_count"] == 3
+    assert report["test_inference_performed"] is False
+    assert report["test_targets_accessed"] is False
+    assert report["test_metrics_accessed"] is False
+
+    plan = json.loads(
+        (output_root / "plan.json").read_text(encoding="utf-8")
+    )
+    assert plan["protocol"]["seeds"] == [17]
+    assert [row["variant_id"] for row in plan["ssl_cells"]] == [
+        "phase7a_control"
+    ]
+    assert plan["ssl_cells"][0]["schedule"]["logical_updates"] == 1
+    assert {
+        row["transfer_mode"] for row in plan["downstream_cells"]
+    } == {"frozen_probe", "full_finetune", "supervised_scratch"}
+    assert len(plan["downstream_cells"]) == 3
+    assert len(plan["evaluation_cells"]) == 3
+
+    compute = json.loads(
+        (output_root / "final_bundle" / "compute_accounting.json")
+        .read_text(encoding="utf-8")
+    )
+    assert len(compute["cells"]) == 1
+    cuda_peak = compute["cells"][0]["cuda_peak_memory"]
+    assert cuda_peak["available"] is True
+    assert cuda_peak["cuda_logical_device_index"] == 0
+    assert cuda_peak["peak_allocated_bytes"] > 0
+    assert cuda_peak["peak_reserved_bytes"] > 0
+
+    run_manifest = json.loads(
+        (output_root / "final_bundle" / "run_manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert run_manifest["environment"]["device"] == "cuda:0"
+    assert run_manifest["environment"]["cuda_logical_device_index"] == 0
 
 
 @pytest.mark.parametrize(

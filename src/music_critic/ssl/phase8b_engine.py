@@ -19,6 +19,10 @@ from typing import Any, Iterable
 import torch
 from omegaconf import OmegaConf
 
+from music_critic.device import (
+    CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION,
+    resolve_cuda_device_index,
+)
 from music_critic.ssl.checkpoint import (
     SSL_METRIC_ROW_VERSION,
     SSLResumeState,
@@ -76,10 +80,10 @@ from music_critic.ssl.phase8b_acceptance import (
 from music_critic.ssl.transfer import export_pretrained_encoder_state
 
 
-PHASE8B_ENGINE_CONTRACT_VERSION = "1.2.0"
+PHASE8B_ENGINE_CONTRACT_VERSION = "1.2.1"
 PHASE8B_MASKING_CONFIG_CONTRACT_VERSION = "1.1.0"
 PHASE8B_RUN_MANIFEST_VERSION = "1.2.0"
-PHASE8B_TRAINING_REPORT_VERSION = "1.2.0"
+PHASE8B_TRAINING_REPORT_VERSION = "1.2.1"
 PHASE8B_OPTIMIZER_EVIDENCE_CONTRACT_VERSION = "1.0.0"
 PHASE8B2_SCHEDULE_BINDING_CONTRACT_VERSION = "1.1.0"
 PHASE8B_GRAD_SCALER_INITIAL_SCALE = 16384.0
@@ -932,10 +936,19 @@ def _cuda_peak_memory(device: torch.device) -> dict[str, object]:
             "peak_allocated_bytes": None,
             "peak_reserved_bytes": None,
         }
+    cuda_device_index = resolve_cuda_device_index(device)
     return {
         "available": True,
-        "peak_allocated_bytes": torch.cuda.max_memory_allocated(device),
-        "peak_reserved_bytes": torch.cuda.max_memory_reserved(device),
+        "cuda_runtime_device_index_contract_version": (
+            CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION
+        ),
+        "cuda_logical_device_index": cuda_device_index,
+        "peak_allocated_bytes": torch.cuda.max_memory_allocated(
+            cuda_device_index
+        ),
+        "peak_reserved_bytes": torch.cuda.max_memory_reserved(
+            cuda_device_index
+        ),
     }
 
 
@@ -1109,7 +1122,9 @@ def _prepare(
         data_seed = comparison.data_order_seed
     device = _resolve_device(resolved)
     if device.type == "cuda":
-        torch.cuda.reset_peak_memory_stats(device)
+        torch.cuda.reset_peak_memory_stats(
+            resolve_cuda_device_index(device)
+        )
     runtime = build_ssl_data_runtime(
         OmegaConf.create(resolved["data"]), seed=data_seed
     )

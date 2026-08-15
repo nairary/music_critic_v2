@@ -11,6 +11,7 @@ from hydra import compose, initialize
 import pytest
 import torch
 
+from music_critic.device import resolve_cuda_device_index
 from music_critic.graph import (
     RAW_FEATURE_REGISTRY,
     validate_raw_graph_batch,
@@ -406,15 +407,16 @@ def test_cuda_metric_retention_is_constant_across_many_batches(
         task_weights={},
     )
     accumulator.add(output, batch)
-    torch.cuda.synchronize()
-    steady_allocated = torch.cuda.memory_allocated()
+    cuda_device_index = resolve_cuda_device_index("cuda")
+    torch.cuda.synchronize(cuda_device_index)
+    steady_allocated = torch.cuda.memory_allocated(cuda_device_index)
     for _ in range(200):
         accumulator.add(output, batch)
         evidence = accumulator.storage_evidence()
         assert evidence["retained_device_tensor_count"] == 0
         assert evidence["retained_device_tensor_bytes"] == 0
-    torch.cuda.synchronize()
-    final_allocated = torch.cuda.memory_allocated()
+    torch.cuda.synchronize(cuda_device_index)
+    final_allocated = torch.cuda.memory_allocated(cuda_device_index)
 
     assert final_allocated <= steady_allocated
     assert accumulator.storage_evidence()["aggregate_bucket_count"] > 0

@@ -422,7 +422,17 @@ and `auto` through this resolver rather than subsystem allowlists. AMP is
 eligible only when the resolved device type is CUDA. Transfer validation
 compares exact devices, never only `device.type`, because `cuda:0` and
 `cuda:1` are different placement boundaries. Runtime resolution contract
-`1.0.1` and device-transfer contract `1.0.2` record these patch-level rules.
+`1.0.2` additionally converts CUDA discovery failures into stable structured
+categories; device-transfer contract `1.0.2` is unchanged.
+
+Tensor placement continues to use the resolved concrete `torch.device`. CUDA
+statistics, synchronization, name, and properties APIs instead cross
+`CudaRuntimeDeviceIndex@1.0.0`, which reuses runtime resolution and returns the
+logical integer index seen after `CUDA_VISIBLE_DEVICES`. It preserves
+`cuda:0` versus `cuda:1`, rejects CPU as
+`runtime.device.cuda_operation_requires_cuda`, and forbids implicit-current-
+device evidence. Phase 7A SSL, Phase 8B SSL, supervised training, Phase 8A
+hardware acceptance, and Phase 8B.2 environment evidence share this boundary.
 
 One-batch mode repeats exactly one bounded or first real cached train batch,
 reports harmonic/reconstruction/total losses, finite gradients, clipping,
@@ -695,9 +705,10 @@ boundaries, while SSL model/output remain `1.2.0` at unchanged architecture
 and output schema. Representation loss, multi-view loss, and the combined SSL
 objective are `1.0.1`; anti-collapse diagnostics are `1.1.1`. Checkpoint,
 epoch-journal, metric-row, run-manifest, and performance-row contracts remain
-`1.2.0`; training report `1.2.2` exposes concrete `cuda:N` and the two
-independent evidence objects. The performance row separates CPU plan
-preparation from transfer/compute. MaskPlan, mask policy, maskable-field
+`1.2.0`; training report `1.2.3` exposes concrete `cuda:N`, logical CUDA-index
+evidence, and the two independent evidence objects. The performance row
+separates CPU plan preparation from transfer/compute. MaskPlan, mask policy,
+maskable-field
 registry, representation target, decoder, and encoder-export semantics remain
 `1.0.0`; prepared binding remains `1.1.0`.
 
@@ -787,7 +798,7 @@ reason, hierarchy output, fixture, and leakage audit remain `1.0.0`.
 Portable CPU acceptance excludes GPU name, driver/runtime observations,
 timing, and VRAM. Optional explicit-`cuda:0` AMP acceptance emits those
 observations only in a separate
-`Phase8ACudaAmpHardwareEvidence@1.2.0` artifact and skips honestly when CUDA
+`Phase8ACudaAmpHardwareEvidence@1.2.1` artifact and skips honestly when CUDA
 is unavailable. The hardware artifact keeps plan/selection/binding/overlay/
 mask/index/raw-graph/topology, same-device replay, Phase 7A control, blindness,
 and leakage gates bit-exact. CPU FP32 versus CUDA FP32 embeddings,
@@ -881,9 +892,10 @@ Single/control schedules use one forward per batch; equal/mask-only use four,
 so these mechanics runs are explicitly not compute matched or scientific
 effectiveness comparisons.
 
-AMP-sensitive registry/config/loss/model/output/metric/engine/report/
-checkpoint and bounded-comparison contracts are `1.2.0`; latent prediction is
-`1.1.0`, masking remains `1.1.0`, and identity-only eligibility,
+AMP-sensitive registry/config/loss/model/output/metric/checkpoint and bounded-
+comparison contracts remain `1.2.0`; the engine and training report advance
+to `1.2.1` for the integer CUDA-memory boundary. Latent prediction is `1.1.0`,
+masking remains `1.1.0`, and identity-only eligibility,
 prepared-binding and the batch aggregate remain `1.0.0`. Optimizer evidence
 and independent CUDA training acceptance begin at `1.0.0`. The full
 architecture, policy mapping, parameter formula, bounded comparison, and
@@ -896,7 +908,9 @@ training, and candidate-first evaluation engines. It does not own a parallel
 model or trainer. `Phase8B2ComparisonProtocol@1.2.0` binds variants, model and
 objective/masking configs, all data/cache/split/membership identities, paired
 seed domains, compute budgets, downstream tasks/modes, validation ranking, and
-the locked test state.
+the locked test state. Artifact contract `1.2.1` records the versioned logical
+CUDA index in environment evidence; comparison, schedule, data, model, and
+scientific semantics remain unchanged.
 
 The original `7365286` implementation stopped at control-plane primitives.
 The remediated CLI resolves actual sampler identities before training and runs

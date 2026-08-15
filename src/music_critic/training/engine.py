@@ -21,7 +21,12 @@ from typing import Any, Iterable
 import torch
 from omegaconf import DictConfig, OmegaConf
 
-from music_critic.device import RuntimeDeviceError, resolve_runtime_device
+from music_critic.device import (
+    CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION,
+    RuntimeDeviceError,
+    resolve_cuda_device_index,
+    resolve_runtime_device,
+)
 from music_critic.models import ACTIVE_TASK_IDS
 from music_critic.tasks import MultiSourceBatch
 from music_critic.training.checkpoint import (
@@ -833,13 +838,22 @@ def _device_evidence(device: torch.device) -> dict[str, object]:
             "peak_allocated_bytes": None,
             "peak_reserved_bytes": None,
         }
+    cuda_device_index = resolve_cuda_device_index(device)
     return {
         **common,
         "resolved_device": str(device),
         "cuda_available": True,
-        "cuda_device_name": torch.cuda.get_device_name(device),
-        "peak_allocated_bytes": torch.cuda.max_memory_allocated(device),
-        "peak_reserved_bytes": torch.cuda.max_memory_reserved(device),
+        "cuda_runtime_device_index_contract_version": (
+            CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION
+        ),
+        "cuda_logical_device_index": cuda_device_index,
+        "cuda_device_name": torch.cuda.get_device_name(cuda_device_index),
+        "peak_allocated_bytes": torch.cuda.max_memory_allocated(
+            cuda_device_index
+        ),
+        "peak_reserved_bytes": torch.cuda.max_memory_reserved(
+            cuda_device_index
+        ),
     }
 
 
@@ -865,7 +879,9 @@ def _prepare(
     )
     _set_determinism(data_seed)
     if device.type == "cuda":
-        torch.cuda.reset_peak_memory_stats(device)
+        torch.cuda.reset_peak_memory_stats(
+            resolve_cuda_device_index(device)
+        )
     runtime = build_data_runtime(
         OmegaConf.create(config["data"]), seed=data_seed
     )
