@@ -2577,3 +2577,40 @@ This log is append-only.
   bindings, 3/3 checkpoint-to-evaluation bindings, nonzero VRAM, and no test
   inference/target/metric access. CPU results cannot establish that the RTX
   blocker is fixed.
+
+## 2026-08-15 — ADR-070: The independent RTX gate is a bounded, artifact-preserving operator workflow
+
+- Status: Accepted as final command/evidence remediation for draft PR #19.
+  Independent exact-final RTX 3090 success remains pending, so the PR stays
+  draft and unmerged.
+- Context: The published preflight required an entirely empty porcelain
+  status even though the operator checkout deliberately preserves untracked
+  Phase 8A/8B evidence. The published one-seed `production_pilot` also
+  violated its three-seed minimum. In addition, Phase 8B.2 has a structured
+  `device` field rather than a `device=cuda` Hydra group.
+- Decision: Define the short hardware run as a production-format real-corpus
+  bounded smoke. It uses `comparison=bounded_acceptance`, one
+  `phase7a_control` variant, seed 17, one SSL and downstream update, explicit
+  `device.name=cuda:0`, and FP16 AMP. It is mechanics/hardware evidence only;
+  never label it a production pilot or scientific comparison. Keep
+  `production_pilot` at a minimum of three seeds. Place `_self_` before the
+  comparison default so registered Hydra presets retain their declared names,
+  seed sets, and budgets.
+- Decision: Reject tracked unstaged and staged changes independently with
+  `git diff --quiet` and `git diff --cached --quiet`. Allow and print untracked
+  files, list preserved output roots diagnostically, and never delete, move,
+  clean, reset, or reuse an evidence/output root. Fetch the named branch,
+  require its head to equal the operator-supplied exact SHA, and detach it.
+  Scope `set -euo pipefail` to the gate script's subshell.
+- Decision: A prior plan may supply only two index paths, two cache roots, and
+  the global split path. Re-resolve and validate the bounded plan/config at the
+  exact head. Verify the complete final bundle, CUDA logical index/positive
+  peaks, 1/1 update accounting, absence of CPU fallback and test access, and
+  both corpus IDs in train/validation evidence. Archive logs, resolved
+  configs, attestations, reports, and payload hashes; exclude caches,
+  checkpoints, and corpus payloads and write an archive checksum sidecar.
+- Consequences: A failed command returns nonzero while leaving tmux/SSH and all
+  artifacts intact. CPU suites can validate the workflow and verifier but do
+  not establish successful CUDA remediation. Phase 9, test inference,
+  production-scale comparison, and scientific-effectiveness claims remain
+  unauthorized.

@@ -2477,3 +2477,52 @@ not clamped or mutated.
   `outputs/phase8b2a-real-gpu-smoke-20260815-142857`. Phase 9 has not started;
   draft PR #19 must remain draft and unmerged until independent exact-head RTX
   evidence and Required CI are reviewed.
+
+## Phase 8B.2A independent RTX 3090 gate-command remediation — 2026-08-15
+
+- The previously published hardware command is invalid and must not be used.
+  Whole-worktree emptiness via `git status --porcelain` incorrectly rejects
+  preserved untracked evidence. One-seed `production_pilot` violates the
+  existing `minimum_production_seeds=3` contract. The Phase 8B.2 CLI also has
+  no `device=cuda` Hydra group; the supported concrete override is
+  `device.name=cuda:0`.
+- The official replacement is a production-format real-corpus bounded smoke,
+  implemented by `scripts/run_phase8b2a_rtx3090_bounded_smoke.sh` and
+  `scripts/verify_phase8b2a_rtx3090_bounded_smoke.py`. It uses
+  `bounded_acceptance`, `phase7a_control`, seed 17, one SSL/downstream update,
+  `cuda:0`, and FP16 AMP. The script permits and prints untracked files,
+  rejects only tracked unstaged/staged changes, preserves all prior artifacts,
+  detaches the exact fetched head, validates two indices/two caches/global
+  split and RTX 3090 visibility, and confines strict mode to a subshell.
+- An existing failed plan is read only for its five production paths. A unique
+  output/evidence root is created for every attempt. Success requires the
+  final bundle and a verifier pass for 8/8 executed/expected cells, 8/8 runtime
+  bindings, 3/3 checkpoint-to-evaluation bindings, locked test access,
+  logical CUDA index zero with positive allocated/reserved peaks, exact 1/1
+  SSL accounting, no CPU fallback, and HookTheory plus POP909-CL in the
+  train/validation schedule evidence.
+- The evidence archive contains exact-head/preflight and `nvidia-smi` logs,
+  the bounded invocation and resolved plan/configs, the full smoke log, final
+  reports/accounting, cell/runtime/data attestations, verifier output, payload
+  SHA-256s, and a sidecar SHA-256 for the archive. It excludes corpus payloads,
+  caches, and checkpoints.
+- Hydra preset composition now lets the selected comparison group override
+  `_self_`, restoring the registered contract: `production_pilot` resolves to
+  seeds 17/29/43 and rejects a one-seed override; `bounded_acceptance` remains
+  the explicit short-smoke preset. This does not lower the production minimum
+  or change production-pilot semantics.
+- Focused production-path/verifier tests pass `16 passed, 1 skipped` in 53.98
+  seconds. The full Phase 8B.2A suite passes `66 passed, 2 skipped` in 328.51
+  seconds. An exact default-suite attempt reproduced the previously documented
+  local sandbox hang at the first positive-worker profiler case after more
+  than eight minutes and was interrupted. The complete locally executable
+  suite, excluding exactly the same three `DataLoader(workers>0)` tests,
+  passes `1346 passed, 51 skipped, 3 deselected` in 561.93 seconds. Warnings
+  are the upstream `torch.jit.script` deprecation plus one PyTorch worker-exit
+  finalizer warning associated with the sandbox limitation. Source and gate-
+  verifier compileall, gate-script `bash -n`, and `git diff --check` pass.
+- Local verification remains CPU-only and cannot establish hardware-gate
+  success. Draft PR #19 must remain draft and unmerged until the independent
+  exact-final RTX 3090 command passes and its evidence is reviewed. No
+  scientific superiority, production pilot, held-out test, or Phase 9 claim
+  is made.

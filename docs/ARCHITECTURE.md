@@ -814,6 +814,18 @@ with the dirty-tree contract, while a clean checkout without enough history
 gets a structured unavailable-ancestry error and must fetch sufficient
 history. An independent exact-final RTX 3090 artifact remains a pre-merge
 gate, not portable CPU evidence.
+
+The Phase 8B.2A hardware-gate control plane is the committed
+`run_phase8b2a_rtx3090_bounded_smoke.sh` plus its standalone verifier. It
+separates repository eligibility (tracked and staged diffs only) from
+diagnostic untracked evidence, detaches the exact fetched SHA, consumes an old
+plan only as a source of production paths, and emits into a fresh root. The
+mechanical run is `bounded_acceptance` with one control variant and one seed;
+`production_pilot` retains its three-seed minimum and scientific protocol.
+Strict shell options are scoped to a subshell. Final evidence is a checksummed
+archive of configuration, logs, runtime/data attestations, and verifier output
+that excludes caches, checkpoints, and corpus payloads.
+
 Detailed policy, leakage, complexity, version, bounded default audit, and
 optional CUDA hardware-evidence boundaries are in
 `PHASE8A_HIERARCHICAL_MASKING.md`.

@@ -281,6 +281,37 @@ PYTHONPATH=src python -m music_critic.experiments.phase8b2.run \
 Optional `data.*_fingerprint` overrides are expected-value assertions, never
 sources of truth; the runner derives authoritative identities from metadata.
 
+The independent RTX 3090 pre-merge gate is a **production-format real-corpus
+bounded smoke**, not a production pilot or a scientific comparison. Its
+official implementation is
+`scripts/run_phase8b2a_rtx3090_bounded_smoke.sh`; the operator supplies the
+exact final commit, and the script uses `comparison=bounded_acceptance`, only
+`phase7a_control`, seed 17, one SSL update, one downstream update, `cuda:0`,
+and FP16 AMP with the production index/cache/split paths. It runs in a
+subshell, preserves existing output/evidence roots, allows untracked files,
+rejects tracked or staged changes, and creates a unique output root.
+
+The previously published one-seed command using
+`comparison=production_pilot comparison.seeds='[17]'` is **invalid**. It
+violates `minimum_production_seeds=3` and must not be retried or treated as
+pilot evidence. Likewise, `test -z "$(git status --porcelain)"` is invalid for
+the independent GPU checkout because preserved untracked evidence is allowed;
+the gate rejects only `git diff --quiet` or `git diff --cached --quiet`
+failures and prints the untracked-file diagnostic. `device=cuda` is also not a
+Phase 8B.2 Hydra group override; the concrete field is
+`device.name=cuda:0`.
+
+The script extracts only `runtime_paths` from the preserved failed plan by
+default. It never reuses the failed plan's comparison preset, seeds, output
+root, or other configuration. `PHASE8B2_SOURCE_PLAN` may identify another
+preserved plan with the same production paths. A successful run is verified
+for 8/8 cells, 8/8 runtime bindings, 3/3 checkpoint-to-evaluation bindings,
+locked test access, positive logical-device-zero CUDA peaks, exact 1/1 SSL
+update accounting, CUDA/AMP runtime reports without CPU fallback, and both
+datasets in the planned and observed train/validation evidence. The resulting
+archive contains logs and attestations, never caches, checkpoints, or corpus
+payloads. Bounded results remain non-scientific mechanics evidence.
+
 The plan emits complete cell manifests, actual raw-sample and encoder-forward
 budgets, validation-pass estimates, output paths, fingerprints, seed domains,
 and artifact schema. Execution invokes `music_critic.ssl.run`,

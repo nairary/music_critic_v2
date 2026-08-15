@@ -146,6 +146,7 @@ def _run_production_cli(
             "music_critic.experiments.phase8b2.run",
             f"action={action}",
             f"output_root={output_root.resolve()}",
+            "comparison=bounded_acceptance",
             "comparison.variants=[phase7a_control]",
             "comparison.seeds=[17]",
             "comparison.ssl_optimizer_steps=1",
@@ -163,6 +164,99 @@ def _run_production_cli(
         text=True,
         check=False,
         timeout=600,
+    )
+
+
+def test_published_real_corpus_one_seed_smoke_is_bounded_and_test_locked(
+    tmp_path: Path,
+) -> None:
+    index_paths, cache_roots, manifest = _production_fixture(tmp_path)
+    result = _run_production_cli(
+        tmp_path / "published-bounded-plan",
+        index_paths=index_paths,
+        cache_roots=cache_roots,
+        split_manifest=manifest,
+        action="plan",
+        extra=(
+            "device.name=cuda:0",
+            "device.amp=true",
+            "device.amp_dtype=float16",
+        ),
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    plan = json.loads(result.stdout)
+    assert plan["protocol"]["seeds"] == [17]
+    assert plan["protocol"]["variants"] == ["phase7a_control"]
+    assert plan["protocol"]["runtime_execution_config"][
+        "ssl_attempted_logical_updates"
+    ] == 1
+    assert plan["protocol"]["runtime_execution_config"][
+        "downstream_attempted_logical_updates"
+    ] == 1
+    assert plan["protocol"]["amp_device_config"] == {
+        "amp": True,
+        "amp_dtype": "float16",
+        "name": "cuda:0",
+        "non_blocking": False,
+    }
+    assert plan["claims"][
+        "bounded_acceptance_is_scientific_superiority_evidence"
+    ] is False
+    assert plan["protocol"]["test_unlock_state"]["unlocked"] is False
+    assert plan["protocol"]["test_unlock_state"][
+        "test_inference_performed"
+    ] is False
+    assert plan["protocol"]["test_unlock_state"][
+        "test_targets_accessed"
+    ] is False
+    assert plan["protocol"]["test_unlock_state"][
+        "test_metrics_accessed"
+    ] is False
+    assert "selected_identities" not in plan["data_attestation"][
+        "test_membership_summary"
+    ]
+
+
+def test_production_pilot_keeps_three_seed_minimum_gate() -> None:
+    configured = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "music_critic.experiments.phase8b2.run",
+            "--cfg",
+            "job",
+            "comparison=production_pilot",
+        ],
+        cwd=Path.cwd(),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    assert configured.returncode == 0, configured.stdout + configured.stderr
+    assert "name: production_pilot" in configured.stdout
+    assert "minimum_production_seeds: 3" in configured.stdout
+    assert "seeds:\n  - 17\n  - 29\n  - 43" in configured.stdout
+
+    one_seed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "music_critic.experiments.phase8b2.run",
+            "action=plan",
+            "comparison=production_pilot",
+            "comparison.seeds=[17]",
+        ],
+        cwd=Path.cwd(),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    assert one_seed.returncode != 0
+    assert "phase8b2.config.production_seed_minimum_not_met" in (
+        one_seed.stdout + one_seed.stderr
     )
 
 
@@ -301,7 +395,6 @@ def test_production_format_cli_runs_cuda_amp_with_integer_vram_boundary(
         cache_roots=cache_roots,
         split_manifest=manifest,
         extra=(
-            "device=cuda",
             "device.name=cuda:0",
             "device.amp=true",
             "device.amp_dtype=float16",

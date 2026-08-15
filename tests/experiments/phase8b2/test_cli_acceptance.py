@@ -248,7 +248,6 @@ def test_bounded_cli_matrix_runs_on_explicit_cuda_amp_with_vram_evidence(
         output_root,
         action="run",
         extra=(
-            "device=cuda",
             "device.name=cuda:0",
             "device.amp=true",
             "device.amp_dtype=float16",

@@ -112,8 +112,8 @@ class ComparisonDeviceConfig:
 class Phase8B2Config:
     defaults: list[Any] = field(
         default_factory=lambda: [
-            {"comparison": "bounded_acceptance"},
             "_self_",
+            {"comparison": "bounded_acceptance"},
         ]
     )
     action: str = "plan"
