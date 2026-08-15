@@ -407,6 +407,10 @@ def authorize_test_evaluation(
         "selected_checkpoint_seed": selected_checkpoint["seed"],
         "authorized_checkpoint_manifest": selected_checkpoints,
         "test_membership_fingerprint": request.test_membership_fingerprint,
+        "test_membership_metadata_resolved": True,
+        "test_inference_performed": False,
+        "test_targets_accessed": False,
+        "test_metrics_accessed": False,
         "output_directory": str(output),
         "single_use_identity": lock_identity,
         "single_use_marker": str(marker),
@@ -469,6 +473,10 @@ def consume_test_authorization(authorization: Mapping[str, object]) -> None:
                     "test_membership_fingerprint": authorization[
                         "test_membership_fingerprint"
                     ],
+                    "test_membership_metadata_resolved": True,
+                    "test_inference_performed": False,
+                    "test_targets_accessed": False,
+                    "test_metrics_accessed": False,
                 },
                 pretty=True,
             )

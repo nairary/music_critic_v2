@@ -2496,3 +2496,42 @@ This log is append-only.
   aggregation, selection, and final reporting. Those fixtures prove mechanics,
   resume, and binding—not scientific superiority. Production training is not
   part of remediation, and full-scale PDMX evidence remains owned by Phase 10.
+
+## 2026-08-15 — ADR-068: Phase 8B.2A data attestation uses a source-neutral semantic projection
+
+- Status: Accepted as blocking pre-merge remediation in existing draft PR #19.
+- Context: The `1.1.0` production planner correctly resolved sample slots from
+  metadata without loading target/canonical payloads, but represented its data
+  evidence with null fingerprints/membership and a placeholder composition.
+  SSL/downstream publication compared those values with complete official-
+  engine dictionaries; SSL therefore failed on every real `index_paths` run,
+  and downstream could raise `KeyError` for `train_dataset_counts`. The bounded
+  fixture materialized an engine runtime while planning and masked the defect.
+- Decision: Advance the affected comparison protocol, artifact, plan, schedule,
+  data-attestation, actual-schedule, matrix-runner, cell-manifest and test-lock
+  contracts to `1.2.0`. Introduce
+  `Phase8B2DataSemanticProjection@1.0.0`. Unchanged compute, selection,
+  statistics, diagnostics, transfer, seed, evaluation, graph, model, canonical,
+  corpus, encoding and ontology contracts retain their versions.
+- Decision: Metadata planning and official SSL/downstream evidence use the same
+  projection function and shape: ordered dataset/index and cache identities,
+  split fingerprint, normalized train dataset counts/size, fixed-validation
+  membership/counts and mixture weights. Production values must match the
+  protocol binding. Exact schedule slots continue to come only from indices,
+  split metadata and the official deterministic sampler; target and canonical
+  payload reads are forbidden for schedule resolution.
+- Decision: Runtime binding separately verifies the semantic projection, exact
+  observed sample-schedule fingerprint and optimizer/update/encoder-forward
+  accounting. Every mismatch raises a stable `Phase8B2ContractError`; no
+  incomplete or stale cell is atomically published.
+- Decision: Replace the ambiguous `test_accessed=false` claim. Planning may
+  resolve test membership metadata for a future single-use lock and records
+  `test_membership_metadata_resolved=true`. Until unlock it must also record
+  `test_inference_performed=false`, `test_targets_accessed=false`, and
+  `test_metrics_accessed=false`. Serialize only the test membership
+  fingerprint, counts and split binding, never the complete test piece list.
+- Consequences: A synthetic on-disk HookTheory/POP909-CL mini-DAG now exercises
+  the real production-format path through SSL, export, frozen/full/scratch and
+  validation evaluation. The unchanged bounded 52-cell DAG remains mechanics
+  evidence only. No Phase 9, production/PDMX training, held-out inference, or
+  scientific-effectiveness claim is authorized.

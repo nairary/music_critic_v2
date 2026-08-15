@@ -893,7 +893,7 @@ non-claim boundary are in `PHASE8B_MULTILEVEL_OBJECTIVES.md`.
 
 `music_critic.experiments.phase8b2` composes the existing SSL, supervised
 training, and candidate-first evaluation engines. It does not own a parallel
-model or trainer. `Phase8B2ComparisonProtocol@1.1.0` binds variants, model and
+model or trainer. `Phase8B2ComparisonProtocol@1.2.0` binds variants, model and
 objective/masking configs, all data/cache/split/membership identities, paired
 seed domains, compute budgets, downstream tasks/modes, validation ranking, and
 the locked test state.
@@ -906,6 +906,15 @@ evaluation, compute validation, sufficient-statistics aggregation, paired-seed
 configuration selection, and final immutable reporting. Each cell is staged,
 hash-manifested, protocol-bound, and atomically published; resume refuses stale
 or incomplete state.
+
+The production-path remediation replaces comparisons of incidental runtime
+dictionaries with `Phase8B2DataSemanticProjection@1.0.0`. Both metadata
+planning and official-engine reports project to ordered index/cache identities,
+split identity, normalized train composition, fixed-validation membership and
+mixture weights. Schedule slots remain target-free metadata-sampler output.
+The plan may resolve the held-out test membership fingerprint and count for the
+lock, but it serializes no complete test identity list and performs no test
+forward, target read, or metric access.
 
 The primary `encoder_forward_matched` branch fixes 12 actual calls per logical
 update: six two-call control views or four three-call latent views over one raw

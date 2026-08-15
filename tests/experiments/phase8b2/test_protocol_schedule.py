@@ -21,7 +21,7 @@ def test_bounded_plan_has_required_cells_and_exact_matched_compute() -> None:
     plan = build_experiment_plan(Phase8B2Config())
 
     assert plan["protocol"]["protocol_contract"] == (
-        "Phase8B2ComparisonProtocol@1.1.0"
+        "Phase8B2ComparisonProtocol@1.2.0"
     )
     assert len(plan["ssl_cells"]) == 8
     assert len(plan["downstream_cells"]) == 18
@@ -36,7 +36,10 @@ def test_bounded_plan_has_required_cells_and_exact_matched_compute() -> None:
         assert row["schedule"]["raw_sample_exposures"] == 4
         assert row["paired_schedule_evidence"]["primary_compute_matched"]
     assert not plan["training_performed"]
-    assert not plan["test_accessed"]
+    assert plan["test_membership_metadata_resolved"] is True
+    assert plan["test_inference_performed"] is False
+    assert plan["test_targets_accessed"] is False
+    assert plan["test_metrics_accessed"] is False
     assert not plan["claims"]["pdmx_evidence"]
 
 

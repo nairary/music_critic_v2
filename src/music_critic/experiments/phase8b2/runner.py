@@ -16,6 +16,7 @@ from music_critic.experiments.phase8b2.artifacts import (
     read_json,
 )
 from music_critic.experiments.phase8b2.attestation import (
+    ACTUAL_SAMPLE_SCHEDULE_CONTRACT_VERSION,
     attest_data_binding,
     resolve_actual_downstream_schedule,
     resolve_actual_ssl_schedule,
@@ -24,6 +25,7 @@ from music_critic.experiments.phase8b2.config import Phase8B2Config
 from music_critic.experiments.phase8b2.contracts import (
     PHASE8B2_ARTIFACT_CONTRACT_VERSION,
     PHASE8B2_COMPARISON_PROTOCOL_VERSION,
+    PHASE8B2_TEST_LOCK_CONTRACT_VERSION,
     ComparisonProtocol,
     ComputeBudget,
     DataBinding,
@@ -39,7 +41,7 @@ from music_critic.experiments.phase8b2.schedule import (
     build_variant_schedule,
     validate_paired_schedules,
 )
-PLAN_CONTRACT_VERSION = "1.1.0"
+PLAN_CONTRACT_VERSION = "1.2.0"
 
 
 def _plain(config: object) -> dict[str, Any]:
@@ -174,6 +176,10 @@ def build_experiment_plan(config: object) -> dict[str, object]:
     actual_ssl_schedules = {
         int(seed): resolve_actual_ssl_schedule(
             plain["data"],
+            data_semantic_projection=data_attestation[
+                "data_semantic_projection"
+            ],
+            data_binding=data.to_dict(),
             seed=int(seed),
             logical_updates=int(comparison["ssl_optimizer_steps"]),
             optimizer_steps_per_epoch=int(
@@ -187,6 +193,10 @@ def build_experiment_plan(config: object) -> dict[str, object]:
     actual_downstream_schedules = {
         int(seed): resolve_actual_downstream_schedule(
             plain["data"],
+            data_semantic_projection=data_attestation[
+                "data_semantic_projection"
+            ],
+            data_binding=data.to_dict(),
             seed=int(seed),
             logical_updates=int(comparison["downstream_optimizer_steps"]),
             optimizer_steps_per_epoch=int(
@@ -341,11 +351,14 @@ def build_experiment_plan(config: object) -> dict[str, object]:
         "plan_contract_version": PLAN_CONTRACT_VERSION,
         "dry_run": True,
         "training_performed": False,
-        "test_accessed": False,
+        "test_membership_metadata_resolved": True,
+        "test_inference_performed": False,
+        "test_targets_accessed": False,
+        "test_metrics_accessed": False,
         "protocol": protocol.to_dict(),
         "data_attestation": data_attestation,
         "actual_sample_schedule": {
-            "contract_version": "1.1.0",
+            "contract_version": ACTUAL_SAMPLE_SCHEDULE_CONTRACT_VERSION,
             "protocol_fingerprint": protocol.fingerprint,
             "ssl": [
                 actual_ssl_schedules[seed]
@@ -927,7 +940,7 @@ def official_test_evaluation_overrides(
         )
     marker = read_json(marker_value)
     expected_marker = {
-        "test_lock_contract_version": "1.1.0",
+        "test_lock_contract_version": PHASE8B2_TEST_LOCK_CONTRACT_VERSION,
         "authorization_stage": "consumed_pre_inference",
         "single_use_identity": authorization["single_use_identity"],
         "protocol_fingerprint": authorization["protocol_fingerprint"],
@@ -943,6 +956,10 @@ def official_test_evaluation_overrides(
         "test_membership_fingerprint": authorization[
             "test_membership_fingerprint"
         ],
+        "test_membership_metadata_resolved": True,
+        "test_inference_performed": False,
+        "test_targets_accessed": False,
+        "test_metrics_accessed": False,
     }
     if marker != expected_marker:
         raise Phase8B2ContractError(

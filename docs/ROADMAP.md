@@ -569,13 +569,17 @@ The model and training phases remain pending.
   applied once; plus FP32-safe new latent heads, honest applied/skipped step
   accounting, active/inactive parameter-update evidence, and an independent
   archived RTX FP32/AMP runner.
-- Phase 8B.2A outputs: `Phase8B2ComparisonProtocol@1.1.0`, distinct natural
+- Phase 8B.2A outputs: `Phase8B2ComparisonProtocol@1.2.0`, distinct natural
   and encoder-forward-matched analyses, actual target-free paired schedules,
   metadata-derived data identities, exact step/forward instrumentation,
   official frozen/full/scratch transfer, fixed candidate-first validation,
   sufficient-statistics piece bootstrap, paired-seed configuration selection,
   multi-checkpoint single-use test lock, resumable cell DAG, immutable complete
   artifacts, executable Hydra actions/presets, and optional CUDA/AMP evidence.
+  Production paths additionally bind metadata planning and official-engine
+  evidence through `Phase8B2DataSemanticProjection@1.0.0`; test membership
+  metadata is resolved for the lock without test inference, targets, metrics,
+  or serialized full test identities.
 - Phase 8B.2 future output: execute the locked protocol at appropriate scale,
   including the Phase 10 PDMX rerun, before any effectiveness or curriculum
   conclusion.

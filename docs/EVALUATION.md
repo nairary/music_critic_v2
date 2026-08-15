@@ -309,3 +309,11 @@ test-membership evidence recorded before inference, and a single-use identity
 for the chosen seed checkpoint. Ordinary `acknowledge_test_evaluation` alone
 does not bypass that comparison-level lock. See
 `PHASE8B2_COMPARISON_PROTOCOL.md`.
+
+Comparison planning may resolve test membership metadata before unlock. This
+means only the membership fingerprint, count, per-dataset counts and split
+binding are available; full test piece identities are not serialized. Plans,
+locks and final reports distinguish this from model/data access with
+`test_membership_metadata_resolved=true`, `test_inference_performed=false`,
+`test_targets_accessed=false`, and `test_metrics_accessed=false`. No test model
+forward or target/metric read is permitted before single-use authorization.

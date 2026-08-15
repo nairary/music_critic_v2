@@ -4,7 +4,7 @@
 
 Commit `7365286eb4df5ed8090aaf07964a33c95db2ed4d` implemented the original
 control-plane primitives, but not an executable end-to-end experiment. The
-remediated Phase 8B.2A implements `Phase8B2ComparisonProtocol@1.1.0`: the
+remediated Phase 8B.2A implements `Phase8B2ComparisonProtocol@1.2.0`: the
 official CLI now executes and resumes the complete SSL → export → downstream
 → fixed-validation → aggregation → selection → immutable-report DAG. It uses
 the official SSL, training, and candidate-first evaluation engines in isolated
@@ -75,6 +75,19 @@ read and attested independently, and stale values or index/cache path mismatches
 fail before training. Every variant for a seed must reproduce the same observed
 `(dataset_id, piece_id)` sequence bit-exactly.
 
+Production metadata planning and engine validation communicate through
+`Phase8B2DataSemanticProjection@1.0.0`. The projection has one source-neutral
+shape for bounded and on-disk paths: ordered dataset/index and cache
+identities, split fingerprint, normalized train dataset counts and size,
+fixed-validation membership/counts, and mixture weights. Production sample
+slots are still resolved only from index/split metadata and the official
+sampler; neither targets nor canonical payloads participate in schedule
+resolution. Engine reports are projected through the same function before
+comparison, so internal `DataRuntime` dictionary layouts and null placeholders
+are not scientific evidence. Index, cache, split, composition, validation,
+mixture, observed schedule, or compute mismatches fail with stable Phase 8B.2A
+contract categories before a cell is published.
+
 Actual runs bind initial encoder state, raw sample schedule, fixed validation
 membership, downstream schedule, and final transferred encoder fingerprints.
 The Phase 8B.1 checkpoint binding now includes the optional comparison
@@ -133,7 +146,7 @@ ranks configurations by mean dataset rank and, in order, lower validation NLL,
 lower encoder-forward count, and lexical configuration ID. It never selects a
 fortunate individual seed. Anti-collapse diagnostics never participate.
 
-## Held-out test lock
+## Held-out test lock and access terminology
 
 Test is unavailable to ordinary comparison/evaluation configuration. A test
 authorization is created before inference only when all of these hold:
@@ -153,6 +166,18 @@ wrong protocol, missing acknowledgement, multiple selections, or missing test
 membership fails before inference. Unit acceptance exercises negative paths
 without unlocking a real test split.
 
+Planning resolves only test membership metadata needed by the lock. Plans and
+final reports state all four facts independently:
+
+- `test_membership_metadata_resolved=true`;
+- `test_inference_performed=false`;
+- `test_targets_accessed=false`;
+- `test_metrics_accessed=false`.
+
+The membership artifact stores the fingerprint, count, per-dataset counts and
+split binding, not full test piece identities. Before a single-use unlock,
+model forward and all test target/metric reads remain forbidden.
+
 ## Statistics and diagnostics
 
 Production presets require at least three paired seeds; the paper preset uses
@@ -171,7 +196,10 @@ N-by-N matrix and retain no prediction tensor after a batch.
 
 ## Artifacts and aggregation
 
-The artifact contract is `1.1.0`. A complete experiment has:
+The protocol, artifact, plan, matrix-runner, cell-manifest, schedule, data-
+attestation, and test-lock contracts affected by this remediation are `1.2.0`.
+The normalized data semantic projection begins at `1.0.0`. A complete
+experiment has:
 
 - `comparison_protocol.json`;
 - `actual_sample_schedule.json`;
@@ -250,8 +278,9 @@ there is no parallel trainer or evaluator.
 
 Read-only production smoke is available only for explicitly configured paths,
 at most three train/validation pieces per dataset/split. Planning never scans
-cache directories. Missing paths produce a structured skip. Test is never read
-and caches are never created or modified.
+cache directories. Missing paths produce a structured skip. Planning resolves
+test membership metadata but performs no test model forward and reads no test
+targets or metrics; caches are never created or modified.
 
 ## Bounded acceptance
 
@@ -261,8 +290,9 @@ paired scratch; 8 SSL cells, 8 encoder exports, 18 downstream cells, and 18
 validation evaluations. It exercises preflight, interruption/resume, launch-
 order permutation, actual schedule parity, checkpoint-to-evaluation
 verification, sufficient-statistics aggregation, multi-seed selection,
-immutable rerun, stale/incomplete rejection, and no test access. It asserts
-mechanics only; SSL need not beat scratch on the tiny fixture.
+immutable rerun, stale/incomplete rejection, resolved test-membership metadata,
+and zero test inference/target/metric access. It asserts mechanics only; SSL
+need not beat scratch on the tiny fixture.
 
 CUDA/AMP acceptance is optional and must use explicit `cuda:0`. A skip is not
 CUDA evidence. No production corpus, PDMX, long-training, effectiveness, or

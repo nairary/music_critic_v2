@@ -418,6 +418,14 @@ replacement sample. Training records attempted/applied/skipped counts and the
 observed dataset/piece schedule, which must match the precomputed target-free
 schedule before scientific artifacts are published.
 
+For on-disk production-format runs, publication does not compare the engine's
+private `fingerprints`/`mixture_statistics` layouts directly with planner
+objects. Both sides use `Phase8B2DataSemanticProjection@1.0.0`, which binds
+index/cache identities, split, normalized train dataset counts and size,
+fixed-validation membership and mixture weights. Dataset-count, membership or
+observed-schedule mismatches raise stable Phase 8B.2A errors before atomic cell
+publication; missing dictionary keys cannot escape as `KeyError`.
+
 The validation subset uses a dedicated fixed seed, so it is common across
 downstream data-order seeds. Its membership fingerprint must match the
 comparison protocol, checkpoint/report, and candidate-first evaluation. See

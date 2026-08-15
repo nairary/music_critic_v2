@@ -3122,7 +3122,7 @@ representation improvement.
 
 ### Phase 8B.2A implemented executable comparison protocol
 
-- Add `Phase8B2ComparisonProtocol@1.1.0` and bind every variant, model,
+- Add `Phase8B2ComparisonProtocol@1.2.0` and bind every variant, model,
   objective/masking, seed, data/cache/split/membership, mixture, compute,
   optimizer/scheduler/device, transfer, task, selection, and locked-test
   field. Canonical fingerprint changes on every binding mutation.
@@ -3136,6 +3136,11 @@ representation improvement.
   position, and require every observed schedule to match bit-exactly. Attest
   index/cache/split/membership identities from official metadata rather than
   trusting supplied SHA strings.
+- Normalize metadata-side and engine-side evidence through
+  `Phase8B2DataSemanticProjection@1.0.0`; never compare private runtime object
+  layouts or null production placeholders. Verify index/cache identities,
+  split, train dataset counts/size, fixed validation, mixture weights, observed
+  schedule and compute budgets with stable Phase 8B.2A failure categories.
 - Extend the official Phase 8B engine with an optional checkpoint-bound
   repeated-view schedule and encoder-forward counts. Preserve the null Phase
   7A and ordinary Phase 8B.1 routes.
@@ -3151,6 +3156,9 @@ representation improvement.
   validation-only ranking by mean dataset rank, NLL, compute, then lexical
   configuration ID. Lock exactly one selected checkpoint per declared seed;
   each seed-specific test identity remains single-use.
+- Resolve only test membership fingerprint/count/split metadata during
+  planning, omit full test piece identities, and separately attest zero test
+  inference, target access and metric access before unlock.
 - Create immutable versioned artifact/manifest helpers and reject incomplete,
   duplicate, stale, incompatible, mixed-mode, initial-state-mismatched, or
   unauthorized-test bundles. Reuse epoch-boundary failure-atomic checkpoint
@@ -3169,8 +3177,9 @@ representation improvement.
   superiority claim from bounded fixtures.
 
 Commit `7365286eb4df5ed8090aaf07964a33c95db2ed4d` supplied the earlier
-control-plane primitives. End-to-end completion is attributable only to this
-remediation and its real CLI acceptance.
+control-plane primitives. End-to-end completion and the blocking production-
+path attestation correction are attributable only to the subsequent
+remediations and their executable CLI acceptance.
 
 Scaled Phase 8B.2 evidence remains future work on appropriately sized
 raw-compatible data. Phase 8B.2A does not add a mask

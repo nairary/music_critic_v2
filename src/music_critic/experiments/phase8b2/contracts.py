@@ -12,13 +12,13 @@ from music_critic.models import ACTIVE_TASK_IDS
 from music_critic.tasks import TARGET_ENCODING_BY_TASK, TARGET_FAMILY_BY_ID
 
 
-PHASE8B2_COMPARISON_PROTOCOL_VERSION = "1.1.0"
-PHASE8B2_ARTIFACT_CONTRACT_VERSION = "1.1.0"
+PHASE8B2_COMPARISON_PROTOCOL_VERSION = "1.2.0"
+PHASE8B2_ARTIFACT_CONTRACT_VERSION = "1.2.0"
 PHASE8B2_COMPUTE_ACCOUNTING_VERSION = "1.1.0"
 PHASE8B2_SELECTION_CONTRACT_VERSION = "1.1.0"
 PHASE8B2_STATISTICS_CONTRACT_VERSION = "1.1.0"
 PHASE8B2_DIAGNOSTICS_CONTRACT_VERSION = "1.1.0"
-PHASE8B2_TEST_LOCK_CONTRACT_VERSION = "1.1.0"
+PHASE8B2_TEST_LOCK_CONTRACT_VERSION = "1.2.0"
 
 ComparisonMode = Literal["natural_schedule", "encoder_forward_matched"]
 TransferMode = Literal[
@@ -555,6 +555,10 @@ def locked_test_state() -> dict[str, object]:
         "unlocked": False,
         "acknowledged": False,
         "single_use": True,
+        "test_membership_metadata_resolved": True,
+        "test_inference_performed": False,
+        "test_targets_accessed": False,
+        "test_metrics_accessed": False,
     }
 
 

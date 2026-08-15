@@ -12,6 +12,7 @@ from omegaconf import OmegaConf
 import torch
 
 from music_critic.experiments.phase8b2.contracts import fingerprint
+from music_critic.experiments.phase8b2.schedule import SCHEDULE_CONTRACT_VERSION
 from music_critic.ssl.config import register_ssl_configs
 from music_critic.ssl.engine import _plain_config
 from music_critic.ssl.multilevel import build_phase8b_model_from_config
@@ -91,7 +92,7 @@ def _preflight(overrides_path: Path) -> dict[str, object]:
         epoch += 1
     observed = fingerprint(
         {
-            "contract_version": "1.1.0",
+            "contract_version": SCHEDULE_CONTRACT_VERSION,
             "kind": "raw_ssl_sample_schedule",
             "identities": identities,
         }
@@ -99,7 +100,7 @@ def _preflight(overrides_path: Path) -> dict[str, object]:
     if observed != comparison.sample_schedule_fingerprint:
         raise ValueError("phase8b2.worker.preflight_schedule_mismatch")
     return {
-        "preflight_contract_version": "1.1.0",
+        "preflight_contract_version": "1.2.0",
         "status": "passed",
         "variant_id": comparison.variant_id,
         "protocol_fingerprint": comparison.protocol_fingerprint,

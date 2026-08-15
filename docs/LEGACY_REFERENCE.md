@@ -340,6 +340,11 @@ Subprocess DAG orchestration, metadata attestation, actual-schedule checking,
 step-budget execution, fixed validation, per-piece sufficient statistics, and
 paired-seed configuration selection are current V2 implementations.
 
+The blocking production-path semantic-projection remediation likewise
+inspected, reused, and adapted no legacy file. Source-neutral index/cache/split/
+composition/membership projection and explicit test-access terminology are V2-
+only contracts.
+
 The comparison protocol composes only current V2 Phase 8B.1 SSL, Phase 6C
 supervised training, Phase 6D candidate-first evaluation, and the accepted V2
 encoder export. Natural/matched analyses, named paired seed domains,

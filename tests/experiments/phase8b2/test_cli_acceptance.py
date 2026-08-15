@@ -103,14 +103,17 @@ def test_bounded_cli_matrix_is_resumable_deterministic_and_complete(
         "raw_samples": 32,
         "encoder_forwards": 192,
     }
-    assert report["test_accessed"] is False
+    assert report["test_membership_metadata_resolved"] is True
+    assert report["test_inference_performed"] is False
+    assert report["test_targets_accessed"] is False
+    assert report["test_metrics_accessed"] is False
     assert report["validation_only_selection"] is True
     assert report["pdmx_evidence"] is False
     assert selection["selected_count"] == 2
     assert selection["complete_paired_seed_evidence"] is True
     assert selection["declared_seeds"] == [17, 29]
     assert len(selection["selected_checkpoints"]) == 2
-    assert run_manifest["artifact_contract_version"] == "1.1.0"
+    assert run_manifest["artifact_contract_version"] == "1.2.0"
     assert len(run_manifest["cells"]) == 60
 
     aggregated = _run_cli(output_root, action="aggregate")

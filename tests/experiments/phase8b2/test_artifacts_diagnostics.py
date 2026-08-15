@@ -71,7 +71,10 @@ def _bundle(cell_id: str, *, seed: int = 17) -> dict[str, object]:
         "complete": True,
         "artifact_fingerprint": "fresh",
         "recomputed_artifact_fingerprint": "fresh",
-        "test_access": False,
+        "test_membership_metadata_resolved": True,
+        "test_inference_performed": False,
+        "test_targets_accessed": False,
+        "test_metrics_accessed": False,
     }
 
 
@@ -85,7 +88,9 @@ def test_aggregate_bundle_validation_and_negative_paths() -> None:
         ("initial_encoder_fingerprint", "other", "initial_encoder_mismatch"),
         ("complete", False, "incomplete_run"),
         ("recomputed_artifact_fingerprint", "stale", "stale_artifact"),
-        ("test_access", True, "unauthorized_test_access"),
+        ("test_inference_performed", True, "unauthorized_test_access"),
+        ("test_targets_accessed", True, "unauthorized_test_access"),
+        ("test_metrics_accessed", True, "unauthorized_test_access"),
     ):
         changed = _bundle("b")
         changed[field] = value

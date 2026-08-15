@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import wraps
 import json
 import os
 from pathlib import Path
@@ -23,6 +24,10 @@ from music_critic.experiments.phase8b2.artifacts import (
     write_complete_artifact_bundle,
     write_json_once,
 )
+from music_critic.experiments.phase8b2.attestation import (
+    assert_data_semantic_projection_match,
+    attest_runtime_data_projection,
+)
 from music_critic.experiments.phase8b2.contracts import (
     PHASE8B2_ARTIFACT_CONTRACT_VERSION,
     Phase8B2ContractError,
@@ -41,8 +46,8 @@ from music_critic.experiments.phase8b2.statistics import (
 )
 
 
-MATRIX_RUNNER_CONTRACT_VERSION = "1.1.0"
-CELL_MANIFEST_CONTRACT_VERSION = "1.1.0"
+MATRIX_RUNNER_CONTRACT_VERSION = "1.2.0"
+CELL_MANIFEST_CONTRACT_VERSION = "1.2.0"
 
 
 def _read_json_dict(path: Path) -> dict[str, Any]:
@@ -183,6 +188,32 @@ def _assert_mapping_subset(
         )
 
 
+def _stable_runtime_binding(stage: str):
+    def decorate(function):
+        @wraps(function)
+        def wrapped(*args, **kwargs):
+            try:
+                return function(*args, **kwargs)
+            except Phase8B2ContractError:
+                raise
+            except (
+                AssertionError,
+                AttributeError,
+                KeyError,
+                StopIteration,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise Phase8B2ContractError(
+                    f"phase8b2.runner.{stage}_runtime_evidence_malformed"
+                ) from exc
+
+        return wrapped
+
+    return decorate
+
+
+@_stable_runtime_binding("ssl")
 def _ssl_runtime_binding(
     plan: Mapping[str, Any], cell: Mapping[str, Any], staging: Path
 ) -> dict[str, object]:
@@ -204,15 +235,24 @@ def _ssl_runtime_binding(
         for row in plan["actual_sample_schedule"]["ssl"]
         if row["seed"] == cell["seed"]
     )
-    if (
-        fingerprint(report.get("fingerprints"))
-        != fingerprint(expected_schedule["runtime_data_fingerprints"])
-        or fingerprint(report.get("validation_membership"))
-        != fingerprint(expected_schedule["validation_membership"])
+    if report.get("observed_ssl_sample_schedule_fingerprint") != (
+        expected_schedule.get("sample_schedule_fingerprint")
     ):
         raise Phase8B2ContractError(
-            "phase8b2.runner.ssl_data_attestation_mismatch"
+            "phase8b2.runner.ssl_sample_schedule_mismatch"
         )
+    actual_data_projection = attest_runtime_data_projection(
+        resolved["data"],
+        data_binding=protocol["data"],
+        runtime_fingerprints=report.get("fingerprints", {}),
+        runtime_data_composition=report.get("data_composition", {}),
+        validation_membership=report.get("validation_membership", {}),
+    )
+    assert_data_semantic_projection_match(
+        expected_schedule.get("data_semantic_projection"),
+        actual_data_projection,
+        stage="ssl",
+    )
     _assert_mapping_subset(
         resolved["model"], protocol["encoder_model_config"], category="ssl_model"
     )
@@ -273,11 +313,15 @@ def _ssl_runtime_binding(
         "sample_schedule_fingerprint": report[
             "observed_ssl_sample_schedule_fingerprint"
         ],
+        "data_semantic_projection_fingerprint": actual_data_projection[
+            "fingerprint"
+        ],
         "encoder_counter_kind": "instrumented_encoder_method_invocations",
         "expected_accounting": expected_accounting,
     }
 
 
+@_stable_runtime_binding("downstream")
 def _downstream_runtime_binding(
     plan: Mapping[str, Any], cell: Mapping[str, Any], staging: Path
 ) -> dict[str, object]:
@@ -302,28 +346,25 @@ def _downstream_runtime_binding(
         for row in plan["actual_sample_schedule"]["downstream"]
         if row["seed"] == cell["seed"]
     )
-    if (
-        fingerprint(report.get("fingerprints"))
-        != fingerprint(expected_schedule["runtime_data_fingerprints"])
-        or fingerprint(report.get("validation_membership"))
-        != fingerprint(expected_schedule["validation_membership"])
-        or report.get("validation_membership", {}).get(
-            "membership_fingerprint"
-        )
-        != protocol["data"]["validation_membership_fingerprint"]
+    if report.get("observed_downstream_schedule_fingerprint") != (
+        expected_schedule.get("sample_schedule_fingerprint")
     ):
         raise Phase8B2ContractError(
-            "phase8b2.runner.downstream_data_attestation_mismatch"
+            "phase8b2.runner.downstream_sample_schedule_mismatch"
         )
-    composition = expected_schedule["runtime_data_composition"]
-    if (
-        sum(composition["train_dataset_counts"].values())
-        != protocol["data"]["actual_train_size"]
-        or report["validation_membership"]["selected_count"]
-        != protocol["data"]["actual_validation_size"]
-    ):
-        raise Phase8B2ContractError(
-            "phase8b2.runner.downstream_data_size_mismatch"
+    actual_data_projection = attest_runtime_data_projection(
+        resolved["data"],
+        data_binding=protocol["data"],
+        runtime_fingerprints=report.get("fingerprints", {}),
+        runtime_data_composition=_read_json_dict(
+            engine / "mixture_statistics.json"
+        ),
+        validation_membership=report.get("validation_membership", {}),
+    )
+    assert_data_semantic_projection_match(
+        expected_schedule.get("data_semantic_projection"),
+        actual_data_projection,
+        stage="downstream",
     )
     _assert_mapping_subset(
         resolved["model"],
@@ -384,10 +425,14 @@ def _downstream_runtime_binding(
         "sample_schedule_fingerprint": report[
             "observed_downstream_schedule_fingerprint"
         ],
+        "data_semantic_projection_fingerprint": actual_data_projection[
+            "fingerprint"
+        ],
         "checkpoint": report["last_checkpoint"],
     }
 
 
+@_stable_runtime_binding("evaluation")
 def _evaluation_runtime_binding(
     plan: Mapping[str, Any], cell: Mapping[str, Any], staging: Path
 ) -> dict[str, object]:
@@ -1001,7 +1046,10 @@ def _finalize_bundle(
                 for row in plan["actual_sample_schedule"]["downstream"]
             },
         },
-        "test_accessed": False,
+        "test_membership_metadata_resolved": True,
+        "test_inference_performed": False,
+        "test_targets_accessed": False,
+        "test_metrics_accessed": False,
         "validation_only_selection": True,
         "selected_configuration_id": aggregate["selection"][
             "selected_configuration_id"

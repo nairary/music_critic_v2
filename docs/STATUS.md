@@ -126,8 +126,10 @@
 - Phase 8B.1 branch: `phase/8b1-multilevel-objectives`; independently
   ablatable multi-level objective implementation is active in a draft PR
 - Phase 8B.2A branch: `phase/8b2a-scientific-comparison-protocol`; executable
-  protocol/artifact/schedule/selection/statistics contracts: `1.1.0`;
-  evaluation piece-sufficient-statistics output: `1.3.0`
+  protocol/artifact/schedule/attestation/orchestration/test-lock contracts:
+  `1.2.0`; unchanged selection/statistics/compute contracts: `1.1.0`; data
+  semantic projection: `1.0.0`; evaluation piece-sufficient-statistics output:
+  `1.3.0`
 
 ## Accepted CUDA device-canonicalization hotfix status
 
@@ -2313,9 +2315,24 @@ not clamped or mutated.
   on `phase/8b2a-scientific-comparison-protocol`.
 - Commit `7365286eb4df5ed8090aaf07964a33c95db2ed4d` implemented the original
   control-plane primitives but did not run an end-to-end experiment. The
-  current PR remediation advances schedule, selection, orchestration,
-  artifact, statistics, transfer, seed, and test-lock contracts to `1.1.0`
-  and makes the official CLI executable and resumable.
+  first PR remediation advanced the executable DAG contracts to `1.1.0`.
+  Blocking production-path remediation now advances the affected protocol,
+  artifact, plan, schedule, attestation, orchestration, cell-manifest, and
+  test-lock contracts to `1.2.0`, while the new source-neutral semantic data
+  projection begins at `1.0.0`.
+- Root cause of the blocking remediation: production schedule resolution used
+  the official metadata sampler but serialized null runtime fingerprints and
+  validation membership plus a placeholder composition. Runtime binding then
+  compared those placeholders with complete official-engine evidence, and the
+  downstream path indexed a missing `train_dataset_counts` field. Bounded
+  planning materialized its runtime early and did not expose this defect.
+- Metadata planning and SSL/downstream engine reports now pass through the same
+  `Phase8B2DataSemanticProjection@1.0.0`: index/cache identities, split,
+  normalized train dataset counts/size, fixed-validation membership/counts,
+  and mixture weights. Production schedule slots remain metadata-only and
+  target-free. Stable Phase 8B.2A categories reject index, cache, split,
+  composition, validation, mixture, observed-schedule, or compute mismatches
+  before cell publication.
 - `action=run` now executes all variant preflights, SSL, encoder export,
   frozen/full/scratch downstream training, fixed-validation candidate-first
   evaluation, compute validation, piece aggregation, paired-seed validation
@@ -2371,12 +2388,18 @@ not clamped or mutated.
   membership mismatch; aggregation and multi-seed selection consume those
   actual engine artifacts. The same output resumes deterministically after an
   injected failure and rejects stale/incomplete cell state.
-- Final local verification: Phase 8B.2A tests `50 passed, 1 skipped`, including
-  the real CLI acceptance `2 passed, 1 skipped` in 222.79 seconds (the skip is
-  the optional explicit-CUDA matrix); focused SSL/training/evaluation
-  regressions `497 passed, 32 skipped, 2 deselected`; deterministic audit and
-  repository-contract tests `68 passed`; full repository suite `1321 passed,
-  48 skipped, 3 deselected` in 470.16 seconds. The three deselections are the
+- Final local verification after the blocking remediation: Phase 8B.2A tests
+  `61 passed, 1 skipped` in 311.85 seconds, including the unchanged bounded
+  `52/52` DAG and the temporary production-format mini-DAG. The focused
+  production-path file passes `11 passed` and covers two `action=run`
+  invocations against the same output with byte-identical final artifacts,
+  all 8 scientific cells, all 8 runtime bindings, all 3 checkpoint-to-
+  evaluation bindings, and adversarial stable-category failures. Focused
+  SSL/training/evaluation regressions pass `497 passed, 32 skipped,
+  2 deselected`; audit/integration/repository contracts pass `56 passed,
+  14 skipped`; the explicit deterministic/runtime plus repository-contract
+  set passes `17 passed`; and the full repository suite passes `1332 passed,
+  48 skipped, 3 deselected` in 532.54 seconds. The three deselections are the
   existing multiprocessing `DataLoader(workers>0)` tests that reproducibly do
   not terminate in this local sandbox; one combined attempt reproduced the
   hang before the explicit deselection. CUDA and external-data skips are
@@ -2386,9 +2409,13 @@ not clamped or mutated.
   legacy checkout no longer matches its previously captured dirty snapshot
   (pre-existing renames/additions/modifications). Phase 8B.2A inspected and
   changed no legacy file; the external checkout was not restored or staged.
-- Production corpora were not configured or scanned. No test split, PDMX,
-  production training, CUDA evidence, scientific superiority, PLL, critic, or
+- No real production corpus was configured or scanned. A temporary synthetic
+  production-format mini-DAG uses on-disk HookTheory/POP909-CL indices,
+  canonical caches and a split manifest, without long training or committed
+  artifacts. Test membership metadata is resolved for the lock, but full test
+  piece identities are not serialized and test inference, targets and metrics
+  remain untouched. No PDMX, CUDA, scientific-superiority, PLL, critic, or
   quality claim was produced.
-- Phase 8B.2A is implementation-complete on this branch. The next roadmap
-  implementation phase is Phase 9; scaled Phase 8B.2 evidence waits for the
-  Phase 10 raw-compatible PDMX projection.
+- Phase 8B.2A is implementation-complete on this branch, pending Required CI
+  and review of draft PR #19. Phase 9 has not started; scaled Phase 8B.2
+  evidence waits for the Phase 10 raw-compatible PDMX projection.

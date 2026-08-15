@@ -17,7 +17,7 @@ from music_critic.experiments.phase8b2.contracts import (
 
 
 SEED_DOMAIN_CONTRACT_VERSION = "1.1.0"
-SCHEDULE_CONTRACT_VERSION = "1.1.0"
+SCHEDULE_CONTRACT_VERSION = "1.2.0"
 _POLICIES = {
     "phase7a_control": ("independent_note_pitch",),
     "phase8a_mask_only": (

@@ -2344,10 +2344,13 @@ def _run_epochs(
     from music_critic.experiments.phase8b2.contracts import (
         fingerprint as phase8b2_fingerprint,
     )
+    from music_critic.experiments.phase8b2.schedule import (
+        SCHEDULE_CONTRACT_VERSION,
+    )
 
     observed_identity_schedule_fingerprint = phase8b2_fingerprint(
         {
-            "contract_version": "1.1.0",
+            "contract_version": SCHEDULE_CONTRACT_VERSION,
             "kind": "raw_ssl_sample_schedule",
             "identities": observed_identities,
         }

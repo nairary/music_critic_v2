@@ -285,12 +285,29 @@ def validate_aggregate_bundles(
         "complete",
         "artifact_fingerprint",
         "recomputed_artifact_fingerprint",
-        "test_access",
+        "test_membership_metadata_resolved",
+        "test_inference_performed",
+        "test_targets_accessed",
+        "test_metrics_accessed",
     }
     for row in rows:
         if not required <= set(row):
             raise Phase8B2ContractError(
                 "phase8b2.aggregate.bundle_fields_missing"
+            )
+        test_fields = (
+            "test_membership_metadata_resolved",
+            "test_inference_performed",
+            "test_targets_accessed",
+            "test_metrics_accessed",
+        )
+        if any(not isinstance(row[field], bool) for field in test_fields):
+            raise Phase8B2ContractError(
+                "phase8b2.aggregate.test_access_evidence_invalid"
+            )
+        if row["test_membership_metadata_resolved"] is not True:
+            raise Phase8B2ContractError(
+                "phase8b2.aggregate.test_membership_metadata_missing"
             )
         if row["complete"] is not True:
             raise Phase8B2ContractError(
@@ -302,9 +319,15 @@ def validate_aggregate_bundles(
             raise Phase8B2ContractError(
                 "phase8b2.aggregate.stale_artifact"
             )
-        if row["test_access"] and (
-            not allow_test_metrics
-            or row.get("test_authorization_consumed") is not True
+        if (
+            any(
+                row[field]
+                for field in test_fields[1:]
+            )
+            and (
+                not allow_test_metrics
+                or row.get("test_authorization_consumed") is not True
+            )
         ):
             raise Phase8B2ContractError(
                 "phase8b2.aggregate.unauthorized_test_access"
