@@ -21,6 +21,7 @@ from music_critic.experiments.phase8b2.selection import (
 from music_critic.experiments.phase8b2.statistics import (
     PieceMetric,
     aggregate_paired_piece_metrics,
+    aggregate_piece_sufficient_statistics,
 )
 
 
@@ -57,6 +58,60 @@ def test_selection_rejects_test_candidate() -> None:
     with pytest.raises(Phase8B2ContractError, match="validation_only"):
         select_validation_checkpoint(
             (candidate,), protocol_fingerprint="protocol"
+        )
+
+
+def test_multi_seed_selection_aggregates_configuration_before_ranking() -> None:
+    rows = []
+    for seed, score in ((17, 0.1), (29, 0.9)):
+        row = _candidate("volatile", score, score, 0.2, 24)
+        row.update(
+            seed=seed,
+            transfer_mode="full_finetune",
+            checkpoint=f"/volatile-{seed}.pt",
+            checkpoint_sha256=f"{seed:064x}",
+        )
+        rows.append(row)
+    for seed in (17, 29):
+        row = _candidate("stable", 0.6, 0.6, 0.2, 24)
+        row.update(
+            seed=seed,
+            transfer_mode="frozen_probe",
+            checkpoint=f"/stable-{seed}.pt",
+            checkpoint_sha256=f"{seed + 100:064x}",
+        )
+        rows.append(row)
+
+    selected = select_validation_checkpoint(
+        rows,
+        protocol_fingerprint="protocol",
+        declared_seeds=(17, 29),
+    )
+
+    assert selected["selected_configuration_id"] == "stable/frozen_probe"
+    assert selected["selected_count"] == 2
+    assert [row["seed"] for row in selected["selected_checkpoints"]] == [
+        17,
+        29,
+    ]
+    assert selected["complete_paired_seed_evidence"]
+
+
+def test_multi_seed_selection_rejects_missing_seed_cell() -> None:
+    rows = []
+    for seed in (17, 29):
+        row = _candidate("complete", 0.5, 0.5, 0.2, 24)
+        row.update(seed=seed, transfer_mode="full_finetune")
+        rows.append(row)
+    incomplete = _candidate("incomplete", 0.9, 0.9, 0.1, 24)
+    incomplete.update(seed=17, transfer_mode="full_finetune")
+    with pytest.raises(
+        Phase8B2ContractError, match="paired_seed_evidence_incomplete"
+    ):
+        select_validation_checkpoint(
+            [*rows, incomplete],
+            protocol_fingerprint="protocol",
+            declared_seeds=(17, 29),
         )
 
 
@@ -210,3 +265,99 @@ def test_statistics_reject_duplicate_piece_rows() -> None:
             bootstrap_seed=1,
             bootstrap_replicates=10,
         )
+
+
+def _categorical_piece_row(
+    *,
+    piece_id: str,
+    seed: int,
+    variant_id: str,
+    transfer_mode: str,
+    confusion: list[list[int]],
+) -> dict[str, object]:
+    eligible = sum(sum(row) for row in confusion)
+    return {
+        "dataset_id": "hooktheory",
+        "piece_id": piece_id,
+        "seed": seed,
+        "variant_id": variant_id,
+        "transfer_mode": transfer_mode,
+        "task_id": "key_root",
+        "encoding_kind": "closed_categorical_index",
+        "statistics": {
+            "kind": "closed_categorical",
+            "class_labels": ["0", "1"],
+            "confusion_counts": confusion,
+            "correct_count": sum(
+                confusion[index][index] for index in range(2)
+            ),
+            "eligible_count": eligible,
+            "nll_sum": float(eligible),
+        },
+    }
+
+
+def test_piece_bootstrap_recomputes_corpus_endpoint_from_counts() -> None:
+    rows = []
+    for seed in (1, 2, 3):
+        rows.extend(
+            (
+                _categorical_piece_row(
+                    piece_id="small-correct",
+                    seed=seed,
+                    variant_id="onset_latent",
+                    transfer_mode="full_finetune",
+                    confusion=[[1, 0], [0, 0]],
+                ),
+                _categorical_piece_row(
+                    piece_id="large-wrong",
+                    seed=seed,
+                    variant_id="onset_latent",
+                    transfer_mode="full_finetune",
+                    confusion=[[0, 0], [100, 0]],
+                ),
+                _categorical_piece_row(
+                    piece_id="small-correct",
+                    seed=seed,
+                    variant_id="phase7a_control",
+                    transfer_mode="full_finetune",
+                    confusion=[[1, 0], [0, 0]],
+                ),
+                _categorical_piece_row(
+                    piece_id="large-wrong",
+                    seed=seed,
+                    variant_id="phase7a_control",
+                    transfer_mode="full_finetune",
+                    confusion=[[0, 0], [0, 100]],
+                ),
+            )
+        )
+    artifact = aggregate_piece_sufficient_statistics(
+        rows,
+        declared_seeds=(1, 2, 3),
+        bootstrap_seed=7,
+        bootstrap_replicates=20,
+    )
+    onset = next(
+        row
+        for row in artifact["cell_summaries"]
+        if row["configuration_id"] == "onset_latent/full_finetune"
+    )
+    endpoint = onset["aggregated_dataset_endpoints"]["hooktheory"][
+        "macro_f1"
+    ]
+    assert endpoint == pytest.approx(1.0 / 102.0)
+    assert endpoint != pytest.approx(0.5)
+    comparison = next(
+        row
+        for row in artifact["paired_comparisons"]
+        if row["configuration_id"] == "onset_latent/full_finetune"
+        and row["reference_configuration_id"]
+        == "phase7a_control/full_finetune"
+    )
+    assert comparison["point_estimate_mean_delta"] == pytest.approx(
+        1.0 / 102.0 - 1.0
+    )
+    assert artifact[
+        "endpoint_recomputed_from_sufficient_statistics_after_each_resample"
+    ]

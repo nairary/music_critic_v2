@@ -21,7 +21,7 @@ from music_critic.experiments.phase8b2.contracts import (
 )
 
 
-TRANSFER_PROTOCOL_VERSION = "1.0.0"
+TRANSFER_PROTOCOL_VERSION = "1.1.0"
 
 
 def tensor_state_fingerprint(state: Mapping[str, Tensor]) -> str:

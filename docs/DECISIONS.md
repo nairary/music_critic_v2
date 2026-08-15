@@ -2451,3 +2451,48 @@ This log is append-only.
   to the same binding. PDMX, Dilemmadata, PLL, preference/quality scoring,
   curriculum masking, EMA, theory-as-input, schema/ontology changes, and any
   effectiveness claim remain outside this decision.
+
+## 2026-08-15 — ADR-067: Phase 8B.2A completion requires an attested, resumable official-engine DAG
+
+- Status: Accepted on the existing Phase 8B.2A draft branch. This refines
+  ADR-066 after commit `7365286` proved to contain control-plane primitives but
+  no executable end-to-end experiment.
+- Decision: Advance affected Phase 8B.2A orchestration, protocol, schedule,
+  selection, statistics, artifact, seed, transfer, and test-lock contracts to
+  `1.1.0`; advance evaluation output to `1.3.0` for piece sufficient
+  statistics. Unrelated graph, canonical, ontology, encoding, adapter, and
+  corpus contracts do not change.
+- Decision: `music_critic.experiments.phase8b2.run` owns `plan`, `run`,
+  `resume`, `aggregate`, and `select`. `run` executes official SSL, training,
+  and candidate-first evaluation modules as list-argv Python subprocesses. A
+  cell is reusable only after its complete manifest, artifact SHA-256s, and
+  protocol/runtime binding validate. All writes use staging and atomic
+  publication; stale/incomplete cells require operator inspection and are not
+  overwritten.
+- Decision: Resolve schedules from the official target-free sampler before
+  training and record dataset ID, piece ID, sample position, logical update,
+  and batch position. Derive index/cache/split/train/validation/test identities
+  from official metadata, treating configured fingerprints only as assertions.
+  Every observed SSL/downstream sequence must match the attested schedule
+  bit-exactly. All variants are preflighted before long training.
+- Decision: Execute a real logical-update budget with multiple batches per
+  epoch, interval validation, and exact final validation. Attempted, applied,
+  skipped, raw-sample, policy-view, and instrumented encoder-call counts are
+  evidence. An unavailable objective or AMP overflow invalidates a scientific
+  cell; no replacement sample silently changes its schedule.
+- Decision: Fixed validation membership is independent of downstream training
+  order and must match the comparison protocol, training checkpoint/report,
+  and standalone evaluation. Per-piece evaluation persists mergeable CPU-only
+  counts. Corpus endpoints are recomputed after every independent-piece
+  bootstrap draw; exact AP remains descriptive because score-row retention is
+  outside this contract.
+- Decision: Downstream identity is `(seed, variant_id, transfer_mode)`.
+  Selection aggregates complete paired seeds for each
+  `(variant_id, transfer_mode)` before mean-dataset-rank, NLL, compute, and
+  lexical-configuration ranking. Test authorization is limited to the complete
+  selected seed-checkpoint manifest, one single-use experiment per seed.
+- Consequences: The bounded CLI executes 8 SSL cells, 8 encoder exports, 18
+  downstream cells, and 18 validation cells across two seeds, plus preflight,
+  aggregation, selection, and final reporting. Those fixtures prove mechanics,
+  resume, and binding—not scientific superiority. Production training is not
+  part of remediation, and full-scale PDMX evidence remains owned by Phase 10.

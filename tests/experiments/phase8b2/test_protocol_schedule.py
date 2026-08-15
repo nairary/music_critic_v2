@@ -21,7 +21,7 @@ def test_bounded_plan_has_required_cells_and_exact_matched_compute() -> None:
     plan = build_experiment_plan(Phase8B2Config())
 
     assert plan["protocol"]["protocol_contract"] == (
-        "Phase8B2ComparisonProtocol@1.0.0"
+        "Phase8B2ComparisonProtocol@1.1.0"
     )
     assert len(plan["ssl_cells"]) == 8
     assert len(plan["downstream_cells"]) == 18
@@ -65,9 +65,7 @@ def test_every_binding_field_changes_protocol_fingerprint() -> None:
         lambda value: setattr(value.optimizer, "learning_rate", 0.01),
         lambda value: setattr(value.scheduler, "name", "cosine"),
         lambda value: setattr(value.device, "non_blocking", True),
-        lambda value: setattr(
-            value.data, "validation_membership_fingerprint", "b" * 64
-        ),
+        lambda value: setattr(value.comparison, "validation_samples", 2),
     ):
         candidate = deepcopy(base)
         mutate(candidate)
@@ -76,6 +74,54 @@ def test_every_binding_field_changes_protocol_fingerprint() -> None:
         )
     assert all(value != original for value in mutations)
     assert len(mutations) == len(set(mutations))
+
+
+def test_stale_caller_supplied_data_fingerprint_fails_closed() -> None:
+    config = Phase8B2Config()
+    config.data.validation_membership_fingerprint = "b" * 64
+    with pytest.raises(
+        Phase8B2ContractError,
+        match="validation_membership_fingerprint_mismatch",
+    ):
+        build_experiment_plan(config)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "category"),
+    (
+        (
+            lambda value: setattr(value.optimizer, "name", "sgd"),
+            "optimizer_unsupported",
+        ),
+        (
+            lambda value: setattr(value.device, "amp_dtype", "float32"),
+            "amp_dtype_unsupported",
+        ),
+        (
+            lambda value: setattr(value.device, "amp", True),
+            "amp_requires_cuda",
+        ),
+        (
+            lambda value: setattr(value.ssl, "epsilon", 1e-6),
+            "ssl_epsilon_unsupported",
+        ),
+        (
+            lambda value: setattr(
+                value,
+                "downstream_task_ids",
+                ["theory.local_key.tonic_pc"],
+            ),
+            "task_subset_primary_datasets_incomplete",
+        ),
+    ),
+)
+def test_unsupported_protocol_runtime_fields_fail_structured(
+    mutation, category: str
+) -> None:
+    config = Phase8B2Config()
+    mutation(config)
+    with pytest.raises(Phase8B2ContractError, match=category):
+        build_experiment_plan(config)
 
 
 def test_natural_schedule_is_explicitly_not_compute_matched() -> None:
@@ -142,7 +188,7 @@ def test_paired_schedule_rejects_sample_order_mismatch() -> None:
 def test_seed_domains_are_independent_and_deterministic() -> None:
     first = SeedDomains.create(99)
     second = SeedDomains.create(99)
-    values = set(first.to_dict().values()) - {"1.0.0", 99}
+    values = set(first.to_dict().values()) - {"1.1.0", 99}
     assert first == second
     assert len(values) == 6
     assert fingerprint(first.to_dict()) == fingerprint(second.to_dict())

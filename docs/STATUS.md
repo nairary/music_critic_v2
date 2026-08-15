@@ -2,7 +2,7 @@
 
 ## Current phase
 
-- Date: 2026-08-14
+- Date: 2026-08-15
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -82,7 +82,7 @@
   `18ebf5b69797f5d40ff38607cf8e8b5dad2f86e7`
 - Phase 6D-A validation-membership parity hotfix: Accepted and merged in PR
   #14 at `bded77ff1a923f391623d735b5ad4ce290d9d2d2`
-- Evaluation/artifact contracts: `1.1.1`; profiler: `1.1.0`; macro-summary
+- Evaluation/artifact contracts: `1.3.0`; profiler: `1.1.0`; macro-summary
   sub-contract: `1.0.0`; unchanged train-prior: `1.0.0`
 - Phase 7A branch: `phase/7a-graphmae2-ssl-baseline`
 - Phase 7A: accepted and merged in PR #15
@@ -125,6 +125,9 @@
   `e97377c450a368d6b46d7ba8bc1c7697bdd5dd63`
 - Phase 8B.1 branch: `phase/8b1-multilevel-objectives`; independently
   ablatable multi-level objective implementation is active in a draft PR
+- Phase 8B.2A branch: `phase/8b2a-scientific-comparison-protocol`; executable
+  protocol/artifact/schedule/selection/statistics contracts: `1.1.0`;
+  evaluation piece-sufficient-statistics output: `1.3.0`
 
 ## Accepted CUDA device-canonicalization hotfix status
 
@@ -2308,14 +2311,30 @@ not clamped or mutated.
 
 - Base and branch: started from clean `origin/main` merge `387b5bc` (PR #18)
   on `phase/8b2a-scientific-comparison-protocol`.
-- Implemented `Phase8B2ComparisonProtocol@1.0.0`, compute accounting,
-  immutable artifacts, paired named seed domains and launch-order-invariant
-  natural/matched plans for all seven accepted SSL variants.
+- Commit `7365286eb4df5ed8090aaf07964a33c95db2ed4d` implemented the original
+  control-plane primitives but did not run an end-to-end experiment. The
+  current PR remediation advances schedule, selection, orchestration,
+  artifact, statistics, transfer, seed, and test-lock contracts to `1.1.0`
+  and makes the official CLI executable and resumable.
+- `action=run` now executes all variant preflights, SSL, encoder export,
+  frozen/full/scratch downstream training, fixed-validation candidate-first
+  evaluation, compute validation, piece aggregation, paired-seed validation
+  selection, and immutable final reporting. `plan`, `resume`, `aggregate`, and
+  `select` are separately supported. Cells use isolated list-argv Python
+  subprocesses, captured stdout/stderr/exit code, staging, SHA manifests,
+  protocol validation, atomic publication, and failure-closed resume.
+- The runner derives index/cache/split/train/validation/test identities from
+  official metadata and treats configured SHA values only as expectations.
+  Actual target-free sample schedules contain dataset/piece/sample/update/batch
+  positions and are checked bit-exactly against every variant's observed
+  schedule before publication.
 - The primary matched schedule fixes 12 actual encoder forwards per logical
   update: six two-forward control views or four three-forward latent views. A
-  real bounded official-engine cell applied two updates over four raw samples
-  and recorded 24 encoder forwards. Natural schedule preserves honest
-  one-/four-view and two-/three-forward-per-view differences.
+  real bounded cell applies exactly two updates over four raw samples and an
+  instrumented encoder-method counter records 24 forwards. Multiple batches
+  per epoch, exact logical-update caps, interval validation, final validation,
+  applied/skipped accounting, and fail-closed unavailable/AMP-overflow cells
+  replace the former one-batch-per-epoch interpretation.
 - Official SSL checkpoints bind the optional comparison schedule, protocol,
   sample schedule and independent data/model/mask seeds. Initial/final encoder
   fingerprints are first-class evidence; changed protocol bindings reject
@@ -2323,28 +2342,46 @@ not clamped or mutated.
 - Official supervised training accepts scratch/frozen/full transfer bindings.
   Only representation state is loaded; task heads/optimizer are fresh; frozen
   encoder parameters are outside the optimizer and checked bit-exact after
-  training. Both comparison SSL and downstream frozen-probe epoch-boundary
-  interrupted+resumed runs match uninterrupted state, RNG and metric journals.
+  training. Comparison SSL/downstream epoch-boundary resume preserves state,
+  RNG and metric journals; the matrix runner separately resumes verified cells
+  after an injected interruption.
 - Downstream task manifest is exactly the existing fully supervised
   `ACTIVE_TASK_IDS`. PU/open-vocabulary boundary/no-chord/borrowed/key-mode
   tasks remain excluded and source-native datasets/encodings stay isolated.
-- Candidate-first evaluation advanced to `1.2.0` for all-negative multilabel
-  prediction counts and exact tied-threshold per-label average precision from
-  CPU scalar score groups, without retaining prediction tensors.
-  Validation selection, single-use test lock, piece bootstrap/statistics,
-  bounded diagnostics and aggregate rejection are implemented at `1.0.0`.
+- Candidate-first evaluation advances to `1.3.0` and writes CPU-only per-piece
+  categorical confusion/correct/NLL or multilabel TP/FP/FN/support/BCE
+  sufficient statistics. Piece bootstrap recomputes corpus endpoints from
+  merged counts after every independent-piece resample. Exact AP stays a
+  descriptive corpus metric outside bootstrap claims.
+- Selection aggregates all declared paired seeds for each
+  `(variant_id, transfer_mode)` before mean-dataset-rank/NLL/compute/lexical
+  ranking. Its artifact records both selected seed checkpoints, SHA-256s,
+  per-seed/aggregate metrics, and complete paired evidence. Test authorization
+  selects one of exactly those checkpoints by seed and keeps each experiment
+  identity single-use.
 - Hydra presets: bounded two-seed acceptance, three-seed production pilot,
-  five-seed paper, and natural-schedule diagnostic. The plan CLI performs no
-  writes/training and derives official SSL/training/evaluation cell bindings.
-- Final local verification: Phase 8B.2A/evaluation/repository acceptance
-  `51 passed`; focused SSL/training/evaluation regression `130 passed,
-  9 skipped, 1 deselected`; deterministic audit tests `51 passed`; final
-  repository suite `1308 passed, 47 skipped, 3 deselected` in 290.64 seconds.
-  The three deselections are existing multiprocessing `DataLoader(workers>0)`
-  tests that reproducibly do not terminate in the local sandbox; each was also
-  observed hanging in isolation. All skips are existing environment/CUDA
-  gates. `compileall` and `git diff --check` pass; warnings are the upstream
-  PyTorch `torch.jit.script` deprecation only.
+  five-seed paper, and natural-schedule diagnostic. Plan output includes cell
+  counts, real raw/forward budgets, validation-pass estimates, output paths,
+  and the executable cell manifest. Pilot/paper use 100 updates per epoch and
+  validation intervals of 5/10 epochs, not one validation per optimizer step.
+- Real bounded CPU evidence executes 8 preflights, 8 SSL cells, 8 encoder
+  exports, 18 downstream cells, and 18 validation evaluations. Every SSL cell
+  records 2 attempted, 2 applied, 0 skipped updates, 4 raw samples, and 24
+  encoder forwards. Both fixed-validation seeds verify checkpoint data with no
+  membership mismatch; aggregation and multi-seed selection consume those
+  actual engine artifacts. The same output resumes deterministically after an
+  injected failure and rejects stale/incomplete cell state.
+- Final local verification: Phase 8B.2A tests `50 passed, 1 skipped`, including
+  the real CLI acceptance `2 passed, 1 skipped` in 222.79 seconds (the skip is
+  the optional explicit-CUDA matrix); focused SSL/training/evaluation
+  regressions `497 passed, 32 skipped, 2 deselected`; deterministic audit and
+  repository-contract tests `68 passed`; full repository suite `1321 passed,
+  48 skipped, 3 deselected` in 470.16 seconds. The three deselections are the
+  existing multiprocessing `DataLoader(workers>0)` tests that reproducibly do
+  not terminate in this local sandbox; one combined attempt reproduced the
+  hang before the explicit deselection. CUDA and external-data skips are
+  environment gates, not evidence. Warnings are only the upstream PyTorch
+  `torch.jit.script` deprecation.
 - `scripts/check_legacy_unchanged.py` reports that the external read-only
   legacy checkout no longer matches its previously captured dirty snapshot
   (pre-existing renames/additions/modifications). Phase 8B.2A inspected and

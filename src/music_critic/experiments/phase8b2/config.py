@@ -10,7 +10,6 @@ from hydra.core.config_store import ConfigStore
 from music_critic.experiments.phase8b2.contracts import (
     DOWNSTREAM_TASK_IDS,
     SSL_VARIANTS,
-    fingerprint,
 )
 
 
@@ -33,6 +32,10 @@ class ComparisonPresetConfig:
     architecture: str = "hierarchical"
     ssl_optimizer_steps: int = 2
     downstream_optimizer_steps: int = 2
+    optimizer_steps_per_epoch: int = 2
+    validation_interval_epochs: int = 1
+    validation_samples: int = 0
+    fixed_validation_seed: int = 20260815
     matched_encoder_forwards_per_update: int = 12
     bootstrap_replicates: int = 200
     minimum_production_seeds: int = 3
@@ -45,26 +48,12 @@ class ComparisonDataConfig:
     split_manifest: str = ""
     index_fingerprints: dict[str, str] = field(default_factory=dict)
     cache_fingerprints: dict[str, str] = field(default_factory=dict)
-    split_manifest_fingerprint: str = field(
-        default_factory=lambda: fingerprint(
-            {"bounded_fixture": "split_manifest"}
-        )
-    )
-    train_membership_fingerprint: str = field(
-        default_factory=lambda: fingerprint(
-            {"bounded_fixture": "train_membership"}
-        )
-    )
-    validation_membership_fingerprint: str = field(
-        default_factory=lambda: fingerprint(
-            {"bounded_fixture": "validation_membership"}
-        )
-    )
-    test_membership_fingerprint: str = field(
-        default_factory=lambda: fingerprint(
-            {"bounded_fixture": "test_membership"}
-        )
-    )
+    # Optional expected values.  The runner always derives the authoritative
+    # values from official index/split metadata and rejects stale expectations.
+    split_manifest_fingerprint: str = ""
+    train_membership_fingerprint: str = ""
+    validation_membership_fingerprint: str = ""
+    test_membership_fingerprint: str = ""
     mixture_weights: dict[str, float] = field(
         default_factory=lambda: {"hooktheory": 1.0, "pop909_cl": 1.0}
     )
@@ -131,6 +120,8 @@ class Phase8B2Config:
     output_root: str = "outputs/phase8b2"
     acknowledge_test_evaluation: bool = False
     selected_checkpoint: str = ""
+    stop_after_stage: str = ""
+    fail_after_cell: int = 0
     comparison: ComparisonPresetConfig = field(
         default_factory=ComparisonPresetConfig
     )
@@ -159,6 +150,8 @@ def _preset(
     ssl_steps: int,
     downstream_steps: int,
     bootstrap_replicates: int,
+    optimizer_steps_per_epoch: int,
+    validation_interval_epochs: int,
 ) -> ComparisonPresetConfig:
     return ComparisonPresetConfig(
         name=name,
@@ -167,6 +160,8 @@ def _preset(
         seeds=seeds,
         ssl_optimizer_steps=ssl_steps,
         downstream_optimizer_steps=downstream_steps,
+        optimizer_steps_per_epoch=optimizer_steps_per_epoch,
+        validation_interval_epochs=validation_interval_epochs,
         bootstrap_replicates=bootstrap_replicates,
     )
 
@@ -195,6 +190,8 @@ def register_phase8b2_configs() -> None:
             ssl_steps=1000,
             downstream_steps=1000,
             bootstrap_replicates=2000,
+            optimizer_steps_per_epoch=100,
+            validation_interval_epochs=5,
         ),
     )
     store.store(
@@ -207,6 +204,8 @@ def register_phase8b2_configs() -> None:
             ssl_steps=10000,
             downstream_steps=10000,
             bootstrap_replicates=10000,
+            optimizer_steps_per_epoch=100,
+            validation_interval_epochs=10,
         ),
     )
     store.store(
@@ -219,6 +218,8 @@ def register_phase8b2_configs() -> None:
             ssl_steps=1000,
             downstream_steps=1000,
             bootstrap_replicates=2000,
+            optimizer_steps_per_epoch=100,
+            validation_interval_epochs=5,
         ),
     )
     _REGISTERED = True

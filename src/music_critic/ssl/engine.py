@@ -341,6 +341,29 @@ def _validate_config(config: dict[str, Any]) -> None:
         raise SSLTrainingError("ssl.training.gradient_clip_invalid")
     if config["ssl"]["epsilon"] != 1e-8:
         raise SSLTrainingError("ssl.training.cosine_epsilon_incompatible")
+    if config["device"].get("amp_dtype", "float16") not in {
+        "float16",
+        "bfloat16",
+    }:
+        raise SSLTrainingError("ssl.training.amp_dtype_invalid")
+    for name, value, minimum in (
+        ("batch_size", config["data"]["batch_size"], 1),
+        ("workers", config["data"]["workers"], 0),
+        ("epoch_size", config["data"]["epoch_size"], 1),
+        (
+            "validation_epoch_size",
+            config["data"]["validation_epoch_size"],
+            0,
+        ),
+        ("validation_seed", config["data"].get("validation_seed", -1), -1),
+        (
+            "optimizer_steps_per_epoch",
+            config["experiment"].get("optimizer_steps_per_epoch", 0),
+            0,
+        ),
+    ):
+        if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+            raise SSLTrainingError(f"ssl.training.{name}_invalid")
 
 
 def _resolve_device(config: dict[str, Any]) -> torch.device:
@@ -360,6 +383,15 @@ def _resolve_device(config: dict[str, Any]) -> torch.device:
     if config["device"].get("amp", False) and device.type != "cuda":
         raise SSLTrainingError("ssl.training.amp_requires_cuda")
     return device
+
+
+def _amp_dtype(config: dict[str, Any]) -> torch.dtype:
+    name = config["device"].get("amp_dtype", "float16")
+    if name == "float16":
+        return torch.float16
+    if name == "bfloat16":
+        return torch.bfloat16
+    raise SSLTrainingError("ssl.training.amp_dtype_invalid")
 
 
 def _configure_cublas_determinism() -> None:

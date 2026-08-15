@@ -2,12 +2,15 @@
 
 ## Status and claim boundary
 
-Phase 8B.2A implements `Phase8B2ComparisonProtocol@1.0.0`, deterministic
-matrix planning, official-engine schedule/transfer bindings, validation-only
-selection, held-out test locking, piece-level statistical aggregation, bounded
-anti-collapse diagnostics, immutable artifact helpers, and CPU acceptance. It
-does not contain production training results and makes no claim that one SSL
-variant is better than another or better than supervised scratch.
+Commit `7365286eb4df5ed8090aaf07964a33c95db2ed4d` implemented the original
+control-plane primitives, but not an executable end-to-end experiment. The
+remediated Phase 8B.2A implements `Phase8B2ComparisonProtocol@1.1.0`: the
+official CLI now executes and resumes the complete SSL → export → downstream
+→ fixed-validation → aggregation → selection → immutable-report DAG. It uses
+the official SSL, training, and candidate-first evaluation engines in isolated
+Python subprocesses. It does not contain production training results and makes
+no claim that one SSL variant is better than another or better than supervised
+scratch.
 
 No PDMX or Dilemmadata adapter, PLL, pseudo-likelihood, fragility/preference/
 quality score, curriculum masking, EMA teacher, theory input, synthetic chord
@@ -64,6 +67,14 @@ requires target changed/removed/replaced mutation evidence to preserve plans,
 logits, losses, gradients, checkpoints, and transferred encoder fingerprints
 exactly.
 
+Before training, the runner resolves the actual target-free sample schedule
+with the official sampler. `actual_sample_schedule.json` records dataset ID,
+piece ID, sample position, logical update, and batch position. Caller-provided
+index/cache/split fingerprints are only expected values: official metadata is
+read and attested independently, and stale values or index/cache path mismatches
+fail before training. Every variant for a seed must reproduce the same observed
+`(dataset_id, piece_id)` sequence bit-exactly.
+
 Actual runs bind initial encoder state, raw sample schedule, fixed validation
 membership, downstream schedule, and final transferred encoder fingerprints.
 The Phase 8B.1 checkpoint binding now includes the optional comparison
@@ -99,11 +110,13 @@ vocabulary target.
 
 ## Evaluation and selection
 
-Downstream validation uses the existing candidate-first evaluator and train-
-only priors. Evaluation contract `1.2.0` adds all-negative multilabel
-prediction counts and exact per-label average precision. AP is computed from
-CPU scalar score groups, with ties handled as one threshold; no prediction
-tensor is retained across batches and no batch-average approximation is used.
+Downstream validation uses one fingerprinted fixed view and the existing
+candidate-first evaluator with train-only priors. The full validation split is
+the default; a positive limit selects a deterministic subset without
+replacement. The comparison protocol, training checkpoint, training report,
+and standalone evaluation must agree on validation membership. Evaluation
+contract `1.3.0` adds CPU-only per-piece sufficient statistics while retaining
+all-negative multilabel prediction counts and exact descriptive per-label AP.
 
 Metrics stay keyed by dataset and task. Categorical tasks retain eligible
 rows, support, accuracy, balanced accuracy, macro/micro F1, NLL, train-prior
@@ -113,9 +126,12 @@ match, BCE/NLL, and all-negative counts. No cross-dataset or cross-encoding
 global score is emitted.
 
 The versioned primary endpoints are the declared HookTheory and POP909-CL
-dataset macro summaries. Selection is validation-only, using mean dataset rank
-and then, in order, lower validation NLL, lower encoder-forward count, and
-lexicographic `variant_id`. Anti-collapse diagnostics never participate.
+dataset macro summaries. A downstream cell is identified by
+`(seed, variant_id, transfer_mode)`. Selection first aggregates the complete
+paired-seed evidence for each `(variant_id, transfer_mode)` configuration, then
+ranks configurations by mean dataset rank and, in order, lower validation NLL,
+lower encoder-forward count, and lexical configuration ID. It never selects a
+fortunate individual seed. Anti-collapse diagnostics never participate.
 
 ## Held-out test lock
 
@@ -124,7 +140,8 @@ authorization is created before inference only when all of these hold:
 
 - a valid validation-selection artifact exists and says test was unused;
 - its protocol fingerprint matches;
-- it selects exactly one checkpoint/variant per declared scope;
+- it selects exactly one configuration and one checkpoint for every declared
+  seed;
 - acknowledgement is explicit;
 - the output directory does not exist;
 - the test membership fingerprint is already known and recorded;
@@ -139,10 +156,12 @@ without unlocking a real test split.
 ## Statistics and diagnostics
 
 Production presets require at least three paired seeds; the paper preset uses
-five. Statistical summaries contain per-seed mean/median, between-seed SD,
-paired deltas against `supervised_scratch` and `phase7a_control`, and a
-deterministic paired bootstrap over independent piece IDs. Fewer than two
-pieces or seeds yields a structured unavailable reason. Bounded synthetic
+five. Evaluation stores categorical confusion/correct/eligible/NLL counts and
+multilabel TP/FP/FN/TN/support/BCE counts per independent piece, task, dataset,
+and encoding. Each paired bootstrap replicate resamples pieces and recomputes
+the corpus endpoint from merged counts; averaging arbitrary per-piece macro-F1
+is forbidden. Exact bootstrap AP would require retaining prediction-score rows,
+so AP is explicitly descriptive and outside inferential claims. Bounded
 acceptance never emits a significance claim or scientific p-value.
 
 Transferred-encoder diagnostics report representation variance, effective
@@ -152,19 +171,29 @@ N-by-N matrix and retain no prediction tensor after a batch.
 
 ## Artifacts and aggregation
 
-The artifact contract is `1.0.0`. A complete experiment has:
+The artifact contract is `1.1.0`. A complete experiment has:
 
 - `comparison_protocol.json`;
+- `actual_sample_schedule.json`;
 - `run_manifest.json`;
 - `ssl_training_metrics.jsonl`;
 - `ssl_checkpoint_evidence.json`;
 - `transfer_evidence.json`;
 - `downstream_metrics.json`;
+- `piece_statistics.json`;
 - `validation_selection.json`;
 - `statistical_summary.json`;
 - `compute_accounting.json`;
 - optional `test_metrics.json`;
 - `final_comparison_report.json`.
+
+Each cell runs with list-form argv and `shell=false`, captures stdout, stderr,
+exit code, runtime binding evidence, and SHA-256s in a cell manifest, and is
+published from staging by atomic rename. Resume skips only a complete cell
+whose manifest, hashes, and protocol binding verify. Failed, incomplete, stale,
+or mixed-protocol outputs are never overwritten. Dependent stages stop on the
+first invalid cell, and the final report is impossible until every required
+cell is verified.
 
 JSON/JSONL creation is atomic and immutable. Production evidence records exact
 clean git SHA, environment, Python/PyTorch/PyG/CUDA versions, concrete device,
@@ -181,11 +210,20 @@ resume; existing failure-atomic load and journal recovery remain authoritative.
 
 ## CLI and presets
 
-Dry-run is the default and performs no writes or training:
+Planning is the default and performs no writes or training:
 
 ```bash
-PYTHONPATH=src python -m music_critic.experiments.phase8b2.run \
-  comparison=bounded_acceptance action=plan
+.venv/bin/python -m music_critic.experiments.phase8b2.run \
+  action=plan comparison=bounded_acceptance
+```
+
+Executable actions are `plan`, `run`, `resume`, `aggregate`, and `select`.
+`run` consumes the exact precomputed plan without manual engine overrides:
+
+```bash
+.venv/bin/python -m music_critic.experiments.phase8b2.run \
+  action=run comparison=bounded_acceptance \
+  output_root=/absolute/path/to/phase8b2-bounded
 ```
 
 Registered presets are `bounded_acceptance`, `production_pilot`,
@@ -198,16 +236,17 @@ PYTHONPATH=src python -m music_critic.experiments.phase8b2.run \
   comparison=production_pilot action=plan \
   data.index_paths='[/data/hook.index.json,/data/pop.index.json]' \
   data.cache_roots='[/data/hook-cache,/data/pop-cache]' \
-  data.split_manifest=/data/global.split.json \
-  data.index_fingerprints='{hooktheory:SHA,pop909_cl:SHA}' \
-  data.cache_fingerprints='{hooktheory:SHA,pop909_cl:SHA}'
+  data.split_manifest=/data/global.split.json
 ```
 
-The plan emits the complete SSL/downstream matrix, fingerprints, seed domains,
-budgets, artifact schema, and official SSL/training/evaluation overrides. Cell
-execution therefore continues through `music_critic.ssl.run`,
-`music_critic.training.run`, and candidate-first
-`music_critic.evaluation.run`; there is no parallel trainer or evaluator.
+Optional `data.*_fingerprint` overrides are expected-value assertions, never
+sources of truth; the runner derives authoritative identities from metadata.
+
+The plan emits complete cell manifests, actual raw-sample and encoder-forward
+budgets, validation-pass estimates, output paths, fingerprints, seed domains,
+and artifact schema. Execution invokes `music_critic.ssl.run`,
+`music_critic.training.run`, and candidate-first `music_critic.evaluation.run`;
+there is no parallel trainer or evaluator.
 
 Read-only production smoke is available only for explicitly configured paths,
 at most three train/validation pieces per dataset/split. Planning never scans
@@ -216,13 +255,14 @@ and caches are never created or modified.
 
 ## Bounded acceptance
 
-CPU acceptance covers two paired seeds, scratch, Phase 7A, Phase 8A mask-only,
-one single-level objective, equal-weight, frozen/full transfer, launch-order
-invariance, exact forward/sample/update accounting, protocol/resume mismatch,
-target mutation evidence, aggregation rejection, validation-only selection,
-test-lock negatives, piece bootstrap, diagnostics, and official-engine matched
-execution. It asserts mechanics and variant distinction only; SSL need not beat
-scratch on the tiny fixture.
+CPU acceptance is a real CLI matrix: two paired seeds; Phase 7A, Phase 8A
+mask-only, onset latent, and multilevel equal; frozen probe and full fine-tune;
+paired scratch; 8 SSL cells, 8 encoder exports, 18 downstream cells, and 18
+validation evaluations. It exercises preflight, interruption/resume, launch-
+order permutation, actual schedule parity, checkpoint-to-evaluation
+verification, sufficient-statistics aggregation, multi-seed selection,
+immutable rerun, stale/incomplete rejection, and no test access. It asserts
+mechanics only; SSL need not beat scratch on the tiny fixture.
 
 CUDA/AMP acceptance is optional and must use explicit `cuda:0`. A skip is not
 CUDA evidence. No production corpus, PDMX, long-training, effectiveness, or

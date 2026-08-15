@@ -385,7 +385,7 @@ does not require either margin sign after two optimizer steps.
 ## Phase 8B.2A comparison and transfer bindings
 
 Phase 8B.2A reuses this official epoch/checkpoint/journal engine. The optional
-`transfer` block is `1.0.0` and defaults to `supervised_scratch`, preserving
+`transfer` block is `1.1.0` and defaults to `supervised_scratch`, preserving
 ordinary Phase 6C behavior. A protocol-bound run supplies independent
 downstream initialization/data-order seeds and one of:
 
@@ -409,7 +409,17 @@ official failure-atomic checkpoint load; a changed protocol/export/seed cannot
 resume.
 
 `music_critic.experiments.phase8b2` emits official training overrides for each
-paired downstream cell. One batch per epoch makes the configured epoch count
-an exact downstream optimizer-update budget in bounded acceptance. See
+paired downstream cell. `experiment.optimizer_steps_per_epoch` permits
+multiple batches inside an epoch while `experiment.steps` remains the exact
+total logical-update cap. Validation runs only at the configured epoch
+interval and exactly at the final budget boundary. A comparison-bound AMP
+overflow or skipped update invalidates the cell instead of consuming a
+replacement sample. Training records attempted/applied/skipped counts and the
+observed dataset/piece schedule, which must match the precomputed target-free
+schedule before scientific artifacts are published.
+
+The validation subset uses a dedicated fixed seed, so it is common across
+downstream data-order seeds. Its membership fingerprint must match the
+comparison protocol, checkpoint/report, and candidate-first evaluation. See
 `PHASE8B2_COMPARISON_PROTOCOL.md`; these mechanics are not downstream quality
 evidence.

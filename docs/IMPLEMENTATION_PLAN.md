@@ -3120,9 +3120,9 @@ representation improvement.
 - no scaled-effectiveness claim is made before rerunning accepted objectives
   after the Phase 10 PDMX raw-compatible corpus/cache exists.
 
-### Phase 8B.2A implemented comparison protocol
+### Phase 8B.2A implemented executable comparison protocol
 
-- Add `Phase8B2ComparisonProtocol@1.0.0` and bind every variant, model,
+- Add `Phase8B2ComparisonProtocol@1.1.0` and bind every variant, model,
   objective/masking, seed, data/cache/split/membership, mixture, compute,
   optimizer/scheduler/device, transfer, task, selection, and locked-test
   field. Canonical fingerprint changes on every binding mutation.
@@ -3131,9 +3131,11 @@ representation improvement.
   each shared raw batch, exact raw exposure and applied/skipped update
   accounting, and no loss renormalization.
 - Derive independent launch-order-invariant data, mask, initialization,
-  downstream, and bootstrap seed domains. Bind actual initial/final encoder,
-  sample schedule, validation membership, downstream schedule, and transferred
-  encoder fingerprints.
+  downstream, and bootstrap seed domains. Resolve the actual target-free
+  sampler schedule before training, record every dataset/piece/update/batch
+  position, and require every observed schedule to match bit-exactly. Attest
+  index/cache/split/membership identities from official metadata rather than
+  trusting supplied SHA strings.
 - Extend the official Phase 8B engine with an optional checkpoint-bound
   repeated-view schedule and encoder-forward counts. Preserve the null Phase
   7A and ordinary Phase 8B.1 routes.
@@ -3141,28 +3143,34 @@ representation improvement.
   and `supervised_scratch` initialization. Transfer representation prefixes
   only, construct fresh heads/optimizer, exclude frozen parameters, and verify
   frozen state bit-exactly.
-- Reuse candidate-first evaluation/train-only priors; keep metrics isolated by
-  dataset/task/encoding. Add multilabel all-negative counts and exact AP from
-  CPU scalar score groups with tied-score thresholds; retain no prediction
-  tensors and report explicit no-positive-support reasons.
-- Select on validation only by mean dataset rank, NLL, compute, then lexical
-  ID. Require a pre-inference, new-directory, one-checkpoint, acknowledged,
-  membership-bound, single-use authorization for test.
-- Aggregate paired seeds at independent-piece level with deterministic
-  bootstrap CIs, per-seed mean/median, between-seed SD, scratch and Phase 7A
-  deltas, and explicit insufficient-data reasons. Diagnostics never select.
+- Reuse candidate-first evaluation/train-only priors on one fingerprinted fixed
+  validation view. Persist CPU-only per-piece sufficient statistics and
+  recompute corpus macro endpoints after every piece resample; retain exact AP
+  as a descriptive metric outside bootstrap claims.
+- Aggregate complete paired seeds for each `(variant_id, transfer_mode)` before
+  validation-only ranking by mean dataset rank, NLL, compute, then lexical
+  configuration ID. Lock exactly one selected checkpoint per declared seed;
+  each seed-specific test identity remains single-use.
 - Create immutable versioned artifact/manifest helpers and reject incomplete,
   duplicate, stale, incompatible, mixed-mode, initial-state-mismatched, or
   unauthorized-test bundles. Reuse epoch-boundary failure-atomic checkpoint
   and journal recovery.
-- Register bounded, pilot, paper, and natural-schedule Hydra presets plus a
-  no-write plan CLI and official SSL/training/evaluation cell bindings. Never
-  hard-code production paths or scan/rebuild caches in read-only smoke.
-- Prove bounded mechanics with two paired seeds, required controls/transfer
-  modes, actual official-engine matched accounting, launch permutation,
-  protocol/resume rejection, leakage, aggregation/selection/test-lock,
-  statistics, and diagnostics. Make no production, PDMX, CUDA, or superiority
-  claim from CPU fixtures.
+- Register bounded, pilot, paper, and natural-schedule Hydra presets plus
+  executable `plan`, `run`, `resume`, `aggregate`, and `select` actions. Run
+  official engines in cell subprocesses with captured logs/process evidence,
+  staging, atomic publication, SHA manifests, dependency failure closure, and
+  verified stage-level resume.
+- Prove bounded mechanics through the public CLI with 8 SSL cells, 8 exports,
+  18 downstream cells, and 18 validation evaluations across two paired seeds;
+  exercise interruption/resume, launch permutation, actual schedule parity,
+  checkpoint-to-evaluation verification, real aggregation, paired-seed
+  selection, stale/incomplete rejection, and immutable rerun. Optional explicit
+  `cuda:0` AMP acceptance records peak VRAM. Make no production, PDMX, or
+  superiority claim from bounded fixtures.
+
+Commit `7365286eb4df5ed8090aaf07964a33c95db2ed4d` supplied the earlier
+control-plane primitives. End-to-end completion is attributable only to this
+remediation and its real CLI acceptance.
 
 Scaled Phase 8B.2 evidence remains future work on appropriately sized
 raw-compatible data. Phase 8B.2A does not add a mask

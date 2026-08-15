@@ -889,14 +889,23 @@ and independent CUDA training acceptance begin at `1.0.0`. The full
 architecture, policy mapping, parameter formula, bounded comparison, and
 non-claim boundary are in `PHASE8B_MULTILEVEL_OBJECTIVES.md`.
 
-## Phase 8B.2A comparison control plane
+## Phase 8B.2A executable comparison protocol
 
 `music_critic.experiments.phase8b2` composes the existing SSL, supervised
 training, and candidate-first evaluation engines. It does not own a parallel
-model or trainer. `Phase8B2ComparisonProtocol@1.0.0` binds variants, model and
+model or trainer. `Phase8B2ComparisonProtocol@1.1.0` binds variants, model and
 objective/masking configs, all data/cache/split/membership identities, paired
 seed domains, compute budgets, downstream tasks/modes, validation ranking, and
 the locked test state.
+
+The original `7365286` implementation stopped at control-plane primitives.
+The remediated CLI resolves actual sampler identities before training and runs
+the dependency DAG as isolated list-argv subprocesses: all variant preflights,
+SSL, encoder export, frozen/full/scratch downstream training, fixed-validation
+evaluation, compute validation, sufficient-statistics aggregation, paired-seed
+configuration selection, and final immutable reporting. Each cell is staged,
+hash-manifested, protocol-bound, and atomically published; resume refuses stale
+or incomplete state.
 
 The primary `encoder_forward_matched` branch fixes 12 actual calls per logical
 update: six two-call control views or four three-call latent views over one raw
@@ -909,8 +918,10 @@ source/protocol plus separate initialization and data-order seeds.
 
 The control plane emits immutable evidence and rejects incompatible aggregate
 inputs. Validation selection precedes a separate single-use test authorization.
-Piece-level uncertainty and bounded encoder diagnostics consume CPU scalars;
-they retain no prediction tensors and diagnostics never select a checkpoint.
+Piece-level uncertainty merges CPU-only categorical confusion/NLL or
+multilabel TP/FP/FN/support/BCE sufficient statistics after every independent-
+piece resample. Exact AP remains descriptive because bootstrap AP would require
+prediction-score rows. Diagnostics never select a checkpoint.
 See `PHASE8B2_COMPARISON_PROTOCOL.md`.
 
 ## Incremental research scope

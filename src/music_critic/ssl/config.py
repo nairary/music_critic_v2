@@ -55,11 +55,13 @@ class Phase8BMaskingModeConfig:
 class Phase8B2ScheduleConfig:
     """Explicit comparison view schedule supplied by Phase 8B.2A."""
 
-    contract_version: str = "1.0.0"
+    contract_version: str = "1.1.0"
     comparison_mode: str = "encoder_forward_matched"
     variant_id: str = "phase7a_control"
     protocol_fingerprint: str = ""
     sample_schedule_fingerprint: str = ""
+    actual_sample_schedule_path: str = ""
+    logical_updates: int = 0
     model_initialization_seed: int = 0
     data_order_seed: int = 0
     policy_view_names: list[str] = field(default_factory=list)

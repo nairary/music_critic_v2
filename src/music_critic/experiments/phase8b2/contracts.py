@@ -12,13 +12,13 @@ from music_critic.models import ACTIVE_TASK_IDS
 from music_critic.tasks import TARGET_ENCODING_BY_TASK, TARGET_FAMILY_BY_ID
 
 
-PHASE8B2_COMPARISON_PROTOCOL_VERSION = "1.0.0"
-PHASE8B2_ARTIFACT_CONTRACT_VERSION = "1.0.0"
-PHASE8B2_COMPUTE_ACCOUNTING_VERSION = "1.0.0"
-PHASE8B2_SELECTION_CONTRACT_VERSION = "1.0.0"
-PHASE8B2_STATISTICS_CONTRACT_VERSION = "1.0.0"
-PHASE8B2_DIAGNOSTICS_CONTRACT_VERSION = "1.0.0"
-PHASE8B2_TEST_LOCK_CONTRACT_VERSION = "1.0.0"
+PHASE8B2_COMPARISON_PROTOCOL_VERSION = "1.1.0"
+PHASE8B2_ARTIFACT_CONTRACT_VERSION = "1.1.0"
+PHASE8B2_COMPUTE_ACCOUNTING_VERSION = "1.1.0"
+PHASE8B2_SELECTION_CONTRACT_VERSION = "1.1.0"
+PHASE8B2_STATISTICS_CONTRACT_VERSION = "1.1.0"
+PHASE8B2_DIAGNOSTICS_CONTRACT_VERSION = "1.1.0"
+PHASE8B2_TEST_LOCK_CONTRACT_VERSION = "1.1.0"
 
 ComparisonMode = Literal["natural_schedule", "encoder_forward_matched"]
 TransferMode = Literal[
@@ -203,6 +203,12 @@ class DataBinding:
     validation_membership_fingerprint: str
     test_membership_fingerprint: str
     mixture_weights: tuple[tuple[str, float], ...]
+    workers: int
+    actual_train_size: int
+    actual_validation_size: int
+    actual_test_size: int
+    validation_subset_limit: int
+    fixed_validation_seed: int
 
     def __post_init__(self) -> None:
         for name, rows in (
@@ -237,6 +243,22 @@ class DataBinding:
             raise Phase8B2ContractError(
                 "phase8b2.protocol.mixture_weight_invalid"
             )
+        for name, value, minimum in (
+            ("workers", self.workers, 0),
+            ("actual_train_size", self.actual_train_size, 1),
+            ("actual_validation_size", self.actual_validation_size, 1),
+            ("actual_test_size", self.actual_test_size, 1),
+            ("validation_subset_limit", self.validation_subset_limit, 0),
+            ("fixed_validation_seed", self.fixed_validation_seed, 0),
+        ):
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or value < minimum
+            ):
+                raise Phase8B2ContractError(
+                    f"phase8b2.protocol.data_runtime_invalid:{name}"
+                )
         identities = (
             *(value for _, value in self.dataset_indices),
             *(value for _, value in self.cache_identities),
@@ -263,6 +285,12 @@ class DataBinding:
             ),
             "test_membership_fingerprint": self.test_membership_fingerprint,
             "mixture_weights": [list(row) for row in self.mixture_weights],
+            "workers": self.workers,
+            "actual_train_size": self.actual_train_size,
+            "actual_validation_size": self.actual_validation_size,
+            "actual_test_size": self.actual_test_size,
+            "validation_subset_limit": self.validation_subset_limit,
+            "fixed_validation_seed": self.fixed_validation_seed,
         }
 
 
@@ -328,6 +356,9 @@ class ComparisonProtocol:
     test_unlock_state: Mapping[str, object]
     downstream_optimizer_steps: int
     downstream_schedule_fingerprint: str
+    ssl_sample_schedule_fingerprints: tuple[tuple[int, str], ...]
+    downstream_sample_schedule_fingerprints: tuple[tuple[int, str], ...]
+    runtime_execution_config: Mapping[str, object]
     fingerprint: str = ""
 
     def __post_init__(self) -> None:
@@ -353,7 +384,12 @@ class ComparisonProtocol:
         if (
             not self.seeds
             or len(self.seeds) != len(set(self.seeds))
-            or any(isinstance(seed, bool) or not isinstance(seed, int) or seed < 0 for seed in self.seeds)
+            or any(
+                isinstance(seed, bool)
+                or not isinstance(seed, int)
+                or seed < 0
+                for seed in self.seeds
+            )
         ):
             raise Phase8B2ContractError(
                 "phase8b2.protocol.seed_manifest_invalid"
@@ -383,6 +419,24 @@ class ComparisonProtocol:
             raise Phase8B2ContractError(
                 "phase8b2.protocol.downstream_schedule_missing"
             )
+        expected_seed_rows = tuple(sorted(self.seeds))
+        for name, rows in (
+            (
+                "ssl_sample_schedule_fingerprints",
+                self.ssl_sample_schedule_fingerprints,
+            ),
+            (
+                "downstream_sample_schedule_fingerprints",
+                self.downstream_sample_schedule_fingerprints,
+            ),
+        ):
+            if (
+                tuple(seed for seed, _value in rows) != expected_seed_rows
+                or any(not _is_sha256(value) for _seed, value in rows)
+            ):
+                raise Phase8B2ContractError(
+                    f"phase8b2.protocol.{name}_invalid"
+                )
         if self.comparison_mode == "encoder_forward_matched":
             target = self.compute.encoder_forwards_per_update
             if target is None:
@@ -446,6 +500,15 @@ class ComparisonProtocol:
             "downstream_schedule_fingerprint": (
                 self.downstream_schedule_fingerprint
             ),
+            "ssl_sample_schedule_fingerprints": [
+                [seed, value]
+                for seed, value in self.ssl_sample_schedule_fingerprints
+            ],
+            "downstream_sample_schedule_fingerprints": [
+                [seed, value]
+                for seed, value in self.downstream_sample_schedule_fingerprints
+            ],
+            "runtime_execution_config": dict(self.runtime_execution_config),
             "validation_selection_rule": dict(
                 self.validation_selection_rule
             ),
@@ -477,8 +540,10 @@ def default_selection_rule() -> dict[str, object]:
         "tie_breaks": [
             "lower_validation_nll",
             "lower_encoder_forward_count",
-            "lexicographic_variant_id",
+            "lexicographic_configuration_id",
         ],
+        "identity": ["variant_id", "transfer_mode"],
+        "seed_aggregation": "paired_arithmetic_mean",
         "diagnostics_in_selection": False,
         "test_metrics_in_selection": False,
     }

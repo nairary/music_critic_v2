@@ -148,7 +148,7 @@ def _bounded_runtime(
         fixed_validation_membership(
             evaluation_identities,
             limit=config.max_evaluation_samples,
-            seed=seed,
+            seed=(config.validation_seed if config.validation_seed >= 0 else seed),
         )
         if split == "validation"
         else None
@@ -350,7 +350,7 @@ def _corpus_runtime(
         fixed_validation_membership(
             evaluation_identities,
             limit=config.max_evaluation_samples,
-            seed=seed,
+            seed=(config.validation_seed if config.validation_seed >= 0 else seed),
         )
         if split == "validation"
         else None

@@ -81,7 +81,7 @@ PHASE8B_MASKING_CONFIG_CONTRACT_VERSION = "1.1.0"
 PHASE8B_RUN_MANIFEST_VERSION = "1.2.0"
 PHASE8B_TRAINING_REPORT_VERSION = "1.2.0"
 PHASE8B_OPTIMIZER_EVIDENCE_CONTRACT_VERSION = "1.0.0"
-PHASE8B2_SCHEDULE_BINDING_CONTRACT_VERSION = "1.0.0"
+PHASE8B2_SCHEDULE_BINDING_CONTRACT_VERSION = "1.1.0"
 PHASE8B_GRAD_SCALER_INITIAL_SCALE = 16384.0
 
 _HIERARCHY_SCHEDULE = (
@@ -240,6 +240,8 @@ class ResolvedPhase8B2Schedule:
     variant_id: str
     protocol_fingerprint: str
     sample_schedule_fingerprint: str
+    actual_sample_schedule_path: str | None
+    logical_updates: int
     model_initialization_seed: int
     data_order_seed: int
     policy_views: tuple[tuple[str, int], ...]
@@ -275,6 +277,10 @@ class ResolvedPhase8B2Schedule:
         sample_schedule_fingerprint = getattr(
             value, "sample_schedule_fingerprint", None
         )
+        actual_sample_schedule_path = getattr(
+            value, "actual_sample_schedule_path", ""
+        )
+        logical_updates = getattr(value, "logical_updates", None)
         model_initialization_seed = getattr(
             value, "model_initialization_seed", None
         )
@@ -294,6 +300,10 @@ class ResolvedPhase8B2Schedule:
             or not protocol_fingerprint
             or not isinstance(sample_schedule_fingerprint, str)
             or not sample_schedule_fingerprint
+            or not isinstance(actual_sample_schedule_path, str)
+            or isinstance(logical_updates, bool)
+            or not isinstance(logical_updates, int)
+            or logical_updates <= 0
             or isinstance(model_initialization_seed, bool)
             or not isinstance(model_initialization_seed, int)
             or model_initialization_seed < 0
@@ -331,12 +341,39 @@ class ResolvedPhase8B2Schedule:
             raise Phase8BEngineError(
                 "phase8b2.engine.natural_schedule_substitution_forbidden"
             )
+        if actual_sample_schedule_path:
+            try:
+                artifact = json.loads(
+                    Path(actual_sample_schedule_path).read_text(
+                        encoding="utf-8"
+                    )
+                )
+                candidates = [
+                    row
+                    for row in artifact["ssl"]
+                    if row["data_order_seed"] == data_order_seed
+                ]
+            except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+                raise Phase8BEngineError(
+                    "phase8b2.engine.actual_sample_schedule_unreadable"
+                ) from exc
+            if (
+                artifact.get("protocol_fingerprint") != protocol_fingerprint
+                or len(candidates) != 1
+                or candidates[0].get("sample_schedule_fingerprint")
+                != sample_schedule_fingerprint
+                or candidates[0].get("logical_updates") != logical_updates
+            ):
+                raise Phase8BEngineError(
+                    "phase8b2.engine.actual_sample_schedule_binding_mismatch"
+                )
         payload = {
             "contract_version": PHASE8B2_SCHEDULE_BINDING_CONTRACT_VERSION,
             "comparison_mode": comparison_mode,
             "variant_id": variant_id,
             "protocol_fingerprint": protocol_fingerprint,
             "sample_schedule_fingerprint": sample_schedule_fingerprint,
+            "logical_updates": logical_updates,
             "model_initialization_seed": model_initialization_seed,
             "data_order_seed": data_order_seed,
             "policy_views": [
@@ -354,6 +391,10 @@ class ResolvedPhase8B2Schedule:
             variant_id=variant_id,
             protocol_fingerprint=protocol_fingerprint,
             sample_schedule_fingerprint=sample_schedule_fingerprint,
+            actual_sample_schedule_path=(
+                actual_sample_schedule_path or None
+            ),
+            logical_updates=logical_updates,
             model_initialization_seed=model_initialization_seed,
             data_order_seed=data_order_seed,
             policy_views=tuple(zip(names, seeds, strict=True)),
@@ -368,6 +409,8 @@ class ResolvedPhase8B2Schedule:
             "variant_id": self.variant_id,
             "protocol_fingerprint": self.protocol_fingerprint,
             "sample_schedule_fingerprint": self.sample_schedule_fingerprint,
+            "actual_sample_schedule_path": self.actual_sample_schedule_path,
+            "logical_updates": self.logical_updates,
             "model_initialization_seed": self.model_initialization_seed,
             "data_order_seed": self.data_order_seed,
             "policy_views": [
@@ -1249,6 +1292,7 @@ def _stage(
     scaler: torch.amp.GradScaler | None = None,
     collect_gradient_evidence: bool = False,
     comparison: ResolvedPhase8B2Schedule | None = None,
+    maximum_batches: int | None = None,
 ) -> tuple[dict[str, object], dict[str, object] | None]:
     training = optimizer is not None
     if training != (scaler is not None) or stage not in {"train", "validation"}:
@@ -1261,6 +1305,7 @@ def _stage(
     objective_binding_fingerprints: list[str] = []
     plan_fingerprints: list[str] = []
     input_batch_fingerprints: list[str] = []
+    input_sample_identities: list[list[str]] = []
     prediction_fingerprints: list[str] = []
     gradient_fingerprints: list[str] = []
     scheduled_views = (
@@ -1277,12 +1322,29 @@ def _stage(
     scaler_maximum_scale: float | None = None
     scaler_scale_decrease_count = 0
     scaler_scale_non_decrease_count = 0
-    for cpu_batch in loader:
+    encoder_invocations = [0]
+
+    original_encode_prepared = model.encoder._encode_prepared
+
+    def _counted_encode_prepared(*args: object, **kwargs: object) -> object:
+        encoder_invocations[0] += 1
+        return original_encode_prepared(*args, **kwargs)
+
+    setattr(model.encoder, "_encode_prepared", _counted_encode_prepared)
+    for batch_index, cpu_batch in enumerate(loader):
+        if maximum_batches is not None and batch_index >= maximum_batches:
+            break
         accounting.cpu_batch_count += 1
         accounting.sample_count += cpu_batch.sample_count
         accounting.node_count += cpu_batch.node_count
         accounting.edge_count += cpu_batch.edge_count
         input_batch_fingerprints.append(_input_batch_fingerprint(cpu_batch))
+        input_sample_identities.extend(
+            [dataset_id, piece_id]
+            for dataset_id, piece_id in zip(
+                cpu_batch.dataset_ids, cpu_batch.piece_ids, strict=True
+            )
+        )
         if training:
             assert optimizer is not None
             optimizer.zero_grad(set_to_none=True)
@@ -1335,12 +1397,21 @@ def _stage(
                 with torch.autocast(
                     device_type=device.type,
                     enabled=bool(config["device"]["amp"]),
+                    dtype=(
+                        torch.float16
+                        if config["device"].get("amp_dtype", "float16")
+                        == "float16"
+                        else torch.bfloat16
+                    ),
                 ):
                     output = _forward(
                         model, prepared, execution_mode=execution_mode
                     )
             accounting.forward_pass_count += 1
-            accounting.encoder_forward_count += (
+            observed_forwards = encoder_invocations[0] - (
+                accounting.encoder_forward_count
+            )
+            expected_forwards = (
                 comparison.encoder_forwards_per_policy_view
                 if comparison is not None
                 else (
@@ -1350,6 +1421,12 @@ def _stage(
                     else 3
                 )
             )
+            if observed_forwards != expected_forwards:
+                raise Phase8BEngineError(
+                    "phase8b.engine.instrumented_encoder_forward_mismatch:"
+                    f"expected={expected_forwards},observed={observed_forwards}"
+                )
+            accounting.encoder_forward_count += observed_forwards
             accounting.objective_evaluation_count += 1
             prediction_fingerprints.append(
                 _prediction_fingerprint(output)
@@ -1457,6 +1534,7 @@ def _stage(
                 ) from exc
             raise
         del policy_outputs, batch_objective, current_loss
+    setattr(model.encoder, "_encode_prepared", original_encode_prepared)
     aggregate = accumulator.finalize()
     metric: dict[str, object] = {
         "engine_contract_version": PHASE8B_ENGINE_CONTRACT_VERSION,
@@ -1482,6 +1560,7 @@ def _stage(
         ),
         "mask_plan_fingerprints": sorted(plan_fingerprints),
         "input_batch_fingerprints": input_batch_fingerprints,
+        "input_sample_identities": input_sample_identities,
         "prediction_fingerprints": prediction_fingerprints,
         "gradient_fingerprints": gradient_fingerprints,
         "validation_schedule_batch_partition_independent_coordinates": (
@@ -2090,6 +2169,12 @@ def _run_epochs(
     starting_encoder_state_fingerprint = _encoder_state_fingerprint(model)
     completed = start_epoch
     epochs = int(resolved["experiment"]["epochs"])
+    logical_update_budget = (
+        comparison.logical_updates if comparison is not None else None
+    )
+    steps_per_epoch = int(
+        resolved["experiment"].get("optimizer_steps_per_epoch", 0)
+    ) or int(resolved["experiment"]["steps"])
     performance_rows = []
     performance_path = output / "epoch_performance.jsonl"
     if resume_path and performance_path.exists():
@@ -2099,6 +2184,19 @@ def _run_epochs(
             if line and int(json.loads(line)["epoch"]) < start_epoch
         ]
     for epoch in range(start_epoch, epochs):
+        attempted_before_epoch = sum(
+            int(row["train"]["accounting"][
+                "optimizer_step_attempt_count"
+            ])
+            for row in journal
+        )
+        remaining_updates = (
+            None
+            if logical_update_budget is None
+            else logical_update_budget - attempted_before_epoch
+        )
+        if remaining_updates is not None and remaining_updates <= 0:
+            break
         epoch_started = time.perf_counter()
         learning_rate_used = optimizer.param_groups[0]["lr"]
         train, gradient = _stage(
@@ -2117,6 +2215,11 @@ def _run_epochs(
                 resolved["experiment"]["collect_gradient_evidence"]
             ),
             comparison=comparison,
+            maximum_batches=(
+                None
+                if remaining_updates is None
+                else min(steps_per_epoch, remaining_updates)
+            ),
         )
         if train["batch_count"] == 0:
             raise Phase8BEngineError("phase8b.engine.empty_train_epoch")
@@ -2139,7 +2242,13 @@ def _run_epochs(
             (epoch + 1)
             % int(resolved["experiment"]["validation_interval"])
             == 0
-            or epoch + 1 == epochs
+            or (
+                logical_update_budget is not None
+                and attempted_before_epoch
+                + int(train["accounting"]["optimizer_step_attempt_count"])
+                == logical_update_budget
+            )
+            or (logical_update_budget is None and epoch + 1 == epochs)
         ):
             validation, _ = _stage(
                 model,
@@ -2227,6 +2336,48 @@ def _run_epochs(
             for key, value in row["train"]["accounting"].items()
             if key in _Accounting.__dataclass_fields__
         }))
+    observed_identities = [
+        identity
+        for row in journal
+        for identity in row["train"].get("input_sample_identities", [])
+    ]
+    from music_critic.experiments.phase8b2.contracts import (
+        fingerprint as phase8b2_fingerprint,
+    )
+
+    observed_identity_schedule_fingerprint = phase8b2_fingerprint(
+        {
+            "contract_version": "1.1.0",
+            "kind": "raw_ssl_sample_schedule",
+            "identities": observed_identities,
+        }
+    )
+    expected_schedule_fingerprint = (
+        None if comparison is None else comparison.sample_schedule_fingerprint
+    )
+    schedule_verified = (
+        comparison is None
+        or observed_identity_schedule_fingerprint
+        == expected_schedule_fingerprint
+    )
+    complete_budget = (
+        True
+        if logical_update_budget is None
+        else total_accounting.optimizer_step_attempt_count
+        == logical_update_budget
+    )
+    if comparison is not None and complete_budget and not schedule_verified:
+        raise Phase8BEngineError(
+            "phase8b2.engine.actual_sample_schedule_mismatch"
+        )
+    if comparison is not None and complete_budget and (
+        total_accounting.optimizer_step_skipped_count != 0
+        or total_accounting.optimizer_step_applied_count
+        != logical_update_budget
+    ):
+        raise Phase8BEngineError(
+            "phase8b2.engine.scientific_cell_optimizer_step_invalid"
+        )
     report = {
         **_report_common(
             config=resolved,
@@ -2244,6 +2395,8 @@ def _run_epochs(
         "start_epoch": start_epoch,
         "completed_epochs": completed,
         "configured_epochs": epochs,
+        "configured_logical_updates": logical_update_budget,
+        "logical_update_budget_complete": complete_budget,
         "model_state_fingerprints": {
             "start_or_resume": starting_model_state_fingerprint,
             "final": _model_state_fingerprint(model),
@@ -2262,10 +2415,17 @@ def _run_epochs(
         "last_checkpoint": str(output / "last.pt"),
         "metrics": str(output / "metrics.jsonl"),
         "observed_ssl_sample_schedule_fingerprint": (
-            _journal_train_evidence_fingerprint(
+            observed_identity_schedule_fingerprint
+            if comparison is not None
+            else _journal_train_evidence_fingerprint(
                 journal, "input_batch_fingerprints"
             )
         ),
+        "expected_ssl_sample_schedule_fingerprint": (
+            expected_schedule_fingerprint
+        ),
+        "actual_sample_schedule_verified": schedule_verified,
+        "observed_sample_identities": observed_identities,
         "observed_prediction_fingerprint": (
             _journal_train_evidence_fingerprint(
                 journal, "prediction_fingerprints"

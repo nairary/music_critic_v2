@@ -249,6 +249,23 @@ class CategoricalMetricAccumulator:
             "retained_prediction_element_count": 0,
         }
 
+    def sufficient_statistics(self) -> dict[str, Any]:
+        """Return mergeable CPU-only evidence for piece bootstrap."""
+
+        return {
+            "kind": "closed_categorical",
+            "class_labels": list(self.class_labels),
+            "confusion_counts": [list(row) for row in self.confusion],
+            "correct_count": sum(
+                self.confusion[index][index]
+                for index in range(len(self.class_labels))
+            ),
+            "eligible_count": self.row_count,
+            "nll_sum": self.nll_sum.as_float(),
+            "top3_correct_count": self.top3_correct,
+            "retained_cuda_tensor_count": 0,
+        }
+
 
 @dataclass(slots=True)
 class MultilabelMetricAccumulator:
@@ -486,6 +503,36 @@ class MultilabelMetricAccumulator:
             "per_class": per_class,
             "retained_prediction_tensor_count": 0,
             "retained_prediction_element_count": 0,
+        }
+
+    def sufficient_statistics(self) -> dict[str, Any]:
+        """Exclude AP score rows while retaining exact threshold endpoints."""
+
+        return {
+            "kind": "closed_multilabel",
+            "class_labels": list(self.class_labels),
+            "threshold": self.threshold,
+            "tp": list(self.tp),
+            "fp": list(self.fp),
+            "fn": list(self.fn),
+            "tn": list(self.tn),
+            "support": [
+                self.tp[index] + self.fn[index]
+                for index in range(len(self.class_labels))
+            ],
+            "eligible_row_count": self.row_count,
+            "eligible_label_count": self.row_count * len(self.class_labels),
+            "bce_nll_sum": self.bce_sum.as_float(),
+            "exact_match_count": self.exact_match_count,
+            "all_negative_prediction_count": (
+                self.all_negative_prediction_count
+            ),
+            "average_precision_in_piece_bootstrap": False,
+            "average_precision_boundary_reason": (
+                "exact AP bootstrap requires retaining prediction score rows; "
+                "AP remains a descriptive corpus metric"
+            ),
+            "retained_cuda_tensor_count": 0,
         }
 
 

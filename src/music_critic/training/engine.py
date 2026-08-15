@@ -7,6 +7,7 @@ import copy
 from dataclasses import asdict, is_dataclass
 from hashlib import sha256
 import json
+from itertools import islice
 import math
 import os
 from pathlib import Path
@@ -313,6 +314,7 @@ def _validate_config(config: dict[str, Any]) -> None:
             config["data"]["validation_epoch_size"],
             0,
         ),
+        ("validation_seed", config["data"].get("validation_seed", -1), -1),
         ("steps", config["experiment"]["steps"], 1),
         ("epochs", config["experiment"]["epochs"], 1),
         (
@@ -325,6 +327,11 @@ def _validate_config(config: dict[str, Any]) -> None:
             config["experiment"]["validation_interval"],
             1,
         ),
+        (
+            "optimizer_steps_per_epoch",
+            config["experiment"].get("optimizer_steps_per_epoch", 0),
+            0,
+        ),
     )
     for name, value, minimum in integers:
         if (
@@ -335,6 +342,11 @@ def _validate_config(config: dict[str, Any]) -> None:
             raise TrainingContractError(
                 f"training.config.{name}_invalid"
             )
+    if config["device"].get("amp_dtype", "float16") not in {
+        "float16",
+        "bfloat16",
+    }:
+        raise TrainingContractError("training.config.amp_dtype_invalid")
     positive = (
         ("learning_rate", config["optimizer"]["learning_rate"]),
         (
@@ -395,16 +407,33 @@ def _validate_config(config: dict[str, Any]) -> None:
         or isinstance(weight, bool)
         or not isinstance(weight, (int, float))
         or not math.isfinite(weight)
-        or weight <= 0
+        or weight < 0
         for task_id, weight in task_weights.items()
     ):
         raise TrainingContractError(
             "training.config.task_weights_invalid"
         )
+    explicit_requested_tasks = config.get("downstream_task_ids")
+    requested_tasks = explicit_requested_tasks or list(ACTIVE_TASK_IDS)
+    if (
+        not isinstance(requested_tasks, list)
+        or not requested_tasks
+        or len(requested_tasks) != len(set(requested_tasks))
+        or any(task_id not in ACTIVE_TASK_IDS for task_id in requested_tasks)
+    ):
+        raise TrainingContractError(
+            "training.config.downstream_task_ids_invalid"
+        )
+    if explicit_requested_tasks and task_weights and {
+        task_id for task_id, weight in task_weights.items() if weight > 0
+    } != set(requested_tasks):
+        raise TrainingContractError(
+            "training.config.downstream_task_runtime_mismatch"
+        )
     transfer = config.get("transfer")
     if not isinstance(transfer, dict) or transfer.get(
         "contract_version"
-    ) != "1.0.0" or transfer.get("mode") not in {
+    ) != "1.1.0" or transfer.get("mode") not in {
         "supervised_scratch",
         "frozen_probe",
         "full_finetune",
@@ -412,6 +441,24 @@ def _validate_config(config: dict[str, Any]) -> None:
         raise TrainingContractError(
             "training.config.transfer_invalid"
         )
+    comparison_bound = bool(transfer.get("comparison_protocol_fingerprint"))
+    if comparison_bound:
+        schedule_fingerprint = transfer.get("sample_schedule_fingerprint")
+        logical_updates = transfer.get("logical_updates")
+        if (
+            not isinstance(schedule_fingerprint, str)
+            or len(schedule_fingerprint) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in schedule_fingerprint
+            )
+            or isinstance(logical_updates, bool)
+            or not isinstance(logical_updates, int)
+            or logical_updates <= 0
+        ):
+            raise TrainingContractError(
+                "training.config.phase8b2_schedule_binding_invalid"
+            )
     pretrained = transfer["mode"] != "supervised_scratch"
     if pretrained and (
         config["model"]["name"] != "hierarchical"
@@ -479,6 +526,15 @@ def _resolve_device(config: dict[str, Any]) -> torch.device:
     if config["device"].get("amp", False) and device.type != "cuda":
         raise TrainingContractError("training.device.amp_requires_cuda")
     return device
+
+
+def _amp_dtype(config: dict[str, Any]) -> torch.dtype:
+    name = config["device"].get("amp_dtype", "float16")
+    if name == "float16":
+        return torch.float16
+    if name == "bfloat16":
+        return torch.bfloat16
+    raise TrainingContractError("training.config.amp_dtype_invalid")
 
 
 def _set_determinism(seed: int) -> None:
@@ -670,6 +726,7 @@ def _optimize_batch(
     with torch.amp.autocast(
         device_type=device.type,
         enabled=bool(config["device"]["amp"]),
+        dtype=_amp_dtype(config),
     ):
         output = model(
             batch,
@@ -680,6 +737,7 @@ def _optimize_batch(
         harmonic, reconstruction, total = _losses(output, config)
     if total is None:
         return output, None, True
+    scale_before = float(scaler.get_scale())
     scaler.scale(total).backward()
     scaler.unscale_(optimizer)
     clipped_norm = torch.nn.utils.clip_grad_norm_(
@@ -694,8 +752,10 @@ def _optimize_batch(
     )
     scaler.step(optimizer)
     scaler.update()
+    scale_after = float(scaler.get_scale())
+    skipped = scaler.is_enabled() and scale_after < scale_before
     if not collect_gradient_evidence:
-        return output, None, False
+        return output, None, skipped
     return output, {
         "harmonic_loss": _scalar(harmonic),
         "reconstruction_loss": _scalar(reconstruction),
@@ -704,7 +764,10 @@ def _optimize_batch(
         "gradient_coverage": gradient,
         "task_losses": _task_losses(output),
         "availability_counts": _availability_counts(output),
-    }, False
+        "amp_scale_before": scale_before,
+        "amp_scale_after": scale_after,
+        "optimizer_step_applied": not skipped,
+    }, skipped
 
 
 def _validation_epoch(
@@ -733,6 +796,7 @@ def _validation_epoch(
             with torch.amp.autocast(
                 device_type=device.type,
                 enabled=bool(config["device"]["amp"]),
+                dtype=_amp_dtype(config),
             ):
                 output = model(
                     batch,
@@ -805,6 +869,33 @@ def _prepare(
     runtime = build_data_runtime(
         OmegaConf.create(config["data"]), seed=data_seed
     )
+    schedule_path = transfer.get("actual_sample_schedule_path", "")
+    if comparison_bound and schedule_path:
+        try:
+            artifact = json.loads(
+                Path(schedule_path).read_text(encoding="utf-8")
+            )
+            candidates = [
+                row
+                for row in artifact["downstream"]
+                if row["data_order_seed"] == data_seed
+            ]
+        except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+            raise TrainingContractError(
+                "training.phase8b2.actual_sample_schedule_unreadable"
+            ) from exc
+        if (
+            artifact.get("protocol_fingerprint")
+            != transfer["comparison_protocol_fingerprint"]
+            or len(candidates) != 1
+            or candidates[0].get("sample_schedule_fingerprint")
+            != transfer["sample_schedule_fingerprint"]
+            or candidates[0].get("logical_updates")
+            != transfer["logical_updates"]
+        ):
+            raise TrainingContractError(
+                "training.phase8b2.actual_sample_schedule_binding_mismatch"
+            )
     if comparison_bound:
         _set_determinism(int(transfer["downstream_initialization_seed"]))
     model = build_baseline_model(
@@ -1529,8 +1620,31 @@ def _run_epochs(
             output_dir, committed_epochs=start_epoch
         )
     epochs = int(config["experiment"]["epochs"])
+    comparison_bound = bool(
+        config["transfer"]["comparison_protocol_fingerprint"]
+    )
+    logical_update_budget = (
+        int(config["experiment"]["steps"])
+        if comparison_bound
+        else None
+    )
+    steps_per_epoch = int(
+        config["experiment"].get("optimizer_steps_per_epoch", 0)
+    ) or int(config["experiment"]["steps"])
     completed = start_epoch
     for epoch in range(start_epoch, epochs):
+        committed_before_epoch = _committed_metric_envelopes(output_dir)
+        attempted_before_epoch = sum(
+            int(row["row"]["train"]["batch_count"])
+            for row in committed_before_epoch
+        )
+        remaining_updates = (
+            None
+            if logical_update_budget is None
+            else logical_update_budget - attempted_before_epoch
+        )
+        if remaining_updates is not None and remaining_updates <= 0:
+            break
         learning_rate_used = optimizer.param_groups[0]["lr"]
         model.train()
         train_accumulator = EpochMetricAccumulator(
@@ -1542,7 +1656,13 @@ def _run_epochs(
         )
         downstream_batch_identities: list[list[list[str]]] = []
         train_started_at = time.perf_counter()
-        for cpu_batch in runtime.train_loader(epoch):
+        epoch_batches = runtime.train_loader(epoch)
+        if remaining_updates is not None:
+            epoch_batches = islice(
+                epoch_batches,
+                min(steps_per_epoch, remaining_updates),
+            )
+        for cpu_batch in epoch_batches:
             downstream_batch_identities.append(
                 [
                     [dataset_id, piece_id]
@@ -1579,6 +1699,12 @@ def _run_epochs(
         train_wall_seconds = time.perf_counter() - train_started_at
         if train_metric["batch_count"] == 0:
             raise TrainingContractError("training.epoch.empty")
+        if config["transfer"]["comparison_protocol_fingerprint"] and int(
+            train_metric["skipped_batch_count"]
+        ):
+            raise TrainingContractError(
+                "training.phase8b2.scientific_cell_optimizer_step_invalid"
+            )
         if scheduler is not None:
             scheduler.step()
         next_learning_rate = optimizer.param_groups[0]["lr"]
@@ -1588,7 +1714,12 @@ def _run_epochs(
             (epoch + 1)
             % int(config["experiment"]["validation_interval"])
             == 0
-            or epoch + 1 == epochs
+            or (
+                logical_update_budget is not None
+                and attempted_before_epoch + int(train_metric["batch_count"])
+                == logical_update_budget
+            )
+            or (logical_update_budget is None and epoch + 1 == epochs)
         ):
             validation_started_at = time.perf_counter()
             validation = _validation_epoch(
@@ -1612,10 +1743,15 @@ def _run_epochs(
             "validation": validation,
         }
         if config["transfer"]["comparison_protocol_fingerprint"]:
+            row["phase8b2_downstream_sample_identities"] = [
+                identity
+                for batch_identities in downstream_batch_identities
+                for identity in batch_identities
+            ]
             row["phase8b2_downstream_schedule_fingerprint"] = (
                 _json_fingerprint(
                     {
-                        "contract_version": "1.0.0",
+                        "contract_version": "1.1.0",
                         "epoch": epoch,
                         "batch_identities": downstream_batch_identities,
                     }
@@ -1712,6 +1848,52 @@ def _run_epochs(
         .splitlines()
         if line
     ]
+    observed_downstream_identities = [
+        identity
+        for row in committed_rows
+        for identity in row.get(
+            "phase8b2_downstream_sample_identities", []
+        )
+    ]
+    from music_critic.experiments.phase8b2.contracts import (
+        fingerprint as phase8b2_fingerprint,
+    )
+
+    observed_schedule_fingerprint = phase8b2_fingerprint(
+        {
+            "contract_version": "1.1.0",
+            "kind": "raw_downstream_sample_schedule",
+            "identities": observed_downstream_identities,
+        }
+    )
+    expected_schedule_fingerprint = config["transfer"].get(
+        "sample_schedule_fingerprint"
+    ) or None
+    attempted_updates = sum(
+        int(row["train"]["batch_count"]) for row in committed_rows
+    )
+    skipped_updates = sum(
+        int(row["train"]["skipped_batch_count"])
+        for row in committed_rows
+    )
+    applied_updates = attempted_updates - skipped_updates
+    budget_complete = (
+        True
+        if logical_update_budget is None
+        else attempted_updates == logical_update_budget
+    )
+    schedule_verified = (
+        not config["transfer"]["comparison_protocol_fingerprint"]
+        or observed_schedule_fingerprint == expected_schedule_fingerprint
+    )
+    if (
+        config["transfer"]["comparison_protocol_fingerprint"]
+        and budget_complete
+        and not schedule_verified
+    ):
+        raise TrainingContractError(
+            "training.phase8b2.actual_sample_schedule_mismatch"
+        )
     report = {
         "evidence_kind": "bounded_supervised_training_plumbing",
         "resume_boundary": "epoch_only",
@@ -1719,6 +1901,11 @@ def _run_epochs(
         "start_epoch": start_epoch,
         "completed_epochs": completed,
         "configured_epochs": epochs,
+        "configured_logical_updates": logical_update_budget,
+        "logical_update_budget_complete": budget_complete,
+        "optimizer_step_attempt_count": attempted_updates,
+        "optimizer_step_applied_count": applied_updates,
+        "optimizer_step_skipped_count": skipped_updates,
         "best_validation_loss": best,
         "metrics": str(output_dir / "metrics.jsonl"),
         "epoch_performance": str(
@@ -1738,15 +1925,15 @@ def _run_epochs(
         "objective": config["objective"],
         "phase8b2_transfer": config["phase8b2_transfer_runtime"],
         "observed_downstream_schedule_fingerprint": (
-            _json_fingerprint(
-                [
-                    row["phase8b2_downstream_schedule_fingerprint"]
-                    for row in committed_rows
-                ]
-            )
+            observed_schedule_fingerprint
             if config["transfer"]["comparison_protocol_fingerprint"]
             else None
         ),
+        "expected_downstream_schedule_fingerprint": (
+            expected_schedule_fingerprint
+        ),
+        "actual_sample_schedule_verified": schedule_verified,
+        "observed_sample_identities": observed_downstream_identities,
         "frozen_encoder_final": (
             verify_frozen_encoder(
                 model, config["phase8b2_transfer_runtime"]

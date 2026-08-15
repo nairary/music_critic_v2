@@ -261,7 +261,7 @@ def ssl_checkpoint_metadata(
         comparison = phase8b_runtime["phase8b2_schedule"]
         if comparison is not None and (
             not isinstance(comparison, dict)
-            or comparison.get("contract_version") != "1.0.0"
+            or comparison.get("contract_version") != "1.1.0"
             or comparison.get("comparison_mode")
             not in {"natural_schedule", "encoder_forward_matched"}
             or not isinstance(comparison.get("fingerprint"), str)

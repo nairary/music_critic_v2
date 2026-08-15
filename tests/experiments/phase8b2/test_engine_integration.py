@@ -14,8 +14,11 @@ from music_critic.experiments.phase8b2.accounting import (
 from music_critic.experiments.phase8b2.runner import (
     build_experiment_plan,
     official_downstream_overrides,
+    official_evaluation_overrides,
     official_ssl_cell_overrides,
 )
+from music_critic.evaluation.config import register_evaluation_configs
+from music_critic.evaluation.engine import _plain_config as evaluation_plain_config
 from music_critic.experiments.phase8b2.artifacts import file_sha256
 from music_critic.models import (
     HierarchicalBaselineConfig,
@@ -34,6 +37,7 @@ from music_critic.training.config import register_training_configs
 from music_critic.training.config import DataConfig
 from music_critic.training.data import build_data_runtime
 from music_critic.training.engine import run_training
+from music_critic.training.engine import _plain_config as training_plain_config
 
 
 def _config(plan: dict[str, object], cell: dict[str, object], output: Path):
@@ -45,6 +49,96 @@ def _config(plan: dict[str, object], cell: dict[str, object], output: Path):
                 plan, cell["cell_id"], str(output)
             ),
         )
+
+
+def test_non_default_protocol_fields_reach_all_resolved_runtimes(
+    tmp_path: Path,
+) -> None:
+    requested = Phase8B2Config()
+    requested.data.mixture_weights = {
+        "hooktheory": 30.0,
+        "pop909_cl": 1.0,
+    }
+    requested.data.workers = 2
+    requested.model.residual = False
+    requested.scheduler.name = "cosine"
+    requested.scheduler.minimum_learning_rate = 0.001
+    requested.device.amp_dtype = "bfloat16"
+    requested.downstream_task_ids = [
+        "theory.local_key.tonic_pc",
+        "pop909_cl.chord.root",
+    ]
+    plan = build_experiment_plan(requested)
+    protocol = plan["protocol"]
+
+    ssl_cell = plan["ssl_cells"][0]
+    ssl_config = _config(plan, ssl_cell, tmp_path / "ssl")
+    resolved_ssl = _plain_config(ssl_config)
+    assert resolved_ssl["data"]["mixture_weights"] == {
+        "hooktheory": 30.0,
+        "pop909_cl": 1.0,
+    }
+    assert resolved_ssl["data"]["workers"] == 2
+    assert resolved_ssl["model"]["residual"] is False
+    assert resolved_ssl["scheduler"] == {
+        "name": "cosine",
+        "minimum_learning_rate": 0.001,
+    }
+    assert resolved_ssl["device"]["amp_dtype"] == "bfloat16"
+
+    downstream_cell = next(
+        row
+        for row in plan["downstream_cells"]
+        if row["transfer_mode"] == "supervised_scratch"
+    )
+    register_training_configs()
+    with initialize(version_base="1.3", config_path=None):
+        downstream_config = compose(
+            config_name="training",
+            overrides=official_downstream_overrides(
+                plan,
+                downstream_cell["cell_id"],
+                str(tmp_path / "downstream"),
+            ),
+        )
+    resolved_downstream = training_plain_config(downstream_config)
+    assert resolved_downstream["data"]["workers"] == 2
+    assert resolved_downstream["model"]["residual"] is False
+    assert resolved_downstream["scheduler"]["minimum_learning_rate"] == 0.001
+    assert resolved_downstream["device"]["amp_dtype"] == "bfloat16"
+    assert resolved_downstream["downstream_task_ids"] == [
+        "pop909_cl.chord.root",
+        "theory.local_key.tonic_pc",
+    ]
+
+    evaluation_cell = next(
+        row
+        for row in plan["evaluation_cells"]
+        if row["downstream_cell_id"] == downstream_cell["cell_id"]
+    )
+    register_evaluation_configs()
+    with initialize(version_base="1.3", config_path=None):
+        evaluation_config = compose(
+            config_name="evaluation",
+            overrides=official_evaluation_overrides(
+                plan,
+                checkpoint=str(tmp_path / "candidate.pt"),
+                output_directory=str(tmp_path / "evaluation"),
+                cell_id=evaluation_cell["cell_id"],
+            ),
+        )
+    resolved_evaluation = evaluation_plain_config(evaluation_config)
+    assert resolved_evaluation["seed"] == evaluation_cell["evaluation_seed"]
+    assert resolved_evaluation["data"]["workers"] == 2
+    assert resolved_evaluation["data"]["max_evaluation_samples"] == 0
+    assert resolved_evaluation["data"]["validation_seed"] == 20260815
+    assert resolved_evaluation["device"]["amp_dtype"] == "bfloat16"
+    assert resolved_evaluation["downstream_task_ids"] == [
+        "pop909_cl.chord.root",
+        "theory.local_key.tonic_pc",
+    ]
+    assert protocol["data"]["actual_train_size"] > 0
+    assert protocol["data"]["actual_validation_size"] > 0
 
 
 def _assert_tree_equal(left: object, right: object) -> None:
@@ -73,7 +167,6 @@ def test_official_engine_uses_paired_encoder_initialization(
         row
         for row in plan["ssl_cells"]
         if row["seed"] == 17
-        and row["variant_id"] in {"phase7a_control", "multilevel_equal"}
     ]
     fingerprints = []
     sample_schedules = []
@@ -98,10 +191,10 @@ def test_official_engine_uses_paired_encoder_initialization(
         validation_memberships.append(
             runtime.validation_membership.membership_fingerprint
         )
-    assert len(fingerprints) == 2
-    assert fingerprints[0] == fingerprints[1]
-    assert sample_schedules[0] == sample_schedules[1]
-    assert validation_memberships[0] == validation_memberships[1]
+    assert len(fingerprints) == 4
+    assert len(set(fingerprints)) == 1
+    assert len(set(sample_schedules)) == 1
+    assert len(set(validation_memberships)) == 1
 
 
 @pytest.mark.parametrize(

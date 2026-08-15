@@ -544,11 +544,14 @@ The model and training phases remain pending.
 
 ## Phase 8B — multi-level objectives and comparison
 
-- Status: Phase 8B.1 is merged through PR #18. Phase 8B.2A comparison,
-  transfer, selection, test-lock, statistics, artifact, and bounded CPU
-  mechanics are implemented on `phase/8b2a-scientific-comparison-protocol`;
-  production/PDMX effectiveness evidence and optional current-head CUDA
-  confirmation remain pending. Before the
+- Status: Phase 8B.1 is merged through PR #18. Commit `7365286` added Phase
+  8B.2A control-plane primitives; the current remediation completes the
+  executable official-engine DAG, actual-schedule/data attestation,
+  fixed-validation evaluation, sufficient-statistics aggregation, paired-seed
+  configuration selection, resumable cell manifests, and real bounded CLI
+  acceptance on `phase/8b2a-scientific-comparison-protocol`. Production/PDMX
+  effectiveness evidence and optional current-head CUDA confirmation remain
+  pending. Before the
   original integration remediation, the Hydra
   group/builder/bounded runner existed but `ssl.run`/`ssl.engine` still used
   the old model and Phase 7A forward unconditionally.
@@ -566,12 +569,13 @@ The model and training phases remain pending.
   applied once; plus FP32-safe new latent heads, honest applied/skipped step
   accounting, active/inactive parameter-update evidence, and an independent
   archived RTX FP32/AMP runner.
-- Phase 8B.2A outputs: `Phase8B2ComparisonProtocol@1.0.0`, distinct natural
-  and encoder-forward-matched analyses, paired initialization/data schedules,
-  official frozen/full/scratch transfer, candidate-first validation metrics,
-  mean-dataset-rank selection, single-use test lock, deterministic paired
-  piece bootstrap, bounded encoder diagnostics, immutable artifacts,
-  aggregation validation, Hydra plans/presets, and official engine adapters.
+- Phase 8B.2A outputs: `Phase8B2ComparisonProtocol@1.1.0`, distinct natural
+  and encoder-forward-matched analyses, actual target-free paired schedules,
+  metadata-derived data identities, exact step/forward instrumentation,
+  official frozen/full/scratch transfer, fixed candidate-first validation,
+  sufficient-statistics piece bootstrap, paired-seed configuration selection,
+  multi-checkpoint single-use test lock, resumable cell DAG, immutable complete
+  artifacts, executable Hydra actions/presets, and optional CUDA/AMP evidence.
 - Phase 8B.2 future output: execute the locked protocol at appropriate scale,
   including the Phase 10 PDMX rerun, before any effectiveness or curriculum
   conclusion.
@@ -592,7 +596,11 @@ The model and training phases remain pending.
   quality-score interpretation. Bounded variants with different scheduled
   forward counts are not described as compute matched or as effectiveness
   evidence.
-- Phase 8B.2A acceptance: bounded CPU covers two paired seeds, scratch,
+- Phase 8B.2A acceptance: the public bounded CPU CLI covers two paired seeds,
+  8 SSL cells, 8 encoder exports, 18 downstream cells, 18 validation cells,
+  actual schedule parity, interrupted/resumed execution, deterministic launch
+  permutation, real checkpoint-to-evaluation verification and aggregation,
+  stale/incomplete rejection, scratch,
   Phase 7A, Phase 8A mask-only, a single-level objective, equal-weight,
   frozen/full transfer contracts, exact compute accounting, launch-order
   invariance, resume binding, leakage mutation evidence, validation-only

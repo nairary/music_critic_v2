@@ -26,11 +26,13 @@ from music_critic.experiments.phase8b2.contracts import (
 
 REQUIRED_ARTIFACTS = (
     "comparison_protocol.json",
+    "actual_sample_schedule.json",
     "run_manifest.json",
     "ssl_training_metrics.jsonl",
     "ssl_checkpoint_evidence.json",
     "transfer_evidence.json",
     "downstream_metrics.json",
+    "piece_statistics.json",
     "validation_selection.json",
     "statistical_summary.json",
     "compute_accounting.json",
@@ -201,6 +203,7 @@ def write_complete_artifact_bundle(
     cells: Iterable[Mapping[str, object]],
     json_artifacts: Mapping[str, object],
     ssl_metric_rows: Iterable[object],
+    allow_dirty_repository: bool = False,
 ) -> dict[str, object]:
     """Create a complete immutable comparison bundle and final manifest."""
 
@@ -223,7 +226,10 @@ def write_complete_artifact_bundle(
             "phase8b2.artifact.complete_payload_invalid:"
             f"missing={missing},unexpected={unexpected}"
         )
-    if repository.get("dirty") is not False or not repository.get("git_sha"):
+    if (
+        (repository.get("dirty") is not False and not allow_dirty_repository)
+        or not repository.get("git_sha")
+    ):
         raise Phase8B2ContractError(
             "phase8b2.artifact.clean_git_identity_required"
         )

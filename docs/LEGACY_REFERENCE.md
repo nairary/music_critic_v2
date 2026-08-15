@@ -335,6 +335,11 @@ No legacy repository file was inspected for Phase 8B.2A. No legacy trainer,
 evaluation path, checkpoint, data schedule, statistical routine, test access,
 or transfer logic was reused or adapted.
 
+The end-to-end runner remediation also inspected and adapted no legacy file.
+Subprocess DAG orchestration, metadata attestation, actual-schedule checking,
+step-budget execution, fixed validation, per-piece sufficient statistics, and
+paired-seed configuration selection are current V2 implementations.
+
 The comparison protocol composes only current V2 Phase 8B.1 SSL, Phase 6C
 supervised training, Phase 6D candidate-first evaluation, and the accepted V2
 encoder export. Natural/matched analyses, named paired seed domains,
