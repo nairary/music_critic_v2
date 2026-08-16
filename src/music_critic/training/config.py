@@ -204,6 +204,16 @@ def register_training_configs() -> None:
     )
     store.store(
         group="data",
+        name="dilemmadata",
+        node=_data(
+            "dilemmadata",
+            index_paths=["data/cache/dilemmadata.index.json"],
+            cache_roots=["data/cache/dilemmadata"],
+            weights={"dilemmadata": 1.0},
+        ),
+    )
+    store.store(
+        group="data",
         name="mixed",
         node=_data(
             "mixed",

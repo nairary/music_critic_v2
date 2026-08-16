@@ -11,7 +11,7 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import tempfile
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from music_critic.data import (
     SCHEMA_VERSION,
@@ -35,9 +35,13 @@ from music_critic.tasks.encoding import (
     target_encoding_contract_fingerprint,
 )
 
+if TYPE_CHECKING:
+    from music_critic.adapters import DilemmadataCorpusIdentity
+
 
 MULTISOURCE_CORPUS_INDEX_VERSION = "1.0.0"
 MULTISOURCE_CACHE_VERSION = "1.0.0"
+CORPUS_CACHE_INPUT_IDENTITY_VERSION = "1.0.0"
 HOOKTHEORY_CORPUS_ADAPTER_VERSION = "2B.1"
 
 
@@ -409,6 +413,7 @@ class CanonicalCorpusInput:
     source_relative_path: str
     source_sha256: str
     suggested_split: str | None = None
+    cache_input_sha256: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.piece, CanonicalPiece):
@@ -430,6 +435,13 @@ class CanonicalCorpusInput:
                 "corpus_build.input_invalid",
                 "source_sha256 must be lowercase SHA-256",
             )
+        if self.cache_input_sha256 is not None and not _is_sha256(
+            self.cache_input_sha256
+        ):
+            raise CorpusContractError(
+                "corpus_build.input_invalid",
+                "cache_input_sha256 must be null or lowercase SHA-256",
+            )
         if self.suggested_split is not None and (
             not isinstance(self.suggested_split, str) or not self.suggested_split
         ):
@@ -446,6 +458,7 @@ def corpus_cache_key(
     adapter_name: str,
     adapter_version: str,
     adapter_config_fingerprint: str,
+    cache_input_sha256: str | None = None,
 ) -> str:
     if not all(
         isinstance(value, str) and value
@@ -463,19 +476,27 @@ def corpus_cache_key(
             "cache-key source/config fingerprints must be non-empty lowercase "
             "SHA-256",
         )
-    return _fingerprint(
-        {
-            "cache_version": MULTISOURCE_CACHE_VERSION,
-            "source_identity": source_identity,
-            "source_sha256": source_sha256,
-            "adapter_name": adapter_name,
-            "adapter_version": adapter_version,
-            "adapter_config_fingerprint": adapter_config_fingerprint,
-            "canonical_schema_version": SCHEMA_VERSION,
-            "target_ontology_version": TARGET_ONTOLOGY_VERSION,
-            "target_ontology_fingerprint": ontology_contract_fingerprint(),
-        }
-    )
+    core = {
+        "cache_version": MULTISOURCE_CACHE_VERSION,
+        "source_identity": source_identity,
+        "source_sha256": source_sha256,
+        "adapter_name": adapter_name,
+        "adapter_version": adapter_version,
+        "adapter_config_fingerprint": adapter_config_fingerprint,
+        "canonical_schema_version": SCHEMA_VERSION,
+        "target_ontology_version": TARGET_ONTOLOGY_VERSION,
+        "target_ontology_fingerprint": ontology_contract_fingerprint(),
+    }
+    if cache_input_sha256 is not None:
+        if not _is_sha256(cache_input_sha256):
+            raise CorpusContractError(
+                "corpus_cache.key_invalid",
+                "cache-input fingerprint must be lowercase SHA-256",
+            )
+        core["source_sha256"] = cache_input_sha256
+        core["cache_input_identity_version"] = CORPUS_CACHE_INPUT_IDENTITY_VERSION
+        core["cache_input_identity_kind"] = "target_independent_raw_projection"
+    return _fingerprint(core)
 
 
 def _safe_cache_path(config: CorpusCacheConfig, relative_path: str) -> Path:
@@ -623,6 +644,7 @@ def cache_canonical_corpus(
             adapter_name=adapter_name,
             adapter_version=adapter_version,
             adapter_config_fingerprint=adapter_config_fingerprint,
+            cache_input_sha256=item.cache_input_sha256,
         )
         relative, canonical_sha, cache_hit = _write_piece(
             cache_config, cache_key=cache_key, piece=piece
@@ -1046,7 +1068,99 @@ def build_pop909_cl_corpus_cache(
     )
 
 
+def build_dilemmadata_corpus_cache(
+    root: str | os.PathLike[str],
+    *,
+    cache_config: CorpusCacheConfig,
+    limit: int | None = None,
+    identity: DilemmadataCorpusIdentity | None = None,
+) -> tuple[CorpusIndex, CorpusBuildReport]:
+    """Verify Dilemmadata identity and build its target-independent raw cache."""
+
+    from music_critic.adapters import (
+        DILEMMADATA_ADAPTER_VERSION,
+        DILEMMADATA_DATASET_NAME,
+        DILEMMADATA_RAW_PROJECTION_VERSION,
+        DILEMMADATA_RELEASE_COMMIT,
+        DilemmadataAccepted,
+        DilemmadataAdapterConfig,
+        DilemmadataQuarantine,
+        convert_dilemmadata_record,
+        discover_dilemmadata_corpus,
+    )
+
+    _validate_builder_limit(limit)
+    discovery = (
+        discover_dilemmadata_corpus(root)
+        if identity is None
+        else discover_dilemmadata_corpus(root, identity=identity)
+    )
+    config = DilemmadataAdapterConfig()
+    records = discovery.records if limit is None else discovery.records[:limit]
+    quarantined: list[CorpusQuarantineRecord] = []
+
+    def inputs() -> Iterable[CanonicalCorpusInput]:
+        for record in records:
+            result = convert_dilemmadata_record(record, config=config)
+            if isinstance(result, DilemmadataQuarantine):
+                quarantined.append(
+                    CorpusQuarantineRecord(
+                        dataset_id=record.dataset_name,
+                        source_identity=record.record_id,
+                        source_relative_path=record.relative_path,
+                        category=result.categories[0],
+                        message=(
+                            "; ".join(result.messages)
+                            if result.messages
+                            else ", ".join(result.categories)
+                        ),
+                    )
+                )
+                continue
+            if not isinstance(result, DilemmadataAccepted):
+                raise CorpusContractError(
+                    "dilemmadata.outcome_invalid",
+                    "adapter returned an unsupported outcome",
+                    dataset_id=record.dataset_name,
+                    piece_id=record.piece_id,
+                )
+            yield CanonicalCorpusInput(
+                piece=result.piece,
+                lineage_group_id=record.lineage_group_id,
+                source_identity=record.record_id,
+                source_relative_path=record.relative_path,
+                source_sha256=result.record.physical_source_sha256,
+                suggested_split=record.suggested_split,
+                cache_input_sha256=record.raw_projection_sha256,
+            )
+
+    return cache_canonical_corpus(
+        inputs(),
+        cache_config=cache_config,
+        dataset_id=DILEMMADATA_DATASET_NAME,
+        adapter_name="dilemmadata",
+        adapter_version=DILEMMADATA_ADAPTER_VERSION,
+        adapter_config={
+            **asdict(config),
+            "raw_projection_version": DILEMMADATA_RAW_PROJECTION_VERSION,
+            "cache_input_identity_version": CORPUS_CACHE_INPUT_IDENTITY_VERSION,
+        },
+        source_identity=(
+            f"dilemmadata:{discovery.release_version}:"
+            f"{DILEMMADATA_RELEASE_COMMIT}"
+        ),
+        source_fingerprint=discovery.content_fingerprint,
+        creation_policy=(
+            "offline_full_corpus"
+            if limit is None
+            else f"offline_bounded_limit:{limit}"
+        ),
+        quarantine=quarantined,
+    )
+
+
 __all__ = [
+    "CORPUS_CACHE_INPUT_IDENTITY_VERSION",
     "MULTISOURCE_CACHE_VERSION",
     "MULTISOURCE_CORPUS_INDEX_VERSION",
     "CanonicalCorpusInput",
@@ -1058,6 +1172,7 @@ __all__ = [
     "CorpusQuarantineRecord",
     "IndexedCorpusRecord",
     "build_hooktheory_corpus_cache",
+    "build_dilemmadata_corpus_cache",
     "build_pop909_cl_corpus_cache",
     "cache_canonical_corpus",
     "corpus_cache_key",

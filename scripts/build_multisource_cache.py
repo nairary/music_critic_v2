@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Explicit offline HookTheory/POP909-CL canonical cache builder."""
+"""Explicit offline multi-source canonical cache builder."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from pathlib import Path
 
 from music_critic.tasks import (
     CorpusCacheConfig,
+    build_dilemmadata_corpus_cache,
     build_hooktheory_corpus_cache,
     build_pop909_cl_corpus_cache,
     dump_corpus_index,
@@ -39,6 +40,8 @@ def _parser() -> argparse.ArgumentParser:
     hook.add_argument("--dataset-id", default="hooktheory")
     pop = subparsers.add_parser("pop909_cl")
     pop.add_argument("--corpus-root", type=Path, required=True)
+    dilemma = subparsers.add_parser("dilemmadata")
+    dilemma.add_argument("--corpus-root", type=Path, required=True)
     return parser
 
 
@@ -56,11 +59,17 @@ def main() -> int:
             structure_root=args.structure_root,
             limit=args.limit,
         )
-    else:
+    elif args.dataset == "pop909_cl":
         index, report = build_pop909_cl_corpus_cache(
             args.corpus_root,
             cache_config=cache,
             include_targets=not args.raw_only,
+            limit=args.limit,
+        )
+    else:
+        index, report = build_dilemmadata_corpus_cache(
+            args.corpus_root,
+            cache_config=cache,
             limit=args.limit,
         )
     dump_corpus_index(index, args.index_output)

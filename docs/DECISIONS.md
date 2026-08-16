@@ -2761,3 +2761,41 @@ This log is append-only.
   Theory heads and training remain a later separately authorized increment.
   The Phase 9A corpus scan has zero structural record quarantines but retains
   five split conflicts as explicit production blockers.
+
+## 2026-08-16 — ADR-074: Phase 9B.1 binds Dilemmadata cache identity to the raw projection
+
+- Status: Accepted for the Phase 9B.1 production raw adapter and SSL-ready
+  corpus path only.
+- Context: A Dilemmadata primary TSV physically co-locates score-derived raw
+  observations and theory annotations. Binding canonical provenance or cache
+  keys to the complete file SHA-256 would make deletion, replacement, or
+  reordering of theory columns change raw artifacts even though conversion is
+  forbidden to read those columns. Conversely, the Phase 9A narrow
+  onset/duration/pitch multiset intentionally omits tie, meter, spelling, and
+  source voice and is insufficient as a full adapter-input identity.
+- Decision: Retain full-file SHA-256 only as external physical inventory/index
+  evidence. Define `DilemmadataRawProjection@1.0.0` over every normalized raw
+  field used by conversion and use it through
+  `CorpusCacheInputIdentity@1.0.0` for Dilemmadata cache keys. Preserve the
+  existing generic cache/index versions and legacy HookTheory/POP909-CL key
+  semantics when the optional projection identity is absent.
+- Decision: Convert every accepted record to one source-neutral pitched track
+  with empty targets/annotations. Merge ties only across one exact contiguous
+  same-pitch/source-voice predecessor; retain source-zero duration as grace;
+  derive meter, pickups, incomplete bars, and beats on exact rational measure
+  evidence; quarantine contradictions. Insert the existing default tempo and
+  schema-required `is_percussion=false` only with explicit provenance and a
+  non-claim quality warning. Key-signature mode remains unknown.
+- Decision: Preserve separate record, physical, raw-projection, narrow
+  grouping, source/lineage, canonical, graph, and model-input identities. Final
+  splits use transitive closure over narrow grouping, identical AN score bytes,
+  and explicit overlap links; release split hints are diagnostic only.
+- Decision: The production gate streams all 1,633 pinned records, emits exactly
+  one accepted/quarantined outcome per record, validates cache rebuild and
+  group-safe split evidence, and routes exactly two real AN plus two real DLC
+  singleton components through one existing official Phase 8B optimizer step.
+- Consequences: Theory-column mutation cannot change raw canonical, graph,
+  model input, or cache artifact identity, while raw-field mutation must change
+  evidence or quarantine. Phase 9B.2 theory sidecars/alignment, target
+  encodings, theory heads/losses, supervised evaluation, PDMX/Phase 10, and
+  effectiveness claims are not implemented or authorized by this decision.
