@@ -19,6 +19,14 @@ from typing import Any, Iterable
 import torch
 from omegaconf import OmegaConf
 
+from music_critic.cuda_memory import (
+    CudaMemoryStatisticsLifecycleEvidence,
+    initialize_cuda_memory_statistics,
+)
+from music_critic.device import (
+    CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION,
+    resolve_cuda_device_index,
+)
 from music_critic.ssl.checkpoint import (
     SSL_METRIC_ROW_VERSION,
     SSLResumeState,
@@ -73,13 +81,15 @@ from music_critic.ssl.multilevel_checkpoint import (
 from music_critic.ssl.phase8b_acceptance import (
     phase8b_cross_policy_manual_oracle,
 )
+from music_critic.ssl.transfer import export_pretrained_encoder_state
 
 
-PHASE8B_ENGINE_CONTRACT_VERSION = "1.2.0"
+PHASE8B_ENGINE_CONTRACT_VERSION = "1.2.2"
 PHASE8B_MASKING_CONFIG_CONTRACT_VERSION = "1.1.0"
 PHASE8B_RUN_MANIFEST_VERSION = "1.2.0"
-PHASE8B_TRAINING_REPORT_VERSION = "1.2.0"
+PHASE8B_TRAINING_REPORT_VERSION = "1.2.2"
 PHASE8B_OPTIMIZER_EVIDENCE_CONTRACT_VERSION = "1.0.0"
+PHASE8B2_SCHEDULE_BINDING_CONTRACT_VERSION = "1.1.0"
 PHASE8B_GRAD_SCALER_INITIAL_SCALE = 16384.0
 
 _HIERARCHY_SCHEDULE = (
@@ -96,6 +106,27 @@ _EXPECTED_POLICIES = {
     "bar_only": (CONTIGUOUS_BAR_PITCH_SPAN,),
     "track_only": (TRACK_BAR_PITCH_SPAN,),
     "multilevel_equal_weight": _HIERARCHY_SCHEDULE,
+}
+_PHASE8B2_VARIANT_BINDINGS = {
+    "phase7a_control": ("phase7a_control", "phase7a_control"),
+    "phase8a_mask_only": ("phase7a_control", "phase8a_mask_only"),
+    "onset_latent": ("onset_only", "onset_only"),
+    "beat_latent": ("beat_only", "beat_only"),
+    "hierarchy_bar_latent": ("bar_only", "bar_only"),
+    "track_latent": ("track_only", "track_only"),
+    "multilevel_equal": (
+        "multilevel_equal_weight",
+        "multilevel_equal_weight",
+    ),
+}
+_ENCODER_FORWARDS_PER_POLICY_VIEW = {
+    "phase7a_control": 2,
+    "phase8a_mask_only": 2,
+    "onset_latent": 3,
+    "beat_latent": 3,
+    "hierarchy_bar_latent": 3,
+    "track_latent": 3,
+    "multilevel_equal": 3,
 }
 
 
@@ -208,6 +239,204 @@ class ResolvedPhase8BMaskingConfig:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class ResolvedPhase8B2Schedule:
+    """Comparison-owned repeated views without changing Phase 8B.1 policy."""
+
+    contract_version: str
+    comparison_mode: str
+    variant_id: str
+    protocol_fingerprint: str
+    sample_schedule_fingerprint: str
+    actual_sample_schedule_path: str | None
+    logical_updates: int
+    model_initialization_seed: int
+    data_order_seed: int
+    policy_views: tuple[tuple[str, int], ...]
+    encoder_forwards_per_policy_view: int
+    fingerprint: str
+
+    @classmethod
+    def from_config(
+        cls,
+        value: object,
+        *,
+        masking: ResolvedPhase8BMaskingConfig,
+        objective_mode: str | None = None,
+    ) -> ResolvedPhase8B2Schedule | None:
+        if value is None:
+            return None
+        if getattr(value, "contract_version", None) != (
+            PHASE8B2_SCHEDULE_BINDING_CONTRACT_VERSION
+        ):
+            raise Phase8BEngineError(
+                "phase8b2.engine.schedule_version_incompatible"
+            )
+        comparison_mode = getattr(value, "comparison_mode", None)
+        if comparison_mode not in {
+            "natural_schedule",
+            "encoder_forward_matched",
+        }:
+            raise Phase8BEngineError(
+                "phase8b2.engine.comparison_mode_invalid"
+            )
+        variant_id = getattr(value, "variant_id", None)
+        protocol_fingerprint = getattr(value, "protocol_fingerprint", None)
+        sample_schedule_fingerprint = getattr(
+            value, "sample_schedule_fingerprint", None
+        )
+        actual_sample_schedule_path = getattr(
+            value, "actual_sample_schedule_path", ""
+        )
+        logical_updates = getattr(value, "logical_updates", None)
+        model_initialization_seed = getattr(
+            value, "model_initialization_seed", None
+        )
+        data_order_seed = getattr(value, "data_order_seed", None)
+        names = getattr(value, "policy_view_names", None)
+        seeds = getattr(value, "policy_view_seeds", None)
+        try:
+            names = list(names) if names is not None else None
+            seeds = list(seeds) if seeds is not None else None
+        except TypeError:
+            names = None
+            seeds = None
+        if (
+            not isinstance(variant_id, str)
+            or not variant_id
+            or not isinstance(protocol_fingerprint, str)
+            or not protocol_fingerprint
+            or not isinstance(sample_schedule_fingerprint, str)
+            or not sample_schedule_fingerprint
+            or not isinstance(actual_sample_schedule_path, str)
+            or isinstance(logical_updates, bool)
+            or not isinstance(logical_updates, int)
+            or logical_updates <= 0
+            or isinstance(model_initialization_seed, bool)
+            or not isinstance(model_initialization_seed, int)
+            or model_initialization_seed < 0
+            or isinstance(data_order_seed, bool)
+            or not isinstance(data_order_seed, int)
+            or data_order_seed < 0
+            or not isinstance(names, list)
+            or not names
+            or not isinstance(seeds, list)
+            or len(names) != len(seeds)
+            or any(
+                not isinstance(policy, str)
+                or policy not in masking.scheduled_policies
+                for policy in names
+            )
+            or any(
+                isinstance(seed, bool)
+                or not isinstance(seed, int)
+                or seed < 0
+                for seed in seeds
+            )
+        ):
+            raise Phase8BEngineError(
+                "phase8b2.engine.schedule_binding_invalid"
+            )
+        expected_binding = _PHASE8B2_VARIANT_BINDINGS.get(variant_id)
+        if expected_binding != (objective_mode, masking.mode):
+            raise Phase8BEngineError(
+                "phase8b2.engine.variant_binding_mismatch"
+            )
+        forwards_per_view = _ENCODER_FORWARDS_PER_POLICY_VIEW[variant_id]
+        if comparison_mode == "natural_schedule" and tuple(names) != (
+            masking.scheduled_policies
+        ):
+            raise Phase8BEngineError(
+                "phase8b2.engine.natural_schedule_substitution_forbidden"
+            )
+        if actual_sample_schedule_path:
+            try:
+                artifact = json.loads(
+                    Path(actual_sample_schedule_path).read_text(
+                        encoding="utf-8"
+                    )
+                )
+                candidates = [
+                    row
+                    for row in artifact["ssl"]
+                    if row["data_order_seed"] == data_order_seed
+                ]
+            except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+                raise Phase8BEngineError(
+                    "phase8b2.engine.actual_sample_schedule_unreadable"
+                ) from exc
+            if (
+                artifact.get("protocol_fingerprint") != protocol_fingerprint
+                or len(candidates) != 1
+                or candidates[0].get("sample_schedule_fingerprint")
+                != sample_schedule_fingerprint
+                or candidates[0].get("logical_updates") != logical_updates
+            ):
+                raise Phase8BEngineError(
+                    "phase8b2.engine.actual_sample_schedule_binding_mismatch"
+                )
+        payload = {
+            "contract_version": PHASE8B2_SCHEDULE_BINDING_CONTRACT_VERSION,
+            "comparison_mode": comparison_mode,
+            "variant_id": variant_id,
+            "protocol_fingerprint": protocol_fingerprint,
+            "sample_schedule_fingerprint": sample_schedule_fingerprint,
+            "logical_updates": logical_updates,
+            "model_initialization_seed": model_initialization_seed,
+            "data_order_seed": data_order_seed,
+            "policy_views": [
+                {"index": index, "policy": policy, "seed": seed}
+                for index, (policy, seed) in enumerate(
+                    zip(names, seeds, strict=True)
+                )
+            ],
+            "loss_renormalization": "unchanged_family_global_aggregation",
+            "encoder_forwards_per_policy_view": forwards_per_view,
+        }
+        return cls(
+            contract_version=PHASE8B2_SCHEDULE_BINDING_CONTRACT_VERSION,
+            comparison_mode=comparison_mode,
+            variant_id=variant_id,
+            protocol_fingerprint=protocol_fingerprint,
+            sample_schedule_fingerprint=sample_schedule_fingerprint,
+            actual_sample_schedule_path=(
+                actual_sample_schedule_path or None
+            ),
+            logical_updates=logical_updates,
+            model_initialization_seed=model_initialization_seed,
+            data_order_seed=data_order_seed,
+            policy_views=tuple(zip(names, seeds, strict=True)),
+            encoder_forwards_per_policy_view=forwards_per_view,
+            fingerprint=_fingerprint(payload),
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "contract_version": self.contract_version,
+            "comparison_mode": self.comparison_mode,
+            "variant_id": self.variant_id,
+            "protocol_fingerprint": self.protocol_fingerprint,
+            "sample_schedule_fingerprint": self.sample_schedule_fingerprint,
+            "actual_sample_schedule_path": self.actual_sample_schedule_path,
+            "logical_updates": self.logical_updates,
+            "model_initialization_seed": self.model_initialization_seed,
+            "data_order_seed": self.data_order_seed,
+            "policy_views": [
+                {"index": index, "policy": policy, "seed": seed}
+                for index, (policy, seed) in enumerate(self.policy_views)
+            ],
+            "encoder_forwards_per_policy_view": (
+                self.encoder_forwards_per_policy_view
+            ),
+            "encoder_forwards_per_batch": (
+                len(self.policy_views)
+                * self.encoder_forwards_per_policy_view
+            ),
+            "loss_renormalization": "unchanged_family_global_aggregation",
+            "fingerprint": self.fingerprint,
+        }
+
+
 @dataclass(slots=True)
 class _Accounting:
     cpu_batch_count: int = 0
@@ -215,6 +444,7 @@ class _Accounting:
     optimizer_step_applied_count: int = 0
     optimizer_step_skipped_count: int = 0
     forward_pass_count: int = 0
+    encoder_forward_count: int = 0
     scheduled_policy_pass_count: int = 0
     objective_evaluation_count: int = 0
     family_view_pass_count: int = 0
@@ -602,6 +832,95 @@ def _model_state_fingerprint(model: torch.nn.Module) -> str:
     return digest.hexdigest()
 
 
+def _encoder_state_fingerprint(model: torch.nn.Module) -> str:
+    export = export_pretrained_encoder_state(model)
+    state = export["encoder_state"]
+    assert isinstance(state, dict)
+    digest = sha256()
+    for name in sorted(state):
+        value = state[name]
+        assert isinstance(value, torch.Tensor)
+        detached = value.detach().to(device="cpu").contiguous()
+        digest.update(name.encode("utf-8"))
+        digest.update(str(tuple(detached.shape)).encode("ascii"))
+        digest.update(str(detached.dtype).encode("ascii"))
+        digest.update(detached.view(torch.uint8).numpy().tobytes())
+    return digest.hexdigest()
+
+
+def _update_tensor_digest(
+    digest: object, label: str, value: torch.Tensor
+) -> None:
+    detached = value.detach().to(device="cpu").contiguous()
+    digest.update(label.encode("utf-8"))
+    digest.update(str(tuple(detached.shape)).encode("ascii"))
+    digest.update(str(detached.dtype).encode("ascii"))
+    digest.update(detached.view(torch.uint8).numpy().tobytes())
+
+
+def _prediction_fingerprint(output: object) -> str:
+    """Hash actual prediction tensors without retaining them in metrics."""
+
+    digest = sha256()
+    base = getattr(output, "base_output", output)
+    for index, value in enumerate(getattr(base, "decoder_predictions", ())):
+        _update_tensor_digest(digest, f"decoder/{index}", value)
+    for name in ("bar_latent", "song_latent"):
+        value = getattr(base, name, None)
+        if value is not None:
+            _update_tensor_digest(digest, name, value.prediction)
+    for index, value in enumerate(getattr(output, "latent_predictions", ())):
+        _update_tensor_digest(
+            digest, f"latent/{index}/{value.family}", value.prediction
+        )
+    return digest.hexdigest()
+
+
+def _gradient_fingerprint(model: torch.nn.Module) -> str:
+    digest = sha256()
+    present = 0
+    for name, parameter in sorted(model.named_parameters()):
+        if parameter.grad is None:
+            continue
+        present += 1
+        _update_tensor_digest(digest, name, parameter.grad)
+    if not present:
+        raise Phase8BEngineError(
+            "phase8b.engine.gradient_fingerprint_empty"
+        )
+    return digest.hexdigest()
+
+
+def _read_initial_encoder_fingerprint(output: Path) -> str:
+    try:
+        payload = json.loads(
+            (output / "fingerprints.json").read_text(encoding="utf-8")
+        )
+        value = payload["initial_encoder_state_fingerprint"]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise Phase8BEngineError(
+            "phase8b.engine.initial_encoder_fingerprint_unreadable"
+        ) from exc
+    if not isinstance(value, str) or len(value) != 64:
+        raise Phase8BEngineError(
+            "phase8b.engine.initial_encoder_fingerprint_invalid"
+        )
+    return value
+
+
+def _journal_train_evidence_fingerprint(
+    journal: tuple[dict[str, object], ...], field: str
+) -> str:
+    return _fingerprint(
+        {
+            "contract_version": PHASE8B2_SCHEDULE_BINDING_CONTRACT_VERSION,
+            "stage": "train",
+            "field": field,
+            "epochs": [row["train"][field] for row in journal],
+        }
+    )
+
+
 def _input_batch_fingerprint(batch: SSLBatch) -> str:
     return _fingerprint(
         {
@@ -621,10 +940,19 @@ def _cuda_peak_memory(device: torch.device) -> dict[str, object]:
             "peak_allocated_bytes": None,
             "peak_reserved_bytes": None,
         }
+    cuda_device_index = resolve_cuda_device_index(device)
     return {
         "available": True,
-        "peak_allocated_bytes": torch.cuda.max_memory_allocated(device),
-        "peak_reserved_bytes": torch.cuda.max_memory_reserved(device),
+        "cuda_runtime_device_index_contract_version": (
+            CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION
+        ),
+        "cuda_logical_device_index": cuda_device_index,
+        "peak_allocated_bytes": torch.cuda.max_memory_allocated(
+            cuda_device_index
+        ),
+        "peak_reserved_bytes": torch.cuda.max_memory_reserved(
+            cuda_device_index
+        ),
     }
 
 
@@ -695,6 +1023,7 @@ def _materialize(
     Phase8BObjectiveConfig,
     ResolvedPhase8BMaskingConfig,
     str,
+    ResolvedPhase8B2Schedule | None,
 ]:
     from music_critic.ssl.engine import _validate_config
 
@@ -715,6 +1044,13 @@ def _materialize(
         else None
     )
     execution_mode = _validate_pair(objective, masking)
+    comparison = ResolvedPhase8B2Schedule.from_config(
+        OmegaConf.create(config["phase8b2_schedule"])
+        if config.get("phase8b2_schedule") is not None
+        else None,
+        masking=masking,
+        objective_mode=objective.mode,
+    )
     materialized = copy.deepcopy(config)
     materialized["phase8b_runtime"] = {
         "engine_contract_version": PHASE8B_ENGINE_CONTRACT_VERSION,
@@ -746,8 +1082,11 @@ def _materialize(
         "masking_config": masking.to_dict(),
         "masking_config_fingerprint": masking.fingerprint,
         "mask_policy_mixture_fingerprint": masking.policy_config.fingerprint,
+        "phase8b2_schedule": (
+            None if comparison is None else comparison.to_dict()
+        ),
     }
-    return materialized, objective, masking, execution_mode
+    return materialized, objective, masking, execution_mode, comparison
 
 
 def _prepare(
@@ -764,6 +1103,7 @@ def _prepare(
     ResolvedPhase8BMaskingConfig,
     str,
     dict[str, Any],
+    CudaMemoryStatisticsLifecycleEvidence | None,
 ]:
     from music_critic.ssl.engine import (
         _optimizer,
@@ -772,14 +1112,30 @@ def _prepare(
         _set_determinism,
     )
 
-    resolved, objective, masking, execution_mode = _materialize(config)
-    _set_determinism(int(resolved["seed"]))
+    (
+        resolved,
+        objective,
+        masking,
+        execution_mode,
+        comparison,
+    ) = _materialize(config)
+    if comparison is None:
+        _set_determinism(int(resolved["seed"]))
+        data_seed = int(resolved["seed"])
+    else:
+        _set_determinism(comparison.data_order_seed)
+        data_seed = comparison.data_order_seed
     device = _resolve_device(resolved)
-    if device.type == "cuda":
-        torch.cuda.reset_peak_memory_stats(device)
-    runtime = build_ssl_data_runtime(
-        OmegaConf.create(resolved["data"]), seed=int(resolved["seed"])
+    cuda_memory_lifecycle = (
+        initialize_cuda_memory_statistics(device)
+        if device.type == "cuda"
+        else None
     )
+    runtime = build_ssl_data_runtime(
+        OmegaConf.create(resolved["data"]), seed=data_seed
+    )
+    if comparison is not None:
+        _set_determinism(comparison.model_initialization_seed)
     try:
         model = build_phase8b_model_from_config(
             OmegaConf.create(resolved["model"]),
@@ -819,6 +1175,7 @@ def _prepare(
         masking,
         execution_mode,
         resolved,
+        cuda_memory_lifecycle,
     )
 
 
@@ -852,11 +1209,14 @@ def _prepare_pass(
     device: torch.device,
     epoch: int,
     stage: str,
+    view_seed: int | None = None,
 ) -> _PreparedPass:
     binding = prepare_hierarchy_mask_binding(
         cpu_batch,
         policy_config=masking.pass_config(policy),
-        global_seed=int(config["seed"]),
+        global_seed=(
+            int(config["seed"]) if view_seed is None else view_seed
+        ),
         epoch=0 if stage == "validation" else epoch,
         requested_mask_rate=model.ssl_config.mask_rate,
         stage=stage,
@@ -953,6 +1313,8 @@ def _stage(
     optimizer: torch.optim.Optimizer | None = None,
     scaler: torch.amp.GradScaler | None = None,
     collect_gradient_evidence: bool = False,
+    comparison: ResolvedPhase8B2Schedule | None = None,
+    maximum_batches: int | None = None,
 ) -> tuple[dict[str, object], dict[str, object] | None]:
     training = optimizer is not None
     if training != (scaler is not None) or stage not in {"train", "validation"}:
@@ -965,9 +1327,15 @@ def _stage(
     objective_binding_fingerprints: list[str] = []
     plan_fingerprints: list[str] = []
     input_batch_fingerprints: list[str] = []
-    policy_pass_counts = {
-        policy: 0 for policy in masking.scheduled_policies
-    }
+    input_sample_identities: list[list[str]] = []
+    prediction_fingerprints: list[str] = []
+    gradient_fingerprints: list[str] = []
+    scheduled_views = (
+        tuple((policy, None) for policy in masking.scheduled_policies)
+        if comparison is None
+        else tuple(comparison.policy_views)
+    )
+    policy_pass_counts = {policy: 0 for policy, _ in scheduled_views}
     gradient_evidence = None
     collected_step_evidence: list[dict[str, object]] = []
     scaler_scale_before_first: float | None = None
@@ -976,12 +1344,29 @@ def _stage(
     scaler_maximum_scale: float | None = None
     scaler_scale_decrease_count = 0
     scaler_scale_non_decrease_count = 0
-    for cpu_batch in loader:
+    encoder_invocations = [0]
+
+    original_encode_prepared = model.encoder._encode_prepared
+
+    def _counted_encode_prepared(*args: object, **kwargs: object) -> object:
+        encoder_invocations[0] += 1
+        return original_encode_prepared(*args, **kwargs)
+
+    setattr(model.encoder, "_encode_prepared", _counted_encode_prepared)
+    for batch_index, cpu_batch in enumerate(loader):
+        if maximum_batches is not None and batch_index >= maximum_batches:
+            break
         accounting.cpu_batch_count += 1
         accounting.sample_count += cpu_batch.sample_count
         accounting.node_count += cpu_batch.node_count
         accounting.edge_count += cpu_batch.edge_count
         input_batch_fingerprints.append(_input_batch_fingerprint(cpu_batch))
+        input_sample_identities.extend(
+            [dataset_id, piece_id]
+            for dataset_id, piece_id in zip(
+                cpu_batch.dataset_ids, cpu_batch.piece_ids, strict=True
+            )
+        )
         if training:
             assert optimizer is not None
             optimizer.zero_grad(set_to_none=True)
@@ -993,7 +1378,7 @@ def _stage(
                 | Phase8BMultilevelSSLForwardOutput,
             ]
         ] = []
-        for policy in masking.scheduled_policies:
+        for view_index, (policy, view_seed) in enumerate(scheduled_views):
             accounting.scheduled_policy_pass_count += 1
             policy_pass_counts[policy] += 1
             prepared = _prepare_pass(
@@ -1006,6 +1391,7 @@ def _stage(
                 device=device,
                 epoch=epoch,
                 stage=stage,
+                view_seed=view_seed,
             )
             primary, collateral_note, collateral_track = _binding_summary(
                 prepared.binding
@@ -1033,13 +1419,48 @@ def _stage(
                 with torch.autocast(
                     device_type=device.type,
                     enabled=bool(config["device"]["amp"]),
+                    dtype=(
+                        torch.float16
+                        if config["device"].get("amp_dtype", "float16")
+                        == "float16"
+                        else torch.bfloat16
+                    ),
                 ):
                     output = _forward(
                         model, prepared, execution_mode=execution_mode
                     )
             accounting.forward_pass_count += 1
+            observed_forwards = encoder_invocations[0] - (
+                accounting.encoder_forward_count
+            )
+            expected_forwards = (
+                comparison.encoder_forwards_per_policy_view
+                if comparison is not None
+                else (
+                    2
+                    if execution_mode
+                    in {"phase7a_control", "phase8a_mask_only"}
+                    else 3
+                )
+            )
+            if observed_forwards != expected_forwards:
+                raise Phase8BEngineError(
+                    "phase8b.engine.instrumented_encoder_forward_mismatch:"
+                    f"expected={expected_forwards},observed={observed_forwards}"
+                )
+            accounting.encoder_forward_count += observed_forwards
             accounting.objective_evaluation_count += 1
-            policy_outputs.append((policy, output))
+            prediction_fingerprints.append(
+                _prediction_fingerprint(output)
+            )
+            policy_outputs.append(
+                (
+                    policy
+                    if comparison is None
+                    else f"{policy}#view={view_index}",
+                    output,
+                )
+            )
         batch_objective = aggregate_phase8b_policy_pass_losses(
             tuple(policy_outputs), objective_config=objective
         )
@@ -1064,6 +1485,7 @@ def _stage(
                 model.parameters(),
                 float(config["optimizer"]["gradient_clip_norm"]),
             )
+            gradient_fingerprints.append(_gradient_fingerprint(model))
             should_collect = (
                 collect_gradient_evidence and gradient_evidence is None
             )
@@ -1117,6 +1539,11 @@ def _stage(
                 if not step_skipped:
                     gradient_evidence = step_evidence
                 del snapshots, groups
+        elif training and comparison is not None:
+            # A comparison logical update with zero eligible rows still
+            # consumed its fixed raw/forward budget and is an explicit skip.
+            accounting.optimizer_step_attempt_count += 1
+            accounting.optimizer_step_skipped_count += 1
         # Metrics materialize only after backward/optimizer handling.  The
         # differentiable family-global loss itself is never detached, moved,
         # converted to Python, or replaced before backward.
@@ -1129,6 +1556,7 @@ def _stage(
                 ) from exc
             raise
         del policy_outputs, batch_objective, current_loss
+    setattr(model.encoder, "_encode_prepared", original_encode_prepared)
     aggregate = accumulator.finalize()
     metric: dict[str, object] = {
         "engine_contract_version": PHASE8B_ENGINE_CONTRACT_VERSION,
@@ -1146,7 +1574,7 @@ def _stage(
         "total_unavailable_reason": aggregate["unavailable_reason"],
         "objective": aggregate,
         "accounting": accounting.to_dict(),
-        "resolved_policies": list(masking.scheduled_policies),
+        "resolved_policies": [policy for policy, _ in scheduled_views],
         "policy_pass_counts": policy_pass_counts,
         "prepared_binding_fingerprints": sorted(binding_fingerprints),
         "prepared_objective_binding_fingerprints": sorted(
@@ -1154,12 +1582,18 @@ def _stage(
         ),
         "mask_plan_fingerprints": sorted(plan_fingerprints),
         "input_batch_fingerprints": input_batch_fingerprints,
+        "input_sample_identities": input_sample_identities,
+        "prediction_fingerprints": prediction_fingerprints,
+        "gradient_fingerprints": gradient_fingerprints,
         "validation_schedule_batch_partition_independent_coordinates": (
             stage == "validation"
         ),
         "objective_config_fingerprint": objective.fingerprint,
         "masking_config_fingerprint": masking.fingerprint,
         "mask_policy_mixture_fingerprint": masking.policy_config.fingerprint,
+        "phase8b2_schedule_fingerprint": (
+            None if comparison is None else comparison.fingerprint
+        ),
         "retained_cuda_tensor_count": aggregate[
             "retained_cuda_tensor_count"
         ],
@@ -1258,6 +1692,7 @@ def _phase8b_bindings(
         "mask_policy_mixture_fingerprint": runtime[
             "mask_policy_mixture_fingerprint"
         ],
+        "phase8b2_schedule": runtime["phase8b2_schedule"],
     }
 
 
@@ -1282,6 +1717,9 @@ def _write_initial_artifacts(
     )
     fingerprints = {
         "data": runtime.fingerprints,
+        "initial_encoder_state_fingerprint": (
+            _encoder_state_fingerprint(model)
+        ),
         "model_contract_fingerprint": _fingerprint(
             model.ssl_contract_metadata()
         ),
@@ -1371,18 +1809,29 @@ def _report_common(
     objective: Phase8BObjectiveConfig,
     masking: ResolvedPhase8BMaskingConfig,
     execution_mode: str,
+    comparison: ResolvedPhase8B2Schedule | None,
     device: torch.device,
     optimizer: torch.optim.Optimizer,
     scaler: torch.amp.GradScaler,
+    cuda_memory_lifecycle: (
+        CudaMemoryStatisticsLifecycleEvidence | None
+    ),
 ) -> dict[str, object]:
     from music_critic.ssl.engine import _device_evidence
 
     return {
         "training_report_version": PHASE8B_TRAINING_REPORT_VERSION,
         "engine_contract_version": PHASE8B_ENGINE_CONTRACT_VERSION,
-        "evidence_kind": "official_phase8b1_engine_mechanics",
+        "evidence_kind": (
+            "official_phase8b1_engine_mechanics"
+            if comparison is None
+            else "official_phase8b2_comparison_cell"
+        ),
         "scientific_claim": "plumbing_and_optimization_mechanics_only",
-        "compute_matched_comparison": False,
+        "compute_matched_comparison": bool(
+            comparison is not None
+            and comparison.comparison_mode == "encoder_forward_matched"
+        ),
         "effectiveness_comparison": False,
         "science_owner": "Phase_8B_2",
         "execution_mode": execution_mode,
@@ -1397,9 +1846,15 @@ def _report_common(
             for family, weight in objective.family_weights
             if weight > 0.0
         ],
-        "resolved_mask_policies": list(masking.scheduled_policies),
+        "resolved_mask_policies": (
+            list(masking.scheduled_policies)
+            if comparison is None
+            else [policy for policy, _ in comparison.policy_views]
+        ),
         "scheduled_policy_pass_count_per_cpu_batch": len(
             masking.scheduled_policies
+            if comparison is None
+            else comparison.policy_views
         ),
         "scheduled_view_aggregation": PHASE8B_SCHEDULED_VIEW_AGGREGATION,
         "amp_compute_contract": PHASE8B_AMP_COMPUTE_CONTRACT,
@@ -1424,11 +1879,14 @@ def _report_common(
         "validation_schedule_fixed": True,
         "fingerprints": runtime.fingerprints,
         "data_composition": runtime.mixture_statistics,
-        "device": _device_evidence(device),
+        "device": _device_evidence(device, cuda_memory_lifecycle),
         "amp_enabled": bool(config["device"]["amp"]),
         "scaler_enabled": scaler.is_enabled(),
         "phase8_started": True,
-        "phase8b2_started": False,
+        "phase8b2_started": comparison is not None,
+        "phase8b2_schedule": (
+            None if comparison is None else comparison.to_dict()
+        ),
         "pdmx_added": False,
         "pll_implemented": False,
         "critic_or_quality_score_implemented": False,
@@ -1455,7 +1913,15 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         masking,
         execution_mode,
         resolved,
+        cuda_memory_lifecycle,
     ) = _prepare(config)
+    comparison = ResolvedPhase8B2Schedule.from_config(
+        OmegaConf.create(resolved["phase8b2_schedule"])
+        if resolved.get("phase8b2_schedule") is not None
+        else None,
+        masking=masking,
+        objective_mode=objective.mode,
+    )
     del scheduler
     _initialize_output(
         output,
@@ -1481,6 +1947,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         device=device,
         epoch=0,
         stage="train",
+        comparison=comparison,
     )
     total_accounting = _Accounting()
     total_accounting.add(_Accounting(**{
@@ -1504,6 +1971,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
             optimizer=optimizer,
             scaler=scaler,
             collect_gradient_evidence=gradient is None,
+            comparison=comparison,
         )
         step_metrics.append(metric)
         if current_gradient is not None:
@@ -1523,6 +1991,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         device=device,
         epoch=0,
         stage="train",
+        comparison=comparison,
     )
     total_accounting.add(_Accounting(**{
         key: value
@@ -1580,9 +2049,11 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
             objective=objective,
             masking=masking,
             execution_mode=execution_mode,
+            comparison=comparison,
             device=device,
             optimizer=optimizer,
             scaler=scaler,
+            cuda_memory_lifecycle=cuda_memory_lifecycle,
         ),
         "run_scope": "one_batch_plumbing",
         "steps": int(resolved["experiment"]["steps"]),
@@ -1594,6 +2065,10 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
                 initial_model_state_fingerprint
                 != final_model_state_fingerprint
             ),
+        },
+        "encoder_state_fingerprints": {
+            "initial": _read_initial_encoder_fingerprint(output),
+            "final": _encoder_state_fingerprint(model),
         },
         "initial": initial,
         "final": final,
@@ -1656,7 +2131,15 @@ def _run_epochs(
         masking,
         execution_mode,
         resolved,
+        cuda_memory_lifecycle,
     ) = _prepare(config)
+    comparison = ResolvedPhase8B2Schedule.from_config(
+        OmegaConf.create(resolved["phase8b2_schedule"])
+        if resolved.get("phase8b2_schedule") is not None
+        else None,
+        masking=masking,
+        objective_mode=objective.mode,
+    )
     resume_path = str(resolved["experiment"]["resume_from"])
     _initialize_output(
         output,
@@ -1698,6 +2181,7 @@ def _run_epochs(
             device=device,
             epoch=0,
             stage="validation",
+            comparison=comparison,
         )
         initial_validation["optimizer_step_count_at_measurement"] = 0
         _write_initial_artifacts(
@@ -1710,8 +2194,15 @@ def _run_epochs(
         _write_jsonl_atomic(output / "metrics.jsonl", ())
         _write_jsonl_atomic(output / "epoch_performance.jsonl", ())
     starting_model_state_fingerprint = _model_state_fingerprint(model)
+    starting_encoder_state_fingerprint = _encoder_state_fingerprint(model)
     completed = start_epoch
     epochs = int(resolved["experiment"]["epochs"])
+    logical_update_budget = (
+        comparison.logical_updates if comparison is not None else None
+    )
+    steps_per_epoch = int(
+        resolved["experiment"].get("optimizer_steps_per_epoch", 0)
+    ) or int(resolved["experiment"]["steps"])
     performance_rows = []
     performance_path = output / "epoch_performance.jsonl"
     if resume_path and performance_path.exists():
@@ -1721,6 +2212,19 @@ def _run_epochs(
             if line and int(json.loads(line)["epoch"]) < start_epoch
         ]
     for epoch in range(start_epoch, epochs):
+        attempted_before_epoch = sum(
+            int(row["train"]["accounting"][
+                "optimizer_step_attempt_count"
+            ])
+            for row in journal
+        )
+        remaining_updates = (
+            None
+            if logical_update_budget is None
+            else logical_update_budget - attempted_before_epoch
+        )
+        if remaining_updates is not None and remaining_updates <= 0:
+            break
         epoch_started = time.perf_counter()
         learning_rate_used = optimizer.param_groups[0]["lr"]
         train, gradient = _stage(
@@ -1737,6 +2241,12 @@ def _run_epochs(
             scaler=scaler,
             collect_gradient_evidence=bool(
                 resolved["experiment"]["collect_gradient_evidence"]
+            ),
+            comparison=comparison,
+            maximum_batches=(
+                None
+                if remaining_updates is None
+                else min(steps_per_epoch, remaining_updates)
             ),
         )
         if train["batch_count"] == 0:
@@ -1760,7 +2270,13 @@ def _run_epochs(
             (epoch + 1)
             % int(resolved["experiment"]["validation_interval"])
             == 0
-            or epoch + 1 == epochs
+            or (
+                logical_update_budget is not None
+                and attempted_before_epoch
+                + int(train["accounting"]["optimizer_step_attempt_count"])
+                == logical_update_budget
+            )
+            or (logical_update_budget is None and epoch + 1 == epochs)
         ):
             validation, _ = _stage(
                 model,
@@ -1772,6 +2288,7 @@ def _run_epochs(
                 device=device,
                 epoch=0,
                 stage="validation",
+                comparison=comparison,
             )
             validation["optimizer_step_count_at_measurement"] = sum(
                 int(row["train"]["accounting"]["optimizer_step_count"])
@@ -1847,6 +2364,51 @@ def _run_epochs(
             for key, value in row["train"]["accounting"].items()
             if key in _Accounting.__dataclass_fields__
         }))
+    observed_identities = [
+        identity
+        for row in journal
+        for identity in row["train"].get("input_sample_identities", [])
+    ]
+    from music_critic.experiments.phase8b2.contracts import (
+        fingerprint as phase8b2_fingerprint,
+    )
+    from music_critic.experiments.phase8b2.schedule import (
+        SCHEDULE_CONTRACT_VERSION,
+    )
+
+    observed_identity_schedule_fingerprint = phase8b2_fingerprint(
+        {
+            "contract_version": SCHEDULE_CONTRACT_VERSION,
+            "kind": "raw_ssl_sample_schedule",
+            "identities": observed_identities,
+        }
+    )
+    expected_schedule_fingerprint = (
+        None if comparison is None else comparison.sample_schedule_fingerprint
+    )
+    schedule_verified = (
+        comparison is None
+        or observed_identity_schedule_fingerprint
+        == expected_schedule_fingerprint
+    )
+    complete_budget = (
+        True
+        if logical_update_budget is None
+        else total_accounting.optimizer_step_attempt_count
+        == logical_update_budget
+    )
+    if comparison is not None and complete_budget and not schedule_verified:
+        raise Phase8BEngineError(
+            "phase8b2.engine.actual_sample_schedule_mismatch"
+        )
+    if comparison is not None and complete_budget and (
+        total_accounting.optimizer_step_skipped_count != 0
+        or total_accounting.optimizer_step_applied_count
+        != logical_update_budget
+    ):
+        raise Phase8BEngineError(
+            "phase8b2.engine.scientific_cell_optimizer_step_invalid"
+        )
     report = {
         **_report_common(
             config=resolved,
@@ -1855,17 +2417,26 @@ def _run_epochs(
             objective=objective,
             masking=masking,
             execution_mode=execution_mode,
+            comparison=comparison,
             device=device,
             optimizer=optimizer,
             scaler=scaler,
+            cuda_memory_lifecycle=cuda_memory_lifecycle,
         ),
         "run_scope": "epoch_pretraining",
         "start_epoch": start_epoch,
         "completed_epochs": completed,
         "configured_epochs": epochs,
+        "configured_logical_updates": logical_update_budget,
+        "logical_update_budget_complete": complete_budget,
         "model_state_fingerprints": {
             "start_or_resume": starting_model_state_fingerprint,
             "final": _model_state_fingerprint(model),
+        },
+        "encoder_state_fingerprints": {
+            "initial": _read_initial_encoder_fingerprint(output),
+            "start_or_resume": starting_encoder_state_fingerprint,
+            "final": _encoder_state_fingerprint(model),
         },
         "initial_validation": initial_validation,
         "best_validation_loss": best,
@@ -1875,6 +2446,28 @@ def _run_epochs(
         "best_checkpoint": None if best is None else str(output / "best.pt"),
         "last_checkpoint": str(output / "last.pt"),
         "metrics": str(output / "metrics.jsonl"),
+        "observed_ssl_sample_schedule_fingerprint": (
+            observed_identity_schedule_fingerprint
+            if comparison is not None
+            else _journal_train_evidence_fingerprint(
+                journal, "input_batch_fingerprints"
+            )
+        ),
+        "expected_ssl_sample_schedule_fingerprint": (
+            expected_schedule_fingerprint
+        ),
+        "actual_sample_schedule_verified": schedule_verified,
+        "observed_sample_identities": observed_identities,
+        "observed_prediction_fingerprint": (
+            _journal_train_evidence_fingerprint(
+                journal, "prediction_fingerprints"
+            )
+        ),
+        "observed_gradient_fingerprint": (
+            _journal_train_evidence_fingerprint(
+                journal, "gradient_fingerprints"
+            )
+        ),
         "cuda_peak_memory": _cuda_peak_memory(device),
         "epoch_performance": str(output / "epoch_performance.jsonl"),
         "resume_boundary": "epoch_only",
@@ -1905,9 +2498,11 @@ __all__ = [
     "PHASE8B_GRAD_SCALER_INITIAL_SCALE",
     "PHASE8B_MASKING_CONFIG_CONTRACT_VERSION",
     "PHASE8B_OPTIMIZER_EVIDENCE_CONTRACT_VERSION",
+    "PHASE8B2_SCHEDULE_BINDING_CONTRACT_VERSION",
     "PHASE8B_RUN_MANIFEST_VERSION",
     "PHASE8B_TRAINING_REPORT_VERSION",
     "Phase8BEngineError",
     "ResolvedPhase8BMaskingConfig",
+    "ResolvedPhase8B2Schedule",
     "run_phase8b_training",
 ]

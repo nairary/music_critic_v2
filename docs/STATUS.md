@@ -2,7 +2,7 @@
 
 ## Current phase
 
-- Date: 2026-08-14
+- Date: 2026-08-15
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -82,7 +82,7 @@
   `18ebf5b69797f5d40ff38607cf8e8b5dad2f86e7`
 - Phase 6D-A validation-membership parity hotfix: Accepted and merged in PR
   #14 at `bded77ff1a923f391623d735b5ad4ce290d9d2d2`
-- Evaluation/artifact contracts: `1.1.1`; profiler: `1.1.0`; macro-summary
+- Evaluation/artifact contracts: `1.3.0`; profiler: `1.1.0`; macro-summary
   sub-contract: `1.0.0`; unchanged train-prior: `1.0.0`
 - Phase 7A branch: `phase/7a-graphmae2-ssl-baseline`
 - Phase 7A: accepted and merged in PR #15
@@ -125,6 +125,12 @@
   `e97377c450a368d6b46d7ba8bc1c7697bdd5dd63`
 - Phase 8B.1 branch: `phase/8b1-multilevel-objectives`; independently
   ablatable multi-level objective implementation is active in a draft PR
+- Phase 8B.2A branch: `phase/8b2a-scientific-comparison-protocol`; executable
+  protocol/schedule/attestation/test-lock contracts: `1.2.0`; artifact:
+  `1.2.2`; preflight/matrix-runner/cell-manifest: `1.2.1`; unchanged
+  selection/statistics/compute contracts: `1.1.0`; CUDA memory-statistics
+  lifecycle: `1.0.0`; data semantic projection: `1.0.0`; evaluation
+  piece-sufficient-statistics output: `1.3.0`
 
 ## Accepted CUDA device-canonicalization hotfix status
 
@@ -250,8 +256,9 @@
   policies, bit-exact mixture/control replay, 112 finite `cuda:0` forward
   tensors, finite non-zero mandatory gradients, and global peak allocated/
   reserved bytes `68,635,648`/`69,206,016`.
-- Next gate: Phase 8B.1 implementation, bounded mechanics evidence, draft-PR
-  review, and Required CI. Phase 8B.2 has not started.
+- Historical Phase 8A closure gate: Phase 8B.1 implementation, bounded
+  mechanics evidence, draft-PR review, and Required CI. This gate was later
+  completed by PR #18; current Phase 8B.2A status is recorded below.
 
 ## Phase 7A implementation status
 
@@ -565,9 +572,10 @@
 
 ## Phase 8B.1 implementation status
 
-- Branch: `phase/8b1-multilevel-objectives`, based on merged Phase 8A main
-  `e97377c450a368d6b46d7ba8bc1c7697bdd5dd63`. Existing draft PR: #18; it
-  remains draft and unmerged. Phase 8B.2 has not started.
+- Historical implementation branch: `phase/8b1-multilevel-objectives`, based
+  on merged Phase 8A main `e97377c450a368d6b46d7ba8bc1c7697bdd5dd63`.
+  The evidence in this section describes its pre-merge state; PR #18 was
+  subsequently merged and current Phase 8B.2A status is recorded below.
 - Independent RTX 3090 evidence at exact head
   `b41dd410e757db1f595880074c106c67327fb13e` is blocking negative evidence,
   not acceptance: onset-only and equal-weight AMP executed but their loss did
@@ -2301,3 +2309,311 @@ not clamped or mutated.
 - Phase 1B.2 validation: `b5c31c6`, with review fixes in `2c16d72`.
 - Phase 1B.3 serialization: `1dd4e00`, with accepted float-decoding fix in
   `396a2b5`.
+
+## Phase 8B.2A implementation status — 2026-08-15
+
+- Base and branch: started from clean `origin/main` merge `387b5bc` (PR #18)
+  on `phase/8b2a-scientific-comparison-protocol`.
+- Commit `7365286eb4df5ed8090aaf07964a33c95db2ed4d` implemented the original
+  control-plane primitives but did not run an end-to-end experiment. The
+  first PR remediation advanced the executable DAG contracts to `1.1.0`.
+  Blocking production-path remediation now advances the affected protocol,
+  artifact, plan, schedule, attestation, orchestration, cell-manifest, and
+  test-lock contracts to `1.2.0`, while the new source-neutral semantic data
+  projection begins at `1.0.0`.
+- Root cause of the blocking remediation: production schedule resolution used
+  the official metadata sampler but serialized null runtime fingerprints and
+  validation membership plus a placeholder composition. Runtime binding then
+  compared those placeholders with complete official-engine evidence, and the
+  downstream path indexed a missing `train_dataset_counts` field. Bounded
+  planning materialized its runtime early and did not expose this defect.
+- Metadata planning and SSL/downstream engine reports now pass through the same
+  `Phase8B2DataSemanticProjection@1.0.0`: index/cache identities, split,
+  normalized train dataset counts/size, fixed-validation membership/counts,
+  and mixture weights. Production schedule slots remain metadata-only and
+  target-free. Stable Phase 8B.2A categories reject index, cache, split,
+  composition, validation, mixture, observed-schedule, or compute mismatches
+  before cell publication.
+- `action=run` now executes all variant preflights, SSL, encoder export,
+  frozen/full/scratch downstream training, fixed-validation candidate-first
+  evaluation, compute validation, piece aggregation, paired-seed validation
+  selection, and immutable final reporting. `plan`, `resume`, `aggregate`, and
+  `select` are separately supported. Cells use isolated list-argv Python
+  subprocesses, captured stdout/stderr/exit code, staging, SHA manifests,
+  protocol validation, atomic publication, and failure-closed resume.
+- The runner derives index/cache/split/train/validation/test identities from
+  official metadata and treats configured SHA values only as expectations.
+  Actual target-free sample schedules contain dataset/piece/sample/update/batch
+  positions and are checked bit-exactly against every variant's observed
+  schedule before publication.
+- The primary matched schedule fixes 12 actual encoder forwards per logical
+  update: six two-forward control views or four three-forward latent views. A
+  real bounded cell applies exactly two updates over four raw samples and an
+  instrumented encoder-method counter records 24 forwards. Multiple batches
+  per epoch, exact logical-update caps, interval validation, final validation,
+  applied/skipped accounting, and fail-closed unavailable/AMP-overflow cells
+  replace the former one-batch-per-epoch interpretation.
+- Official SSL checkpoints bind the optional comparison schedule, protocol,
+  sample schedule and independent data/model/mask seeds. Initial/final encoder
+  fingerprints are first-class evidence; changed protocol bindings reject
+  resume.
+- Official supervised training accepts scratch/frozen/full transfer bindings.
+  Only representation state is loaded; task heads/optimizer are fresh; frozen
+  encoder parameters are outside the optimizer and checked bit-exact after
+  training. Comparison SSL/downstream epoch-boundary resume preserves state,
+  RNG and metric journals; the matrix runner separately resumes verified cells
+  after an injected interruption.
+- Downstream task manifest is exactly the existing fully supervised
+  `ACTIVE_TASK_IDS`. PU/open-vocabulary boundary/no-chord/borrowed/key-mode
+  tasks remain excluded and source-native datasets/encodings stay isolated.
+- Candidate-first evaluation advances to `1.3.0` and writes CPU-only per-piece
+  categorical confusion/correct/NLL or multilabel TP/FP/FN/support/BCE
+  sufficient statistics. Piece bootstrap recomputes corpus endpoints from
+  merged counts after every independent-piece resample. Exact AP stays a
+  descriptive corpus metric outside bootstrap claims.
+- Selection aggregates all declared paired seeds for each
+  `(variant_id, transfer_mode)` before mean-dataset-rank/NLL/compute/lexical
+  ranking. Its artifact records both selected seed checkpoints, SHA-256s,
+  per-seed/aggregate metrics, and complete paired evidence. Test authorization
+  selects one of exactly those checkpoints by seed and keeps each experiment
+  identity single-use.
+- Hydra presets: bounded two-seed acceptance, three-seed production pilot,
+  five-seed paper, and natural-schedule diagnostic. Plan output includes cell
+  counts, real raw/forward budgets, validation-pass estimates, output paths,
+  and the executable cell manifest. Pilot/paper use 100 updates per epoch and
+  validation intervals of 5/10 epochs, not one validation per optimizer step.
+- Real bounded CPU evidence executes 8 preflights, 8 SSL cells, 8 encoder
+  exports, 18 downstream cells, and 18 validation evaluations. Every SSL cell
+  records 2 attempted, 2 applied, 0 skipped updates, 4 raw samples, and 24
+  encoder forwards. Both fixed-validation seeds verify checkpoint data with no
+  membership mismatch; aggregation and multi-seed selection consume those
+  actual engine artifacts. The same output resumes deterministically after an
+  injected failure and rejects stale/incomplete cell state.
+- Final local verification after the blocking remediation: Phase 8B.2A tests
+  `61 passed, 1 skipped` in 311.85 seconds, including the unchanged bounded
+  `52/52` DAG and the temporary production-format mini-DAG. The focused
+  production-path file passes `11 passed` and covers two `action=run`
+  invocations against the same output with byte-identical final artifacts,
+  all 8 scientific cells, all 8 runtime bindings, all 3 checkpoint-to-
+  evaluation bindings, and adversarial stable-category failures. Focused
+  SSL/training/evaluation regressions pass `497 passed, 32 skipped,
+  2 deselected`; audit/integration/repository contracts pass `56 passed,
+  14 skipped`; the explicit deterministic/runtime plus repository-contract
+  set passes `17 passed`; and the full repository suite passes `1332 passed,
+  48 skipped, 3 deselected` in 532.54 seconds. The three deselections are the
+  existing multiprocessing `DataLoader(workers>0)` tests that reproducibly do
+  not terminate in this local sandbox; one combined attempt reproduced the
+  hang before the explicit deselection. CUDA and external-data skips are
+  environment gates, not evidence. Warnings are only the upstream PyTorch
+  `torch.jit.script` deprecation.
+- `scripts/check_legacy_unchanged.py` reports that the external read-only
+  legacy checkout no longer matches its previously captured dirty snapshot
+  (pre-existing renames/additions/modifications). Phase 8B.2A inspected and
+  changed no legacy file; the external checkout was not restored or staged.
+- No real production corpus was configured or scanned. A temporary synthetic
+  production-format mini-DAG uses on-disk HookTheory/POP909-CL indices,
+  canonical caches and a split manifest, without long training or committed
+  artifacts. Test membership metadata is resolved for the lock, but full test
+  piece identities are not serialized and test inference, targets and metrics
+  remain untouched. No PDMX, CUDA, scientific-superiority, PLL, critic, or
+  quality claim was produced.
+- Phase 8B.2A is implementation-complete on this branch, pending Required CI
+  and review of draft PR #19. Phase 9 has not started; scaled Phase 8B.2
+  evidence waits for the Phase 10 raw-compatible PDMX projection.
+
+## Phase 8B.2A blocking CUDA pre-merge remediation — 2026-08-15
+
+- Starting head was
+  `91c2d0c536cbe35fe40d83e0ad09a4c5200a3d97` on the existing draft PR #19
+  branch. An independent RTX 3090 real-corpus smoke read the HookTheory and
+  POP909-CL production caches and selected the expected batch, then failed in
+  the first preflight before model forward. The confirmed boundary defect was
+  `phase8b_engine._prepare` passing concrete `torch.device("cuda:0")` to
+  `torch.cuda.reset_peak_memory_stats`; that installed runtime required the
+  logical integer index. Equivalent device-object arguments existed in Phase
+  7A SSL, supervised training, Phase 8A hardware acceptance, and Phase 8B.2
+  environment evidence.
+- `CudaRuntimeDeviceIndex@1.0.0` now reuses canonical runtime resolution and
+  returns a validated logical integer for CUDA-only APIs. It distinguishes
+  `cuda:0`/`cuda:1`, follows the current logical device for abstract `cuda`,
+  honors PyTorch's `CUDA_VISIBLE_DEVICES` view, rejects CPU structurally, and
+  preserves unavailable/out-of-range categories. Runtime resolution advances
+  to `1.0.2` so CUDA probe failures cannot escape as raw runtime exceptions.
+- All audited reset, max allocated/reserved, memory allocated, synchronization,
+  device-name, properties, and capability boundaries now use explicit integer
+  arguments or an already explicit constant. The Phase 7A, Phase 8B, and
+  supervised `_prepare` reset calls use the shared helper; no local `.index`
+  conversions, implicit-current evidence, CPU fallback, disabled VRAM
+  evidence, or swallowed CUDA error was introduced.
+- A new optional production-format CUDA CLI regression binds one seed,
+  `phase7a_control`, one SSL update, frozen/full/scratch downstream modes,
+  three validation evaluations, explicit `cuda:0`, and FP16 AMP. It requires
+  8/8 scientific cells, 8/8 runtime bindings, 3/3 checkpoint-to-evaluation
+  bindings, positive allocated/reserved VRAM, and no test inference, target,
+  or metric access. Two direct real-CUDA helper tests cover reset/allocation/
+  peak/name evidence and invalid `cuda:1` when exactly one GPU is visible.
+- Narrow contract changes are runtime-device resolution `1.0.2`, logical CUDA
+  index `1.0.0`, SSL training report `1.2.3`, Phase 8B engine/report `1.2.1`,
+  Phase 8A CUDA AMP hardware evidence `1.2.1`, and Phase 8B.2 artifact evidence
+  `1.2.1`. Device transfer and Phase 8B.2 comparison protocol remain `1.0.2`
+  and `1.2.0`; graph, canonical, ontology, model, objective, schedule, data,
+  checkpoint, and scientific semantics are unchanged.
+- Local verification is CPU-only and does not claim successful hardware
+  remediation. CUDA boundary/runtime focus: `89 passed, 17 skipped`; Phase
+  8B.2A focus: `61 passed, 2 skipped` in 319.08 seconds; the explicit CPU
+  production mini-DAG: `1 passed` in 33.25 seconds; SSL/training/evaluation:
+  `497 passed, 32 skipped, 2 deselected` in 206.48 seconds; full repository:
+  `1341 passed, 51 skipped, 3 deselected` in 553.79 seconds. The deselections
+  are the three unchanged `DataLoader(workers>0)` cases that reproducibly hang
+  only in the local sandbox and remain mandatory in Required CI.
+- Audit/integration/repository contracts pass `56 passed, 14 skipped`;
+  deterministic/runtime-device/repository focus passes `45 passed, 2 skipped`;
+  compileall and `git diff --check` pass. The legacy snapshot audit still
+  reports the same pre-existing external dirty-worktree mismatch documented
+  above. Only that read-only snapshot/status check touched the legacy checkout;
+  no legacy source file was inspected or changed by this remediation.
+- Both failed independent output roots remain preserved and were not deleted
+  or overwritten:
+  `outputs/phase8b2a-real-gpu-smoke-20260815-142536` and
+  `outputs/phase8b2a-real-gpu-smoke-20260815-142857`. Phase 9 has not started;
+  draft PR #19 must remain draft and unmerged until independent exact-head RTX
+  evidence and Required CI are reviewed.
+
+## Phase 8B.2A independent RTX 3090 gate-command remediation — 2026-08-15
+
+- The previously published hardware command is invalid and must not be used.
+  Whole-worktree emptiness via `git status --porcelain` incorrectly rejects
+  preserved untracked evidence. One-seed `production_pilot` violates the
+  existing `minimum_production_seeds=3` contract. The Phase 8B.2 CLI also has
+  no `device=cuda` Hydra group; the supported concrete override is
+  `device.name=cuda:0`.
+- The official replacement is a production-format real-corpus bounded smoke,
+  implemented by `scripts/run_phase8b2a_rtx3090_bounded_smoke.sh` and
+  `scripts/verify_phase8b2a_rtx3090_bounded_smoke.py`. It uses
+  `bounded_acceptance`, `phase7a_control`, seed 17, one SSL/downstream update,
+  `cuda:0`, and FP16 AMP. The script permits and prints untracked files,
+  rejects only tracked unstaged/staged changes, preserves all prior artifacts,
+  detaches the exact fetched head, validates two indices/two caches/global
+  split and RTX 3090 visibility, and confines strict mode to a subshell.
+- An existing failed plan is read only for its five production paths. A unique
+  output/evidence root is created for every attempt. Success requires the
+  final bundle and a verifier pass for 8/8 executed/expected cells, 8/8 runtime
+  bindings, 3/3 checkpoint-to-evaluation bindings, locked test access,
+  logical CUDA index zero with positive allocated/reserved peaks, exact 1/1
+  SSL accounting, no CPU fallback, and HookTheory plus POP909-CL in the
+  train/validation schedule evidence.
+- The evidence archive contains exact-head/preflight and `nvidia-smi` logs,
+  the bounded invocation and resolved plan/configs, the full smoke log, final
+  reports/accounting, cell/runtime/data attestations, verifier output, payload
+  SHA-256s, and a sidecar SHA-256 for the archive. It excludes corpus payloads,
+  caches, and checkpoints.
+- Hydra preset composition now lets the selected comparison group override
+  `_self_`, restoring the registered contract: `production_pilot` resolves to
+  seeds 17/29/43 and rejects a one-seed override; `bounded_acceptance` remains
+  the explicit short-smoke preset. This does not lower the production minimum
+  or change production-pilot semantics.
+- Focused production-path/verifier tests pass `16 passed, 1 skipped` in 53.98
+  seconds. The full Phase 8B.2A suite passes `66 passed, 2 skipped` in 328.51
+  seconds. An exact default-suite attempt reproduced the previously documented
+  local sandbox hang at the first positive-worker profiler case after more
+  than eight minutes and was interrupted. The complete locally executable
+  suite, excluding exactly the same three `DataLoader(workers>0)` tests,
+  passes `1346 passed, 51 skipped, 3 deselected` in 561.93 seconds. Warnings
+  are the upstream `torch.jit.script` deprecation plus one PyTorch worker-exit
+  finalizer warning associated with the sandbox limitation. Source and gate-
+  verifier compileall, gate-script `bash -n`, and `git diff --check` pass.
+- Local verification remains CPU-only and cannot establish hardware-gate
+  success. Draft PR #19 must remain draft and unmerged until the independent
+  exact-final RTX 3090 command passes and its evidence is reviewed. No
+  scientific superiority, production pilot, held-out test, or Phase 9 claim
+  is made.
+
+## Phase 8B.2A RTX 3090 fixed-validation boundedness remediation — 2026-08-15
+
+- The gate runner at pre-remediation head
+  `07e033cc4456b3e87e010e1aca640cf66cf36db7` bounded optimizer updates but
+  omitted `comparison.validation_samples`. Its zero default selected the full
+  validation split, so the three downstream evaluations were not actually
+  bounded by piece count. That published invocation is invalid and must not be
+  used as bounded hardware evidence.
+- The official production-format real-corpus bounded smoke now explicitly
+  records and resolves `comparison.validation_samples=128`: one
+  `phase7a_control` seed, one SSL update, one downstream update, and one fixed
+  deterministic 128-piece validation membership containing HookTheory and
+  POP909-CL. It remains neither a production pilot nor a scientific
+  comparison; `production_pilot` still requires at least three seeds.
+- The standalone verifier fails closed on any invocation or resolved-plan
+  validation bound other than 128. It requires an exact selected count of 128,
+  positive membership from both corpora, and one validation membership
+  fingerprint across the plan, projected SSL/downstream schedules, runtime
+  training reports, evaluation metrics, and checkpoint evidence. Every
+  downstream `validation_epoch_size` and evaluation
+  `max_evaluation_samples` must equal 128. Matching dataset IDs alone is not
+  sufficient.
+- Regression coverage includes a production-format plan with 64 validation
+  pieces per corpus, static runner/invocation assertions, rejection of bounds
+  0/127/129, and independent runtime-training/evaluation fingerprint mismatch
+  cases. Focused gate/production-path checks pass `21 passed, 1 skipped` in
+  52.56 seconds; the complete Phase 8B.2A suite passes
+  `71 passed, 2 skipped` in 322.37 seconds; the complete locally executable
+  repository suite passes
+  `1351 passed, 51 skipped, 3 deselected` in 547.64 seconds. The three
+  deselections are the unchanged sandbox-only `DataLoader(workers>0)` hangs
+  and remain mandatory in Required CI.
+- Runner `bash -n`, source plus verifier compileall, and `git diff --check`
+  pass. All prior artifact-preserving, tracked/staged-clean, subshell-safe,
+  CUDA logical-device-zero, FP16 AMP, fresh-root, locked-test, and payload-
+  excluding archive guarantees remain unchanged.
+- Local verification is CPU-only and does not claim RTX 3090 success. Draft PR
+  #19 remains draft and unmerged pending an independent execution at the new
+  exact head. Phase 9 has not started, and no scientific-superiority or
+  production-pilot claim is made.
+
+## Phase 8B.2A blocking CUDA memory-lifecycle remediation — 2026-08-15
+
+- Independent head `aa5fe538d45499f84cbf5ee8de99f7514ff111ce`
+  failed in fresh preflight worker
+  `preflight/encoder_forward_matched/17/phase7a_control` before model forward.
+  CUDA discovery was correct (NVIDIA GeForce RTX 3090, logical index 0, one
+  visible device, CUDA runtime 13.0), but the first indexed
+  `reset_peak_memory_stats(0)` raised `Invalid device argument`.
+- Authoritative fresh-process probe used PyTorch `2.13.0+cu130`; every case
+  began with `initialized_before=false`. Bare implicit reset passed and
+  initialized CUDA with peaks 0/0. Explicit integer zero and
+  `torch.device("cuda:0")` each failed. `set_device(0)` plus indexed reset,
+  public `torch.cuda.init()` plus indexed reset, and scoped device context plus
+  init plus indexed reset all passed with peaks 0/0. Dummy allocation passed
+  but left `peak_reserved=2097152` bytes and is forbidden because it
+  contaminates VRAM evidence.
+- The true contract is therefore not “integer instead of `torch.device`.” It
+  is an explicit logical index plus prior CUDA runtime initialization. The
+  shared `CudaMemoryStatisticsLifecycle@1.0.0` resolves the concrete device,
+  enters `torch.cuda.device(index)`, calls idempotent `torch.cuda.init()`, and
+  then calls `reset_peak_memory_stats(index)`. The context restores the prior
+  current device; there is no implicit reset, permanent `set_device`, dummy
+  allocation, CPU fallback, skipped reset, or fabricated evidence.
+- Initialization and reset failures are distinct structured categories.
+  Lifecycle evidence records contract version, logical index,
+  `initialized_before`, and `initialized_after`. Phase 7A SSL, Phase 8B SSL,
+  supervised training, Phase 8A/8B CUDA acceptance, and Phase 8B.2 workers use
+  the shared boundary; source audit permits no other direct reset call.
+- Affected versions only: SSL training report `1.2.4`; Phase 8B engine/report
+  `1.2.2`; Phase 8A CUDA AMP hardware evidence `1.2.2`; Phase 8B.2 artifact
+  evidence `1.2.2`; Phase 8B.2 preflight/matrix-runner/cell-manifest `1.2.1`;
+  lifecycle `1.0.0`. Graph, model, objective, data, schedule, ontology,
+  checkpoint, evaluation, comparison, transfer, runtime resolver, and
+  logical-index contracts are unchanged.
+- Focused lifecycle/device/engine/acceptance checks pass
+  `125 passed, 13 skipped` in 107.51 seconds. Phase 8B.2A passes
+  `72 passed, 2 skipped` in 324.10 seconds. SSL/training/evaluation passes
+  `497 passed, 32 skipped, 2 deselected` in 206.12 seconds. The complete
+  locally executable repository suite passes
+  `1363 passed, 52 skipped, 3 deselected` in 623.35 seconds. The three
+  deselections are the unchanged positive-worker tests that hang only in the
+  local sandbox and remain mandatory in Required CI. CUDA skips are
+  environment gates, not hardware evidence.
+- The fixed 128-piece validation subset, both corpus IDs and one membership
+  fingerprint, `bounded_acceptance`, one seed, one SSL update, one downstream
+  update, and locked test split remain mandatory. Local CPU results cannot
+  establish hardware success; draft PR #19 stays draft and Phase 9 remains
+  unstarted pending a new independent exact-head RTX 3090 run.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 
+import pytest
 import torch
 
 from music_critic.evaluation.metrics import (
@@ -115,6 +116,12 @@ def test_hand_computed_multilabel_counts() -> None:
         for item in result["per_class"]
     ] == [(1, 1, 1, 0, 2), (1, 0, 0, 2, 1)]
     assert result["exact_match_accuracy"]["value"] == 1 / 3
+    assert result["per_class"][0]["average_precision"]["value"] == (
+        pytest.approx(7 / 12)
+    )
+    assert result["per_class"][1]["average_precision"]["value"] == 1.0
+    assert result["average_precision"]["value"] == pytest.approx(19 / 24)
+    assert result["exact_ap_score_group_count"] == 4
 
 
 def test_categorical_f1_uses_direct_confusion_count_denominator() -> None:

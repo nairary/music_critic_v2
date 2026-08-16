@@ -2,9 +2,8 @@
 
 ## Status and claim boundary
 
-Phase 8B.1 is implemented on branch
-`phase/8b1-multilevel-objectives` from merged Phase 8A main commit
-`e97377c450a368d6b46d7ba8bc1c7697bdd5dd63`. It adds bounded
+Phase 8B.1 was merged through PR #18 and is the accepted objective/mechanics
+base for Phase 8B.2A. It adds bounded
 representation-recovery mechanics for onset, beat, bar, and track rows. It
 does not establish better musical representations, downstream performance,
 likelihood, preference, critic, or quality-score behavior.
@@ -284,8 +283,9 @@ optimizer step.
 The variants intentionally have different forward-pass counts: control and
 single-family modes schedule one pass per batch, while mask-only and equal
 weight schedule four. These runs are therefore not compute matched and are
-not an effectiveness comparison. Phase 8B.2 owns scientific comparison and
-model selection.
+not an effectiveness comparison. Phase 8B.2A now owns the reproducible
+compute-matched protocol and model-selection mechanics; scaled scientific
+evidence remains pending. See `PHASE8B2_COMPARISON_PROTOCOL.md`.
 
 ## Contracts
 
@@ -406,5 +406,5 @@ success. The archive is accepted only if every run and parity check passes.
 CUDA is optional in Phase 8B.1 and an unavailable local CUDA test is an honest
 skip, not hardware evidence. Independent RTX success on the exact final head
 is still pending. Phase 8B.1 does not run full HookTheory/POP909-CL
-SSL training, PDMX, Dilemmadata, Phase 8B.2 scientific comparison, Phase 9,
+SSL training, PDMX, Dilemmadata, scaled Phase 8B.2 evidence, Phase 9,
 PLL, preference critic, or quality scoring.

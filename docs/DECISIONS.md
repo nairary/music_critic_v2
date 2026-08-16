@@ -2396,3 +2396,291 @@ This log is append-only.
   prove the code path and failure semantics, but successful CUDA remediation
   remains unclaimed until the independent RTX 3090 runner passes on the exact
   final head.
+
+## 2026-08-15 — ADR-066: Phase 8B.2A separates compute-matched comparison, validation selection, and held-out test access
+
+- Status: Accepted for implementation on the Phase 8B.2A draft branch. This
+  authorizes reproducible comparison mechanics and bounded CPU acceptance,
+  not full-corpus/PDMX training or a scientific superiority claim.
+- Context: Phase 8B.1 proved routing, aggregation, gradients, checkpointing,
+  and resume, but its natural schedules use one policy view for controls and
+  single-level objectives and four for mask-only/equal-weight. Those losses
+  and bounded decreases are not comparable representation-quality evidence.
+- Decision: Version the complete binding as
+  `Phase8B2ComparisonProtocol@1.0.0`. Treat `natural_schedule` as a secondary
+  compute-unmatched diagnostic and `encoder_forward_matched` as primary. The
+  primary branch fixes raw sample exposures, applied/skipped optimizer-update
+  budget, and encoder forwards. Repeat a single policy through independently
+  seeded views of the same raw batch; preserve the family-global loss without
+  hidden normalization.
+- Decision: Count actual encoder invocations, including detached full-view
+  passes. The default matched budget is 12 calls per logical update: controls
+  use six views at two calls each; latent objectives use four views at three
+  calls each. A nominal equal view count is not compute matching.
+- Decision: Pair exact encoder initialization, SSL/downstream sample schedules,
+  and memberships. Derive independent named model/data/mask/downstream/
+  bootstrap seed domains so launch permutation has no effect. Fingerprint
+  actual initial and transferred encoder states and reject incompatible resume
+  or aggregation.
+- Decision: Compare `frozen_probe` and `full_finetune` against
+  `supervised_scratch` using the current hierarchical supervised architecture,
+  fresh heads/optimizer, and the same downstream budget. Frozen exports are
+  excluded from the optimizer and remain bit-exact; full fine-tuning loads
+  only representation state failure-atomically. SSL decoders/heads/optimizer
+  never transfer.
+- Decision: Keep current fully supervised model-ready, source-native heads
+  only. Candidate-first validation and train priors remain authoritative.
+  Select by declared HookTheory/POP909-CL macro endpoints, mean dataset rank,
+  then lower NLL, lower compute, and lexical variant ID. Diagnostics do not
+  select.
+- Decision: The independent statistical unit is a piece. Use deterministic
+  paired piece bootstrap, per-seed mean/median, between-seed SD, and deltas
+  against scratch and Phase 7A; emit unavailable reasons rather than row-level
+  uncertainty. Bounded fixtures do not produce significance claims.
+- Decision: Test remains locked until a matching validation-selection artifact
+  chooses exactly one checkpoint per scope, explicit acknowledgement is given,
+  a new output and pre-inference test membership are bound, and an experiment
+  identity is consumed once. Unauthorized test artifacts invalidate an
+  aggregate.
+- Decision: Reuse official SSL/training/evaluation/checkpoint engines. Bind the
+  optional repeated-view schedule into Phase 8B checkpoints and transfer into
+  supervised checkpoints. Create immutable `1.0.0` comparison artifacts and
+  reject dirty production worktrees, stale/incomplete/duplicate/mixed bundles.
+- Consequences: Phase 8B.2A can establish fair mechanics and a production-ready
+  protocol without running long training. Phase 10 may supply PDMX raw caches
+  to the same binding. PDMX, Dilemmadata, PLL, preference/quality scoring,
+  curriculum masking, EMA, theory-as-input, schema/ontology changes, and any
+  effectiveness claim remain outside this decision.
+
+## 2026-08-15 — ADR-067: Phase 8B.2A completion requires an attested, resumable official-engine DAG
+
+- Status: Accepted on the existing Phase 8B.2A draft branch. This refines
+  ADR-066 after commit `7365286` proved to contain control-plane primitives but
+  no executable end-to-end experiment.
+- Decision: Advance affected Phase 8B.2A orchestration, protocol, schedule,
+  selection, statistics, artifact, seed, transfer, and test-lock contracts to
+  `1.1.0`; advance evaluation output to `1.3.0` for piece sufficient
+  statistics. Unrelated graph, canonical, ontology, encoding, adapter, and
+  corpus contracts do not change.
+- Decision: `music_critic.experiments.phase8b2.run` owns `plan`, `run`,
+  `resume`, `aggregate`, and `select`. `run` executes official SSL, training,
+  and candidate-first evaluation modules as list-argv Python subprocesses. A
+  cell is reusable only after its complete manifest, artifact SHA-256s, and
+  protocol/runtime binding validate. All writes use staging and atomic
+  publication; stale/incomplete cells require operator inspection and are not
+  overwritten.
+- Decision: Resolve schedules from the official target-free sampler before
+  training and record dataset ID, piece ID, sample position, logical update,
+  and batch position. Derive index/cache/split/train/validation/test identities
+  from official metadata, treating configured fingerprints only as assertions.
+  Every observed SSL/downstream sequence must match the attested schedule
+  bit-exactly. All variants are preflighted before long training.
+- Decision: Execute a real logical-update budget with multiple batches per
+  epoch, interval validation, and exact final validation. Attempted, applied,
+  skipped, raw-sample, policy-view, and instrumented encoder-call counts are
+  evidence. An unavailable objective or AMP overflow invalidates a scientific
+  cell; no replacement sample silently changes its schedule.
+- Decision: Fixed validation membership is independent of downstream training
+  order and must match the comparison protocol, training checkpoint/report,
+  and standalone evaluation. Per-piece evaluation persists mergeable CPU-only
+  counts. Corpus endpoints are recomputed after every independent-piece
+  bootstrap draw; exact AP remains descriptive because score-row retention is
+  outside this contract.
+- Decision: Downstream identity is `(seed, variant_id, transfer_mode)`.
+  Selection aggregates complete paired seeds for each
+  `(variant_id, transfer_mode)` before mean-dataset-rank, NLL, compute, and
+  lexical-configuration ranking. Test authorization is limited to the complete
+  selected seed-checkpoint manifest, one single-use experiment per seed.
+- Consequences: The bounded CLI executes 8 SSL cells, 8 encoder exports, 18
+  downstream cells, and 18 validation cells across two seeds, plus preflight,
+  aggregation, selection, and final reporting. Those fixtures prove mechanics,
+  resume, and binding—not scientific superiority. Production training is not
+  part of remediation, and full-scale PDMX evidence remains owned by Phase 10.
+
+## 2026-08-15 — ADR-068: Phase 8B.2A data attestation uses a source-neutral semantic projection
+
+- Status: Accepted as blocking pre-merge remediation in existing draft PR #19.
+- Context: The `1.1.0` production planner correctly resolved sample slots from
+  metadata without loading target/canonical payloads, but represented its data
+  evidence with null fingerprints/membership and a placeholder composition.
+  SSL/downstream publication compared those values with complete official-
+  engine dictionaries; SSL therefore failed on every real `index_paths` run,
+  and downstream could raise `KeyError` for `train_dataset_counts`. The bounded
+  fixture materialized an engine runtime while planning and masked the defect.
+- Decision: Advance the affected comparison protocol, artifact, plan, schedule,
+  data-attestation, actual-schedule, matrix-runner, cell-manifest and test-lock
+  contracts to `1.2.0`. Introduce
+  `Phase8B2DataSemanticProjection@1.0.0`. Unchanged compute, selection,
+  statistics, diagnostics, transfer, seed, evaluation, graph, model, canonical,
+  corpus, encoding and ontology contracts retain their versions.
+- Decision: Metadata planning and official SSL/downstream evidence use the same
+  projection function and shape: ordered dataset/index and cache identities,
+  split fingerprint, normalized train dataset counts/size, fixed-validation
+  membership/counts and mixture weights. Production values must match the
+  protocol binding. Exact schedule slots continue to come only from indices,
+  split metadata and the official deterministic sampler; target and canonical
+  payload reads are forbidden for schedule resolution.
+- Decision: Runtime binding separately verifies the semantic projection, exact
+  observed sample-schedule fingerprint and optimizer/update/encoder-forward
+  accounting. Every mismatch raises a stable `Phase8B2ContractError`; no
+  incomplete or stale cell is atomically published.
+- Decision: Replace the ambiguous `test_accessed=false` claim. Planning may
+  resolve test membership metadata for a future single-use lock and records
+  `test_membership_metadata_resolved=true`. Until unlock it must also record
+  `test_inference_performed=false`, `test_targets_accessed=false`, and
+  `test_metrics_accessed=false`. Serialize only the test membership
+  fingerprint, counts and split binding, never the complete test piece list.
+- Consequences: A synthetic on-disk HookTheory/POP909-CL mini-DAG now exercises
+  the real production-format path through SSL, export, frozen/full/scratch and
+  validation evaluation. The unchanged bounded 52-cell DAG remains mechanics
+  evidence only. No Phase 9, production/PDMX training, held-out inference, or
+  scientific-effectiveness claim is authorized.
+
+## 2026-08-15 — ADR-069: CUDA runtime evidence uses a logical integer device index
+
+- Status: Accepted as blocking CUDA pre-merge remediation in existing draft
+  PR #19. The PR remains draft and unmerged; successful hardware remediation
+  requires an independent exact-head RTX 3090 rerun.
+- Context: A real-corpus RTX 3090 smoke on
+  `91c2d0c536cbe35fe40d83e0ad09a4c5200a3d97` resolved `cuda:0` correctly and
+  read both production caches, but the first Phase 8B.2A preflight failed
+  before model forward. `phase8b_engine._prepare` passed the concrete
+  `torch.device("cuda:0")` to `torch.cuda.reset_peak_memory_stats`; the
+  installed CUDA/PyTorch runtime rejected that argument as `Invalid device
+  argument`. The same type mismatch existed in Phase 7A SSL, supervised
+  training, Phase 8A hardware acceptance, and Phase 8B.2 environment evidence.
+- Decision: Keep concrete `torch.device` objects for tensor/module placement.
+  Add `CudaRuntimeDeviceIndex@1.0.0`, which calls the canonical resolver and
+  returns only a validated logical integer CUDA index. It preserves explicit
+  `cuda:0`/`cuda:1`, resolves abstract CUDA through the current logical device,
+  honors `CUDA_VISIBLE_DEVICES` through PyTorch's visible count, rejects CPU
+  with `runtime.device.cuda_operation_requires_cuda`, and preserves stable
+  unavailable/out-of-range categories. CUDA discovery probe failures are also
+  structured by runtime-device resolution `1.0.2`.
+- Decision: Every runtime-device call to CUDA reset, allocated/reserved peaks,
+  synchronization, device name, and device properties receives that explicit
+  integer. Fixed device-zero acceptance calls remain explicit integers. Do not
+  disable VRAM evidence, catch the failure as unavailable evidence, fall back
+  to CPU, remove reset, or rely on an implicit current device.
+- Decision: Advance only affected evidence/execution contracts: SSL training
+  report `1.2.3`; Phase 8B engine and report `1.2.1`; Phase 8A CUDA AMP hardware
+  evidence `1.2.1`; Phase 8B.2 artifact evidence `1.2.1`; and runtime-device
+  resolution `1.0.2`. Device transfer, comparison protocol, graph, canonical,
+  ontology, model, objective, schedule, data, checkpoint, and scientific
+  contracts retain their versions and semantics.
+- Consequences: CPU/mock regressions enforce the integer boundary for all three
+  official training paths and all affected evidence APIs. Optional real-CUDA
+  tests execute reset, allocation, peak/name evidence and invalid-index
+  rejection. The official production-format CUDA mini-DAG executes one
+  `phase7a_control` seed, one SSL update, frozen/full/scratch training, and
+  three validation evaluations with 8/8 scientific cells, 8/8 runtime
+  bindings, 3/3 checkpoint-to-evaluation bindings, nonzero VRAM, and no test
+  inference/target/metric access. CPU results cannot establish that the RTX
+  blocker is fixed.
+
+## 2026-08-15 — ADR-070: The independent RTX gate is a bounded, artifact-preserving operator workflow
+
+- Status: Accepted as final command/evidence remediation for draft PR #19.
+  Independent exact-final RTX 3090 success remains pending, so the PR stays
+  draft and unmerged.
+- Context: The published preflight required an entirely empty porcelain
+  status even though the operator checkout deliberately preserves untracked
+  Phase 8A/8B evidence. The published one-seed `production_pilot` also
+  violated its three-seed minimum. In addition, Phase 8B.2 has a structured
+  `device` field rather than a `device=cuda` Hydra group.
+- Decision: Define the short hardware run as a production-format real-corpus
+  bounded smoke. It uses `comparison=bounded_acceptance`, one
+  `phase7a_control` variant, seed 17, one SSL and downstream update, explicit
+  `device.name=cuda:0`, and FP16 AMP. It is mechanics/hardware evidence only;
+  never label it a production pilot or scientific comparison. Keep
+  `production_pilot` at a minimum of three seeds. Place `_self_` before the
+  comparison default so registered Hydra presets retain their declared names,
+  seed sets, and budgets.
+- Decision: Reject tracked unstaged and staged changes independently with
+  `git diff --quiet` and `git diff --cached --quiet`. Allow and print untracked
+  files, list preserved output roots diagnostically, and never delete, move,
+  clean, reset, or reuse an evidence/output root. Fetch the named branch,
+  require its head to equal the operator-supplied exact SHA, and detach it.
+  Scope `set -euo pipefail` to the gate script's subshell.
+- Decision: A prior plan may supply only two index paths, two cache roots, and
+  the global split path. Re-resolve and validate the bounded plan/config at the
+  exact head. Verify the complete final bundle, CUDA logical index/positive
+  peaks, 1/1 update accounting, absence of CPU fallback and test access, and
+  both corpus IDs in train/validation evidence. Archive logs, resolved
+  configs, attestations, reports, and payload hashes; exclude caches,
+  checkpoints, and corpus payloads and write an archive checksum sidecar.
+- Consequences: A failed command returns nonzero while leaving tmux/SSH and all
+  artifacts intact. CPU suites can validate the workflow and verifier but do
+  not establish successful CUDA remediation. Phase 9, test inference,
+  production-scale comparison, and scientific-effectiveness claims remain
+  unauthorized.
+
+## 2026-08-15 — ADR-071: The RTX bounded smoke fixes validation at 128 pieces
+
+- Status: Accepted as the final boundedness correction for draft PR #19;
+  independent exact-head RTX 3090 success remains pending.
+- Context: The official one-seed runner bounded optimizer updates but omitted
+  `comparison.validation_samples`. Its zero default selects the complete
+  validation split, allowing each of the three downstream evaluation cells to
+  traverse an arbitrarily large validation corpus.
+- Decision: Set `comparison.validation_samples=128` explicitly and record 128
+  in the invocation artifact. Treat the selected validation membership as a
+  cross-stage runtime binding: it must contain exactly 128 identities and both
+  HookTheory and POP909-CL, while one fingerprint must agree across the plan,
+  projected schedules, SSL/downstream training reports, evaluation metrics,
+  and checkpoint evidence. Downstream validation epoch size and evaluation
+  maximum samples must each resolve to 128. Dataset-name agreement without
+  exact count and fingerprint agreement is not acceptance evidence.
+- Decision: Preserve `bounded_acceptance`, one variant, one seed, one SSL
+  update, one downstream update, locked test access, `cuda:0`, FP16 AMP,
+  artifact-preserving preflight, fresh output roots, and the payload-excluding
+  evidence archive. Do not change `production_pilot` or its three-seed minimum.
+- Consequences: The command is a fixed-cost production-format real-corpus
+  hardware smoke, not a production pilot or scientific comparison. A missing,
+  zero, off-by-one, or fingerprint-divergent validation binding fails closed.
+  CPU regression results cannot establish successful RTX 3090 execution.
+
+## 2026-08-15 — ADR-072: Indexed CUDA memory statistics require an initialized scoped device lifecycle
+
+- Status: Accepted as blocking CUDA lifecycle remediation in existing draft
+  PR #19. Independent success remains pending at the new exact head.
+- Context: The first preflight worker of the independent bounded smoke failed
+  again at head `aa5fe538d45499f84cbf5ee8de99f7514ff111ce`, before model
+  forward. Replacing `torch.device("cuda:0")` with integer zero was
+  insufficient: `reset_peak_memory_stats(0)` still raised
+  `RuntimeError: Invalid device argument` in the fresh process.
+- Hardware probe: On an NVIDIA GeForce RTX 3090 with one visible device,
+  PyTorch `2.13.0+cu130`, CUDA runtime 13.0, and
+  `initialized_before=false` in every fresh process: bare implicit reset
+  passed and initialized CUDA with peaks 0/0; explicit integer zero and
+  `torch.device("cuda:0")` both failed; `set_device(0)` then indexed reset,
+  `torch.cuda.init()` then indexed reset, and scoped device context plus init
+  then indexed reset all passed with peaks 0/0. A dummy allocation also
+  passed but left `peak_reserved=2097152` bytes and is rejected as contaminating
+  measurement evidence.
+- Decision: Add `CudaMemoryStatisticsLifecycle@1.0.0`. Resolve the concrete
+  CUDA device with `CudaRuntimeDeviceIndex@1.0.0`, enter
+  `torch.cuda.device(index)`, call the idempotent public `torch.cuda.init()`,
+  and only then call `reset_peak_memory_stats(index)`. The indexed reset stays
+  explicit; the scoped context restores the previous current device. Do not
+  use implicit reset, permanent `set_device`, dummy allocation, CPU fallback,
+  skipped reset, or fabricated peaks.
+- Decision: Distinguish
+  `runtime.cuda_memory_statistics.initialization_failed` from
+  `runtime.cuda_memory_statistics.reset_failed`. Evidence binds lifecycle
+  contract version, logical index, `initialized_before`, and
+  `initialized_after`. Route Phase 7A SSL, Phase 8B SSL, supervised training,
+  Phase 8A/8B CUDA acceptance, and Phase 8B.2 workers through the one helper;
+  source audit forbids every other direct reset call.
+- Decision: Advance only affected CUDA evidence/execution contracts: SSL
+  training report to `1.2.4`; Phase 8B engine/report to `1.2.2`; Phase 8A CUDA
+  AMP hardware evidence to `1.2.2`; and Phase 8B.2 artifact evidence to
+  `1.2.2`. Phase 8B.2 preflight worker, matrix runner, and cell manifest
+  advance to `1.2.1`. Runtime-device resolution, logical index, transfer, comparison,
+  graph, model, objective, data, schedule, ontology, checkpoint, and
+  evaluation contracts retain their versions and semantics.
+- Consequences: The earlier device-object remediation and the later
+  integer-only remediation are both insufficient hardware evidence. CPU/mock
+  and optional fresh-process CUDA regressions validate lifecycle ordering,
+  isolation, restoration, idempotence, structured failures, and non-mutation,
+  but only a new independent exact-head RTX 3090 run can close the gate.

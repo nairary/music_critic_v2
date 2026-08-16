@@ -35,6 +35,9 @@ class DataConfig:
     # Zero means the complete validation view exactly once. A positive value
     # selects one fixed deterministic subset without replacement.
     validation_epoch_size: int = 0
+    # Negative preserves the historical coupling to the data-order seed.
+    # Phase 8B.2A supplies one fixed seed shared by all comparison cells.
+    validation_seed: int = -1
     mixture_weights: dict[str, float] = field(
         default_factory=lambda: {
             "hooktheory": 1.0,
@@ -58,6 +61,9 @@ class ExperimentConfig:
     default_harmonic_weight: float = 1.0
     default_reconstruction_weight: float = 1.0
     collect_gradient_evidence: bool = True
+    # Zero preserves legacy epoch semantics.  A positive value is the exact
+    # maximum number of optimizer attempts in one epoch for step-budget runs.
+    optimizer_steps_per_epoch: int = 0
 
 
 @dataclass
@@ -90,6 +96,24 @@ class DeviceConfig:
     name: str = "cpu"
     amp: bool = False
     non_blocking: bool = False
+    amp_dtype: str = "float16"
+
+
+@dataclass
+class TransferConfig:
+    """Optional Phase 8B.2A downstream encoder initialization."""
+
+    contract_version: str = "1.1.0"
+    mode: str = "supervised_scratch"
+    encoder_export_path: str = ""
+    encoder_export_sha256: str = ""
+    source_ssl_checkpoint_sha256: str = ""
+    comparison_protocol_fingerprint: str = ""
+    downstream_initialization_seed: int = 0
+    downstream_data_order_seed: int = 0
+    actual_sample_schedule_path: str = ""
+    sample_schedule_fingerprint: str = ""
+    logical_updates: int = 0
 
 
 @dataclass
@@ -115,6 +139,8 @@ class TrainingConfig:
     objective: ObjectiveConfig = MISSING
     scheduler: SchedulerConfig = MISSING
     device: DeviceConfig = MISSING
+    transfer: TransferConfig = field(default_factory=TransferConfig)
+    downstream_task_ids: list[str] = field(default_factory=list)
 
 
 def _model(name: str) -> ModelConfig:
@@ -332,5 +358,6 @@ __all__ = [
     "OptimizerConfig",
     "SchedulerConfig",
     "TrainingConfig",
+    "TransferConfig",
     "register_training_configs",
 ]

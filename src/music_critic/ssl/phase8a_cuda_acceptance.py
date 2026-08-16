@@ -19,6 +19,10 @@ from typing import Any
 import torch
 from torch import Tensor
 
+from music_critic.cuda_memory import (
+    CUDA_MEMORY_STATISTICS_LIFECYCLE_CONTRACT_VERSION,
+    initialize_cuda_memory_statistics,
+)
 from music_critic.ssl.phase8a_acceptance import (
     PHASE8A_BOUNDED_ACCEPTANCE_CONTRACT_VERSION,
     PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION,
@@ -29,8 +33,10 @@ from music_critic.ssl.phase8a_acceptance import (
     _store_items,
 )
 from music_critic.device import (
+    CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION,
     DEVICE_TRANSFER_CONTRACT_VERSION,
     RUNTIME_DEVICE_RESOLUTION_CONTRACT_VERSION,
+    resolve_cuda_device_index,
     resolve_runtime_device,
 )
 from music_critic.data import QualityFlag, TargetArray
@@ -1430,6 +1436,7 @@ def _policy_acceptance(
     source_sample: SSLRawSample,
     target_blind_batches: tuple[SSLBatch, SSLBatch],
 ) -> tuple[dict[str, object], dict[str, object]]:
+    cuda_device_index = resolve_cuda_device_index(device)
     config = _single_policy_config(policy)
     resolutions = build_batched_hierarchy_mask_resolutions(
         source_batch.raw_graph_batch,
@@ -1521,8 +1528,8 @@ def _policy_acceptance(
         cpu_fp32,
         cuda_fp32,
     )
-    torch.cuda.reset_peak_memory_stats(device)
-    torch.cuda.synchronize(device)
+    cuda_memory_lifecycle = initialize_cuda_memory_statistics(device)
+    torch.cuda.synchronize(cuda_device_index)
     started = time.perf_counter()
     with torch.no_grad(), torch.autocast(
         "cuda",
@@ -1540,7 +1547,7 @@ def _policy_acceptance(
             batch,
             prepared_mask_binding=moved_binding,
         )
-    torch.cuda.synchronize(device)
+    torch.cuda.synchronize(cuda_device_index)
     elapsed = time.perf_counter() - started
     _require_phase8a_outputs_bit_exact(
         first,
@@ -1674,8 +1681,19 @@ def _policy_acceptance(
         "no_leakage_mutation_evidence": no_leakage,
         "pitch_sensitive_reconstruction_evidence": pitch_sensitive,
         "elapsed_seconds": elapsed,
-        "peak_allocated_bytes": torch.cuda.max_memory_allocated(device),
-        "peak_reserved_bytes": torch.cuda.max_memory_reserved(device),
+        "cuda_runtime_device_index_contract_version": (
+            CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION
+        ),
+        "cuda_logical_device_index": cuda_device_index,
+        "cuda_memory_statistics_lifecycle": (
+            cuda_memory_lifecycle.to_dict()
+        ),
+        "peak_allocated_bytes": torch.cuda.max_memory_allocated(
+            cuda_device_index
+        ),
+        "peak_reserved_bytes": torch.cuda.max_memory_reserved(
+            cuda_device_index
+        ),
         "quality_claim": None,
         "loss_decrease_is_acceptance_criterion": False,
         "correct_target_preference_is_acceptance_criterion": False,
@@ -2139,6 +2157,7 @@ def _build_phase8a_cuda_amp_hardware_report(
     resolved_device = resolve_runtime_device(device)
     if resolved_device != torch.device("cuda", 0):
         raise RuntimeError("Phase 8A acceptance did not resolve cuda:0")
+    cuda_device_index = resolve_cuda_device_index(resolved_device)
     head = _git("rev-parse", "HEAD")
     _git(
         "merge-base",
@@ -2157,7 +2176,7 @@ def _build_phase8a_cuda_amp_hardware_report(
 
     torch.manual_seed(811)
     torch.cuda.manual_seed_all(811)
-    properties = torch.cuda.get_device_properties(resolved_device)
+    properties = torch.cuda.get_device_properties(cuda_device_index)
     if (
         expected_device_name is not None
         and properties.name != expected_device_name
@@ -2218,6 +2237,9 @@ def _build_phase8a_cuda_amp_hardware_report(
         ),
         "phase8a_cuda_amp_hardware_evidence": (
             PHASE8A_CUDA_AMP_HARDWARE_EVIDENCE_CONTRACT_VERSION
+        ),
+        "cuda_memory_statistics_lifecycle": (
+            CUDA_MEMORY_STATISTICS_LIFECYCLE_CONTRACT_VERSION
         ),
     }
     portable_semantics = {
@@ -2307,6 +2329,10 @@ def _build_phase8a_cuda_amp_hardware_report(
         "runtime": {
             "requested_device": device,
             "resolved_device": str(resolved_device),
+            "cuda_runtime_device_index_contract_version": (
+                CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION
+            ),
+            "cuda_logical_device_index": cuda_device_index,
             "amp_enabled": True,
             "amp_dtype": "torch.float16",
             "torch_version": torch.__version__,

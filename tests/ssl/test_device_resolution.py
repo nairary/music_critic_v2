@@ -118,7 +118,7 @@ def test_ssl_runtime_preserves_cuda_index_error(
 
 def test_ssl_evidence_remediation_versions_are_narrow() -> None:
     assert SSL_CONTRACT_VERSION == "1.2.2"
-    assert SSL_TRAINING_REPORT_VERSION == "1.2.2"
+    assert SSL_TRAINING_REPORT_VERSION == "1.2.4"
     assert NO_LEAKAGE_MUTATION_EVIDENCE_CONTRACT_VERSION == "1.0.0"
     assert (
         PITCH_SENSITIVE_RECONSTRUCTION_EVIDENCE_CONTRACT_VERSION

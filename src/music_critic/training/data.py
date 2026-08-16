@@ -329,7 +329,7 @@ def _bounded_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
     validation_selection = fixed_validation_membership(
         validation_identities,
         limit=config.validation_epoch_size,
-        seed=seed,
+        seed=(config.validation_seed if config.validation_seed >= 0 else seed),
     )
     validation_indices = validation_selection.indices
     membership = _training_membership(validation_selection)
@@ -434,7 +434,7 @@ def _corpus_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
     validation_selection = fixed_validation_membership(
         validation_identities,
         limit=config.validation_epoch_size,
-        seed=seed,
+        seed=(config.validation_seed if config.validation_seed >= 0 else seed),
     )
     validation_indices = validation_selection.indices
     membership = _training_membership(validation_selection)

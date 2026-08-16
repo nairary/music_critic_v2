@@ -218,6 +218,17 @@ checkpoint, transfer, and bounded-science contracts are in
 Phase 8A hierarchy policies, start-descendant semantics, mixtures, prepared
 profile, leakage audit, bounded fixture, and non-claim boundary are in
 `docs/PHASE8A_HIERARCHICAL_MASKING.md`.
+Phase 8B.1 objective mechanics are in
+`docs/PHASE8B_MULTILEVEL_OBJECTIVES.md`; the Phase 8B.2A compute-matched
+schedule, downstream transfer, validation selection, test lock, statistics,
+and artifact protocol are in `docs/PHASE8B2_COMPARISON_PROTOCOL.md`.
+
+Build the bounded Phase 8B.2A matrix without training or writes:
+
+```bash
+PYTHONPATH=src python -m music_critic.experiments.phase8b2.run \
+  comparison=bounded_acceptance action=plan
+```
 
 Evaluate a checkpoint on fixed validation:
 

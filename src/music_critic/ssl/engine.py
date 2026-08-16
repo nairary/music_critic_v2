@@ -18,7 +18,16 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 from torch.nn import functional as F
 
-from music_critic.device import RuntimeDeviceError, resolve_runtime_device
+from music_critic.cuda_memory import (
+    CudaMemoryStatisticsLifecycleEvidence,
+    initialize_cuda_memory_statistics,
+)
+from music_critic.device import (
+    CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION,
+    RuntimeDeviceError,
+    resolve_cuda_device_index,
+    resolve_runtime_device,
+)
 from music_critic.graph import graph_fingerprint
 from music_critic.models import (
     HierarchicalHeterogeneousBaseline,
@@ -68,7 +77,7 @@ from music_critic.training.checkpoint import (
 
 
 SSL_RUN_MANIFEST_VERSION = "1.2.0"
-SSL_TRAINING_REPORT_VERSION = "1.2.2"
+SSL_TRAINING_REPORT_VERSION = "1.2.4"
 SSL_PERFORMANCE_ROW_VERSION = "1.2.0"
 NO_LEAKAGE_MUTATION_EVIDENCE_CONTRACT_VERSION = "1.0.0"
 PITCH_SENSITIVE_RECONSTRUCTION_EVIDENCE_CONTRACT_VERSION = "1.0.0"
@@ -341,6 +350,29 @@ def _validate_config(config: dict[str, Any]) -> None:
         raise SSLTrainingError("ssl.training.gradient_clip_invalid")
     if config["ssl"]["epsilon"] != 1e-8:
         raise SSLTrainingError("ssl.training.cosine_epsilon_incompatible")
+    if config["device"].get("amp_dtype", "float16") not in {
+        "float16",
+        "bfloat16",
+    }:
+        raise SSLTrainingError("ssl.training.amp_dtype_invalid")
+    for name, value, minimum in (
+        ("batch_size", config["data"]["batch_size"], 1),
+        ("workers", config["data"]["workers"], 0),
+        ("epoch_size", config["data"]["epoch_size"], 1),
+        (
+            "validation_epoch_size",
+            config["data"]["validation_epoch_size"],
+            0,
+        ),
+        ("validation_seed", config["data"].get("validation_seed", -1), -1),
+        (
+            "optimizer_steps_per_epoch",
+            config["experiment"].get("optimizer_steps_per_epoch", 0),
+            0,
+        ),
+    ):
+        if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+            raise SSLTrainingError(f"ssl.training.{name}_invalid")
 
 
 def _resolve_device(config: dict[str, Any]) -> torch.device:
@@ -360,6 +392,15 @@ def _resolve_device(config: dict[str, Any]) -> torch.device:
     if config["device"].get("amp", False) and device.type != "cuda":
         raise SSLTrainingError("ssl.training.amp_requires_cuda")
     return device
+
+
+def _amp_dtype(config: dict[str, Any]) -> torch.dtype:
+    name = config["device"].get("amp_dtype", "float16")
+    if name == "float16":
+        return torch.float16
+    if name == "bfloat16":
+        return torch.bfloat16
+    raise SSLTrainingError("ssl.training.amp_dtype_invalid")
 
 
 def _configure_cublas_determinism() -> None:
@@ -1332,7 +1373,12 @@ def _evaluate(
     return accumulator.finalize()
 
 
-def _device_evidence(device: torch.device) -> dict[str, object]:
+def _device_evidence(
+    device: torch.device,
+    cuda_memory_lifecycle: (
+        CudaMemoryStatisticsLifecycleEvidence | None
+    ),
+) -> dict[str, object]:
     common = {
         "resolved_device": str(device),
         "cuda_available": torch.cuda.is_available(),
@@ -1347,6 +1393,11 @@ def _device_evidence(device: torch.device) -> dict[str, object]:
         "cublas_workspace_config": os.environ.get(
             "CUBLAS_WORKSPACE_CONFIG"
         ),
+        "cuda_memory_statistics_lifecycle": (
+            None
+            if cuda_memory_lifecycle is None
+            else cuda_memory_lifecycle.to_dict()
+        ),
     }
     if device.type != "cuda":
         return {
@@ -1355,11 +1406,20 @@ def _device_evidence(device: torch.device) -> dict[str, object]:
             "peak_allocated_bytes": None,
             "peak_reserved_bytes": None,
         }
+    cuda_device_index = resolve_cuda_device_index(device)
     return {
         **common,
-        "cuda_device_name": torch.cuda.get_device_name(device),
-        "peak_allocated_bytes": torch.cuda.max_memory_allocated(device),
-        "peak_reserved_bytes": torch.cuda.max_memory_reserved(device),
+        "cuda_runtime_device_index_contract_version": (
+            CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION
+        ),
+        "cuda_logical_device_index": cuda_device_index,
+        "cuda_device_name": torch.cuda.get_device_name(cuda_device_index),
+        "peak_allocated_bytes": torch.cuda.max_memory_allocated(
+            cuda_device_index
+        ),
+        "peak_reserved_bytes": torch.cuda.max_memory_reserved(
+            cuda_device_index
+        ),
     }
 
 
@@ -1373,12 +1433,16 @@ def _prepare(
     torch.optim.Optimizer,
     Any,
     torch.amp.GradScaler,
+    CudaMemoryStatisticsLifecycleEvidence | None,
 ]:
     _validate_config(config)
     _set_determinism(int(config["seed"]))
     device = _resolve_device(config)
-    if device.type == "cuda":
-        torch.cuda.reset_peak_memory_stats(device)
+    cuda_memory_lifecycle = (
+        initialize_cuda_memory_statistics(device)
+        if device.type == "cuda"
+        else None
+    )
     runtime = build_ssl_data_runtime(
         OmegaConf.create(config["data"]),
         seed=int(config["seed"]),
@@ -1401,6 +1465,7 @@ def _prepare(
         optimizer,
         scheduler,
         scaler,
+        cuda_memory_lifecycle,
     )
 
 
@@ -2351,6 +2416,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         optimizer,
         scheduler,
         scaler,
+        cuda_memory_lifecycle,
     ) = _prepare(config)
     del scheduler
     _initialize_output(
@@ -2548,7 +2614,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
             "total_seconds": time.perf_counter() - started,
             "checkpoint_binding_participation": False,
         },
-        "device": _device_evidence(device),
+        "device": _device_evidence(device, cuda_memory_lifecycle),
         "amp_enabled": bool(config["device"]["amp"]),
         "scaler_enabled": scaler.is_enabled(),
         "fingerprints": runtime.fingerprints,
@@ -2576,6 +2642,7 @@ def _run_epochs(
         optimizer,
         scheduler,
         scaler,
+        cuda_memory_lifecycle,
     ) = _prepare(config)
     resume_path = str(config["experiment"]["resume_from"])
     _initialize_output(
@@ -2912,7 +2979,7 @@ def _run_epochs(
         "validation_membership": asdict(runtime.validation_membership),
         "fingerprints": runtime.fingerprints,
         "data_composition": runtime.mixture_statistics,
-        "device": _device_evidence(device),
+        "device": _device_evidence(device, cuda_memory_lifecycle),
         "amp_enabled": bool(config["device"]["amp"]),
         "scaler_enabled": scaler.is_enabled(),
         "duration_seconds": time.perf_counter() - started,

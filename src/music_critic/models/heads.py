@@ -346,6 +346,9 @@ def aggregate_task_losses(
     task_weights = task_weights or {}
     task_losses = []
     for supervision in supervisions:
+        weight = float(task_weights.get(supervision.task_id, 1.0))
+        if weight == 0.0:
+            continue
         group_keys = torch.stack(
             (supervision.node_type_codes, supervision.sample_indices), dim=1
         )
@@ -366,7 +369,7 @@ def aggregate_task_losses(
         task_losses.append(
             TaskLoss(
                 task_id=supervision.task_id,
-                weight=float(task_weights.get(supervision.task_id, 1.0)),
+                weight=weight,
                 group_node_type_codes=unique_groups[:, 0],
                 group_sample_indices=unique_groups[:, 1],
                 group_row_counts=counts,

@@ -248,6 +248,26 @@ def test_dense_rows_reduce_by_task_node_type_and_sample(mixed_batch) -> None:
     assert torch.isfinite(report.total_loss)
 
 
+def test_zero_weight_tasks_are_excluded_from_loss_and_denominator(
+    mixed_batch,
+) -> None:
+    output = _model()(mixed_batch)
+    selected = output.supervisions[0].task_id
+    weights = {task_id: 0.0 for task_id in ACTIVE_TASK_IDS}
+    weights[selected] = 1.0
+
+    report = aggregate_task_losses(
+        output.supervisions,
+        task_weights=weights,
+    )
+
+    assert [row.task_id for row in report.task_losses] == [selected]
+    assert torch.equal(
+        report.total_loss,
+        report.task_losses[0].mean_loss,
+    )
+
+
 def test_target_replace_delete_mask_and_add_leave_candidate_logits_unchanged() -> None:
     base = _hook_piece()
     variants = (

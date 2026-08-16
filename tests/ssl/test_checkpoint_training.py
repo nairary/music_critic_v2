@@ -602,7 +602,7 @@ def test_one_batch_report_has_trajectory_reload_transfer_and_cpu_evidence(
     config.optimizer.learning_rate = None
     report = run_ssl_training(config)
 
-    assert report["training_report_version"] == "1.2.2"
+    assert report["training_report_version"] == "1.2.4"
     assert report["evidence_kind"] == "bounded_phase7a_ssl_plumbing"
     assert report["sample_count"] == 3
     assert report["node_count"] == 114

@@ -120,6 +120,11 @@ evidence and are not rewritten. Exact checkpoint metadata means historical
 bounded SSL `1.2.0` checkpoints are not resumable under the remediated umbrella
 contract; this hotfix adds no migration.
 
+The later Phase 8B.2A CUDA lifecycle remediation advances only the serialized
+training report to `1.2.4` and adds
+`CudaMemoryStatisticsLifecycle@1.0.0`. It does not change the SSL model,
+objective, checkpoint, graph, data, or schedule contracts.
+
 The velocity CUDA test now mutates only available sample-zero velocity values,
 preserves unavailable placeholders bit-exactly, and reruns raw-graph
 validation before checking model isolation. The resume CUDA test separately
@@ -443,10 +448,11 @@ semantics changed:
 | anti-collapse diagnostics | `1.1.1` |
 | checkpoint, epoch journal, metric row | `1.2.0` |
 | run manifest and performance row | `1.2.0` |
-| training report | `1.2.2` |
+| training report | `1.2.4` |
 | no-leakage mutation evidence | `1.0.0` |
 | pitch-sensitive reconstruction evidence | `1.0.0` |
-| runtime-device resolution | `1.0.1` |
+| runtime-device resolution | `1.0.2` |
+| CUDA memory-statistics lifecycle | `1.0.0` |
 | shared device transfer | `1.0.2` |
 | prepared MaskPlan binding | `1.1.0` |
 | MaskPlan/policy and feature overlay | `1.0.0` |

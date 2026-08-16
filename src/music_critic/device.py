@@ -5,8 +5,9 @@ from __future__ import annotations
 import torch
 
 
-RUNTIME_DEVICE_RESOLUTION_CONTRACT_VERSION = "1.0.1"
+RUNTIME_DEVICE_RESOLUTION_CONTRACT_VERSION = "1.0.2"
 DEVICE_TRANSFER_CONTRACT_VERSION = "1.0.2"
+CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION = "1.0.0"
 
 
 class RuntimeDeviceError(ValueError):
@@ -58,12 +59,30 @@ def resolve_runtime_device(
             "runtime.device.type_unsupported",
             requested_device=str(requested),
         )
-    if not torch.cuda.is_available():
+    try:
+        cuda_available = torch.cuda.is_available()
+    except (AssertionError, RuntimeError) as exc:
+        raise RuntimeDeviceError(
+            "runtime.device.cuda_availability_probe_failed",
+            requested_device=str(requested),
+        ) from exc
+    if not isinstance(cuda_available, bool):
+        raise RuntimeDeviceError(
+            "runtime.device.cuda_availability_probe_invalid",
+            requested_device=str(requested),
+        )
+    if not cuda_available:
         raise RuntimeDeviceError(
             "runtime.device.cuda_unavailable",
             requested_device=str(requested),
         )
-    visible_device_count = torch.cuda.device_count()
+    try:
+        visible_device_count = torch.cuda.device_count()
+    except (AssertionError, RuntimeError) as exc:
+        raise RuntimeDeviceError(
+            "runtime.device.cuda_device_count_invalid",
+            requested_device=str(requested),
+        ) from exc
     if (
         isinstance(visible_device_count, bool)
         or not isinstance(visible_device_count, int)
@@ -106,9 +125,37 @@ def resolve_runtime_device(
     return torch.device("cuda", resolved_index)
 
 
+def resolve_cuda_device_index(
+    device: str | torch.device,
+) -> int:
+    """Resolve a CUDA-only operation to one logical integer device index.
+
+    PyTorch tensor placement accepts ``torch.device`` while some CUDA runtime
+    APIs require the logical integer index.  Reusing the canonical resolver
+    keeps explicit indices, the current device, and ``CUDA_VISIBLE_DEVICES``
+    validation on one boundary.
+    """
+
+    resolved = resolve_runtime_device(device)
+    if resolved.type != "cuda":
+        raise RuntimeDeviceError(
+            "runtime.device.cuda_operation_requires_cuda",
+            requested_device=str(resolved),
+        )
+    index = resolved.index
+    if isinstance(index, bool) or not isinstance(index, int):
+        raise RuntimeDeviceError(
+            "runtime.device.cuda_logical_index_invalid",
+            requested_device=str(resolved),
+        )
+    return index
+
+
 __all__ = [
+    "CUDA_RUNTIME_DEVICE_INDEX_CONTRACT_VERSION",
     "DEVICE_TRANSFER_CONTRACT_VERSION",
     "RUNTIME_DEVICE_RESOLUTION_CONTRACT_VERSION",
     "RuntimeDeviceError",
+    "resolve_cuda_device_index",
     "resolve_runtime_device",
 ]

@@ -7,7 +7,7 @@ supervised auxiliary heads. It is not a critic score, calibration result, SSL
 objective, or new checkpoint-selection policy. It changes no model, graph,
 adapter, target, corpus, cache, ontology, or encoding semantics.
 
-Evaluation and evaluation-artifact contracts are version `1.1.1`. The
+Evaluation and evaluation-artifact contracts are version `1.3.0`. The
 profiler contract is `1.1.0`, the macro-summary sub-contract is `1.0.0`, and
 the unchanged train-prior contract remains `1.0.0`.
 
@@ -116,8 +116,9 @@ An undefined denominator produces:
 
 Absence of positive labels is therefore not reported as zero quality.
 Likelihood sums use exact accumulation of the observed binary64 values, and
-confusion/count state is fixed by the ontology size. Prediction tensors are
-not retained across batches.
+confusion/count state is fixed by the ontology size. Multilabel AP retains
+only CPU scalar `(score, positive-count, total-count)` groups per label for an
+exact global ordering; prediction tensors are not retained across batches.
 
 Primary evidence remains under `datasets[dataset_id][task_id]`. The versioned
 `macro_summaries` view groups task-level normalized metrics by
@@ -275,3 +276,44 @@ training checkpoint, run-manifest compatibility binding, or deterministic
 optimizer, RNG, checkpoint, and metric-journal evidence remains bit-exact. If
 a crash commits a checkpoint before timing is written, recovery emits an
 explicit unavailable timing row rather than replaying the mathematical epoch.
+
+## Phase 8B.2A downstream comparison
+
+Phase 8B.2A invokes this evaluator only after one supervised checkpoint exists.
+Raw candidate logits are still produced before target joining, train priors
+remain train-only, and every metric stays isolated by dataset/task/encoding.
+The comparison layer does not create a cross-source head or a hidden global
+score.
+
+Contract `1.3.0` additionally writes `piece_statistics.json`. Each independent
+piece/task/dataset/encoding row contains mergeable CPU scalars: categorical
+confusion, correct/eligible and NLL-sum counts, or multilabel TP/FP/FN/TN,
+support, eligible-label and BCE-sum counts. Comparison bootstrap resamples
+pieces and recomputes corpus endpoints from merged counts after each draw; it
+never treats an average of per-piece macro-F1 as corpus macro-F1.
+
+Exact average precision remains a descriptive corpus metric. Scalar score
+groups are ordered globally, equal scores share one threshold, and per-label AP
+is undefined only without eligible positive support. Exact bootstrap AP would
+require retaining prediction-score rows, so it is excluded from inferential
+claims. No evaluation artifact retains CUDA tensors.
+
+All downstream cells use one fixed, fingerprinted validation view: the full
+split by default or an explicitly bounded subset without replacement. The
+training checkpoint, evaluation verification, and comparison protocol must
+carry the same membership. Validation artifacts are aggregated over every
+declared paired seed for `(variant_id, transfer_mode)` before ranking; test
+metrics cannot participate. The comparison test-lock requires the complete
+selected seed-checkpoint manifest, acknowledgement, a new output directory,
+test-membership evidence recorded before inference, and a single-use identity
+for the chosen seed checkpoint. Ordinary `acknowledge_test_evaluation` alone
+does not bypass that comparison-level lock. See
+`PHASE8B2_COMPARISON_PROTOCOL.md`.
+
+Comparison planning may resolve test membership metadata before unlock. This
+means only the membership fingerprint, count, per-dataset counts and split
+binding are available; full test piece identities are not serialized. Plans,
+locks and final reports distinguish this from model/data access with
+`test_membership_metadata_resolved=true`, `test_inference_performed=false`,
+`test_targets_accessed=false`, and `test_metrics_accessed=false`. No test model
+forward or target/metric read is permitted before single-use authorization.

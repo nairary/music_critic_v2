@@ -302,9 +302,10 @@ when the index is smaller than `torch.cuda.device_count()`. The current index
 is checked against the same count. Every CUDA request fails structurally when
 CUDA is unavailable; a nonexistent explicit or current index fails before
 `.to(...)` with `runtime.device.cuda_index_out_of_range`, requested-device
-evidence, and the visible count. Runtime device-resolution contract `1.0.1`
-performs no tensor allocation or value materialization. It deep-copies
-the raw PyG batch and transfers only
+evidence, and the visible count. Runtime device-resolution contract `1.0.2`
+also converts CUDA availability/device-count probe failures to stable
+categories and performs no tensor allocation or value materialization. It
+deep-copies the raw PyG batch and transfers only
 tensor attributes, preserving tuple-valued graph metadata. Model-facing target
 tensors move to the same device, while strings, provenance, diagnostics,
 statistics, and other CPU sidecars remain CPU objects. Targets are never added
@@ -324,6 +325,50 @@ through the shared resolver. AMP is accepted only when the resolved device
 type is CUDA, so `device.name=cuda:0` and CUDA-resolving `auto` are valid while
 CPU AMP is rejected.
 
+CUDA-only runtime calls use `CudaRuntimeDeviceIndex@1.0.0`. The helper invokes
+the same resolver and returns an explicit logical integer index, including
+after `CUDA_VISIBLE_DEVICES` remapping; CPU is rejected with
+`runtime.device.cuda_operation_requires_cuda`. Indexed peak-memory reset uses
+the additional shared `CudaMemoryStatisticsLifecycle@1.0.0`: resolve the
+required concrete `torch.device("cuda:N")`, enter `torch.cuda.device(index)`,
+call idempotent
+`torch.cuda.init()`, and then call `reset_peak_memory_stats(index)`. The scoped
+context restores the previous current device. Phase 7A SSL, Phase 8B SSL,
+supervised training, and CUDA acceptance use this one boundary; no path uses
+an implicit reset, dummy allocation, permanent `set_device`, CPU fallback, or
+duplicated local initialization hack. Initialization and reset failures have
+different structured categories, and reports bind logical index plus
+`initialized_before`/`initialized_after` evidence.
+
+For the blocking independent Phase 8B.2A RTX 3090 gate, use only
+`scripts/run_phase8b2a_rtx3090_bounded_smoke.sh` at the exact final PR head.
+It is a production-format real-corpus bounded smoke: `bounded_acceptance`,
+`phase7a_control`, seed 17, one SSL update, one downstream update, `cuda:0`,
+FP16 AMP, and a fixed deterministic validation subset of exactly 128 pieces
+containing HookTheory and POP909-CL. It is not a `production_pilot` and cannot
+support a scientific comparison or superiority claim. The earlier published
+runner without `comparison.validation_samples=128` is invalid because the
+default zero selects the complete validation split and is not bounded. The
+earlier published combination
+`comparison=production_pilot comparison.seeds='[17]'` is invalid because the
+pilot contract requires at least three seeds. The earlier whole-worktree
+`git status --porcelain` emptiness test is also invalid on the evidence host:
+untracked artifacts are preserved and listed, while only tracked unstaged and
+staged changes block detach. The script's strict mode is confined to a
+subshell, so a nonzero status preserves its log without terminating the
+operator's interactive tmux/SSH shell.
+
+The verifier fails closed unless the invocation and resolved runtime plan both
+declare 128 validation samples, the selected membership has exactly 128
+identities from both corpora, and its fingerprint is preserved by every SSL
+and downstream schedule/training report. Each downstream config must use
+`validation_epoch_size=128`; each evaluation config must use
+`max_evaluation_samples=128`; and the evaluation metrics/checkpoint evidence
+must bind the same fingerprint and exact sample count. Dataset IDs alone are
+not sufficient evidence. Every SSL/downstream CUDA report must additionally
+bind `CudaMemoryStatisticsLifecycle@1.0.0`, logical index zero, and successful
+initialization before the indexed reset.
+
 Phase 7A representation loss `1.0.1` keeps exact shape/device validation but
 allows FP16/BF16/FP32 prediction-target pairs by computing cosine, numerator,
 mean, multi-view aggregation, and the combined SSL objective in FP32 with
@@ -332,8 +377,10 @@ the out-of-place FP32 prediction cast remains differentiable. Anti-collapse
 diagnostics `1.1.1` use the same normalization. Multi-view loss and combined
 SSL objective are `1.0.1`; the umbrella SSL contract is `1.2.2`.
 
-SSL training report `1.2.2` separates bounded mutation reporting into two
-independent `1.0.0` evidence objects with domain-separated canonical
+SSL training report `1.2.4` adds versioned logical CUDA-index and initialized
+memory-statistics lifecycle evidence and
+continues to separate bounded mutation reporting into two independent `1.0.0`
+evidence objects with domain-separated canonical
 fingerprints. No-leakage acceptance requires strict raw-store,
 runtime-source, fixed-plan/binding, and `torch.equal` online
 embedding/prediction invariants plus an applicable changed hidden target and
@@ -381,3 +428,61 @@ VRAM, finite initial/final losses, exact checkpoint reload, deterministic
 repeat, and both mutation-evidence objects to pass. It also requires target
 and reconstruction-loss changes plus finite FP32 preference diagnostics, but
 does not require either margin sign after two optimizer steps.
+
+## Phase 8B.2A comparison and transfer bindings
+
+Phase 8B.2A reuses this official epoch/checkpoint/journal engine. The optional
+`transfer` block is `1.1.0` and defaults to `supervised_scratch`, preserving
+ordinary Phase 6C behavior. A protocol-bound run supplies independent
+downstream initialization/data-order seeds and one of:
+
+- `supervised_scratch`, with no encoder export;
+- `frozen_probe`, with loaded representation parameters frozen and absent
+  from the optimizer;
+- `full_finetune`, with loaded representation parameters trainable.
+
+Pretrained modes require the hierarchical architecture, encoder export path
+and SHA-256, source SSL checkpoint SHA-256, and comparison protocol
+fingerprint. The existing `ssl.transfer` contract validates and loads only
+local encoder, hierarchy pooling/Transformer, and fusion state
+failure-atomically. Task heads and AdamW are constructed fresh. No SSL decoder,
+latent head, optimizer, scaler, scheduler, or RNG state is transferred.
+
+Resolved config, manifest, and checkpoint include deterministic transfer
+evidence: source identities, loaded/fresh names, optimizer membership, and
+transferred encoder fingerprint. Frozen runs verify the encoder bit-exact at
+completion. Resume recreates the same fresh model/transfer boundary before the
+official failure-atomic checkpoint load; a changed protocol/export/seed cannot
+resume.
+
+`music_critic.experiments.phase8b2` emits official training overrides for each
+paired downstream cell. `experiment.optimizer_steps_per_epoch` permits
+multiple batches inside an epoch while `experiment.steps` remains the exact
+total logical-update cap. Validation runs only at the configured epoch
+interval and exactly at the final budget boundary. A comparison-bound AMP
+overflow or skipped update invalidates the cell instead of consuming a
+replacement sample. Training records attempted/applied/skipped counts and the
+observed dataset/piece schedule, which must match the precomputed target-free
+schedule before scientific artifacts are published.
+
+For on-disk production-format runs, publication does not compare the engine's
+private `fingerprints`/`mixture_statistics` layouts directly with planner
+objects. Both sides use `Phase8B2DataSemanticProjection@1.0.0`, which binds
+index/cache identities, split, normalized train dataset counts and size,
+fixed-validation membership and mixture weights. Dataset-count, membership or
+observed-schedule mismatches raise stable Phase 8B.2A errors before atomic cell
+publication; missing dictionary keys cannot escape as `KeyError`.
+
+The official optional CUDA regression uses the same production-format on-disk
+index/cache/split fixture with one seed, `phase7a_control`, one SSL update,
+frozen probe, full fine-tune, scratch, and three validation evaluations under
+explicit `cuda:0` plus FP16 AMP. It requires 8/8 scientific cells, 8/8 runtime
+bindings, 3/3 checkpoint-to-evaluation bindings, positive allocated and
+reserved VRAM, and zero test inference/target/metric access. A CPU-only skip is
+not hardware evidence.
+
+The validation subset uses a dedicated fixed seed, so it is common across
+downstream data-order seeds. Its membership fingerprint must match the
+comparison protocol, checkpoint/report, and candidate-first evaluation. See
+`PHASE8B2_COMPARISON_PROTOCOL.md`; these mechanics are not downstream quality
+evidence.

@@ -47,6 +47,7 @@ _MANAGED_ARTIFACTS = {
     "train_priors.json",
     "metrics.json",
     "evaluation_report.json",
+    "piece_statistics.json",
 }
 
 _DATASET_ADAPTER_FRAGMENT = {
@@ -69,6 +70,7 @@ _MACRO_METRICS_BY_KIND = {
         "macro_precision",
         "macro_recall",
         "macro_f1",
+        "average_precision",
     ),
 }
 
@@ -186,6 +188,15 @@ def _validate_config(config: dict[str, Any]) -> None:
             raise EvaluationContractError(
                 f"evaluation.config.{name}_invalid"
             )
+    validation_seed = data.get("validation_seed", -1)
+    if (
+        isinstance(validation_seed, bool)
+        or not isinstance(validation_seed, int)
+        or validation_seed < -1
+    ):
+        raise EvaluationContractError(
+            "evaluation.config.validation_seed_invalid"
+        )
     workers = data.get("workers")
     if (
         isinstance(workers, bool)
@@ -215,6 +226,23 @@ def _validate_config(config: dict[str, Any]) -> None:
         raise EvaluationContractError(
             "evaluation.config.device_invalid"
         )
+    if device.get("amp_dtype", "float16") not in {
+        "float16",
+        "bfloat16",
+    }:
+        raise EvaluationContractError(
+            "evaluation.config.amp_dtype_invalid"
+        )
+    task_ids = config.get("downstream_task_ids") or list(ACTIVE_TASK_IDS)
+    if (
+        not isinstance(task_ids, list)
+        or not task_ids
+        or len(task_ids) != len(set(task_ids))
+        or any(task_id not in ACTIVE_TASK_IDS for task_id in task_ids)
+    ):
+        raise EvaluationContractError(
+            "evaluation.config.downstream_task_ids_invalid"
+        )
 
 
 def _resolve_device(config: dict[str, Any]) -> torch.device:
@@ -236,6 +264,15 @@ def _resolve_device(config: dict[str, Any]) -> torch.device:
             "evaluation.device.amp_requires_cuda"
         )
     return device
+
+
+def _amp_dtype(config: dict[str, Any]) -> torch.dtype:
+    name = config["device"].get("amp_dtype", "float16")
+    if name == "float16":
+        return torch.float16
+    if name == "bfloat16":
+        return torch.bfloat16
+    raise EvaluationContractError("evaluation.config.amp_dtype_invalid")
 
 
 def _prepare_output(path: Path, *, overwrite: bool) -> None:
@@ -482,6 +519,7 @@ def _evaluate(
     config: dict[str, Any],
 ) -> dict[str, Any]:
     metrics: dict[tuple[str, str], Any] = {}
+    piece_metrics: dict[tuple[str, str, str], Any] = {}
     baselines: dict[tuple[str, str], TrivialBaselineAccumulator] = {}
     counts: dict[tuple[str, str], _TaskCounts] = {}
     dataset_samples: Counter[str] = Counter()
@@ -505,6 +543,7 @@ def _evaluate(
             with torch.amp.autocast(
                 device_type=device.type,
                 enabled=bool(config["device"]["amp"]),
+                dtype=_amp_dtype(config),
             ):
                 # Candidate-first boundary: no target sidecar is passed here.
                 _, predictions = model.predict(batch.raw_graph_batch)
@@ -522,7 +561,9 @@ def _evaluate(
             targets_by_task = {
                 item.task_id: item for item in batch.target_batches
             }
-            for task_id in ACTIVE_TASK_IDS:
+            for task_id in (
+                config.get("downstream_task_ids") or list(ACTIVE_TASK_IDS)
+            ):
                 prediction = prediction_by_task[task_id]
                 target = targets_by_task[task_id]
                 conflicts = _conflict_flags(cpu_batch.target_batches[
@@ -623,6 +664,17 @@ def _evaluate(
                         0, target_indices
                     )
                     metrics[key].update(logits, values)
+                    piece_key = (
+                        dataset_id,
+                        str(batch.piece_ids[sample_index]),
+                        task_id,
+                    )
+                    piece_metrics.setdefault(
+                        piece_key,
+                        make_metric_accumulator(
+                            encoding.encoding_kind, labels
+                        ),
+                    ).update(logits, values)
                     if key in baselines:
                         baselines[key].update(values)
                     eligible = int(selected.numel())
@@ -657,6 +709,7 @@ def _evaluate(
                 "micro_precision",
                 "micro_recall",
                 "exact_match_accuracy",
+                "average_precision",
                 "nll",
                 "bce_nll",
             ):
@@ -676,12 +729,33 @@ def _evaluate(
             "train_only_baseline": baseline_metrics,
             "comparison": comparison,
         }
+    piece_statistics = [
+        {
+            "dataset_id": dataset_id,
+            "piece_id": piece_id,
+            "task_id": task_id,
+            "encoding_kind": TARGET_ENCODING_BY_TASK[
+                task_id
+            ].encoding_kind,
+            "statistics": accumulator.sufficient_statistics(),
+        }
+        for (dataset_id, piece_id, task_id), accumulator in sorted(
+            piece_metrics.items()
+        )
+    ]
     return {
         "batch_count": batch_count,
         "dataset_sample_counts": dict(sorted(dataset_samples.items())),
         "counts": dict(sorted(aggregate.items())),
         "datasets": datasets,
         "macro_summaries": build_macro_summaries(datasets),
+        "piece_statistics": piece_statistics,
+        "piece_statistics_contract": {
+            "version": "1.1.0",
+            "statistical_unit": "independent_piece",
+            "corpus_macro_recomputed_after_resampling": True,
+            "average_precision_descriptive_only": True,
+        },
         "retained_prediction_tensor_count": 0,
         "retained_prediction_element_count": 0,
     }
@@ -766,6 +840,16 @@ def run_evaluation(config: object) -> dict[str, Any]:
     )
     write_json_atomic(output_dir / "train_priors.json", priors)
     write_json_atomic(output_dir / "metrics.json", metrics)
+    write_json_atomic(
+        output_dir / "piece_statistics.json",
+        {
+            "evaluation_contract_version": EVALUATION_CONTRACT_VERSION,
+            "split": resolved["split"],
+            "bindings": bindings,
+            "contract": evaluated["piece_statistics_contract"],
+            "pieces": evaluated["piece_statistics"],
+        },
+    )
     write_json_atomic(output_dir / "evaluation_report.json", report)
     return report
 

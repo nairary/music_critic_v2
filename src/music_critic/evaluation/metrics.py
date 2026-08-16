@@ -249,10 +249,27 @@ class CategoricalMetricAccumulator:
             "retained_prediction_element_count": 0,
         }
 
+    def sufficient_statistics(self) -> dict[str, Any]:
+        """Return mergeable CPU-only evidence for piece bootstrap."""
+
+        return {
+            "kind": "closed_categorical",
+            "class_labels": list(self.class_labels),
+            "confusion_counts": [list(row) for row in self.confusion],
+            "correct_count": sum(
+                self.confusion[index][index]
+                for index in range(len(self.class_labels))
+            ),
+            "eligible_count": self.row_count,
+            "nll_sum": self.nll_sum.as_float(),
+            "top3_correct_count": self.top3_correct,
+            "retained_cuda_tensor_count": 0,
+        }
+
 
 @dataclass(slots=True)
 class MultilabelMetricAccumulator:
-    """Fixed-memory multilabel threshold metrics and BCE accumulator."""
+    """Streaming threshold metrics plus exact grouped-score AP."""
 
     class_labels: tuple[str, ...]
     threshold: float = 0.5
@@ -263,6 +280,8 @@ class MultilabelMetricAccumulator:
     bce_sum: _ExactFloatSum = field(default_factory=_ExactFloatSum)
     row_count: int = 0
     exact_match_count: int = 0
+    all_negative_prediction_count: int = 0
+    score_counts: list[dict[float, list[int]]] = field(init=False)
 
     def __post_init__(self) -> None:
         if (
@@ -278,6 +297,7 @@ class MultilabelMetricAccumulator:
         self.fp = [0] * count
         self.fn = [0] * count
         self.tn = [0] * count
+        self.score_counts = [dict() for _ in range(count)]
 
     @property
     def retained_prediction_tensor_count(self) -> int:
@@ -310,6 +330,9 @@ class MultilabelMetricAccumulator:
         self.exact_match_count += int(
             (predicted == truth).all(dim=1).sum()
         )
+        self.all_negative_prediction_count += int(
+            (~predicted).all(dim=1).sum()
+        )
         for index in range(class_count):
             pred = predicted[:, index]
             actual = truth[:, index]
@@ -317,12 +340,51 @@ class MultilabelMetricAccumulator:
             self.fp[index] += int((pred & ~actual).sum())
             self.fn[index] += int((~pred & actual).sum())
             self.tn[index] += int((~pred & ~actual).sum())
+            scores = detached_logits[:, index].to(
+                dtype=torch.float64, device="cpu"
+            )
+            labels = actual.to(device="cpu")
+            for score_tensor, label_tensor in zip(
+                scores, labels, strict=True
+            ):
+                score = float(score_tensor)
+                if not math.isfinite(score):
+                    raise EvaluationContractError(
+                        "evaluation.metrics.non_finite_observation"
+                    )
+                counts = self.score_counts[index].setdefault(score, [0, 0])
+                counts[0] += int(bool(label_tensor))
+                counts[1] += 1
         self.row_count += int(logits.shape[0])
+
+    def _average_precision(self, index: int) -> dict[str, Any]:
+        support = self.tp[index] + self.fn[index]
+        if support == 0:
+            return metric_value(
+                None,
+                category="zero_true_positive",
+                reason="average precision requires eligible positive labels",
+            )
+        cumulative_positive = 0
+        cumulative_total = 0
+        contributions = []
+        for _score, (positive, total) in sorted(
+            self.score_counts[index].items(), reverse=True
+        ):
+            cumulative_positive += positive
+            cumulative_total += total
+            if positive:
+                contributions.append(
+                    (positive / support)
+                    * (cumulative_positive / cumulative_total)
+                )
+        return metric_value(math.fsum(contributions))
 
     def finalize(self) -> dict[str, Any]:
         precisions = []
         recalls = []
         f1_values = []
+        average_precisions = []
         per_class = []
         for index, label in enumerate(self.class_labels):
             precision = _ratio(
@@ -342,9 +404,11 @@ class MultilabelMetricAccumulator:
                 self.fp[index],
                 self.fn[index],
             )
+            average_precision = self._average_precision(index)
             precisions.append(precision)
             recalls.append(recall)
             f1_values.append(f1)
+            average_precisions.append(average_precision)
             per_class.append(
                 {
                     "class_index": index,
@@ -357,6 +421,7 @@ class MultilabelMetricAccumulator:
                     "precision": precision,
                     "recall": recall,
                     "f1": f1,
+                    "average_precision": average_precision,
                 }
             )
         total_tp = sum(self.tp)
@@ -424,9 +489,50 @@ class MultilabelMetricAccumulator:
                 reason="no class has a defined F1",
             ),
             "exact_match_accuracy": exact,
+            "all_negative_prediction_count": (
+                self.all_negative_prediction_count
+            ),
+            "average_precision": _mean_defined(
+                average_precisions,
+                category="no_positive_class_support",
+                reason="no class has eligible positive support for AP",
+            ),
+            "exact_ap_score_group_count": sum(
+                len(groups) for groups in self.score_counts
+            ),
             "per_class": per_class,
             "retained_prediction_tensor_count": 0,
             "retained_prediction_element_count": 0,
+        }
+
+    def sufficient_statistics(self) -> dict[str, Any]:
+        """Exclude AP score rows while retaining exact threshold endpoints."""
+
+        return {
+            "kind": "closed_multilabel",
+            "class_labels": list(self.class_labels),
+            "threshold": self.threshold,
+            "tp": list(self.tp),
+            "fp": list(self.fp),
+            "fn": list(self.fn),
+            "tn": list(self.tn),
+            "support": [
+                self.tp[index] + self.fn[index]
+                for index in range(len(self.class_labels))
+            ],
+            "eligible_row_count": self.row_count,
+            "eligible_label_count": self.row_count * len(self.class_labels),
+            "bce_nll_sum": self.bce_sum.as_float(),
+            "exact_match_count": self.exact_match_count,
+            "all_negative_prediction_count": (
+                self.all_negative_prediction_count
+            ),
+            "average_precision_in_piece_bootstrap": False,
+            "average_precision_boundary_reason": (
+                "exact AP bootstrap requires retaining prediction score rows; "
+                "AP remains a descriptive corpus metric"
+            ),
+            "retained_cuda_tensor_count": 0,
         }
 
 

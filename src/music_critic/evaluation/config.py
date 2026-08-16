@@ -22,6 +22,7 @@ class EvaluationDataConfig:
     # bounded smoke subsets and remain fingerprinted as such.
     max_train_samples: int = 0
     max_evaluation_samples: int = 0
+    validation_seed: int = -1
 
 
 @dataclass
@@ -29,6 +30,7 @@ class EvaluationDeviceConfig:
     name: str = "cpu"
     amp: bool = False
     non_blocking: bool = False
+    amp_dtype: str = "float16"
 
 
 @dataclass
@@ -49,6 +51,7 @@ class EvaluationConfig:
     train_priors_path: str = ""
     data: EvaluationDataConfig = MISSING
     device: EvaluationDeviceConfig = MISSING
+    downstream_task_ids: list[str] = field(default_factory=list)
 
 
 @dataclass

@@ -41,11 +41,11 @@ These unchanged Phase 8A contracts remain `1.0.0`:
 The evidence-only deterministic CUDA runtime and bounded hierarchy-output
 difference diagnostic also start at `1.0.0`. They govern how an exact replay
 gate is executed and explained; they do not change a model output, mask plan,
-objective, or successful hardware-report schema. The hardware evidence
-contract therefore remains `1.2.0`.
+objective. The hardware evidence contract is `1.2.2` because CUDA policies now
+bind the shared initialized memory-statistics lifecycle evidence.
 
 The separate optional
-`Phase8ACudaAmpHardwareEvidence@1.2.0` artifact binds the remediated portable
+`Phase8ACudaAmpHardwareEvidence@1.2.2` artifact binds the remediated portable
 contracts and adds serialized bounded CPU-FP32/CUDA-FP32 numerical-parity
 diagnostics. A result for an earlier draft head is intermediate evidence only.
 Hardware identity, timing, and peak allocated/reserved VRAM never enter the
@@ -56,7 +56,7 @@ The existing Phase 7A `MaskPlan@1.0.0`, mask policy, feature overlay
 checkpoint metadata, and Hydra configuration are unchanged. The accepted
 post-hotfix contracts also remain unchanged: device transfer `1.0.2`,
 representation/multi-view/objective FP32-under-AMP `1.0.1`, umbrella SSL
-`1.2.2`, training report `1.2.2`, anti-collapse diagnostics `1.1.1`, and the
+`1.2.2`, training report `1.2.4`, anti-collapse diagnostics `1.1.1`, and the
 independent no-leakage and pitch-sensitive-reconstruction evidence contracts
 `1.0.0`.
 

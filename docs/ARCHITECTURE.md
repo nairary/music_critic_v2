@@ -7,8 +7,9 @@ supervised execution without changing those semantics. Phase 7A adds a
 deterministic GraphMAE2-inspired masked representation baseline over that
 unchanged encoder. Phase 8A adds deterministic hierarchy-aware mask planning
 and views over the same encoder/security boundary. Phase 8B.1 adds
-independently ablatable onset/beat/bar/track recovery objectives. Phase 8B.2
-scientific comparison, adaptive SSL, and critic paths remain future phases.
+independently ablatable onset/beat/bar/track recovery objectives. Phase 8B.2A
+adds the reproducible comparison/transfer control plane; scaled scientific
+evidence, adaptive SSL, and critic paths remain future work.
 
 ## System flow
 
@@ -421,7 +422,31 @@ and `auto` through this resolver rather than subsystem allowlists. AMP is
 eligible only when the resolved device type is CUDA. Transfer validation
 compares exact devices, never only `device.type`, because `cuda:0` and
 `cuda:1` are different placement boundaries. Runtime resolution contract
-`1.0.1` and device-transfer contract `1.0.2` record these patch-level rules.
+`1.0.2` additionally converts CUDA discovery failures into stable structured
+categories; device-transfer contract `1.0.2` is unchanged.
+
+Tensor placement continues to use the resolved concrete `torch.device`. CUDA
+statistics, synchronization, name, and properties APIs instead cross
+`CudaRuntimeDeviceIndex@1.0.0`, which reuses runtime resolution and returns the
+logical integer index seen after `CUDA_VISIBLE_DEVICES`. It preserves
+`cuda:0` versus `cuda:1`, rejects CPU as
+`runtime.device.cuda_operation_requires_cuda`, and forbids implicit-current-
+device evidence. Phase 7A SSL, Phase 8B SSL, supervised training, Phase 8A
+hardware acceptance, and Phase 8B.2 environment evidence share this boundary.
+
+Indexed CUDA memory statistics additionally cross
+`CudaMemoryStatisticsLifecycle@1.0.0`. An explicit logical index alone is not
+sufficient in a fresh worker under the independently probed PyTorch
+`2.13.0+cu130` runtime: both `torch.device("cuda:0")` and integer zero reset
+arguments fail before CUDA initialization. The lifecycle boundary first
+requires and resolves a concrete `torch.device("cuda:N")`, enters
+`torch.cuda.device(index)`, calls the idempotent public `torch.cuda.init()`,
+and only then calls
+`reset_peak_memory_stats(index)`. Exiting the scoped context restores the
+previous current device. No dummy tensor is allocated, no implicit reset is
+used, and initialization and reset failures have distinct structured
+categories. Its evidence records contract version, logical index, and the
+before/after initialization state.
 
 One-batch mode repeats exactly one bounded or first real cached train batch,
 reports harmonic/reconstruction/total losses, finite gradients, clipping,
@@ -694,9 +719,11 @@ boundaries, while SSL model/output remain `1.2.0` at unchanged architecture
 and output schema. Representation loss, multi-view loss, and the combined SSL
 objective are `1.0.1`; anti-collapse diagnostics are `1.1.1`. Checkpoint,
 epoch-journal, metric-row, run-manifest, and performance-row contracts remain
-`1.2.0`; training report `1.2.2` exposes concrete `cuda:N` and the two
-independent evidence objects. The performance row separates CPU plan
-preparation from transfer/compute. MaskPlan, mask policy, maskable-field
+`1.2.0`; training report `1.2.4` exposes concrete `cuda:N`, logical CUDA-index
+and memory-lifecycle evidence, and the two independent evidence objects. The
+performance row
+separates CPU plan preparation from transfer/compute. MaskPlan, mask policy,
+maskable-field
 registry, representation target, decoder, and encoder-export semantics remain
 `1.0.0`; prepared binding remains `1.1.0`.
 
@@ -786,7 +813,7 @@ reason, hierarchy output, fixture, and leakage audit remain `1.0.0`.
 Portable CPU acceptance excludes GPU name, driver/runtime observations,
 timing, and VRAM. Optional explicit-`cuda:0` AMP acceptance emits those
 observations only in a separate
-`Phase8ACudaAmpHardwareEvidence@1.2.0` artifact and skips honestly when CUDA
+`Phase8ACudaAmpHardwareEvidence@1.2.2` artifact and skips honestly when CUDA
 is unavailable. The hardware artifact keeps plan/selection/binding/overlay/
 mask/index/raw-graph/topology, same-device replay, Phase 7A control, blindness,
 and leakage gates bit-exact. CPU FP32 versus CUDA FP32 embeddings,
@@ -802,6 +829,26 @@ with the dirty-tree contract, while a clean checkout without enough history
 gets a structured unavailable-ancestry error and must fetch sufficient
 history. An independent exact-final RTX 3090 artifact remains a pre-merge
 gate, not portable CPU evidence.
+
+The Phase 8B.2A hardware-gate control plane is the committed
+`run_phase8b2a_rtx3090_bounded_smoke.sh` plus its standalone verifier. It
+separates repository eligibility (tracked and staged diffs only) from
+diagnostic untracked evidence, detaches the exact fetched SHA, consumes an old
+plan only as a source of production paths, and emits into a fresh root. The
+mechanical run is `bounded_acceptance` with one control variant and one seed;
+`production_pilot` retains its three-seed minimum and scientific protocol.
+The smoke fixes the deterministic validation membership at exactly 128 pieces
+across HookTheory and POP909-CL; it does not inherit the unbounded
+`validation_samples=0` default. The standalone verifier binds that count and
+one membership fingerprint across the plan, projected schedules, runtime
+training reports, and all three evaluation artifacts/configurations.
+For every CUDA training worker it also requires lifecycle contract `1.0.0`,
+logical index zero, a Boolean initialization-before observation, and
+`initialized_after=true` before indexed peak reset.
+Strict shell options are scoped to a subshell. Final evidence is a checksummed
+archive of configuration, logs, runtime/data attestations, and verifier output
+that excludes caches, checkpoints, and corpus payloads.
+
 Detailed policy, leakage, complexity, version, bounded default audit, and
 optional CUDA hardware-evidence boundaries are in
 `PHASE8A_HIERARCHICAL_MASKING.md`.
@@ -880,21 +927,71 @@ Single/control schedules use one forward per batch; equal/mask-only use four,
 so these mechanics runs are explicitly not compute matched or scientific
 effectiveness comparisons.
 
-AMP-sensitive registry/config/loss/model/output/metric/engine/report/
-checkpoint and bounded-comparison contracts are `1.2.0`; latent prediction is
-`1.1.0`, masking remains `1.1.0`, and identity-only eligibility,
+AMP-sensitive registry/config/loss/model/output/metric/checkpoint and bounded-
+comparison contracts remain `1.2.0`; the engine and training report are
+`1.2.2` for the initialized indexed CUDA-memory boundary. Latent prediction is
+`1.1.0`,
+masking remains `1.1.0`, and identity-only eligibility,
 prepared-binding and the batch aggregate remain `1.0.0`. Optimizer evidence
 and independent CUDA training acceptance begin at `1.0.0`. The full
 architecture, policy mapping, parameter formula, bounded comparison, and
 non-claim boundary are in `PHASE8B_MULTILEVEL_OBJECTIVES.md`.
+
+## Phase 8B.2A executable comparison protocol
+
+`music_critic.experiments.phase8b2` composes the existing SSL, supervised
+training, and candidate-first evaluation engines. It does not own a parallel
+model or trainer. `Phase8B2ComparisonProtocol@1.2.0` binds variants, model and
+objective/masking configs, all data/cache/split/membership identities, paired
+seed domains, compute budgets, downstream tasks/modes, validation ranking, and
+the locked test state. Artifact contract `1.2.2` records the versioned logical
+CUDA index and memory-statistics lifecycle boundary in environment/runtime
+evidence; comparison, schedule, data, model, and scientific semantics remain
+unchanged.
+
+The original `7365286` implementation stopped at control-plane primitives.
+The remediated CLI resolves actual sampler identities before training and runs
+the dependency DAG as isolated list-argv subprocesses: all variant preflights,
+SSL, encoder export, frozen/full/scratch downstream training, fixed-validation
+evaluation, compute validation, sufficient-statistics aggregation, paired-seed
+configuration selection, and final immutable reporting. Each cell is staged,
+hash-manifested, protocol-bound, and atomically published; resume refuses stale
+or incomplete state.
+
+The production-path remediation replaces comparisons of incidental runtime
+dictionaries with `Phase8B2DataSemanticProjection@1.0.0`. Both metadata
+planning and official-engine reports project to ordered index/cache identities,
+split identity, normalized train composition, fixed-validation membership and
+mixture weights. Schedule slots remain target-free metadata-sampler output.
+The plan may resolve the held-out test membership fingerprint and count for the
+lock, but it serializes no complete test identity list and performs no test
+forward, target read, or metric access.
+
+The primary `encoder_forward_matched` branch fixes 12 actual calls per logical
+update: six two-call control views or four three-call latent views over one raw
+batch, all independently seeded where a policy repeats. Phase 8B.1's
+family-global numerator/eligible-denominator loss remains unchanged. The
+secondary `natural_schedule` branch preserves one versus four view costs and
+is labelled compute unmatched. Official checkpoints bind the optional
+comparison schedule, and official downstream training binds the transfer
+source/protocol plus separate initialization and data-order seeds.
+
+The control plane emits immutable evidence and rejects incompatible aggregate
+inputs. Validation selection precedes a separate single-use test authorization.
+Piece-level uncertainty merges CPU-only categorical confusion/NLL or
+multilabel TP/FP/FN/support/BCE sufficient statistics after every independent-
+piece resample. Exact AP remains descriptive because bootstrap AP would require
+prediction-score rows. Diagnostics never select a checkpoint.
+See `PHASE8B2_COMPARISON_PROTOCOL.md`.
 
 ## Incremental research scope
 
 Phase 7A implements GraphMAE2-inspired decoder remasking but is not a faithful
 GraphMAE2 reproduction. Phase 8A implements only Hi-GMAE-inspired
 hierarchy-aware mask/view mechanics. Phase 8B.1 implements independently
-ablatable multi-level recovery mechanics; Phase 8B.2 scientific comparison
-and UGMAE-inspired adaptive or structural objectives remain roadmap
+ablatable multi-level recovery mechanics; Phase 8B.2A implements comparison
+mechanics, while scaled scientific evidence and UGMAE-inspired adaptive or
+structural objectives remain roadmap
 increments. PDMX-scale effectiveness must be evaluated after the Phase 10
 raw-compatible corpus projection; PLL and critic/quality scoring remain
 separate future contracts.

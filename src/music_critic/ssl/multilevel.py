@@ -1332,7 +1332,18 @@ def aggregate_phase8b_family_loss_views(
     policies = tuple(policy for policy, _rows in policy_family_losses)
     if len(set(policies)) != len(policies):
         raise ValueError("Phase 8B.1 scheduled policy views must be unique")
-    if any(policy not in PHASE8B_CANONICAL_POLICY_ORDER for policy in policies):
+    base_policies = tuple(policy.split("#view=", 1)[0] for policy in policies)
+    if any(
+        policy not in PHASE8B_CANONICAL_POLICY_ORDER
+        for policy in base_policies
+    ) or any(
+        "#view=" in policy
+        and (
+            not policy.rsplit("#view=", 1)[1].isdigit()
+            or not policy.rsplit("#view=", 1)[1]
+        )
+        for policy in policies
+    ):
         raise ValueError("Phase 8B.1 scheduled policy view is unknown")
     order = {
         policy: index
@@ -1341,7 +1352,10 @@ def aggregate_phase8b_family_loss_views(
     canonical = tuple(
         sorted(
             policy_family_losses,
-            key=lambda row: (order.get(row[0], len(order)), row[0]),
+            key=lambda row: (
+                order.get(row[0].split("#view=", 1)[0], len(order)),
+                row[0],
+            ),
         )
     )
     by_family: dict[Phase8BObjectiveFamily, list[Tensor]] = {

@@ -386,7 +386,7 @@ def _bounded_runtime(config: object, seed: int) -> SSLDataRuntime:
             for sample in validation
         ),
         limit=config.validation_epoch_size,
-        seed=seed,
+        seed=(config.validation_seed if config.validation_seed >= 0 else seed),
     )
     membership = _membership(selection)
 
@@ -504,7 +504,7 @@ def _corpus_runtime(config: object, seed: int) -> SSLDataRuntime:
             for index in range(len(validation))
         ),
         limit=config.validation_epoch_size,
-        seed=seed,
+        seed=(config.validation_seed if config.validation_seed >= 0 else seed),
     )
     membership = _membership(selection)
 
