@@ -2684,3 +2684,63 @@ This log is append-only.
   and optional fresh-process CUDA regressions validate lifecycle ordering,
   isolation, restoration, idempotence, structured failures, and non-mutation,
   but only a new independent exact-head RTX 3090 run can close the gate.
+
+## 2026-08-16 — ADR-073: Dilemmadata enters V2 through an evidence-first raw/target boundary
+
+- Status: Accepted for Phase 9A only. This decision authorizes audit tooling,
+  the v1.0 evidence manifest, synthetic fixtures, and the Phase 9B adapter
+  contract. It does not implement or authorize a production adapter, target
+  encodings, theory heads, losses, supervised training/evaluation, CUDA
+  lifecycle changes, or Phase 8 SSL changes.
+- Integration note: Phase 9A was rebased onto `origin/main` merge
+  `1e31e2e1c71b4c1d4b93a9b2a61af53dd81c02f7` after PR #19 merged. The
+  provisional number is finalized as `ADR-073`, following Phase 8B.2A
+  `ADR-072`; shared-document resolution preserves both accepted histories.
+- Context: The official Dilemmadata v1.0 release at commit
+  `d60ee75b4a9495e932a4a7be39381578be17e222` is a processed score-derived
+  symbolic dataset, not raw MIDI and not one TSV dialect. The audited snapshot
+  contains 353 AN joint records and 1,280 DLC records with 2,880,723 note rows
+  and 14 primary header shapes. All 2,743 regular files match a clean checkout.
+- Context: Every primary record provides exact rational note onset/duration,
+  MIDI-compatible pitch, and one corroborating integer resolution without
+  theory fields. The release does not provide tempo, velocity, channel,
+  program, or an explicit percussion field in primary arrays. Per-note
+  meter/measure evidence, 74,773 tied-continuation rows, and 23,314
+  zero-duration grace candidates require production adapter validation.
+- Context: Exact target-independent note projection and score/metadata overlap
+  reveal 1,507 transitive source components. Five components conflict with
+  release split hints. Thirty exact-input clusters contain different target
+  fingerprints, so record-level splitting would leak alternate analyses.
+- Decision: Treat score-derived note/timing/pitch and optional
+  spelling/part/staff/voice/tie/meter fields as raw observations only when the
+  release processing boundary proves they precede annotation merge. Treat all
+  key, harmony, cadence, phrase, section, note-degree, validation-gate,
+  alternative-analysis, analyst, confidence, and label-provenance fields as
+  target sidecars or diagnostics. Source voice identity is not semantic voice
+  role.
+- Decision: A target-independent exact note projection is accepted as Phase 9A
+  evidence; a production-complete `CanonicalPiece` is not yet accepted. Phase
+  9B must implement exact tie/grace/meter/bar and required-default policies
+  with provenance or structured quarantine. It must not use theory to create
+  notes, topology, features, IDs, timing, or fingerprints.
+- Decision: Preserve source-native target values, missing masks, invalid gates,
+  ambiguity, unsupported status, producer/version/lineage, and unknown
+  confidence. Do not infer a universal root/quality/inversion/applied-harmony
+  ontology or unobserved target span end in Phase 9A. Exact alignment never
+  uses floats or nearest-neighbour snapping.
+- Decision: Assign final splits only after transitive closure over exact raw
+  note projection, exact AN score bytes, and explicit merged-summary links.
+  Composer/title similarity alone does not join samples. Conflicting release
+  hints are warnings and Phase 9B production blockers; they never split a
+  component.
+- Decision: Version Phase 9A audit/manifest semantics at `1.0.0`. Reports use
+  canonical JSON, corpus-relative paths, bounded vocabularies, separate
+  raw/target fingerprints, structured quarantine, and a semantic fingerprint
+  free of runtime/platform values. A complete `--limit` run is impossible by
+  definition and is marked incomplete evidence.
+- Consequences: Phase 9B has an exact bounded scope: two streaming parsers,
+  target-blind canonical conversion, group-safe split identity, source-native
+  target sidecars, exact alignment, quarantine, and leakage mutation tests.
+  Theory heads and training remain a later separately authorized increment.
+  The Phase 9A corpus scan has zero structural record quarantines but retains
+  five split conflicts as explicit production blockers.

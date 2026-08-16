@@ -615,13 +615,25 @@ The model and training phases remain pending.
 
 - Goal: add local key, harmony, cadence, phrase, and note-theory targets.
 - Dependencies: canonical/graph/model foundations.
-- Outputs: adapter, annotation views, theory heads, masked losses, and a
-  raw-MIDI-compatible projection that does not assume staff, voice, spelling,
-  `step`, `alter`, or `tpc` at inference.
-- Tests: alternative-analysis grouping, span compression, no-label loss zero.
-- Non-goals: preference critic.
-- Acceptance: theory heads overfit a tiny masked batch without raw leakage;
-  harmony/key/cadence/phrase/Roman-numeral columns remain targets.
+- Phase 9A: completed evidence audit and raw/target contract on branch
+  `phase/9a-dilemmadata-evidence-contract`. The exact v1.0 snapshot has 1,633
+  primary records and 2,880,723 note rows across two TSV dialects. Phase 9A
+  adds no production adapter, heads, losses, or training runtime.
+- Phase 9B next: implement the two streaming parsers, target-blind canonical
+  conversion, source-native target sidecars, structured quarantine, and
+  transitive group-safe splits. It must resolve five audited release split
+  conflicts and validate ties, zero-duration grace candidates, meter/bars,
+  and required defaults without theory-derived inputs.
+- Later Phase 9 increment: theory heads, masked losses, and supervised metrics
+  only after the Phase 9B data boundary is accepted.
+- Tests: target deletion/replacement/reordering leaves canonical, graph, graph
+  fingerprint, and model-input fingerprint unchanged; alternative analyses
+  stay grouped; target spans align exactly or fail structurally.
+- Non-goals: Phase 8/CUDA lifecycle changes, preference critic, and quality
+  scoring.
+- Acceptance: harmony/key/cadence/phrase/Roman-numeral columns remain targets,
+  raw-MIDI inference requires none of staff, voice, spelling, `step`, `alter`,
+  or `tpc`, and no release split separates a transitive source component.
 
 ## Phase 10 — PDMX adapter and large-scale SSL cache
 

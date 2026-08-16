@@ -2,7 +2,15 @@
 
 ## Current phase
 
-- Date: 2026-08-15
+- Date: 2026-08-16
+- Current task: Phase 9A Dilemmadata evidence audit and raw/target contract —
+  completed on branch `phase/9a-dilemmadata-evidence-contract`, rebased onto
+  `origin/main` merge `1e31e2e1c71b4c1d4b93a9b2a61af53dd81c02f7`
+- Phase 9A audit schema: `1.0.0`; production adapter: not implemented
+- Phase 9A full-corpus semantic fingerprint:
+  `056de3ce37c0a22393038c60017dd5bff318469764e04ca44f5bfdbe5b38978d`
+- Next authorized Phase 9 task: Phase 9B production Dilemmadata raw adapter and
+  target sidecars; theory heads/losses remain later work
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -131,6 +139,53 @@
   selection/statistics/compute contracts: `1.1.0`; CUDA memory-statistics
   lifecycle: `1.0.0`; data semantic projection: `1.0.0`; evaluation
   piece-sufficient-statistics output: `1.3.0`
+
+## Phase 9A Dilemmadata evidence result
+
+- Official source identity: Dilemmadata `v1.0`, commit
+  `d60ee75b4a9495e932a4a7be39381578be17e222`, license metadata
+  `CC-BY-NC-SA-4.0`. All 2,743 local regular files match a clean checkout;
+  corpus content fingerprint is
+  `8f1161ad7cdbd979845012ffc6150cd82c5e91ab1197ed97385fffce57a0f312`.
+- Inventory: 353 AN joint records plus 1,280 DLC records, 2,880,723 note rows,
+  14 primary header shapes, 353 AN score companions, and 353 derived AN slice
+  files.
+- Raw conclusion: all 1,633 records have a parseable target-independent exact
+  note projection and one corroborating integer resolution. A production
+  `CanonicalPiece` remains Phase 9B because meter/bar reconstruction,
+  percussion/default provenance, ties, and 23,314 zero-duration grace
+  candidates still need explicit adapter rules and tests.
+- Target conclusion: global/local key, harmony, cadence, phrase, section, and
+  note-degree observations remain source-native masked sidecars. Borrowed
+  harmony is unavailable; source staff/voice is not voice-role supervision;
+  no calibrated confidence field was observed.
+- Grouping: 1,507 transitive components, 126 multi-record components, 98
+  explicit AN/DLC overlaps, and 30 alternative-analysis exact-input clusters.
+  Five components conflict with release split hints and require group-aware
+  reassignment before production use.
+- Quarantine: zero release records failed structural parsing. Deterministic
+  failure categories and bounded malformed fixtures cover the future failure
+  surface. Metadata is missing for 14 records and remains missing, not false.
+- Reproducibility: two complete reports were byte-identical at SHA-256
+  `2c5a05a439a5b18c6f98a353e88c078a1245a62b922b5abe5ef90b02707b522c`;
+  their semantic fingerprint is
+  `056de3ce37c0a22393038c60017dd5bff318469764e04ca44f5bfdbe5b38978d`.
+- Post-rebase verification: focused Dilemmadata plus repository contracts pass
+  `13 passed, 1 skipped` in 1.18 seconds. The exact default suite reproduced
+  the documented local-sandbox hang at the first positive-worker profiler
+  case. The complete locally executable suite, excluding exactly the same
+  three `DataLoader(workers>0)` tests, passes
+  `1371 passed, 53 skipped, 3 deselected` in 586.46 seconds with two upstream
+  `torch.jit.script` deprecation warnings. The opt-in full-corpus Dilemmadata
+  integration remains the one focused skip because no explicit corpus root
+  was supplied.
+- Scope isolation: no production adapter/model/training/evaluation/CUDA/SSL
+  runtime changed. Rebase onto the PR #19 merge preserves the accepted Phase
+  8B.2A history while shared-document resolution adds only Phase 9A facts.
+- Pre-PR integration gate: completed by rebasing onto `origin/main` merge
+  `1e31e2e1c71b4c1d4b93a9b2a61af53dd81c02f7`; the provisional decision is now
+  final `ADR-073`. Focused/full verification and final diff review are rerun
+  before opening the Phase 9A draft PR.
 
 ## Accepted CUDA device-canonicalization hotfix status
 

@@ -1,0 +1,3 @@
+onset_div	duration_div	s_offset_frac	s_duration_frac	s_midi	s_isOnset	s_step	s_alter	ks_fifths	ts_beats	ts_beat_type	s_part_id	s_voice_id	a_annotationNumber	valid_chord_label	a_isOnset	a_localKey	a_romanNumeral	a_root	a_quality	a_bass	a_inversion	a_degree2	note_degree
+0	480	0	1	60	True	C	0	0	4	4	P1	1	1	True	True	C	I	C	M	C	0		1
+480	480	1	1	64	True	E	0	0	4	4	P1	1	2	True	True	C	V	G	M	G	0		3

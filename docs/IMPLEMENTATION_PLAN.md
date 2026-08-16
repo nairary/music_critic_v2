@@ -3190,27 +3190,51 @@ score. The objective and comparison contracts are in
 
 ## Phase 9. Dilemmadata adapter and theory heads
 
-### Implement
+### Phase 9A implemented evidence increment
 
-- TSV parser;
+Phase 9A is complete as evidence and contract work. It adds a deterministic,
+streaming audit of the exact Dilemmadata v1.0 release, a committed compact
+manifest, a bounded two-dialect synthetic fixture, a field audit, and a
+raw/target adapter contract. It proves a theory-independent exact note
+projection but does not claim that a production-complete `CanonicalPiece`
+adapter exists.
+
+The audit separates the AN `*_joint.tsv` and DLC TSV dialects, exact rational
+timing, optional score observations, target-only families, provenance,
+alternative analyses, transitive source grouping, release split conflicts,
+and stable quarantine categories. Its full-corpus evidence and exact next
+scope are recorded in `DILEMMADATA_FIELD_AUDIT.md` and
+`DILEMMADATA_ADAPTER_CONTRACT.md`.
+
+### Phase 9B implement
+
+- versioned streaming parsers for both evidenced TSV dialects;
 - note/voice mapping;
 - harmony run compression;
 - tonal regions;
 - cadence/phrase/section targets;
 - alternate-analysis provenance;
-- theory heads and loss routing.
+- group-safe split identity and structured quarantine;
+- exact canonical/graph/model-input leakage mutation tests;
 - a documented raw-MIDI-compatible projection that does not assume staff,
   voice, note spelling, `step`, `alter`, or `tpc` availability.
 
-### Acceptance criteria
+Theory heads and loss routing require a later separately authorized increment
+after the Phase 9B production data boundary is accepted.
+
+### Phase 9B acceptance criteria
 
 - no repeated one-chord-per-note graph explosion;
 - alternative analyses remain grouped;
-- raw-only input predicts labels;
+- all five audited release split conflicts are resolved at transitive group
+  level;
+- canonical construction does not read theory labels;
 - theory label leakage test passes;
-- macro-F1 metrics are produced;
 - harmony/key/cadence/phrase/Roman-numeral columns remain targets rather than
-  mandatory inference features.
+  mandatory inference features;
+- ties, zero-duration grace candidates, meter/bar evidence, unavailable
+  percussion/tempo fields, and unalignable target spans have explicit tested
+  provenance or quarantine outcomes.
 
 ## Phase 10. PDMX adapter and scalable cache
 

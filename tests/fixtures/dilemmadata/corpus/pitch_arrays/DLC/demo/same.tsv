@@ -1,0 +1,3 @@
+onset_div	duration_div	quarterbeats_playthrough	duration	pitch	is_note_onset	step	alter	ks_fifths	ts_beats	ts_beat_type	staff	voice	unfolded_harmony_index	valid_chord_label	a_isOnset	globalkey	localkey	label	root_tpc	chord_type	bass_note_tpc	figbass	relativeroot	valid_cadence_label	cadence_type	valid_phrase_label	a_phraseend	valid_section_start_label	section_start	note_degree
+0	480	0	1/4	60	True	C	0	0	4	4	1	1	1	True	True	C	C	I	0	M	0	0		False		False	False	True	True	1
+480	480	1	1/4	64	True	E	0	0	4	4	1	1	2	True	True	C	C	V	7	M	7	0		True	PAC	True	True	False	False	3
