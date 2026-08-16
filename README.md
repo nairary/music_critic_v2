@@ -63,7 +63,9 @@ rows, top-down gated residual fusion, strict hierarchical checkpoints, and a
 controlled three-way ablation. Phase 8B supplies bounded multi-level objective
 mechanics. Phase 9B.1 adds a pinned Dilemmadata AN/DLC production raw adapter,
 target-independent cache identity, group-safe splits, and an SSL-ready loader
-while keeping canonical targets and annotations empty. Adaptive SSL,
+while keeping canonical targets and annotations empty. Runtime policies and
+discovered records fail closed, and full-corpus readiness is checked against a
+committed production manifest after two independent source builds. Adaptive SSL,
 corruption training, preference training, PLL, theory sidecars/heads, and
 deployable scoring inference are not implemented yet.
 Phase 7A reconstruction is SSL representation plumbing only: it is not a

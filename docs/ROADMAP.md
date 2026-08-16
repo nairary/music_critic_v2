@@ -627,7 +627,10 @@ The model and training phases remain pending.
   conversion, structured quarantine, target-independent cache identity,
   transitive group-safe splits, and an official Phase 8B one-step real-record
   smoke. Tie, zero-duration grace, meter/bar, and required-default policies are
-  explicit and theory-independent.
+  explicit and theory-independent. Blocking remediation makes policy config
+  and discovered records failure-closed, distinguishes key-signature
+  conflicts, repeats the second cache build from source, and gates readiness on
+  a committed deterministic production manifest.
 - Phase 9B.2 future: source-native target sidecars and exact alignment. Theory
   heads, masked losses, supervised metrics, and scientific comparisons remain
   separate later increments.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import replace
+import json
 from pathlib import Path
 import shutil
 
@@ -10,11 +11,16 @@ import torch
 from torch.utils.data import DataLoader
 
 from music_critic.adapters import (
+    DILEMMADATA_ACCEPTANCE_REPORT_VERSION,
     DILEMMADATA_ADAPTER_VERSION,
     DILEMMADATA_CORPUS_IDENTITY_VERSION,
     DILEMMADATA_GROUPING_VERSION,
+    DILEMMADATA_PRODUCTION_MANIFEST_VERSION,
     DILEMMADATA_RAW_PROJECTION_VERSION,
+    DILEMMADATA_RECORD_BINDING_VERSION,
     DilemmadataAccepted,
+    DilemmadataAdapterConfig,
+    DilemmadataAdapterError,
     DilemmadataCorpusIdentity,
     DilemmadataCorpusIdentityError,
     DilemmadataQuarantine,
@@ -35,8 +41,17 @@ from music_critic.tasks import (
     IndexedMultiSourceDataset,
     MultiCorpusDataset,
     build_dilemmadata_corpus_cache,
+    dumps_corpus_index,
     plan_group_hash_split,
     validate_split_manifest,
+)
+from scripts.accept_dilemmadata_adapter import (
+    DEFAULT_MANIFEST,
+    _adapter_config,
+    _artifact_snapshot,
+    _fingerprint,
+    _run_source_build,
+    check_manifest_projection,
 )
 
 
@@ -101,10 +116,13 @@ def _raw_evidence(outcome: DilemmadataAccepted) -> tuple[str, str, str, str]:
 
 
 def test_public_versions_and_pinned_identity_gate() -> None:
-    assert DILEMMADATA_ADAPTER_VERSION == "1.0.0"
+    assert DILEMMADATA_ADAPTER_VERSION == "1.0.1"
     assert DILEMMADATA_CORPUS_IDENTITY_VERSION == "1.0.0"
     assert DILEMMADATA_RAW_PROJECTION_VERSION == "1.0.0"
     assert DILEMMADATA_GROUPING_VERSION == "1.0.0"
+    assert DILEMMADATA_RECORD_BINDING_VERSION == "1.0.0"
+    assert DILEMMADATA_ACCEPTANCE_REPORT_VERSION == "1.1.0"
+    assert DILEMMADATA_PRODUCTION_MANIFEST_VERSION == "1.1.0"
 
     with pytest.raises(DilemmadataCorpusIdentityError):
         discover_dilemmadata_corpus(CORPUS)
@@ -120,6 +138,46 @@ def test_public_versions_and_pinned_identity_gate() -> None:
     assert discovery.multi_record_component_count == 1
     assert discovery.explicit_overlap_count == 1
     assert discovery.suggested_split_conflict_count == 1
+    assert discovery.record_binding_version == DILEMMADATA_RECORD_BINDING_VERSION
+    assert all(
+        row.record_binding_version == DILEMMADATA_RECORD_BINDING_VERSION
+        and len(row.record_binding_sha256) == 64
+        for row in discovery.records
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "implemented"),
+    [
+        ("track_policy", "single_source_neutral_pitched_track_v1"),
+        ("tie_policy", "merge_exact_contiguous_same_pitch_source_voice_v1"),
+        ("grace_policy", "retain_zero_duration_as_grace_v1"),
+        ("meter_policy", "exact_measure_anchor_or_metric_grid_v1"),
+        ("default_policy", "explicit_unknowns_and_default_tempo_v1"),
+    ],
+)
+def test_adapter_config_accepts_each_implemented_policy(
+    field: str, implemented: str
+) -> None:
+    config = DilemmadataAdapterConfig(**{field: implemented})
+    assert getattr(config, field) == implemented
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["track_policy", "tie_policy", "grace_policy", "meter_policy", "default_policy"],
+)
+@pytest.mark.parametrize(
+    "unsupported",
+    [True, False, None, 1, "", " ", "unknown_policy", (), []],
+    ids=lambda value: f"{type(value).__name__}-{value!r}",
+)
+def test_adapter_config_rejects_unsupported_policy_values(
+    field: str, unsupported: object
+) -> None:
+    with pytest.raises(DilemmadataAdapterError) as raised:
+        DilemmadataAdapterConfig(**{field: unsupported})
+    assert raised.value.category == "dilemmadata.config_invalid"
 
 
 def test_both_dialects_are_raw_only_exact_and_source_neutral() -> None:
@@ -405,6 +463,92 @@ def test_post_discovery_raw_mutation_fails_fingerprint_binding(
     assert "dilemmadata.raw_fingerprint_mismatch" in outcome.categories
 
 
+def test_post_discovery_target_only_mutation_preserves_record_binding(
+    tmp_path: Path,
+) -> None:
+    copied = tmp_path / "corpus"
+    shutil.copytree(CORPUS, copied)
+    record = _record(copied, "an:training:same")
+    original_binding = record.record_binding_sha256
+    _set_cell(record.path, 0, "a_romanNumeral", "target-only-after-discovery")
+
+    outcome = convert_dilemmadata_record(record)
+    assert isinstance(outcome, DilemmadataAccepted)
+    assert outcome.record.raw_projection_sha256 == record.raw_projection_sha256
+    assert outcome.record.physical_source_sha256 != record.physical_source_sha256
+    assert outcome.record.record_binding_sha256 != original_binding
+    assert isinstance(convert_dilemmadata_record(outcome.record), DilemmadataAccepted)
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    [
+        ("record_id", "an:training:forged"),
+        ("piece_id", "piece:dilemmadata-an-forged"),
+        ("dataset_name", "forged_dataset"),
+        ("path", Path("/tmp/forged-source.tsv")),
+        ("relative_path", "pitch_arrays/AN/training/forged_joint.tsv"),
+        ("dialect", "dlc"),
+        ("grouping_fingerprint", "0" * 64),
+        ("raw_projection_sha256", "1" * 64),
+        ("raw_equivalence_id", "dilemmadata-raw:" + "2" * 64),
+        ("physical_source_sha256", "3" * 64),
+        ("source_group_id", "dilemmadata-component:" + "4" * 64),
+        ("lineage_group_id", "dilemmadata-lineage:" + "5" * 64),
+        ("suggested_split", "forged-split"),
+        ("source_resolution", 960),
+        ("score_path", Path("/tmp/forged-score.musicxml")),
+        ("score_relative_path", "pitch_arrays/AN/training/forged.musicxml"),
+        ("score_sha256", "6" * 64),
+        ("note_row_count", 999),
+    ],
+)
+def test_forged_discovered_record_is_rejected_before_conversion(
+    field: str, replacement: object
+) -> None:
+    record = _record(CORPUS, "an:training:same")
+    forged = replace(record, **{field: replacement})
+
+    outcome = convert_dilemmadata_record(forged)
+    assert isinstance(outcome, DilemmadataQuarantine)
+    assert outcome.categories == ("dilemmadata.record_binding_mismatch",)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["corpus_identity", "binding_version", "binding_sha256"],
+)
+def test_forged_corpus_or_binding_identity_is_rejected(mutation: str) -> None:
+    record = _record(CORPUS, "an:training:same")
+    if mutation == "corpus_identity":
+        forged = replace(
+            record,
+            corpus_identity=replace(
+                record.corpus_identity, content_fingerprint="8" * 64
+            ),
+        )
+    elif mutation == "binding_version":
+        forged = replace(record, record_binding_version="forged")
+    else:
+        forged = replace(record, record_binding_sha256="9" * 64)
+    outcome = convert_dilemmadata_record(forged)
+    assert isinstance(outcome, DilemmadataQuarantine)
+    assert outcome.categories == ("dilemmadata.record_binding_mismatch",)
+
+
+@pytest.mark.parametrize("field", ["source_group_id", "lineage_group_id"])
+def test_forged_group_identity_cannot_change_split_component(field: str) -> None:
+    record = _record(CORPUS, "an:training:same")
+    accepted = convert_dilemmadata_record(record)
+    assert isinstance(accepted, DilemmadataAccepted)
+    forged = replace(record, **{field: f"dilemmadata-forged:{'7' * 64}"})
+    outcome = convert_dilemmadata_record(forged)
+    assert isinstance(outcome, DilemmadataQuarantine)
+    assert outcome.categories == ("dilemmadata.record_binding_mismatch",)
+    assert accepted.record.source_group_id == record.source_group_id
+    assert accepted.record.lineage_group_id == record.lineage_group_id
+
+
 def test_pickup_meter_change_and_measure_anchors_are_reconstructed(tmp_path: Path) -> None:
     copied = tmp_path / "corpus"
     shutil.copytree(CORPUS, copied)
@@ -468,6 +612,21 @@ def test_inconsistent_simultaneous_meter_is_quarantined(tmp_path: Path) -> None:
     outcome = convert_dilemmadata_record(_record(copied, "an:training:same"))
     assert isinstance(outcome, DilemmadataQuarantine)
     assert "dilemmadata.meter_conflict" in outcome.categories
+
+
+def test_inconsistent_simultaneous_key_signature_has_distinct_category(
+    tmp_path: Path,
+) -> None:
+    copied = tmp_path / "corpus"
+    shutil.copytree(CORPUS, copied)
+    source = copied / "pitch_arrays" / "AN" / "training" / "same_joint.tsv"
+    _set_cell(source, 1, "s_offset_frac", "0")
+    _set_cell(source, 1, "onset_div", "0")
+    _set_cell(source, 1, "ks_fifths", "1")
+
+    outcome = convert_dilemmadata_record(_record(copied, "an:training:same"))
+    assert isinstance(outcome, DilemmadataQuarantine)
+    assert outcome.categories == ("dilemmadata.key_signature_conflict",)
 
 
 @pytest.mark.parametrize(
@@ -541,6 +700,62 @@ def test_target_only_cache_reuses_artifacts_but_raw_mutation_misses(
         by_piece_second[changed_piece_id].canonical_relative_path
         != by_piece_third[changed_piece_id].canonical_relative_path
     )
+
+
+def test_acceptance_second_build_restarts_from_discovery_and_source(
+    tmp_path: Path,
+) -> None:
+    cache = CorpusCacheConfig(tmp_path / "cache")
+    config, cache_adapter_config = _adapter_config()
+    first = _run_source_build(
+        _discover(CORPUS),
+        config=config,
+        cache_adapter_config=cache_adapter_config,
+        cache_config=cache,
+        collect_full_evidence=True,
+    )
+    before = _artifact_snapshot(first["index"], cache)
+    second = _run_source_build(
+        _discover(CORPUS),
+        config=config,
+        cache_adapter_config=cache_adapter_config,
+        cache_config=cache,
+        collect_full_evidence=False,
+    )
+
+    assert first["build_report"].cache_hit_count == 0
+    assert first["build_report"].cache_miss_count == 3
+    assert second["build_report"].cache_hit_count == 3
+    assert second["build_report"].cache_miss_count == 0
+    assert dumps_corpus_index(first["index"]) == dumps_corpus_index(second["index"])
+    assert first["quarantine_projection"] == second["quarantine_projection"]
+    assert (
+        first["semantic_projection_fingerprint"]
+        == second["semantic_projection_fingerprint"]
+    )
+    assert before == _artifact_snapshot(second["index"], cache)
+
+
+def test_committed_production_manifest_is_canonical_and_failure_closed() -> None:
+    expected = json.loads(DEFAULT_MANIFEST.read_text(encoding="utf-8"))
+    matches, message, expected_sha, actual_sha = check_manifest_projection(
+        expected, DEFAULT_MANIFEST
+    )
+    assert matches
+    assert message is None
+    assert expected_sha == actual_sha
+
+    forged = json.loads(json.dumps(expected))
+    forged["cache"]["immutable_artifacts_unchanged"] = False
+    forged_core = dict(forged)
+    forged_core.pop("semantic_acceptance_fingerprint")
+    forged["semantic_acceptance_fingerprint"] = _fingerprint(forged_core)
+    matches, message, _expected_sha, forged_sha = check_manifest_projection(
+        forged, DEFAULT_MANIFEST
+    )
+    assert not matches
+    assert message is not None
+    assert forged_sha != actual_sha
 
 
 def test_cache_dataset_ssl_and_group_safe_split_round_trip(tmp_path: Path) -> None:

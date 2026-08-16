@@ -9,13 +9,13 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 import csv
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from fractions import Fraction
 from hashlib import sha256
 import json
 import os
 from os import PathLike
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 from typing import Literal
 
@@ -38,11 +38,13 @@ from music_critic.data import (
 )
 
 
-DILEMMADATA_ADAPTER_VERSION = "1.0.0"
+DILEMMADATA_ADAPTER_VERSION = "1.0.1"
 DILEMMADATA_CORPUS_IDENTITY_VERSION = "1.0.0"
 DILEMMADATA_RAW_PROJECTION_VERSION = "1.0.0"
 DILEMMADATA_GROUPING_VERSION = "1.0.0"
-DILEMMADATA_ACCEPTANCE_REPORT_VERSION = "1.0.0"
+DILEMMADATA_RECORD_BINDING_VERSION = "1.0.0"
+DILEMMADATA_ACCEPTANCE_REPORT_VERSION = "1.1.0"
+DILEMMADATA_PRODUCTION_MANIFEST_VERSION = "1.1.0"
 DILEMMADATA_DATASET_NAME = "dilemmadata"
 DILEMMADATA_RELEASE_VERSION = "v1.0"
 DILEMMADATA_RELEASE_COMMIT = "d60ee75b4a9495e932a4a7be39381578be17e222"
@@ -62,6 +64,13 @@ _FALSE = frozenset({"0", "False", "false", "FALSE"})
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _NOTE_MULTISET_DOMAIN = b"dilemmadata.midi-note-event-multiset-grouping.1\0"
 _RAW_PROJECTION_DOMAIN = b"dilemmadata.target-independent-raw-projection.1\0"
+_RECORD_BINDING_DOMAIN = b"dilemmadata.discovery-record-binding.1\0"
+
+_TRACK_POLICY = "single_source_neutral_pitched_track_v1"
+_TIE_POLICY = "merge_exact_contiguous_same_pitch_source_voice_v1"
+_GRACE_POLICY = "retain_zero_duration_as_grace_v1"
+_METER_POLICY = "exact_measure_anchor_or_metric_grid_v1"
+_DEFAULT_POLICY = "explicit_unknowns_and_default_tempo_v1"
 
 _AN_REQUIRED_FIELDS = (
     "onset_div",
@@ -133,11 +142,17 @@ class DilemmadataCorpusIdentity:
 @dataclass(frozen=True, slots=True)
 class DilemmadataAdapterConfig:
     dataset_name: str = DILEMMADATA_DATASET_NAME
-    track_policy: str = "single_source_neutral_pitched_track_v1"
-    tie_policy: str = "merge_exact_contiguous_same_pitch_source_voice_v1"
-    grace_policy: str = "retain_zero_duration_as_grace_v1"
-    meter_policy: str = "exact_measure_anchor_or_metric_grid_v1"
-    default_policy: str = "explicit_unknowns_and_default_tempo_v1"
+    track_policy: Literal["single_source_neutral_pitched_track_v1"] = _TRACK_POLICY
+    tie_policy: Literal[
+        "merge_exact_contiguous_same_pitch_source_voice_v1"
+    ] = _TIE_POLICY
+    grace_policy: Literal["retain_zero_duration_as_grace_v1"] = _GRACE_POLICY
+    meter_policy: Literal[
+        "exact_measure_anchor_or_metric_grid_v1"
+    ] = _METER_POLICY
+    default_policy: Literal[
+        "explicit_unknowns_and_default_tempo_v1"
+    ] = _DEFAULT_POLICY
     default_tempo_microseconds_per_quarter: int = _DEFAULT_TEMPO
 
     def __post_init__(self) -> None:
@@ -146,6 +161,22 @@ class DilemmadataAdapterConfig:
                 "dataset_name must be a non-empty string",
                 category="dilemmadata.config_invalid",
             )
+        for field_name, value, implemented in (
+            ("track_policy", self.track_policy, _TRACK_POLICY),
+            ("tie_policy", self.tie_policy, _TIE_POLICY),
+            ("grace_policy", self.grace_policy, _GRACE_POLICY),
+            ("meter_policy", self.meter_policy, _METER_POLICY),
+            ("default_policy", self.default_policy, _DEFAULT_POLICY),
+        ):
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, str)
+                or value != implemented
+            ):
+                raise DilemmadataAdapterError(
+                    f"{field_name} must select the implemented policy",
+                    category="dilemmadata.config_invalid",
+                )
         if (
             isinstance(self.default_tempo_microseconds_per_quarter, bool)
             or not isinstance(self.default_tempo_microseconds_per_quarter, int)
@@ -189,6 +220,9 @@ class DilemmadataCorpusRecord:
     note_row_count: int
     tie_continuation_row_count: int
     zero_duration_row_count: int
+    corpus_identity: DilemmadataCorpusIdentity
+    record_binding_version: str
+    record_binding_sha256: str
     dataset_name: str = DILEMMADATA_DATASET_NAME
 
 
@@ -206,8 +240,10 @@ class DilemmadataCorpusDiscovery:
     multi_record_component_count: int
     explicit_overlap_count: int
     suggested_split_conflict_count: int
+    corpus_identity: DilemmadataCorpusIdentity
     identity_version: str = DILEMMADATA_CORPUS_IDENTITY_VERSION
     grouping_version: str = DILEMMADATA_GROUPING_VERSION
+    record_binding_version: str = DILEMMADATA_RECORD_BINDING_VERSION
 
     @property
     def is_valid(self) -> bool:
@@ -336,6 +372,168 @@ def _canonical_bytes(value: object) -> bytes:
 
 def _fingerprint(value: object) -> str:
     return sha256(_canonical_bytes(value)).hexdigest()
+
+
+def _path_locator_sha256(path: Path) -> str:
+    """Bind a discovered path without exposing it in diagnostics or manifests."""
+
+    digest = sha256(_RECORD_BINDING_DOMAIN)
+    digest.update(os.fsencode(path.resolve(strict=False)))
+    return digest.hexdigest()
+
+
+def _record_binding_payload(record: DilemmadataCorpusRecord) -> dict[str, object]:
+    return {
+        "binding_version": record.record_binding_version,
+        "corpus_identity": asdict(record.corpus_identity),
+        "record": {
+            "collection": record.collection,
+            "dataset_name": record.dataset_name,
+            "dialect": record.dialect,
+            "grouping_fingerprint": record.grouping_fingerprint,
+            "lineage_group_id": record.lineage_group_id,
+            "note_row_count": record.note_row_count,
+            "physical_source_sha256": record.physical_source_sha256,
+            "piece_id": record.piece_id,
+            "piece_name": record.piece_name,
+            "raw_equivalence_id": record.raw_equivalence_id,
+            "raw_issue_categories": list(record.raw_issue_categories),
+            "raw_projection_sha256": record.raw_projection_sha256,
+            "record_id": record.record_id,
+            "score_relative_path": record.score_relative_path,
+            "score_sha256": record.score_sha256,
+            "score_source_locator_sha256": (
+                None
+                if record.score_path is None
+                else _path_locator_sha256(record.score_path)
+            ),
+            "source_group_id": record.source_group_id,
+            "source_path": record.relative_path,
+            "source_resolution": record.source_resolution,
+            "source_locator_sha256": _path_locator_sha256(record.path),
+            "suggested_split": record.suggested_split,
+            "tie_continuation_row_count": record.tie_continuation_row_count,
+            "zero_duration_row_count": record.zero_duration_row_count,
+        },
+    }
+
+
+def _record_binding_sha256(record: DilemmadataCorpusRecord) -> str:
+    digest = sha256(_RECORD_BINDING_DOMAIN)
+    digest.update(_canonical_bytes(_record_binding_payload(record)))
+    return digest.hexdigest()
+
+
+def _portable_record_path(value: object) -> bool:
+    if not isinstance(value, str) or not value or "\\" in value:
+        return False
+    path = PurePosixPath(value)
+    return (
+        not path.is_absolute()
+        and value == path.as_posix()
+        and all(part not in ("", ".", "..") for part in path.parts)
+    )
+
+
+def _record_binding_is_valid(record: DilemmadataCorpusRecord) -> bool:
+    """Validate that a record is the exact product of one discovery pass."""
+
+    try:
+        identity = record.corpus_identity
+        if not isinstance(identity, DilemmadataCorpusIdentity):
+            return False
+        if (
+            identity.version != DILEMMADATA_CORPUS_IDENTITY_VERSION
+            or identity.release_version != DILEMMADATA_RELEASE_VERSION
+            or identity.release_commit != DILEMMADATA_RELEASE_COMMIT
+        ):
+            return False
+        if record.record_binding_version != DILEMMADATA_RECORD_BINDING_VERSION:
+            return False
+        if record.dataset_name != DILEMMADATA_DATASET_NAME:
+            return False
+        if record.dialect not in ("an_joint", "dlc"):
+            return False
+        if not isinstance(record.path, Path) or not _portable_record_path(
+            record.relative_path
+        ):
+            return False
+        if record.piece_id != _piece_id(record.record_id, record.dialect):
+            return False
+        if not all(
+            isinstance(value, str) and value
+            for value in (
+                record.record_id,
+                record.collection,
+                record.piece_name,
+                record.source_group_id,
+                record.lineage_group_id,
+            )
+        ):
+            return False
+        if not record.source_group_id.startswith("dilemmadata-component:"):
+            return False
+        if not record.lineage_group_id.startswith("dilemmadata-lineage:"):
+            return False
+        if not all(
+            isinstance(value, str) and _SHA256_RE.fullmatch(value)
+            for value in (
+                record.physical_source_sha256,
+                record.raw_projection_sha256,
+                record.grouping_fingerprint,
+                record.record_binding_sha256,
+            )
+        ):
+            return False
+        if record.raw_equivalence_id != (
+            f"dilemmadata-raw:{record.raw_projection_sha256}"
+        ):
+            return False
+        if record.suggested_split is not None and (
+            not isinstance(record.suggested_split, str)
+            or not record.suggested_split.strip()
+        ):
+            return False
+        if record.source_resolution is not None and (
+            isinstance(record.source_resolution, bool)
+            or not isinstance(record.source_resolution, int)
+            or record.source_resolution <= 0
+        ):
+            return False
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in (
+                record.note_row_count,
+                record.tie_continuation_row_count,
+                record.zero_duration_row_count,
+            )
+        ):
+            return False
+        score_values = (
+            record.score_path,
+            record.score_relative_path,
+            record.score_sha256,
+        )
+        if any(value is None for value in score_values) != all(
+            value is None for value in score_values
+        ):
+            return False
+        if record.score_path is not None:
+            if not isinstance(record.score_path, Path) or not _portable_record_path(
+                record.score_relative_path
+            ):
+                return False
+            if not isinstance(record.score_sha256, str) or not _SHA256_RE.fullmatch(
+                record.score_sha256
+            ):
+                return False
+        return _record_binding_sha256(record) == record.record_binding_sha256
+    except (AttributeError, OSError, TypeError, ValueError):
+        return False
+
+
+def _bind_record(record: DilemmadataCorpusRecord) -> DilemmadataCorpusRecord:
+    return replace(record, record_binding_sha256=_record_binding_sha256(record))
 
 
 def _hash_file(path: Path) -> str:
@@ -880,36 +1078,44 @@ def discover_dilemmadata_corpus(
         parse = scans[record_id]
         source_group, lineage = component_identity[record_id]
         dialect = "an_joint" if row["dialect"] == "an_joint" else "dlc"
-        records.append(
-            DilemmadataCorpusRecord(
-                record_id=record_id,
-                piece_id=_piece_id(record_id, dialect),
-                dialect=dialect,
-                path=Path(row["path"]),
-                relative_path=str(row["relative_path"]),
-                collection=str(row["collection"]),
-                piece_name=str(row["piece_name"]),
-                suggested_split=(
-                    str(row["suggested_split"]) if row["suggested_split"] is not None else None
-                ),
-                physical_source_sha256=physical[record_id],
-                raw_projection_sha256=parse.raw_projection_sha256,
-                raw_equivalence_id=f"dilemmadata-raw:{parse.raw_projection_sha256}",
-                grouping_fingerprint=parse.grouping_fingerprint,
-                source_group_id=source_group,
-                lineage_group_id=lineage,
-                source_resolution=parse.source_resolution,
-                score_path=(None if row["score_path"] is None else Path(row["score_path"])),
-                score_relative_path=(
-                    None if row["score_relative_path"] is None else str(row["score_relative_path"])
-                ),
-                score_sha256=scores[record_id],
-                raw_issue_categories=parse.categories,
-                note_row_count=parse.note_row_count,
-                tie_continuation_row_count=parse.tie_continuation_row_count,
-                zero_duration_row_count=parse.zero_duration_row_count,
-            )
+        record = DilemmadataCorpusRecord(
+            record_id=record_id,
+            piece_id=_piece_id(record_id, dialect),
+            dialect=dialect,
+            path=Path(row["path"]),
+            relative_path=str(row["relative_path"]),
+            collection=str(row["collection"]),
+            piece_name=str(row["piece_name"]),
+            suggested_split=(
+                str(row["suggested_split"])
+                if row["suggested_split"] is not None
+                else None
+            ),
+            physical_source_sha256=physical[record_id],
+            raw_projection_sha256=parse.raw_projection_sha256,
+            raw_equivalence_id=f"dilemmadata-raw:{parse.raw_projection_sha256}",
+            grouping_fingerprint=parse.grouping_fingerprint,
+            source_group_id=source_group,
+            lineage_group_id=lineage,
+            source_resolution=parse.source_resolution,
+            score_path=(
+                None if row["score_path"] is None else Path(row["score_path"])
+            ),
+            score_relative_path=(
+                None
+                if row["score_relative_path"] is None
+                else str(row["score_relative_path"])
+            ),
+            score_sha256=scores[record_id],
+            raw_issue_categories=parse.categories,
+            note_row_count=parse.note_row_count,
+            tie_continuation_row_count=parse.tie_continuation_row_count,
+            zero_duration_row_count=parse.zero_duration_row_count,
+            corpus_identity=identity,
+            record_binding_version=DILEMMADATA_RECORD_BINDING_VERSION,
+            record_binding_sha256="",
         )
+        records.append(_bind_record(record))
 
     release = _release_version(root_path)
     counts = Counter(record.dialect for record in records)
@@ -981,6 +1187,7 @@ def discover_dilemmadata_corpus(
         multi_record_component_count=sum(len(members) > 1 for members in components.values()),
         explicit_overlap_count=explicit_overlap_count,
         suggested_split_conflict_count=split_conflicts,
+        corpus_identity=identity,
     )
     if require_valid and not discovery.is_valid:
         raise DilemmadataCorpusIdentityError(discovery)
@@ -1250,7 +1457,7 @@ def _key_events(
     for row in observations:
         by_onset[row.onset].add(row.key_fifths)
     if any(len(values) != 1 for values in by_onset.values()):
-        return (), ("dilemmadata.meter_conflict",)
+        return (), ("dilemmadata.key_signature_conflict",)
     first = next(iter(by_onset[min(by_onset)]))
     if first is None:
         return (), ()
@@ -1303,6 +1510,17 @@ def convert_dilemmadata_record(
         raise DilemmadataConversionError(
             "record must be DilemmadataCorpusRecord",
             category="dilemmadata.record_invalid",
+        )
+    if not isinstance(config, DilemmadataAdapterConfig):
+        raise DilemmadataConversionError(
+            "config must be DilemmadataAdapterConfig",
+            category="dilemmadata.config_invalid",
+        )
+    if not _record_binding_is_valid(record):
+        return _quarantine(
+            record,
+            ("dilemmadata.record_binding_mismatch",),
+            ("record does not match its versioned discovery binding",),
         )
     parse = _parse_raw_file(record.path, record.dialect)
     if parse.categories:
@@ -1528,7 +1746,9 @@ def convert_dilemmadata_record(
     )
     return DilemmadataAccepted(
         status="accepted",
-        record=replace(record, physical_source_sha256=_hash_file(record.path)),
+        record=_bind_record(
+            replace(record, physical_source_sha256=_hash_file(record.path))
+        ),
         piece=piece,
         validation_report=report,
         statistics=statistics,
@@ -1559,7 +1779,9 @@ __all__ = [
     "DILEMMADATA_GROUPING_VERSION",
     "DILEMMADATA_INSTALLATION_FILE_COUNT",
     "DILEMMADATA_PRIMARY_RECORD_COUNT",
+    "DILEMMADATA_PRODUCTION_MANIFEST_VERSION",
     "DILEMMADATA_RAW_PROJECTION_VERSION",
+    "DILEMMADATA_RECORD_BINDING_VERSION",
     "DILEMMADATA_RELEASE_COMMIT",
     "DILEMMADATA_RELEASE_VERSION",
     "DilemmadataAccepted",

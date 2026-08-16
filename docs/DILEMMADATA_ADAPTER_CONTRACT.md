@@ -36,6 +36,20 @@ below `pitch_arrays` fail closed until classified. Input files are opened as
 strict UTF-8, tab-delimited, uncompressed streams. Output/cache/report roots
 must be outside the corpus.
 
+`DilemmadataAdapterConfig` is failure-closed. Its track, tie, grace, meter, and
+default policy fields each accept only the one versioned value implemented by
+the runtime; bools, other types, empty values, and unknown values are rejected.
+
+Discovery applies `DilemmadataDiscoveryRecordBinding@1.0.0` to every record.
+The binding includes corpus identity/version, logical record/piece/dataset/
+dialect, canonical corpus-relative path, raw projection and grouping
+fingerprints, source/lineage component IDs, split hint, resolution, optional
+score identity, and original physical source identity. Conversion verifies the
+binding before parsing. Mutation of any bound record field is
+`dilemmadata.record_binding_mismatch`; it cannot change cache or split input.
+A theory-only file change after discovery remains valid when the raw projection
+is identical, while a raw change remains `dilemmadata.raw_fingerprint_mismatch`.
+
 ## Raw input contract
 
 The mandatory target-blind note projection is:
@@ -209,6 +223,8 @@ At minimum Phase 9B covers:
 - inconsistent source resolution or non-monotonic source order;
 - malformed tie flags or contradictory grace evidence;
 - inconsistent simultaneous meter evidence or unresolvable bar coverage;
+- inconsistent simultaneous key-signature evidence;
+- forged or stale discovered-record binding;
 - unknown primary dialect/layout;
 - target boundary or span that cannot be exactly aligned;
 - split component assigned to more than one final split.
@@ -226,6 +242,14 @@ Phase 9B.1 implements the two versioned streaming dialect parsers, target-free
 transitive grouping and split manifests, raw-projection cache identity,
 structured quarantine, leakage/raw mutation tests, environment-gated
 full-corpus integration, and one official existing-Phase-8B optimizer smoke.
+
+`DilemmadataAdapter@1.0.1` adds observable config and record-binding rejection.
+`DilemmadataAcceptanceReport@1.1.0` and
+`DilemmadataProductionManifest@1.1.0` require two independent source builds and
+exact manifest equality. The adapter patch changes cache keys because adapter
+version is part of generic cache identity; old artifacts remain immutable but
+are not reused. Raw projection `1.0.0`, canonical schema, graph/model inputs,
+grouping, ontology, targets, and HookTheory/POP909-CL contracts are unchanged.
 
 Source-native target sidecars and exact alignment move to Phase 9B.2. Theory
 heads, new losses, supervised training/evaluation, CUDA lifecycle changes,

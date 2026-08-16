@@ -3225,6 +3225,11 @@ scope are recorded in `DILEMMADATA_FIELD_AUDIT.md` and
   sensitivity;
 - a full-corpus acceptance runner and one real optimizer-step smoke over
   exactly two AN and two DLC records.
+- strict implemented-value-only adapter policies and a versioned binding over
+  every discovered record identity/configuration field before conversion;
+- a committed compact production manifest plus deterministic `--check`, with
+  the second cache build rediscovering and reconverting source records rather
+  than loading canonical cache artifacts.
 
 The production contract is documented in
 `DILEMMADATA_PRODUCTION_ADAPTER.md`. Phase 9B.1 intentionally leaves every
@@ -3246,6 +3251,12 @@ canonical target/annotation collection empty.
   outcomes;
 - cache artifacts and keys are invariant to target-column mutation but change
   for raw-projection mutation;
+- forged record/dataset/path/dialect/group/split/fingerprint identities fail
+  before canonical construction and cannot alter a split component;
+- first source build is 0 hits/all misses, second independent source build is
+  all hits/0 misses, with byte-identical index, equal quarantine/semantic
+  projections, and no rewritten immutable artifact;
+- compact full-corpus manifest equality is required for `ready=true`;
 - one official Phase 8B optimizer step consumes two real AN and two real DLC
   pieces without accessing target sidecars.
 

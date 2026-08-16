@@ -2799,3 +2799,44 @@ This log is append-only.
   evidence or quarantine. Phase 9B.2 theory sidecars/alignment, target
   encodings, theory heads/losses, supervised evaluation, PDMX/Phase 10, and
   effectiveness claims are not implemented or authorized by this decision.
+
+## 2026-08-17 — ADR-075: Phase 9B.1 fails closed on config, discovery binding, and manifest drift
+
+- Status: Accepted as blocking remediation of the existing Phase 9B.1 draft;
+  Phase 9B.2 remains unauthorized.
+- Context: The initial adapter serialized versioned policy names without
+  rejecting unsupported runtime values. A frozen discovered-record dataclass
+  could still be copied with `dataclasses.replace`, allowing record, path,
+  dataset, grouping, lineage, or split identity to diverge from discovery. The
+  acceptance runner's second build loaded canonical cache artifacts instead of
+  proving a second source conversion, and the full-corpus result was not a
+  committed machine-checkable contract. Simultaneous key-signature conflict
+  also used the meter-conflict category.
+- Decision: Patch `DilemmadataAdapter` to `1.0.1`. Every policy field accepts
+  only its implemented identifier. Add
+  `DilemmadataDiscoveryRecordBinding@1.0.0`, a deterministic seal over corpus,
+  record, path, raw/grouping, source/lineage, split, resolution, score,
+  physical-source, and discovery-statistic identities. Verify it before any
+  canonical construction and reject drift as
+  `dilemmadata.record_binding_mismatch`. Rebind only the external physical SHA
+  after a target-only byte mutation whose raw projection still matches.
+- Decision: Add `dilemmadata.key_signature_conflict`. Keep the raw projection,
+  canonical schema, graph/model input, grouping, ontology, targets, and
+  HookTheory/POP909-CL contracts unchanged.
+- Decision: Advance the acceptance report and production manifest to `1.1.0`.
+  The second build must independently repeat pinned discovery, record binding,
+  conversion, validation, and cache insertion. Require 0/719 then 719/0
+  hit/miss counts, byte-identical indices, identical full quarantine and
+  conversion-semantic projections, and unchanged immutable-artifact snapshots.
+  Gate `ready=true` on exact equality with the committed compact manifest.
+- Decision: The manifest contains contract versions, pinned identity, exact
+  outcome/category and accepted graph totals, grouping/cache/split evidence,
+  semantic acceptance fingerprint, and SSL composition/mechanics invariants.
+  It excludes corpus contents, absolute paths, duration, RSS, caches,
+  checkpoints, and the concrete scientific loss value.
+- Consequences: The adapter-version patch intentionally invalidates old
+  Dilemmadata cache keys because adapter version is already part of generic
+  cache identity. Existing artifacts are not rewritten or deleted. Raw
+  projection `1.0.0` is unchanged, so this is not a raw-data semantic change.
+  Theory sidecars, targets, heads/losses, supervised/scientific training,
+  PDMX, and Phase 10 remain out of scope.

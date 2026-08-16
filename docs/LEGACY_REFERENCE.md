@@ -382,3 +382,10 @@ tracks/voices/chords/sections, missing-as-negative labels, and annotation-level
 splits. The source-neutral track, exact tie/grace/meter/bar policies,
 target-independent cache projection, structured quarantine, and Phase 8B raw
 loader integration are new V2-only contracts.
+
+The Phase 9B.1 blocking remediation likewise opened, searched, imported,
+copied, modified, formatted, staged, and reused no legacy repository file or
+logic. Strict policy validation, discovery-record binding, distinct
+key-signature diagnostics, independent source cache reruns, and the committed
+production manifest derive only from current V2 contracts and pinned
+Dilemmadata evidence.

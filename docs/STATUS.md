@@ -2,12 +2,13 @@
 
 ## Current phase
 
-- Date: 2026-08-16
-- Current task: Phase 9B.1 production Dilemmadata raw adapter and SSL-ready
-  corpus path on branch `phase/9b1-dilemmadata-raw-adapter`, based exactly on
+- Date: 2026-08-17
+- Current task: blocking remediation of Phase 9B.1 in draft PR #21 on branch
+  `phase/9b1-dilemmadata-raw-adapter`, still based exactly on
   `01dce15a50144bfcabcade50dc04024baffccc2d`
-- Phase 9B.1 adapter, corpus identity, raw projection, grouping, cache-input
-  identity, and acceptance-report contracts: `1.0.0`
+- Phase 9B.1 adapter: `1.0.1`; acceptance report and committed production
+  manifest: `1.1.0`; corpus identity, raw projection, grouping, record binding,
+  and cache-input identity: `1.0.0`
 - Phase 9A full-corpus semantic fingerprint:
   `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`
 - Next Phase 9 task after acceptance: separately authorize Phase 9B.2
@@ -156,6 +157,13 @@
 - Added bounded mutation/cache/spawn tests, environment-gated pinned-corpus
   integration, and a full acceptance runner with one real Phase 8B optimizer
   step on exactly two AN plus two DLC records.
+- Blocking remediation now rejects every unsupported policy value, verifies a
+  versioned corpus/record/path/group/split/source binding before conversion,
+  distinguishes `dilemmadata.key_signature_conflict`, and prevents forged
+  source/lineage groups from reaching split construction.
+- The committed `tests/fixtures/dilemmadata/production_manifest.json` is the
+  deterministic full-corpus gate. `ready=true` requires exact manifest
+  equality plus intrinsic identity/outcome/cache/group/split/SSL checks.
 - No legacy repository file was opened or used. No Phase 9B.2 sidecars, target
   encodings, heads, losses, supervised training/evaluation, PDMX, Phase 10,
   or scientific effectiveness claim was added.
@@ -167,16 +175,23 @@
   within one record; the adapter was not weakened to force zero quarantine.
 - The accepted cache contains 719 raw-only pieces across 707 transitive
   components. Its index fingerprint is
-  `9f66f14354fd951334edeff8d18ceaeea640e8693a51f2dc5b14580d934b925e`;
+  `c0451976b6b6eab88cb90aa6c47d6afdba1b81ce9b588f0f84daa846154adb0e`;
   the group-safe split fingerprint is
-  `7164a54647c6cd95887bcaf490cc3da3180a68feb0ca5d15a522323d48a3b9e2`.
-  Initial build was 719 misses; rebuild was 719 hits and byte-identical.
+  `58ac7720f65f7fd3102248fb39d89291a78d65c06fc2ab9a16d78a6ee1666a3e`.
+  Initial source build was 0 hits/719 misses. The second build repeated pinned
+  discovery and `convert_dilemmadata_record` for every record, then produced
+  719 hits/0 misses. Indices were byte-identical, full quarantine identities/
+  categories and conversion-semantic fingerprints matched, and all immutable
+  artifact size/mtime/SHA snapshots were unchanged.
 - Full accepted totals: 1,021,195 canonical notes from 1,042,098 source rows,
   20,903 exact tie merges, 7,511 retained grace notes, 75,048 bars, 254,968
   beats, 26 pickups, 280 incomplete bars, 1,887,929 graph nodes, and 14,193,818
-  graph edges. The run processed 820,801,763 primary-TSV bytes in 918.618 s
-  with peak RSS 2,047,635,456 bytes. Report semantic fingerprint:
-  `08631df002cfb946dbf5cd152397b1ef942b13c183ffeff5b8cd768c9f3b4959`.
+  graph edges. Each source build processed 820,801,763 primary-TSV bytes. The
+  one local opt-in acceptance invocation completed in 1,351.434 s with peak
+  RSS 2,076,991,488 bytes. Semantic acceptance fingerprint:
+  `92187b3b10e27662536870b4fce9d683065a32bc20bf970184a2a7b33727287a`;
+  committed manifest fingerprint:
+  `f14f4456bf11dc9f3096bfe0d119877c192cacbeb44e40a1e7347982f467124e`.
 - Four accepted duplicate raw-projection clusters had equal model-input
   fingerprints. Exact canonical/graph serializations intentionally differed
   only in record-specific identity/path entities and were reported as explicit
@@ -186,6 +201,12 @@
   recorded 308 online-encoder parameters with nonzero finite gradients and 308
   changed parameters, emitted four mask-plan fingerprints, and retained zero
   prediction or CUDA tensors.
+- Focused remediation verification: Dilemmadata `105 passed, 1 deselected`
+  plus default no-corpus integration `1 skipped`; HookTheory/POP909-CL
+  `80 passed`; graph/leakage/repository `34 passed`; cache/split contracts
+  `94 passed, 1 deselected`. The positive-worker cases remain for Required CI.
+  `compileall` and `git diff --check` passed before publication. The required
+  exact-final-SHA GitHub run remains the publication gate.
 
 ## Phase 9A Dilemmadata evidence result
 
