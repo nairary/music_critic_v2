@@ -6,9 +6,10 @@
 - Current task: Phase 9A Dilemmadata evidence audit and raw/target contract —
   completed on branch `phase/9a-dilemmadata-evidence-contract`, rebased onto
   `origin/main` merge `1e31e2e1c71b4c1d4b93a9b2a61af53dd81c02f7`
-- Phase 9A audit schema: `1.0.0`; production adapter: not implemented
+- Phase 9A audit schema: `1.1.0`; grouping-fingerprint, target-state, and
+  upstream-comparison contracts: `1.0.0`; production adapter: not implemented
 - Phase 9A full-corpus semantic fingerprint:
-  `056de3ce37c0a22393038c60017dd5bff318469764e04ca44f5bfdbe5b38978d`
+  `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`
 - Next authorized Phase 9 task: Phase 9B production Dilemmadata raw adapter and
   target sidecars; theory heads/losses remain later work
 - Completed phase: Phase 1 — canonical data schema and serialization
@@ -150,8 +151,10 @@
 - Inventory: 353 AN joint records plus 1,280 DLC records, 2,880,723 note rows,
   14 primary header shapes, 353 AN score companions, and 353 derived AN slice
   files.
-- Raw conclusion: all 1,633 records have a parseable target-independent exact
-  note projection and one corroborating integer resolution. A production
+- Raw conclusion: all 1,633 records have parseable target-independent exact
+  rational note fields and one corroborating integer resolution. The narrow
+  onset/duration/MIDI-pitch multiset fingerprint is only bounded-memory split
+  evidence, not complete canonical or model-input identity. A production
   `CanonicalPiece` remains Phase 9B because meter/bar reconstruction,
   percussion/default provenance, ties, and 23,314 zero-duration grace
   candidates still need explicit adapter rules and tests.
@@ -159,26 +162,32 @@
   note-degree observations remain source-native masked sidecars. Borrowed
   harmony is unavailable; source staff/voice is not voice-role supervision;
   no calibrated confidence field was observed.
+- Target-state remediation: `available + masked + missing + unsupported`
+  equals rows examined for every family/dialect; malformed non-empty gates are
+  unsupported only, while missing/false gates are masked. DLC cadence is now
+  `40996 / 769413 / 1311759 / 0` across those four primary states. The 39,009
+  DLC `alt_label` rows remain row-level diagnostics and do not create
+  family-wide ambiguity; every current family-level ambiguous count is zero.
 - Grouping: 1,507 transitive components, 126 multi-record components, 98
-  explicit AN/DLC overlaps, and 30 alternative-analysis exact-input clusters.
+  explicit AN/DLC overlaps, and 30 candidate multiple-analysis groups over one
+  MIDI-compatible note-event multiset. Phase 9B must redefine exact identity
+  with its canonical/model-input fingerprint.
   Five components conflict with release split hints and require group-aware
   reassignment before production use.
 - Quarantine: zero release records failed structural parsing. Deterministic
   failure categories and bounded malformed fixtures cover the future failure
   surface. Metadata is missing for 14 records and remains missing, not false.
 - Reproducibility: two complete reports were byte-identical at SHA-256
-  `2c5a05a439a5b18c6f98a353e88c078a1245a62b922b5abe5ef90b02707b522c`;
+  `501f135e57da18afe48a1d4cb594ffd6d22f645c5418471b37e2338c9e6bc507`;
   their semantic fingerprint is
-  `056de3ce37c0a22393038c60017dd5bff318469764e04ca44f5bfdbe5b38978d`.
-- Post-rebase verification: focused Dilemmadata plus repository contracts pass
-  `13 passed, 1 skipped` in 1.18 seconds. The exact default suite reproduced
-  the documented local-sandbox hang at the first positive-worker profiler
-  case. The complete locally executable suite, excluding exactly the same
-  three `DataLoader(workers>0)` tests, passes
-  `1371 passed, 53 skipped, 3 deselected` in 586.46 seconds with two upstream
-  `torch.jit.script` deprecation warnings. The opt-in full-corpus Dilemmadata
-  integration remains the one focused skip because no explicit corpus root
-  was supplied.
+  `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`.
+- Blocking-remediation verification: focused Dilemmadata plus repository
+  contracts pass `20 passed` in 1.30 seconds; compileall and diff checks pass.
+  Two acceptance-backed complete corpus runs are byte-identical and repeat the
+  clean-checkout comparison. The earlier locally executable repository result
+  remains historical context; this remediation delegates the exact final full
+  suite to Required GitHub CI rather than repeating the known sandbox
+  `DataLoader(workers>0)` hang locally.
 - Scope isolation: no production adapter/model/training/evaluation/CUDA/SSL
   runtime changed. Rebase onto the PR #19 merge preserves the accepted Phase
   8B.2A history while shared-document resolution adds only Phase 9A facts.

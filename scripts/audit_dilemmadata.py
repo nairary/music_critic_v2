@@ -20,11 +20,12 @@ import json
 import os
 from os import PathLike
 from pathlib import Path
+import subprocess
 import sys
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 
 
-AUDIT_SCHEMA_VERSION = "1.0.0"
+AUDIT_SCHEMA_VERSION = "1.1.0"
 CORPUS_ID = "dilemmadata"
 CORPUS_NAME = "Dilemmadata: A symbolic dataset for music research"
 RELEASE_VERSION = "v1.0"
@@ -32,6 +33,11 @@ RELEASE_COMMIT = "d60ee75b4a9495e932a4a7be39381578be17e222"
 UPSTREAM_REPOSITORY = "https://github.com/johentsch/dilemmadata"
 LICENSE_ID = "CC-BY-NC-SA-4.0"
 ENV_ROOT = "MUSIC_CRITIC_DILEMMADATA_ROOT"
+UPSTREAM_ENV_ROOT = "MUSIC_CRITIC_DILEMMADATA_UPSTREAM_ROOT"
+NOTE_MULTISET_FINGERPRINT_DOMAIN = b"dilemmadata.midi-note-event-multiset-grouping.1\0"
+NOTE_MULTISET_FINGERPRINT_VERSION = "1.0.0"
+TARGET_STATE_CONTRACT_VERSION = "1.0.0"
+UPSTREAM_COMPARISON_CONTRACT_VERSION = "1.0.0"
 DEFAULT_MANIFEST = (
     Path(__file__).resolve().parents[1]
     / "tests"
@@ -388,6 +394,7 @@ class TargetAggregate:
     def to_dict(self) -> dict[str, Any]:
         fields = self.spec.an_source_fields if self.dialect == "an_joint" else self.spec.dlc_source_fields
         primary = self.spec.an_primary if self.dialect == "an_joint" else self.spec.dlc_primary
+        primary_state_total = self.available + self.masked + self.missing + self.unsupported
         return {
             "raw_source_fields": list(fields),
             "primary_count_field": primary,
@@ -400,6 +407,9 @@ class TargetAggregate:
             "missing": self.missing,
             "ambiguous": self.ambiguous,
             "unsupported": self.unsupported,
+            "primary_state_total": primary_state_total,
+            "primary_state_partition_valid": primary_state_total == self.rows,
+            "ambiguous_subset_of_available": self.ambiguous <= self.available,
             "source_entries_after_note_row_deduplication": self.distinct_source_entries,
             "records_with_available": self.records_with_available,
             "records_without_available": self.records_without_available,
@@ -432,8 +442,15 @@ class UnionFind:
             self.parent[a] = b
 
 
-class MultisetFingerprint:
-    """Order-independent fixed-memory fingerprint of a multiset of digests."""
+class BoundedMemoryMultisetFingerprint:
+    """Order-independent bounded-memory grouping fingerprint.
+
+    The count/sum/squared-sum/xor accumulator is deliberately not an exact
+    multiset identity. A domain-separated SHA-256 digest makes accidental
+    collisions impractical for split grouping, but algebraic collisions remain
+    possible in principle and this value must never be used as canonical or
+    model-input identity.
+    """
 
     _MODULUS = 1 << 256
 
@@ -680,8 +697,8 @@ def _scan_record(
     raw_fields = AN_RAW_FIELDS if asset.dialect == "an_joint" else DLC_RAW_FIELDS
     errors: Counter[str] = Counter()
     error_examples: dict[str, dict[str, Any]] = {}
-    note_fingerprint = MultisetFingerprint(
-        b"dilemmadata.midi-compatible-note-multiset.2\0"
+    note_fingerprint = BoundedMemoryMultisetFingerprint(
+        NOTE_MULTISET_FINGERPRINT_DOMAIN
     )
     raw_digest = sha256(f"dilemmadata.raw-observation.{asset.dialect}.1\0".encode())
     target_digest = sha256(f"dilemmadata.target-sidecar.{asset.dialect}.1\0".encode())
@@ -698,6 +715,7 @@ def _scan_record(
     family_events: dict[str, set[tuple[str, ...]]] = defaultdict(set)
     family_available: Counter[str] = Counter()
     family_rows: dict[str, Counter[str]] = defaultdict(Counter)
+    row_diagnostics: Counter[str] = Counter()
 
     with asset.path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.reader(handle, delimiter="\t", strict=True)
@@ -803,6 +821,8 @@ def _scan_record(
 
             meter_values.add((row.get("ts_beats", ""), row.get("ts_beat_type", "")))
             alt_present = row.get("alt_label", "").strip() not in MISSING_TOKENS
+            if alt_present:
+                row_diagnostics["alt_label_present"] += 1
             for spec in TARGET_FAMILIES:
                 aggregate = target_aggregates[(asset.dialect, spec.family)]
                 aggregate.rows += 1
@@ -819,6 +839,8 @@ def _scan_record(
                     gate_value = _bool_value(gate_raw)
                     if gate_value is None and gate_raw.strip() not in MISSING_TOKENS:
                         aggregate.unsupported += 1
+                        family_rows[spec.family]["unsupported"] += 1
+                        continue
                     gate = gate_value is True
                 value = row.get(primary, "").strip()
                 if not gate:
@@ -827,7 +849,13 @@ def _scan_record(
                     continue
                 if spec.positive_only:
                     boolean = _bool_value(value)
-                    if boolean is True or (boolean is None and value not in MISSING_TOKENS):
+                    if boolean is True:
+                        available_value = value
+                    elif value in MISSING_TOKENS:
+                        aggregate.missing += 1
+                        family_rows[spec.family]["missing"] += 1
+                        continue
+                    elif boolean is None:
                         available_value = value
                     else:
                         aggregate.masked += 1
@@ -848,13 +876,6 @@ def _scan_record(
                     spec, asset.dialect, row, onset, available_value, row_count
                 )
                 family_events[spec.family].add(key)
-                if alt_present and spec.family in {
-                    "global_key", "local_key", "tonal_region", "roman_numeral",
-                    "chord_root", "chord_quality", "bass", "inversion",
-                    "applied_secondary_harmony",
-                }:
-                    aggregate.ambiguous += 1
-                    family_rows[spec.family]["ambiguous"] += 1
 
     if len(resolution_values) > 1:
         errors["inconsistent_source_resolution"] += 1
@@ -889,7 +910,7 @@ def _scan_record(
         "header_sha256": sha256("\t".join(header).encode("utf-8")).hexdigest(),
         "row_count": row_count,
         "raw_observation_fingerprint": raw_digest.hexdigest(),
-        "midi_compatible_note_projection_fingerprint": note_fingerprint.hexdigest(),
+        "midi_note_event_multiset_grouping_fingerprint": note_fingerprint.hexdigest(),
         "target_sidecar_fingerprint": target_digest.hexdigest(),
         "source_resolution_candidates": sorted(resolution_values),
         "voice_identity_count": len(voice_keys),
@@ -900,6 +921,7 @@ def _scan_record(
         "target_family_counts": {
             family: dict(sorted(counts.items())) for family, counts in sorted(family_rows.items())
         },
+        "row_diagnostics": dict(sorted(row_diagnostics.items())),
         "quarantine_categories": quarantine_categories,
         "error_counts": dict(sorted(errors.items())),
         "error_examples": [error_examples[key] for key in sorted(error_examples)],
@@ -923,13 +945,17 @@ def _inventory(root: Path, paths: Sequence[Path]) -> tuple[list[dict[str, Any]],
 def _compare_upstream(root: Path, upstream_root: Path | None) -> dict[str, Any]:
     if upstream_root is None:
         return {
+            "contract_version": UPSTREAM_COMPARISON_CONTRACT_VERSION,
             "performed": False,
             "exact_match": None,
+            "expected_upstream_commit": RELEASE_COMMIT,
             "upstream_commit": None,
+            "checkout_clean": None,
             "matching_file_count": 0,
             "mismatches": [],
             "local_only": [],
             "upstream_only": [],
+            "failure_categories": [],
         }
     upstream = upstream_root.resolve()
     if not upstream.is_dir():
@@ -939,24 +965,45 @@ def _compare_upstream(root: Path, upstream_root: Path | None) -> dict[str, Any]:
     common = sorted(set(local) & set(remote))
     mismatches = [path for path in common if local[path] != remote[path]]
     commit = None
+    checkout_clean = False
     git_dir = upstream / ".git"
     if git_dir.exists():
-        import subprocess
-
         result = subprocess.run(
             ["git", "-C", str(upstream), "rev-parse", "HEAD"],
             check=False, capture_output=True, text=True,
         )
         if result.returncode == 0:
             commit = result.stdout.strip()
+        status = subprocess.run(
+            ["git", "-C", str(upstream), "status", "--porcelain"],
+            check=False, capture_output=True, text=True,
+        )
+        checkout_clean = status.returncode == 0 and not status.stdout.strip()
+    local_only = sorted(set(local) - set(remote))
+    upstream_only = sorted(set(remote) - set(local))
+    failure_categories = []
+    if commit != RELEASE_COMMIT:
+        failure_categories.append("upstream_commit_mismatch")
+    if not checkout_clean:
+        failure_categories.append("upstream_checkout_dirty")
+    if mismatches:
+        failure_categories.append("upstream_content_mismatch")
+    if local_only:
+        failure_categories.append("upstream_local_only_files")
+    if upstream_only:
+        failure_categories.append("upstream_only_files")
     return {
+        "contract_version": UPSTREAM_COMPARISON_CONTRACT_VERSION,
         "performed": True,
-        "exact_match": not mismatches and set(local) == set(remote) and commit == RELEASE_COMMIT,
+        "exact_match": not failure_categories,
+        "expected_upstream_commit": RELEASE_COMMIT,
         "upstream_commit": commit,
+        "checkout_clean": checkout_clean,
         "matching_file_count": len(common) - len(mismatches),
         "mismatches": mismatches,
-        "local_only": sorted(set(local) - set(remote)),
-        "upstream_only": sorted(set(remote) - set(local)),
+        "local_only": local_only,
+        "upstream_only": upstream_only,
+        "failure_categories": failure_categories,
     }
 
 
@@ -1050,8 +1097,8 @@ def _grouping(
                 edge_counts[key_name] += 1
 
     connect_groups(
-        "midi_compatible_projection",
-        ((row["record_id"], row["midi_compatible_note_projection_fingerprint"]) for row in scans),
+        "midi_note_event_multiset_grouping_fingerprint",
+        ((row["record_id"], row["midi_note_event_multiset_grouping_fingerprint"]) for row in scans),
     )
     connect_groups(
         "an_score_content",
@@ -1076,7 +1123,6 @@ def _grouping(
         components[uf.find(record_id)].append(record_id)
     component_rows = []
     split_conflicts = []
-    alternative_clusters = []
     for members in sorted(components.values(), key=lambda values: (len(values), values)):
         component_id = f"dilemmadata-component:{_fingerprint(members)}"
         splits = sorted({
@@ -1085,37 +1131,66 @@ def _grouping(
             if (split := (by_id[record_id].get("suggested_split") or metadata.get(record_id, {}).get("suggested_split")))
         })
         target_fingerprints = sorted({by_id[record_id]["target_sidecar_fingerprint"] for record_id in members})
-        raw_fingerprints = sorted({by_id[record_id]["midi_compatible_note_projection_fingerprint"] for record_id in members})
+        grouping_fingerprints = sorted({
+            by_id[record_id]["midi_note_event_multiset_grouping_fingerprint"]
+            for record_id in members
+        })
         row = {
             "component_id": component_id,
             "record_ids": members,
             "suggested_splits": splits,
-            "raw_projection_fingerprints": raw_fingerprints,
+            "midi_note_event_multiset_grouping_fingerprints": grouping_fingerprints,
             "target_sidecar_fingerprint_count": len(target_fingerprints),
         }
         if len(members) > 1:
             component_rows.append(row)
         if len(splits) > 1:
             split_conflicts.append(row)
-        if len(raw_fingerprints) == 1 and len(target_fingerprints) > 1 and len(members) > 1:
-            alternative_clusters.append(row)
 
     equivalent_groups = defaultdict(list)
     for row in scans:
-        equivalent_groups[row["midi_compatible_note_projection_fingerprint"]].append(row["record_id"])
+        equivalent_groups[row["midi_note_event_multiset_grouping_fingerprint"]].append(row["record_id"])
     duplicate_clusters = [sorted(values) for values in equivalent_groups.values() if len(values) > 1]
+    candidate_multiple_analysis_groups = []
+    for members in sorted(duplicate_clusters):
+        target_fingerprints = {
+            by_id[record_id]["target_sidecar_fingerprint"] for record_id in members
+        }
+        if len(target_fingerprints) > 1:
+            candidate_multiple_analysis_groups.append({
+                "record_ids": members,
+                "midi_note_event_multiset_grouping_fingerprint": by_id[members[0]][
+                    "midi_note_event_multiset_grouping_fingerprint"
+                ],
+                "target_sidecar_fingerprint_count": len(target_fingerprints),
+            })
     return {
-        "policy": "transitive closure over exact MIDI-compatible note projection, exact AN score bytes, and explicit merged-summary overlap",
+        "policy": "transitive closure over a bounded-memory MIDI-compatible note-event multiset grouping fingerprint, identical AN score bytes, and explicit merged-summary overlap",
+        "midi_note_event_multiset_fingerprint_contract": {
+            "algorithm": "sha256(domain || count || sum_mod_2^256 || squared_sum_mod_2^256 || xor)",
+            "domain": NOTE_MULTISET_FINGERPRINT_DOMAIN[:-1].decode("ascii"),
+            "version": NOTE_MULTISET_FINGERPRINT_VERSION,
+            "event_fields": ["exact_onset_qn", "exact_duration_qn", "midi_pitch"],
+            "bounded_memory": True,
+            "full_input_identity": False,
+            "collision_boundary": "collision-resistant split-grouping evidence, not a collision-free multiset encoding or canonical/model-input identity",
+            "intentionally_excluded_examples": [
+                "source_part_staff_voice", "tie_state", "meter_bar_structure", "pitch_spelling",
+            ],
+        },
+        "phase_9b_identity_requirement": "candidate multiple-analysis groups must be re-evaluated using a versioned canonical/model-input fingerprint before they can be called exact alternative-analysis identities",
         "identity_non_goal": "composer/title similarity alone never joins a split component",
         "edge_counts": dict(sorted(edge_counts.items())),
         "component_count": len(components),
         "multi_record_component_count": len(component_rows),
         "multi_record_components": component_rows,
-        "exact_equivalent_input_cluster_count": len(duplicate_clusters),
-        "exact_equivalent_input_record_count": sum(len(values) for values in duplicate_clusters),
-        "alternative_analysis_cluster_count": len(alternative_clusters),
-        "alternative_analysis_record_count": sum(len(row["record_ids"]) for row in alternative_clusters),
-        "alternative_analysis_clusters": alternative_clusters,
+        "midi_note_event_multiset_equivalent_cluster_count": len(duplicate_clusters),
+        "midi_note_event_multiset_equivalent_record_count": sum(len(values) for values in duplicate_clusters),
+        "candidate_multiple_analysis_group_count": len(candidate_multiple_analysis_groups),
+        "candidate_multiple_analysis_record_count": sum(
+            len(row["record_ids"]) for row in candidate_multiple_analysis_groups
+        ),
+        "candidate_multiple_analysis_groups": candidate_multiple_analysis_groups,
         "explicit_cross_source_overlap_count": len(explicit_links),
         "explicit_cross_source_overlaps": sorted(explicit_links, key=lambda row: (row["an_record_id"], row["dlc_record_id"])),
         "suggested_split_conflict_count": len(split_conflicts),
@@ -1155,7 +1230,14 @@ def _manifest_projection(report: Mapping[str, Any]) -> dict[str, Any]:
             "installation_file_count": inventory["file_count"],
             "installation_byte_count": inventory["byte_count"],
             "content_fingerprint": inventory["content_fingerprint"],
-            "upstream_exact_match": report["corpus_identity"]["upstream_comparison"]["exact_match"],
+            "upstream_comparison": {
+                key: report["corpus_identity"]["upstream_comparison"][key]
+                for key in (
+                    "contract_version", "performed", "exact_match", "expected_upstream_commit",
+                    "upstream_commit", "checkout_clean", "matching_file_count",
+                    "failure_categories",
+                )
+            },
         },
         "records": report["record_inventory"],
         "formats": {
@@ -1168,7 +1250,9 @@ def _manifest_projection(report: Mapping[str, Any]) -> dict[str, Any]:
                 dialect: {
                     key: values[key]
                     for key in (
-                        "available", "masked", "missing", "ambiguous", "unsupported",
+                        "rows_examined", "available", "masked", "missing", "ambiguous", "unsupported",
+                        "primary_state_total", "primary_state_partition_valid",
+                        "ambiguous_subset_of_available",
                         "source_entries_after_note_row_deduplication", "records_with_available",
                     )
                 }
@@ -1176,14 +1260,21 @@ def _manifest_projection(report: Mapping[str, Any]) -> dict[str, Any]:
             }
             for family, family_values in report["target_inventory"].items()
         },
+        "target_diagnostics": report["target_diagnostics"],
         "grouping": {
             key: report["grouping"][key]
             for key in (
                 "component_count", "multi_record_component_count",
-                "exact_equivalent_input_cluster_count", "exact_equivalent_input_record_count",
-                "alternative_analysis_cluster_count", "alternative_analysis_record_count",
+                "midi_note_event_multiset_equivalent_cluster_count",
+                "midi_note_event_multiset_equivalent_record_count",
+                "candidate_multiple_analysis_group_count",
+                "candidate_multiple_analysis_record_count",
                 "explicit_cross_source_overlap_count", "suggested_split_conflict_count",
             )
+        } | {
+            "midi_note_event_multiset_fingerprint_contract": report["grouping"][
+                "midi_note_event_multiset_fingerprint_contract"
+            ],
         },
         "quarantine": report["quarantine"],
         "readiness": report["readiness"],
@@ -1240,18 +1331,59 @@ def build_report(
             "exact_alignment": spec.coordinate,
         }
 
+    target_state_violations = [
+        f"target_primary_state_partition_invalid:{spec.family}:{dialect}"
+        for spec in TARGET_FAMILIES
+        for dialect in ("an_joint", "dlc")
+        if not target_inventory[spec.family]["by_dialect"][dialect][
+            "primary_state_partition_valid"
+        ]
+        or not target_inventory[spec.family]["by_dialect"][dialect][
+            "ambiguous_subset_of_available"
+        ]
+    ]
+    target_diagnostics = {
+        "contract_version": TARGET_STATE_CONTRACT_VERSION,
+        "alt_label": {
+            "semantics": "row-level alternative-label evidence retained as provenance/diagnostic sidecar; it is not family-local ambiguity evidence",
+            "by_dialect": {
+                dialect: sum(
+                    row["row_diagnostics"].get("alt_label_present", 0)
+                    for row in scans
+                    if row["dialect"] == dialect
+                )
+                for dialect in ("an_joint", "dlc")
+            },
+        },
+        "primary_state_policy": {
+            "states": ["available", "masked", "missing", "unsupported"],
+            "mutually_exclusive_and_exhaustive": True,
+            "missing_or_false_gate": "masked",
+            "malformed_nonempty_gate": "unsupported",
+            "missing_target_value_after_true_gate": "missing",
+            "missing_is_negative": False,
+            "ambiguous": "additional family-local diagnostic; may overlap only available",
+        },
+    }
+
     strict_violations: list[str] = []
-    upstream = _compare_upstream(
-        root_path, Path(upstream_root) if upstream_root is not None else None
+    supplied_upstream = (
+        str(upstream_root)
+        if upstream_root is not None
+        else os.environ.get(UPSTREAM_ENV_ROOT)
     )
-    if upstream["performed"] and not upstream["exact_match"]:
-        strict_violations.append("upstream_release_content_mismatch")
+    upstream = _compare_upstream(
+        root_path, Path(supplied_upstream) if supplied_upstream else None
+    )
+    if upstream["performed"]:
+        strict_violations.extend(upstream["failure_categories"])
     if discovery.unexpected_primary_paths:
         strict_violations.append("unexpected_primary_tsv_layout")
     if quarantined_records:
         strict_violations.append("primary_record_quarantines_present")
     if limit is not None:
         strict_violations.append("bounded_limit_is_not_complete_evidence")
+    strict_violations.extend(target_state_violations)
 
     evidence_warnings = []
     production_blockers = ["phase_9b_production_adapter_not_implemented"]
@@ -1361,6 +1493,7 @@ def build_report(
             },
         },
         "target_inventory": target_inventory,
+        "target_diagnostics": target_diagnostics,
         "grouping": grouping,
         "alignment_contract": {
             "note_identity": "exact source row plus dialect-specific tie handling; no nearest-neighbour or float match",
@@ -1382,7 +1515,7 @@ def build_report(
                 "an_joint": sorted({field for spec in TARGET_FAMILIES for field in spec.an_source_fields}),
                 "dlc": sorted({field for spec in TARGET_FAMILIES for field in spec.dlc_source_fields}),
             },
-            "grouping_identity": "external transitive component sidecar",
+            "grouping_identity": "external transitive component sidecar; the narrow MIDI note-event multiset fingerprint is split evidence, not raw canonical or model-input identity",
             "provenance_diagnostics_confidence": "sidecars only",
             "required_phase9b_mutation_tests": [
                 "delete_replace_reorder_theory_annotations_preserves_raw_canonical_projection",
@@ -1439,6 +1572,11 @@ def build_report(
         "per_record": scans,
         "readiness": {
             "evidence_contract_ready": not strict_violations,
+            "acceptance_backed_release_ready": (
+                not strict_violations
+                and upstream["performed"]
+                and upstream["exact_match"]
+            ),
             "production_adapter_ready": False,
             "evidence_violations": strict_violations,
             "evidence_warnings": evidence_warnings,
@@ -1485,7 +1623,14 @@ def check_manifest(report: Mapping[str, Any], manifest_path: Path) -> tuple[bool
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, help=f"dataset root; defaults to {ENV_ROOT}")
-    parser.add_argument("--upstream-root", type=Path, help="optional clean v1.0 checkout for byte comparison")
+    parser.add_argument(
+        "--upstream-root",
+        type=Path,
+        help=(
+            "separate clean v1.0 checkout for acceptance-backed byte comparison; "
+            f"defaults to {UPSTREAM_ENV_ROOT}"
+        ),
+    )
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--limit", type=_positive_int)
     parser.add_argument(

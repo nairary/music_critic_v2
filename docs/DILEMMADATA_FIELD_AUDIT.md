@@ -31,8 +31,9 @@ new synthetic fixture, never corpus rows.
 
 ## Audit method and reproducibility
 
-`scripts/audit_dilemmadata.py` discovers records deterministically and scans
-TSV files row by row with strict UTF-8 and strict tabular parsing. It keeps
+`scripts/audit_dilemmadata.py` (audit schema `1.1.0`) discovers records
+deterministically and scans TSV files row by row with strict UTF-8 and strict
+tabular parsing. It keeps
 only bounded vocabularies and record-level aggregates in memory. It does not
 import or execute release processing modules. Corpus-relative paths are used
 in reports, output below the corpus root is rejected, and runtime/platform
@@ -45,26 +46,37 @@ fingerprint:
 8f1161ad7cdbd979845012ffc6150cd82c5e91ab1197ed97385fffce57a0f312
 ```
 
-Two independent complete runs emitted byte-identical 8.9 MiB JSON reports:
+Two independent complete acceptance-backed runs emitted byte-identical
+9,195,429-byte JSON reports:
 
 ```text
-report SHA-256:       2c5a05a439a5b18c6f98a353e88c078a1245a62b922b5abe5ef90b02707b522c
-semantic fingerprint: 056de3ce37c0a22393038c60017dd5bff318469764e04ca44f5bfdbe5b38978d
+report SHA-256:       501f135e57da18afe48a1d4cb594ffd6d22f645c5418471b37e2338c9e6bc507
+semantic fingerprint: ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed
 ```
+
+The acceptance-backed release run also compares every regular file with a
+separate clean checkout at the pinned commit. The compact evidence records
+comparison contract `1.0.0`, `performed=true`, `exact_match=true`, the verified
+upstream commit, clean status, matching-file count, and stable failure
+categories. This opt-in comparison requires neither network nor corpus data in
+default CI; the caller supplies both local roots.
 
 The committed compact projection is
 `tests/fixtures/dilemmadata/audit_manifest.json`. Reproduce it with:
 
 ```bash
 MUSIC_CRITIC_DILEMMADATA_ROOT=/path/to/johentsch-dilemmadata-d60ee75 \
+MUSIC_CRITIC_DILEMMADATA_UPSTREAM_ROOT=/path/to/clean/v1.0-checkout \
 python scripts/audit_dilemmadata.py \
   --output /tmp/dilemmadata-audit.json \
   --check
 ```
 
-`--root` overrides the environment variable. `--limit N` is a bounded
-diagnostic and deliberately marks evidence incomplete. `--upstream-root`
-enables an optional full file/hash comparison with a clean checkout.
+`--root` and `--upstream-root` override their respective environment variables.
+`--limit N` is a bounded diagnostic and deliberately marks evidence incomplete.
+The release acceptance command and env-gated real integration test require the
+separate upstream root. Commit mismatch, dirty checkout, content mismatch,
+local-only files, and upstream-only files are distinct stable failures.
 
 ## Installation and record inventory
 
@@ -117,8 +129,8 @@ annotations. Phase 9A therefore classifies the following as raw observations:
 | Meter/measure | per-note meter and measure columns | per-note meter and measure columns | observable but silent meter/bar events require 9B validation |
 | Tempo | absent | absent | only the existing explicit provenance-bearing default is permitted |
 
-The audit parsed a target-independent MIDI-compatible note projection for all
-1,633 records with zero structural parse quarantines. Every record had exactly
+The audit parsed a target-independent MIDI-compatible note-event projection for
+all 1,633 records with zero structural parse quarantines. Every record had exactly
 one integer source-resolution candidate. It observed 74,773 tied-continuation
 rows in 1,449 records and 23,314 zero-duration rows in 864 records. A zero
 duration is a source-derived grace-note candidate; Phase 9B must map it to
@@ -136,26 +148,30 @@ percussion/default policy, tie identity, and grace handling belong to Phase
 ## Target inventory
 
 Counts use `available / masked / missing / ambiguous / unsupported` at the
-note-row evidence level. `masked` includes absent source fields, invalid label
-gates, and false positive-only boundary rows. `ambiguous` is additional
-evidence on an available row and can overlap `available`. Source-entry counts
+note-row evidence level under target-state contract `1.0.0`. The four primary
+states `available`, `masked`, `missing`, and `unsupported` are mutually
+exclusive and exhaustive for every family/dialect. A missing or false gate is
+`masked`; a malformed non-empty gate is `unsupported` and is never also
+`masked`. Missing target values after a true gate are `missing`, never negative.
+`ambiguous` is a separate family-local diagnostic that may overlap only an
+available row. Source-entry counts
 deduplicate repeated per-note labels by release annotation identity plus raw
 value; they are not inferred semantic spans.
 
 | Family | AN counts | DLC counts | Cross-source status |
 |---|---:|---:|---|
-| Global key | `0 / 758555 / 0 / 0 / 0` | `2122168 / 0 / 0 / 39009 / 0` | source-specific; absent in AN |
-| Local key | `758555 / 0 / 0 / 0 / 0` | `2122168 / 0 / 0 / 39009 / 0` | source-specific |
-| Tonal region | `758555 / 0 / 0 / 0 / 0` | `2122168 / 0 / 0 / 39009 / 0` | deferred alias/crosswalk, not a new native label |
+| Global key | `0 / 758555 / 0 / 0 / 0` | `2122168 / 0 / 0 / 0 / 0` | source-specific; absent in AN |
+| Local key | `758555 / 0 / 0 / 0 / 0` | `2122168 / 0 / 0 / 0 / 0` | source-specific |
+| Tonal region | `758555 / 0 / 0 / 0 / 0` | `2122168 / 0 / 0 / 0 / 0` | deferred alias/crosswalk, not a new native label |
 | Chord boundary | `280821 / 477734 / 0 / 0 / 0` | `904869 / 1217299 / 0 / 0 / 0` | lossless positive subset of `a_isOnset` |
-| Roman numeral | `758030 / 525 / 0 / 0 / 0` | `2094680 / 27488 / 0 / 38824 / 0` | source-specific grammar |
-| Chord root | `758030 / 525 / 0 / 0 / 0` | `2094680 / 27488 / 0 / 38824 / 0` | deferred semantic crosswalk |
-| Chord quality | `758030 / 525 / 0 / 0 / 0` | `2094680 / 27488 / 0 / 38824 / 0` | source-specific vocabulary |
-| Bass | `758030 / 525 / 0 / 0 / 0` | `2094680 / 27488 / 0 / 38824 / 0` | deferred semantic crosswalk |
-| Inversion | `758030 / 525 / 0 / 0 / 0` | `1085143 / 27488 / 1009537 / 26218 / 0` | source-specific |
-| Applied/secondary harmony | `91135 / 525 / 666895 / 0 / 0` | `357733 / 27488 / 1736947 / 14149 / 0` | source-specific |
+| Roman numeral | `758030 / 525 / 0 / 0 / 0` | `2094680 / 27488 / 0 / 0 / 0` | source-specific grammar |
+| Chord root | `758030 / 525 / 0 / 0 / 0` | `2094680 / 27488 / 0 / 0 / 0` | deferred semantic crosswalk |
+| Chord quality | `758030 / 525 / 0 / 0 / 0` | `2094680 / 27488 / 0 / 0 / 0` | source-specific vocabulary |
+| Bass | `758030 / 525 / 0 / 0 / 0` | `2094680 / 27488 / 0 / 0 / 0` | deferred semantic crosswalk |
+| Inversion | `758030 / 525 / 0 / 0 / 0` | `1085143 / 27488 / 1009537 / 0 / 0` | source-specific |
+| Applied/secondary harmony | `91135 / 525 / 666895 / 0 / 0` | `357733 / 27488 / 1736947 / 0 / 0` | source-specific |
 | Borrowed harmony | `0 / 758555 / 0 / 0 / 0` | `0 / 2122168 / 0 / 0 / 0` | unavailable/deferred |
-| Cadence | `0 / 758555 / 0 / 0 / 0` | `40996 / 2081172 / 0 / 0 / 0` | DLC-only source-specific point evidence |
+| Cadence | `0 / 758555 / 0 / 0 / 0` | `40996 / 769413 / 1311759 / 0 / 0` | DLC-only source-specific point evidence |
 | Phrase boundary | `0 / 758555 / 0 / 0 / 0` | `67235 / 2054933 / 0 / 0 / 0` | DLC-only source-specific point evidence |
 | Section boundary | `0 / 758555 / 0 / 0 / 0` | `9693 / 2112475 / 0 / 0 / 0` | DLC-only source-specific point evidence |
 | Note degree | `758030 / 525 / 0 / 0 / 0` | `2094680 / 27488 / 0 / 0 / 0` | source-specific note-row label |
@@ -163,8 +179,10 @@ value; they are not inferred semantic spans.
 
 No calibrated numeric confidence field was observed. Producer, analyst,
 proofreader, source URL/version, validation gates, alternative-label evidence,
-and raw label spellings remain provenance/diagnostic sidecars. None is a model
-input merely because it exists in a pitch array.
+and raw label spellings remain provenance/diagnostic sidecars. In particular,
+`alt_label` is row-level alternative-label evidence; without family-local
+evidence it does not make every target family semantically ambiguous. None is a
+model input merely because it exists in a pitch array.
 
 ## Alignment, overlap, grouping, and leakage findings
 
@@ -178,14 +196,29 @@ evidence.
 
 Split grouping is the transitive closure of:
 
-1. identical target-independent MIDI-compatible note multiset;
+1. the same bounded-memory MIDI-compatible note-event multiset grouping
+   fingerprint;
 2. identical AN score bytes;
 3. explicit cross-source links in `processing/merged_summary.tsv`.
 
+The grouping fingerprint version is `1.0.0`. It includes only exact onset,
+exact duration, and MIDI pitch and uses a domain-separated
+count/sum/squared-sum/xor accumulator followed by SHA-256. It is bounded-memory,
+order-independent, and collision-resistant evidence for conservative split
+grouping; it is not a collision-free multiset encoding, raw canonical identity,
+full input identity, or model-input fingerprint. Voice/track identity, tie
+state, meter/bar structure, spelling, and other possible Phase 9B inputs are
+intentionally outside it. Domain separation, multiplicity, permutation, and
+adversarial equal-count/sum/xor regression cases are tested.
+
 Composer/title similarity alone never joins records. The result is 1,507
 components, including 126 multi-record components, 98 explicit AN/DLC
-overlaps, and 30 exact-input clusters covering 60 records with different
-target fingerprints. All alternative analyses must remain in one component.
+overlaps, and 30 MIDI note-event multiset-equivalent clusters covering 60
+records with different target fingerprints. These are only candidate
+multiple-analysis groups over one MIDI-compatible note-event multiset. They
+stay together conservatively for split safety, while exact alternative-analysis
+identity must be redefined and rechecked in Phase 9B using a versioned
+canonical/model-input fingerprint.
 
 Five components conflict with release split hints: three AN `training` and two
 AN `validation` records link to DLC `test` records. Phase 9B must ignore the

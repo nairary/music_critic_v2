@@ -889,8 +889,9 @@ For arbitrary-MIDI-compatible experiments, pitch, onset, duration, and
 compatible meter fields may form the raw projection. Staff, voice, note
 spelling, `step`, `alter`, and `tpc` are optional score evidence and must not be
 assumed available in arbitrary MIDI. Harmony, key, cadence, phrase, Roman
-numeral, and other analysis columns are targets. The exact projection remains
-a Phase 9 design decision.
+numeral, and other analysis columns are targets. Exact canonical/model-input
+identity remains a Phase 9B design decision; the Phase 9A narrow note-multiset
+fingerprint is split evidence only.
 
 ### 17.3 Pipeline
 
@@ -910,7 +911,9 @@ a Phase 9 design decision.
 9. Align cadence labels to beat/bar boundaries and harmonic events.
 10. Align phrase and section starts to bar or onset candidates.
 11. Store pedal and non-chord information if available.
-12. Preserve alternative analyses as separate annotation views, not duplicate independent songs.
+12. Preserve source-proven alternative analyses as separate annotation views;
+    conservatively group Phase 9A candidate multiple-analysis records until
+    Phase 9B canonical/model-input identity is available.
 13. Generate target masks because fields differ across constituent corpora.
 
 ### 17.4 Annotation disagreement
@@ -3193,16 +3196,18 @@ score. The objective and comparison contracts are in
 ### Phase 9A implemented evidence increment
 
 Phase 9A is complete as evidence and contract work. It adds a deterministic,
-streaming audit of the exact Dilemmadata v1.0 release, a committed compact
+streaming audit of the Dilemmadata v1.0 release, an acceptance-backed comparison
+with a separate clean checkout at the pinned commit, a committed compact
 manifest, a bounded two-dialect synthetic fixture, a field audit, and a
-raw/target adapter contract. It proves a theory-independent exact note
-projection but does not claim that a production-complete `CanonicalPiece`
-adapter exists.
+raw/target adapter contract. It proves theory-independent exact rational note
+fields, but the bounded-memory onset/duration/MIDI-pitch multiset fingerprint is
+only conservative split evidence—not canonical or model-input identity—and no
+production-complete `CanonicalPiece` adapter is claimed.
 
 The audit separates the AN `*_joint.tsv` and DLC TSV dialects, exact rational
 timing, optional score observations, target-only families, provenance,
-alternative analyses, transitive source grouping, release split conflicts,
-and stable quarantine categories. Its full-corpus evidence and exact next
+candidate multiple-analysis groups, transitive source grouping, release split
+conflicts, and stable quarantine categories. Its full-corpus evidence and exact next
 scope are recorded in `DILEMMADATA_FIELD_AUDIT.md` and
 `DILEMMADATA_ADAPTER_CONTRACT.md`.
 
@@ -3225,7 +3230,8 @@ after the Phase 9B production data boundary is accepted.
 ### Phase 9B acceptance criteria
 
 - no repeated one-chord-per-note graph explosion;
-- alternative analyses remain grouped;
+- candidate multiple-analysis groups remain grouped, then Phase 9B rechecks
+  exact identity using its versioned canonical/model-input fingerprint;
 - all five audited release split conflicts are resolved at transitive group
   level;
 - canonical construction does not read theory labels;
@@ -3644,7 +3650,8 @@ loss = soft_bradley_terry_loss(margin, batch.preference_probability)
 - same source-group ID cannot appear in multiple splits;
 - transposed copies inherit source group;
 - POP909-CL/original lineage derivatives remain grouped;
-- Dilemmadata alternative analyses remain grouped;
+- Dilemmadata candidate multiple-analysis groups remain grouped and exact
+  identity is rechecked against the Phase 9B canonical/model-input fingerprint;
 - PDMX duplicates use provided/hash grouping;
 - generated variants of one prompt use group-aware evaluation.
 

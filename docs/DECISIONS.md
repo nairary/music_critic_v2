@@ -2707,10 +2707,12 @@ This log is append-only.
   program, or an explicit percussion field in primary arrays. Per-note
   meter/measure evidence, 74,773 tied-continuation rows, and 23,314
   zero-duration grace candidates require production adapter validation.
-- Context: Exact target-independent note projection and score/metadata overlap
+- Context: A bounded-memory target-independent MIDI-compatible note-event
+  multiset grouping fingerprint and score/metadata overlap
   reveal 1,507 transitive source components. Five components conflict with
-  release split hints. Thirty exact-input clusters contain different target
-  fingerprints, so record-level splitting would leak alternate analyses.
+  release split hints. Thirty narrow-multiset groups contain different target
+  fingerprints, so conservative record-level splitting would leak candidate
+  multiple analyses.
 - Decision: Treat score-derived note/timing/pitch and optional
   spelling/part/staff/voice/tie/meter fields as raw observations only when the
   release processing boundary proves they precede annotation merge. Treat all
@@ -2718,22 +2720,37 @@ This log is append-only.
   alternative-analysis, analyst, confidence, and label-provenance fields as
   target sidecars or diagnostics. Source voice identity is not semantic voice
   role.
-- Decision: A target-independent exact note projection is accepted as Phase 9A
-  evidence; a production-complete `CanonicalPiece` is not yet accepted. Phase
+- Decision: Target-independent exact rational onset/duration and MIDI pitch are
+  accepted as Phase 9A evidence; a production-complete `CanonicalPiece` is not
+  yet accepted. The bounded-memory multiset fingerprint over those three fields
+  is conservative split evidence, not raw canonical, complete-input, or
+  model-input identity. Phase
   9B must implement exact tie/grace/meter/bar and required-default policies
   with provenance or structured quarantine. It must not use theory to create
   notes, topology, features, IDs, timing, or fingerprints.
-- Decision: Preserve source-native target values, missing masks, invalid gates,
-  ambiguity, unsupported status, producer/version/lineage, and unknown
+- Decision: Preserve source-native target values and make `available`, `masked`,
+  `missing`, and `unsupported` mutually exclusive and exhaustive. Missing or
+  false gates are masked; malformed non-empty gates are unsupported. Ambiguity
+  is a separate family-local diagnostic that overlaps only available. Row-level
+  `alt_label` remains a provenance/diagnostic sidecar and does not make every
+  family ambiguous. Preserve producer/version/lineage and unknown
   confidence. Do not infer a universal root/quality/inversion/applied-harmony
   ontology or unobserved target span end in Phase 9A. Exact alignment never
   uses floats or nearest-neighbour snapping.
-- Decision: Assign final splits only after transitive closure over exact raw
-  note projection, exact AN score bytes, and explicit merged-summary links.
+- Decision: Assign final splits only after transitive closure over the narrow
+  MIDI note-event multiset grouping fingerprint, identical AN score bytes, and
+  explicit merged-summary links. Phase 9B must redefine and recheck exact
+  alternative-analysis identity using its versioned canonical/model-input
+  fingerprint.
   Composer/title similarity alone does not join samples. Conflicting release
   hints are warnings and Phase 9B production blockers; they never split a
   component.
-- Decision: Version Phase 9A audit/manifest semantics at `1.0.0`. Reports use
+- Decision: Version Phase 9A audit/manifest semantics at `1.1.0`; the grouping
+  fingerprint, target-state, and upstream-comparison subcontracts are `1.0.0`.
+  The official evidence run compares the installed release with a separate
+  clean checkout at exact commit `d60ee75b4a9495e932a4a7be39381578be17e222`
+  and records performed/exact-match/commit/matching-file evidence plus stable
+  mismatch categories. Reports use
   canonical JSON, corpus-relative paths, bounded vocabularies, separate
   raw/target fingerprints, structured quarantine, and a semantic fingerprint
   free of runtime/platform values. A complete `--limit` run is impossible by

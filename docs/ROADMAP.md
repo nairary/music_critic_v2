@@ -618,7 +618,10 @@ The model and training phases remain pending.
 - Phase 9A: completed evidence audit and raw/target contract on branch
   `phase/9a-dilemmadata-evidence-contract`. The exact v1.0 snapshot has 1,633
   primary records and 2,880,723 note rows across two TSV dialects. Phase 9A
-  adds no production adapter, heads, losses, or training runtime.
+  uses an acceptance-backed separate clean-checkout comparison. Its narrow
+  MIDI note-event multiset fingerprint is conservative split-grouping evidence,
+  not full input identity. Phase 9A adds no production adapter, heads, losses,
+  or training runtime.
 - Phase 9B next: implement the two streaming parsers, target-blind canonical
   conversion, source-native target sidecars, structured quarantine, and
   transitive group-safe splits. It must resolve five audited release split
@@ -627,8 +630,10 @@ The model and training phases remain pending.
 - Later Phase 9 increment: theory heads, masked losses, and supervised metrics
   only after the Phase 9B data boundary is accepted.
 - Tests: target deletion/replacement/reordering leaves canonical, graph, graph
-  fingerprint, and model-input fingerprint unchanged; alternative analyses
-  stay grouped; target spans align exactly or fail structurally.
+  fingerprint, and model-input fingerprint unchanged; candidate
+  multiple-analysis groups stay grouped and are rechecked using the Phase 9B
+  canonical/model-input fingerprint; target spans align exactly or fail
+  structurally.
 - Non-goals: Phase 8/CUDA lifecycle changes, preference critic, and quality
   scoring.
 - Acceptance: harmony/key/cadence/phrase/Roman-numeral columns remain targets,

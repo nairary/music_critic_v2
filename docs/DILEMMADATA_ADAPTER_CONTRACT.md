@@ -10,8 +10,9 @@ graph construction, heads, losses, training, evaluation, or ontology changes.
 The answer to “can Dilemmadata produce a canonical piece without theory
 labels?” has two levels:
 
-- **Yes for the target-independent exact note projection:** all 1,633 audited
-  records provide exact rational onset/duration and MIDI-compatible pitch
+- **Yes for a target-independent MIDI-compatible note-event projection:** all
+  1,633 audited records provide exact rational onset/duration and
+  MIDI-compatible pitch
   without reading theory columns.
 - **Not yet as a production-complete `CanonicalPiece` from every TSV:** Phase
   9B must implement and validate bar/meter events, required percussion/default
@@ -109,7 +110,11 @@ default with explicit provenance.
 All harmony, key, cadence, phrase, section, scale-degree, and derived analysis
 fields are target-only. They may exist as repeated note-row columns but must be
 parsed into provenance-bearing sidecars before any graph/model-input build.
-Missing, invalid-gated, ambiguous, and unsupported states remain distinct.
+The primary states `available`, `masked`, `missing`, and `unsupported` are
+mutually exclusive and exhaustive. Missing/false gates mask; malformed
+non-empty gates are unsupported and never also masked. `ambiguous` is an
+additional family-local diagnostic and may overlap only `available`. Missing is
+never negative.
 
 The initial family mapping is intentionally conservative:
 
@@ -130,6 +135,9 @@ No common class ID is assigned merely because two columns have similar names.
 Raw spelling, raw label, analyst/reviewer, alternative-label state, validation
 gate, source URL/version, and unknown confidence are retained. Numeric
 confidence remains `None` because no calibrated confidence field was observed.
+`alt_label` is row-level alternative-label evidence retained as a
+provenance/diagnostic sidecar; absent family-local evidence, it does not mark
+each target family ambiguous.
 
 Repeated chord/key values are compressed only by exact source annotation
 identity and exact adjacent coordinate evidence. Phase 9B must not infer an
@@ -140,13 +148,20 @@ destructive selection is forbidden.
 
 ## Grouping and split contract
 
-`source_group_id` is assigned after transitive closure over exact
-target-independent note projection, exact score bytes, and explicit
-`merged_summary.tsv` links. Composer/title metadata alone is diagnostic and
-does not establish identity.
+`source_group_id` is assigned after transitive closure over a versioned,
+bounded-memory MIDI-compatible note-event multiset grouping fingerprint,
+identical score bytes, and explicit `merged_summary.tsv` links. Composer/title
+metadata alone is diagnostic and does not establish identity. The narrow
+fingerprint includes only exact onset, exact duration, and MIDI pitch. It
+deliberately excludes voice/track identity, tie state, meter/bar structure,
+spelling, and other possible canonical inputs, so it is conservative split
+evidence—not raw canonical, full-input, or model-input identity.
 
-Every alternative analysis and every AN/DLC representation in one component
-must share one final split. Release split hints are inputs to diagnostics, not
+Every candidate multiple-analysis group over one MIDI-compatible note-event
+multiset and every AN/DLC representation in one component must share one final
+split. Exact alternative-analysis identity must be redefined and rechecked in
+Phase 9B using the versioned canonical/model-input fingerprint. Release split
+hints are inputs to diagnostics, not
 final authority: five audited components contain conflicting hints. Phase 9B
 must assign the component once, surface the conflicts, and fail closed if a
 split manifest separates any component.
