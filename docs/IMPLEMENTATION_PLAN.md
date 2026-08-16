@@ -3211,23 +3211,31 @@ conflicts, and stable quarantine categories. Its full-corpus evidence and exact 
 scope are recorded in `DILEMMADATA_FIELD_AUDIT.md` and
 `DILEMMADATA_ADAPTER_CONTRACT.md`.
 
-### Phase 9B implement
+### Phase 9B.1 production raw adapter implemented
 
-- versioned streaming parsers for both evidenced TSV dialects;
-- note/voice mapping;
-- harmony run compression;
-- tonal regions;
-- cadence/phrase/section targets;
-- alternate-analysis provenance;
-- group-safe split identity and structured quarantine;
-- exact canonical/graph/model-input leakage mutation tests;
-- a documented raw-MIDI-compatible projection that does not assume staff,
-  voice, note spelling, `step`, `alter`, or `tpc` availability.
+- pinned-identity, versioned streaming discovery for both evidenced TSV
+  dialects;
+- target-independent exact canonical note, tie, grace, key, meter, bar, beat,
+  default, provenance, and structured-quarantine policies;
+- separate physical-file, raw-projection/cache, narrow grouping,
+  source/lineage, canonical, graph, and model-input identities;
+- transitive group-safe split manifests and standard Phase 5B cache/index,
+  Dataset/DataLoader, spawn-worker, and Phase 8B SSL routing;
+- theory deletion/replacement/reordering invariance plus raw-field mutation
+  sensitivity;
+- a full-corpus acceptance runner and one real optimizer-step smoke over
+  exactly two AN and two DLC records.
+- strict implemented-value-only adapter policies and a versioned binding over
+  every discovered record identity/configuration field before conversion;
+- a committed compact production manifest plus deterministic `--check`, with
+  the second cache build rediscovering and reconverting source records rather
+  than loading canonical cache artifacts.
 
-Theory heads and loss routing require a later separately authorized increment
-after the Phase 9B production data boundary is accepted.
+The production contract is documented in
+`DILEMMADATA_PRODUCTION_ADAPTER.md`. Phase 9B.1 intentionally leaves every
+canonical target/annotation collection empty.
 
-### Phase 9B acceptance criteria
+### Phase 9B.1 acceptance criteria
 
 - no repeated one-chord-per-note graph explosion;
 - candidate multiple-analysis groups remain grouped, then Phase 9B rechecks
@@ -3238,9 +3246,27 @@ after the Phase 9B production data boundary is accepted.
 - theory label leakage test passes;
 - harmony/key/cadence/phrase/Roman-numeral columns remain targets rather than
   mandatory inference features;
-- ties, zero-duration grace candidates, meter/bar evidence, unavailable
-  percussion/tempo fields, and unalignable target spans have explicit tested
-  provenance or quarantine outcomes.
+- ties, zero-duration grace candidates, meter/bar evidence, and unavailable
+  percussion/tempo fields have explicit tested provenance or quarantine
+  outcomes;
+- cache artifacts and keys are invariant to target-column mutation but change
+  for raw-projection mutation;
+- forged record/dataset/path/dialect/group/split/fingerprint identities fail
+  before canonical construction and cannot alter a split component;
+- first source build is 0 hits/all misses, second independent source build is
+  all hits/0 misses, with byte-identical index, equal quarantine/semantic
+  projections, and no rewritten immutable artifact;
+- compact full-corpus manifest equality is required for `ready=true`;
+- one official Phase 8B optimizer step consumes two real AN and two real DLC
+  pieces without accessing target sidecars.
+
+### Phase 9B.2 future target-sidecar increment
+
+Source-native harmony/key/cadence/phrase/section/degree sidecars, exact target
+alignment, target encodings, harmony-run compression, and alternate-analysis
+target provenance require a later separately authorized task. Theory heads,
+loss routing, supervised training/evaluation, and scientific claims remain
+later still.
 
 ## Phase 10. PDMX adapter and scalable cache
 

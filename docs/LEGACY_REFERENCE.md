@@ -367,3 +367,25 @@ failures. Phase 9A explicitly rejects legacy theory-bearing graph inputs,
 target-derived notes or topology, float snapping, missing-as-negative labels,
 mandatory semantic voice/section/chord structure, unversioned shared label
 IDs, and annotation-level record splits that separate equivalent inputs.
+
+## Phase 9B.1 Dilemmadata production raw adapter
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or used for Phase 9B.1. No legacy runtime logic was reused
+or adapted. The implementation derives only from the current V2 canonical,
+graph, cache, loading, and SSL contracts; the accepted Phase 9A evidence; and
+the pinned Dilemmadata v1.0 snapshot and its included processing documentation.
+
+The same legacy assumptions remain rejected: theory-bearing graph inputs,
+target-derived notes/topology, float timing or snapping, mandatory semantic
+tracks/voices/chords/sections, missing-as-negative labels, and annotation-level
+splits. The source-neutral track, exact tie/grace/meter/bar policies,
+target-independent cache projection, structured quarantine, and Phase 8B raw
+loader integration are new V2-only contracts.
+
+The Phase 9B.1 blocking remediation likewise opened, searched, imported,
+copied, modified, formatted, staged, and reused no legacy repository file or
+logic. Strict policy validation, discovery-record binding, distinct
+key-signature diagnostics, independent source cache reruns, and the committed
+production manifest derive only from current V2 contracts and pinned
+Dilemmadata evidence.

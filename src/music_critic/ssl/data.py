@@ -578,7 +578,7 @@ def build_ssl_data_runtime(
 
     if config.name == "bounded":
         return _bounded_runtime(config, seed)
-    if config.name in {"hooktheory", "pop909_cl", "mixed"}:
+    if config.name in {"hooktheory", "pop909_cl", "dilemmadata", "mixed"}:
         return _corpus_runtime(config, seed)
     raise SSLDataError(f"ssl.data.unknown:{config.name}")
 

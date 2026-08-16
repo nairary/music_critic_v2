@@ -60,21 +60,25 @@ fully-supervised heads, inspectable losses, local reconstruction plumbing,
 strict checkpoints, and CPU diagnostics. Phase 6B adds deterministic raw-edge
 ownership, bar/track pooling, a per-sample coarse Transformer, contextual SONG
 rows, top-down gated residual fusion, strict hierarchical checkpoints, and a
-controlled three-way ablation. Phase 8B multi-level objectives, adaptive SSL,
-corruption training,
-preference training, PLL, and deployable scoring inference are not implemented
-yet.
+controlled three-way ablation. Phase 8B supplies bounded multi-level objective
+mechanics. Phase 9B.1 adds a pinned Dilemmadata AN/DLC production raw adapter,
+target-independent cache identity, group-safe splits, and an SSL-ready loader
+while keeping canonical targets and annotations empty. Runtime policies and
+discovered records fail closed, and full-corpus readiness is checked against a
+committed production manifest after two independent source builds. Adaptive SSL,
+corruption training, preference training, PLL, theory sidecars/heads, and
+deployable scoring inference are not implemented yet.
 Phase 7A reconstruction is SSL representation plumbing only: it is not a
 masked-note likelihood, PLL, critic, quality score, or full-scale effectiveness
 claim. Phase 8A is not completion of Phase 8; comparative multi-level
-objectives remain Phase 8B, Dilemmadata remains Phase 9, and PDMX-scale SSL
-evaluation remains Phase 10.
+objectives remain Phase 8B, Dilemmadata theory remains Phase 9B.2, and
+PDMX-scale SSL evaluation remains Phase 10.
 
 ## Layout
 
 - `src/music_critic/data/`: canonical timing, schema, validation, serialization;
-- `src/music_critic/adapters/`: generic MIDI, HookTheory, and POP909-CL
-  conversion;
+- `src/music_critic/adapters/`: generic MIDI, HookTheory, POP909-CL, and
+  target-independent Dilemmadata conversion;
 - `src/music_critic/exporters/`: output-only diagnostic MIDI rendering;
 - `src/music_critic/graph/`: feature registry, relations, builder, validation,
   and deterministic graph serialization;

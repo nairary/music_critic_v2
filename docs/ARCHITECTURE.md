@@ -984,6 +984,33 @@ piece resample. Exact AP remains descriptive because bootstrap AP would require
 prediction-score rows. Diagnostics never select a checkpoint.
 See `PHASE8B2_COMPARISON_PROTOCOL.md`.
 
+## Phase 9B.1 Dilemmadata raw-corpus boundary
+
+Dilemmadata enters the runtime through a pinned, target-independent adapter:
+
+```text
+pinned physical inventory
+  -> AN/DLC raw projection + conservative grouping closure
+  -> versioned discovery-record binding verification
+  -> exact raw-only CanonicalPiece (targets=annotations=empty)
+  -> raw-projection-keyed Phase 5B cache/index
+  -> transitive group-safe split manifest
+  -> IndexedSSLRawDataset -> accepted Phase 8B engine
+```
+
+Physical full-file SHA-256 remains external inventory evidence and may change
+when theory columns change. Canonical bytes and cache artifacts bind instead to
+the versioned raw projection. Staff/voice are optional observations in one
+source-neutral track; neither creates semantic topology. Tempo and percussion
+defaults, tie merges, zero-duration grace notes, key/meter events, pickups,
+incomplete bars, and every quarantine outcome are explicit and provenance
+bearing. Theory parsing begins only in a future Phase 9B.2 sidecar boundary.
+The runtime configuration accepts only implemented policy identifiers. Full
+acceptance repeats discovery and source conversion for the second cache build,
+checks that immutable artifacts were not rewritten, and compares a compact
+semantic projection with the committed production manifest before declaring
+`ready=true`.
+
 ## Incremental research scope
 
 Phase 7A implements GraphMAE2-inspired decoder remasking but is not a faithful

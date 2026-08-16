@@ -33,6 +33,7 @@ from music_critic.tasks.encoding import (
     target_encoding_contract_fingerprint,
 )
 from music_critic.tasks.corpus import (
+    CORPUS_CACHE_INPUT_IDENTITY_VERSION,
     MULTISOURCE_CACHE_VERSION,
     MULTISOURCE_CORPUS_INDEX_VERSION,
     CanonicalCorpusInput,
@@ -44,6 +45,7 @@ from music_critic.tasks.corpus import (
     CorpusQuarantineRecord,
     IndexedCorpusRecord,
     build_hooktheory_corpus_cache,
+    build_dilemmadata_corpus_cache,
     build_pop909_cl_corpus_cache,
     cache_canonical_corpus,
     corpus_cache_key,
@@ -138,6 +140,7 @@ __all__ = [
     "CandidateAlignmentRule",
     "CandidateTimeIndex",
     "CanonicalCorpusInput",
+    "CORPUS_CACHE_INPUT_IDENTITY_VERSION",
     "CorpusBuildReport",
     "CorpusCacheConfig",
     "CorpusContractError",
@@ -195,6 +198,7 @@ __all__ = [
     "benchmark_multisource_dataloader",
     "benchmark_target_alignment",
     "build_hooktheory_corpus_cache",
+    "build_dilemmadata_corpus_cache",
     "build_alignment_index",
     "build_multisource_sample",
     "build_pop909_cl_corpus_cache",

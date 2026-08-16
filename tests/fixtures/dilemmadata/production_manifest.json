@@ -1,0 +1,117 @@
+{
+  "accepted_totals": {
+    "bars": 75048,
+    "beats": 254968,
+    "canonical_notes": 1021195,
+    "grace_notes": 7511,
+    "graph_edges": 14193818,
+    "graph_nodes": 1887929,
+    "incomplete_bars": 280,
+    "meter_events": 1021,
+    "pickup_bars": 26,
+    "source_note_rows": 1042098,
+    "tie_continuation_rows": 20903,
+    "tie_merges": 20903
+  },
+  "cache": {
+    "corpus_index_byte_identical": true,
+    "first_hit_count": 0,
+    "first_miss_count": 719,
+    "immutable_artifacts_unchanged": true,
+    "index_fingerprint": "c0451976b6b6eab88cb90aa6c47d6afdba1b81ce9b588f0f84daa846154adb0e",
+    "quarantine_identity_categories_identical": true,
+    "second_source_hit_count": 719,
+    "second_source_miss_count": 0,
+    "source_build_semantic_projection_identical": true
+  },
+  "contracts": {
+    "acceptance_report_version": "1.1.0",
+    "adapter_version": "1.0.1",
+    "canonical_schema_version": "2.0.0",
+    "corpus_cache_input_identity_version": "1.0.0",
+    "corpus_identity_version": "1.0.0",
+    "feature_registry_version": "1.0.0",
+    "graph_builder_version": "1.0.0",
+    "graph_schema_version": "1.0.0",
+    "grouping_version": "1.0.0",
+    "model_input_fingerprint_version": "1.0.0",
+    "multisource_cache_version": "1.0.0",
+    "multisource_corpus_index_version": "1.0.0",
+    "production_manifest_version": "1.1.0",
+    "raw_projection_version": "1.0.0",
+    "record_binding_version": "1.0.0",
+    "split_manifest_version": "1.0.0",
+    "target_encoding_registry_version": "1.0.0",
+    "target_ontology_version": "1.0.1"
+  },
+  "grouping": {
+    "accepted_component_count": 707,
+    "discovery_component_count": 1507,
+    "discovery_explicit_overlap_count": 98,
+    "discovery_multi_record_component_count": 126,
+    "discovery_suggested_split_conflict_count": 5
+  },
+  "manifest_version": "1.1.0",
+  "outcomes": {
+    "dialect_status_counts": {
+      "an_joint:accepted": 108,
+      "an_joint:quarantined": 245,
+      "dlc:accepted": 611,
+      "dlc:quarantined": 669
+    },
+    "discovered_count": 1633,
+    "failure_category_counts": {
+      "dilemmadata.bar_reconstruction_failed": 416,
+      "dilemmadata.grace_conflict": 11,
+      "dilemmadata.tie_predecessor_missing": 438,
+      "dilemmadata.tie_timing_conflict": 133
+    },
+    "fatal_count": 0,
+    "status_counts": {
+      "accepted": 719,
+      "quarantined": 914
+    }
+  },
+  "pinned_corpus_identity": {
+    "an_record_count": 353,
+    "content_fingerprint": "8f1161ad7cdbd979845012ffc6150cd82c5e91ab1197ed97385fffce57a0f312",
+    "dlc_record_count": 1280,
+    "installation_file_count": 2743,
+    "primary_record_count": 1633,
+    "release_commit": "d60ee75b4a9495e932a4a7be39381578be17e222",
+    "release_version": "v1.0",
+    "version": "1.0.0"
+  },
+  "semantic_acceptance_fingerprint": "92187b3b10e27662536870b4fce9d683065a32bc20bf970184a2a7b33727287a",
+  "split": {
+    "component_counts": {
+      "test": 71,
+      "train": 565,
+      "validation": 71
+    },
+    "fingerprint": "58ac7720f65f7fd3102248fb39d89291a78d65c06fc2ab9a16d78a6ee1666a3e",
+    "non_empty_train_validation_test": true,
+    "record_counts": {
+      "test": 71,
+      "train": 577,
+      "validation": 71
+    }
+  },
+  "ssl_smoke": {
+    "changed_encoder_parameters": true,
+    "composition": {
+      "an_joint": 2,
+      "dlc": 2
+    },
+    "finite_loss": true,
+    "loss_decreased": true,
+    "mechanics_passed": true,
+    "nonzero_encoder_gradients": true,
+    "optimizer_step_applied_count": 1,
+    "optimizer_step_attempted_count": 1,
+    "optimizer_step_skipped_count": 0,
+    "retained_cuda_tensor_count": 0,
+    "retained_prediction_tensor_count": 0,
+    "theory_target_access_count": 0
+  }
+}

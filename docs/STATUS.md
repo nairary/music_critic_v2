@@ -2,16 +2,18 @@
 
 ## Current phase
 
-- Date: 2026-08-16
-- Current task: Phase 9A Dilemmadata evidence audit and raw/target contract —
-  completed on branch `phase/9a-dilemmadata-evidence-contract`, rebased onto
-  `origin/main` merge `1e31e2e1c71b4c1d4b93a9b2a61af53dd81c02f7`
-- Phase 9A audit schema: `1.1.0`; grouping-fingerprint, target-state, and
-  upstream-comparison contracts: `1.0.0`; production adapter: not implemented
+- Date: 2026-08-17
+- Current task: blocking remediation of Phase 9B.1 in draft PR #21 on branch
+  `phase/9b1-dilemmadata-raw-adapter`, still based exactly on
+  `01dce15a50144bfcabcade50dc04024baffccc2d`
+- Phase 9B.1 adapter: `1.0.1`; acceptance report and committed production
+  manifest: `1.1.0`; corpus identity, raw projection, grouping, record binding,
+  and cache-input identity: `1.0.0`
 - Phase 9A full-corpus semantic fingerprint:
   `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`
-- Next authorized Phase 9 task: Phase 9B production Dilemmadata raw adapter and
-  target sidecars; theory heads/losses remain later work
+- Next Phase 9 task after acceptance: separately authorize Phase 9B.2
+  source-native theory sidecars and exact alignment; heads/losses remain later
+  work
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -140,6 +142,71 @@
   selection/statistics/compute contracts: `1.1.0`; CUDA memory-statistics
   lifecycle: `1.0.0`; data semantic projection: `1.0.0`; evaluation
   piece-sufficient-statistics output: `1.3.0`
+
+## Phase 9B.1 production Dilemmadata raw-adapter result
+
+- Added the typed public adapter API, strict pinned v1.0 identity gate, AN/DLC
+  discovery, target-independent exact raw projection, transitive grouping,
+  one-outcome-per-record conversion, and stable quarantine categories.
+- Added explicit source-neutral track, exact tie merge, zero-duration grace,
+  key/meter/pickup/bar/beat, default tempo, unknown-percussion, provenance, and
+  validation policies. Canonical targets and annotations remain empty.
+- Added target-independent cache-input identity without changing legacy cache
+  keys or generic cache/index versions; wired builder CLI, Phase 5B Dataset/
+  DataLoader, group-safe split, Hydra `data=dilemmadata`, and raw-only SSL data.
+- Added bounded mutation/cache/spawn tests, environment-gated pinned-corpus
+  integration, and a full acceptance runner with one real Phase 8B optimizer
+  step on exactly two AN plus two DLC records.
+- Blocking remediation now rejects every unsupported policy value, verifies a
+  versioned corpus/record/path/group/split/source binding before conversion,
+  distinguishes `dilemmadata.key_signature_conflict`, and prevents forged
+  source/lineage groups from reaching split construction.
+- The committed `tests/fixtures/dilemmadata/production_manifest.json` is the
+  deterministic full-corpus gate. `ready=true` requires exact manifest
+  equality plus intrinsic identity/outcome/cache/group/split/SSL checks.
+- No legacy repository file was opened or used. No Phase 9B.2 sidecars, target
+  encodings, heads, losses, supervised training/evaluation, PDMX, Phase 10,
+  or scientific effectiveness claim was added.
+- Full-corpus acceptance discovered all 1,633 records and emitted 719 accepted
+  plus 914 quarantined outcomes with zero fatal failures: AN `108 / 245` and
+  DLC `611 / 669` accepted/quarantined. Categories were 416 unresolvable bar
+  grids, 438 missing tie predecessors, 133 ambiguous tie timing conflicts, and
+  11 contradictory zero-duration tie continuations. Categories may overlap
+  within one record; the adapter was not weakened to force zero quarantine.
+- The accepted cache contains 719 raw-only pieces across 707 transitive
+  components. Its index fingerprint is
+  `c0451976b6b6eab88cb90aa6c47d6afdba1b81ce9b588f0f84daa846154adb0e`;
+  the group-safe split fingerprint is
+  `58ac7720f65f7fd3102248fb39d89291a78d65c06fc2ab9a16d78a6ee1666a3e`.
+  Initial source build was 0 hits/719 misses. The second build repeated pinned
+  discovery and `convert_dilemmadata_record` for every record, then produced
+  719 hits/0 misses. Indices were byte-identical, full quarantine identities/
+  categories and conversion-semantic fingerprints matched, and all immutable
+  artifact size/mtime/SHA snapshots were unchanged.
+- Full accepted totals: 1,021,195 canonical notes from 1,042,098 source rows,
+  20,903 exact tie merges, 7,511 retained grace notes, 75,048 bars, 254,968
+  beats, 26 pickups, 280 incomplete bars, 1,887,929 graph nodes, and 14,193,818
+  graph edges. Each source build processed 820,801,763 primary-TSV bytes. The
+  one local opt-in acceptance invocation completed in 1,351.434 s with peak
+  RSS 2,076,991,488 bytes. Semantic acceptance fingerprint:
+  `92187b3b10e27662536870b4fce9d683065a32bc20bf970184a2a7b33727287a`;
+  committed manifest fingerprint:
+  `f14f4456bf11dc9f3096bfe0d119877c192cacbeb44e40a1e7347982f467124e`.
+- Four accepted duplicate raw-projection clusters had equal model-input
+  fingerprints. Exact canonical/graph serializations intentionally differed
+  only in record-specific identity/path entities and were reported as explicit
+  mismatches rather than mislabelled as model-input identity.
+- The real Phase 8B CPU smoke selected exactly two AN and two DLC singleton
+  components, applied one optimizer step, reduced loss to `0.4853225231170654`,
+  recorded 308 online-encoder parameters with nonzero finite gradients and 308
+  changed parameters, emitted four mask-plan fingerprints, and retained zero
+  prediction or CUDA tensors.
+- Focused remediation verification: Dilemmadata `105 passed, 1 deselected`
+  plus default no-corpus integration `1 skipped`; HookTheory/POP909-CL
+  `80 passed`; graph/leakage/repository `34 passed`; cache/split contracts
+  `94 passed, 1 deselected`. The positive-worker cases remain for Required CI.
+  `compileall` and `git diff --check` passed before publication. The required
+  exact-final-SHA GitHub run remains the publication gate.
 
 ## Phase 9A Dilemmadata evidence result
 

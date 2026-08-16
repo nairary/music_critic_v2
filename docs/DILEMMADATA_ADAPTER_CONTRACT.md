@@ -1,11 +1,11 @@
-# Dilemmadata Phase 9A Raw/Target Adapter Contract
+# Dilemmadata Phase 9B.1 Raw Adapter Contract
 
 ## Status and boundary
 
-This is the evidence-backed contract for a future Phase 9B production adapter.
-Phase 9A implements only deterministic audit tooling, a synthetic fixture,
-tests, and documentation. It does not add `music_critic.adapters` runtime code,
-graph construction, heads, losses, training, evaluation, or ontology changes.
+Phase 9B.1 implements the evidence-backed production raw adapter described by
+this contract. It adds runtime conversion, cache/index/split/loading, and an
+SSL-ready path while leaving every theory sidecar, encoding, head, loss,
+supervised training/evaluation, and ontology change for later work.
 
 The answer to “can Dilemmadata produce a canonical piece without theory
 labels?” has two levels:
@@ -14,17 +14,16 @@ labels?” has two levels:
   1,633 audited records provide exact rational onset/duration and
   MIDI-compatible pitch
   without reading theory columns.
-- **Not yet as a production-complete `CanonicalPiece` from every TSV:** Phase
-  9B must implement and validate bar/meter events, required percussion/default
-  policy, ties, zero-duration grace notes, and structured failures. No theory
-  label may be used to close those gaps.
+- **Yes as a production raw-only `CanonicalPiece`:** Phase 9B.1 implements
+  bar/meter events, required percussion/default policy, ties, zero-duration
+  grace notes, and structured failures without reading theory labels.
 
 Raw unlabeled MIDI inference remains possible through the generic MIDI adapter
 and cannot depend on Dilemmadata staff, voice, spelling, TPC, or theory labels.
 
 ## Source discovery and dialects
 
-The future adapter accepts an explicit root and may use
+The adapter accepts an explicit root; deployment wrappers may use
 `MUSIC_CRITIC_DILEMMADATA_ROOT`; it never embeds a machine-specific path.
 Discovery is sorted and restricted to:
 
@@ -36,6 +35,20 @@ merged summaries are auxiliary evidence, not additional samples. Unknown TSVs
 below `pitch_arrays` fail closed until classified. Input files are opened as
 strict UTF-8, tab-delimited, uncompressed streams. Output/cache/report roots
 must be outside the corpus.
+
+`DilemmadataAdapterConfig` is failure-closed. Its track, tie, grace, meter, and
+default policy fields each accept only the one versioned value implemented by
+the runtime; bools, other types, empty values, and unknown values are rejected.
+
+Discovery applies `DilemmadataDiscoveryRecordBinding@1.0.0` to every record.
+The binding includes corpus identity/version, logical record/piece/dataset/
+dialect, canonical corpus-relative path, raw projection and grouping
+fingerprints, source/lineage component IDs, split hint, resolution, optional
+score identity, and original physical source identity. Conversion verifies the
+binding before parsing. Mutation of any bound record field is
+`dilemmadata.record_binding_mismatch`; it cannot change cache or split input.
+A theory-only file change after discovery remains valid when the raw projection
+is identical, while a raw change remains `dilemmadata.raw_fingerprint_mismatch`.
 
 ## Raw input contract
 
@@ -87,18 +100,17 @@ All musical comparisons use normalized exact rational values. Canonical IDs
 must derive from stable source identity and deterministic order, not floats,
 absolute paths, Python hashes, or target content.
 
-The source tie-onset flag must be retained. Phase 9B must establish whether a
-continuation is emitted as one merged canonical note or as distinct
-provenance-linked observations under the existing canonical schema. It may not
-sum or clip durations without an exact source-backed rule.
+The source tie-onset flag is retained. Phase 9B.1 merges a continuation into
+one canonical note only for a unique exact contiguous same-pitch/source-voice
+predecessor. It never sums or clips durations outside that rule.
 
 A source-zero duration is a grace-note candidate. Mapping it to
 `is_grace=true` is permitted only as an explicit versioned adapter rule with
 tests against available score evidence; contradictory rows are quarantined.
 Inventing a positive duration is forbidden.
 
-Meter observations must agree for every simultaneous onset. Phase 9B must
-derive meter events and contiguous canonical bars from exact measure evidence,
+Meter observations must agree for every simultaneous onset. Phase 9B.1
+derives meter events and contiguous canonical bars from exact measure evidence,
 including pickups, incomplete bars, and silent changes. A meter event may not
 be placed merely at the first later note if the source proves an earlier bar
 boundary. If the TSV lacks enough evidence, the record is quarantined or the
@@ -139,12 +151,12 @@ confidence remains `None` because no calibrated confidence field was observed.
 provenance/diagnostic sidecar; absent family-local evidence, it does not mark
 each target family ambiguous.
 
-Repeated chord/key values are compressed only by exact source annotation
-identity and exact adjacent coordinate evidence. Phase 9B must not infer an
-unobserved final end or use float snapping. A label boundary lost between note
-rows remains unaligned/unsupported unless separate source evidence restores
-it. Overlap policy must preserve distinct annotation views; priority-based
-destructive selection is forbidden.
+In future Phase 9B.2, repeated chord/key values may be compressed only by exact
+source annotation identity and exact adjacent coordinate evidence. It must not
+infer an unobserved final end or use float snapping. A label boundary lost
+between note rows remains unaligned/unsupported unless separate source evidence
+restores it. Overlap policy must preserve distinct annotation views;
+priority-based destructive selection is forbidden.
 
 ## Grouping and split contract
 
@@ -211,6 +223,8 @@ At minimum Phase 9B covers:
 - inconsistent source resolution or non-monotonic source order;
 - malformed tie flags or contradictory grace evidence;
 - inconsistent simultaneous meter evidence or unresolvable bar coverage;
+- inconsistent simultaneous key-signature evidence;
+- forged or stale discovered-record binding;
 - unknown primary dialect/layout;
 - target boundary or span that cannot be exactly aligned;
 - split component assigned to more than one final split.
@@ -221,20 +235,23 @@ never expose absolute paths or unbounded source payloads. The Phase 9A release
 scan found zero structural record quarantines; synthetic fixtures exercise the
 failure surface.
 
-## Exact Phase 9B scope
+## Exact Phase 9B.1 scope
 
-The next task is **Phase 9B: production Dilemmadata raw adapter and target
-sidecars**. It implements only:
+Phase 9B.1 implements the two versioned streaming dialect parsers, target-free
+`CanonicalPiece` construction, tie/grace/meter/bar/default provenance,
+transitive grouping and split manifests, raw-projection cache identity,
+structured quarantine, leakage/raw mutation tests, environment-gated
+full-corpus integration, and one official existing-Phase-8B optimizer smoke.
 
-- the two versioned streaming dialect parsers;
-- exact target-free `CanonicalPiece` construction and validation;
-- explicit tie/grace/meter/bar/default provenance rules;
-- source grouping and a group-safe split sidecar;
-- source-native target sidecars and exact alignment;
-- structured quarantine and the complete leakage mutation matrix;
-- bounded synthetic tests plus an environment-gated full-corpus integration
-  check against the Phase 9A manifest.
+`DilemmadataAdapter@1.0.1` adds observable config and record-binding rejection.
+`DilemmadataAcceptanceReport@1.1.0` and
+`DilemmadataProductionManifest@1.1.0` require two independent source builds and
+exact manifest equality. The adapter patch changes cache keys because adapter
+version is part of generic cache identity; old artifacts remain immutable but
+are not reused. Raw projection `1.0.0`, canonical schema, graph/model inputs,
+grouping, ontology, targets, and HookTheory/POP909-CL contracts are unchanged.
 
-Theory heads, new losses, supervised training/evaluation, CUDA lifecycle,
-Phase 8 SSL/objective work, ontology changes, and model-quality claims remain
-out of scope until a later separately authorized increment.
+Source-native target sidecars and exact alignment move to Phase 9B.2. Theory
+heads, new losses, supervised training/evaluation, CUDA lifecycle changes,
+new Phase 8 objectives, ontology changes, PDMX/Phase 10, and model-quality
+claims remain out of scope.

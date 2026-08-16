@@ -622,18 +622,24 @@ The model and training phases remain pending.
   MIDI note-event multiset fingerprint is conservative split-grouping evidence,
   not full input identity. Phase 9A adds no production adapter, heads, losses,
   or training runtime.
-- Phase 9B next: implement the two streaming parsers, target-blind canonical
-  conversion, source-native target sidecars, structured quarantine, and
-  transitive group-safe splits. It must resolve five audited release split
-  conflicts and validate ties, zero-duration grace candidates, meter/bars,
-  and required defaults without theory-derived inputs.
-- Later Phase 9 increment: theory heads, masked losses, and supervised metrics
-  only after the Phase 9B data boundary is accepted.
+- Phase 9B.1: production raw adapter and SSL-ready corpus path implemented.
+  It supplies two pinned streaming dialect parsers, target-blind canonical
+  conversion, structured quarantine, target-independent cache identity,
+  transitive group-safe splits, and an official Phase 8B one-step real-record
+  smoke. Tie, zero-duration grace, meter/bar, and required-default policies are
+  explicit and theory-independent. Blocking remediation makes policy config
+  and discovered records failure-closed, distinguishes key-signature
+  conflicts, repeats the second cache build from source, and gates readiness on
+  a committed deterministic production manifest.
+- Phase 9B.2 future: source-native target sidecars and exact alignment. Theory
+  heads, masked losses, supervised metrics, and scientific comparisons remain
+  separate later increments.
 - Tests: target deletion/replacement/reordering leaves canonical, graph, graph
   fingerprint, and model-input fingerprint unchanged; candidate
   multiple-analysis groups stay grouped and are rechecked using the Phase 9B
-  canonical/model-input fingerprint; target spans align exactly or fail
-  structurally.
+  canonical/model-input fingerprint; raw pitch/onset/duration/meter/tie/voice
+  changes alter raw evidence or quarantine, and cache/load/spawn paths preserve
+  exact parity.
 - Non-goals: Phase 8/CUDA lifecycle changes, preference critic, and quality
   scoring.
 - Acceptance: harmony/key/cadence/phrase/Roman-numeral columns remain targets,
