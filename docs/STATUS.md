@@ -2,7 +2,16 @@
 
 ## Current phase
 
-- Date: 2026-08-15
+- Date: 2026-08-16
+- Current task: Phase 9A Dilemmadata evidence audit and raw/target contract —
+  completed on branch `phase/9a-dilemmadata-evidence-contract`, rebased onto
+  `origin/main` merge `1e31e2e1c71b4c1d4b93a9b2a61af53dd81c02f7`
+- Phase 9A audit schema: `1.1.0`; grouping-fingerprint, target-state, and
+  upstream-comparison contracts: `1.0.0`; production adapter: not implemented
+- Phase 9A full-corpus semantic fingerprint:
+  `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`
+- Next authorized Phase 9 task: Phase 9B production Dilemmadata raw adapter and
+  target sidecars; theory heads/losses remain later work
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -131,6 +140,61 @@
   selection/statistics/compute contracts: `1.1.0`; CUDA memory-statistics
   lifecycle: `1.0.0`; data semantic projection: `1.0.0`; evaluation
   piece-sufficient-statistics output: `1.3.0`
+
+## Phase 9A Dilemmadata evidence result
+
+- Official source identity: Dilemmadata `v1.0`, commit
+  `d60ee75b4a9495e932a4a7be39381578be17e222`, license metadata
+  `CC-BY-NC-SA-4.0`. All 2,743 local regular files match a clean checkout;
+  corpus content fingerprint is
+  `8f1161ad7cdbd979845012ffc6150cd82c5e91ab1197ed97385fffce57a0f312`.
+- Inventory: 353 AN joint records plus 1,280 DLC records, 2,880,723 note rows,
+  14 primary header shapes, 353 AN score companions, and 353 derived AN slice
+  files.
+- Raw conclusion: all 1,633 records have parseable target-independent exact
+  rational note fields and one corroborating integer resolution. The narrow
+  onset/duration/MIDI-pitch multiset fingerprint is only bounded-memory split
+  evidence, not complete canonical or model-input identity. A production
+  `CanonicalPiece` remains Phase 9B because meter/bar reconstruction,
+  percussion/default provenance, ties, and 23,314 zero-duration grace
+  candidates still need explicit adapter rules and tests.
+- Target conclusion: global/local key, harmony, cadence, phrase, section, and
+  note-degree observations remain source-native masked sidecars. Borrowed
+  harmony is unavailable; source staff/voice is not voice-role supervision;
+  no calibrated confidence field was observed.
+- Target-state remediation: `available + masked + missing + unsupported`
+  equals rows examined for every family/dialect; malformed non-empty gates are
+  unsupported only, while missing/false gates are masked. DLC cadence is now
+  `40996 / 769413 / 1311759 / 0` across those four primary states. The 39,009
+  DLC `alt_label` rows remain row-level diagnostics and do not create
+  family-wide ambiguity; every current family-level ambiguous count is zero.
+- Grouping: 1,507 transitive components, 126 multi-record components, 98
+  explicit AN/DLC overlaps, and 30 candidate multiple-analysis groups over one
+  MIDI-compatible note-event multiset. Phase 9B must redefine exact identity
+  with its canonical/model-input fingerprint.
+  Five components conflict with release split hints and require group-aware
+  reassignment before production use.
+- Quarantine: zero release records failed structural parsing. Deterministic
+  failure categories and bounded malformed fixtures cover the future failure
+  surface. Metadata is missing for 14 records and remains missing, not false.
+- Reproducibility: two complete reports were byte-identical at SHA-256
+  `501f135e57da18afe48a1d4cb594ffd6d22f645c5418471b37e2338c9e6bc507`;
+  their semantic fingerprint is
+  `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`.
+- Blocking-remediation verification: focused Dilemmadata plus repository
+  contracts pass `20 passed` in 1.30 seconds; compileall and diff checks pass.
+  Two acceptance-backed complete corpus runs are byte-identical and repeat the
+  clean-checkout comparison. The earlier locally executable repository result
+  remains historical context; this remediation delegates the exact final full
+  suite to Required GitHub CI rather than repeating the known sandbox
+  `DataLoader(workers>0)` hang locally.
+- Scope isolation: no production adapter/model/training/evaluation/CUDA/SSL
+  runtime changed. Rebase onto the PR #19 merge preserves the accepted Phase
+  8B.2A history while shared-document resolution adds only Phase 9A facts.
+- Pre-PR integration gate: completed by rebasing onto `origin/main` merge
+  `1e31e2e1c71b4c1d4b93a9b2a61af53dd81c02f7`; the provisional decision is now
+  final `ADR-073`. Focused/full verification and final diff review are rerun
+  before opening the Phase 9A draft PR.
 
 ## Accepted CUDA device-canonicalization hotfix status
 

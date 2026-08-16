@@ -1,0 +1,583 @@
+{
+  "audit_schema_version": "1.1.0",
+  "corpus": {
+    "content_fingerprint": "8f1161ad7cdbd979845012ffc6150cd82c5e91ab1197ed97385fffce57a0f312",
+    "installation_byte_count": 884619898,
+    "installation_file_count": 2743,
+    "release_commit": "d60ee75b4a9495e932a4a7be39381578be17e222",
+    "release_version": "v1.0",
+    "upstream_comparison": {
+      "checkout_clean": true,
+      "contract_version": "1.0.0",
+      "exact_match": true,
+      "expected_upstream_commit": "d60ee75b4a9495e932a4a7be39381578be17e222",
+      "failure_categories": [],
+      "matching_file_count": 2743,
+      "performed": true,
+      "upstream_commit": "d60ee75b4a9495e932a4a7be39381578be17e222"
+    }
+  },
+  "formats": {
+    "header_shape_count": 14,
+    "header_shape_fingerprint": "cb0ec4b13d211cd2fd95580daaba20f3259e2782cc6a37e892f5ffbd0d3d1959"
+  },
+  "grouping": {
+    "candidate_multiple_analysis_group_count": 30,
+    "candidate_multiple_analysis_record_count": 60,
+    "component_count": 1507,
+    "explicit_cross_source_overlap_count": 98,
+    "midi_note_event_multiset_equivalent_cluster_count": 30,
+    "midi_note_event_multiset_equivalent_record_count": 60,
+    "midi_note_event_multiset_fingerprint_contract": {
+      "algorithm": "sha256(domain || count || sum_mod_2^256 || squared_sum_mod_2^256 || xor)",
+      "bounded_memory": true,
+      "collision_boundary": "collision-resistant split-grouping evidence, not a collision-free multiset encoding or canonical/model-input identity",
+      "domain": "dilemmadata.midi-note-event-multiset-grouping.1",
+      "event_fields": [
+        "exact_onset_qn",
+        "exact_duration_qn",
+        "midi_pitch"
+      ],
+      "full_input_identity": false,
+      "intentionally_excluded_examples": [
+        "source_part_staff_voice",
+        "tie_state",
+        "meter_bar_structure",
+        "pitch_spelling"
+      ],
+      "version": "1.0.0"
+    },
+    "multi_record_component_count": 126,
+    "suggested_split_conflict_count": 5
+  },
+  "quarantine": {
+    "category_counts": {},
+    "record_count": 0,
+    "records": []
+  },
+  "raw_projection": {
+    "pitch_spelling_mismatches": 0,
+    "raw_compatible_note_projection_records": 1633,
+    "raw_projection_quarantine_records": 0,
+    "records_with_multiple_source_resolutions": 0,
+    "records_with_one_source_resolution": 1633,
+    "records_with_tie_continuations": 1449,
+    "records_with_zero_duration_rows": 864,
+    "tie_continuation_rows": 74773,
+    "zero_duration_rows": 23314
+  },
+  "readiness": {
+    "acceptance_backed_release_ready": true,
+    "evidence_contract_ready": true,
+    "evidence_violations": [],
+    "evidence_warnings": [
+      "suggested_split_components_require_group_aware_reassignment"
+    ],
+    "production_adapter_ready": false,
+    "production_blockers": [
+      "phase_9b_production_adapter_not_implemented",
+      "release_suggested_splits_conflict_with_transitive_source_groups"
+    ]
+  },
+  "records": {
+    "an_joint_record_count": 353,
+    "an_score_file_count": 353,
+    "an_slices_file_count": 353,
+    "auxiliary_pitch_array_tsv_count": 354,
+    "collection_count": 46,
+    "discovered_primary_record_count": 1633,
+    "dlc_record_count": 1280,
+    "limit": null,
+    "metadata": {
+      "an_summary_row_count": 353,
+      "distinct_nonempty_creator_strings": 69,
+      "distinct_nonempty_work_metadata_keys": 1296,
+      "dlc_metadata_row_count": 1268,
+      "duplicate_dlc_metadata_key_count": 0,
+      "records_with_metadata": 1619,
+      "records_without_metadata": 14
+    },
+    "note_row_count": 2880723,
+    "note_rows_by_dialect": {
+      "an_joint": 758555,
+      "dlc": 2122168
+    },
+    "selected_primary_record_count": 1633,
+    "unexpected_primary_path_count": 0
+  },
+  "semantic_fingerprint": "ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed",
+  "target_diagnostics": {
+    "alt_label": {
+      "by_dialect": {
+        "an_joint": 0,
+        "dlc": 39009
+      },
+      "semantics": "row-level alternative-label evidence retained as provenance/diagnostic sidecar; it is not family-local ambiguity evidence"
+    },
+    "contract_version": "1.0.0",
+    "primary_state_policy": {
+      "ambiguous": "additional family-local diagnostic; may overlap only available",
+      "malformed_nonempty_gate": "unsupported",
+      "missing_is_negative": false,
+      "missing_or_false_gate": "masked",
+      "missing_target_value_after_true_gate": "missing",
+      "mutually_exclusive_and_exhaustive": true,
+      "states": [
+        "available",
+        "masked",
+        "missing",
+        "unsupported"
+      ]
+    }
+  },
+  "targets": {
+    "applied_secondary_harmony": {
+      "an_joint": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 91135,
+        "masked": 525,
+        "missing": 666895,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 758555,
+        "records_with_available": 341,
+        "rows_examined": 758555,
+        "source_entries_after_note_row_deduplication": 10746,
+        "unsupported": 0
+      },
+      "dlc": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 357733,
+        "masked": 27488,
+        "missing": 1736947,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 2122168,
+        "records_with_available": 1240,
+        "rows_examined": 2122168,
+        "source_entries_after_note_row_deduplication": 56545,
+        "unsupported": 0
+      }
+    },
+    "bass": {
+      "an_joint": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 758030,
+        "masked": 525,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 758555,
+        "records_with_available": 353,
+        "rows_examined": 758555,
+        "source_entries_after_note_row_deduplication": 87210,
+        "unsupported": 0
+      },
+      "dlc": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 2094680,
+        "masked": 27488,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 2122168,
+        "records_with_available": 1280,
+        "rows_examined": 2122168,
+        "source_entries_after_note_row_deduplication": 325352,
+        "unsupported": 0
+      }
+    },
+    "borrowed_harmony": {
+      "an_joint": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 0,
+        "masked": 758555,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 758555,
+        "records_with_available": 0,
+        "rows_examined": 758555,
+        "source_entries_after_note_row_deduplication": 0,
+        "unsupported": 0
+      },
+      "dlc": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 0,
+        "masked": 2122168,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 2122168,
+        "records_with_available": 0,
+        "rows_examined": 2122168,
+        "source_entries_after_note_row_deduplication": 0,
+        "unsupported": 0
+      }
+    },
+    "cadence": {
+      "an_joint": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 0,
+        "masked": 758555,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 758555,
+        "records_with_available": 0,
+        "rows_examined": 758555,
+        "source_entries_after_note_row_deduplication": 0,
+        "unsupported": 0
+      },
+      "dlc": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 40996,
+        "masked": 769413,
+        "missing": 1311759,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 2122168,
+        "records_with_available": 920,
+        "rows_examined": 2122168,
+        "source_entries_after_note_row_deduplication": 14070,
+        "unsupported": 0
+      }
+    },
+    "chord_boundary": {
+      "an_joint": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 280821,
+        "masked": 477734,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 758555,
+        "records_with_available": 353,
+        "rows_examined": 758555,
+        "source_entries_after_note_row_deduplication": 87210,
+        "unsupported": 0
+      },
+      "dlc": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 904869,
+        "masked": 1217299,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 2122168,
+        "records_with_available": 1280,
+        "rows_examined": 2122168,
+        "source_entries_after_note_row_deduplication": 322656,
+        "unsupported": 0
+      }
+    },
+    "chord_quality": {
+      "an_joint": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 758030,
+        "masked": 525,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 758555,
+        "records_with_available": 353,
+        "rows_examined": 758555,
+        "source_entries_after_note_row_deduplication": 87210,
+        "unsupported": 0
+      },
+      "dlc": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 2094680,
+        "masked": 27488,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 2122168,
+        "records_with_available": 1280,
+        "rows_examined": 2122168,
+        "source_entries_after_note_row_deduplication": 325352,
+        "unsupported": 0
+      }
+    },
+    "chord_root": {
+      "an_joint": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 758030,
+        "masked": 525,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 758555,
+        "records_with_available": 353,
+        "rows_examined": 758555,
+        "source_entries_after_note_row_deduplication": 87210,
+        "unsupported": 0
+      },
+      "dlc": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 2094680,
+        "masked": 27488,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 2122168,
+        "records_with_available": 1280,
+        "rows_examined": 2122168,
+        "source_entries_after_note_row_deduplication": 325352,
+        "unsupported": 0
+      }
+    },
+    "global_key": {
+      "an_joint": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 0,
+        "masked": 758555,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 758555,
+        "records_with_available": 0,
+        "rows_examined": 758555,
+        "source_entries_after_note_row_deduplication": 0,
+        "unsupported": 0
+      },
+      "dlc": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 2122168,
+        "masked": 0,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 2122168,
+        "records_with_available": 1280,
+        "rows_examined": 2122168,
+        "source_entries_after_note_row_deduplication": 1280,
+        "unsupported": 0
+      }
+    },
+    "inversion": {
+      "an_joint": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 758030,
+        "masked": 525,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 758555,
+        "records_with_available": 353,
+        "rows_examined": 758555,
+        "source_entries_after_note_row_deduplication": 87210,
+        "unsupported": 0
+      },
+      "dlc": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 1085143,
+        "masked": 27488,
+        "missing": 1009537,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 2122168,
+        "records_with_available": 1279,
+        "rows_examined": 2122168,
+        "source_entries_after_note_row_deduplication": 168111,
+        "unsupported": 0
+      }
+    },
+    "local_key": {
+      "an_joint": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 758555,
+        "masked": 0,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 758555,
+        "records_with_available": 353,
+        "rows_examined": 758555,
+        "source_entries_after_note_row_deduplication": 87275,
+        "unsupported": 0
+      },
+      "dlc": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 2122168,
+        "masked": 0,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 2122168,
+        "records_with_available": 1280,
+        "rows_examined": 2122168,
+        "source_entries_after_note_row_deduplication": 329472,
+        "unsupported": 0
+      }
+    },
+    "note_degree": {
+      "an_joint": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 758030,
+        "masked": 525,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 758555,
+        "records_with_available": 353,
+        "rows_examined": 758555,
+        "source_entries_after_note_row_deduplication": 758030,
+        "unsupported": 0
+      },
+      "dlc": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 2094680,
+        "masked": 27488,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 2122168,
+        "records_with_available": 1280,
+        "rows_examined": 2122168,
+        "source_entries_after_note_row_deduplication": 2094680,
+        "unsupported": 0
+      }
+    },
+    "phrase_boundary": {
+      "an_joint": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 0,
+        "masked": 758555,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 758555,
+        "records_with_available": 0,
+        "rows_examined": 758555,
+        "source_entries_after_note_row_deduplication": 0,
+        "unsupported": 0
+      },
+      "dlc": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 67235,
+        "masked": 2054933,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 2122168,
+        "records_with_available": 1279,
+        "rows_examined": 2122168,
+        "source_entries_after_note_row_deduplication": 21699,
+        "unsupported": 0
+      }
+    },
+    "roman_numeral": {
+      "an_joint": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 758030,
+        "masked": 525,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 758555,
+        "records_with_available": 353,
+        "rows_examined": 758555,
+        "source_entries_after_note_row_deduplication": 87210,
+        "unsupported": 0
+      },
+      "dlc": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 2094680,
+        "masked": 27488,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 2122168,
+        "records_with_available": 1280,
+        "rows_examined": 2122168,
+        "source_entries_after_note_row_deduplication": 325352,
+        "unsupported": 0
+      }
+    },
+    "section_boundary": {
+      "an_joint": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 0,
+        "masked": 758555,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 758555,
+        "records_with_available": 0,
+        "rows_examined": 758555,
+        "source_entries_after_note_row_deduplication": 0,
+        "unsupported": 0
+      },
+      "dlc": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 9693,
+        "masked": 2112475,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 2122168,
+        "records_with_available": 1218,
+        "rows_examined": 2122168,
+        "source_entries_after_note_row_deduplication": 4045,
+        "unsupported": 0
+      }
+    },
+    "tonal_region": {
+      "an_joint": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 758555,
+        "masked": 0,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 758555,
+        "records_with_available": 353,
+        "rows_examined": 758555,
+        "source_entries_after_note_row_deduplication": 87275,
+        "unsupported": 0
+      },
+      "dlc": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 2122168,
+        "masked": 0,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 2122168,
+        "records_with_available": 1280,
+        "rows_examined": 2122168,
+        "source_entries_after_note_row_deduplication": 329472,
+        "unsupported": 0
+      }
+    },
+    "voice_role": {
+      "an_joint": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 0,
+        "masked": 758555,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 758555,
+        "records_with_available": 0,
+        "rows_examined": 758555,
+        "source_entries_after_note_row_deduplication": 0,
+        "unsupported": 0
+      },
+      "dlc": {
+        "ambiguous": 0,
+        "ambiguous_subset_of_available": true,
+        "available": 0,
+        "masked": 2122168,
+        "missing": 0,
+        "primary_state_partition_valid": true,
+        "primary_state_total": 2122168,
+        "records_with_available": 0,
+        "rows_examined": 2122168,
+        "source_entries_after_note_row_deduplication": 0,
+        "unsupported": 0
+      }
+    }
+  }
+}

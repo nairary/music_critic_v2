@@ -351,3 +351,19 @@ encoder export. Natural/matched analyses, named paired seed domains,
 validation-only ranking, the single-use test lock, piece bootstrap, and
 immutable aggregate artifacts are new V2 contracts. V2 and its plan CLI
 remain runnable without the legacy checkout.
+
+## Phase 9A Dilemmadata evidence audit
+
+No legacy repository file was opened, imported, copied, modified, formatted,
+staged, or used for Phase 9A. No legacy runtime logic was reused. Evidence came
+from the exact official Dilemmadata v1.0 snapshot, its processing source and
+metadata, a clean upstream checkout, current V2 canonical/raw-graph contracts,
+and new bounded synthetic fixtures.
+
+Only already accepted general V2 principles carry forward: exact rational
+timing, deterministic conversion, explicit provenance, masked missing targets,
+target-blind raw graphs, transitive group-aware splitting, and structured
+failures. Phase 9A explicitly rejects legacy theory-bearing graph inputs,
+target-derived notes or topology, float snapping, missing-as-negative labels,
+mandatory semantic voice/section/chord structure, unversioned shared label
+IDs, and annotation-level record splits that separate equivalent inputs.
