@@ -3081,3 +3081,31 @@ This log is append-only.
   not publish hardware evidence. Model, target, raw/cache/grouping/split/graph/
   model-input contracts and fingerprints remain unchanged; no rebuild, audit,
   long training, Phase 9C, PDMX, or Phase 10 is authorized.
+
+## 2026-08-17 — ADR-084: Phase 9C-A is a one-seed validation-only production pilot
+
+- Status: Accepted for executable control-plane implementation; independent
+  RTX profile and production pilot execution remain pending.
+- Context: Phase 8B.2 supplies compute-matched SSL mechanics and Phase 9B.2
+  supplies safe four-head Dilemmadata supervision, but the earlier comparison
+  contracts did not execute the requested three-source SSL → Dilemmadata
+  one-seed matrix or fix its normalized validation selection rule.
+- Decision: Add `Phase9CProtocol@1.0.0` and artifact/plan/profile/selection/test-
+  lock contracts `1.0.0`. Fix seed 17, primary variants scratch, Phase 7A,
+  Phase 8A mask-only and Phase 8B multilevel-equal, with optional single-level
+  variants excluded by default. Pair initialization and sample schedules and
+  require 12 observed encoder forwards per SSL logical update.
+- Decision: SSL uses only train raw graphs from HookTheory, POP909-CL, and
+  Dilemmadata under equal source weights and deterministic no-replacement
+  cycles. Downstream uses the complete 577/71 train/validation records and
+  keeps all 71 test records locked. Select by mean `NLL/log(class_count)` over
+  the four tasks, with macro-F1/NLL/epoch/identity tie breakers fixed before
+  results. Component bootstrap expresses validation-sample uncertainty only.
+- Decision: Production budgets and batch size are unset until a per-candidate
+  subprocess RTX profile. Profile never starts production automatically.
+  Cells stage and publish atomically, completed cells are immutable, and the
+  final regular-file bundle is independently SHA-256 verified.
+- Consequences: This adds no new data, graph, model, target, head, loss, or
+  checkpoint semantics. Bounded fixture results are mechanics evidence only.
+  Test evaluation, multi-seed claims, PDMX/Phase 10, PLL, and critic/quality
+  work remain unauthorized.

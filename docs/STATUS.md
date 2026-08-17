@@ -3,10 +3,17 @@
 ## Current phase
 
 - Date: 2026-08-17
-- Current task: Phase 9B.2C executable Dilemmadata supervised RTX smoke and
-  experiment readiness on branch `phase/9b2c-executable-supervised-smoke`,
-  based exactly on merged PR #23 / `origin/main` commit
-  `c2dc5f16ea1ea73f0c336fabcd22c586d9c38f82`
+- Current task: Phase 9C-A executable one-seed SSL → Dilemmadata production
+  pilot on branch `phase/9c-one-seed-ssl-dilemmadata-pilot`, based exactly on
+  merged PR #24 / `origin/main` commit
+  `96b9059`
+- Phase 9C-A protocol, plan, artifact, profile, selection and test-lock
+  contracts: `1.0.0`; seed: 17; primary variants: scratch, Phase 7A control,
+  Phase 8A mask-only, and Phase 8B multilevel-equal; observed SSL compute:
+  12 encoder forwards per logical update
+- Local bounded fixture DAG is implemented and passing. Independent RTX 3090
+  profile is the next gate; production batch size/budgets remain deliberately
+  unresolved and the production pilot has not run
 - Supervised-smoke and sealed-bundle contracts: `1.4.0`; CUDA replay diagnostic:
   `1.0.0`; Dilemmadata model contract: `1.2.0`; FP32 head/loss boundary and
   AMP policy and CUDA lifecycle evidence: `1.0.0`. Independent RTX 3090
@@ -20,9 +27,11 @@
   and all their versions remain unchanged
 - Phase 9A full-corpus semantic fingerprint:
   `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`
-- Next gate: run and verify the committed bounded smoke on an independent RTX
-  3090. Long scratch-versus-SSL training, Phase 9C, PDMX and Phase 10 remain
-  unstarted
+- PR #24 is merged at `96b9059`; commit
+  `9600a17adb7ba87e198370309db474609a44874e` is in `origin/main` ancestry
+- Next gate: independent RTX profile, followed by separate explicit selection
+  of batch size/budgets and then the one-seed primary validation pilot. Test,
+  multi-seed work, PDMX and Phase 10 remain unstarted
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -151,6 +160,42 @@
   selection/statistics/compute contracts: `1.1.0`; CUDA memory-statistics
   lifecycle: `1.0.0`; data semantic projection: `1.0.0`; evaluation
   piece-sufficient-statistics output: `1.3.0`
+
+## Phase 9C-A executable one-seed pilot control plane
+
+- Added official `plan/profile/run/resume/aggregate/select/verify` actions and
+  presets `bounded_acceptance`, `rtx_profile`, `one_seed_primary_pilot`, and
+  `one_seed_full_ablation`.
+- The default primary matrix fixes seed 17 and scratch, Phase 7A control,
+  Phase 8A mask-only, and multilevel-equal. Onset/beat/bar/track variants are
+  supported only by the explicit full-ablation preset.
+- SSL planning is target-blind over train-only HookTheory, POP909-CL, and
+  Dilemmadata with equal default weights, deterministic shuffled cycles,
+  source counts/unique/repeats, one paired identity schedule, and 12 declared
+  and observed encoder forwards per logical update.
+- Downstream planning validates the 577/71/71 record and 565/71/71 component
+  split, creates scratch/pretrained frozen and full cells with paired fresh
+  heads, preserves the four-task source-entry loss and FP32/GradScaler policy,
+  and keeps test inference/targets/metrics/unlock/full identities false.
+- Selection uses the predeclared mean four-task `NLL/log(class_count)` score and
+  fixed macro-F1/NLL/epoch/identity tie breakers. Component bootstrap compares
+  each SSL variant with scratch in the same transfer mode and explicitly
+  excludes optimization-seed uncertainty.
+- Every cell stages and atomically publishes an immutable SHA-bound directory.
+  Resume rejects binding drift. The final bundle includes configs, JSONL
+  metrics, compute/checkpoint/transfer/validation evidence, tables, curve data,
+  dependency-free PNG plots, claim boundaries and a corruption-safe manifest;
+  unsafe tar members fail verification.
+- The standalone runner requires exact clean HEAD, RTX 3090 `cuda:0`, explicit
+  profile or run action, preserves failed roots, logs once, verifies the bundle
+  independently, and creates a tar plus SHA sidecar. Profile batch candidates
+  execute in separate short-DAG subprocesses; profile never starts production.
+- Focused Phase 9C tests pass `8 passed`; bounded public CLI plan/run/verify
+  completed with 24 immutable cells and 281 verified regular files. This is
+  fixture mechanics evidence only. Production profile/pilot were not run.
+- Legacy was not opened or used. No cache/checkpoint/historical evidence was
+  changed or deleted. PDMX, Phase 10, test evaluation, critic/quality scoring,
+  and multi-seed production work remain out of scope.
 
 ## Phase 9B.2C executable supervised smoke
 

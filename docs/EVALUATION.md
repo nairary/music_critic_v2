@@ -351,3 +351,31 @@ unlock remain false. These bounded metrics carry no scientific-quality claim.
 Evaluation after reload additionally requires the same observed exact
 target-index fingerprint stored by the run checkpoint; another semantically
 equivalent physical index requires a new run rather than silent rebinding.
+
+## Phase 9C-A validation comparison
+
+Every downstream cell evaluates the complete fixed 71-record / 71-component
+validation split once without replacement. It retains all four tasks' source-
+entry NLL, top-1, applicable top-3, balanced accuracy, macro/weighted F1,
+confusion matrix, record/component projections, train-only majority and
+empirical-prior baselines, undefined reasons, and zero-train-probability
+counts.
+
+The immutable primary score is:
+
+```text
+mean_task(NLL_task / log(class_count_task))
+```
+
+Lower is better. Ties use higher mean macro-F1, lower ordinary mean NLL,
+earlier epoch, then lexicographic checkpoint identity. Frozen-probe and full-
+fine-tune tables remain separate.
+
+Paired bootstrap resamples split-atomic components and reports the normalized-
+NLL difference of each SSL variant from scratch in the same transfer mode.
+Production uses at least 1,000 replicates. This is validation-sample
+uncertainty, not optimization-seed uncertainty or a significance claim.
+
+The test lock exposes only a fingerprint/count summary. Phase 9C-A has no test
+action, performs no test inference or target/metric access, and serializes no
+complete test identities.

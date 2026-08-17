@@ -1122,6 +1122,43 @@ measured passes. End/peak allocated and reserved bytes are recorded without a
 global live-tensor claim, and the standalone runner process exit releases the
 CUDA context.
 
+## Phase 9C-A experiment-control boundary
+
+`music_critic.experiments.phase9c` is a control plane over existing engines,
+not a new encoder, trainer, evaluator, cache, or target implementation:
+
+```text
+three train-only raw indices
+  -> deterministic source-balanced SSL schedule
+  -> Phase 8B 12-forward matched SSL cell
+  -> encoder-only export
+  -> fresh Dilemmadata model and four heads
+  -> frozen probe or full fine-tune
+  -> complete fixed validation
+  -> component bootstrap and validation-only selection
+```
+
+The protocol binds one seed (17), initial encoder/head seed domains, dataset
+mixture and actual sample schedules, observed compute, optimizer/scheduler/AMP
+policy, downstream budget, fixed membership, and test lock. Scratch-frozen
+uses an export of the paired untrained hierarchical encoder; scratch-full uses
+the same initialization seed without transfer. Pretrained cells load only the
+accepted encoder prefixes. Every optimizer, scheduler, scaler, and four-head
+set is fresh.
+
+Each DAG cell executes in a staging directory and is published by atomic
+rename with a content manifest. Resume rechecks the protocol and cell
+fingerprints; completed cells cannot be rewritten. RTX batch candidates run in
+separate short-DAG subprocesses so OOM cleanup is process exit. The later
+production run consumes, but cannot mutate, a separately reviewed profile
+report and requires explicit budgets.
+
+The test lock is independent of ordinary evaluator acknowledgements. Phase
+9C-A never creates a test action and its other seven actions cannot build test
+batches or access test targets/metrics. This control-plane addition changes no
+canonical, raw projection, graph, cache, split, target, model, head, loss, or
+checkpoint-container contract.
+
 ## Incremental research scope
 
 Phase 7A implements GraphMAE2-inspired decoder remasking but is not a faithful
