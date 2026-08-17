@@ -25,6 +25,7 @@ from music_critic.adapters import (
     convert_dilemmadata_target_sidecar,
     convert_dilemmadata_record,
 )
+from music_critic.adapters import dilemmadata as raw_adapter_module
 from music_critic.adapters import dilemmadata_targets as target_adapter_module
 from music_critic.data import RationalTime, dumps_piece
 from music_critic.graph import graph_fingerprint, model_input_fingerprint
@@ -343,6 +344,59 @@ def test_forged_raw_to_target_alignment_evidence_fails_closed() -> None:
     )
     assert isinstance(outcome, DilemmadataTargetQuarantine)
     assert "dilemmadata.target.alignment_binding_mismatch" in outcome.categories
+
+
+def _reseal_alignment_rows(accepted: DilemmadataAccepted, rows):
+    draft = replace(
+        accepted.alignment_evidence,
+        rows=tuple(rows),
+        fingerprint="",
+    )
+    return replace(
+        draft,
+        fingerprint=raw_adapter_module._alignment_evidence_fingerprint(draft),
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ("onset", "canonical_note_id", "tie_continuation", "row_semantics_order"),
+)
+def test_resealed_alignment_evidence_forgery_fails_closed(
+    mutation: str,
+) -> None:
+    accepted = _accepted(CORPUS, "an:training:same")
+    rows = list(accepted.alignment_evidence.rows)
+    first, second = rows[:2]
+    if mutation == "onset":
+        rows[0] = replace(first, onset_qn=RationalTime(1, 2))
+    elif mutation == "canonical_note_id":
+        rows[0] = replace(first, canonical_note_id=second.canonical_note_id)
+    elif mutation == "tie_continuation":
+        rows[0] = replace(first, tie_continuation=not first.tie_continuation)
+    else:
+        rows[0] = replace(
+            first,
+            onset_qn=second.onset_qn,
+            canonical_note_id=second.canonical_note_id,
+            tie_continuation=second.tie_continuation,
+        )
+        rows[1] = replace(
+            second,
+            onset_qn=first.onset_qn,
+            canonical_note_id=first.canonical_note_id,
+            tie_continuation=first.tie_continuation,
+        )
+    forged = _reseal_alignment_rows(accepted, rows)
+    assert forged.fingerprint == raw_adapter_module._alignment_evidence_fingerprint(
+        forged
+    )
+
+    outcome = build_dilemmadata_target_sidecar(
+        replace(accepted, alignment_evidence=forged)
+    )
+    assert isinstance(outcome, DilemmadataTargetQuarantine)
+    assert outcome.categories == ("dilemmadata.target.alignment_binding_mismatch",)
 
 
 def test_forged_record_binding_is_rejected_before_target_metadata_read(
