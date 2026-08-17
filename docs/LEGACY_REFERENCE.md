@@ -389,3 +389,13 @@ logic. Strict policy validation, discovery-record binding, distinct
 key-signature diagnostics, independent source cache reruns, and the committed
 production manifest derive only from current V2 contracts and pinned
 Dilemmadata evidence.
+
+## Phase 9B.2C executable supervised smoke
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or used for Phase 9B.2C. No legacy runtime or training logic
+was reused or adapted. The runner and verifier compose only the accepted V2
+production cache, model, loss, checkpoint, and evaluation contracts. They
+continue to reject theory-bearing model inputs, target-dependent candidate
+generation, source conversion inside training, float timing, missing-as-
+negative labels, and test access before an explicit later authorization.

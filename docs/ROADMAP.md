@@ -643,6 +643,11 @@ The model and training phases remain pending.
   Hydra presets, and a fixed RTX 3090 scratch-versus-SSL plan are present.
   Bounded tests establish plumbing only; the long independent pilot remains a
   post-merge execution task.
+- Phase 9B.2C: implemented a committed, bounded RTX 3090 scratch runner and an
+  independent source-free evidence verifier. The gate exercises all four
+  active heads, CUDA+AMP updates, atomic checkpoint reload, and official
+  validation while test remains closed. The PR stays draft until independently
+  executed hardware evidence passes; this phase does not run the long pilot.
 - Tests: target deletion/replacement/reordering leaves canonical, graph, graph
   fingerprint, and model-input fingerprint unchanged; candidate
   multiple-analysis groups stay grouped and are rechecked using the Phase 9B

@@ -525,3 +525,18 @@ equal sample schedules/update budgets and three primary variants:
 not-executed plan/command bundle. Bounded overfit only proves optimization and
 checkpoint plumbing and must not select an SSL objective or support a quality
 claim.
+
+## Phase 9B.2C bounded RTX execution gate
+
+`scripts/run_phase9b2c_rtx3090_supervised_smoke.sh` is the committed production
+cache-only mechanics runner. It fixes scratch seed 17, exact `cuda:0` RTX 3090,
+float16 autocast plus GradScaler, AdamW `3e-4`, reconstruction weight zero,
+equal four-task weights, and 10--20 updates. It fails if any active head or raw
+encoder lacks finite nonzero gradients/parameter changes, if no optimizer step
+applies, or if source-entry reduction/candidate-first invariance fails.
+
+Checkpoint publication is atomic and includes optimizer, cosine scheduler,
+scaler, model/data/membership fingerprints and a SHA sidecar. A new model must
+reload it with bit-exact raw-only logits. Source adapter/oracle entry points are
+fail-closed during the run. Output directory/tar publication is unique and
+atomic; no CPU fallback or hardware skip exists in the runner.

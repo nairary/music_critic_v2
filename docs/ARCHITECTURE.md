@@ -1077,6 +1077,22 @@ Four heads and AdamW are always fresh. The immutable RTX 3090 plan fixes seeds
 The PR runs bounded plumbing evidence only, not long training or an
 effectiveness comparison.
 
+## Phase 9B.2C executable hardware boundary
+
+The Phase 9B.2C runner composes the existing cached dataset, four-head model,
+source-entry loss, checkpoint, and evaluator without changing them. It pins
+the exact production index/split/model fingerprints and accepts no source TSV.
+Raw-adapter and alignment-oracle entry points are installed as fail-closed
+guards, with zero calls required in sealed evidence.
+
+Train coverage is selected only from train targets. Validation membership is
+identity/component-ranked without label reads or replacement; targets are read
+only after membership is fixed. Test access remains false. The independent
+verifier reconstructs no source data: it validates the sealed report,
+memberships, checkpoint state, official evaluation, artifact hashes, archive
+safety, exact Git head, and RTX 3090 hardware. The new smoke and bundle
+contracts are `1.0.0`; all Phase 9B.2B model/data contracts remain unchanged.
+
 ## Incremental research scope
 
 Phase 7A implements GraphMAE2-inspired decoder remasking but is not a faithful

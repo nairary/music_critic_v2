@@ -3307,6 +3307,25 @@ optimizer. The immutable RTX 3090 plan fixes seeds 17/29/43 and equal schedules
 and budgets. Long training and scientific superiority claims are explicitly
 not part of this change; open-vocabulary crosswalks remain deferred.
 
+### Phase 9B.2C executable supervised smoke implemented
+
+A committed runner now executes a seed-17, 10--20-update supervised-scratch
+gate on exact production raw/target caches and split, explicit RTX 3090
+`cuda:0`, AMP float16, GradScaler, and AdamW `3e-4`. It requires complete AN
+and DLC quality/inversion coverage, candidate-first raw logits, source-entry
+reduction, finite encoder/four-head gradients, applied parameter updates,
+atomic checkpoint reload parity, official validation metrics, test closure,
+positive VRAM peaks, and complete CUDA cleanup.
+
+Runtime source adapter/oracle entry points are fail-closed guards with zero
+permitted calls. A separate source-free verifier validates directory and tar
+evidence, checkpoint semantics and hashes, memberships/bindings, unsafe archive
+members, and the exact current GPU. Publication is unique and atomic. The
+smoke/bundle contracts are `1.0.0`; accepted Phase 9B.2B and all raw/cache/
+split/graph/model-input contracts remain unchanged. Independent RTX execution
+is still required before the draft PR may become ready. This is mechanics
+evidence only and starts neither long training nor Phase 9C/PDMX/Phase 10.
+
 ## Phase 10. PDMX adapter and scalable cache
 
 ### Implement

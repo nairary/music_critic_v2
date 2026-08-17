@@ -2937,3 +2937,31 @@ This log is append-only.
   model-input bytes/versions remain unchanged. Bounded overfit is plumbing
   evidence only; long training, Phase 9C, PDMX, critic score, PLL and Phase 10
   remain outside this change.
+
+## 2026-08-17 — ADR-079: Hardware readiness requires sealed executable evidence
+
+- Status: Accepted for Phase 9B.2C implementation; independent RTX 3090
+  execution remains pending.
+- Context: Phase 9B.2B established fixture and bounded CPU plumbing plus a
+  future long-run plan, but did not prove that its four-head supervised path
+  executes end to end on the intended production caches and GPU. A useful
+  hardware gate must be committed, reproducible at an exact clean Git head,
+  independently verifiable, source-free at runtime, and unable to open test.
+- Decision: Add `DilemmadataSupervisedSmoke@1.0.0` and sealed bundle `1.0.0`.
+  Pin the accepted production raw/target indices, split and model fingerprint;
+  require exact RTX 3090 `cuda:0`, float16 AMP with GradScaler, seed-17 scratch
+  initialization, fixed four-task weights, AdamW `3e-4`, and 10--20 updates.
+  Require train-only target-assisted coverage selection, label-blind
+  validation membership, candidate-first/source-entry evidence, finite
+  encoder/four-head gradients and updates, failure-atomic checkpoint reload
+  parity, official validation, test closure, VRAM evidence and complete CUDA
+  cleanup. Guard source conversion/alignment calls fail closed.
+- Decision: Publish only a new uniquely named run by atomic rename, containing
+  a sealed regular-file directory, deterministic tar and SHA sidecar. A
+  separate source-free verifier checks semantic bindings, checkpoint state,
+  evaluation, internal hashes, archive safety, exact head and current GPU.
+  Keep the PR draft until an independent RTX 3090 run passes this verifier.
+- Consequences: This is bounded mechanics evidence only. It changes no
+  Phase 9B.2B raw, target-cache, BatchTarget, model, loss, evaluation, split,
+  graph or model-input contract/version/fingerprint. No long training,
+  scratch-versus-SSL conclusion, Phase 9C, PDMX, or Phase 10 is authorized.

@@ -2,6 +2,16 @@
 
 Status: **ACCEPTED FOR PHASE 1 IMPLEMENTATION**.
 
+## Phase 9B.2C evidence-only extension
+
+`DilemmadataSupervisedSmoke@1.0.0` and its sealed bundle `1.0.0` bind the
+existing production raw index, target-cache index, split, model contract,
+train/validation memberships, checkpoint, validation report, Git head, and
+RTX execution evidence. They are experiment evidence contracts, not data/model
+input contracts. Phase 9B.2B target-cache/BatchTarget semantics and every raw
+projection, canonical cache, split, graph, and model-input byte/version remain
+unchanged.
+
 ## Phase 9B.2B target-cache and batch extension
 
 `DilemmadataTargetCache@1.0.0` stores only immutable JSON `TargetBundle@1.0.0`

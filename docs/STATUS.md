@@ -3,10 +3,12 @@
 ## Current phase
 
 - Date: 2026-08-17
-- Current task: Phase 9B.2B safe Dilemmadata heads, supervised pipeline and
-  scratch-versus-SSL pilot preparation on branch
-  `agent/phase-9b2b-dilemmadata-supervised`, based exactly on merged PR #22 /
-  `origin/main` commit `657b4191e270f0313a92ad05d111ceff7d907d0d`
+- Current task: Phase 9B.2C executable Dilemmadata supervised RTX smoke and
+  experiment readiness on branch `phase/9b2c-executable-supervised-smoke`,
+  based exactly on merged PR #23 / `origin/main` commit
+  `c2dc5f16ea1ea73f0c336fabcd22c586d9c38f82`
+- Supervised-smoke and sealed-bundle contracts: `1.0.0`. Independent RTX 3090
+  execution is pending, so the new PR remains draft
 - Dilemmadata target cache/index/identity/manifest, four-head model/loss,
   evaluation, encoder transfer and RTX plan contracts: `1.0.0`;
   `BatchTarget`: `1.2.0`. Phase 9B.2A alignment evidence/target adapter remain
@@ -15,8 +17,9 @@
   and all their versions remain unchanged
 - Phase 9A full-corpus semantic fingerprint:
   `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`
-- Next task after review/merge: execute the independently fixed RTX 3090
-  scratch-versus-SSL plan. Phase 9C and Phase 10 remain unstarted
+- Next gate: run and verify the committed bounded smoke on an independent RTX
+  3090. Long scratch-versus-SSL training, Phase 9C, PDMX and Phase 10 remain
+  unstarted
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -145,6 +148,31 @@
   selection/statistics/compute contracts: `1.1.0`; CUDA memory-statistics
   lifecycle: `1.0.0`; data semantic projection: `1.0.0`; evaluation
   piece-sufficient-statistics output: `1.3.0`
+
+## Phase 9B.2C executable supervised smoke
+
+- Added the committed fail-closed RTX 3090 runner and an independent,
+  source-free directory/tar verifier under contracts `1.0.0`. Inputs are only
+  the pinned production raw/target indices and caches plus the existing split;
+  source TSV conversion and the alignment oracle are guarded and must record
+  zero calls.
+- The bounded seed-17 scratch run requires `cuda:0`, exact RTX 3090, AMP
+  float16 with GradScaler, AdamW `3e-4`, and 10--20 updates. It verifies finite
+  source-entry loss/gradients, encoder and exact four-head gradients/updates,
+  target-independent raw logits, atomic checkpoint/reload parity, official
+  AN+DLC validation, test lock, VRAM peaks, and zero retained CUDA tensors.
+- Successful evidence publication is unique and atomic, with internal hashes,
+  a deterministic regular-file tar, and SHA sidecar. Forged/resealed semantic
+  evidence, unsafe/incomplete archives, binding/membership/head/update/reload/
+  hardware mismatches, collisions, and partial publication fail closed.
+- Local CPU contract/regression evidence is recorded in the Phase 9B.2C PR.
+  Hardware success is not claimed: the exact final-SHA command in the draft PR
+  must run independently on an RTX 3090 before readiness. Full raw/target
+  corpus audits were intentionally not repeated.
+- Phase 9B.2B contracts and the pinned raw index, target index, split, cache,
+  graph, and model-input fingerprints remain unchanged. Legacy was not used;
+  no long training, scratch-versus-SSL comparison, Phase 9C, PDMX, or Phase 10
+  began. See `PHASE9B2C_EXECUTABLE_SMOKE.md`.
 
 ## Phase 9B.2B safe Dilemmadata supervised result
 
