@@ -2873,3 +2873,33 @@ This log is append-only.
   mechanically model-ready and 13 remain open/deferred, but no new head, loss,
   supervised evaluation, training run, or effectiveness claim is authorized.
   Phase 9B.2B requires a separate review after this change merges.
+
+## 2026-08-17 — ADR-077: Dilemmadata target alignment requires independent raw-origin verification
+
+- Status: Accepted as blocking remediation of Phase 9B.2A in draft PR #22.
+- Context: `DilemmadataRawTargetAlignmentEvidence@1.0.0` checked its record and
+  canonical identities, row structure, and self-fingerprint. A caller could
+  nevertheless alter an onset, tie state, canonical note ID, or ordered row
+  semantics and recompute a consistent fingerprint, redirecting target
+  supervision without proving that the evidence came from the pinned raw
+  source.
+- Decision: Advance raw alignment evidence and the target adapter to `1.1.0`,
+  and the audit report/manifest to `1.1.0`. Keep the self-fingerprint only as a
+  corruption check. Before reading theory or analyst/reviewer metadata, rebuild
+  the evidence independently by running the same raw parser, exact tie merger,
+  and canonical builder from the pinned record. Require byte-exact canonical
+  serialization and equality of the complete ordered evidence, including row
+  ordinal, physical line, exact `RationalTime`, tie-continuation state, and
+  canonical note ID. Reject every difference as
+  `dilemmadata.target.alignment_binding_mismatch`.
+- Decision: Give the raw oracle a closed dialect-specific value-field contract
+  and do not materialize theory, gate, alternative-label, or metadata values in
+  the raw parser. Do not use float conversion, tolerance, nearest-note
+  matching, snapping, or heuristic renumbering.
+- Consequences: A consistently re-fingerprinted forged evidence object fails
+  closed, while valid tie-merged evidence and target-only mutation remain
+  supported. The target sidecar serialization stays `1.0.0`; its aggregate
+  fingerprint changes because adapter provenance advances. Raw adapter
+  `1.0.1`, raw projection `1.0.0`, grouping, canonical piece, cache key/artifact,
+  split, graph, and model-input contracts and fingerprints remain unchanged.
+  Phase 9B.2B remains unauthorized.

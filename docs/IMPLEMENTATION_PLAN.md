@@ -3274,7 +3274,11 @@ canonical target/annotation collection empty.
   collator path without changing raw canonical, graph, or split identity;
 - separate alternative analysis views plus `alt_label` and analyst/reviewer
   provenance;
-- a deterministic full-corpus target audit and compact committed manifest.
+- a deterministic full-corpus target audit and compact committed manifest;
+- blocking alignment-origin remediation: treat the evidence fingerprint only
+  as a corruption check, independently reconstruct the exact ordered row
+  bindings from the pinned raw source and canonical piece before any target
+  access, and reject any difference without tolerance or heuristics.
 
 The contract and exact inventory are documented in
 `DILEMMADATA_TARGET_SIDECARS.md`. Phase 9B.2A does not add heads, losses,

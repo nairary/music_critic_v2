@@ -44,7 +44,7 @@ DILEMMADATA_CORPUS_IDENTITY_VERSION = "1.0.0"
 DILEMMADATA_RAW_PROJECTION_VERSION = "1.0.0"
 DILEMMADATA_GROUPING_VERSION = "1.0.0"
 DILEMMADATA_RECORD_BINDING_VERSION = "1.0.0"
-DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION = "1.0.0"
+DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION = "1.1.0"
 DILEMMADATA_ACCEPTANCE_REPORT_VERSION = "1.1.0"
 DILEMMADATA_PRODUCTION_MANIFEST_VERSION = "1.1.0"
 DILEMMADATA_DATASET_NAME = "dilemmadata"
@@ -95,6 +95,35 @@ _DLC_REQUIRED_FIELDS = (
     "ks_fifths",
     "ts_beats",
     "ts_beat_type",
+)
+_AN_RAW_SOURCE_VALUE_FIELDS = tuple(
+    sorted(
+        {
+            *_AN_REQUIRED_FIELDS,
+            "measureNumberWithSuffix",
+            "mn_onset",
+            "s_alter",
+            "s_measure",
+            "s_part_id",
+            "s_step",
+            "s_voice_id",
+        }
+    )
+)
+_DLC_RAW_SOURCE_VALUE_FIELDS = tuple(
+    sorted(
+        {
+            *_DLC_REQUIRED_FIELDS,
+            "alter",
+            "downbeat",
+            "mc_playthrough",
+            "mn",
+            "mn_playthrough",
+            "staff",
+            "step",
+            "voice",
+        }
+    )
 )
 
 
@@ -287,6 +316,7 @@ class DilemmadataRawTargetAlignmentEvidence:
     record_binding_sha256: str
     raw_projection_sha256: str
     canonical_piece_sha256: str
+    raw_source_fields: tuple[str, ...]
     rows: tuple[DilemmadataSourceRowBinding, ...]
     fingerprint: str
 
@@ -343,6 +373,7 @@ class _RawParse:
     note_row_count: int
     tie_continuation_row_count: int
     zero_duration_row_count: int
+    raw_source_fields: tuple[str, ...]
 
 
 class _UnionFind:
@@ -408,6 +439,7 @@ def _alignment_evidence_payload(
     return {
         "canonical_piece_sha256": evidence.canonical_piece_sha256,
         "piece_id": evidence.piece_id,
+        "raw_source_fields": list(evidence.raw_source_fields),
         "raw_projection_sha256": evidence.raw_projection_sha256,
         "record_binding_sha256": evidence.record_binding_sha256,
         "record_id": evidence.record_id,
@@ -438,6 +470,7 @@ def _make_alignment_evidence(
     record: DilemmadataCorpusRecord,
     piece: CanonicalPiece,
     rows: tuple[DilemmadataSourceRowBinding, ...],
+    raw_source_fields: tuple[str, ...],
 ) -> DilemmadataRawTargetAlignmentEvidence:
     evidence = DilemmadataRawTargetAlignmentEvidence(
         version=DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION,
@@ -446,6 +479,7 @@ def _make_alignment_evidence(
         record_binding_sha256=record.record_binding_sha256,
         raw_projection_sha256=record.raw_projection_sha256,
         canonical_piece_sha256=sha256(dumps_piece(piece).encode("utf-8")).hexdigest(),
+        raw_source_fields=raw_source_fields,
         rows=rows,
         fingerprint="",
     )
@@ -457,7 +491,7 @@ def validate_dilemmadata_alignment_evidence(
     piece: CanonicalPiece,
     evidence: DilemmadataRawTargetAlignmentEvidence,
 ) -> bool:
-    """Check exact record/canonical/row binding without reading target columns."""
+    """Verify self-integrity and independent raw-source/canonical provenance."""
 
     try:
         if evidence.version != DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION:
@@ -475,6 +509,14 @@ def validate_dilemmadata_alignment_evidence(
             return False
         if evidence.fingerprint != _alignment_evidence_fingerprint(evidence):
             return False
+        expected_source_fields = dilemmadata_raw_source_value_fields(record.dialect)
+        if (
+            not evidence.raw_source_fields
+            or evidence.raw_source_fields != tuple(sorted(evidence.raw_source_fields))
+            or len(evidence.raw_source_fields) != len(set(evidence.raw_source_fields))
+            or not set(evidence.raw_source_fields) <= set(expected_source_fields)
+        ):
+            return False
         if tuple(row.ordinal for row in evidence.rows) != tuple(range(len(evidence.rows))):
             return False
         note_ids = {note.note_id for note in piece.notes}
@@ -485,9 +527,24 @@ def validate_dilemmadata_alignment_evidence(
             for row in evidence.rows
         ):
             return False
-        return len(evidence.rows) == record.note_row_count
+        if len(evidence.rows) != record.note_row_count:
+            return False
+        oracle = reconstruct_dilemmadata_alignment_evidence(record, piece)
+        return oracle is not None and evidence == oracle
     except (AttributeError, TypeError, ValueError):
         return False
+
+
+def dilemmadata_raw_source_value_fields(
+    dialect: Literal["an_joint", "dlc"],
+) -> tuple[str, ...]:
+    """Return the closed target-neutral value-field contract of the raw parser."""
+
+    if dialect == "an_joint":
+        return _AN_RAW_SOURCE_VALUE_FIELDS
+    if dialect == "dlc":
+        return _DLC_RAW_SOURCE_VALUE_FIELDS
+    raise ValueError(f"unsupported Dilemmadata dialect {dialect!r}")
 
 
 def _path_locator_sha256(path: Path) -> str:
@@ -754,6 +811,7 @@ def _parse_raw_file(
     dialect: Literal["an_joint", "dlc"],
 ) -> _RawParse:
     required = _AN_REQUIRED_FIELDS if dialect == "an_joint" else _DLC_REQUIRED_FIELDS
+    raw_source_fields = dilemmadata_raw_source_value_fields(dialect)
     categories: list[str] = []
     messages: list[str] = []
     observations: list[_RawObservation] = []
@@ -776,15 +834,16 @@ def _parse_raw_file(
         handle = path.open("r", encoding="utf-8", newline="")
     except (OSError, UnicodeError) as exc:
         return _RawParse(
-            (),
-            raw_digest.hexdigest(),
-            grouping.hexdigest(),
-            None,
-            ("dilemmadata.raw_fingerprint_mismatch",),
-            (f"source unreadable: {type(exc).__name__}",),
-            0,
-            0,
-            0,
+            observations=(),
+            raw_projection_sha256=raw_digest.hexdigest(),
+            grouping_fingerprint=grouping.hexdigest(),
+            source_resolution=None,
+            categories=("dilemmadata.raw_fingerprint_mismatch",),
+            messages=(f"source unreadable: {type(exc).__name__}",),
+            note_row_count=0,
+            tie_continuation_row_count=0,
+            zero_duration_row_count=0,
+            raw_source_fields=(),
         )
     with handle:
         reader = csv.reader(handle, delimiter="\t", strict=True)
@@ -802,6 +861,9 @@ def _parse_raw_file(
                 f"missing required raw fields: {', '.join(missing[:12])}",
             )
         indices = {name: index for index, name in enumerate(header)}
+        accessed_source_fields = tuple(
+            field for field in raw_source_fields if field in indices
+        )
         for line, values in enumerate(reader, start=2):
             row_count += 1
             if len(values) != len(header):
@@ -811,7 +873,10 @@ def _parse_raw_file(
                     f"expected {len(header)} columns, observed {len(values)}",
                 )
                 continue
-            row = {name: values[index] for name, index in indices.items()}
+            row = {
+                name: values[indices[name]]
+                for name in accessed_source_fields
+            }
             try:
                 if dialect == "an_joint":
                     onset = _fraction(row["s_offset_frac"])
@@ -1002,6 +1067,7 @@ def _parse_raw_file(
         note_row_count=row_count,
         tie_continuation_row_count=tie_count,
         zero_duration_row_count=grace_count,
+        raw_source_fields=accessed_source_fields,
     )
 
 
@@ -1908,8 +1974,28 @@ def convert_dilemmadata_record(
             accepted_record,
             piece,
             row_bindings,
+            parse.raw_source_fields,
         ),
     )
+
+
+def reconstruct_dilemmadata_alignment_evidence(
+    record: DilemmadataCorpusRecord,
+    piece: CanonicalPiece,
+) -> DilemmadataRawTargetAlignmentEvidence | None:
+    """Rebuild the oracle from raw source and require the exact canonical bytes."""
+
+    if not isinstance(record, DilemmadataCorpusRecord) or not isinstance(
+        piece,
+        CanonicalPiece,
+    ):
+        return None
+    oracle = convert_dilemmadata_record(record)
+    if not isinstance(oracle, DilemmadataAccepted):
+        return None
+    if dumps_piece(oracle.piece) != dumps_piece(piece):
+        return None
+    return oracle.alignment_evidence
 
 
 def iter_dilemmadata_corpus(
@@ -1957,8 +2043,10 @@ __all__ = [
     "DilemmadataRawTargetAlignmentEvidence",
     "DilemmadataSourceRowBinding",
     "convert_dilemmadata_record",
+    "dilemmadata_raw_source_value_fields",
     "discover_dilemmadata_corpus",
     "iter_dilemmadata_corpus",
+    "reconstruct_dilemmadata_alignment_evidence",
     "validate_dilemmadata_alignment_evidence",
     "validate_dilemmadata_record_binding",
 ]

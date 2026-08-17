@@ -26,7 +26,7 @@ DILEMMADATA_SOURCE_NATIVE_FAMILY_REGISTRY_VERSION = "1.0.0"
 DILEMMADATA_TARGET_ENCODING_REGISTRY_VERSION = "1.0.0"
 DILEMMADATA_TARGET_ALIGNMENT_RULES_VERSION = "1.0.0"
 DILEMMADATA_TARGET_ADAPTER_SOURCE = (
-    "music_critic.adapters.dilemmadata_targets@1.0.0"
+    "music_critic.adapters.dilemmadata_targets@1.1.0"
 )
 
 DilemmadataDialect = Literal["an_joint", "dlc"]

@@ -31,6 +31,7 @@ from music_critic.adapters.dilemmadata import (
     DilemmadataCorpusRecord,
     DilemmadataQuarantine,
     convert_dilemmadata_record,
+    dilemmadata_raw_source_value_fields,
     discover_dilemmadata_corpus,
 )
 from music_critic.adapters.dilemmadata_targets import (
@@ -164,6 +165,57 @@ def _family_accumulators() -> dict[str, dict[str, Any]]:
             "value_counts": Counter(),
         }
         for spec in DILEMMADATA_SOURCE_FAMILIES
+    }
+
+
+def _alignment_oracle_access_projection() -> dict[str, object]:
+    raw_fields = {
+        dialect: dilemmadata_raw_source_value_fields(dialect)
+        for dialect in ("an_joint", "dlc")
+    }
+    target_fields = {
+        dialect: tuple(
+            sorted(
+                {
+                    "alt_label",
+                    *(
+                        field
+                        for spec in DILEMMADATA_SOURCE_FAMILIES
+                        if spec.dialect == dialect
+                        for field in (
+                            *spec.source_fields,
+                            *((spec.gate_field,) if spec.gate_field else ()),
+                            *((spec.source_identity_field,)
+                              if spec.source_identity_field else ()),
+                        )
+                    ),
+                }
+            )
+        )
+        for dialect in ("an_joint", "dlc")
+    }
+    overlap = {
+        dialect: tuple(sorted(set(raw_fields[dialect]) & set(target_fields[dialect])))
+        for dialect in raw_fields
+    }
+    return {
+        "independent_raw_reconstruction": True,
+        "ordered_row_semantics": [
+            "ordinal",
+            "physical_line",
+            "exact_rational_onset",
+            "tie_continuation",
+            "canonical_note_id",
+        ],
+        "raw_source_value_fields": {
+            dialect: list(fields) for dialect, fields in raw_fields.items()
+        },
+        "target_source_value_field_overlap": {
+            dialect: list(fields) for dialect, fields in overlap.items()
+        },
+        "target_metadata_access_count": 0,
+        "target_value_access_count": sum(len(fields) for fields in overlap.values()),
+        "self_fingerprint_role": "corruption_check_only",
     }
 
 
@@ -800,6 +852,7 @@ def build_target_audit_report(
             "theory_mutation_matrix_covered_by_tests": True,
             "raw_mutation_failure_closed_by_source_binding": True,
             "target_replace_remove_mask_logits_invariant_covered_by_tests": True,
+            "alignment_oracle": _alignment_oracle_access_projection(),
             "split_membership_fingerprint_unchanged": raw_manifest["split"][
                 "fingerprint"
             ],

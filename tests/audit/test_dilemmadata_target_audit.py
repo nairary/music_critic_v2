@@ -87,6 +87,16 @@ def test_family_projection_has_explicit_state_alignment_and_encoding_counts() ->
             assert row["model_ready"] is True
             assert row["deferred"] == 0
 
+    oracle = report["raw_invariance"]["alignment_oracle"]
+    assert oracle["independent_raw_reconstruction"] is True
+    assert oracle["self_fingerprint_role"] == "corruption_check_only"
+    assert oracle["target_metadata_access_count"] == 0
+    assert oracle["target_value_access_count"] == 0
+    assert oracle["target_source_value_field_overlap"] == {
+        "an_joint": [],
+        "dlc": [],
+    }
+
 
 def test_manifest_projection_is_self_fingerprinted_and_mutation_sensitive() -> None:
     report = build_target_audit_report(

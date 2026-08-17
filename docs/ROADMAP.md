@@ -633,7 +633,9 @@ The model and training phases remain pending.
   a committed deterministic production manifest.
 - Phase 9B.2A: production source-native target sidecars and exact alignment
   implemented as an external 22-task registry extension. Raw cache/graph/split
-  identity stays unchanged; no heads or losses are added.
+  identity stays unchanged; an independent target-neutral raw oracle binds
+  every ordered source row to its exact canonical note before target parsing;
+  no heads or losses are added.
 - Phase 9B.2B future: select safe model-ready tasks, add heads, masked/PU losses
   and evaluation, then run the first scratch-versus-SSL pilot with and without
   Dilemmadata.

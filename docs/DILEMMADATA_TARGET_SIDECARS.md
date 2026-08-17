@@ -20,23 +20,28 @@ loss/evaluation path.
 
 Phase 9B.1 did not retain enough information to prove which source rows were
 merged into each canonical tied note. The narrow blocking addition is
-`DilemmadataRawTargetAlignmentEvidence@1.0.0`: a target-neutral seal over every
-row ordinal, exact rational onset, tie-continuation state, and canonical note
-ID. It changes neither raw semantics nor any raw adapter/cache/graph version.
+`DilemmadataRawTargetAlignmentEvidence@1.1.0`: target-neutral evidence over
+every row ordinal, physical line, exact rational onset, tie-continuation state,
+and canonical note ID. The embedded fingerprint is only a corruption check.
+Before any target or metadata values are read, the target adapter independently
+re-runs the closed raw parser/tie-merger from the pinned physical source,
+requires byte-exact equality with the supplied canonical piece, and compares
+the complete ordered evidence object. It changes neither raw semantics nor any
+raw adapter/cache/graph version.
 
 ## Contracts
 
 | Contract | Version |
 |---|---:|
-| Dilemmadata target adapter | `1.0.0` |
+| Dilemmadata target adapter | `1.1.0` |
 | external target sidecar | `1.0.0` |
 | generic `TargetBundle` | `1.0.0` |
-| raw-to-target alignment evidence | `1.0.0` |
+| raw-to-target alignment evidence | `1.1.0` |
 | target-only analyst metadata index | `1.0.0` |
 | source-native family registry | `1.0.0` |
 | source-native encoding registry | `1.0.0` |
 | exact alignment rules | `1.0.0` |
-| target audit report / manifest | `1.0.0` / `1.0.0` |
+| target audit report / manifest | `1.1.0` / `1.1.0` |
 
 The Dilemmadata registry is an explicit extension to, not a mutation of, the
 18-task HookTheory/POP909-CL core registry. Therefore the accepted Phase 9B.1
@@ -111,6 +116,14 @@ flagged; they are never used for raw grouping or model input. Confidence is
 
 All time is `RationalTime`; floats, tolerances, nearest-neighbour snapping, and
 node-type priority are forbidden.
+
+Evidence provenance is not established by its self-fingerprint. The
+independent oracle reads only the closed raw-value field set declared by the
+AN/DLC raw parser, never theory or analyst/reviewer metadata fields. It rebuilds
+the exact canonical piece and row bindings from the pinned source and compares
+ordered ordinal, physical line, rational onset, tie state, and canonical note
+ID. Any difference fails closed as
+`dilemmadata.target.alignment_binding_mismatch` before target parsing.
 
 - Note labels reference canonical note IDs. Every source row merged by the raw
   tie policy must be available and agree. Otherwise the canonical-note target
@@ -188,17 +201,17 @@ CPU, and retained CUDA/prediction tensor counts were zero.
 Key fingerprints are:
 
 - family registry:
-  `4e5077fc4ed70ea9e39a56955ac3d0b9d701c1f48427c3f0c171b9a35ccfa3b4`;
+  `a3ff6ba2ea8f3b2f6062fdf30ce92d40d7c70dc505770a06419462a452dae080`;
 - source-native encoding registry:
   `699920917d20f560408252f115048a80268cdae7ab3ccf1d30dc3f8be5103d7b`;
 - combined target sidecars:
-  `75a71bdeaab2df79182549a3222a3ae83f51f9c07359fd0ac10dc94ff0a7361b`;
+  `1d183ab63913084c94f62dc8777995b721ca415b20081e1ea907e69015ee5c72`;
 - target metadata index:
   `41e15e1d2edb1c52ad3ca90acf782bec7c26bfb042fea51dc805d6f86b52d0a7`;
 - raw-to-target alignment evidence:
-  `52d44cb5d00d3ab62f9cf3af6d258b00c90b8050e68ad82d7ef641d616d1369e`;
+  `18ee4971f33f5a208e944939949152b275e09928916880c134fda3d1fb2d189a`;
 - target audit manifest:
-  `6e1813850253b18f81bc342144a71b5c8261f8e4ae4609504dd789c6989f6d5c`.
+  `a971ff0daf8d5a442beaa3365ec8c43ca9368f07baab4a1102927977f6ebdd05`.
 
 The accepted raw index remains
 `c0451976b6b6eab88cb90aa6c47d6afdba1b81ce9b588f0f84daa846154adb0e`

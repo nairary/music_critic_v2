@@ -24,6 +24,7 @@ from music_critic.adapters import (
     build_dilemmadata_target_sidecar,
     convert_dilemmadata_target_sidecar,
     convert_dilemmadata_record,
+    reconstruct_dilemmadata_alignment_evidence,
 )
 from music_critic.adapters import dilemmadata as raw_adapter_module
 from music_critic.adapters import dilemmadata_targets as target_adapter_module
@@ -116,15 +117,15 @@ def _write_tsv(path: Path, header: list[str], rows: list[list[str]]) -> None:
 
 
 def test_public_versions_registry_inventory_and_frozen_encodings() -> None:
-    assert DILEMMADATA_TARGET_ADAPTER_VERSION == "1.0.0"
+    assert DILEMMADATA_TARGET_ADAPTER_VERSION == "1.1.0"
     assert DILEMMADATA_TARGET_SIDECAR_VERSION == "1.0.0"
-    assert DILEMMADATA_TARGET_AUDIT_REPORT_VERSION == "1.0.0"
-    assert DILEMMADATA_TARGET_AUDIT_MANIFEST_VERSION == "1.0.0"
+    assert DILEMMADATA_TARGET_AUDIT_REPORT_VERSION == "1.1.0"
+    assert DILEMMADATA_TARGET_AUDIT_MANIFEST_VERSION == "1.1.0"
     assert DILEMMADATA_TARGET_METADATA_VERSION == "1.0.0"
     assert DILEMMADATA_SOURCE_NATIVE_FAMILY_REGISTRY_VERSION == "1.0.0"
     assert DILEMMADATA_TARGET_ENCODING_REGISTRY_VERSION == "1.0.0"
     assert DILEMMADATA_TARGET_ALIGNMENT_RULES_VERSION == "1.0.0"
-    assert DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION == "1.0.0"
+    assert DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION == "1.1.0"
     assert TARGET_BUNDLE_CONTRACT_VERSION == "1.0.0"
     assert DILEMMADATA_TARGET_REGISTRY_ID == "music_critic.dilemmadata@1.0.0"
 
@@ -399,6 +400,46 @@ def test_resealed_alignment_evidence_forgery_fails_closed(
     assert outcome.categories == ("dilemmadata.target.alignment_binding_mismatch",)
 
 
+def test_independent_alignment_oracle_reads_no_target_or_metadata_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    accepted = _accepted(CORPUS, "an:training:same")
+    target_fields = set(target_adapter_module._selected_fields("an_joint"))
+    assert set(accepted.alignment_evidence.raw_source_fields).isdisjoint(
+        target_fields
+    )
+
+    def unexpected_target_access(*_args, **_kwargs):
+        raise AssertionError("raw alignment oracle accessed target-only data")
+
+    monkeypatch.setattr(
+        target_adapter_module,
+        "load_dilemmadata_target_metadata_index",
+        unexpected_target_access,
+    )
+    monkeypatch.setattr(
+        target_adapter_module,
+        "_read_target_rows",
+        unexpected_target_access,
+    )
+    oracle = reconstruct_dilemmadata_alignment_evidence(
+        accepted.record,
+        accepted.piece,
+    )
+    assert oracle == accepted.alignment_evidence
+
+    first = accepted.alignment_evidence.rows[0]
+    forged = _reseal_alignment_rows(
+        accepted,
+        (replace(first, onset_qn=RationalTime(1, 2)), *accepted.alignment_evidence.rows[1:]),
+    )
+    outcome = build_dilemmadata_target_sidecar(
+        replace(accepted, alignment_evidence=forged)
+    )
+    assert isinstance(outcome, DilemmadataTargetQuarantine)
+    assert outcome.categories == ("dilemmadata.target.alignment_binding_mismatch",)
+
+
 def test_forged_record_binding_is_rejected_before_target_metadata_read(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -441,6 +482,13 @@ def test_merged_tie_requires_all_source_target_rows_to_agree(
     _write_tsv(source, header, [rows[0], continuation, rows[1]])
 
     agreed_raw = _accepted(copied, "an:training:same")
+    oracle = reconstruct_dilemmadata_alignment_evidence(
+        agreed_raw.record,
+        agreed_raw.piece,
+    )
+    assert oracle == agreed_raw.alignment_evidence
+    assert any(row.tie_continuation for row in oracle.rows)
+    assert len({row.canonical_note_id for row in oracle.rows}) < len(oracle.rows)
     agreed = build_dilemmadata_target_sidecar(agreed_raw)
     assert isinstance(agreed, DilemmadataTargetAccepted)
     agreed_stats = _family(agreed, "dilemmadata.an.note.scale_degree")

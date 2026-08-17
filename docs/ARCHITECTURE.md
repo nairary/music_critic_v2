@@ -1014,9 +1014,15 @@ semantic projection with the committed production manifest before declaring
 ## Phase 9B.2A Dilemmadata target-only boundary
 
 The raw cache remains authoritative and unchanged. A separate target adapter
-uses a target-neutral row-to-canonical-note seal emitted by the accepted raw
-conversion, reads only evidenced theory/gate/alternative/analyst metadata, and
-returns `TargetBundle@1.0.0`:
+uses target-neutral row-to-canonical-note evidence emitted by the accepted raw
+conversion. Its self-fingerprint detects corruption but is not accepted as
+origin proof. Before theory or metadata access, an independent oracle re-runs
+the same closed raw parser/tie-merger from the pinned source, requires the exact
+canonical serialization, and compares every ordered row's ordinal, physical
+line, `RationalTime`, tie state, and canonical note ID. Any mismatch is
+rejected without snapping, tolerance, or heuristic renumbering. Only then does
+the adapter read evidenced theory/gate/alternative/analyst metadata and return
+`TargetBundle@1.0.0`:
 
 ```text
 IndexedMultiSourceDataset raw sample + Dilemmadata source record
