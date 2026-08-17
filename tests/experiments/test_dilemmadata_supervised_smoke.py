@@ -486,6 +486,41 @@ def _evaluation(
     return priors, report
 
 
+def _lifecycle_evidence() -> dict[str, object]:
+    return {
+        "contract_version": smoke.DILEMMADATA_CUDA_LIFECYCLE_EVIDENCE_VERSION,
+        "tracked_prediction_tensor_count": 12,
+        "retained_prediction_tensor_count": 0,
+        "python_visible_live_cuda_tensors": {
+            "status": "not_safely_bounded_global_gc_scan_omitted",
+            "count": None,
+        },
+        "allocator_residue": {
+            "allocated_bytes_after_cleanup": 64,
+            "reserved_bytes_after_cleanup": 128,
+            "peak_allocated_bytes": 1024,
+            "peak_reserved_bytes": 2048,
+            "interpretation": "recorded_allocator_residue_not_tensor_retention",
+            "standalone_release_boundary": "runner_subprocess_exit",
+        },
+        "allocator_no_growth": {
+            "contract_version": smoke.DILEMMADATA_CUDA_LIFECYCLE_EVIDENCE_VERSION,
+            "warmup_pass_count": 1,
+            "measured_pass_count": 3,
+            "allocated_bytes_after_pass": [64, 64, 64],
+            "reserved_bytes_after_pass": [128, 128, 128],
+            "max_allocated_growth_bytes": 0,
+            "allocated_no_growth_after_warmup": True,
+            "retained_prediction_tensor_count_after_pass": [0, 0, 0, 0],
+            "tracked_prediction_tensor_count_per_pass": [4, 4, 4, 4],
+            "cleanup_between_passes": (
+                "del_gc_synchronize_empty_cache_synchronize"
+            ),
+            "pass_kind": "identical_no_grad_validation_prediction",
+        },
+    }
+
+
 def _base_report(
     train: dict[str, object],
     validation: dict[str, object],
@@ -698,12 +733,7 @@ def _base_report(
             "actual_head": HEAD,
             "worktree_clean_excluding_output_root": True,
         },
-        "lifecycle": {
-            "tracked_prediction_tensor_count": 12,
-            "retained_prediction_tensor_count": 0,
-            "allocated_bytes_after_cleanup": 0,
-            "retained_cuda_tensor_count": 0,
-        },
+        "lifecycle": _lifecycle_evidence(),
     }
 
 
@@ -894,6 +924,69 @@ def test_report_accepts_both_observed_indexes_with_same_semantics(
     assert validated["bindings"]["observed_target_cache_index_fingerprint"] == (
         observed_index
     )
+
+
+def _allocator_measurement(
+    allocated: int,
+    *,
+    retained: int = 0,
+) -> dict[str, int]:
+    return {
+        "tracked_prediction_tensor_count": 4,
+        "retained_prediction_tensor_count": retained,
+        "allocated_bytes": allocated,
+        "reserved_bytes": 128,
+    }
+
+
+def test_constant_allocator_residue_passes_no_growth_gate() -> None:
+    measurements = iter(_allocator_measurement(64) for _ in range(4))
+    evidence = smoke._allocator_no_growth_evidence(lambda: next(measurements))
+    assert evidence["allocated_bytes_after_pass"] == [64, 64, 64]
+    assert evidence["max_allocated_growth_bytes"] == 0
+
+
+def test_monotonically_growing_allocator_residue_fails_closed() -> None:
+    measurements = iter(
+        _allocator_measurement(value) for value in (64, 64, 65, 66)
+    )
+    with pytest.raises(
+        smoke.DilemmadataSupervisedSmokeError, match="cuda_allocator_growth"
+    ):
+        smoke._allocator_no_growth_evidence(lambda: next(measurements))
+
+
+def test_retained_prediction_in_lifecycle_pass_fails_closed() -> None:
+    measurements = iter(
+        (
+            _allocator_measurement(64),
+            _allocator_measurement(64),
+            _allocator_measurement(64, retained=1),
+            _allocator_measurement(64),
+        )
+    )
+    with pytest.raises(
+        smoke.DilemmadataSupervisedSmokeError,
+        match="allocator_no_growth_evidence_invalid",
+    ):
+        smoke._allocator_no_growth_evidence(lambda: next(measurements))
+
+
+@pytest.mark.parametrize("mutation", ("missing", "old_false_zero_claim"))
+def test_report_rejects_missing_or_malformed_lifecycle_evidence(
+    mutation: str,
+) -> None:
+    train, validation = _memberships()
+    priors, evaluation = _evaluation(train, validation)
+    report = _base_report(train, validation, priors, evaluation)
+    if mutation == "missing":
+        report.pop("lifecycle")
+    else:
+        report["lifecycle"]["retained_cuda_tensor_count"] = 0
+    with pytest.raises(
+        smoke.DilemmadataSupervisedSmokeError, match="lifecycle_evidence_invalid"
+    ):
+        smoke.validate_smoke_report(smoke._with_fingerprint(report))
 
 
 def test_report_accepts_honest_first_scaler_skip_then_applied_updates() -> None:

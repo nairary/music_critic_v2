@@ -18,7 +18,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-from typing import Mapping, Sequence
+from typing import Callable, Mapping, Sequence
 import weakref
 
 import torch
@@ -56,9 +56,10 @@ from music_critic.training.checkpoint import (
 from music_critic.training.device import move_multisource_batch
 
 
-DILEMMADATA_SUPERVISED_SMOKE_CONTRACT_VERSION = "1.3.0"
-DILEMMADATA_SUPERVISED_SMOKE_BUNDLE_VERSION = "1.3.0"
+DILEMMADATA_SUPERVISED_SMOKE_CONTRACT_VERSION = "1.4.0"
+DILEMMADATA_SUPERVISED_SMOKE_BUNDLE_VERSION = "1.4.0"
 DILEMMADATA_AMP_POLICY_VERSION = "1.0.0"
+DILEMMADATA_CUDA_LIFECYCLE_EVIDENCE_VERSION = "1.0.0"
 DILEMMADATA_GRAD_SCALER_GROWTH_FACTOR = 2.0
 DILEMMADATA_GRAD_SCALER_BACKOFF_FACTOR = 0.5
 DILEMMADATA_GRAD_SCALER_GROWTH_INTERVAL = 2000
@@ -448,6 +449,121 @@ def _new_grad_scaler(device_type: str) -> torch.amp.GradScaler:
 
 def _snapshot_scaler_state(scaler: object) -> dict[str, object]:
     return copy.deepcopy(scaler.state_dict())
+
+
+def _validate_allocator_no_growth_evidence(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.allocator_no_growth_evidence_invalid"
+        )
+    allocated = value.get("allocated_bytes_after_pass")
+    reserved = value.get("reserved_bytes_after_pass")
+    retained = value.get("retained_prediction_tensor_count_after_pass")
+    tracked = value.get("tracked_prediction_tensor_count_per_pass")
+    if (
+        value.get("contract_version")
+        != DILEMMADATA_CUDA_LIFECYCLE_EVIDENCE_VERSION
+        or value.get("warmup_pass_count") != 1
+        or value.get("measured_pass_count") != 3
+        or not isinstance(allocated, list)
+        or len(allocated) != 3
+        or not all(
+            isinstance(item, int) and not isinstance(item, bool) and item >= 0
+            for item in allocated
+        )
+        or not isinstance(reserved, list)
+        or len(reserved) != 3
+        or not all(
+            isinstance(item, int) and not isinstance(item, bool) and item >= 0
+            for item in reserved
+        )
+        or not isinstance(retained, list)
+        or len(retained) != 4
+        or any(item != 0 for item in retained)
+        or not isinstance(tracked, list)
+        or len(tracked) != 4
+        or not all(
+            isinstance(item, int) and not isinstance(item, bool) and item > 0
+            for item in tracked
+        )
+        or value.get("cleanup_between_passes")
+        != "del_gc_synchronize_empty_cache_synchronize"
+        or value.get("pass_kind") != "identical_no_grad_validation_prediction"
+    ):
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.allocator_no_growth_evidence_invalid"
+        )
+    max_growth = max(0, max(allocated[1:], default=allocated[0]) - allocated[0])
+    if value.get("max_allocated_growth_bytes") != max_growth:
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.allocator_no_growth_evidence_invalid"
+        )
+    if max_growth != 0 or value.get("allocated_no_growth_after_warmup") is not True:
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.cuda_allocator_growth",
+            f"allocated={allocated},max_growth={max_growth}",
+        )
+    return value
+
+
+def _allocator_no_growth_evidence(
+    measure_pass: Callable[[], Mapping[str, int]],
+) -> dict[str, object]:
+    measurements = [dict(measure_pass()) for _ in range(4)]
+    allocated = [row.get("allocated_bytes", -1) for row in measurements[1:]]
+    reserved = [row.get("reserved_bytes", -1) for row in measurements[1:]]
+    retained = [
+        row.get("retained_prediction_tensor_count", -1) for row in measurements
+    ]
+    tracked = [
+        row.get("tracked_prediction_tensor_count", -1) for row in measurements
+    ]
+    max_growth = (
+        max(0, max(allocated[1:], default=allocated[0]) - allocated[0])
+        if allocated and isinstance(allocated[0], int)
+        else -1
+    )
+    return _validate_allocator_no_growth_evidence(
+        {
+            "contract_version": DILEMMADATA_CUDA_LIFECYCLE_EVIDENCE_VERSION,
+            "warmup_pass_count": 1,
+            "measured_pass_count": 3,
+            "allocated_bytes_after_pass": allocated,
+            "reserved_bytes_after_pass": reserved,
+            "max_allocated_growth_bytes": max_growth,
+            "allocated_no_growth_after_warmup": max_growth == 0,
+            "retained_prediction_tensor_count_after_pass": retained,
+            "tracked_prediction_tensor_count_per_pass": tracked,
+            "cleanup_between_passes": "del_gc_synchronize_empty_cache_synchronize",
+            "pass_kind": "identical_no_grad_validation_prediction",
+        }
+    )
+
+
+def _cuda_prediction_lifecycle_measurement(
+    model: DilemmadataHierarchicalModel,
+    raw_graph_batch: object,
+    device: torch.device,
+) -> dict[str, int]:
+    with torch.no_grad(), torch.amp.autocast(
+        "cuda", enabled=True, dtype=torch.float16
+    ):
+        encoded, predictions = model.predict(raw_graph_batch)
+    references = tuple(weakref.ref(row.logits) for row in predictions)
+    tracked = len(references)
+    del encoded, predictions
+    gc.collect()
+    torch.cuda.synchronize(device)
+    torch.cuda.empty_cache()
+    torch.cuda.synchronize(device)
+    return {
+        "tracked_prediction_tensor_count": tracked,
+        "retained_prediction_tensor_count": sum(
+            reference() is not None for reference in references
+        ),
+        "allocated_bytes": int(torch.cuda.memory_allocated(0)),
+        "reserved_bytes": int(torch.cuda.memory_reserved(0)),
+    }
 
 
 def _dialect(source_record_id: str) -> str:
@@ -1410,7 +1526,11 @@ def _cuda_execution(
     target_semantic_validation: dict[str, object],
     expected_head: str,
     updates: int,
-) -> tuple[dict[str, object], list[weakref.ReferenceType[torch.Tensor]]]:
+) -> tuple[
+    dict[str, object],
+    list[weakref.ReferenceType[torch.Tensor]],
+    dict[str, object],
+]:
     random.seed(DILEMMADATA_SUPERVISED_SMOKE_SEED)
     torch.manual_seed(DILEMMADATA_SUPERVISED_SMOKE_SEED)
     torch.cuda.manual_seed_all(DILEMMADATA_SUPERVISED_SMOKE_SEED)
@@ -1691,6 +1811,11 @@ def _cuda_execution(
             test_unlock=None,
         )
     _write_json_atomic(output_dir / "validation_report.json", validation_report)
+    allocator_no_growth = _allocator_no_growth_evidence(
+        lambda: _cuda_prediction_lifecycle_measurement(
+            reloaded, validation_batches[0].raw_graph_batch, device
+        )
+    )
     peak_allocated = int(torch.cuda.max_memory_allocated(0))
     peak_reserved = int(torch.cuda.max_memory_reserved(0))
     if peak_allocated <= 0 or peak_reserved <= 0:
@@ -1833,7 +1958,7 @@ def _cuda_execution(
             "legacy_used": False,
         },
     }
-    return _with_fingerprint(report), tracked
+    return _with_fingerprint(report), tracked, allocator_no_growth
 
 
 def _validate_production_bindings(
@@ -2022,7 +2147,7 @@ def _run_supervised_smoke_guarded(
         target_cache_config=target_config,
         require_target_sidecars=True,
     )
-    report, tracked = _cuda_execution(
+    report, tracked, allocator_no_growth = _cuda_execution(
         output_dir=output_dir,
         device=device,
         hardware=hardware,
@@ -2041,21 +2166,41 @@ def _run_supervised_smoke_guarded(
     torch.cuda.synchronize(device)
     torch.cuda.empty_cache()
     gc.collect()
+    torch.cuda.synchronize(device)
     retained_predictions = sum(reference() is not None for reference in tracked)
     allocated_end = int(torch.cuda.memory_allocated(0))
-    if retained_predictions or allocated_end:
+    reserved_end = int(torch.cuda.memory_reserved(0))
+    if retained_predictions:
         raise DilemmadataSupervisedSmokeError(
             "dilemmadata.smoke.cuda_tensor_retention",
-            f"predictions={retained_predictions},allocated={allocated_end}",
+            f"predictions={retained_predictions}",
+        )
+    peak_allocated = report["hardware"]["peak_allocated_bytes"]
+    peak_reserved = report["hardware"]["peak_reserved_bytes"]
+    if allocated_end > peak_allocated or reserved_end > peak_reserved:
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.cuda_allocator_measurement_invalid"
         )
     payload = dict(report)
     payload.pop("fingerprint")
     payload["git_preflight"] = git
     payload["lifecycle"] = {
+        "contract_version": DILEMMADATA_CUDA_LIFECYCLE_EVIDENCE_VERSION,
         "tracked_prediction_tensor_count": len(tracked),
         "retained_prediction_tensor_count": retained_predictions,
-        "allocated_bytes_after_cleanup": allocated_end,
-        "retained_cuda_tensor_count": 0,
+        "python_visible_live_cuda_tensors": {
+            "status": "not_safely_bounded_global_gc_scan_omitted",
+            "count": None,
+        },
+        "allocator_residue": {
+            "allocated_bytes_after_cleanup": allocated_end,
+            "reserved_bytes_after_cleanup": reserved_end,
+            "peak_allocated_bytes": peak_allocated,
+            "peak_reserved_bytes": peak_reserved,
+            "interpretation": "recorded_allocator_residue_not_tensor_retention",
+            "standalone_release_boundary": "runner_subprocess_exit",
+        },
+        "allocator_no_growth": allocator_no_growth,
     }
     payload["runtime_access"]["source_access_guard"] = dict(
         source_guard_evidence
@@ -2396,6 +2541,67 @@ def _validate_fp32_head_loss_boundary(value: object) -> dict[str, object]:
     return value
 
 
+def _validate_cuda_lifecycle_evidence(
+    value: object,
+    *,
+    hardware: Mapping[str, object],
+) -> dict[str, object]:
+    if not isinstance(value, dict) or "retained_cuda_tensor_count" in value:
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.lifecycle_evidence_invalid"
+        )
+    python_visible = value.get("python_visible_live_cuda_tensors")
+    residue = value.get("allocator_residue")
+    if (
+        value.get("contract_version")
+        != DILEMMADATA_CUDA_LIFECYCLE_EVIDENCE_VERSION
+        or not isinstance(value.get("tracked_prediction_tensor_count"), int)
+        or isinstance(value.get("tracked_prediction_tensor_count"), bool)
+        or value["tracked_prediction_tensor_count"] <= 0
+        or value.get("retained_prediction_tensor_count") != 0
+        or not isinstance(python_visible, dict)
+        or python_visible
+        != {
+            "status": "not_safely_bounded_global_gc_scan_omitted",
+            "count": None,
+        }
+        or not isinstance(residue, dict)
+    ):
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.lifecycle_evidence_invalid"
+        )
+    allocated_end = residue.get("allocated_bytes_after_cleanup")
+    reserved_end = residue.get("reserved_bytes_after_cleanup")
+    peak_allocated = residue.get("peak_allocated_bytes")
+    peak_reserved = residue.get("peak_reserved_bytes")
+    if (
+        not isinstance(allocated_end, int)
+        or isinstance(allocated_end, bool)
+        or allocated_end < 0
+        or not isinstance(reserved_end, int)
+        or isinstance(reserved_end, bool)
+        or reserved_end < 0
+        or not isinstance(peak_allocated, int)
+        or isinstance(peak_allocated, bool)
+        or peak_allocated <= 0
+        or not isinstance(peak_reserved, int)
+        or isinstance(peak_reserved, bool)
+        or peak_reserved <= 0
+        or allocated_end > peak_allocated
+        or reserved_end > peak_reserved
+        or peak_allocated != hardware.get("peak_allocated_bytes")
+        or peak_reserved != hardware.get("peak_reserved_bytes")
+        or residue.get("interpretation")
+        != "recorded_allocator_residue_not_tensor_retention"
+        or residue.get("standalone_release_boundary") != "runner_subprocess_exit"
+    ):
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.lifecycle_evidence_invalid"
+        )
+    _validate_allocator_no_growth_evidence(value.get("allocator_no_growth"))
+    return value
+
+
 def validate_smoke_report(report: object) -> dict[str, object]:
     payload = _validate_fingerprinted(
         report, category="dilemmadata.smoke.report_fingerprint_mismatch"
@@ -2479,6 +2685,7 @@ def validate_smoke_report(report: object) -> dict[str, object]:
         raise DilemmadataSupervisedSmokeError(
             "dilemmadata.smoke.hardware_evidence_invalid"
         )
+    _validate_cuda_lifecycle_evidence(lifecycle, hardware=hardware)
     if not isinstance(optimization, dict):
         raise DilemmadataSupervisedSmokeError(
             "dilemmadata.smoke.optimization_evidence_invalid"
@@ -2737,11 +2944,7 @@ def validate_smoke_report(report: object) -> dict[str, object]:
             "dilemmadata.smoke.validation_evidence_invalid"
         )
     if (
-        not isinstance(lifecycle, dict)
-        or lifecycle.get("retained_prediction_tensor_count") != 0
-        or lifecycle.get("allocated_bytes_after_cleanup") != 0
-        or lifecycle.get("retained_cuda_tensor_count") != 0
-        or not isinstance(runtime, dict)
+        not isinstance(runtime, dict)
         or runtime.get("source_tsv_path_accepted") is not False
         or runtime.get("raw_adapter_called") is not False
         or runtime.get("alignment_oracle_called") is not False
@@ -3250,6 +3453,7 @@ if __name__ == "__main__":
 
 __all__ = [
     "DILEMMADATA_AMP_POLICY_VERSION",
+    "DILEMMADATA_CUDA_LIFECYCLE_EVIDENCE_VERSION",
     "DILEMMADATA_CUDA_REPLAY_ABSOLUTE_TOLERANCE",
     "DILEMMADATA_CUDA_REPLAY_DIAGNOSTIC_VERSION",
     "DILEMMADATA_CUDA_REPLAY_MINIMUM_COSINE_SIMILARITY",

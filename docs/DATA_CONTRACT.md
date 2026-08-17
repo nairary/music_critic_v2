@@ -4,7 +4,7 @@ Status: **ACCEPTED FOR PHASE 1 IMPLEMENTATION**.
 
 ## Phase 9B.2C evidence-only extension
 
-`DilemmadataSupervisedSmoke@1.3.0` and its sealed bundle `1.3.0` bind the
+`DilemmadataSupervisedSmoke@1.4.0` and its sealed bundle `1.4.0` bind the
 existing production raw semantics, observed target-cache index, split, model contract,
 train/validation memberships, checkpoint, validation report, Git head, and
 RTX execution evidence. They are experiment evidence contracts, not data/model
@@ -22,6 +22,13 @@ Phase 8B public GradScaler transition rule and initial scale `16384`; its
 explicit configuration and exact state are checkpoint/report evidence.
 Independent CUDA logits are replay diagnostic `1.0.0`, not a data or
 scientific fingerprint.
+
+`DilemmadataCudaLifecycleEvidence@1.0.0` distinguishes exact tracked
+prediction-tensor lifetime from CUDA allocator state. Every tracked prediction
+weakref must be dead. End/peak allocated and reserved bytes plus a three-pass
+post-warmup no-growth sequence are recorded; constant allocator residue is
+allowed and is not represented as proof of zero live CUDA tensors. Standalone
+process exit is the allocator release boundary.
 
 The stable target semantic projection is raw index + metadata index + 719
 records + aggregate `TargetBundle` fingerprint + current adapter/cache/registry

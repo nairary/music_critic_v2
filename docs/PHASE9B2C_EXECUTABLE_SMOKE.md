@@ -4,8 +4,8 @@ Status: implemented; independent RTX 3090 execution is pending.
 
 ## Scope and contracts
 
-`DilemmadataSupervisedSmoke@1.3.0` and
-`DilemmadataSupervisedSmokeBundle@1.3.0` provide a bounded, fail-closed
+`DilemmadataSupervisedSmoke@1.4.0` and
+`DilemmadataSupervisedSmokeBundle@1.4.0` provide a bounded, fail-closed
 mechanics gate for the already accepted Phase 9B.2B model and data contracts.
 They do not change the raw projection, canonical cache, target cache, split,
 graph, model-input, head, loss, or evaluation contracts. The model contract
@@ -74,7 +74,7 @@ replay uses this bounded diagnostic. The remaining evidence covers source-entry
 loss reduction, finite losses and gradients, encoder/four-head gradients and
 parameter updates, attempted/applied/skipped counters, checkpoint state and
 SHA, failure-atomic reload, official validation
-metrics, VRAM peaks, and zero retained prediction/CUDA tensors after cleanup.
+metrics, VRAM peaks, and zero retained tracked prediction tensors after cleanup.
 AMP accounting distinguishes attempted, applied, and skipped steps. A public
 scale decrease is a skipped overflow attempt, records bounded offending names,
 and never advances the scheduler. Only finite applied attempts contribute
@@ -155,3 +155,23 @@ module used for the scaler-state snapshot. The import and directly exercised
 deep-copy helper restore already-versioned behavior; contracts and fingerprints
 do not change. Reload, validation, and the independent verifier remain pending,
 so hardware-gate success is not claimed and existing caches need no rebuild.
+
+The RTX attempt at
+`20ba52b7e6fcf961702517d7ed9e467ea57eeea7` completed semantic validation,
+leakage and replay gates, all ten AMP attempts with applied finite updates and
+encoder/four-head changes, exact checkpoint/model/scaler reload, bounded reload
+logits, and official validation. It failed only at the final lifecycle gate:
+all tracked prediction weakrefs were gone, but the live CUDA process retained
+67,108,864 allocator bytes. Treating allocator residue as a retained tensor was
+incorrect; the hardware artifact was not published.
+
+Lifecycle evidence `1.0.0` keeps exact zero retained prediction weakrefs and
+records end/peak allocated and reserved bytes without claiming that all live
+CUDA tensors were globally enumerated. After one warmup, three identical
+no-grad validation prediction passes each delete outputs, collect, synchronize,
+empty the cache, and synchronize again. Their allocated/reserved sequences,
+per-pass weakref counts, and maximum allocated growth are sealed; allocated
+growth must be zero. Constant runtime/workspace residue is explicitly recorded
+and is released when the standalone runner subprocess exits. Smoke/bundle
+advance to `1.4.0`; model, data, cache, graph, and model-input contracts and
+fingerprints do not change.

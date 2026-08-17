@@ -7,9 +7,10 @@
   experiment readiness on branch `phase/9b2c-executable-supervised-smoke`,
   based exactly on merged PR #23 / `origin/main` commit
   `c2dc5f16ea1ea73f0c336fabcd22c586d9c38f82`
-- Supervised-smoke and sealed-bundle contracts: `1.3.0`; CUDA replay diagnostic:
+- Supervised-smoke and sealed-bundle contracts: `1.4.0`; CUDA replay diagnostic:
   `1.0.0`; Dilemmadata model contract: `1.2.0`; FP32 head/loss boundary and
-  AMP policy: `1.0.0`. Independent RTX 3090 execution is pending, so PR #24
+  AMP policy and CUDA lifecycle evidence: `1.0.0`. Independent RTX 3090
+  execution is pending, so PR #24
   remains draft
 - Dilemmadata target cache/index/identity/manifest, four-head head/loss,
   evaluation, encoder transfer and RTX plan contracts: `1.0.0`;
@@ -154,7 +155,7 @@
 ## Phase 9B.2C executable supervised smoke
 
 - Added the committed fail-closed RTX 3090 runner and an independent,
-  source-free directory/tar verifier under contracts `1.3.0`. Inputs are only
+  source-free directory/tar verifier under contracts `1.4.0`. Inputs are only
   the pinned production raw/target indices and caches plus the existing split;
   source TSV conversion and the alignment oracle are guarded and must record
   zero calls.
@@ -162,7 +163,8 @@
   float16 with GradScaler, AdamW `3e-4`, and 10--20 updates. It verifies finite
   source-entry loss/gradients, encoder and exact four-head gradients/updates,
   target-independent raw logits, atomic checkpoint/reload parity, official
-  AN+DLC validation, test lock, VRAM peaks, and zero retained CUDA tensors.
+  AN+DLC validation, test lock, VRAM peaks, and zero retained tracked
+  prediction tensors.
 - Successful evidence publication is unique and atomic, with internal hashes,
   a deterministic regular-file tar, and SHA sidecar. Forged/resealed semantic
   evidence, unsafe/incomplete archives, binding/membership/head/update/reload/
@@ -216,6 +218,17 @@
   declared behavior without contract/fingerprint changes. Reload, validation,
   and independent verification remain unexecuted; hardware success is still
   unclaimed and existing caches do not require rebuilding.
+- RTX attempt `20ba52b7e6fcf961702517d7ed9e467ea57eeea7` completed the full ML
+  path through training, exact checkpoint/model/scaler reload, bounded reload
+  logits, and validation. It failed only at the final lifecycle gate with zero
+  retained prediction weakrefs but 67,108,864 allocated bytes in the still-live
+  CUDA process; no hardware artifact was published. Smoke/bundle `1.4.0` and
+  lifecycle evidence `1.0.0` retain the exact weakref requirement, remove the
+  unproved zero-live-CUDA-tensor claim, record allocator residue and peak/end
+  allocated/reserved bytes, and require zero allocated growth across three
+  identical post-warmup no-grad validation prediction passes with cleanup and
+  synchronization. Process exit remains the standalone CUDA release boundary.
+  Hardware success remains unclaimed and caches need no rebuild.
 - Phase 9B.2B head/loss and data semantics plus the pinned raw index, split,
   cache, graph, and model-input fingerprints remain unchanged. Legacy was not used;
   no long training, scratch-versus-SSL comparison, Phase 9C, PDMX, or Phase 10

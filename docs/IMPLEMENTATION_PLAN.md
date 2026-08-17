@@ -3321,7 +3321,7 @@ Runtime source adapter/oracle entry points are fail-closed guards with zero
 permitted calls. A separate source-free verifier validates directory and tar
 evidence, checkpoint semantics and hashes, memberships/bindings, unsafe archive
 members, and the exact current GPU. Publication is unique and atomic. The
-smoke/bundle contracts are `1.3.0`. Leakage evidence performs one raw
+smoke/bundle contracts are `1.4.0`. Leakage evidence performs one raw
 prediction and both post-prediction target joins against that same immutable
 object. Independent CUDA+AMP and checkpoint-reload logits use finite bounded
 FP32 replay diagnostic `1.0.0`; checkpoint model tensors remain bit-exact. The
@@ -3334,6 +3334,12 @@ advances the scheduler only on applied steps, and requires finite changes in
 the encoder and all four heads plus exact scaler checkpoint restore. Head/loss
 mathematical contracts and all raw/cache/split/graph/model-input contracts
 remain unchanged.
+Lifecycle evidence `1.0.0` requires exact zero tracked prediction weakrefs,
+records allocator end/peak allocated and reserved bytes, and accepts constant
+process residue only when three identical post-warmup no-grad validation
+predictions show zero allocated growth after per-pass cleanup and synchronize.
+It makes no unbounded global live-CUDA-tensor claim; process exit is the
+standalone release boundary.
 Independent RTX execution
 is still required before the draft PR may become ready. This is mechanics
 evidence only and starts neither long training nor Phase 9C/PDMX/Phase 10.

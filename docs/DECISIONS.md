@@ -3053,3 +3053,31 @@ This log is append-only.
   raw/cache/grouping/split/graph/model-input versions and fingerprints remain
   unchanged. No cache rebuild, corpus audit, long training, Phase 9C, PDMX, or
   Phase 10 is authorized.
+
+## 2026-08-17 — ADR-083: CUDA allocator residue is not tensor-retention evidence
+
+- Status: Accepted as the final Phase 9B.2C lifecycle remediation in draft PR
+  #24; independent RTX artifact publication remains pending.
+- Context: RTX attempt `20ba52b7e6fcf961702517d7ed9e467ea57eeea7`
+  completed training, exact checkpoint/model/scaler reload, bounded reload
+  logits, and validation. All tracked prediction weakrefs were dead, but the
+  final gate rejected 67,108,864 allocated bytes in the still-live CUDA
+  process. CUDA runtime/workspace/caching-allocator residue is not itself proof
+  of a retained prediction tensor.
+- Decision: Advance smoke/bundle to `1.4.0` and add
+  `DilemmadataCudaLifecycleEvidence@1.0.0`. Preserve exact zero retained tracked
+  prediction weakrefs. Do not claim zero globally live CUDA tensors without a
+  safe bounded enumeration. Record allocator end/peak allocated and reserved
+  bytes and require end allocated/reserved not to exceed their peaks.
+- Decision: After one warmup, execute three identical no-grad validation
+  predictions. Delete outputs, collect, synchronize, empty the cache, and
+  synchronize between measurements. Record allocated/reserved sequences,
+  tracked/retained weakref counts for every pass, and maximum allocated growth;
+  require zero growth and zero retained prediction weakrefs. Treat subprocess
+  exit as the standalone CUDA-context release boundary.
+- Consequences: Constant allocator residue may pass but monotonic growth,
+  retained prediction tensors, malformed lifecycle evidence, and the old
+  unproved `retained_cuda_tensor_count=0` claim fail closed. The failed SHA did
+  not publish hardware evidence. Model, target, raw/cache/grouping/split/graph/
+  model-input contracts and fingerprints remain unchanged; no rebuild, audit,
+  long training, Phase 9C, PDMX, or Phase 10 is authorized.

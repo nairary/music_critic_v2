@@ -1093,7 +1093,7 @@ only after membership is fixed. Test access remains false. The independent
 verifier reconstructs no source data: it validates the sealed report,
 memberships, checkpoint state, official evaluation, artifact hashes, archive
 safety, exact Git head, and RTX 3090 hardware. The new smoke and bundle
-contracts are `1.3.0`. `DilemmadataHierarchicalModel@1.2.0` separates raw-only
+contracts are `1.4.0`. `DilemmadataHierarchicalModel@1.2.0` separates raw-only
 `predict` from typed post-prediction `supervise`; `forward` composes those two
 without duplicating join/loss semantics. Leakage evidence reuses one immutable
 prediction object for original and mutated targets. Independent CUDA+AMP logits
@@ -1112,6 +1112,15 @@ and total loss remain FP32 without detach or CPU transfer. Its AMP policy
 initial scale `16384`: skipped attempts record bounded overflow evidence and
 do not advance the scheduler; only finite applied attempts establish gradient
 and parameter-update acceptance.
+
+`DilemmadataCudaLifecycleEvidence@1.0.0` treats prediction ownership and the
+CUDA caching allocator as separate observables. All explicitly tracked
+prediction weakrefs must expire. One warmup and three identical no-grad
+validation predictions are cleaned and synchronized independently; allocated
+bytes may retain a constant process/workspace residue but may not grow across
+measured passes. End/peak allocated and reserved bytes are recorded without a
+global live-tensor claim, and the standalone runner process exit releases the
+CUDA context.
 
 ## Incremental research scope
 
