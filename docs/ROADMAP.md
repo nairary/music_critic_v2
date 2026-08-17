@@ -670,7 +670,8 @@ The model and training phases remain pending.
   observed encoder forwards per logical SSL update.
 - Outputs: `plan/profile/run/resume/aggregate/select/verify`, target-blind
   three-source SSL mixture with exact-assignment composition of the two existing
-  split manifests, encoder-only transfer, scratch/pretrained frozen probes and
+  split manifests, an immutable raw-structural eligibility view shared by all
+  SSL variants without repartitioning, encoder-only transfer, scratch/pretrained frozen probes and
   full fine-tunes, fixed-update `last.pt` comparison on the 71-record validation,
   component bootstrap,
   immutable test lock, resumable cells, bundle verifier, plots/tables, and a

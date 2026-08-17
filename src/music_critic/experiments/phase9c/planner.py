@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from collections import Counter
+from fractions import Fraction
 from hashlib import sha256
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -21,6 +23,7 @@ from music_critic.experiments.phase8b2.attestation import (
     resolve_actual_ssl_schedule,
 )
 from music_critic.tasks import (
+    CorpusCacheConfig,
     CorpusIndex,
     SplitManifest,
     create_split_manifest,
@@ -28,6 +31,11 @@ from music_critic.tasks import (
     load_corpus_index,
     load_split_manifest,
     validate_split_manifest,
+)
+from music_critic.ssl.data import (
+    SSL_ELIGIBILITY_MANIFEST_VERSION,
+    SSL_ELIGIBILITY_REQUIRED_POLICIES,
+    load_ssl_eligibility_manifest,
 )
 
 from .contracts import (
@@ -54,6 +62,149 @@ DEFAULT_MIXTURE = {
     "hooktheory": 1.0 / 3.0,
     "pop909_cl": 1.0 / 3.0,
 }
+
+
+def _write_immutable_text(destination: Path, payload: str, *, conflict: str) -> None:
+    if destination.exists():
+        if not destination.is_file() or destination.read_text(encoding="utf-8") != payload:
+            raise Phase9CContractError(conflict)
+        return
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{destination.name}.", suffix=".partial", dir=destination.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            os.link(temporary, destination)
+        except FileExistsError:
+            if destination.read_text(encoding="utf-8") != payload:
+                raise Phase9CContractError(conflict)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _ssl_eligibility_manifest(
+    indices: tuple[CorpusIndex, ...],
+    cache_roots: tuple[str, ...],
+    split_manifest: SplitManifest,
+) -> dict[str, object]:
+    """Bind a target-blind minimum-note eligibility view without repartitioning."""
+
+    if len(indices) != len(cache_roots):
+        raise Phase9CContractError("phase9c.plan.ssl_eligibility_cache_inventory_invalid")
+    assignments = {
+        (row.dataset_id, row.piece_id): row.split
+        for row in split_manifest.assignments
+    }
+    eligible: list[list[str]] = []
+    excluded: list[list[str]] = []
+    eligible_counts: Counter[tuple[str, str]] = Counter()
+    excluded_counts: Counter[tuple[str, str]] = Counter()
+    for index, cache_root in zip(indices, cache_roots, strict=True):
+        cache = CorpusCacheConfig(Path(cache_root))
+        for record in index.records:
+            split = assignments[(record.dataset_id, record.piece_id)]
+            if split not in {"train", "validation"}:
+                continue
+            path = cache.root / cache.namespace / record.canonical_relative_path
+            try:
+                raw = path.read_bytes()
+                if sha256(raw).hexdigest() != record.canonical_sha256:
+                    raise Phase9CContractError(
+                        "phase9c.plan.ssl_eligibility_cache_sha_mismatch"
+                    )
+                value = json.loads(raw)
+            except (OSError, json.JSONDecodeError) as exc:
+                raise Phase9CContractError(
+                    "phase9c.plan.ssl_eligibility_cache_unreadable"
+                ) from exc
+            notes = value.get("notes") if isinstance(value, dict) else None
+            bars = value.get("bars") if isinstance(value, dict) else None
+            if not isinstance(notes, list) or not isinstance(bars, list):
+                raise Phase9CContractError(
+                    "phase9c.plan.ssl_eligibility_structure_invalid"
+                )
+            try:
+                bar_intervals = tuple(
+                    (
+                        Fraction(
+                            int(bar["start_qn"]["num"]),
+                            int(bar["start_qn"]["den"]),
+                        ),
+                        Fraction(
+                            int(bar["start_qn"]["num"]),
+                            int(bar["start_qn"]["den"]),
+                        )
+                        + Fraction(
+                            int(bar["duration_qn"]["num"]),
+                            int(bar["duration_qn"]["den"]),
+                        ),
+                    )
+                    for bar in bars
+                )
+                note_onsets = tuple(
+                    Fraction(
+                        int(note["onset_qn"]["num"]),
+                        int(note["onset_qn"]["den"]),
+                    )
+                    for note in notes
+                )
+            except (KeyError, TypeError, ValueError, ZeroDivisionError) as exc:
+                raise Phase9CContractError(
+                    "phase9c.plan.ssl_eligibility_structure_invalid"
+                ) from exc
+            owners = tuple(
+                tuple(
+                    bar_index
+                    for bar_index, (start, end) in enumerate(bar_intervals)
+                    if start <= onset < end
+                )
+                for onset in note_onsets
+            )
+            if any(len(row) != 1 for row in owners):
+                raise Phase9CContractError(
+                    "phase9c.plan.ssl_eligibility_structure_invalid"
+                )
+            occupied_bars = {row[0] for row in owners}
+            row = [record.dataset_id, record.piece_id]
+            if len(notes) >= 2 and len(occupied_bars) >= 2:
+                eligible.append(row)
+                eligible_counts[(split, record.dataset_id)] += 1
+            else:
+                excluded.append(row)
+                excluded_counts[(split, record.dataset_id)] += 1
+    eligible.sort()
+    excluded.sort()
+    payload: dict[str, object] = {
+        "contract_version": SSL_ELIGIBILITY_MANIFEST_VERSION,
+        "criterion": "primary_hierarchy_policy_structural_eligibility",
+        "minimum_raw_note_count": 2,
+        "minimum_occupied_bar_count": 2,
+        "required_policies": list(SSL_ELIGIBILITY_REQUIRED_POLICIES),
+        "target_or_provenance_access": False,
+        "split_assignments_changed": False,
+        "split_manifest_fingerprint": split_manifest.manifest_fingerprint,
+        "index_fingerprints": [
+            [index.header.dataset_id, index.header.index_fingerprint]
+            for index in sorted(indices, key=lambda item: item.header.dataset_id)
+        ],
+        "eligible_identities": eligible,
+        "excluded_identities": excluded,
+        "eligible_counts": [
+            [split, dataset_id, count]
+            for (split, dataset_id), count in sorted(eligible_counts.items())
+        ],
+        "excluded_counts": [
+            [split, dataset_id, count]
+            for (split, dataset_id), count in sorted(excluded_counts.items())
+        ],
+    }
+    return {**payload, "fingerprint": fingerprint(payload)}
 
 
 def compose_ssl_split_manifest(
@@ -154,30 +305,53 @@ def materialize_ssl_split_manifest(config: Mapping[str, Any]) -> dict[str, Any]:
     composed, evidence = compose_ssl_split_manifest(indices, manifests)
     payload = dumps_split_manifest(composed)
     destination = Path(destination_text)
-    if destination.exists():
-        if not destination.is_file() or destination.read_text(encoding="utf-8") != payload:
-            raise Phase9CContractError("phase9c.plan.ssl_split_destination_conflict")
-    else:
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        descriptor, temporary_name = tempfile.mkstemp(
-            prefix=f".{destination.name}.", suffix=".partial", dir=destination.parent
+    _write_immutable_text(
+        destination,
+        payload,
+        conflict="phase9c.plan.ssl_split_destination_conflict",
+    )
+    cache_roots = tuple(str(path) for path in data.get("ssl_cache_roots", ()))
+    if cache_roots and len(cache_roots) != 3:
+        raise Phase9CContractError(
+            "phase9c.plan.ssl_eligibility_cache_inventory_invalid"
         )
-        temporary = Path(temporary_name)
-        try:
-            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-                handle.write(payload)
-                handle.flush()
-                os.fsync(handle.fileno())
-            try:
-                os.link(temporary, destination)
-            except FileExistsError:
-                if destination.read_text(encoding="utf-8") != payload:
-                    raise Phase9CContractError(
-                        "phase9c.plan.ssl_split_destination_conflict"
-                    )
-        finally:
-            temporary.unlink(missing_ok=True)
     data["ssl_split_composition"] = evidence
+    if cache_roots:
+        eligibility = _ssl_eligibility_manifest(indices, cache_roots, composed)
+        eligibility_destination = Path(
+            str(
+                data.get(
+                    "ssl_eligibility_manifest",
+                    str(destination) + ".eligibility.json",
+                )
+            )
+        )
+        _write_immutable_text(
+            eligibility_destination,
+            json.dumps(
+                eligibility,
+                ensure_ascii=False,
+                allow_nan=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            + "\n",
+            conflict="phase9c.plan.ssl_eligibility_destination_conflict",
+        )
+        data["ssl_eligibility_manifest"] = str(eligibility_destination)
+        data["ssl_eligibility"] = {
+            "fingerprint": eligibility["fingerprint"],
+            "criterion": eligibility["criterion"],
+            "minimum_raw_note_count": eligibility["minimum_raw_note_count"],
+            "minimum_occupied_bar_count": eligibility[
+                "minimum_occupied_bar_count"
+            ],
+            "required_policies": eligibility["required_policies"],
+            "split_assignments_changed": False,
+            "target_or_provenance_access": False,
+            "eligible_counts": eligibility["eligible_counts"],
+            "excluded_counts": eligibility["excluded_counts"],
+        }
     prepared["data"] = data
     return prepared
 
@@ -232,6 +406,7 @@ def _production_data(config: Mapping[str, Any]) -> tuple[
     if len(index_paths) != 3 or len(cache_roots) != 3:
         raise Phase9CContractError("phase9c.plan.ssl_three_sources_required")
     ssl_split_path = str(data.get("ssl_split_manifest", ""))
+    ssl_eligibility_path = str(data.get("ssl_eligibility_manifest", ""))
     downstream_split_path = str(data.get("downstream_split_manifest", ""))
     downstream_raw_index = str(data.get("downstream_raw_index", ""))
     downstream_raw_cache = str(data.get("downstream_raw_cache_root", ""))
@@ -241,6 +416,7 @@ def _production_data(config: Mapping[str, Any]) -> tuple[
         *index_paths,
         *cache_roots,
         ssl_split_path,
+        ssl_eligibility_path,
         downstream_split_path,
         downstream_raw_index,
         downstream_raw_cache,
@@ -257,6 +433,37 @@ def _production_data(config: Mapping[str, Any]) -> tuple[
         raise Phase9CContractError("phase9c.plan.ssl_dataset_inventory_invalid")
     ssl_split = load_split_manifest(ssl_split_path)
     validate_split_manifest(ssl_split, indices)
+    eligible_identities, eligibility_manifest = load_ssl_eligibility_manifest(
+        ssl_eligibility_path
+    )
+    expected_index_fingerprints = [
+        [index.header.dataset_id, index.header.index_fingerprint]
+        for index in sorted(indices, key=lambda item: item.header.dataset_id)
+    ]
+    if (
+        eligibility_manifest.get("split_manifest_fingerprint")
+        != ssl_split.manifest_fingerprint
+        or eligibility_manifest.get("index_fingerprints")
+        != expected_index_fingerprints
+        or eligibility_manifest.get("fingerprint")
+        != data.get("ssl_eligibility", {}).get("fingerprint")
+    ):
+        raise Phase9CContractError(
+            "phase9c.plan.ssl_eligibility_evidence_invalid"
+        )
+    expected_eligibility_population = {
+        (row.dataset_id, row.piece_id)
+        for row in ssl_split.assignments
+        if row.split in {"train", "validation"}
+    }
+    observed_eligibility_population = set(eligible_identities) | {
+        (str(row[0]), str(row[1]))
+        for row in eligibility_manifest["excluded_identities"]
+    }
+    if observed_eligibility_population != expected_eligibility_population:
+        raise Phase9CContractError(
+            "phase9c.plan.ssl_eligibility_coverage_invalid"
+        )
     composition = data.get("ssl_split_composition")
     if (
         not isinstance(composition, Mapping)
@@ -278,6 +485,7 @@ def _production_data(config: Mapping[str, Any]) -> tuple[
             row.piece_id
             for row in index.records
             if (dataset_id, row.piece_id) in train_keys
+            and (dataset_id, row.piece_id) in eligible_identities
         )
         for dataset_id, index in sorted(by_dataset.items())
     }
@@ -319,6 +527,7 @@ def _production_data(config: Mapping[str, Any]) -> tuple[
         ],
         "ssl_split_manifest_fingerprint": ssl_split.manifest_fingerprint,
         "ssl_split_composition": dict(composition),
+        "ssl_eligibility": dict(data["ssl_eligibility"]),
         "downstream_raw_index_fingerprint": downstream_index.header.index_fingerprint,
         "downstream_target_index_sha256": _file_sha256(target_index),
         "downstream_split_manifest_fingerprint": downstream_split.manifest_fingerprint,
@@ -338,6 +547,7 @@ def _production_data(config: Mapping[str, Any]) -> tuple[
         "ssl_index_paths": list(index_paths),
         "ssl_cache_roots": list(cache_roots),
         "ssl_split_manifest": ssl_split_path,
+        "ssl_eligibility_manifest": ssl_eligibility_path,
         "downstream_raw_index": downstream_raw_index,
         "downstream_raw_cache_root": downstream_raw_cache,
         "target_cache_index": target_index,
@@ -452,6 +662,9 @@ def build_experiment_plan(config: Mapping[str, Any]) -> dict[str, object]:
             "index_paths": runtime_paths["ssl_index_paths"],
             "cache_roots": runtime_paths["ssl_cache_roots"],
             "split_manifest": runtime_paths["ssl_split_manifest"],
+            "ssl_eligibility_manifest": runtime_paths[
+                "ssl_eligibility_manifest"
+            ],
             "batch_size": batch_size,
             "workers": 0,
             "mixture_weights": mixture,

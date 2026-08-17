@@ -145,10 +145,18 @@ def _ssl_command(plan: Mapping[str, Any], cell: Mapping[str, object], staging: P
         f"data.epoch_size={batch_size * min(steps, int(preset['downstream_steps_per_epoch']))}",
         "data.validation_epoch_size=0",
         "data.workers=0",
-        "data=mixed",
+        "data=phase9c_mixed",
         f"data.index_paths={_hydra_list(paths['ssl_index_paths'])}",
         f"data.cache_roots={_hydra_list(paths['ssl_cache_roots'])}",
         f"data.split_manifest={paths['ssl_split_manifest']}",
+        *(
+            [
+                "data.ssl_eligibility_manifest="
+                + str(paths["ssl_eligibility_manifest"])
+            ]
+            if paths.get("ssl_eligibility_manifest")
+            else []
+        ),
         "+data.mixture_weights={dilemmadata:0.3333333333333333,hooktheory:0.3333333333333333,pop909_cl:0.3333333333333333}",
         "model=hierarchical",
         "optimizer=adamw",

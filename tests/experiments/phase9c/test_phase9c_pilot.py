@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from dataclasses import replace
 from hashlib import sha256
 import io
 import json
@@ -31,13 +32,16 @@ from music_critic.experiments.phase9c import (
 from music_critic.experiments.phase9c.artifacts import read_json
 from music_critic.experiments.phase9c.contracts import validate_test_lock
 from music_critic.experiments.phase9c.runner import _ssl_command, _validation_command
+from music_critic.ssl.data import IndexedSSLRawDataset, load_ssl_eligibility_manifest
 from music_critic.tasks import (
+    CorpusCacheConfig,
     IndexedCorpusRecord,
     create_split_manifest,
     dumps_corpus_index,
     dumps_split_manifest,
     load_split_manifest,
     make_corpus_index,
+    MultiCorpusDataset,
     validate_split_manifest,
 )
 
@@ -83,6 +87,57 @@ def _manifest(indices, *, seed: int):
         },
         seed=seed,
         policy="existing_fixture_assignment",
+    )
+
+
+def _cached_fixture_index(
+    root: Path,
+    dataset_id: str,
+    rows: tuple[tuple[str, int], ...],
+):
+    base = _fixture_index(dataset_id, tuple(split for split, _ in rows))
+    cache = CorpusCacheConfig(root)
+    records = []
+    for record, (_split, note_count) in zip(base.records, rows, strict=True):
+        value = {
+            "dataset_name": dataset_id,
+            "piece_id": record.piece_id,
+            "bars": [
+                {
+                    "start_qn": {"num": 0, "den": 1},
+                    "duration_qn": {"num": 4, "den": 1},
+                },
+                {
+                    "start_qn": {"num": 4, "den": 1},
+                    "duration_qn": {"num": 4, "den": 1},
+                },
+            ],
+            "notes": [
+                {
+                    "onset_qn": {
+                        "num": 0 if ordinal % 2 == 0 else 4,
+                        "den": 1,
+                    }
+                }
+                for ordinal in range(note_count)
+            ],
+        }
+        raw = json.dumps(
+            value, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        path = cache.root / cache.namespace / record.canonical_relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+        records.append(replace(record, canonical_sha256=sha256(raw).hexdigest()))
+    return make_corpus_index(
+        dataset_id=dataset_id,
+        adapter_name=base.header.adapter_name,
+        adapter_version=base.header.adapter_version,
+        adapter_config_fingerprint=base.header.adapter_config_fingerprint,
+        source_identity=base.header.source_identity,
+        source_fingerprint=base.header.source_fingerprint,
+        creation_policy=base.header.creation_policy,
+        records=tuple(records),
     )
 
 
@@ -138,6 +193,92 @@ def test_ssl_manifest_composition_preserves_assignments_and_holdouts(tmp_path: P
         materialize_ssl_split_manifest(config)
 
 
+def test_ssl_eligibility_excludes_zero_note_record_without_repartitioning(
+    tmp_path: Path,
+) -> None:
+    cache_roots = {
+        dataset_id: tmp_path / f"{dataset_id}-cache"
+        for dataset_id in ("hooktheory", "pop909_cl", "dilemmadata")
+    }
+    hook = _cached_fixture_index(
+        cache_roots["hooktheory"],
+        "hooktheory",
+        (("train", 2), ("validation", 0), ("validation", 2)),
+    )
+    pop = _cached_fixture_index(
+        cache_roots["pop909_cl"],
+        "pop909_cl",
+        (("train", 2), ("validation", 2)),
+    )
+    dilemma = _cached_fixture_index(
+        cache_roots["dilemmadata"],
+        "dilemmadata",
+        (("train", 2), ("validation", 2), ("test", 2)),
+    )
+    source_manifests = (
+        _manifest((hook, pop), seed=11),
+        _manifest((dilemma,), seed=13),
+    )
+    index_paths = []
+    for index in (hook, pop, dilemma):
+        path = tmp_path / f"{index.header.dataset_id}.index.json"
+        path.write_text(dumps_corpus_index(index), encoding="utf-8")
+        index_paths.append(str(path))
+    source_paths = []
+    for ordinal, manifest in enumerate(source_manifests):
+        path = tmp_path / f"source-{ordinal}.split.json"
+        path.write_text(dumps_split_manifest(manifest), encoding="utf-8")
+        source_paths.append(str(path))
+    destination = tmp_path / "all-three.split.json"
+    prepared = materialize_ssl_split_manifest(
+        {
+            "preset": "rtx_profile",
+            "data": {
+                "ssl_index_paths": index_paths,
+                "ssl_cache_roots": [
+                    str(cache_roots[index.header.dataset_id])
+                    for index in (hook, pop, dilemma)
+                ],
+                "ssl_source_split_manifests": source_paths,
+                "ssl_split_manifest": str(destination),
+            },
+        }
+    )
+    identities, evidence = load_ssl_eligibility_manifest(
+        prepared["data"]["ssl_eligibility_manifest"]
+    )
+    empty_identity = ("hooktheory", hook.records[1].piece_id)
+    assert empty_identity not in identities
+    assert ("hooktheory", hook.records[2].piece_id) in identities
+    assert evidence["split_assignments_changed"] is False
+    assert evidence["target_or_provenance_access"] is False
+    composed = load_split_manifest(destination)
+    assert {
+        (row.dataset_id, row.piece_id): row.split
+        for row in composed.assignments
+    } == {
+        (row.dataset_id, row.piece_id): row.split
+        for manifest in source_manifests
+        for row in manifest.assignments
+    }
+    indexed = tuple(
+        IndexedSSLRawDataset(
+            index,
+            cache_config=CorpusCacheConfig(cache_roots[index.header.dataset_id]),
+        )
+        for index in (hook, pop, dilemma)
+    )
+    validation = MultiCorpusDataset(
+        indexed,
+        composed,
+        split="validation",
+        included_identities=identities,
+    )
+    assert empty_identity not in {
+        validation.record_identity(index) for index in range(len(validation))
+    }
+
+
 def test_production_profile_and_run_validation_command_uses_fixed_budget_last(
     tmp_path: Path,
 ) -> None:
@@ -189,6 +330,7 @@ def test_generated_ssl_command_composes_with_official_hydra_cli(tmp_path: Path) 
         "ssl_index_paths": ["/indices/hook.json", "/indices/pop.json", "/indices/dilemma.json"],
         "ssl_cache_roots": ["/cache/hook", "/cache/pop", "/cache/dilemma"],
         "ssl_split_manifest": "/splits/all-three.json",
+        "ssl_eligibility_manifest": "/splits/all-three.eligibility.json",
     }
     generated = _ssl_command(
         plan,
@@ -206,6 +348,10 @@ def test_generated_ssl_command_composes_with_official_hydra_cli(tmp_path: Path) 
     )
     assert result.returncode == 0, result.stderr
     assert any(value.startswith("+data.mixture_weights=") for value in generated)
+    assert (
+        "data.ssl_eligibility_manifest=/splits/all-three.eligibility.json"
+        in generated
+    )
     assert "dilemmadata: 0.3333333333333333" in result.stdout
     assert "hooktheory: 0.3333333333333333" in result.stdout
     assert "pop909_cl: 0.3333333333333333" in result.stdout

@@ -3127,3 +3127,45 @@ This log is append-only.
 - Consequences: No data/model/target/checkpoint-container contract changes and
   no production execution. A skipped update, assignment drift, manifest/index
   mismatch, destination conflict, or non-`last.pt` comparison fails closed.
+
+## 2026-08-18 — ADR-086: Phase 9C-A binds a raw-only structural SSL eligibility view
+
+- Status: Accepted as the minimal production-runtime remediation before a new
+  independent RTX profile. Production execution remains pending.
+- Context: Exact head `2ee853f7dc025b4dedb51817e878682182140604`
+  composed Hydra successfully, then failed in the initial validation pass of
+  `ssl/phase8a_mask_only`. The exact exception fingerprint resolves to
+  HookTheory `piece:hooktheory-ANmpQBZngyM`, whose raw graph has zero note
+  nodes. A fixed hierarchy-policy pass cannot mask that graph while leaving a
+  pitched note visible. Silent policy fallback, replacement sampling, masking
+  all notes, or treating the record as an applied objective would violate the
+  accepted Phase 8A/8B.2 contracts.
+- Decision: Preserve every corpus-index record and every source split
+  assignment exactly. Materialize a separate immutable
+  `phase9c-ssl-eligibility@1.0.0` raw-only identity view, bound to all index and
+  split-manifest fingerprints. A record is eligible for the common paired SSL
+  population only when it contains at least two raw notes occupying at least
+  two canonical bars. This is the structural intersection needed by the
+  scheduled independent, onset, beat, contiguous-bar, and track/bar policies;
+  it reads no target sidecar and uses no label, mask, theory, provenance, or
+  confidence value.
+- Decision: Apply the same eligibility identities to train sampling, fixed SSL
+  validation membership, metadata schedule attestation, and every SSL variant.
+  Equal source weights and deterministic no-replacement cycles operate over
+  each source's eligible train view. Excluded records retain their original
+  train/validation assignment and remain available to unrelated data paths;
+  no record is repartitioned and Dilemmadata validation/test remain excluded
+  from SSL train.
+- Decision: Expose the view only through the new `data=phase9c_mixed` Hydra
+  group. Existing Phase 7/8 `data=mixed` resolved configs and checkpoint data
+  fingerprints remain unchanged. Advance only `Phase9CProtocol` and
+  `Phase9CPlan` to `1.1.0`; the new eligibility artifact starts at `1.0.0`.
+- Consequences: The original failed candidate root and report remain negative
+  evidence. A local full HookTheory+POP909-CL scan found 19,143/2,328 eligible
+  and 1,850/249 excluded train/validation HookTheory records, plus 701/101
+  eligible and zero excluded POP909-CL train/validation records. Production
+  Dilemmadata counts and the final three-source fingerprint are materialized
+  on the RTX host before candidate subprocesses. This changes only the
+  raw-structural SSL-eligible population required to make the predeclared
+  masking schedule executable; downstream Dilemmadata membership, budgets,
+  models, objectives, checkpoints, selection, and test lock are unchanged.

@@ -2,14 +2,13 @@
 
 ## Current phase
 
-- Date: 2026-08-17
+- Date: 2026-08-18
 - Current task: Phase 9C-A executable one-seed SSL → Dilemmadata production
   pilot on branch `phase/9c-one-seed-ssl-dilemmadata-pilot`, based exactly on
   merged PR #24 / `origin/main` commit
   `96b9059`
-- Phase 9C-A protocol, split composition, fixed-budget comparison, profile,
-  artifact and test-lock
-  contracts: `1.0.0`; seed: 17; primary variants: scratch, Phase 7A control,
+- Phase 9C-A protocol and plan: `1.1.0`; eligibility artifact, artifact,
+  profile, selection and test-lock contracts: `1.0.0`; seed: 17; primary variants: scratch, Phase 7A control,
   Phase 8A mask-only, and Phase 8B multilevel-equal; observed SSL compute:
   12 encoder forwards per logical update
 - Local bounded fixture DAG is implemented and passing. Independent RTX 3090
@@ -203,8 +202,24 @@
   override. The generated command now uses the official accepted
   `+data.mixture_weights={...}` form. A no-candidate profile returns nonzero,
   prints no completion marker, and preserves candidate roots plus report.
-- Focused Phase 9C tests pass `13 passed`; the focused Hydra/runtime subset
-  passes `4 passed`; bounded public CLI plan/run/verify
+- The next exact-head RTX attempt passed Hydra composition but failed during
+  initial validation of `ssl/phase8a_mask_only` with
+  `phase8a.hierarchy.no_available_policy:78c952...`. The hash reproduces
+  exactly for HookTheory `piece:hooktheory-ANmpQBZngyM`, which has zero raw
+  notes. Phase 9C now materializes an immutable raw-only structural eligibility
+  view requiring at least two raw notes in at least two canonical bars and
+  applies it identically to every SSL train schedule and validation membership.
+  Indices and source split assignments remain unchanged; no fallback policy or
+  replacement sample is introduced. The Phase 9C-only `data=phase9c_mixed`
+  group leaves historical `data=mixed` configs unchanged.
+- A local complete HookTheory+POP909-CL metadata scan records HookTheory
+  eligible/excluded train counts 19,143/1,850 and validation counts 2,328/249;
+  POP909-CL records 701/0 train and 101/0 validation. It excludes the exact
+  failed identity. The three-source eligibility fingerprint and Dilemmadata
+  counts will be materialized on the RTX host before the next candidate.
+- Focused Phase 9C tests pass `14 passed`; the focused SSL/Phase 8B.2/Phase 9C
+  subset passes `48 passed, 1 skipped, 1 deselected` after the unchanged
+  positive-worker sandbox test is excluded; bounded public CLI plan/run/verify
   completed with 24 immutable cells and 281 verified regular files. This is
   fixture mechanics evidence only. The failed profile is diagnostic evidence,
   not a completed profile; the production pilot was not run.

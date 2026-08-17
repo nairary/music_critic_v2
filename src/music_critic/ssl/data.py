@@ -6,6 +6,8 @@ import copy
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import asdict, dataclass
+from hashlib import sha256
+import json
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +53,89 @@ from music_critic.training.data import ValidationMembership
 
 class SSLDataError(ValueError):
     """Raised when the target-free SSL data boundary is violated."""
+
+
+SSL_ELIGIBILITY_MANIFEST_VERSION = "phase9c-ssl-eligibility@1.0.0"
+SSL_ELIGIBILITY_REQUIRED_POLICIES = (
+    "independent_note_pitch",
+    "onset_pitch_descendants",
+    "beat_pitch_descendants",
+    "contiguous_bar_pitch_span",
+    "track_bar_pitch_span",
+)
+
+
+def _eligibility_fingerprint(payload: dict[str, object]) -> str:
+    return sha256(
+        json.dumps(
+            payload,
+            ensure_ascii=False,
+            allow_nan=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def load_ssl_eligibility_manifest(
+    path: str | Path,
+) -> tuple[frozenset[tuple[str, str]], dict[str, object]]:
+    """Load the raw-only identity allowlist used by Phase 9C SSL."""
+
+    try:
+        value = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SSLDataError("ssl.data.eligibility_manifest_unreadable") from exc
+    if not isinstance(value, dict):
+        raise SSLDataError("ssl.data.eligibility_manifest_invalid")
+    payload = dict(value)
+    observed = payload.pop("fingerprint", None)
+    if (
+        payload.get("contract_version") != SSL_ELIGIBILITY_MANIFEST_VERSION
+        or payload.get("criterion")
+        != "primary_hierarchy_policy_structural_eligibility"
+        or payload.get("minimum_raw_note_count") != 2
+        or payload.get("minimum_occupied_bar_count") != 2
+        or payload.get("required_policies")
+        != list(SSL_ELIGIBILITY_REQUIRED_POLICIES)
+        or payload.get("target_or_provenance_access") is not False
+        or payload.get("split_assignments_changed") is not False
+        or observed != _eligibility_fingerprint(payload)
+    ):
+        raise SSLDataError("ssl.data.eligibility_manifest_invalid")
+    rows = payload.get("eligible_identities")
+    if not isinstance(rows, list):
+        raise SSLDataError("ssl.data.eligibility_manifest_invalid")
+    identities: list[tuple[str, str]] = []
+    for row in rows:
+        if (
+            not isinstance(row, list)
+            or len(row) != 2
+            or not all(isinstance(item, str) and item for item in row)
+        ):
+            raise SSLDataError("ssl.data.eligibility_manifest_invalid")
+        identities.append((row[0], row[1]))
+    if identities != sorted(identities) or len(identities) != len(set(identities)):
+        raise SSLDataError("ssl.data.eligibility_manifest_invalid")
+    excluded = payload.get("excluded_identities")
+    if not isinstance(excluded, list):
+        raise SSLDataError("ssl.data.eligibility_manifest_invalid")
+    excluded_identities: list[tuple[str, str]] = []
+    for row in excluded:
+        if (
+            not isinstance(row, list)
+            or len(row) != 2
+            or not all(isinstance(item, str) and item for item in row)
+        ):
+            raise SSLDataError("ssl.data.eligibility_manifest_invalid")
+        excluded_identities.append((row[0], row[1]))
+    if (
+        excluded_identities != sorted(excluded_identities)
+        or len(excluded_identities) != len(set(excluded_identities))
+        or set(identities) & set(excluded_identities)
+    ):
+        raise SSLDataError("ssl.data.eligibility_manifest_invalid")
+    return frozenset(identities), value
 
 
 @dataclass(frozen=True, slots=True)
@@ -482,11 +567,48 @@ def _corpus_runtime(config: object, seed: int) -> SSLDataRuntime:
         )
     )
     manifest = load_split_manifest(config.split_manifest)
+    eligibility_path = str(
+        getattr(config, "ssl_eligibility_manifest", "")
+    )
+    included_identities = None
+    eligibility_evidence: dict[str, object] | None = None
+    if eligibility_path:
+        included_identities, eligibility_evidence = (
+            load_ssl_eligibility_manifest(eligibility_path)
+        )
+        expected_indices = [
+            [index.header.dataset_id, index.header.index_fingerprint]
+            for index in sorted(indices, key=lambda item: item.header.dataset_id)
+        ]
+        if (
+            eligibility_evidence.get("split_manifest_fingerprint")
+            != manifest.manifest_fingerprint
+            or eligibility_evidence.get("index_fingerprints")
+            != expected_indices
+        ):
+            raise SSLDataError("ssl.data.eligibility_manifest_binding_mismatch")
+        expected_population = {
+            (row.dataset_id, row.piece_id)
+            for row in manifest.assignments
+            if row.split in {config.train_split, config.validation_split}
+        }
+        observed_population = set(included_identities) | {
+            (str(row[0]), str(row[1]))
+            for row in eligibility_evidence["excluded_identities"]
+        }
+        if observed_population != expected_population:
+            raise SSLDataError("ssl.data.eligibility_manifest_coverage_mismatch")
     train = MultiCorpusDataset(
-        indexed, manifest, split=config.train_split
+        indexed,
+        manifest,
+        split=config.train_split,
+        included_identities=included_identities,
     )
     validation = MultiCorpusDataset(
-        indexed, manifest, split=config.validation_split
+        indexed,
+        manifest,
+        split=config.validation_split,
+        included_identities=included_identities,
     )
     train_sources, train_lineages = _selected_groups(train)
     validation_sources, validation_lineages = _selected_groups(
@@ -565,6 +687,11 @@ def _corpus_runtime(config: object, seed: int) -> SSLDataRuntime:
             "train": asdict(dataset_view_report(train)),
             "validation": asdict(dataset_view_report(validation)),
             "validation_membership": asdict(membership),
+            **(
+                {"ssl_eligibility": eligibility_evidence}
+                if eligibility_evidence is not None
+                else {}
+            ),
         },
     )
 
@@ -578,7 +705,13 @@ def build_ssl_data_runtime(
 
     if config.name == "bounded":
         return _bounded_runtime(config, seed)
-    if config.name in {"hooktheory", "pop909_cl", "dilemmadata", "mixed"}:
+    if config.name in {
+        "hooktheory",
+        "pop909_cl",
+        "dilemmadata",
+        "mixed",
+        "phase9c_mixed",
+    }:
         return _corpus_runtime(config, seed)
     raise SSLDataError(f"ssl.data.unknown:{config.name}")
 
@@ -710,8 +843,11 @@ __all__ = [
     "SSLDataRuntime",
     "SSLRawSample",
     "IndexedSSLRawDataset",
+    "SSL_ELIGIBILITY_MANIFEST_VERSION",
+    "SSL_ELIGIBILITY_REQUIRED_POLICIES",
     "build_ssl_data_runtime",
     "collate_ssl_samples",
+    "load_ssl_eligibility_manifest",
     "move_ssl_batch",
     "strip_multisource_batch",
     "validate_ssl_batch",

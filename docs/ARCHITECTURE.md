@@ -1130,7 +1130,8 @@ not a new encoder, trainer, evaluator, cache, or target implementation:
 ```text
 existing HookTheory+POP909-CL and Dilemmadata split manifests
   -> exact-assignment common manifest validated against three raw indices
-  -> three train-only raw indices
+  -> immutable raw-structural SSL eligibility view
+  -> three train-only eligible raw views
   -> deterministic source-balanced SSL schedule
   -> Phase 8B 12-forward matched SSL cell
   -> encoder-only export
@@ -1150,6 +1151,16 @@ uses an export of the paired untrained hierarchical encoder; scratch-full uses
 the same initialization seed without transfer. Pretrained cells load only the
 accepted encoder prefixes. Every optimizer, scheduler, scaler, and four-head
 set is fresh.
+
+The Phase 9C-only eligibility view is fingerprint-bound to the unchanged
+indices and composed split manifest. It admits records with at least two raw
+notes in at least two canonical bars, the common structural minimum for every
+scheduled control/hierarchy policy. It is applied identically to train
+sampling and SSL validation for every variant. Excluded identities retain
+their source split assignments; the view uses no targets or theory fields and
+does not silently substitute a mask policy or replacement sample. Historical
+`data=mixed` behavior is unchanged; only `data=phase9c_mixed` consumes this
+view.
 
 Each DAG cell executes in a staging directory and is published by atomic
 rename with a content manifest. Resume rechecks the protocol and cell
