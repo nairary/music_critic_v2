@@ -12,10 +12,10 @@
     "src/music_critic/data/schema.py": "b4abb10bd813bae4c04370fbd5e1d68752a97a9cbd6aa3d7f7a9e9c6f1bc49e8",
     "src/music_critic/graph/builder.py": "ccf423169631d4bb12295b92b4403625902eb1ded9478165f2ebc23d836fab65",
     "src/music_critic/graph/validation.py": "8de80cbf5929507da727293751aaba723d4256a5bc65aa0309b968873ffafa99",
-    "src/music_critic/tasks/alignment.py": "73ee0ae18cf7c4f95970c2344ba9b7103a205d19f05795db2ac3ab366d65f1a6",
-    "src/music_critic/tasks/collator.py": "7aa478efc96619a007d46f2a6546e4055b2d10172f273c571d08d6c3fb345b5f",
+    "src/music_critic/tasks/alignment.py": "893306c140e6b5276ce571d043e5a2368de3ef4480331e453e6785ded6818203",
+    "src/music_critic/tasks/collator.py": "2c60ea5a1a85d4b9c72d8f20c7aa81554d21356d8583a320be25477912f77446",
     "src/music_critic/tasks/encoding.py": "28e88dab2ef02b65460b792df3576da9ad8ae904af99dd44f221c54d494fc41a",
-    "src/music_critic/tasks/multisource.py": "a158e9ea0cca3874cfdb3e9e0381182376f2fd446b7063c290ccc1f2bb3997b5",
+    "src/music_critic/tasks/multisource.py": "90073986ba52b5369b027ed11582774247d3153c967891a45152a66eff31a867",
     "src/music_critic/tasks/ontology.py": "c91b6724e71b4062d7e6132cf14175d4164c347fc57fa072972d85f20bb7a7a4",
     "tests/fixtures/hooktheory/golden_manifest.json": "a051f9ddc5ea7047200a1f94b2db6b1d3deb2ab15a2284827c704fb7681b1d0e",
     "tests/fixtures/pop909_cl/production_manifest.json": "bc9c4118c72cb39bc1393fd2d250db577835a837fc53f8fe8c1238c7b13a8031"

@@ -188,7 +188,9 @@
   audit `--check` semantic fingerprint
   `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`;
   target audit `--check` fingerprint
-  `a971ff0daf8d5a442beaa3365ec8c43ca9368f07baab4a1102927977f6ebdd05`.
+  `a971ff0daf8d5a442beaa3365ec8c43ca9368f07baab4a1102927977f6ebdd05`;
+  regenerated bounded multisource audit fingerprint
+  `0302b361fcd7b08d3791d173bed4ab136d2272c1a39fefba6c7b9100940a9b3d`.
 - Legacy was neither inspected nor reused. Phase 9C, PDMX, critic score, PLL,
   Phase 10 and merge are outside this task.
 

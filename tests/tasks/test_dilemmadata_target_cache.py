@@ -277,8 +277,8 @@ def test_lazy_sidecar_workers_are_identical_without_source_or_oracle_access(
         )
         signatures.append(tuple(_batch_signature(batch) for batch in loader))
     assert signatures[0] == signatures[1]
-    assert all(
-        task.startswith("dilemmadata.")
+    available_task_ids = {
+        item.task_id
         for batch in DataLoader(
             dataset,
             batch_size=2,
@@ -286,7 +286,13 @@ def test_lazy_sidecar_workers_are_identical_without_source_or_oracle_access(
             num_workers=0,
             collate_fn=collate_multisource_samples,
         )
-        for task in (item.task_id for item in batch.target_batches)
+        for item in batch.target_batches
+        if bool(item.availability_mask.any())
+    }
+    assert available_task_ids
+    assert all(
+        task_id.startswith("dilemmadata.")
+        for task_id in available_task_ids
     )
 
 
