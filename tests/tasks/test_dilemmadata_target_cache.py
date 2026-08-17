@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from hashlib import sha256
 import json
@@ -10,6 +11,7 @@ from torch.utils.data import DataLoader
 
 from music_critic.adapters import dilemmadata as raw_adapter_module
 from music_critic.adapters import dilemmadata_targets as target_adapter_module
+from music_critic.tasks import dilemmadata_cache as target_cache_module
 from music_critic.graph import (
     graph_fingerprint,
     graph_to_dict,
@@ -175,6 +177,55 @@ def test_target_cache_fails_closed_on_stale_raw_index_and_corruption(
         load_dilemmadata_target_bundle(record, target_config)
     assert corrupt.value.category == (
         "dilemmadata.target_cache.artifact_fingerprint_mismatch"
+    )
+
+
+def test_self_consistent_physical_indexes_share_semantic_projection(
+    tmp_path: Path,
+) -> None:
+    _, _, raw_index, target_config, target_index, _ = _build(tmp_path)
+    original = check_dilemmadata_target_cache(
+        target_index,
+        raw_index=raw_index,
+        cache_config=target_config,
+    )
+    rewritten_records = []
+    for record in target_index.records:
+        artifact = (
+            target_config.root
+            / target_config.namespace
+            / record.artifact_relative_path
+        )
+        payload = artifact.read_bytes() + b"\n"
+        artifact.write_bytes(payload)
+        rewritten_records.append(
+            replace(record, artifact_sha256=sha256(payload).hexdigest())
+        )
+    provisional = object.__new__(type(target_index))
+    for name, value in (
+        ("index_version", target_index.index_version),
+        ("cache_version", target_index.cache_version),
+        ("dataset_id", target_index.dataset_id),
+        ("raw_index_fingerprint", target_index.raw_index_fingerprint),
+        ("metadata_index_fingerprint", target_index.metadata_index_fingerprint),
+        ("records", tuple(rewritten_records)),
+        ("index_fingerprint", ""),
+    ):
+        object.__setattr__(provisional, name, value)
+    rewritten_index = replace(
+        target_index,
+        records=tuple(rewritten_records),
+        index_fingerprint=target_cache_module._target_index_fingerprint(provisional),
+    )
+    rewritten = check_dilemmadata_target_cache(
+        rewritten_index,
+        raw_index=raw_index,
+        cache_config=target_config,
+    )
+    assert rewritten_index.index_fingerprint != target_index.index_fingerprint
+    assert rewritten["record_count"] == len(target_index.records)
+    assert rewritten["target_bundle_fingerprint"] == (
+        original["target_bundle_fingerprint"]
     )
 
 

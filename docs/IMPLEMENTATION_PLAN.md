@@ -3321,7 +3321,7 @@ Runtime source adapter/oracle entry points are fail-closed guards with zero
 permitted calls. A separate source-free verifier validates directory and tar
 evidence, checkpoint semantics and hashes, memberships/bindings, unsafe archive
 members, and the exact current GPU. Publication is unique and atomic. The
-smoke/bundle contracts are `1.0.0`; accepted Phase 9B.2B and all raw/cache/
+smoke/bundle contracts are `1.1.0`; accepted Phase 9B.2B and all raw/cache/
 split/graph/model-input contracts remain unchanged. Independent RTX execution
 is still required before the draft PR may become ready. This is mechanics
 evidence only and starts neither long training nor Phase 9C/PDMX/Phase 10.

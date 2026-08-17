@@ -1081,7 +1081,9 @@ effectiveness comparison.
 
 The Phase 9B.2C runner composes the existing cached dataset, four-head model,
 source-entry loss, checkpoint, and evaluator without changing them. It pins
-the exact production index/split/model fingerprints and accepts no source TSV.
+the exact production raw/metadata/aggregate semantics, split/model fingerprints
+and accepts no source TSV. A complete source-free pass checks all 719 target
+records, artifact SHA-256 values, bundles, and current contracts.
 Raw-adapter and alignment-oracle entry points are installed as fail-closed
 guards, with zero calls required in sealed evidence.
 
@@ -1091,7 +1093,10 @@ only after membership is fixed. Test access remains false. The independent
 verifier reconstructs no source data: it validates the sealed report,
 memberships, checkpoint state, official evaluation, artifact hashes, archive
 safety, exact Git head, and RTX 3090 hardware. The new smoke and bundle
-contracts are `1.0.0`; all Phase 9B.2B model/data contracts remain unchanged.
+contracts are `1.1.0`; all Phase 9B.2B model/data contracts remain unchanged.
+The observed target-index fingerprint is a strict run/resume/evaluation
+binding, while cross-host semantic acceptance is determined by the stronger
+full-cache projection above.
 
 ## Incremental research scope
 

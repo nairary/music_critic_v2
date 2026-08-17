@@ -4,13 +4,19 @@ Status: **ACCEPTED FOR PHASE 1 IMPLEMENTATION**.
 
 ## Phase 9B.2C evidence-only extension
 
-`DilemmadataSupervisedSmoke@1.0.0` and its sealed bundle `1.0.0` bind the
-existing production raw index, target-cache index, split, model contract,
+`DilemmadataSupervisedSmoke@1.1.0` and its sealed bundle `1.1.0` bind the
+existing production raw semantics, observed target-cache index, split, model contract,
 train/validation memberships, checkpoint, validation report, Git head, and
 RTX execution evidence. They are experiment evidence contracts, not data/model
 input contracts. Phase 9B.2B target-cache/BatchTarget semantics and every raw
 projection, canonical cache, split, graph, and model-input byte/version remain
 unchanged.
+
+The stable target semantic projection is raw index + metadata index + 719
+records + aggregate `TargetBundle` fingerprint + current adapter/cache/registry
+contracts. The target-index fingerprint is separately retained as an exact
+physical checkpoint/resume/evaluation binding after full record, artifact-SHA,
+and bundle verification; it is not a universal cross-host semantic identity.
 
 ## Phase 9B.2B target-cache and batch extension
 

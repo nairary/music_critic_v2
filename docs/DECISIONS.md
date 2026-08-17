@@ -2965,3 +2965,31 @@ This log is append-only.
   Phase 9B.2B raw, target-cache, BatchTarget, model, loss, evaluation, split,
   graph or model-input contract/version/fingerprint. No long training,
   scratch-versus-SSL conclusion, Phase 9C, PDMX, or Phase 10 is authorized.
+
+## 2026-08-17 — ADR-080: Target semantics and physical index identity are separate smoke bindings
+
+- Status: Accepted as the minimal Phase 9B.2C RTX unblock in draft PR #24.
+- Context: Independent local and RTX production builds contain the same raw
+  index, 719 records, metadata index and aggregate `TargetBundle` projection,
+  but their self-consistent target-index fingerprints are respectively
+  `76feee8d128cc3c5dd1a5b261599df89ef241baa21d82b3c24202a11218beea4`
+  and `02fcf7eb03adda2962ade7223924e0fe44483e4900097bd33f50bf93b68d862a`.
+  Treating either physical observation as universal blocks execution without
+  improving corruption or semantic-mutation detection.
+- Decision: Advance smoke/evidence bundle contracts to `1.1.0`. Pin production
+  semantics to raw index, metadata index, record count 719, aggregate bundle
+  fingerprint and current target adapter/cache/registry contracts. Before
+  training, run the existing source-free full-cache checker over the index
+  self-fingerprint, coverage and every record, artifact SHA and decoded bundle
+  identity/fingerprint. Accept any index that passes those checks and the
+  stable semantic projection.
+- Decision: Record the exact observed target-index fingerprint in the run
+  report, checkpoint data bindings, reload and validation evidence. Require an
+  exact match for resume/evaluation; never weaken artifact, record, raw,
+  metadata or bundle checks. Keep both observed physical fingerprints in
+  provenance and defer the broader cross-host portability root-cause audit.
+- Consequences: The existing 719 target artifacts are reusable without rebuild.
+  Phase 9B.2B target-cache/adapter/registry versions and raw index/cache,
+  grouping, split, graph and model-input semantics remain unchanged. The PR
+  remains draft until the bounded RTX smoke passes; Phase 9C remains out of
+  scope.

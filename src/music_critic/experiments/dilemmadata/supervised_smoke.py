@@ -37,7 +37,9 @@ from music_critic.models import (
 from music_critic.tasks import (
     CorpusCacheConfig,
     DilemmadataTargetCacheConfig,
+    DilemmadataTargetCacheError,
     IndexedMultiSourceDataset,
+    check_dilemmadata_target_cache,
     collate_multisource_samples,
     load_corpus_index,
     load_dilemmadata_target_bundle,
@@ -51,8 +53,8 @@ from music_critic.training.checkpoint import (
 from music_critic.training.device import move_multisource_batch
 
 
-DILEMMADATA_SUPERVISED_SMOKE_CONTRACT_VERSION = "1.0.0"
-DILEMMADATA_SUPERVISED_SMOKE_BUNDLE_VERSION = "1.0.0"
+DILEMMADATA_SUPERVISED_SMOKE_CONTRACT_VERSION = "1.1.0"
+DILEMMADATA_SUPERVISED_SMOKE_BUNDLE_VERSION = "1.1.0"
 DILEMMADATA_SUPERVISED_SMOKE_PHASE = "9B.2C"
 DILEMMADATA_SUPERVISED_SMOKE_SEED = 17
 DILEMMADATA_SUPERVISED_SMOKE_UPDATES = 10
@@ -60,8 +62,26 @@ DILEMMADATA_SUPERVISED_SMOKE_LEARNING_RATE = 3e-4
 DILEMMADATA_SUPERVISED_SMOKE_RAW_INDEX_FINGERPRINT = (
     "c0451976b6b6eab88cb90aa6c47d6afdba1b81ce9b588f0f84daa846154adb0e"
 )
-DILEMMADATA_SUPERVISED_SMOKE_TARGET_INDEX_FINGERPRINT = (
+DILEMMADATA_SUPERVISED_SMOKE_LOCAL_TARGET_INDEX_FINGERPRINT = (
     "76feee8d128cc3c5dd1a5b261599df89ef241baa21d82b3c24202a11218beea4"
+)
+# Backward-compatible observed-value alias. It is never an acceptance allowlist.
+DILEMMADATA_SUPERVISED_SMOKE_TARGET_INDEX_FINGERPRINT = (
+    DILEMMADATA_SUPERVISED_SMOKE_LOCAL_TARGET_INDEX_FINGERPRINT
+)
+DILEMMADATA_SUPERVISED_SMOKE_RTX_TARGET_INDEX_FINGERPRINT = (
+    "02fcf7eb03adda2962ade7223924e0fe44483e4900097bd33f50bf93b68d862a"
+)
+DILEMMADATA_SUPERVISED_SMOKE_OBSERVED_TARGET_INDEX_FINGERPRINTS = (
+    DILEMMADATA_SUPERVISED_SMOKE_LOCAL_TARGET_INDEX_FINGERPRINT,
+    DILEMMADATA_SUPERVISED_SMOKE_RTX_TARGET_INDEX_FINGERPRINT,
+)
+DILEMMADATA_SUPERVISED_SMOKE_TARGET_METADATA_FINGERPRINT = (
+    "41e15e1d2edb1c52ad3ca90acf782bec7c26bfb042fea51dc805d6f86b52d0a7"
+)
+DILEMMADATA_SUPERVISED_SMOKE_TARGET_RECORD_COUNT = 719
+DILEMMADATA_SUPERVISED_SMOKE_TARGET_BUNDLE_AGGREGATE_FINGERPRINT = (
+    "939ad5b871db28fefd76e47d56243ac2109a8bb01d57c6391f424ae943159072"
 )
 DILEMMADATA_SUPERVISED_SMOKE_SPLIT_FINGERPRINT = (
     "58ac7720f65f7fd3102248fb39d89291a78d65c06fc2ab9a16d78a6ee1666a3e"
@@ -70,6 +90,19 @@ DILEMMADATA_SUPERVISED_SMOKE_MODEL_FINGERPRINT = (
     "8543cd469da752a73716be6c453a2a4b7a45bb87cde323504f2fd4139bae7c78"
 )
 DILEMMADATA_SUPERVISED_SMOKE_GPU_NAME = "NVIDIA GeForce RTX 3090"
+
+_TARGET_CONTRACT_VERSIONS = {
+    "target_cache": "1.0.0",
+    "target_cache_index": "1.0.0",
+    "target_cache_identity": "1.0.0",
+    "target_adapter": "1.1.0",
+    "target_sidecar": "1.0.0",
+    "raw_alignment_evidence": "1.1.0",
+    "source_native_family_registry": "1.0.0",
+    "target_encoding_registry": "1.0.0",
+    "target_alignment_rules": "1.0.0",
+    "target_bundle": "1.0.0",
+}
 
 _ENCODER_PREFIXES = (
     "local_baseline.encoder.",
@@ -904,6 +937,7 @@ def _cuda_execution(
     train_membership: dict[str, object],
     validation_membership: dict[str, object],
     bindings: dict[str, object],
+    target_semantic_validation: dict[str, object],
     expected_head: str,
     updates: int,
 ) -> tuple[dict[str, object], list[weakref.ReferenceType[torch.Tensor]]]:
@@ -1170,6 +1204,7 @@ def _cuda_execution(
             "peak_reserved_bytes": peak_reserved,
         },
         "bindings": bindings,
+        "target_semantic_validation": target_semantic_validation,
         "model_contract_fingerprint": model_fingerprint,
         "active_task_ids": list(DILEMMADATA_ACTIVE_TASK_IDS),
         "excluded_supervision": {
@@ -1210,8 +1245,8 @@ def _cuda_execution(
             "sha256": checkpoint_sha,
             "model_contract_fingerprint": model_fingerprint,
             "raw_index_fingerprint": bindings["raw_index_fingerprint"],
-            "target_cache_index_fingerprint": bindings[
-                "target_cache_index_fingerprint"
+            "observed_target_cache_index_fingerprint": bindings[
+                "observed_target_cache_index_fingerprint"
             ],
             "split_manifest_fingerprint": bindings["split_manifest_fingerprint"],
             "active_task_ids": list(DILEMMADATA_ACTIVE_TASK_IDS),
@@ -1242,6 +1277,9 @@ def _cuda_execution(
             "selection_uses_labels": False,
             "replacement": False,
             "train_only_baseline_fingerprint": train_priors["fingerprint"],
+            "observed_target_cache_index_fingerprint": bindings[
+                "observed_target_cache_index_fingerprint"
+            ],
             "test_split_accessed": False,
             "test_targets_accessed": False,
             "test_metrics_computed": False,
@@ -1280,24 +1318,28 @@ def _cuda_execution(
 
 
 def _validate_production_bindings(
-    raw_index: object, target_index: object, split_manifest: object
-) -> dict[str, object]:
+    raw_index: object,
+    target_index: object,
+    target_cache_config: DilemmadataTargetCacheConfig,
+    split_manifest: object,
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Validate stable semantics, then retain the exact physical index binding."""
+
     bindings = {
         "raw_index_fingerprint": raw_index.header.index_fingerprint,
-        "target_cache_index_fingerprint": target_index.index_fingerprint,
+        "observed_target_cache_index_fingerprint": target_index.index_fingerprint,
         "split_manifest_fingerprint": split_manifest.manifest_fingerprint,
     }
-    expected = {
-        "raw_index_fingerprint": DILEMMADATA_SUPERVISED_SMOKE_RAW_INDEX_FINGERPRINT,
-        "target_cache_index_fingerprint": (
-            DILEMMADATA_SUPERVISED_SMOKE_TARGET_INDEX_FINGERPRINT
-        ),
-        "split_manifest_fingerprint": DILEMMADATA_SUPERVISED_SMOKE_SPLIT_FINGERPRINT,
-    }
-    if bindings != expected:
+    if (
+        bindings["raw_index_fingerprint"]
+        != DILEMMADATA_SUPERVISED_SMOKE_RAW_INDEX_FINGERPRINT
+        or bindings["split_manifest_fingerprint"]
+        != DILEMMADATA_SUPERVISED_SMOKE_SPLIT_FINGERPRINT
+        or not _is_sha256(bindings["observed_target_cache_index_fingerprint"])
+    ):
         raise DilemmadataSupervisedSmokeError(
             "dilemmadata.smoke.production_fingerprint_mismatch",
-            f"expected={expected},actual={bindings}",
+            f"actual={bindings}",
         )
     if target_index.raw_index_fingerprint != raw_index.header.index_fingerprint:
         raise DilemmadataSupervisedSmokeError(
@@ -1308,7 +1350,64 @@ def _validate_production_bindings(
         raise DilemmadataSupervisedSmokeError(
             "dilemmadata.smoke.split_raw_binding_mismatch"
         )
-    return bindings
+    try:
+        checked = check_dilemmadata_target_cache(
+            target_index,
+            raw_index=raw_index,
+            cache_config=target_cache_config,
+        )
+    except DilemmadataTargetCacheError as exc:
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.target_semantic_validation_failed",
+            f"{exc.category}:{exc}",
+        ) from exc
+    expected_semantics = {
+        "record_count": DILEMMADATA_SUPERVISED_SMOKE_TARGET_RECORD_COUNT,
+        "raw_index_fingerprint": DILEMMADATA_SUPERVISED_SMOKE_RAW_INDEX_FINGERPRINT,
+        "metadata_index_fingerprint": (
+            DILEMMADATA_SUPERVISED_SMOKE_TARGET_METADATA_FINGERPRINT
+        ),
+        "aggregate_target_bundle_fingerprint": (
+            DILEMMADATA_SUPERVISED_SMOKE_TARGET_BUNDLE_AGGREGATE_FINGERPRINT
+        ),
+    }
+    observed_semantics = {
+        "record_count": checked.get("record_count"),
+        "raw_index_fingerprint": checked.get("raw_index_fingerprint"),
+        "metadata_index_fingerprint": target_index.metadata_index_fingerprint,
+        "aggregate_target_bundle_fingerprint": checked.get(
+            "target_bundle_fingerprint"
+        ),
+    }
+    if observed_semantics != expected_semantics:
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.target_semantic_projection_mismatch",
+            f"expected={expected_semantics},actual={observed_semantics}",
+        )
+    semantic_validation = _with_fingerprint(
+        {
+            "policy": "stable_semantics_plus_observed_physical_index_v1",
+            **observed_semantics,
+            "observed_target_cache_index_fingerprint": target_index.index_fingerprint,
+            "known_observed_physical_index_fingerprints": list(
+                DILEMMADATA_SUPERVISED_SMOKE_OBSERVED_TARGET_INDEX_FINGERPRINTS
+            ),
+            "target_index_role": (
+                "exact_run_resume_evaluation_binding_not_universal_semantic_identity"
+            ),
+            "contract_versions": dict(_TARGET_CONTRACT_VERSIONS),
+            "source_free_full_validation": {
+                "index_self_fingerprint_verified": True,
+                "index_record_count_verified": len(target_index.records),
+                "artifact_sha256_verified_count": len(target_index.records),
+                "target_bundle_fingerprint_verified_count": len(target_index.records),
+            },
+        }
+    )
+    bindings["target_semantic_projection_fingerprint"] = semantic_validation[
+        "fingerprint"
+    ]
+    return bindings, semantic_validation
 
 
 def _run_supervised_smoke_guarded(
@@ -1379,8 +1478,10 @@ def _run_supervised_smoke_guarded(
     raw_index = load_corpus_index(raw_index_path)
     target_index = load_dilemmadata_target_cache_index(target_index_path)
     split_manifest = load_split_manifest(split_manifest_path)
-    bindings = _validate_production_bindings(raw_index, target_index, split_manifest)
     target_config = DilemmadataTargetCacheConfig(target_cache_root)
+    bindings, target_semantic_validation = _validate_production_bindings(
+        raw_index, target_index, target_config, split_manifest
+    )
     train_membership, train_identities = _train_membership(
         raw_index, target_index, target_config, split_manifest
     )
@@ -1412,6 +1513,7 @@ def _run_supervised_smoke_guarded(
         train_membership=train_membership,
         validation_membership=validation_membership,
         bindings=bindings,
+        target_semantic_validation=target_semantic_validation,
         expected_head=expected_head,
         updates=updates,
     )
@@ -1652,6 +1754,46 @@ def _validate_evaluation_artifacts(
             )
 
 
+def _validate_target_semantic_validation(
+    value: object, *, observed_target_index_fingerprint: str
+) -> dict[str, object]:
+    payload = _validate_fingerprinted(
+        value, category="dilemmadata.smoke.target_semantic_evidence_invalid"
+    )
+    full = payload.get("source_free_full_validation")
+    if (
+        payload.get("policy")
+        != "stable_semantics_plus_observed_physical_index_v1"
+        or payload.get("record_count")
+        != DILEMMADATA_SUPERVISED_SMOKE_TARGET_RECORD_COUNT
+        or payload.get("raw_index_fingerprint")
+        != DILEMMADATA_SUPERVISED_SMOKE_RAW_INDEX_FINGERPRINT
+        or payload.get("metadata_index_fingerprint")
+        != DILEMMADATA_SUPERVISED_SMOKE_TARGET_METADATA_FINGERPRINT
+        or payload.get("aggregate_target_bundle_fingerprint")
+        != DILEMMADATA_SUPERVISED_SMOKE_TARGET_BUNDLE_AGGREGATE_FINGERPRINT
+        or payload.get("observed_target_cache_index_fingerprint")
+        != observed_target_index_fingerprint
+        or payload.get("known_observed_physical_index_fingerprints")
+        != list(DILEMMADATA_SUPERVISED_SMOKE_OBSERVED_TARGET_INDEX_FINGERPRINTS)
+        or payload.get("target_index_role")
+        != "exact_run_resume_evaluation_binding_not_universal_semantic_identity"
+        or payload.get("contract_versions") != _TARGET_CONTRACT_VERSIONS
+        or not isinstance(full, dict)
+        or full.get("index_self_fingerprint_verified") is not True
+        or full.get("index_record_count_verified")
+        != DILEMMADATA_SUPERVISED_SMOKE_TARGET_RECORD_COUNT
+        or full.get("artifact_sha256_verified_count")
+        != DILEMMADATA_SUPERVISED_SMOKE_TARGET_RECORD_COUNT
+        or full.get("target_bundle_fingerprint_verified_count")
+        != DILEMMADATA_SUPERVISED_SMOKE_TARGET_RECORD_COUNT
+    ):
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.target_semantic_evidence_invalid"
+        )
+    return payload
+
+
 def validate_smoke_report(report: object) -> dict[str, object]:
     payload = _validate_fingerprinted(
         report, category="dilemmadata.smoke.report_fingerprint_mismatch"
@@ -1665,18 +1807,17 @@ def validate_smoke_report(report: object) -> dict[str, object]:
     runtime = payload.get("runtime_access")
     claims = payload.get("claim_boundaries")
     excluded = payload.get("excluded_supervision")
+    target_semantics = payload.get("target_semantic_validation")
     configured_updates = (
         optimization.get("attempted_update_count", -1)
         if isinstance(optimization, dict)
         else -1
     )
-    expected_bindings = {
-        "raw_index_fingerprint": DILEMMADATA_SUPERVISED_SMOKE_RAW_INDEX_FINGERPRINT,
-        "target_cache_index_fingerprint": (
-            DILEMMADATA_SUPERVISED_SMOKE_TARGET_INDEX_FINGERPRINT
-        ),
-        "split_manifest_fingerprint": DILEMMADATA_SUPERVISED_SMOKE_SPLIT_FINGERPRINT,
-    }
+    observed_target_index = (
+        bindings.get("observed_target_cache_index_fingerprint")
+        if isinstance(bindings, dict)
+        else None
+    )
     if (
         payload.get("contract_version")
         != DILEMMADATA_SUPERVISED_SMOKE_CONTRACT_VERSION
@@ -1685,11 +1826,34 @@ def validate_smoke_report(report: object) -> dict[str, object]:
         or payload.get("active_task_ids") != list(DILEMMADATA_ACTIVE_TASK_IDS)
         or payload.get("model_contract_fingerprint")
         != DILEMMADATA_SUPERVISED_SMOKE_MODEL_FINGERPRINT
-        or bindings != expected_bindings
+        or not isinstance(bindings, dict)
+        or set(bindings)
+        != {
+            "raw_index_fingerprint",
+            "observed_target_cache_index_fingerprint",
+            "split_manifest_fingerprint",
+            "target_semantic_projection_fingerprint",
+        }
+        or bindings.get("raw_index_fingerprint")
+        != DILEMMADATA_SUPERVISED_SMOKE_RAW_INDEX_FINGERPRINT
+        or not _is_sha256(observed_target_index)
+        or bindings.get("split_manifest_fingerprint")
+        != DILEMMADATA_SUPERVISED_SMOKE_SPLIT_FINGERPRINT
         or payload.get("training_config") != _training_config(configured_updates)
     ):
         raise DilemmadataSupervisedSmokeError(
             "dilemmadata.smoke.report_contract_mismatch"
+        )
+    validated_target_semantics = _validate_target_semantic_validation(
+        target_semantics,
+        observed_target_index_fingerprint=str(observed_target_index),
+    )
+    if (
+        bindings["target_semantic_projection_fingerprint"]
+        != _fingerprint(validated_target_semantics)
+    ):
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.target_semantic_binding_mismatch"
         )
     if (
         not isinstance(hardware, dict)
@@ -1818,8 +1982,8 @@ def validate_smoke_report(report: object) -> dict[str, object]:
         != DILEMMADATA_SUPERVISED_SMOKE_MODEL_FINGERPRINT
         or checkpoint.get("raw_index_fingerprint")
         != DILEMMADATA_SUPERVISED_SMOKE_RAW_INDEX_FINGERPRINT
-        or checkpoint.get("target_cache_index_fingerprint")
-        != DILEMMADATA_SUPERVISED_SMOKE_TARGET_INDEX_FINGERPRINT
+        or checkpoint.get("observed_target_cache_index_fingerprint")
+        != observed_target_index
         or checkpoint.get("split_manifest_fingerprint")
         != DILEMMADATA_SUPERVISED_SMOKE_SPLIT_FINGERPRINT
         or checkpoint.get("active_task_ids") != list(DILEMMADATA_ACTIVE_TASK_IDS)
@@ -1846,6 +2010,8 @@ def validate_smoke_report(report: object) -> dict[str, object]:
         or validation.get("official_evaluator") is not True
         or validation.get("selection_uses_labels") is not False
         or validation.get("replacement") is not False
+        or validation.get("observed_target_cache_index_fingerprint")
+        != observed_target_index
         or any(
             validation.get(name) is not False
             for name in (
@@ -2361,12 +2527,18 @@ __all__ = [
     "DILEMMADATA_SUPERVISED_SMOKE_CONTRACT_VERSION",
     "DILEMMADATA_SUPERVISED_SMOKE_GPU_NAME",
     "DILEMMADATA_SUPERVISED_SMOKE_LEARNING_RATE",
+    "DILEMMADATA_SUPERVISED_SMOKE_LOCAL_TARGET_INDEX_FINGERPRINT",
     "DILEMMADATA_SUPERVISED_SMOKE_MODEL_FINGERPRINT",
     "DILEMMADATA_SUPERVISED_SMOKE_PHASE",
     "DILEMMADATA_SUPERVISED_SMOKE_RAW_INDEX_FINGERPRINT",
     "DILEMMADATA_SUPERVISED_SMOKE_SEED",
     "DILEMMADATA_SUPERVISED_SMOKE_SPLIT_FINGERPRINT",
+    "DILEMMADATA_SUPERVISED_SMOKE_OBSERVED_TARGET_INDEX_FINGERPRINTS",
+    "DILEMMADATA_SUPERVISED_SMOKE_RTX_TARGET_INDEX_FINGERPRINT",
+    "DILEMMADATA_SUPERVISED_SMOKE_TARGET_BUNDLE_AGGREGATE_FINGERPRINT",
     "DILEMMADATA_SUPERVISED_SMOKE_TARGET_INDEX_FINGERPRINT",
+    "DILEMMADATA_SUPERVISED_SMOKE_TARGET_METADATA_FINGERPRINT",
+    "DILEMMADATA_SUPERVISED_SMOKE_TARGET_RECORD_COUNT",
     "DILEMMADATA_SUPERVISED_SMOKE_UPDATES",
     "DilemmadataSupervisedSmokeError",
     "pack_evidence_bundle",

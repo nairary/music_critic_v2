@@ -540,3 +540,8 @@ scaler, model/data/membership fingerprints and a SHA sidecar. A new model must
 reload it with bit-exact raw-only logits. Source adapter/oracle entry points are
 fail-closed during the run. Output directory/tar publication is unique and
 atomic; no CPU fallback or hardware skip exists in the runner.
+
+The Phase 9B.2C `1.1.0` preflight accepts a target index only after complete
+source-free semantic/artifact validation. Its observed exact fingerprint is
+stored in checkpoint data bindings and must match on reload/resume; semantic
+equivalence does not permit switching physical indexes within a run.

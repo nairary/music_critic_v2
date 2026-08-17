@@ -348,3 +348,6 @@ reload. The sealed report retains per-task source-entry NLL, top-1, macro-F1,
 balanced accuracy, quality top-3, record/component projections, undefined
 reasons, and train-only prior evidence. Test inference, targets, metrics, and
 unlock remain false. These bounded metrics carry no scientific-quality claim.
+Evaluation after reload additionally requires the same observed exact
+target-index fingerprint stored by the run checkpoint; another semantically
+equivalent physical index requires a new run rather than silent rebinding.

@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import subprocess
 import tarfile
+from types import SimpleNamespace
 
 import pytest
 import torch
@@ -29,6 +30,30 @@ from music_critic.training.checkpoint import (
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RUNNER = REPO_ROOT / "scripts" / "run_phase9b2c_rtx3090_supervised_smoke.sh"
 HEAD = "a" * 40
+
+
+def _target_semantics(observed_index: str) -> dict[str, object]:
+    return smoke._with_fingerprint(
+        {
+            "policy": "stable_semantics_plus_observed_physical_index_v1",
+            "record_count": smoke.DILEMMADATA_SUPERVISED_SMOKE_TARGET_RECORD_COUNT,
+            "raw_index_fingerprint": smoke.DILEMMADATA_SUPERVISED_SMOKE_RAW_INDEX_FINGERPRINT,
+            "metadata_index_fingerprint": smoke.DILEMMADATA_SUPERVISED_SMOKE_TARGET_METADATA_FINGERPRINT,
+            "aggregate_target_bundle_fingerprint": smoke.DILEMMADATA_SUPERVISED_SMOKE_TARGET_BUNDLE_AGGREGATE_FINGERPRINT,
+            "observed_target_cache_index_fingerprint": observed_index,
+            "known_observed_physical_index_fingerprints": list(
+                smoke.DILEMMADATA_SUPERVISED_SMOKE_OBSERVED_TARGET_INDEX_FINGERPRINTS
+            ),
+            "target_index_role": "exact_run_resume_evaluation_binding_not_universal_semantic_identity",
+            "contract_versions": dict(smoke._TARGET_CONTRACT_VERSIONS),
+            "source_free_full_validation": {
+                "index_self_fingerprint_verified": True,
+                "index_record_count_verified": 719,
+                "artifact_sha256_verified_count": 719,
+                "target_bundle_fingerprint_verified_count": 719,
+            },
+        }
+    )
 
 
 def _record(piece: str, dialect: str, component: str) -> dict[str, object]:
@@ -185,6 +210,8 @@ def _base_report(
         for step in range(10)
     ]
     training_config = smoke._training_config(10)
+    observed_index = smoke.DILEMMADATA_SUPERVISED_SMOKE_LOCAL_TARGET_INDEX_FINGERPRINT
+    target_semantics = _target_semantics(observed_index)
     return {
         "contract_version": smoke.DILEMMADATA_SUPERVISED_SMOKE_CONTRACT_VERSION,
         "phase": smoke.DILEMMADATA_SUPERVISED_SMOKE_PHASE,
@@ -206,9 +233,11 @@ def _base_report(
         },
         "bindings": {
             "raw_index_fingerprint": smoke.DILEMMADATA_SUPERVISED_SMOKE_RAW_INDEX_FINGERPRINT,
-            "target_cache_index_fingerprint": smoke.DILEMMADATA_SUPERVISED_SMOKE_TARGET_INDEX_FINGERPRINT,
+            "observed_target_cache_index_fingerprint": observed_index,
             "split_manifest_fingerprint": smoke.DILEMMADATA_SUPERVISED_SMOKE_SPLIT_FINGERPRINT,
+            "target_semantic_projection_fingerprint": target_semantics["fingerprint"],
         },
+        "target_semantic_validation": target_semantics,
         "model_contract_fingerprint": smoke.DILEMMADATA_SUPERVISED_SMOKE_MODEL_FINGERPRINT,
         "active_task_ids": list(DILEMMADATA_ACTIVE_TASK_IDS),
         "excluded_supervision": {
@@ -258,7 +287,7 @@ def _base_report(
             "sha256": "0" * 64,
             "model_contract_fingerprint": smoke.DILEMMADATA_SUPERVISED_SMOKE_MODEL_FINGERPRINT,
             "raw_index_fingerprint": smoke.DILEMMADATA_SUPERVISED_SMOKE_RAW_INDEX_FINGERPRINT,
-            "target_cache_index_fingerprint": smoke.DILEMMADATA_SUPERVISED_SMOKE_TARGET_INDEX_FINGERPRINT,
+            "observed_target_cache_index_fingerprint": observed_index,
             "split_manifest_fingerprint": smoke.DILEMMADATA_SUPERVISED_SMOKE_SPLIT_FINGERPRINT,
             "active_task_ids": list(DILEMMADATA_ACTIVE_TASK_IDS),
             "seed": 17,
@@ -284,6 +313,7 @@ def _base_report(
             "selection_uses_labels": False,
             "replacement": False,
             "train_only_baseline_fingerprint": priors["fingerprint"],
+            "observed_target_cache_index_fingerprint": observed_index,
             "test_split_accessed": False,
             "test_targets_accessed": False,
             "test_metrics_computed": False,
@@ -427,8 +457,10 @@ def _valid_evidence(root: Path) -> tuple[Path, dict[str, object]]:
             "checkpoint",
         ),
         (
-            lambda value: value["bindings"].update(target_cache_index_fingerprint="f" * 64),
-            "report_contract",
+            lambda value: value["bindings"].update(
+                observed_target_cache_index_fingerprint="f" * 64
+            ),
+            "target_semantic",
         ),
         (
             lambda value: value["bindings"].update(split_manifest_fingerprint="e" * 64),
@@ -436,6 +468,12 @@ def _valid_evidence(root: Path) -> tuple[Path, dict[str, object]]:
         ),
         (
             lambda value: value["validation"].update(test_unlock_used=True),
+            "validation",
+        ),
+        (
+            lambda value: value["validation"].update(
+                observed_target_cache_index_fingerprint="f" * 64
+            ),
             "validation",
         ),
         (
@@ -458,6 +496,144 @@ def test_report_rejects_wrong_hardware_updates_nonfinite_and_bindings(
     forged = smoke._with_fingerprint(report)
     with pytest.raises(smoke.DilemmadataSupervisedSmokeError, match=category):
         smoke.validate_smoke_report(forged)
+
+
+@pytest.mark.parametrize(
+    "observed_index",
+    smoke.DILEMMADATA_SUPERVISED_SMOKE_OBSERVED_TARGET_INDEX_FINGERPRINTS,
+)
+def test_report_accepts_both_observed_indexes_with_same_semantics(
+    observed_index: str,
+) -> None:
+    train, validation = _memberships()
+    priors, evaluation = _evaluation(train, validation)
+    report = _base_report(train, validation, priors, evaluation)
+    semantics = _target_semantics(observed_index)
+    report["target_semantic_validation"] = semantics
+    report["bindings"].update(
+        observed_target_cache_index_fingerprint=observed_index,
+        target_semantic_projection_fingerprint=semantics["fingerprint"],
+    )
+    report["checkpoint"]["observed_target_cache_index_fingerprint"] = observed_index
+    report["validation"]["observed_target_cache_index_fingerprint"] = observed_index
+    validated = smoke.validate_smoke_report(smoke._with_fingerprint(report))
+    assert validated["bindings"]["observed_target_cache_index_fingerprint"] == (
+        observed_index
+    )
+
+
+def _production_objects(observed_index: str):
+    raw = SimpleNamespace(
+        header=SimpleNamespace(
+            index_fingerprint=smoke.DILEMMADATA_SUPERVISED_SMOKE_RAW_INDEX_FINGERPRINT
+        )
+    )
+    target = SimpleNamespace(
+        index_fingerprint=observed_index,
+        raw_index_fingerprint=smoke.DILEMMADATA_SUPERVISED_SMOKE_RAW_INDEX_FINGERPRINT,
+        metadata_index_fingerprint=smoke.DILEMMADATA_SUPERVISED_SMOKE_TARGET_METADATA_FINGERPRINT,
+        records=(None,) * smoke.DILEMMADATA_SUPERVISED_SMOKE_TARGET_RECORD_COUNT,
+    )
+    split = SimpleNamespace(
+        manifest_fingerprint=smoke.DILEMMADATA_SUPERVISED_SMOKE_SPLIT_FINGERPRINT,
+        index_fingerprints=(
+            (
+                "dilemmadata",
+                smoke.DILEMMADATA_SUPERVISED_SMOKE_RAW_INDEX_FINGERPRINT,
+            ),
+        ),
+    )
+    return raw, target, split
+
+
+def test_production_policy_accepts_any_self_consistent_physical_index(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def checked(index, *, raw_index, cache_config):
+        del raw_index, cache_config
+        return {
+            "ready": True,
+            "record_count": len(index.records),
+            "index_fingerprint": index.index_fingerprint,
+            "raw_index_fingerprint": index.raw_index_fingerprint,
+            "target_bundle_fingerprint": smoke.DILEMMADATA_SUPERVISED_SMOKE_TARGET_BUNDLE_AGGREGATE_FINGERPRINT,
+        }
+
+    monkeypatch.setattr(smoke, "check_dilemmadata_target_cache", checked)
+    for observed_index in (
+        *smoke.DILEMMADATA_SUPERVISED_SMOKE_OBSERVED_TARGET_INDEX_FINGERPRINTS,
+        "f" * 64,
+    ):
+        raw, target, split = _production_objects(observed_index)
+        bindings, semantics = smoke._validate_production_bindings(
+            raw,
+            target,
+            smoke.DilemmadataTargetCacheConfig(tmp_path),
+            split,
+        )
+        assert bindings["observed_target_cache_index_fingerprint"] == observed_index
+        assert semantics["aggregate_target_bundle_fingerprint"] == (
+            smoke.DILEMMADATA_SUPERVISED_SMOKE_TARGET_BUNDLE_AGGREGATE_FINGERPRINT
+        )
+
+
+@pytest.mark.parametrize("mutation", ("raw", "metadata", "bundle"))
+def test_production_policy_rejects_semantic_mutation(
+    mutation: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    raw, target, split = _production_objects("f" * 64)
+    if mutation == "raw":
+        raw.header.index_fingerprint = "e" * 64
+    elif mutation == "metadata":
+        target.metadata_index_fingerprint = "e" * 64
+
+    def checked(index, *, raw_index, cache_config):
+        del raw_index, cache_config
+        return {
+            "ready": True,
+            "record_count": len(index.records),
+            "index_fingerprint": index.index_fingerprint,
+            "raw_index_fingerprint": index.raw_index_fingerprint,
+            "target_bundle_fingerprint": (
+                "e" * 64
+                if mutation == "bundle"
+                else smoke.DILEMMADATA_SUPERVISED_SMOKE_TARGET_BUNDLE_AGGREGATE_FINGERPRINT
+            ),
+        }
+
+    monkeypatch.setattr(smoke, "check_dilemmadata_target_cache", checked)
+    with pytest.raises(smoke.DilemmadataSupervisedSmokeError):
+        smoke._validate_production_bindings(
+            raw,
+            target,
+            smoke.DilemmadataTargetCacheConfig(tmp_path),
+            split,
+        )
+
+
+def test_production_policy_rejects_artifact_corruption(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    raw, target, split = _production_objects("f" * 64)
+
+    def corrupt(*args, **kwargs):
+        del args, kwargs
+        raise smoke.DilemmadataTargetCacheError(
+            "dilemmadata.target_cache.artifact_fingerprint_mismatch",
+            "corrupt artifact",
+        )
+
+    monkeypatch.setattr(smoke, "check_dilemmadata_target_cache", corrupt)
+    with pytest.raises(
+        smoke.DilemmadataSupervisedSmokeError,
+        match="target_semantic_validation_failed",
+    ):
+        smoke._validate_production_bindings(
+            raw,
+            target,
+            smoke.DilemmadataTargetCacheConfig(tmp_path),
+            split,
+        )
 
 
 def test_membership_rejects_validation_label_selection_and_test_access() -> None:
@@ -608,13 +784,15 @@ def test_pack_output_collision_and_failure_atomicity(
     assert not tar_path.exists()
 
 
-def test_checkpoint_target_binding_mismatch_is_failure_atomic(tmp_path: Path) -> None:
+def test_checkpoint_observed_target_index_mismatch_is_failure_atomic(
+    tmp_path: Path,
+) -> None:
     model = DilemmadataHierarchicalModel()
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10)
     scaler = torch.amp.GradScaler("cpu", enabled=True)
     config = smoke._training_config(10)
-    data = {"target_cache_index_fingerprint": "1" * 64}
+    data = {"observed_target_cache_index_fingerprint": "1" * 64}
     path = tmp_path / "checkpoint.pt"
     save_training_checkpoint(
         path,
@@ -644,7 +822,7 @@ def test_checkpoint_target_binding_mismatch_is_failure_atomic(tmp_path: Path) ->
             scaler=destination_scaler,
             maximum_next_epoch=0,
             resolved_config=config,
-            data_fingerprints={"target_cache_index_fingerprint": "2" * 64},
+            data_fingerprints={"observed_target_cache_index_fingerprint": "2" * 64},
         )
     assert all(
         torch.equal(destination.state_dict()[name], value)
