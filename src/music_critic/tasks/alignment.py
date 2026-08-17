@@ -23,7 +23,7 @@ from music_critic.tasks.multisource import (
     TargetDiagnostic,
     TargetRowProvenance,
 )
-from music_critic.tasks.ontology import TARGET_FAMILIES, TARGET_FAMILY_BY_ID
+from music_critic.tasks.registry import target_family_spec
 
 
 ALIGNMENT_CONFLICT_DIAGNOSTIC = "multisource.alignment_conflict"
@@ -165,8 +165,11 @@ class AlignedTargetFamily:
     rows: tuple[AlignedTargetRow, ...]
 
     def __post_init__(self) -> None:
-        if self.task_id not in TARGET_FAMILY_BY_ID:
+        try:
+            target_family_spec(self.task_id)
+        except KeyError:
             raise TargetAlignmentError("aligned family task is absent from ontology")
+
         if (
             isinstance(self.source_entry_count, bool)
             or not isinstance(self.source_entry_count, int)
@@ -260,15 +263,21 @@ def _candidate_time_index(
 def _build_alignment_index(
     piece: CanonicalPiece,
     *,
+    target_alignment_spans: tuple[AnnotationSpan, ...] = (),
     instrumentation: AlignmentOperationCounts | None,
 ) -> AlignmentIndex:
     note_index = {
         note.note_id: index for index, note in enumerate(piece.notes)
     }
+    annotations = (*piece.annotations, *target_alignment_spans)
     annotation_index = {
         annotation.annotation_id: annotation
-        for annotation in piece.annotations
+        for annotation in annotations
     }
+    if len(annotation_index) != len(annotations):
+        raise TargetAlignmentError(
+            "canonical and target-sidecar annotation IDs must be unique"
+        )
     candidates = {
         "onset": _candidate_time_index(
             "onset",
@@ -310,12 +319,17 @@ def _build_alignment_index(
 def build_alignment_index(
     piece: CanonicalPiece,
     *,
+    target_alignment_spans: tuple[AnnotationSpan, ...] = (),
     instrumentation: AlignmentOperationCounts | None = None,
 ) -> AlignmentIndex:
     """Build one validated immutable index in O(P + C log C)."""
 
     _validate_piece_for_alignment(piece)
-    return _build_alignment_index(piece, instrumentation=instrumentation)
+    return _build_alignment_index(
+        piece,
+        target_alignment_spans=target_alignment_spans,
+        instrumentation=instrumentation,
+    )
 
 
 def _row_provenance(
@@ -338,7 +352,7 @@ def _available_matches(
     source_index: int,
     instrumentation: AlignmentOperationCounts | None,
 ) -> tuple[tuple[str, int], ...]:
-    spec = TARGET_FAMILY_BY_ID[target.task_id]
+    spec = target_family_spec(target.task_id)
     entity_id = target.entity_ids[source_index]
     if instrumentation is not None:
         instrumentation.source_entry_lookup_count += 1
@@ -414,7 +428,7 @@ def _merge_available_aligned_rows(
     alignment_index: AlignmentIndex,
     instrumentation: AlignmentOperationCounts | None,
 ) -> tuple[AlignedTargetRow, ...]:
-    spec = TARGET_FAMILY_BY_ID[target.task_id]
+    spec = target_family_spec(target.task_id)
     aligned: dict[tuple[str, int], list[AlignedTargetRow]] = {}
     retained: list[AlignedTargetRow] = []
     for row in rows:
@@ -575,6 +589,7 @@ def align_targets_with_index(
             "alignment index canonical piece differs from prepared sample"
         )
     by_task = {target.task_id: target for target in sample.target_bundle}
+    task_ids = tuple(item.task_id for item in sample.target_availability)
     return tuple(
         (
             _align_target(
@@ -589,7 +604,7 @@ def align_targets_with_index(
                 rows=(),
             )
         )
-        for spec in TARGET_FAMILIES
+        for spec in (target_family_spec(task_id) for task_id in task_ids)
     )
 
 
@@ -605,6 +620,11 @@ def align_sample_targets(
     _validate_alignment_inputs(piece, raw_graph, sample)
     alignment_index = _build_alignment_index(
         piece,
+        target_alignment_spans=(
+            ()
+            if sample.attached_target_bundle is None
+            else sample.attached_target_bundle.alignment_spans
+        ),
         instrumentation=instrumentation,
     )
     return align_targets_with_index(

@@ -109,8 +109,12 @@ class TargetFamilySpec:
     cross_source_sharing: CrossSourceSharing
 
     def __post_init__(self) -> None:
-        if self.registry_version != TARGET_ONTOLOGY_VERSION:
-            raise ValueError("target spec registry version is inconsistent")
+        if (
+            not isinstance(self.registry_version, str)
+            or not self.registry_version.strip()
+            or self.registry_version != self.registry_version.strip()
+        ):
+            raise ValueError("target spec registry version must be a non-empty string")
         if not self.task_id or "." not in self.task_id:
             raise ValueError("task_id must be a non-empty dotted stable identifier")
         if self.value_type == "multi_label" and not self.vocabulary:

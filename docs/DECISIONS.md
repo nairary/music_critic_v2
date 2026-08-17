@@ -2840,3 +2840,66 @@ This log is append-only.
   projection `1.0.0` is unchanged, so this is not a raw-data semantic change.
   Theory sidecars, targets, heads/losses, supervised/scientific training,
   PDMX, and Phase 10 remain out of scope.
+
+## 2026-08-17 — ADR-076: Dilemmadata theory is an external source-native registry extension
+
+- Status: Accepted for Phase 9B.2A target sidecars and exact alignment only.
+- Context: Adding Dilemmadata tasks directly to the core HookTheory/POP909-CL
+  ontology would change the ontology fingerprint embedded in the already
+  accepted raw cache/index identity. AN and DLC also use source-specific label
+  grammars, and the raw adapter did not preserve which source rows were merged
+  into one canonical tied note.
+- Decision: Keep the core ontology and encoding serialization unchanged. Add a
+  complete explicit 22-task Dilemmadata registry extension, selected only when
+  an external `TargetBundle@1.0.0` is attached. Namespace AN and DLC separately;
+  do not create borrowed harmony or semantic voice roles; do not crosswalk AN,
+  DLC, HookTheory, or POP909-CL without separate lossless evidence.
+- Decision: Freeze only the full-scan AN/DLC quality, inversion, cadence, and
+  positive-event vocabularies. Preserve all other source strings on CPU with no
+  runtime vocabulary or hash IDs. Missing, masked, unsupported, ambiguous,
+  conflict, unaligned, and deferred states never become negative labels.
+- Decision: Add target-neutral raw alignment evidence over source-row ordinal,
+  exact onset, tie state, and canonical note ID. Raw adapter, projection,
+  canonical, cache, graph, and model-input versions do not change. A note target
+  is available only if every row merged into it agrees. Point events require an
+  exact onset; spans are exact half-open; no tolerance, snapping, or node-type
+  priority is permitted.
+- Decision: Retain every source record as a separate analysis view in its
+  existing split-atomic component. Preserve `alt_label` and analyst/reviewer
+  metadata only as target provenance/diagnostics. Attach targets after raw-cache
+  loading through the existing alignment/tensorizer/collator path.
+- Consequences: Phase 9B.2A can audit and batch deterministic source-native
+  supervision without invalidating Phase 9B.1 artifacts. Nine encodings are
+  mechanically model-ready and 13 remain open/deferred, but no new head, loss,
+  supervised evaluation, training run, or effectiveness claim is authorized.
+  Phase 9B.2B requires a separate review after this change merges.
+
+## 2026-08-17 — ADR-077: Dilemmadata target alignment requires independent raw-origin verification
+
+- Status: Accepted as blocking remediation of Phase 9B.2A in draft PR #22.
+- Context: `DilemmadataRawTargetAlignmentEvidence@1.0.0` checked its record and
+  canonical identities, row structure, and self-fingerprint. A caller could
+  nevertheless alter an onset, tie state, canonical note ID, or ordered row
+  semantics and recompute a consistent fingerprint, redirecting target
+  supervision without proving that the evidence came from the pinned raw
+  source.
+- Decision: Advance raw alignment evidence and the target adapter to `1.1.0`,
+  and the audit report/manifest to `1.1.0`. Keep the self-fingerprint only as a
+  corruption check. Before reading theory or analyst/reviewer metadata, rebuild
+  the evidence independently by running the same raw parser, exact tie merger,
+  and canonical builder from the pinned record. Require byte-exact canonical
+  serialization and equality of the complete ordered evidence, including row
+  ordinal, physical line, exact `RationalTime`, tie-continuation state, and
+  canonical note ID. Reject every difference as
+  `dilemmadata.target.alignment_binding_mismatch`.
+- Decision: Give the raw oracle a closed dialect-specific value-field contract
+  and do not materialize theory, gate, alternative-label, or metadata values in
+  the raw parser. Do not use float conversion, tolerance, nearest-note
+  matching, snapping, or heuristic renumbering.
+- Consequences: A consistently re-fingerprinted forged evidence object fails
+  closed, while valid tie-merged evidence and target-only mutation remain
+  supported. The target sidecar serialization stays `1.0.0`; its aggregate
+  fingerprint changes because adapter provenance advances. Raw adapter
+  `1.0.1`, raw projection `1.0.0`, grouping, canonical piece, cache key/artifact,
+  split, graph, and model-input contracts and fingerprints remain unchanged.
+  Phase 9B.2B remains unauthorized.

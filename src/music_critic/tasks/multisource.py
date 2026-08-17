@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from hashlib import sha256
 import json
 import math
@@ -13,6 +13,7 @@ from typing import Any
 import torch
 
 from music_critic.data import (
+    AnnotationSpan,
     CanonicalPiece,
     ProvenanceRecord,
     QualityFlag,
@@ -25,9 +26,13 @@ from music_critic.graph import (
     graph_fingerprint,
 )
 from music_critic.tasks.encoding import (
-    TARGET_ENCODING_BY_TASK,
+    target_encoding_spec,
 )
-from music_critic.tasks.ontology import TARGET_FAMILIES, TARGET_FAMILY_BY_ID
+from music_critic.tasks.registry import (
+    registry_extensions_for_task_ids,
+    target_families_for_registries,
+    target_family_spec,
+)
 
 
 class MultiSourceContractError(ValueError):
@@ -36,6 +41,7 @@ class MultiSourceContractError(ValueError):
 
 _RAW_GRAPH_BINDING_TOKEN = object()
 BATCH_TARGET_CONTRACT_VERSION = "1.1.0"
+TARGET_BUNDLE_CONTRACT_VERSION = "1.0.0"
 ENTITY_NODE_TYPE_TO_CODE = MappingProxyType(
     {
         node_type: index
@@ -60,11 +66,12 @@ class SampleTarget:
 
     @classmethod
     def from_target_array(cls, target: TargetArray) -> SampleTarget:
-        spec = TARGET_FAMILY_BY_ID.get(target.task)
-        if spec is None:
+        try:
+            spec = target_family_spec(target.task)
+        except KeyError:
             raise MultiSourceContractError(
                 f"task {target.task!r} is absent from target ontology"
-            )
+            ) from None
         if target.value_type != spec.value_type:
             raise MultiSourceContractError(
                 f"task {target.task!r} value type differs from registry"
@@ -94,9 +101,11 @@ class SampleTarget:
         )
 
     def __post_init__(self) -> None:
-        spec = TARGET_FAMILY_BY_ID.get(self.task_id)
-        if spec is None:
+        try:
+            spec = target_family_spec(self.task_id)
+        except KeyError:
             raise MultiSourceContractError("sample task is absent from target ontology")
+
         if self.annotation_view_id != spec.annotation_view_id:
             raise MultiSourceContractError(
                 "sample target annotation view differs from registry"
@@ -164,6 +173,140 @@ class SampleTarget:
 
 
 @dataclass(frozen=True, slots=True)
+class TargetBundle:
+    """Versioned external targets and exact alignment spans for one raw piece."""
+
+    contract_version: str
+    registry_extension_ids: tuple[str, ...]
+    dataset_id: str
+    piece_id: str
+    analysis_view_id: str
+    alignment_spans: tuple[AnnotationSpan, ...]
+    targets: tuple[SampleTarget, ...]
+    provenance: tuple[ProvenanceRecord, ...]
+    diagnostics: tuple[QualityFlag, ...]
+
+    def __post_init__(self) -> None:
+        if self.contract_version != TARGET_BUNDLE_CONTRACT_VERSION:
+            raise MultiSourceContractError("target bundle contract version is incompatible")
+        if not all(
+            isinstance(value, str) and value and value == value.strip()
+            for value in (self.dataset_id, self.piece_id, self.analysis_view_id)
+        ):
+            raise MultiSourceContractError(
+                "target bundle identity/view fields must be non-empty stripped strings"
+            )
+        try:
+            family_specs = target_families_for_registries(
+                self.registry_extension_ids
+            )
+        except ValueError as exc:
+            raise MultiSourceContractError(str(exc)) from exc
+        allowed_tasks = {spec.task_id for spec in family_specs}
+        tasks = tuple(target.task_id for target in self.targets)
+        if (
+            tasks != tuple(sorted(tasks))
+            or len(tasks) != len(set(tasks))
+            or not set(tasks) <= allowed_tasks
+        ):
+            raise MultiSourceContractError(
+                "target bundle tasks must be registered, unique, and sorted"
+            )
+        span_keys = tuple(
+            (span.start_qn, span.end_qn, span.annotation_id)
+            for span in self.alignment_spans
+        )
+        if span_keys != tuple(sorted(span_keys)):
+            raise MultiSourceContractError(
+                "target bundle alignment spans must use deterministic time/ID order"
+            )
+        span_ids = tuple(span.annotation_id for span in self.alignment_spans)
+        if len(span_ids) != len(set(span_ids)):
+            raise MultiSourceContractError("target bundle alignment span IDs must be unique")
+        if any(
+            span.layer != "target_alignment"
+            or span.value is not None
+            or span.track_id is not None
+            or span.end_qn < span.start_qn
+            for span in self.alignment_spans
+        ):
+            raise MultiSourceContractError(
+                "target bundle spans must be target-only exact non-negative intervals"
+            )
+        provenance_ids = tuple(record.provenance_id for record in self.provenance)
+        if len(provenance_ids) != len(set(provenance_ids)):
+            raise MultiSourceContractError("target bundle provenance IDs must be unique")
+        referenced = {
+            provenance_id
+            for target in self.targets
+            for provenance_id in target.provenance_ids
+            if provenance_id is not None
+        }
+        if not referenced <= set(provenance_ids):
+            raise MultiSourceContractError(
+                "target bundle target provenance is absent from the sidecar"
+            )
+        span_id_set = set(span_ids)
+        for target in self.targets:
+            spec = target_family_spec(target.task_id)
+            if target.alignment_type == "annotation_span" and not set(
+                target.entity_ids
+            ) <= span_id_set:
+                raise MultiSourceContractError(
+                    f"target bundle task {target.task_id!r} references an absent span"
+                )
+            if target.alignment_type != spec.source_alignment_type:
+                raise MultiSourceContractError(
+                    "target bundle alignment type differs from its source registry"
+                )
+
+
+def target_bundle_dict(bundle: TargetBundle) -> dict[str, object]:
+    """Return the deterministic JSON-safe external sidecar mapping."""
+
+    def rational(value: Any) -> dict[str, int]:
+        return {"num": value.num, "den": value.den}
+
+    return {
+        "alignment_spans": [
+            {
+                **asdict(span),
+                "start_qn": rational(span.start_qn),
+                "end_qn": rational(span.end_qn),
+            }
+            for span in bundle.alignment_spans
+        ],
+        "analysis_view_id": bundle.analysis_view_id,
+        "contract_version": bundle.contract_version,
+        "dataset_id": bundle.dataset_id,
+        "diagnostics": [asdict(flag) for flag in bundle.diagnostics],
+        "piece_id": bundle.piece_id,
+        "provenance": [asdict(record) for record in bundle.provenance],
+        "registry_extension_ids": list(bundle.registry_extension_ids),
+        "targets": [asdict(target) for target in bundle.targets],
+    }
+
+
+def dumps_target_bundle(bundle: TargetBundle, *, indent: int | None = None) -> str:
+    """Serialize one external target bundle deterministically."""
+
+    return json.dumps(
+        target_bundle_dict(bundle),
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        indent=indent,
+        separators=None if indent is not None else (",", ":"),
+    )
+
+
+def target_bundle_fingerprint(bundle: TargetBundle) -> str:
+    """Return the SHA-256 of canonical target-only sidecar serialization."""
+
+    return sha256(dumps_target_bundle(bundle).encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
 class TaskAvailability:
     """Per-sample distinction between an absent task and masked entries."""
 
@@ -173,10 +316,12 @@ class TaskAvailability:
     masked_count: int
 
     def __post_init__(self) -> None:
-        if self.task_id not in TARGET_FAMILY_BY_ID:
+        try:
+            target_family_spec(self.task_id)
+        except KeyError:
             raise MultiSourceContractError(
                 "task availability is absent from target ontology"
-            )
+            ) from None
         if not isinstance(self.family_present, bool):
             raise MultiSourceContractError(
                 "task availability family_present must be boolean"
@@ -213,6 +358,7 @@ class MultiSourceTargetProjection:
     target_availability: tuple[TaskAvailability, ...]
     target_provenance_sidecar: tuple[ProvenanceRecord, ...]
     diagnostics: tuple[QualityFlag, ...]
+    attached_target_bundle: TargetBundle | None
 
     def __post_init__(self) -> None:
         if not all(
@@ -238,12 +384,20 @@ class MultiSourceTargetProjection:
             raise MultiSourceContractError(
                 "sample target bundle must be uniquely sorted by stable task ID"
             )
-        expected_availability = _availability(self.target_bundle)
+        extension_ids = (
+            ()
+            if self.attached_target_bundle is None
+            else self.attached_target_bundle.registry_extension_ids
+        )
+        expected_availability = _availability(
+            self.target_bundle,
+            extension_registry_ids=extension_ids,
+        )
         if self.target_availability != expected_availability:
             raise MultiSourceContractError(
                 "sample target availability differs from target bundle"
             )
-        expected_targets = tuple(
+        canonical_targets = tuple(
             sorted(
                 (
                     SampleTarget.from_target_array(target)
@@ -252,13 +406,38 @@ class MultiSourceTargetProjection:
                 key=lambda target: target.task_id,
             )
         )
+        external_targets = (
+            ()
+            if self.attached_target_bundle is None
+            else self.attached_target_bundle.targets
+        )
+        expected_targets = tuple(
+            sorted((*canonical_targets, *external_targets), key=lambda target: target.task_id)
+        )
+        if len(expected_targets) != len({target.task_id for target in expected_targets}):
+            raise MultiSourceContractError(
+                "canonical and external target bundles contain the same task"
+            )
         if self.target_bundle != expected_targets:
             raise MultiSourceContractError(
                 "sample target bundle differs from its canonical piece"
             )
-        if self.diagnostics != self.canonical_piece.quality_flags:
+        expected_diagnostics = (
+            self.canonical_piece.quality_flags
+            if self.attached_target_bundle is None
+            else tuple(
+                sorted(
+                    (
+                        *self.canonical_piece.quality_flags,
+                        *self.attached_target_bundle.diagnostics,
+                    ),
+                    key=lambda flag: (flag.code, flag.entity_ids, flag.message),
+                )
+            )
+        )
+        if self.diagnostics != expected_diagnostics:
             raise MultiSourceContractError(
-                "sample diagnostics differ from its canonical piece"
+                "sample diagnostics differ from canonical plus target sidecars"
             )
         referenced = {
             provenance_id
@@ -272,6 +451,11 @@ class MultiSourceTargetProjection:
         if not referenced <= sidecar_ids:
             raise MultiSourceContractError(
                 "sample target provenance references are absent from sidecar"
+            )
+        if self.attached_target_bundle is not None:
+            _validate_attached_target_bundle(
+                self.canonical_piece,
+                self.attached_target_bundle,
             )
 
 
@@ -330,6 +514,7 @@ class MultiSourceSample(MultiSourceTargetProjection):
             target_availability=self.target_availability,
             target_provenance_sidecar=self.target_provenance_sidecar,
             diagnostics=self.diagnostics,
+            attached_target_bundle=self.attached_target_bundle,
         )
         return (
             _restore_multisource_sample,
@@ -416,10 +601,11 @@ class BatchTarget:
             raise MultiSourceContractError(
                 "batch target contract version is incompatible"
             )
-        spec = TARGET_FAMILY_BY_ID.get(self.task_id)
-        if spec is None:
+        try:
+            spec = target_family_spec(self.task_id)
+        except KeyError:
             raise MultiSourceContractError("batch task is absent from target ontology")
-        encoding = TARGET_ENCODING_BY_TASK[self.task_id]
+        encoding = target_encoding_spec(self.task_id)
         expected_encoding = (
             self.encoding_registry_version,
             self.encoding_kind,
@@ -646,10 +832,12 @@ class TaskBatchStatistics:
     model_ready: bool
 
     def __post_init__(self) -> None:
-        if self.task_id not in TARGET_FAMILY_BY_ID:
+        try:
+            target_family_spec(self.task_id)
+        except KeyError:
             raise MultiSourceContractError(
                 "task statistics task is absent from target ontology"
-            )
+            ) from None
         counts = (
             self.source_entry_count,
             self.target_row_count,
@@ -679,7 +867,7 @@ class TaskBatchStatistics:
                 "task target rows must partition into aligned, unaligned, "
                 "masked, and conflict rows"
             )
-        if self.model_ready != TARGET_ENCODING_BY_TASK[self.task_id].model_ready:
+        if self.model_ready != target_encoding_spec(self.task_id).model_ready:
             raise MultiSourceContractError(
                 "task statistics model readiness differs from encoding registry"
             )
@@ -762,11 +950,13 @@ class BatchStatistics:
             raise MultiSourceContractError(
                 "batch statistics counts must be non-negative integers"
             )
-        expected_tasks = tuple(spec.task_id for spec in TARGET_FAMILIES)
-        if tuple(item.task_id for item in self.task_counts) != expected_tasks:
+        task_ids = tuple(item.task_id for item in self.task_counts)
+        try:
+            registry_extensions_for_task_ids(task_ids)
+        except ValueError as exc:
             raise MultiSourceContractError(
                 "batch statistics tasks must follow target registry order"
-            )
+            ) from exc
         if self.sample_count != self.graph_count:
             raise MultiSourceContractError(
                 "batch statistics require one graph per sample"
@@ -877,10 +1067,15 @@ class MultiSourceBatch:
                 "batch sample identity strings must be non-empty"
             )
         tasks = tuple(target.task_id for target in self.target_batches)
-        expected_tasks = tuple(spec.task_id for spec in TARGET_FAMILIES)
-        if tasks != expected_tasks:
+        try:
+            registry_extensions_for_task_ids(tasks)
+        except ValueError as exc:
             raise MultiSourceContractError(
                 "batch target sidecars must contain every task in registry order"
+            ) from exc
+        if tasks != tuple(item.task_id for item in self.statistics.task_counts):
+            raise MultiSourceContractError(
+                "batch target and statistics task inventories differ"
             )
         sample_count = len(self.piece_ids)
         from music_critic.graph.validation import (
@@ -1075,6 +1270,8 @@ class DatasetSamplingWeight:
 
 def _availability(
     targets: tuple[SampleTarget, ...],
+    *,
+    extension_registry_ids: tuple[str, ...] = (),
 ) -> tuple[TaskAvailability, ...]:
     by_task = {target.task_id: target for target in targets}
     return tuple(
@@ -1093,7 +1290,7 @@ def _availability(
                 else 0
             ),
         )
-        for spec in TARGET_FAMILIES
+        for spec in target_families_for_registries(extension_registry_ids)
     )
 
 
@@ -1151,8 +1348,18 @@ def _resolved_lineage(piece: CanonicalPiece) -> str:
 def _target_provenance(
     piece: CanonicalPiece,
     targets: tuple[SampleTarget, ...],
+    target_sidecar: TargetBundle | None = None,
 ) -> tuple[ProvenanceRecord, ...]:
-    by_id = {record.provenance_id: record for record in piece.provenance}
+    all_records = (
+        piece.provenance
+        if target_sidecar is None
+        else (*piece.provenance, *target_sidecar.provenance)
+    )
+    by_id = {record.provenance_id: record for record in all_records}
+    if len(by_id) != len(all_records):
+        raise MultiSourceContractError(
+            "canonical and external target provenance IDs must be unique"
+        )
     selected = {
         provenance_id
         for target in targets
@@ -1172,14 +1379,54 @@ def _target_provenance(
                 selected.add(parent)
                 pending.append(parent)
     return tuple(
-        record for record in piece.provenance if record.provenance_id in selected
+        record for record in all_records if record.provenance_id in selected
     )
+
+
+def _validate_attached_target_bundle(
+    piece: CanonicalPiece,
+    target_sidecar: TargetBundle,
+) -> None:
+    if (
+        target_sidecar.dataset_id != piece.dataset_name
+        or target_sidecar.piece_id != piece.piece_id
+    ):
+        raise MultiSourceContractError(
+            "external target bundle identity differs from the raw canonical piece"
+        )
+    duration = piece.duration_qn
+    if any(
+        span.start_qn < type(duration)(0)
+        or span.end_qn > duration
+        for span in target_sidecar.alignment_spans
+    ):
+        raise MultiSourceContractError(
+            "external target alignment span lies outside raw piece duration"
+        )
+    note_ids = {note.note_id for note in piece.notes}
+    for target in target_sidecar.targets:
+        if target.alignment_type == "note" and not set(target.entity_ids) <= note_ids:
+            raise MultiSourceContractError(
+                f"external target task {target.task_id!r} references an absent note"
+            )
+    all_provenance = {
+        record.provenance_id
+        for record in (*piece.provenance, *target_sidecar.provenance)
+    }
+    if any(
+        not set(record.parents) <= all_provenance
+        for record in target_sidecar.provenance
+    ):
+        raise MultiSourceContractError(
+            "external target provenance has a parent outside canonical/sidecar evidence"
+        )
 
 
 def project_multisource_targets(
     piece: CanonicalPiece,
     *,
     lineage_group_id: str | None = None,
+    target_sidecar: TargetBundle | None = None,
 ) -> MultiSourceTargetProjection:
     """Project target-only audit evidence without constructing a raw graph.
 
@@ -1199,10 +1446,34 @@ def project_multisource_targets(
                 "lineage_group_id assertion differs from authoritative lineage "
                 "or source-group fallback"
             )
-    targets = tuple(
+    canonical_targets = tuple(
         sorted(
             (SampleTarget.from_target_array(target) for target in piece.targets),
             key=lambda target: target.task_id,
+        )
+    )
+    if target_sidecar is not None:
+        _validate_attached_target_bundle(piece, target_sidecar)
+    targets = tuple(
+        sorted(
+            (
+                *canonical_targets,
+                *((target_sidecar.targets) if target_sidecar is not None else ()),
+            ),
+            key=lambda target: target.task_id,
+        )
+    )
+    extension_ids = (
+        () if target_sidecar is None else target_sidecar.registry_extension_ids
+    )
+    diagnostics = (
+        piece.quality_flags
+        if target_sidecar is None
+        else tuple(
+            sorted(
+                (*piece.quality_flags, *target_sidecar.diagnostics),
+                key=lambda flag: (flag.code, flag.entity_ids, flag.message),
+            )
         )
     )
     return MultiSourceTargetProjection(
@@ -1212,9 +1483,17 @@ def project_multisource_targets(
         source_group_id=piece.source_group_id,
         lineage_group_id=resolved_lineage,
         target_bundle=targets,
-        target_availability=_availability(targets),
-        target_provenance_sidecar=_target_provenance(piece, targets),
-        diagnostics=piece.quality_flags,
+        target_availability=_availability(
+            targets,
+            extension_registry_ids=extension_ids,
+        ),
+        target_provenance_sidecar=_target_provenance(
+            piece,
+            targets,
+            target_sidecar,
+        ),
+        diagnostics=diagnostics,
+        attached_target_bundle=target_sidecar,
     )
 
 
@@ -1234,6 +1513,7 @@ def _sample_from_projection(
         target_availability=projection.target_availability,
         target_provenance_sidecar=projection.target_provenance_sidecar,
         diagnostics=projection.diagnostics,
+        attached_target_bundle=projection.attached_target_bundle,
         raw_graph=raw_graph,
         raw_graph_fingerprint=raw_graph_fingerprint,
         _binding_token=_RAW_GRAPH_BINDING_TOKEN,
@@ -1258,12 +1538,14 @@ def prepare_multisource_sample(
     piece: CanonicalPiece,
     *,
     lineage_group_id: str | None = None,
+    target_sidecar: TargetBundle | None = None,
 ) -> MultiSourceSample:
     """Build and bind the exact Phase 3A raw graph for production collation."""
 
     projection = project_multisource_targets(
         piece,
         lineage_group_id=lineage_group_id,
+        target_sidecar=target_sidecar,
     )
     raw_graph = build_raw_graph(piece)
     return _sample_from_projection(
@@ -1278,6 +1560,7 @@ def build_multisource_sample(
     raw_graph: Any,
     *,
     lineage_group_id: str | None = None,
+    target_sidecar: TargetBundle | None = None,
 ) -> MultiSourceSample:
     """Verify an externally built graph against a fresh Phase 3A projection.
 
@@ -1289,6 +1572,7 @@ def build_multisource_sample(
     projection = project_multisource_targets(
         piece,
         lineage_group_id=lineage_group_id,
+        target_sidecar=target_sidecar,
     )
     expected_graph = build_raw_graph(piece)
     expected_fingerprint = graph_fingerprint(expected_graph)
@@ -1307,6 +1591,28 @@ def build_multisource_sample(
         projection,
         raw_graph=raw_graph,
         raw_graph_fingerprint=actual_fingerprint,
+    )
+
+
+def attach_target_bundle(
+    sample: MultiSourceSample,
+    target_sidecar: TargetBundle,
+) -> MultiSourceSample:
+    """Attach verified external supervision to an existing raw-cache sample."""
+
+    if not isinstance(sample, MultiSourceSample):
+        raise MultiSourceContractError(
+            "target attachment requires a prepared MultiSourceSample"
+        )
+    projection = project_multisource_targets(
+        sample.canonical_piece,
+        lineage_group_id=sample.lineage_group_id,
+        target_sidecar=target_sidecar,
+    )
+    return _sample_from_projection(
+        projection,
+        raw_graph=sample.raw_graph,
+        raw_graph_fingerprint=sample.raw_graph_fingerprint,
     )
 
 
@@ -1440,6 +1746,7 @@ def deterministic_group_order(
 
 
 __all__ = [
+    "BATCH_TARGET_CONTRACT_VERSION",
     "BatchStatistics",
     "BatchTarget",
     "DatasetSamplingWeight",
@@ -1449,13 +1756,19 @@ __all__ = [
     "MultiSourceSample",
     "MultiSourceTargetProjection",
     "SampleTarget",
+    "TARGET_BUNDLE_CONTRACT_VERSION",
+    "TargetBundle",
     "TargetDiagnostic",
     "TargetRowProvenance",
     "TaskBatchStatistics",
     "TaskAvailability",
     "build_multisource_sample",
+    "attach_target_bundle",
     "deterministic_group_order",
     "prepare_multisource_sample",
     "project_multisource_targets",
+    "dumps_target_bundle",
+    "target_bundle_dict",
+    "target_bundle_fingerprint",
     "validate_group_assignments",
 ]

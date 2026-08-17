@@ -1004,12 +1004,41 @@ the versioned raw projection. Staff/voice are optional observations in one
 source-neutral track; neither creates semantic topology. Tempo and percussion
 defaults, tie merges, zero-duration grace notes, key/meter events, pickups,
 incomplete bars, and every quarantine outcome are explicit and provenance
-bearing. Theory parsing begins only in a future Phase 9B.2 sidecar boundary.
+bearing. Theory parsing begins only in the Phase 9B.2A sidecar boundary below.
 The runtime configuration accepts only implemented policy identifiers. Full
 acceptance repeats discovery and source conversion for the second cache build,
 checks that immutable artifacts were not rewritten, and compares a compact
 semantic projection with the committed production manifest before declaring
 `ready=true`.
+
+## Phase 9B.2A Dilemmadata target-only boundary
+
+The raw cache remains authoritative and unchanged. A separate target adapter
+uses target-neutral row-to-canonical-note evidence emitted by the accepted raw
+conversion. Its self-fingerprint detects corruption but is not accepted as
+origin proof. Before theory or metadata access, an independent oracle re-runs
+the same closed raw parser/tie-merger from the pinned source, requires the exact
+canonical serialization, and compares every ordered row's ordinal, physical
+line, `RationalTime`, tie state, and canonical note ID. Any mismatch is
+rejected without snapping, tolerance, or heuristic renumbering. Only then does
+the adapter read evidenced theory/gate/alternative/analyst metadata and return
+`TargetBundle@1.0.0`:
+
+```text
+IndexedMultiSourceDataset raw sample + Dilemmadata source record
+  -> versioned source-native AN or DLC TargetBundle
+  -> attach_target_bundle (same bound raw graph/fingerprint)
+  -> exact RationalTime/canonical-ID alignment
+  -> existing tensorizer/collator -> MultiSourceBatch
+```
+
+The 22-task Dilemmadata registry is a complete explicit extension beside the
+unchanged 18-task core registry. AN and DLC namespaces remain distinct. Point
+events never snap; note labels require all raw tie-merged rows to agree; spans
+are exact half-open; available unaligned rows remain available with a false
+entity-index mask. Nine frozen/PU families are deterministically encodable and
+13 open source-string families stay CPU/deferred. This phase adds no heads,
+losses, or training result. See `DILEMMADATA_TARGET_SIDECARS.md`.
 
 ## Incremental research scope
 

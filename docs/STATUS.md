@@ -3,17 +3,21 @@
 ## Current phase
 
 - Date: 2026-08-17
-- Current task: blocking remediation of Phase 9B.1 in draft PR #21 on branch
-  `phase/9b1-dilemmadata-raw-adapter`, still based exactly on
-  `01dce15a50144bfcabcade50dc04024baffccc2d`
-- Phase 9B.1 adapter: `1.0.1`; acceptance report and committed production
-  manifest: `1.1.0`; corpus identity, raw projection, grouping, record binding,
-  and cache-input identity: `1.0.0`
+- Current task: Phase 9B.2A production Dilemmadata theory sidecars and exact
+  alignment on branch `agent/phase-9b2a-dilemmadata-target-sidecars`, based
+  exactly on merged PR #21 / `origin/main` commit
+  `8e77a08f7fc063037d34593b5c8196c76a6cbd16`
+- Phase 9B.2A alignment evidence and target adapter: `1.1.0`; target audit
+  report and manifest: `1.1.0`; sidecar, metadata index, source-native family
+  and encoding registries, and alignment rules remain `1.0.0`; generic
+  external `TargetBundle`: `1.0.0`
+- Phase 9B.1 raw adapter remains `1.0.1`; raw projection/cache/graph semantics
+  and all their versions remain unchanged
 - Phase 9A full-corpus semantic fingerprint:
   `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`
-- Next Phase 9 task after acceptance: separately authorize Phase 9B.2
-  source-native theory sidecars and exact alignment; heads/losses remain later
-  work
+- Next Phase 9 task after review/merge: Phase 9B.2B, selecting safe model-ready
+  tasks, adding heads/losses/evaluation, and running the first scratch-versus-
+  SSL scientific pilot with and without Dilemmadata
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -142,6 +146,91 @@
   selection/statistics/compute contracts: `1.1.0`; CUDA memory-statistics
   lifecycle: `1.0.0`; data semantic projection: `1.0.0`; evaluation
   piece-sufficient-statistics output: `1.3.0`
+
+## Phase 9B.2A production Dilemmadata target-sidecar result
+
+- Blocking alignment-origin remediation is complete. Test-only commit
+  `342a0d3be91341b3e9243dc52e35259e7516bce9` reproduces the old vulnerability:
+  four independently re-fingerprinted onset, canonical-note, tie-state, and
+  ordered-row forgeries are accepted by its vulnerable parent implementation.
+  The remediated adapter rejects all four as
+  `dilemmadata.target.alignment_binding_mismatch`.
+- `DilemmadataRawTargetAlignmentEvidence` and the target adapter advance to
+  `1.1.0`; target audit report/manifest advance to `1.1.0`. The sidecar,
+  metadata, source-native family/encoding, exact-alignment, and generic
+  `TargetBundle` serialization contracts remain `1.0.0`.
+- The evidence self-fingerprint is now explicitly only a corruption check.
+  Before target or metadata access, a fresh target-neutral oracle re-runs the
+  closed AN/DLC raw parser, exact tie merger, and canonical builder from the
+  pinned physical source. It requires exact canonical serialization and exact
+  equality of every ordered row ordinal, physical line, `RationalTime`, tie
+  state, and canonical note ID. There is no tolerance, float snapping,
+  nearest-note matching, or heuristic renumbering.
+- The oracle parser materializes only a closed dialect-specific raw-value field
+  set. Tests prove that this set is disjoint from theory/gate/alternative
+  fields and trap both target-row and analyst-metadata loaders; valid merged-tie
+  evidence remains accepted. Theory-only and metadata-only mutation change only
+  the external sidecar.
+- Added a separate target adapter over only Phase 9A-evidenced theory/gate/
+  alternative columns plus a versioned analyst/reviewer metadata index. Raw
+  canonical targets/annotations remain empty.
+- Added a complete 22-family external registry extension: 9 deterministic
+  closed/PU encodings and 13 open-string CPU/deferred encodings. AN and DLC
+  task namespaces remain separate; no borrowed harmony, semantic voice role,
+  dynamic vocabulary, hash ID, synthetic negative, or cross-source crosswalk
+  was added.
+- Added target-neutral raw row-to-note evidence required for exact tie-merged
+  note alignment. Raw adapter `1.0.1`, raw projection `1.0.0`, canonical/cache/
+  grouping/split/graph/model-input semantics, versions, and Phase 9B.1
+  artifacts are unchanged.
+- Added `TargetBundle@1.0.0`, deterministic serialization/fingerprint, exact
+  external spans, public build/convert/iterator APIs, and attachment to the
+  existing `IndexedMultiSourceDataset` sample, alignment, tensorizer, collator,
+  and `MultiSourceBatch` path.
+- Exact alignment uses only canonical IDs and `RationalTime`; note targets
+  require all tie-merged source rows to agree, points never snap, spans are
+  half-open, equal duplicates merge, conflicts mask, and available unaligned
+  entries survive with a false entity-index mask.
+- The completed local pinned scan emitted 719 accepted target sidecars (108 AN,
+  611 DLC), zero target quarantine, and zero fatal outcomes over 1,042,098
+  accepted source rows. It counted 1,918,235 available and 757,181 masked target
+  entries, 6,705,009 exact-aligned rows, 3,950 available unaligned rows, 556
+  conflicts, 18,496 merged-tie agreements, and 556 merged-tie conflicts.
+- Grouping remains 1,507 components / 126 multi-record / 98 explicit AN-DLC /
+  30 conservative note-multiset alternative candidates / five release-hint
+  conflicts. The full raw projection has 27 multi-record equivalence groups;
+  four contain multiple accepted raw records. Analysis views are never voted,
+  averaged, or selected as primary.
+- The accepted raw index remains
+  `c0451976b6b6eab88cb90aa6c47d6afdba1b81ce9b588f0f84daa846154adb0e`
+  and the split fingerprint remains
+  `58ac7720f65f7fd3102248fb39d89291a78d65c06fc2ab9a16d78a6ee1666a3e`.
+- Family/encoding/sidecar/audit fingerprints are respectively
+  `a3ff6ba2ea8f3b2f6062fdf30ce92d40d7c70dc505770a06419462a452dae080`,
+  `699920917d20f560408252f115048a80268cdae7ab3ccf1d30dc3f8be5103d7b`,
+  `1d183ab63913084c94f62dc8777995b721ca415b20081e1ea907e69015ee5c72`,
+  and `a971ff0daf8d5a442beaa3365ec8c43ca9368f07baab4a1102927977f6ebdd05`.
+  Raw alignment evidence is
+  `18ee4971f33f5a208e944939949152b275e09928916880c134fda3d1fb2d189a`.
+  The core ontology/encoding, target source, and target metadata fingerprints
+  are unchanged.
+- The real seven-record E2E batch contains 4 AN / 3 DLC, a merged-tie case,
+  cadence/phrase/section cases, and one accepted alternative component. It has
+  4,656 raw nodes, 34,300 edges, 17,913 target rows, unchanged candidate/model-
+  input identity, 9 closed tensors, 13 open CPU families, and zero retained
+  CUDA/prediction tensors.
+- No legacy repository file was opened or used. No Phase 9B.2B head/loss,
+  supervised training/evaluation, PDMX, or scientific effectiveness claim was
+  added. The one opt-in pinned full-corpus audit is ready with all 719 accepted
+  raw records producing accepted sidecars and fingerprint `a971ff0d…`.
+  Focused raw/target/audit tests are `133 passed, 1 skipped, 1 deselected`;
+  the broad adapter/parser/ontology/collator regression is `255 passed, 1
+  skipped, 1 deselected`; the non-spawn Dataset regression is `79 passed, 2
+  deselected`; graph leakage is `3 passed, 6 deselected`. Both deterministic
+  audit checks, both fresh import orders, `compileall`, and `git diff --check`
+  pass. The three deselected local worker cases remain enabled for the
+  authoritative Required GitHub full-suite; its exact-head result belongs in
+  the PR #22 body and evidence comment rather than the corpus manifest.
 
 ## Phase 9B.1 production Dilemmadata raw-adapter result
 

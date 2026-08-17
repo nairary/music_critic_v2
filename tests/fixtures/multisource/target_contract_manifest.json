@@ -1,9 +1,9 @@
 {
   "audit_schema_version": "1.1.0",
   "contract_source_sha256": {
-    "docs/HARMONIC_SUPERVISION.md": "f72f5648d719938f188977f73ec3e7e96da0ef2f2d293de82ee56294d9a1c40a",
+    "docs/HARMONIC_SUPERVISION.md": "9f280019f4038ff700ae3597b3be8c04d6112d4919a40a6532d008d1db0ddd70",
     "docs/MULTISOURCE_COLLATOR.md": "0b39b98ded041824d131476da158b643d38ec8ff14062b7c50e61383bed9918c",
-    "docs/MULTISOURCE_TARGET_CONTRACT.md": "c8832e650f24b53d7f5d9c03cd2fe14b5cf070650f1e411bec37a52689d79ea5",
+    "docs/MULTISOURCE_TARGET_CONTRACT.md": "277378827be6350ad980dd00d4704084e5b02ed615791e8b89495650ab5b191d",
     "docs/POP909_CL_ADAPTER_CONTRACT.md": "8634422b359e547f2d7ec24d6f853c2194f6561e2d8078b7d0d308846ade7e1b",
     "scripts/audit_multisource_targets.py": "cda2585659fa6b33269b1eea1c221889aec222696bfccbbf8fdeccf61940ffac",
     "scripts/benchmark_multisource_collator.py": "5ce320a3f1b634369cec689600e6b0b4d30278890a42b9f778f57efdb6279146",
@@ -12,11 +12,11 @@
     "src/music_critic/data/schema.py": "b4abb10bd813bae4c04370fbd5e1d68752a97a9cbd6aa3d7f7a9e9c6f1bc49e8",
     "src/music_critic/graph/builder.py": "ccf423169631d4bb12295b92b4403625902eb1ded9478165f2ebc23d836fab65",
     "src/music_critic/graph/validation.py": "8de80cbf5929507da727293751aaba723d4256a5bc65aa0309b968873ffafa99",
-    "src/music_critic/tasks/alignment.py": "1ccb87d2b65d4e2053f89e2d2eb1a2de8a39dd1449e8cc93583cfce5484e05dd",
-    "src/music_critic/tasks/collator.py": "5ed0300f2bcb67e3c657aa50f6739c39b0084dae4f939b3a3989a349b19dd3e2",
-    "src/music_critic/tasks/encoding.py": "de5199ffc1ea6034b860109967a8c931b813d68a4cffd5209072d45b02add4af",
-    "src/music_critic/tasks/multisource.py": "99dbbbb8c500ea46007f449cc35a9ccde3dcacf412c5b83bc5cd4050a149f775",
-    "src/music_critic/tasks/ontology.py": "369ddafa7f1d80643a95d680c9b9c7daa8aa228c4436f8fce61a413d3766b638",
+    "src/music_critic/tasks/alignment.py": "73ee0ae18cf7c4f95970c2344ba9b7103a205d19f05795db2ac3ab366d65f1a6",
+    "src/music_critic/tasks/collator.py": "7aa478efc96619a007d46f2a6546e4055b2d10172f273c571d08d6c3fb345b5f",
+    "src/music_critic/tasks/encoding.py": "28e88dab2ef02b65460b792df3576da9ad8ae904af99dd44f221c54d494fc41a",
+    "src/music_critic/tasks/multisource.py": "a158e9ea0cca3874cfdb3e9e0381182376f2fd446b7063c290ccc1f2bb3997b5",
+    "src/music_critic/tasks/ontology.py": "c91b6724e71b4062d7e6132cf14175d4164c347fc57fa072972d85f20bb7a7a4",
     "tests/fixtures/hooktheory/golden_manifest.json": "a051f9ddc5ea7047200a1f94b2db6b1d3deb2ab15a2284827c704fb7681b1d0e",
     "tests/fixtures/pop909_cl/production_manifest.json": "bc9c4118c72cb39bc1393fd2d250db577835a837fc53f8fe8c1238c7b13a8031"
   },

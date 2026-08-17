@@ -13,6 +13,7 @@ from music_critic.adapters.dilemmadata import (
     DILEMMADATA_PRIMARY_RECORD_COUNT,
     DILEMMADATA_PRODUCTION_MANIFEST_VERSION,
     DILEMMADATA_RAW_PROJECTION_VERSION,
+    DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION,
     DILEMMADATA_RECORD_BINDING_VERSION,
     DILEMMADATA_RELEASE_COMMIT,
     DILEMMADATA_RELEASE_VERSION,
@@ -28,11 +29,16 @@ from music_critic.adapters.dilemmadata import (
     DilemmadataCorpusIssue,
     DilemmadataCorpusRecord,
     DilemmadataQuarantine,
+    DilemmadataRawTargetAlignmentEvidence,
+    DilemmadataSourceRowBinding,
     convert_dilemmadata_record,
+    dilemmadata_raw_source_value_fields,
     discover_dilemmadata_corpus,
     iter_dilemmadata_corpus,
+    reconstruct_dilemmadata_alignment_evidence,
+    validate_dilemmadata_alignment_evidence,
+    validate_dilemmadata_record_binding,
 )
-
 from music_critic.adapters.hooktheory import (
     HookTheoryAdapterConfig,
     HookTheoryAdapterError,
@@ -74,6 +80,42 @@ from music_critic.adapters.pop909_cl import (
     project_pop909_cl_score_bytes,
 )
 
+
+_DILEMMADATA_TARGET_EXPORTS = frozenset(
+    {
+        "DILEMMADATA_TARGET_ADAPTER_VERSION",
+        "DILEMMADATA_TARGET_AUDIT_MANIFEST_VERSION",
+        "DILEMMADATA_TARGET_AUDIT_REPORT_VERSION",
+        "DILEMMADATA_TARGET_METADATA_VERSION",
+        "DILEMMADATA_TARGET_SIDECAR_VERSION",
+        "DilemmadataTargetAccepted",
+        "DilemmadataTargetAdapterConfig",
+        "DilemmadataTargetAdapterError",
+        "DilemmadataTargetConversionResult",
+        "DilemmadataTargetFamilyStatistics",
+        "DilemmadataTargetMetadata",
+        "DilemmadataTargetMetadataIndex",
+        "DilemmadataTargetQuarantine",
+        "DilemmadataTargetStatistics",
+        "build_dilemmadata_target_sidecar",
+        "convert_dilemmadata_target_sidecar",
+        "iter_dilemmadata_target_sidecars",
+        "load_dilemmadata_target_metadata_index",
+    }
+)
+
+
+def __getattr__(name: str):
+    """Load the target-only adapter lazily to keep worker imports acyclic."""
+
+    if name not in _DILEMMADATA_TARGET_EXPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    from music_critic.adapters import dilemmadata_targets
+
+    value = getattr(dilemmadata_targets, name)
+    globals()[name] = value
+    return value
+
 __all__ = [
     "DILEMMADATA_ACCEPTANCE_REPORT_VERSION",
     "DILEMMADATA_AN_RECORD_COUNT",
@@ -87,9 +129,15 @@ __all__ = [
     "DILEMMADATA_PRIMARY_RECORD_COUNT",
     "DILEMMADATA_PRODUCTION_MANIFEST_VERSION",
     "DILEMMADATA_RAW_PROJECTION_VERSION",
+    "DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION",
     "DILEMMADATA_RECORD_BINDING_VERSION",
     "DILEMMADATA_RELEASE_COMMIT",
     "DILEMMADATA_RELEASE_VERSION",
+    "DILEMMADATA_TARGET_ADAPTER_VERSION",
+    "DILEMMADATA_TARGET_AUDIT_MANIFEST_VERSION",
+    "DILEMMADATA_TARGET_AUDIT_REPORT_VERSION",
+    "DILEMMADATA_TARGET_METADATA_VERSION",
+    "DILEMMADATA_TARGET_SIDECAR_VERSION",
     "DilemmadataAccepted",
     "DilemmadataAdapterConfig",
     "DilemmadataAdapterError",
@@ -102,6 +150,17 @@ __all__ = [
     "DilemmadataCorpusIssue",
     "DilemmadataCorpusRecord",
     "DilemmadataQuarantine",
+    "DilemmadataRawTargetAlignmentEvidence",
+    "DilemmadataSourceRowBinding",
+    "DilemmadataTargetAccepted",
+    "DilemmadataTargetAdapterConfig",
+    "DilemmadataTargetAdapterError",
+    "DilemmadataTargetConversionResult",
+    "DilemmadataTargetFamilyStatistics",
+    "DilemmadataTargetMetadata",
+    "DilemmadataTargetMetadataIndex",
+    "DilemmadataTargetQuarantine",
+    "DilemmadataTargetStatistics",
     "HookTheoryAdapterConfig",
     "HookTheoryAdapterError",
     "MidiAdapterConfig",
@@ -126,12 +185,18 @@ __all__ = [
     "Pop909ClQuarantine",
     "convert_hooktheory_record",
     "convert_dilemmadata_record",
+    "dilemmadata_raw_source_value_fields",
+    "build_dilemmadata_target_sidecar",
+    "convert_dilemmadata_target_sidecar",
     "convert_pop909_cl_file",
     "discover_pop909_cl_corpus",
     "discover_dilemmadata_corpus",
     "inspect_pop909_cl_instruments",
     "iter_pop909_cl_corpus",
     "iter_dilemmadata_corpus",
+    "reconstruct_dilemmadata_alignment_evidence",
+    "iter_dilemmadata_target_sidecars",
+    "load_dilemmadata_target_metadata_index",
     "load_hooktheory_piece",
     "load_midi_piece",
     "pop909_cl_source_group_id",
@@ -139,4 +204,6 @@ __all__ = [
     "pop909_cl_raw_input_group_id",
     "pop909_lineage_group_id",
     "project_pop909_cl_score_bytes",
+    "validate_dilemmadata_alignment_evidence",
+    "validate_dilemmadata_record_binding",
 ]
