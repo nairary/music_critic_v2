@@ -207,6 +207,15 @@
   scaler configuration/state. The gate requires a recovered final applied
   attempt plus finite changes in the encoder and all four heads. Hardware
   training success remains unclaimed.
+- RTX attempt `205205014041c69d4aebf14a28582b509fedec9c` then passed AMP
+  training acceptance with applied optimizer update(s), finite applied
+  gradients, encoder/four-head gradient coverage and parameter changes, plus
+  checkpoint save and checkpoint SHA. It failed only before checkpoint reload
+  because the standard-library `copy` import used by the scaler-state snapshot
+  was missing. The import and focused deep-copy regression restore the already
+  declared behavior without contract/fingerprint changes. Reload, validation,
+  and independent verification remain unexecuted; hardware success is still
+  unclaimed and existing caches do not require rebuilding.
 - Phase 9B.2B head/loss and data semantics plus the pinned raw index, split,
   cache, graph, and model-input fingerprints remain unchanged. Legacy was not used;
   no long training, scratch-versus-SSL comparison, Phase 9C, PDMX, or Phase 10

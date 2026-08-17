@@ -193,6 +193,23 @@ def test_amp_policy_reuses_phase8b_scaler_configuration() -> None:
     assert config["init_scale"] == 16384.0
 
 
+def test_scaler_state_snapshot_is_an_independent_deep_copy() -> None:
+    state = {
+        "scale": 16384.0,
+        "nested": {"growth_tracker": [3], "tensor": torch.tensor([1.0])},
+    }
+    scaler = SimpleNamespace(state_dict=lambda: state)
+
+    snapshot = smoke._snapshot_scaler_state(scaler)
+    state["scale"] = 8192.0
+    state["nested"]["growth_tracker"].append(4)
+    state["nested"]["tensor"].add_(1.0)
+
+    assert snapshot["scale"] == 16384.0
+    assert snapshot["nested"]["growth_tracker"] == [3]
+    assert torch.equal(snapshot["nested"]["tensor"], torch.tensor([1.0]))
+
+
 def _replay_diagnostic() -> dict[str, object]:
     return {
         "contract_version": smoke.DILEMMADATA_CUDA_REPLAY_DIAGNOSTIC_VERSION,

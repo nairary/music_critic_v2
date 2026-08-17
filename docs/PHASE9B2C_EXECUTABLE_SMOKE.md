@@ -144,3 +144,14 @@ replay. Its finite first loss then produced a non-finite gradient at
 `unscale_`, before GradScaler could skip/update, and no checkpoint was created.
 The remediation above preserves this as failed hardware evidence and makes no
 hardware-training-success claim pending a new exact-SHA RTX run.
+
+The next RTX attempt at
+`205205014041c69d4aebf14a28582b509fedec9c` passed AMP training acceptance,
+including at least one applied optimizer update, finite applied gradients,
+complete encoder/four-head gradient coverage and parameter changes. It also
+saved the checkpoint and its SHA, then failed immediately before checkpoint
+reload because the smoke module had not imported the standard-library `copy`
+module used for the scaler-state snapshot. The import and directly exercised
+deep-copy helper restore already-versioned behavior; contracts and fingerprints
+do not change. Reload, validation, and the independent verifier remain pending,
+so hardware-gate success is not claimed and existing caches need no rebuild.

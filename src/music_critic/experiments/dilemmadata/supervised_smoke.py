@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 from dataclasses import replace
 import gc
 from hashlib import sha256
@@ -443,6 +444,10 @@ def _new_grad_scaler(device_type: str) -> torch.amp.GradScaler:
         growth_interval=DILEMMADATA_GRAD_SCALER_GROWTH_INTERVAL,
         enabled=True,
     )
+
+
+def _snapshot_scaler_state(scaler: object) -> dict[str, object]:
+    return copy.deepcopy(scaler.state_dict())
 
 
 def _dialect(source_record_id: str) -> str:
@@ -1638,7 +1643,7 @@ def _cuda_execution(
         reloaded_optimizer, T_max=updates
     )
     reloaded_scaler = _new_grad_scaler("cuda")
-    saved_scaler_state = copy.deepcopy(scaler.state_dict())
+    saved_scaler_state = _snapshot_scaler_state(scaler)
     load_training_checkpoint(
         checkpoint_path,
         reloaded,
