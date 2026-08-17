@@ -247,7 +247,7 @@ def test_note_identity_and_exact_onset_beat_bar_span_expansion() -> None:
     batch = collate_multisource_samples((sample,))
 
     note = _target(batch, "theory.melody.scale_degree")
-    assert note.batch_contract_version == BATCH_TARGET_CONTRACT_VERSION == "1.1.0"
+    assert note.batch_contract_version == BATCH_TARGET_CONTRACT_VERSION == "1.2.0"
     assert note.entity_node_types == ("note",)
     assert note.entity_node_type_codes.tolist() == [
         ENTITY_NODE_TYPE_TO_CODE["note"]

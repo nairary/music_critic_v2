@@ -27,6 +27,9 @@ class DataConfig:
     index_paths: list[str] = field(default_factory=list)
     cache_roots: list[str] = field(default_factory=list)
     split_manifest: str = ""
+    target_cache_index: str = ""
+    target_cache_root: str = ""
+    require_target_sidecars: bool = False
     train_split: str = "train"
     validation_split: str = "validation"
     batch_size: int = 3
@@ -103,11 +106,12 @@ class DeviceConfig:
 class TransferConfig:
     """Optional Phase 8B.2A downstream encoder initialization."""
 
-    contract_version: str = "1.1.0"
+    contract_version: str = "1.2.0"
     mode: str = "supervised_scratch"
     encoder_export_path: str = ""
     encoder_export_sha256: str = ""
     source_ssl_checkpoint_sha256: str = ""
+    source_kind: str = "phase7a_ssl"
     comparison_protocol_fingerprint: str = ""
     downstream_initialization_seed: int = 0
     downstream_data_order_seed: int = 0
@@ -205,11 +209,17 @@ def register_training_configs() -> None:
     store.store(
         group="data",
         name="dilemmadata",
-        node=_data(
-            "dilemmadata",
+        node=DataConfig(
+            name="dilemmadata",
             index_paths=["data/cache/dilemmadata.index.json"],
             cache_roots=["data/cache/dilemmadata"],
-            weights={"dilemmadata": 1.0},
+            split_manifest="data/cache/global.split.json",
+            target_cache_index=(
+                "data/cache/dilemmadata-target.index.json"
+            ),
+            target_cache_root="data/cache/dilemmadata-target",
+            require_target_sidecars=True,
+            mixture_weights={"dilemmadata": 1.0},
         ),
     )
     store.store(
@@ -313,6 +323,30 @@ def register_training_configs() -> None:
             collect_gradient_evidence=False,
         ),
     )
+    for name, steps, epochs, evidence in (
+        ("dilemmadata_one_batch", 40, 1, True),
+        ("dilemmadata_smoke", 1, 2, False),
+        ("dilemmadata_pilot", 1, 20, False),
+        ("dilemmadata_evaluation", 1, 1, False),
+        ("dilemmadata_scratch_vs_ssl", 1, 20, False),
+    ):
+        store.store(
+            group="experiment",
+            name=name,
+            node=ExperimentConfig(
+                name=name,
+                preset=name,
+                steps=steps,
+                epochs=epochs,
+                checkpoint_interval=1,
+                validation_interval=1,
+                default_learning_rate=3e-4,
+                default_objective="supervised_harmonic",
+                default_harmonic_weight=1.0,
+                default_reconstruction_weight=0.0,
+                collect_gradient_evidence=evidence,
+            ),
+        )
     store.store(group="optimizer", name="adamw", node=OptimizerConfig())
     store.store(group="objective", name="preset", node=ObjectiveConfig())
     store.store(

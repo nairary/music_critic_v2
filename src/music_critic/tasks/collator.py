@@ -312,6 +312,17 @@ def tensorize_aligned_targets(
                     ],
                     dtype=torch.long,
                 ),
+                source_entry_indices=torch.tensor(
+                    [
+                        row.source_entry_index
+                        for _, row in rows_with_sample
+                    ],
+                    dtype=torch.long,
+                ),
+                source_entry_counts_by_sample=torch.tensor(
+                    [family.source_entry_count for family in families],
+                    dtype=torch.long,
+                ),
                 confidence=confidence_tensor,
                 confidence_mask=confidence_mask_tensor,
                 entry_count=len(rows_with_sample),
@@ -353,6 +364,25 @@ def _task_statistics(target: BatchTarget) -> TaskBatchStatistics:
             target.availability_mask.tolist(), conflict_flags
         )
     )
+    eligible_rows = torch.nonzero(
+        target.supervision_eligibility_mask, as_tuple=False
+    ).flatten()
+    effective_source_entries = (
+        0
+        if eligible_rows.numel() == 0
+        else int(
+            torch.unique(
+                torch.stack(
+                    (
+                        target.sample_indices.index_select(0, eligible_rows),
+                        target.source_entry_indices.index_select(0, eligible_rows),
+                    ),
+                    dim=1,
+                ),
+                dim=0,
+            ).shape[0]
+        )
+    )
     return TaskBatchStatistics(
         task_id=target.task_id,
         source_entry_count=target.source_entry_count,
@@ -367,6 +397,7 @@ def _task_statistics(target: BatchTarget) -> TaskBatchStatistics:
         supervision_eligible_row_count=int(
             target.supervision_eligibility_mask.sum().item()
         ),
+        effective_source_entry_count=effective_source_entries,
         deferred_open_vocabulary_row_count=(
             0 if target.model_ready else target.entry_count
         ),
@@ -433,6 +464,9 @@ def _batch_statistics(
         ),
         supervision_eligible_row_count=sum(
             item.supervision_eligible_row_count for item in task_counts
+        ),
+        effective_source_entry_count=sum(
+            item.effective_source_entry_count for item in task_counts
         ),
         deferred_open_vocabulary_row_count=sum(
             item.deferred_open_vocabulary_row_count

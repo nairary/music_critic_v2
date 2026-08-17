@@ -16,9 +16,9 @@ from music_critic.device import (
 from music_critic.graph import MANDATORY_NODE_TYPES
 from music_critic.tasks import (
     ENTITY_NODE_TYPE_TO_CODE,
-    TARGET_FAMILIES,
     BatchTarget,
     MultiSourceBatch,
+    registry_extensions_for_task_ids,
 )
 
 
@@ -103,6 +103,16 @@ def _move_target(
                 device,
                 non_blocking=non_blocking,
             ),
+            "source_entry_indices": _move_tensor(
+                target.source_entry_indices,
+                device,
+                non_blocking=non_blocking,
+            ),
+            "source_entry_counts_by_sample": _move_tensor(
+                target.source_entry_counts_by_sample,
+                device,
+                non_blocking=non_blocking,
+            ),
             "confidence": _move_tensor(
                 target.confidence,
                 device,
@@ -126,6 +136,8 @@ def _target_tensors(target: BatchTarget) -> tuple[Tensor, ...]:
         target.entity_index_mask,
         target.entity_node_type_codes,
         target.sample_indices,
+        target.source_entry_indices,
+        target.source_entry_counts_by_sample,
         target.confidence,
         target.confidence_mask,
     ):
@@ -143,7 +155,13 @@ def validate_device_batch(
     """Validate tensor devices, shapes, task order, and graph binding."""
 
     expected_device = resolve_runtime_device(device)
-    expected_tasks = tuple(spec.task_id for spec in TARGET_FAMILIES)
+    expected_tasks = tuple(item.task_id for item in batch.target_batches)
+    try:
+        registry_extensions_for_task_ids(expected_tasks)
+    except ValueError as exc:
+        raise DeviceTransferError(
+            "training.device.task_order_mismatch"
+        ) from exc
     if tuple(item.task_id for item in batch.target_batches) != expected_tasks:
         raise DeviceTransferError("training.device.task_order_mismatch")
     for store in batch.raw_graph_batch.stores:
@@ -298,7 +316,13 @@ def _validate_moved_structure(
 ) -> None:
     """Check transfer invariants without data-dependent tensor predicates."""
 
-    expected_tasks = tuple(spec.task_id for spec in TARGET_FAMILIES)
+    expected_tasks = tuple(item.task_id for item in source.target_batches)
+    try:
+        registry_extensions_for_task_ids(expected_tasks)
+    except ValueError as exc:
+        raise DeviceTransferError(
+            "training.device.task_order_mismatch"
+        ) from exc
     if tuple(item.task_id for item in batch.target_batches) != expected_tasks:
         raise DeviceTransferError("training.device.task_order_mismatch")
     if (

@@ -432,8 +432,9 @@ does not require either margin sign after two optimizer steps.
 ## Phase 8B.2A comparison and transfer bindings
 
 Phase 8B.2A reuses this official epoch/checkpoint/journal engine. The optional
-`transfer` block is `1.1.0` and defaults to `supervised_scratch`, preserving
-ordinary Phase 6C behavior. A protocol-bound run supplies independent
+`transfer` block defaults to `supervised_scratch`; Phase 9B.2B advances its
+structured config to `1.2.0` for source-kind evidence while `1.1.0` remains
+accepted for non-Dilemmadata resume compatibility. A protocol-bound run supplies independent
 downstream initialization/data-order seeds and one of:
 
 - `supervised_scratch`, with no encoder export;
@@ -486,3 +487,41 @@ downstream data-order seeds. Its membership fingerprint must match the
 comparison protocol, checkpoint/report, and candidate-first evaluation. See
 `PHASE8B2_COMPARISON_PROTOCOL.md`; these mechanics are not downstream quality
 evidence.
+
+## Phase 9B.2B Dilemmadata supervised presets
+
+The official CUDA entry point is:
+
+```bash
+python -m music_critic.training.run experiment=dilemmadata_pilot \
+  model=hierarchical data=dilemmadata device=cuda
+```
+
+Raw index/cache, target index/cache and split paths are Hydra-overridable. The
+`dilemmadata_one_batch`, `dilemmadata_smoke`, `dilemmadata_pilot`,
+`dilemmadata_evaluation` and `dilemmadata_scratch_vs_ssl` presets require the
+four fixed AN/DLC quality/inversion tasks and `reconstruction_weight=0`.
+Default class weighting is disabled. A separately fingerprinted train-only
+inverse or inverse-square-root ablation is available, but validation/test
+labels cannot define weights, priors or vocabularies.
+
+For one task, the loss is
+`mean_source_entries(mean_candidate_rows(CE))`; the objective is the fixed
+weighted sum across tasks. It is never divided by the number or summed weight
+of tasks present in a batch. Masked, conflicting and unaligned entries are
+excluded. Training metrics retain expanded-row, effective-source-entry and
+denominator evidence.
+
+Scratch creates a fresh encoder, heads and optimizer. Phase 7A/8B modes load
+only exact compatible encoder tensors, report the source checkpoint SHA and
+loaded/unloaded names, and then create fresh heads/optimizer. Frozen probe and
+full fine-tune are distinct modes; incompatible state is rejected before
+mutation. AMP, best/last checkpoints, epoch-boundary resume and fixed
+validation reuse the existing training engine.
+
+The RTX 3090 comparison plan fixes seeds 17, 29 and 43, full fine-tuning,
+equal sample schedules/update budgets and three primary variants:
+`supervised_scratch`, `ssl_hook_pop`, and `ssl_hook_pop_dilemmadata`. It is emitted as a
+not-executed plan/command bundle. Bounded overfit only proves optimization and
+checkpoint plumbing and must not select an SSL objective or support a quality
+claim.

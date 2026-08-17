@@ -1040,6 +1040,43 @@ entity-index mask. Nine frozen/PU families are deterministically encodable and
 13 open source-string families stay CPU/deferred. This phase adds no heads,
 losses, or training result. See `DILEMMADATA_TARGET_SIDECARS.md`.
 
+## Phase 9B.2B Dilemmadata supervised boundary
+
+Phase 9B.2B materializes each verified `TargetBundle` once in an immutable,
+SHA-addressed JSON cache after the unchanged raw cache. The target-cache index
+binds piece/canonical/raw-record/physical-source/target-source/metadata/
+alignment/registry and `TargetBundle` identities. Runtime loading is strictly:
+
+```text
+raw IndexedMultiSourceDataset
+  -> verified cached TargetBundle by (dataset_id, piece_id)
+  -> attach_target_bundle
+  -> collator / BatchTarget@1.2.0
+  -> raw-only hierarchical encoder and four candidate heads
+  -> post-prediction target join, loss and metrics
+```
+
+Only AN/DLC chord quality and inversion are active, with four distinct heads
+and source-native vocabularies. Five positive-unlabeled event families and all
+13 `open_string_cpu` families have no CE head or optimizer loss. Candidate
+logits depend only on raw encoder output; target deletion, replacement or
+masking cannot affect them. Local note/onset/beat/bar embeddings remain
+available beside coarse and fused embeddings.
+
+Expanded alignments carry a tensorized `(sample, source_entry)` identity. Loss
+is `rows.mean per source entry -> entries.mean per task -> fixed weighted task
+sum`; absent tasks do not cause hidden weight renormalization. Evaluation uses
+the same source-entry unit, train-only majority/prior baselines, separate
+record and raw-equivalence-component aggregation, and paired component
+bootstrap. Validation alone selects models; test remains explicitly locked.
+
+Encoder transfer accepts Phase 7A or Phase 8B exports but loads only the local
+encoder, hierarchy pooling/Transformer and fusion tensors failure-atomically.
+Four heads and AdamW are always fresh. The immutable RTX 3090 plan fixes seeds
+17/29/43 and scratch, Hook+POP SSL, and Hook+POP+Dilemmadata SSL primary cells.
+The PR runs bounded plumbing evidence only, not long training or an
+effectiveness comparison.
+
 ## Incremental research scope
 
 Phase 7A implements GraphMAE2-inspired decoder remasking but is not a faithful

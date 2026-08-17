@@ -2,6 +2,19 @@
 
 Status: **ACCEPTED FOR PHASE 1 IMPLEMENTATION**.
 
+## Phase 9B.2B target-cache and batch extension
+
+`DilemmadataTargetCache@1.0.0` stores only immutable JSON `TargetBundle@1.0.0`
+artifacts after the raw cache. Its index/identity/manifest contracts are
+`1.0.0` and bind exact raw/canonical/source/alignment/registry/target
+fingerprints. It stores no pickle, graph or tensor object.
+
+`BatchTarget@1.2.0` adds tensorized `source_entry_indices` and per-sample
+`source_entry_counts_by_sample`. These identify the original annotation entry
+before candidate expansion and are required for source-entry-normalized loss
+and metrics. Older BatchTarget payloads fail closed. Canonical schema, raw
+projection, corpus cache, split, graph and model-input contracts do not change.
+
 This document is the normative Phase 1 contract for the future
 `music_critic.data` schema layer. It defines the public Python API and canonical
 JSON representation. Implementations must not add, remove, rename, or reinterpret

@@ -31,6 +31,7 @@ from music_critic.adapters import (
 from music_critic.tasks import (
     CorpusCacheConfig,
     DeterministicQuotaSampler,
+    DilemmadataTargetCacheConfig,
     IndexedMultiSourceDataset,
     MultiCorpusDataset,
     MultiSourceBatch,
@@ -38,6 +39,7 @@ from music_critic.tasks import (
     collate_multisource_samples,
     dataset_view_report,
     load_corpus_index,
+    load_dilemmadata_target_cache_index,
     load_split_manifest,
     make_multisource_dataloader,
     prepare_multisource_sample,
@@ -406,13 +408,32 @@ def _corpus_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
     ):
         raise ValueError("training.data.corpus_paths_incomplete")
     indices = tuple(load_corpus_index(path) for path in config.index_paths)
+    target_index = None
+    target_config = None
+    require_targets = bool(
+        getattr(config, "require_target_sidecars", False)
+    )
+    if require_targets:
+        target_index_path = getattr(config, "target_cache_index", "")
+        target_root = getattr(config, "target_cache_root", "")
+        if not target_index_path or not target_root or len(indices) != 1:
+            raise ValueError(
+                "training.data.dilemmadata_target_cache_incomplete"
+            )
+        target_index = load_dilemmadata_target_cache_index(
+            target_index_path
+        )
+        target_config = DilemmadataTargetCacheConfig(Path(target_root))
     indexed = tuple(
         IndexedMultiSourceDataset(
             index,
             cache_config=CorpusCacheConfig(Path(cache_root)),
+            target_cache_index=(target_index if position == 0 else None),
+            target_cache_config=(target_config if position == 0 else None),
+            require_target_sidecars=require_targets,
         )
-        for index, cache_root in zip(
-            indices, config.cache_roots, strict=True
+        for position, (index, cache_root) in enumerate(
+            zip(indices, config.cache_roots, strict=True)
         )
     )
     manifest = load_split_manifest(config.split_manifest)
@@ -470,6 +491,17 @@ def _corpus_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
         )
 
     first = next(iter(train_loader(0)))
+    target_fingerprints = (
+        {}
+        if target_index is None
+        else {
+            "target_cache_index_version": target_index.index_version,
+            "target_cache_index_fingerprint": target_index.index_fingerprint,
+            "target_cache_raw_index_fingerprint": (
+                target_index.raw_index_fingerprint
+            ),
+        }
+    )
     return DataRuntime(
         first_train_batch=first,
         train_loader=train_loader,
@@ -491,6 +523,7 @@ def _corpus_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
             "validation_membership_fingerprint": (
                 membership.membership_fingerprint
             ),
+            **target_fingerprints,
         },
         mixture_statistics={
             "requested_weights": weights,
@@ -508,7 +541,12 @@ def build_data_runtime(
 ) -> DataRuntime:
     if config.name == "bounded":
         return _bounded_runtime(config, seed)
-    if config.name in {"hooktheory", "pop909_cl", "mixed"}:
+    if config.name in {
+        "hooktheory",
+        "pop909_cl",
+        "dilemmadata",
+        "mixed",
+    }:
         return _corpus_runtime(config, seed)
     raise ValueError(f"training.data.unknown:{config.name}")
 
