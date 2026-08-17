@@ -229,6 +229,15 @@ on every call to detect post-preparation feature or topology mutation.
 `project_multisource_targets` is the separate graph-free audit shape and
 cannot be collated. Binding stays sidecar-only.
 
+Phase 9B.2A adds `TargetBundle@1.0.0` as an external, versioned container for
+targets, exact alignment spans, provenance, diagnostics, and explicit registry
+extension IDs. `attach_target_bundle` joins it to an already prepared/cache-
+loaded sample while retaining the exact raw graph object and fingerprint. The
+Dilemmadata extension adds all 22 availability rows when selected; samples
+without it retain the original 18-task behavior. Mixed batches take the union
+of complete registries and fill missing extension families with zero rows.
+Partial extension inventories and unknown registry IDs fail closed.
+
 `MultiSourceBatch` is the validated immutable production collator result:
 
 ```text

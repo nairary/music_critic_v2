@@ -2840,3 +2840,36 @@ This log is append-only.
   projection `1.0.0` is unchanged, so this is not a raw-data semantic change.
   Theory sidecars, targets, heads/losses, supervised/scientific training,
   PDMX, and Phase 10 remain out of scope.
+
+## 2026-08-17 — ADR-076: Dilemmadata theory is an external source-native registry extension
+
+- Status: Accepted for Phase 9B.2A target sidecars and exact alignment only.
+- Context: Adding Dilemmadata tasks directly to the core HookTheory/POP909-CL
+  ontology would change the ontology fingerprint embedded in the already
+  accepted raw cache/index identity. AN and DLC also use source-specific label
+  grammars, and the raw adapter did not preserve which source rows were merged
+  into one canonical tied note.
+- Decision: Keep the core ontology and encoding serialization unchanged. Add a
+  complete explicit 22-task Dilemmadata registry extension, selected only when
+  an external `TargetBundle@1.0.0` is attached. Namespace AN and DLC separately;
+  do not create borrowed harmony or semantic voice roles; do not crosswalk AN,
+  DLC, HookTheory, or POP909-CL without separate lossless evidence.
+- Decision: Freeze only the full-scan AN/DLC quality, inversion, cadence, and
+  positive-event vocabularies. Preserve all other source strings on CPU with no
+  runtime vocabulary or hash IDs. Missing, masked, unsupported, ambiguous,
+  conflict, unaligned, and deferred states never become negative labels.
+- Decision: Add target-neutral raw alignment evidence over source-row ordinal,
+  exact onset, tie state, and canonical note ID. Raw adapter, projection,
+  canonical, cache, graph, and model-input versions do not change. A note target
+  is available only if every row merged into it agrees. Point events require an
+  exact onset; spans are exact half-open; no tolerance, snapping, or node-type
+  priority is permitted.
+- Decision: Retain every source record as a separate analysis view in its
+  existing split-atomic component. Preserve `alt_label` and analyst/reviewer
+  metadata only as target provenance/diagnostics. Attach targets after raw-cache
+  loading through the existing alignment/tensorizer/collator path.
+- Consequences: Phase 9B.2A can audit and batch deterministic source-native
+  supervision without invalidating Phase 9B.1 artifacts. Nine encodings are
+  mechanically model-ready and 13 remain open/deferred, but no new head, loss,
+  supervised evaluation, training run, or effectiveness claim is authorized.
+  Phase 9B.2B requires a separate review after this change merges.

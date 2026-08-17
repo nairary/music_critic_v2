@@ -3260,13 +3260,32 @@ canonical target/annotation collection empty.
 - one official Phase 8B optimizer step consumes two real AN and two real DLC
   pieces without accessing target sidecars.
 
-### Phase 9B.2 future target-sidecar increment
+### Phase 9B.2A production target sidecars implemented
 
-Source-native harmony/key/cadence/phrase/section/degree sidecars, exact target
-alignment, target encodings, harmony-run compression, and alternate-analysis
-target provenance require a later separately authorized task. Theory heads,
-loss routing, supervised training/evaluation, and scientific claims remain
-later still.
+- separate target-only AN/DLC parsing over Phase 9A-evidenced fields;
+- a 22-family source-native registry extension with deterministic encodings;
+- frozen full-corpus vocabularies only where proven, with open strings retained
+  on CPU and event absence treated as unlabeled;
+- exact canonical-note, exact-onset, and half-open-span alignment without
+  snapping or node priority;
+- tie-row agreement, duplicate conflict masking, explicit unavailable states,
+  and retained unaligned available rows;
+- external `TargetBundle` attachment to the existing cache/Dataset/tensorizer/
+  collator path without changing raw canonical, graph, or split identity;
+- separate alternative analysis views plus `alt_label` and analyst/reviewer
+  provenance;
+- a deterministic full-corpus target audit and compact committed manifest.
+
+The contract and exact inventory are documented in
+`DILEMMADATA_TARGET_SIDECARS.md`. Phase 9B.2A does not add heads, losses,
+supervised training/evaluation, or scientific claims.
+
+### Phase 9B.2B future supervised increment
+
+After review and merge, select only safe model-ready Dilemmadata families, add
+heads/loss routing/evaluation, and run the first scratch-versus-SSL pilot with
+and without Dilemmadata. Open-vocabulary crosswalks remain deferred unless a
+separate evidence-backed decision changes them.
 
 ## Phase 10. PDMX adapter and scalable cache
 

@@ -24,7 +24,7 @@ from music_critic.tasks.alignment import (
     align_targets_with_index,
     build_alignment_index,
 )
-from music_critic.tasks.encoding import TARGET_ENCODING_BY_TASK
+from music_critic.tasks.encoding import target_encoding_spec
 from music_critic.tasks.multisource import (
     BATCH_TARGET_CONTRACT_VERSION,
     ENTITY_NODE_TYPE_TO_CODE,
@@ -35,7 +35,10 @@ from music_critic.tasks.multisource import (
     MultiSourceSample,
     TaskBatchStatistics,
 )
-from music_critic.tasks.ontology import TARGET_FAMILIES
+from music_critic.tasks.registry import (
+    registry_extensions_for_task_ids,
+    target_family_spec,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,7 +142,7 @@ def _encode_values(
     task_id: str,
     families: tuple[AlignedTargetFamily, ...],
 ) -> torch.Tensor | tuple[str | None, ...]:
-    encoding = TARGET_ENCODING_BY_TASK[task_id]
+    encoding = target_encoding_spec(task_id)
     rows = tuple(row for family in families for row in family.rows)
     if encoding.encoding_kind == "closed_categorical_index":
         vocabulary = encoding.vocabulary or ()
@@ -177,16 +180,39 @@ def tensorize_aligned_targets(
     aligned = tuple(aligned_by_sample)
     if not aligned:
         raise MultiSourceContractError("tensorizer input cannot be empty")
-    expected_tasks = tuple(spec.task_id for spec in TARGET_FAMILIES)
+    expected_tasks = tuple(
+        sorted({family.task_id for families in aligned for family in families})
+    )
+    try:
+        registry_extensions_for_task_ids(expected_tasks)
+    except ValueError as exc:
+        raise MultiSourceContractError(
+            "aligned families must contain core plus complete target registries"
+        ) from exc
+    normalized: list[tuple[AlignedTargetFamily, ...]] = []
     for families in aligned:
-        if tuple(family.task_id for family in families) != expected_tasks:
-            raise MultiSourceContractError(
-                "aligned families must contain every task in registry order"
+        by_task = {family.task_id: family for family in families}
+        if len(by_task) != len(families):
+            raise MultiSourceContractError("aligned sample contains duplicate tasks")
+        normalized.append(
+            tuple(
+                by_task.get(
+                    task_id,
+                    AlignedTargetFamily(
+                        task_id=task_id,
+                        source_entry_count=0,
+                        rows=(),
+                    ),
+                )
+                for task_id in expected_tasks
             )
+        )
+    aligned = tuple(normalized)
     validate_raw_graph_batch(raw_graph_batch, sample_count=len(aligned))
 
     target_batches: list[BatchTarget] = []
-    for task_position, spec in enumerate(TARGET_FAMILIES):
+    for task_position, task_id in enumerate(expected_tasks):
+        spec = target_family_spec(task_id)
         families = tuple(
             sample_families[task_position] for sample_families in aligned
         )
@@ -240,7 +266,7 @@ def tensorize_aligned_targets(
             if confidence_tensor is not None
             else None
         )
-        encoding = TARGET_ENCODING_BY_TASK[spec.task_id]
+        encoding = target_encoding_spec(spec.task_id)
         target_batches.append(
             BatchTarget(
                 batch_contract_version=BATCH_TARGET_CONTRACT_VERSION,

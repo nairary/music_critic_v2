@@ -34,6 +34,7 @@ from music_critic.data import (
     RationalTime,
     TempoEvent,
     ValidationReport,
+    dumps_piece,
     validate_piece,
 )
 
@@ -43,6 +44,7 @@ DILEMMADATA_CORPUS_IDENTITY_VERSION = "1.0.0"
 DILEMMADATA_RAW_PROJECTION_VERSION = "1.0.0"
 DILEMMADATA_GROUPING_VERSION = "1.0.0"
 DILEMMADATA_RECORD_BINDING_VERSION = "1.0.0"
+DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION = "1.0.0"
 DILEMMADATA_ACCEPTANCE_REPORT_VERSION = "1.1.0"
 DILEMMADATA_PRODUCTION_MANIFEST_VERSION = "1.1.0"
 DILEMMADATA_DATASET_NAME = "dilemmadata"
@@ -265,12 +267,38 @@ class DilemmadataConversionStatistics:
 
 
 @dataclass(frozen=True, slots=True)
+class DilemmadataSourceRowBinding:
+    """Target-neutral exact binding from one TSV row to a canonical note."""
+
+    ordinal: int
+    line: int
+    onset_qn: RationalTime
+    canonical_note_id: str
+    tie_continuation: bool
+
+
+@dataclass(frozen=True, slots=True)
+class DilemmadataRawTargetAlignmentEvidence:
+    """Versioned raw-adapter evidence consumed by the target-only adapter."""
+
+    version: str
+    record_id: str
+    piece_id: str
+    record_binding_sha256: str
+    raw_projection_sha256: str
+    canonical_piece_sha256: str
+    rows: tuple[DilemmadataSourceRowBinding, ...]
+    fingerprint: str
+
+
+@dataclass(frozen=True, slots=True)
 class DilemmadataAccepted:
     status: Literal["accepted"]
     record: DilemmadataCorpusRecord
     piece: CanonicalPiece
     validation_report: ValidationReport
     statistics: DilemmadataConversionStatistics
+    alignment_evidence: DilemmadataRawTargetAlignmentEvidence
 
 
 @dataclass(frozen=True, slots=True)
@@ -372,6 +400,94 @@ def _canonical_bytes(value: object) -> bytes:
 
 def _fingerprint(value: object) -> str:
     return sha256(_canonical_bytes(value)).hexdigest()
+
+
+def _alignment_evidence_payload(
+    evidence: DilemmadataRawTargetAlignmentEvidence,
+) -> dict[str, object]:
+    return {
+        "canonical_piece_sha256": evidence.canonical_piece_sha256,
+        "piece_id": evidence.piece_id,
+        "raw_projection_sha256": evidence.raw_projection_sha256,
+        "record_binding_sha256": evidence.record_binding_sha256,
+        "record_id": evidence.record_id,
+        "rows": [
+            {
+                "canonical_note_id": row.canonical_note_id,
+                "line": row.line,
+                "onset_qn": {
+                    "den": row.onset_qn.den,
+                    "num": row.onset_qn.num,
+                },
+                "ordinal": row.ordinal,
+                "tie_continuation": row.tie_continuation,
+            }
+            for row in evidence.rows
+        ],
+        "version": evidence.version,
+    }
+
+
+def _alignment_evidence_fingerprint(
+    evidence: DilemmadataRawTargetAlignmentEvidence,
+) -> str:
+    return _fingerprint(_alignment_evidence_payload(evidence))
+
+
+def _make_alignment_evidence(
+    record: DilemmadataCorpusRecord,
+    piece: CanonicalPiece,
+    rows: tuple[DilemmadataSourceRowBinding, ...],
+) -> DilemmadataRawTargetAlignmentEvidence:
+    evidence = DilemmadataRawTargetAlignmentEvidence(
+        version=DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION,
+        record_id=record.record_id,
+        piece_id=piece.piece_id,
+        record_binding_sha256=record.record_binding_sha256,
+        raw_projection_sha256=record.raw_projection_sha256,
+        canonical_piece_sha256=sha256(dumps_piece(piece).encode("utf-8")).hexdigest(),
+        rows=rows,
+        fingerprint="",
+    )
+    return replace(evidence, fingerprint=_alignment_evidence_fingerprint(evidence))
+
+
+def validate_dilemmadata_alignment_evidence(
+    record: DilemmadataCorpusRecord,
+    piece: CanonicalPiece,
+    evidence: DilemmadataRawTargetAlignmentEvidence,
+) -> bool:
+    """Check exact record/canonical/row binding without reading target columns."""
+
+    try:
+        if evidence.version != DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION:
+            return False
+        if (
+            evidence.record_id != record.record_id
+            or evidence.piece_id != piece.piece_id
+            or evidence.record_binding_sha256 != record.record_binding_sha256
+            or evidence.raw_projection_sha256 != record.raw_projection_sha256
+        ):
+            return False
+        if evidence.canonical_piece_sha256 != sha256(
+            dumps_piece(piece).encode("utf-8")
+        ).hexdigest():
+            return False
+        if evidence.fingerprint != _alignment_evidence_fingerprint(evidence):
+            return False
+        if tuple(row.ordinal for row in evidence.rows) != tuple(range(len(evidence.rows))):
+            return False
+        note_ids = {note.note_id for note in piece.notes}
+        if any(
+            row.line != row.ordinal + 2
+            or row.canonical_note_id not in note_ids
+            or not isinstance(row.tie_continuation, bool)
+            for row in evidence.rows
+        ):
+            return False
+        return len(evidence.rows) == record.note_row_count
+    except (AttributeError, TypeError, ValueError):
+        return False
 
 
 def _path_locator_sha256(path: Path) -> str:
@@ -534,6 +650,12 @@ def _record_binding_is_valid(record: DilemmadataCorpusRecord) -> bool:
 
 def _bind_record(record: DilemmadataCorpusRecord) -> DilemmadataCorpusRecord:
     return replace(record, record_binding_sha256=_record_binding_sha256(record))
+
+
+def validate_dilemmadata_record_binding(record: DilemmadataCorpusRecord) -> bool:
+    """Public read-only verification for downstream target-sidecar adapters."""
+
+    return _record_binding_is_valid(record)
 
 
 def _hash_file(path: Path) -> str:
@@ -1373,7 +1495,12 @@ def _metric_grid(
 
 def _merge_notes(
     observations: Sequence[_RawObservation], token: str, track_id: str
-) -> tuple[tuple[CanonicalNote, ...], int, tuple[str, ...]]:
+) -> tuple[
+    tuple[CanonicalNote, ...],
+    int,
+    tuple[str, ...],
+    tuple[DilemmadataSourceRowBinding, ...],
+]:
     builders: list[dict[str, object]] = []
     by_pitch_voice: dict[tuple[int, tuple[str, ...]], list[int]] = defaultdict(list)
     merge_count = 0
@@ -1391,6 +1518,7 @@ def _merge_notes(
                     "spelling_alter": row.spelling_alter,
                     "staff": row.staff,
                     "voice": row.voice,
+                    "source_rows": [row],
                 }
             )
             by_pitch_voice[key].append(len(builders) - 1)
@@ -1409,9 +1537,10 @@ def _merge_notes(
             continue
         builder = builders[candidates[0]]
         builder["duration"] = builder["duration"] + row.duration
+        builder["source_rows"].append(row)
         merge_count += 1
     if categories:
-        return (), merge_count, tuple(sorted(set(categories)))
+        return (), merge_count, tuple(sorted(set(categories))), ()
     ordered = sorted(
         builders,
         key=lambda row: (
@@ -1447,7 +1576,25 @@ def _merge_notes(
         )
         for row in ordered
     )
-    return notes, merge_count, ()
+    row_bindings = tuple(
+        sorted(
+            (
+                DilemmadataSourceRowBinding(
+                    ordinal=source_row.ordinal,
+                    line=source_row.line,
+                    onset_qn=_rt(source_row.onset),
+                    canonical_note_id=(
+                        f"note:dilemmadata-{token}-{int(row['first_ordinal']):08d}"
+                    ),
+                    tie_continuation=not source_row.tie_onset,
+                )
+                for row in ordered
+                for source_row in row["source_rows"]
+            ),
+            key=lambda binding: binding.ordinal,
+        )
+    )
+    return notes, merge_count, (), row_bindings
 
 
 def _key_events(
@@ -1539,7 +1686,11 @@ def convert_dilemmadata_record(
         )
     token = _piece_token(record.record_id)
     track_id = f"track:dilemmadata-{token}-raw"
-    notes, tie_merges, note_categories = _merge_notes(parse.observations, token, track_id)
+    notes, tie_merges, note_categories, row_bindings = _merge_notes(
+        parse.observations,
+        token,
+        track_id,
+    )
     if note_categories:
         return _quarantine(record, note_categories)
     duration = max(
@@ -1744,14 +1895,20 @@ def convert_dilemmadata_record(
         pickup_bar_count=sum(bar.is_pickup for bar in bars),
         incomplete_bar_count=sum(bar.is_incomplete for bar in bars),
     )
+    accepted_record = _bind_record(
+        replace(record, physical_source_sha256=_hash_file(record.path))
+    )
     return DilemmadataAccepted(
         status="accepted",
-        record=_bind_record(
-            replace(record, physical_source_sha256=_hash_file(record.path))
-        ),
+        record=accepted_record,
         piece=piece,
         validation_report=report,
         statistics=statistics,
+        alignment_evidence=_make_alignment_evidence(
+            accepted_record,
+            piece,
+            row_bindings,
+        ),
     )
 
 
@@ -1781,6 +1938,7 @@ __all__ = [
     "DILEMMADATA_PRIMARY_RECORD_COUNT",
     "DILEMMADATA_PRODUCTION_MANIFEST_VERSION",
     "DILEMMADATA_RAW_PROJECTION_VERSION",
+    "DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION",
     "DILEMMADATA_RECORD_BINDING_VERSION",
     "DILEMMADATA_RELEASE_COMMIT",
     "DILEMMADATA_RELEASE_VERSION",
@@ -1796,7 +1954,11 @@ __all__ = [
     "DilemmadataCorpusIssue",
     "DilemmadataCorpusRecord",
     "DilemmadataQuarantine",
+    "DilemmadataRawTargetAlignmentEvidence",
+    "DilemmadataSourceRowBinding",
     "convert_dilemmadata_record",
     "discover_dilemmadata_corpus",
     "iter_dilemmadata_corpus",
+    "validate_dilemmadata_alignment_evidence",
+    "validate_dilemmadata_record_binding",
 ]

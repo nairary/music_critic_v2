@@ -173,8 +173,9 @@ Future modeling has two distinct levels.
 Shared auxiliary heads may predict boundary, root, quality, pitch-class set,
 bass, inversion, and no-chord, followed later by local key, Roman numeral, and
 cadence. Bass and inversion retain separate availability masks. HookTheory and
-POP909-CL are complementary sources; Dilemmadata may add theory supervision in
-its later roadmap phase.
+POP909-CL are complementary sources. Phase 9B.2A adds external Dilemmadata AN
+and DLC source-native sidecars, but does not yet add heads or assert a crosswalk
+to either existing source.
 
 This level asks: **what harmony is present or suitable in this context?** It
 does not assign a normalized probability to a particular accompaniment
@@ -214,12 +215,12 @@ Future training and evaluation policy must cover:
 - missing or unreliable metadata;
 - a separate blind raw-MIDI evaluation set.
 
-For the future Dilemmadata adapter, pitch, onset, duration, and compatible
-meter fields may enter a raw-compatible projection. Staff, voice, note
+For the Dilemmadata adapter, pitch, onset, duration, and compatible meter
+fields enter the accepted raw-compatible projection. Staff, voice, note
 spelling, `step`, `alter`, and `tpc` must not automatically be treated as
 available in arbitrary MIDI. Harmony, key, cadence, phrase, Roman numeral, and
-other analysis columns are targets. The adapter and its exact projection
-remain Phase 9 work.
+other analysis columns are external targets. Their Phase 9B.2A alignment uses
+only exact canonical IDs and `RationalTime`; none becomes encoder input.
 
 ## 7. Future masked likelihood and PLL direction
 

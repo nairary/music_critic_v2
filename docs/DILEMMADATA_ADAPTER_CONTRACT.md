@@ -251,7 +251,10 @@ version is part of generic cache identity; old artifacts remain immutable but
 are not reused. Raw projection `1.0.0`, canonical schema, graph/model inputs,
 grouping, ontology, targets, and HookTheory/POP909-CL contracts are unchanged.
 
-Source-native target sidecars and exact alignment move to Phase 9B.2. Theory
-heads, new losses, supervised training/evaluation, CUDA lifecycle changes,
-new Phase 8 objectives, ontology changes, PDMX/Phase 10, and model-quality
-claims remain out of scope.
+Phase 9B.2A now implements source-native target sidecars and exact alignment as
+the separate boundary documented in `DILEMMADATA_TARGET_SIDECARS.md`. The raw
+adapter/canonical/cache/graph semantics and their versions remain unchanged;
+the only narrow accepted-output addition is target-neutral source-row binding
+evidence needed to prove tie-merged note alignment. Theory heads, new losses,
+supervised training/evaluation, CUDA lifecycle changes, new Phase 8 objectives,
+PDMX/Phase 10, and model-quality claims remain out of scope.
