@@ -22,6 +22,7 @@ import weakref
 
 import torch
 
+from music_critic.cuda_memory import initialize_cuda_memory_statistics
 from music_critic.evaluation import (
     build_dilemmadata_train_priors,
     evaluate_dilemmadata_model,
@@ -914,7 +915,7 @@ def _cuda_execution(
         torch.backends.cudnn.deterministic = True
     torch.cuda.synchronize(device)
     torch.cuda.empty_cache()
-    torch.cuda.reset_peak_memory_stats(0)
+    initialize_cuda_memory_statistics(device)
 
     cpu_train_batch = _selected_batch(dataset, train_identities)
     cpu_validation_batches = _selected_batches(dataset, validation_identities)
