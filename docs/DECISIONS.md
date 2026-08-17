@@ -2937,3 +2937,147 @@ This log is append-only.
   model-input bytes/versions remain unchanged. Bounded overfit is plumbing
   evidence only; long training, Phase 9C, PDMX, critic score, PLL and Phase 10
   remain outside this change.
+
+## 2026-08-17 — ADR-079: Hardware readiness requires sealed executable evidence
+
+- Status: Accepted for Phase 9B.2C implementation; independent RTX 3090
+  execution remains pending.
+- Context: Phase 9B.2B established fixture and bounded CPU plumbing plus a
+  future long-run plan, but did not prove that its four-head supervised path
+  executes end to end on the intended production caches and GPU. A useful
+  hardware gate must be committed, reproducible at an exact clean Git head,
+  independently verifiable, source-free at runtime, and unable to open test.
+- Decision: Add `DilemmadataSupervisedSmoke@1.0.0` and sealed bundle `1.0.0`.
+  Pin the accepted production raw/target indices, split and model fingerprint;
+  require exact RTX 3090 `cuda:0`, float16 AMP with GradScaler, seed-17 scratch
+  initialization, fixed four-task weights, AdamW `3e-4`, and 10--20 updates.
+  Require train-only target-assisted coverage selection, label-blind
+  validation membership, candidate-first/source-entry evidence, finite
+  encoder/four-head gradients and updates, failure-atomic checkpoint reload
+  parity, official validation, test closure, VRAM evidence and complete CUDA
+  cleanup. Guard source conversion/alignment calls fail closed.
+- Decision: Publish only a new uniquely named run by atomic rename, containing
+  a sealed regular-file directory, deterministic tar and SHA sidecar. A
+  separate source-free verifier checks semantic bindings, checkpoint state,
+  evaluation, internal hashes, archive safety, exact head and current GPU.
+  Keep the PR draft until an independent RTX 3090 run passes this verifier.
+- Consequences: This is bounded mechanics evidence only. It changes no
+  Phase 9B.2B raw, target-cache, BatchTarget, model, loss, evaluation, split,
+  graph or model-input contract/version/fingerprint. No long training,
+  scratch-versus-SSL conclusion, Phase 9C, PDMX, or Phase 10 is authorized.
+
+## 2026-08-17 — ADR-080: Target semantics and physical index identity are separate smoke bindings
+
+- Status: Accepted as the minimal Phase 9B.2C RTX unblock in draft PR #24.
+- Context: Independent local and RTX production builds contain the same raw
+  index, 719 records, metadata index and aggregate `TargetBundle` projection,
+  but their self-consistent target-index fingerprints are respectively
+  `76feee8d128cc3c5dd1a5b261599df89ef241baa21d82b3c24202a11218beea4`
+  and `02fcf7eb03adda2962ade7223924e0fe44483e4900097bd33f50bf93b68d862a`.
+  Treating either physical observation as universal blocks execution without
+  improving corruption or semantic-mutation detection.
+- Decision: Advance smoke/evidence bundle contracts to `1.1.0`. Pin production
+  semantics to raw index, metadata index, record count 719, aggregate bundle
+  fingerprint and current target adapter/cache/registry contracts. Before
+  training, run the existing source-free full-cache checker over the index
+  self-fingerprint, coverage and every record, artifact SHA and decoded bundle
+  identity/fingerprint. Accept any index that passes those checks and the
+  stable semantic projection.
+- Decision: Record the exact observed target-index fingerprint in the run
+  report, checkpoint data bindings, reload and validation evidence. Require an
+  exact match for resume/evaluation; never weaken artifact, record, raw,
+  metadata or bundle checks. Keep both observed physical fingerprints in
+  provenance and defer the broader cross-host portability root-cause audit.
+- Consequences: The existing 719 target artifacts are reusable without rebuild.
+  Phase 9B.2B target-cache/adapter/registry versions and raw index/cache,
+  grouping, split, graph and model-input semantics remain unchanged. The PR
+  remains draft until the bounded RTX smoke passes; Phase 9C remains out of
+  scope.
+
+## 2026-08-17 — ADR-081: Leakage invariance and CUDA replay are separate gates
+
+- Status: Accepted as blocking Phase 9B.2C remediation in draft PR #24.
+- Context: RTX attempt
+  `b7254151ef3b4f11eb55b13d33d02b35d114ee3c` passed semantic target-cache
+  validation, then compared byte-exact logits from two independent CUDA+AMP
+  forwards and failed before training. Parallel GNN/scatter replay can differ
+  numerically without reading targets, so this conflated leakage with kernel
+  replay determinism.
+- Decision: Advance the Dilemmadata model contract to `1.1.0` and expose typed
+  `predict(raw_graph)` plus `supervise(encoded, predictions, target_batches,
+  class_weights)`. `forward` reuses `supervise`, preserving one join/loss
+  implementation. Leakage evidence predicts once, joins original and mutated
+  targets to that same object, and requires candidate identities plus every
+  prediction tensor object, storage, layout, and value to remain exact while
+  target and supervision/loss evidence changes.
+- Decision: Advance smoke/bundle to `1.2.0` and add CUDA replay diagnostic
+  `1.0.0`. Independent forwards require exact candidate identities, finite
+  logits, FP32 max-absolute/max-relative/cosine evidence, elementwise
+  `atol=0.005`, `rtol=0.005`, and cosine >= `0.9999`. Checkpoint model tensors
+  reload bit-exactly; independent reload logits use this diagnostic and are
+  not leakage evidence.
+- Consequences: The failed SHA is not hardware-training success and the PR
+  remains draft pending a new RTX run. The semantic target-index unblock is
+  preserved. No target artifacts are rebuilt; head/loss, raw index/cache,
+  target cache, grouping, split, graph and model-input contracts are unchanged.
+  Phase 9C and long training remain out of scope.
+
+## 2026-08-17 — ADR-082: Dilemmadata AMP reuses the Phase 8B FP32 and scaler policy
+
+- Status: Accepted as blocking Phase 9B.2C remediation in draft PR #24;
+  independent RTX 3090 execution remains pending.
+- Context: Exact RTX attempt
+  `cd87a3436f6db9ecadbab64dfb229ef039c465bf` passed production cache,
+  semantic-index, leakage, and replay gates. Its finite first loss yielded a
+  non-finite gradient at `task_heads.heads.task_03.3.weight`. The smoke failed
+  immediately after `GradScaler.unscale_`, before public overflow handling
+  could skip the attempt and reduce scale; no update or checkpoint occurred.
+- Decision: Advance `DilemmadataHierarchicalModel` to `1.2.0` and add the
+  opt-in `DilemmadataFp32HeadLossBoundary@1.0.0`. Permit encoder float16
+  autocast, cast each Dilemmadata head input differentiably to FP32 on-device,
+  and execute head logits, CE, source-entry reduction, and total loss in FP32.
+  Do not alter generic heads by default or detach/transfer the gradient path.
+- Decision: Advance smoke/bundle to `1.3.0` and add
+  `DilemmadataAmpPolicy@1.0.0`, reusing Phase 8B's public scale-transition
+  oracle with explicit initial scale `16384`, growth factor `2.0`, backoff
+  factor `0.5`, and growth interval `2000`. Record attempted/applied/skipped
+  attempts; a scale decrease is a skipped overflow and does not move the
+  scheduler. Record bounded offending names/scales, accept gradient/update
+  evidence only from finite applied attempts, require at least one applied
+  update and final recovery, require finite model/optimizer state and changes
+  in the encoder and all four heads, and checkpoint/restore the exact scaler
+  configuration and state.
+- Consequences: Persistent overflow and zero applied updates fail closed; the
+  failed SHA remains negative hardware evidence and no hardware training
+  success is claimed. Head/loss mathematical contracts, target artifacts,
+  raw/cache/grouping/split/graph/model-input versions and fingerprints remain
+  unchanged. No cache rebuild, corpus audit, long training, Phase 9C, PDMX, or
+  Phase 10 is authorized.
+
+## 2026-08-17 — ADR-083: CUDA allocator residue is not tensor-retention evidence
+
+- Status: Accepted as the final Phase 9B.2C lifecycle remediation in draft PR
+  #24; independent RTX artifact publication remains pending.
+- Context: RTX attempt `20ba52b7e6fcf961702517d7ed9e467ea57eeea7`
+  completed training, exact checkpoint/model/scaler reload, bounded reload
+  logits, and validation. All tracked prediction weakrefs were dead, but the
+  final gate rejected 67,108,864 allocated bytes in the still-live CUDA
+  process. CUDA runtime/workspace/caching-allocator residue is not itself proof
+  of a retained prediction tensor.
+- Decision: Advance smoke/bundle to `1.4.0` and add
+  `DilemmadataCudaLifecycleEvidence@1.0.0`. Preserve exact zero retained tracked
+  prediction weakrefs. Do not claim zero globally live CUDA tensors without a
+  safe bounded enumeration. Record allocator end/peak allocated and reserved
+  bytes and require end allocated/reserved not to exceed their peaks.
+- Decision: After one warmup, execute three identical no-grad validation
+  predictions. Delete outputs, collect, synchronize, empty the cache, and
+  synchronize between measurements. Record allocated/reserved sequences,
+  tracked/retained weakref counts for every pass, and maximum allocated growth;
+  require zero growth and zero retained prediction weakrefs. Treat subprocess
+  exit as the standalone CUDA-context release boundary.
+- Consequences: Constant allocator residue may pass but monotonic growth,
+  retained prediction tensors, malformed lifecycle evidence, and the old
+  unproved `retained_cuda_tensor_count=0` claim fail closed. The failed SHA did
+  not publish hardware evidence. Model, target, raw/cache/grouping/split/graph/
+  model-input contracts and fingerprints remain unchanged; no rebuild, audit,
+  long training, Phase 9C, PDMX, or Phase 10 is authorized.

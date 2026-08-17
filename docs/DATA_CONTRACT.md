@@ -2,6 +2,40 @@
 
 Status: **ACCEPTED FOR PHASE 1 IMPLEMENTATION**.
 
+## Phase 9B.2C evidence-only extension
+
+`DilemmadataSupervisedSmoke@1.4.0` and its sealed bundle `1.4.0` bind the
+existing production raw semantics, observed target-cache index, split, model contract,
+train/validation memberships, checkpoint, validation report, Git head, and
+RTX execution evidence. They are experiment evidence contracts, not data/model
+input contracts. Phase 9B.2B target-cache/BatchTarget semantics and every raw
+projection, canonical cache, split, graph, and model-input byte/version remain
+unchanged.
+
+`DilemmadataHierarchicalModel@1.2.0` retains the typed post-prediction
+`supervise` boundary used by both `forward` and leakage evidence and adds
+`DilemmadataFp32HeadLossBoundary@1.0.0`. Encoder activations may be float16,
+but each head input is cast differentiably on-device and head logits, CE rows,
+source-entry reductions, and total loss are FP32. The mathematical head/loss
+semantics do not change. `DilemmadataAmpPolicy@1.0.0` reuses the accepted
+Phase 8B public GradScaler transition rule and initial scale `16384`; its
+explicit configuration and exact state are checkpoint/report evidence.
+Independent CUDA logits are replay diagnostic `1.0.0`, not a data or
+scientific fingerprint.
+
+`DilemmadataCudaLifecycleEvidence@1.0.0` distinguishes exact tracked
+prediction-tensor lifetime from CUDA allocator state. Every tracked prediction
+weakref must be dead. End/peak allocated and reserved bytes plus a three-pass
+post-warmup no-growth sequence are recorded; constant allocator residue is
+allowed and is not represented as proof of zero live CUDA tensors. Standalone
+process exit is the allocator release boundary.
+
+The stable target semantic projection is raw index + metadata index + 719
+records + aggregate `TargetBundle` fingerprint + current adapter/cache/registry
+contracts. The target-index fingerprint is separately retained as an exact
+physical checkpoint/resume/evaluation binding after full record, artifact-SHA,
+and bundle verification; it is not a universal cross-host semantic identity.
+
 ## Phase 9B.2B target-cache and batch extension
 
 `DilemmadataTargetCache@1.0.0` stores only immutable JSON `TargetBundle@1.0.0`

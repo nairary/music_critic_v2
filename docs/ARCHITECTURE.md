@@ -1077,6 +1077,51 @@ Four heads and AdamW are always fresh. The immutable RTX 3090 plan fixes seeds
 The PR runs bounded plumbing evidence only, not long training or an
 effectiveness comparison.
 
+## Phase 9B.2C executable hardware boundary
+
+The Phase 9B.2C runner composes the existing cached dataset, four-head model,
+source-entry loss, checkpoint, and evaluator without changing them. It pins
+the exact production raw/metadata/aggregate semantics, split/model fingerprints
+and accepts no source TSV. A complete source-free pass checks all 719 target
+records, artifact SHA-256 values, bundles, and current contracts.
+Raw-adapter and alignment-oracle entry points are installed as fail-closed
+guards, with zero calls required in sealed evidence.
+
+Train coverage is selected only from train targets. Validation membership is
+identity/component-ranked without label reads or replacement; targets are read
+only after membership is fixed. Test access remains false. The independent
+verifier reconstructs no source data: it validates the sealed report,
+memberships, checkpoint state, official evaluation, artifact hashes, archive
+safety, exact Git head, and RTX 3090 hardware. The new smoke and bundle
+contracts are `1.4.0`. `DilemmadataHierarchicalModel@1.2.0` separates raw-only
+`predict` from typed post-prediction `supervise`; `forward` composes those two
+without duplicating join/loss semantics. Leakage evidence reuses one immutable
+prediction object for original and mutated targets. Independent CUDA+AMP logits
+are a separate finite FP32 replay diagnostic `1.0.0` with fixed bounded error
+and cosine thresholds; checkpoint model state still reloads bit-exactly. Head,
+loss, and all other Phase 9B.2B data contracts remain unchanged.
+The observed target-index fingerprint is a strict run/resume/evaluation
+binding, while cross-host semantic acceptance is determined by the stronger
+full-cache projection above.
+
+The Dilemmadata-only FP32 head/loss boundary `1.0.0` leaves the hierarchical
+encoder eligible for float16 autocast, then performs a differentiable FP32
+cast before each of the four heads. Head logits, CE, source-entry reductions,
+and total loss remain FP32 without detach or CPU transfer. Its AMP policy
+`1.0.0` reuses Phase 8B's public GradScaler scale-decrease skip oracle at
+initial scale `16384`: skipped attempts record bounded overflow evidence and
+do not advance the scheduler; only finite applied attempts establish gradient
+and parameter-update acceptance.
+
+`DilemmadataCudaLifecycleEvidence@1.0.0` treats prediction ownership and the
+CUDA caching allocator as separate observables. All explicitly tracked
+prediction weakrefs must expire. One warmup and three identical no-grad
+validation predictions are cleaned and synchronized independently; allocated
+bytes may retain a constant process/workspace residue but may not grow across
+measured passes. End/peak allocated and reserved bytes are recorded without a
+global live-tensor claim, and the standalone runner process exit releases the
+CUDA context.
+
 ## Incremental research scope
 
 Phase 7A implements GraphMAE2-inspired decoder remasking but is not a faithful

@@ -94,4 +94,9 @@ def test_optional_cuda_amp_smoke_is_finite() -> None:
         output = model(batch)
         loss = output.harmonic_loss.total_loss
     assert loss is not None and torch.isfinite(loss)
+    assert loss.dtype == torch.float32
+    assert all(row.logits.dtype == torch.float32 for row in output.predictions)
+    assert all(
+        row.per_row_loss.dtype == torch.float32 for row in output.supervisions
+    )
     loss.backward()

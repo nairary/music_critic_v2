@@ -3,11 +3,16 @@
 ## Current phase
 
 - Date: 2026-08-17
-- Current task: Phase 9B.2B safe Dilemmadata heads, supervised pipeline and
-  scratch-versus-SSL pilot preparation on branch
-  `agent/phase-9b2b-dilemmadata-supervised`, based exactly on merged PR #22 /
-  `origin/main` commit `657b4191e270f0313a92ad05d111ceff7d907d0d`
-- Dilemmadata target cache/index/identity/manifest, four-head model/loss,
+- Current task: Phase 9B.2C executable Dilemmadata supervised RTX smoke and
+  experiment readiness on branch `phase/9b2c-executable-supervised-smoke`,
+  based exactly on merged PR #23 / `origin/main` commit
+  `c2dc5f16ea1ea73f0c336fabcd22c586d9c38f82`
+- Supervised-smoke and sealed-bundle contracts: `1.4.0`; CUDA replay diagnostic:
+  `1.0.0`; Dilemmadata model contract: `1.2.0`; FP32 head/loss boundary and
+  AMP policy and CUDA lifecycle evidence: `1.0.0`. Independent RTX 3090
+  execution is pending, so PR #24
+  remains draft
+- Dilemmadata target cache/index/identity/manifest, four-head head/loss,
   evaluation, encoder transfer and RTX plan contracts: `1.0.0`;
   `BatchTarget`: `1.2.0`. Phase 9B.2A alignment evidence/target adapter remain
   `1.1.0`; target sidecar and generic `TargetBundle` remain `1.0.0`
@@ -15,8 +20,9 @@
   and all their versions remain unchanged
 - Phase 9A full-corpus semantic fingerprint:
   `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`
-- Next task after review/merge: execute the independently fixed RTX 3090
-  scratch-versus-SSL plan. Phase 9C and Phase 10 remain unstarted
+- Next gate: run and verify the committed bounded smoke on an independent RTX
+  3090. Long scratch-versus-SSL training, Phase 9C, PDMX and Phase 10 remain
+  unstarted
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -145,6 +151,88 @@
   selection/statistics/compute contracts: `1.1.0`; CUDA memory-statistics
   lifecycle: `1.0.0`; data semantic projection: `1.0.0`; evaluation
   piece-sufficient-statistics output: `1.3.0`
+
+## Phase 9B.2C executable supervised smoke
+
+- Added the committed fail-closed RTX 3090 runner and an independent,
+  source-free directory/tar verifier under contracts `1.4.0`. Inputs are only
+  the pinned production raw/target indices and caches plus the existing split;
+  source TSV conversion and the alignment oracle are guarded and must record
+  zero calls.
+- The bounded seed-17 scratch run requires `cuda:0`, exact RTX 3090, AMP
+  float16 with GradScaler, AdamW `3e-4`, and 10--20 updates. It verifies finite
+  source-entry loss/gradients, encoder and exact four-head gradients/updates,
+  target-independent raw logits, atomic checkpoint/reload parity, official
+  AN+DLC validation, test lock, VRAM peaks, and zero retained tracked
+  prediction tensors.
+- Successful evidence publication is unique and atomic, with internal hashes,
+  a deterministic regular-file tar, and SHA sidecar. Forged/resealed semantic
+  evidence, unsafe/incomplete archives, binding/membership/head/update/reload/
+  hardware mismatches, collisions, and partial publication fail closed.
+- Local CPU contract/regression evidence is recorded in the Phase 9B.2C PR.
+  Hardware success is not claimed: the exact final-SHA command in the draft PR
+  must run independently on an RTX 3090 before readiness. Full raw/target
+  corpus audits were intentionally not repeated.
+- Production validation now pins raw/metadata/719-record/aggregate-bundle and
+  contract semantics, then fully verifies every source-free record/artifact.
+  Target-index is an exact run/resume binding: local `76feee8d...` and RTX
+  `02fcf7eb...` are documented physical observations of the same semantic
+  projection, with root-cause portability analysis deferred.
+- RTX attempt `b7254151ef3b4f11eb55b13d33d02b35d114ee3c` passed that
+  semantic cache gate and failed before training because leakage evidence
+  required byte-exact logits from two independent CUDA+AMP forwards. The
+  remediation advances the model contract to `1.1.0` for typed
+  `predict`/`supervise`, runs one prediction for both original/mutated target
+  joins, and verifies its object/storage/values exact. Independent and
+  checkpoint-reload forward replay is instead finite bounded FP32 diagnostic
+  `1.0.0` (`atol=rtol=0.005`, cosine >= `0.9999`); reloaded model tensors remain
+  bit-exact. Hardware training success is still not claimed.
+- RTX attempt `809153d311407ae8102731147931cf7bd36b40de` then passed both
+  semantic cache validation and the remediated single-prediction leakage path,
+  but failed before optimizer updates because scalar total-loss fingerprinting
+  attempted a byte view directly on a 0-D tensor. The helper now performs one
+  bounded CPU transfer, preserves shape/dtype as separate digest inputs, and
+  byte-views a flattened contiguous tensor. Scalars, empty and non-contiguous
+  tensors work; prior vector/matrix fingerprints remain bit-exact. No contract
+  bump or hardware-training success claim results from this narrow runtime fix.
+- RTX attempt `cd87a3436f6db9ecadbab64dfb229ef039c465bf` passed production
+  cache/semantic-index, single-prediction leakage, and bounded replay checks.
+  Its finite first loss produced a non-finite gradient at
+  `task_heads.heads.task_03.3.weight`; immediate post-`unscale_` rejection
+  prevented the accepted GradScaler skip/update policy, so no optimizer update
+  or checkpoint occurred. Model `1.2.0` now opts only Dilemmadata heads into an
+  FP32 on-device head/logit/CE/source-entry/total-loss island while preserving
+  differentiable encoder casts. Smoke/bundle `1.3.0` reuse Phase 8B's public
+  scale-transition policy with explicit scale `16384` and defaults, honest
+  attempted/applied/skipped accounting, scheduler-on-applied-only behavior,
+  bounded skipped-overflow names, finite applied state, and exact checkpointed
+  scaler configuration/state. The gate requires a recovered final applied
+  attempt plus finite changes in the encoder and all four heads. Hardware
+  training success remains unclaimed.
+- RTX attempt `205205014041c69d4aebf14a28582b509fedec9c` then passed AMP
+  training acceptance with applied optimizer update(s), finite applied
+  gradients, encoder/four-head gradient coverage and parameter changes, plus
+  checkpoint save and checkpoint SHA. It failed only before checkpoint reload
+  because the standard-library `copy` import used by the scaler-state snapshot
+  was missing. The import and focused deep-copy regression restore the already
+  declared behavior without contract/fingerprint changes. Reload, validation,
+  and independent verification remain unexecuted; hardware success is still
+  unclaimed and existing caches do not require rebuilding.
+- RTX attempt `20ba52b7e6fcf961702517d7ed9e467ea57eeea7` completed the full ML
+  path through training, exact checkpoint/model/scaler reload, bounded reload
+  logits, and validation. It failed only at the final lifecycle gate with zero
+  retained prediction weakrefs but 67,108,864 allocated bytes in the still-live
+  CUDA process; no hardware artifact was published. Smoke/bundle `1.4.0` and
+  lifecycle evidence `1.0.0` retain the exact weakref requirement, remove the
+  unproved zero-live-CUDA-tensor claim, record allocator residue and peak/end
+  allocated/reserved bytes, and require zero allocated growth across three
+  identical post-warmup no-grad validation prediction passes with cleanup and
+  synchronization. Process exit remains the standalone CUDA release boundary.
+  Hardware success remains unclaimed and caches need no rebuild.
+- Phase 9B.2B head/loss and data semantics plus the pinned raw index, split,
+  cache, graph, and model-input fingerprints remain unchanged. Legacy was not used;
+  no long training, scratch-versus-SSL comparison, Phase 9C, PDMX, or Phase 10
+  began. See `PHASE9B2C_EXECUTABLE_SMOKE.md`.
 
 ## Phase 9B.2B safe Dilemmadata supervised result
 

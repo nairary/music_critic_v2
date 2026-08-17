@@ -99,7 +99,7 @@ def test_target_mutation_cannot_change_logits_and_gradients_reach_encoder_heads(
     batch = _batch()
     model.eval()
     with torch.no_grad():
-        _, raw_predictions = model.predict(batch.raw_graph_batch)
+        encoded, raw_predictions = model.predict(batch.raw_graph_batch)
     mutated_targets = []
     for target in batch.target_batches:
         if target.task_id in DILEMMADATA_ACTIVE_TASK_IDS:
@@ -110,10 +110,19 @@ def test_target_mutation_cannot_change_logits_and_gradients_reach_encoder_heads(
             mutated_targets.append(target)
     mutated = replace(batch, target_batches=tuple(mutated_targets))
     with torch.no_grad():
-        output = model(mutated)
+        original_output = model.supervise(
+            encoded, raw_predictions, batch.target_batches
+        )
+        output = model.supervise(
+            encoded, raw_predictions, mutated.target_batches
+        )
+    assert original_output.predictions is raw_predictions
+    assert output.predictions is raw_predictions
     assert all(
-        torch.equal(left.logits, right.logits)
-        for left, right in zip(raw_predictions, output.predictions, strict=True)
+        row.logits is prediction.logits
+        for row, prediction in zip(
+            output.predictions, raw_predictions, strict=True
+        )
     )
     assert output.encoder.local_encoder.final_output.embeddings
     assert output.encoder.coarse
@@ -174,6 +183,104 @@ def test_target_mutation_cannot_change_logits_and_gradients_reach_encoder_heads(
             for name, parameter in gradients.items()
             if name.startswith(f"task_heads.heads.task_{index:02d}.")
         )
+
+
+def test_original_and_mutated_joins_reuse_one_raw_prediction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    model = _model()
+    batch = _batch()
+    model.eval()
+    with torch.no_grad():
+        encoded, predictions = model.predict(batch.raw_graph_batch)
+    mutated_targets = []
+    for target in batch.target_batches:
+        if target.task_id in DILEMMADATA_ACTIVE_TASK_IDS:
+            values = target.values.clone()
+            values[target.availability_mask] = (
+                values[target.availability_mask] + 1
+            ) % next(
+                spec.output_dim
+                for spec in model.task_specs
+                if spec.task_id == target.task_id
+            )
+            mutated_targets.append(replace(target, values=values))
+        else:
+            mutated_targets.append(target)
+
+    def forbidden_predict(*args, **kwargs):
+        del args, kwargs
+        raise AssertionError("supervise must not replay target-dependent predict")
+
+    monkeypatch.setattr(model, "predict", forbidden_predict)
+    with torch.no_grad():
+        original = model.supervise(encoded, predictions, batch.target_batches)
+        mutated = model.supervise(encoded, predictions, tuple(mutated_targets))
+    assert original.predictions is predictions
+    assert mutated.predictions is predictions
+    assert original.harmonic_loss.total_loss is not None
+    assert mutated.harmonic_loss.total_loss is not None
+    assert not torch.equal(
+        original.harmonic_loss.total_loss, mutated.harmonic_loss.total_loss
+    )
+
+
+def test_autocast_keeps_dilemmadata_heads_and_loss_fp32_with_gradients() -> None:
+    model = _model()
+    batch = _batch()
+    model.train()
+    with torch.amp.autocast("cpu", enabled=True, dtype=torch.bfloat16):
+        output = model(batch)
+        assert all(row.logits.dtype == torch.float32 for row in output.predictions)
+        assert all(
+            row.per_row_loss.dtype == torch.float32
+            for row in output.supervisions
+        )
+        assert all(
+            row.entry_mean_losses.dtype == torch.float32
+            and row.mean_loss.dtype == torch.float32
+            for row in output.harmonic_loss.task_losses
+        )
+        assert output.harmonic_loss.total_loss is not None
+        assert output.harmonic_loss.total_loss.dtype == torch.float32
+        loss = output.harmonic_loss.total_loss + sum(
+            row.logits.square().mean() for row in output.predictions
+        )
+    loss.backward()
+    gradients = dict(model.named_parameters())
+    assert any(
+        parameter.grad is not None and torch.count_nonzero(parameter.grad)
+        for name, parameter in gradients.items()
+        if name.startswith("local_baseline.encoder.")
+    )
+    for index in range(4):
+        assert any(
+            parameter.grad is not None and torch.count_nonzero(parameter.grad)
+            for name, parameter in gradients.items()
+            if name.startswith(f"task_heads.heads.task_{index:02d}.")
+        )
+
+
+def test_plain_cpu_fp32_forward_remains_predict_then_supervise() -> None:
+    model = _model()
+    batch = _batch()
+    model.eval()
+    with torch.no_grad():
+        direct = model(batch)
+        encoded, predictions = model.predict(batch.raw_graph_batch)
+        composed = model.supervise(encoded, predictions, batch.target_batches)
+    assert all(row.logits.dtype == torch.float32 for row in direct.predictions)
+    assert direct.harmonic_loss.total_loss is not None
+    assert direct.harmonic_loss.total_loss.dtype == torch.float32
+    assert all(
+        torch.equal(left.logits, right.logits)
+        for left, right in zip(
+            direct.predictions, composed.predictions, strict=True
+        )
+    )
+    assert torch.equal(
+        direct.harmonic_loss.total_loss, composed.harmonic_loss.total_loss
+    )
 
 
 def test_source_entry_normalization_is_candidate_count_invariant() -> None:

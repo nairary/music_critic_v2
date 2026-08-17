@@ -337,3 +337,17 @@ Majority and empirical-prior baselines are fingerprinted train-only artifacts;
 zero train probability is reported rather than smoothed from validation/test.
 Selection defaults to validation. Test inference requires an explicit unlock
 bound to the exact test-membership fingerprint.
+
+## Phase 9B.2C bounded validation evidence
+
+The executable smoke selects its validation identities/component groups with
+seed 17, without replacement and without reading validation labels or target
+artifacts. It requires AN and DLC, remains disjoint from the train smoke
+membership, then runs the existing official evaluator only after checkpoint
+reload. The sealed report retains per-task source-entry NLL, top-1, macro-F1,
+balanced accuracy, quality top-3, record/component projections, undefined
+reasons, and train-only prior evidence. Test inference, targets, metrics, and
+unlock remain false. These bounded metrics carry no scientific-quality claim.
+Evaluation after reload additionally requires the same observed exact
+target-index fingerprint stored by the run checkpoint; another semantically
+equivalent physical index requires a new run rather than silent rebinding.
