@@ -176,7 +176,8 @@ def write_comparison_tables(root: Path, rows: Sequence[Mapping[str, object]]) ->
         "primary_score",
         "mean_macro_f1",
         "mean_task_nll",
-        "selected_epoch",
+        "checkpoint_policy",
+        "optimizer_updates",
     ]
     temporary = root / ".comparison_table.csv.partial"
     with temporary.open("w", encoding="utf-8", newline="") as handle:

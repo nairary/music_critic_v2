@@ -238,8 +238,12 @@ def validate_protocol(protocol: Mapping[str, Any]) -> None:
         or payload.get("seed") != PHASE9C_SEED
         or payload.get("primary_variants") != list(PRIMARY_VARIANTS)
         or payload.get("task_ids") != list(TASK_IDS)
-        or payload.get("selection", {}).get("primary_metric")
+        or payload.get("selection", {}).get("comparison_metric")
         != "mean_task_nll_div_log_class_count"
+        or payload.get("selection", {}).get("checkpoint_policy")
+        != "last_after_fixed_budget"
+        or payload.get("selection", {}).get("checkpoint_selection_between_epochs")
+        is not False
         or payload.get("compute", {}).get("encoder_forwards_per_logical_update")
         != PHASE9C_ENCODER_FORWARDS_PER_UPDATE
     ):

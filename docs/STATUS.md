@@ -7,7 +7,8 @@
   pilot on branch `phase/9c-one-seed-ssl-dilemmadata-pilot`, based exactly on
   merged PR #24 / `origin/main` commit
   `96b9059`
-- Phase 9C-A protocol, plan, artifact, profile, selection and test-lock
+- Phase 9C-A protocol, split composition, fixed-budget comparison, profile,
+  artifact and test-lock
   contracts: `1.0.0`; seed: 17; primary variants: scratch, Phase 7A control,
   Phase 8A mask-only, and Phase 8B multilevel-equal; observed SSL compute:
   12 encoder forwards per logical update
@@ -173,14 +174,20 @@
   Dilemmadata with equal default weights, deterministic shuffled cycles,
   source counts/unique/repeats, one paired identity schedule, and 12 declared
   and observed encoder forwards per logical update.
+- The common SSL split manifest is deterministically composed from the existing
+  HookTheory+POP909-CL and Dilemmadata manifests without changing any source
+  assignment. It is validated against all three indices and fails closed if
+  Dilemmadata validation/test intersects SSL train.
 - Downstream planning validates the 577/71/71 record and 565/71/71 component
   split, creates scratch/pretrained frozen and full cells with paired fresh
   heads, preserves the four-task source-entry loss and FP32/GradScaler policy,
   and keeps test inference/targets/metrics/unlock/full identities false.
-- Selection uses the predeclared mean four-task `NLL/log(class_count)` score and
-  fixed macro-F1/NLL/epoch/identity tie breakers. Component bootstrap compares
-  each SSL variant with scratch in the same transfer mode and explicitly
-  excludes optimization-seed uncertainty.
+- Every downstream comparison uses `last.pt` after the same fully applied
+  optimizer-update budget. Validation compares those final checkpoints using
+  the predeclared mean four-task `NLL/log(class_count)` metric; no between-epoch
+  checkpoint selection is claimed. Component bootstrap compares each SSL
+  variant with scratch in the same transfer mode and excludes optimization-seed
+  uncertainty.
 - Every cell stages and atomically publishes an immutable SHA-bound directory.
   Resume rejects binding drift. The final bundle includes configs, JSONL
   metrics, compute/checkpoint/transfer/validation evidence, tables, curve data,
@@ -190,7 +197,7 @@
   profile or run action, preserves failed roots, logs once, verifies the bundle
   independently, and creates a tar plus SHA sidecar. Profile batch candidates
   execute in separate short-DAG subprocesses; profile never starts production.
-- Focused Phase 9C tests pass `8 passed`; bounded public CLI plan/run/verify
+- Focused Phase 9C tests pass `10 passed`; bounded public CLI plan/run/verify
   completed with 24 immutable cells and 281 verified regular files. This is
   fixture mechanics evidence only. Production profile/pilot were not run.
 - Legacy was not opened or used. No cache/checkpoint/historical evidence was

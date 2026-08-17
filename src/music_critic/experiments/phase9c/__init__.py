@@ -22,6 +22,8 @@ from .contracts import (
 
 _LAZY = {
     "build_experiment_plan": ("planner", "build_experiment_plan"),
+    "compose_ssl_split_manifest": ("planner", "compose_ssl_split_manifest"),
+    "materialize_ssl_split_manifest": ("planner", "materialize_ssl_split_manifest"),
     "build_source_balanced_schedule": ("sampling", "build_source_balanced_schedule"),
     "component_bootstrap_primary_delta": ("metrics", "component_bootstrap_primary_delta"),
     "create_evidence_tar": ("artifacts", "create_evidence_tar"),
@@ -29,7 +31,6 @@ _LAZY = {
     "primary_validation_summary": ("metrics", "primary_validation_summary"),
     "profile_experiment": ("runner", "profile_experiment"),
     "safe_extract_members": ("artifacts", "safe_extract_members"),
-    "select_checkpoint": ("metrics", "select_checkpoint"),
     "verify_bundle": ("artifacts", "verify_bundle"),
 }
 
@@ -57,14 +58,15 @@ __all__ = [
     "Phase9CContractError",
     "TASK_IDS",
     "build_experiment_plan",
+    "compose_ssl_split_manifest",
     "build_source_balanced_schedule",
     "component_bootstrap_primary_delta",
     "create_evidence_tar",
     "execute_experiment",
     "primary_validation_summary",
     "profile_experiment",
+    "materialize_ssl_split_manifest",
     "resolve_preset",
     "safe_extract_members",
-    "select_checkpoint",
     "verify_bundle",
 ]

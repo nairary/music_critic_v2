@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from collections import Counter
 from hashlib import sha256
+import os
 from pathlib import Path
 import subprocess
+import tempfile
 from typing import Any, Mapping
 
 from music_critic.experiments.phase8b2.schedule import (
@@ -18,7 +20,15 @@ from music_critic.experiments.phase8b2.attestation import (
     resolve_actual_downstream_schedule,
     resolve_actual_ssl_schedule,
 )
-from music_critic.tasks import load_corpus_index, load_split_manifest
+from music_critic.tasks import (
+    CorpusIndex,
+    SplitManifest,
+    create_split_manifest,
+    dumps_split_manifest,
+    load_corpus_index,
+    load_split_manifest,
+    validate_split_manifest,
+)
 
 from .contracts import (
     CLAIM_BOUNDARIES,
@@ -44,6 +54,132 @@ DEFAULT_MIXTURE = {
     "hooktheory": 1.0 / 3.0,
     "pop909_cl": 1.0 / 3.0,
 }
+
+
+def compose_ssl_split_manifest(
+    indices: tuple[CorpusIndex, ...],
+    source_manifests: tuple[SplitManifest, ...],
+) -> tuple[SplitManifest, dict[str, object]]:
+    """Compose existing assignments without repartitioning any record."""
+
+    if len(indices) != 3 or len(source_manifests) != 2:
+        raise Phase9CContractError("phase9c.plan.ssl_split_composition_inventory_invalid")
+    index_by_dataset = {index.header.dataset_id: index for index in indices}
+    if set(index_by_dataset) != set(DEFAULT_MIXTURE):
+        raise Phase9CContractError("phase9c.plan.ssl_dataset_inventory_invalid")
+
+    source_rows = {}
+    covered_datasets: set[str] = set()
+    source_dataset_sets: set[frozenset[str]] = set()
+    for manifest in source_manifests:
+        dataset_ids = tuple(row[0] for row in manifest.index_fingerprints)
+        if not dataset_ids or covered_datasets.intersection(dataset_ids):
+            raise Phase9CContractError("phase9c.plan.ssl_split_composition_overlap")
+        try:
+            manifest_indices = tuple(index_by_dataset[name] for name in dataset_ids)
+        except KeyError as exc:
+            raise Phase9CContractError(
+                "phase9c.plan.ssl_split_composition_index_missing"
+            ) from exc
+        validate_split_manifest(manifest, manifest_indices)
+        covered_datasets.update(dataset_ids)
+        source_dataset_sets.add(frozenset(dataset_ids))
+        for row in manifest.assignments:
+            source_rows[(row.dataset_id, row.piece_id)] = row
+    if covered_datasets != set(index_by_dataset):
+        raise Phase9CContractError("phase9c.plan.ssl_split_composition_coverage_invalid")
+    if source_dataset_sets != {
+        frozenset({"hooktheory", "pop909_cl"}),
+        frozenset({"dilemmadata"}),
+    }:
+        raise Phase9CContractError("phase9c.plan.ssl_split_composition_sources_invalid")
+
+    composed = create_split_manifest(
+        tuple(index_by_dataset[name] for name in sorted(index_by_dataset)),
+        {key: row.split for key, row in source_rows.items()},
+        seed=PHASE9C_SEED,
+        policy="compose_existing_assignments",
+        policy_config={
+            "source_manifest_fingerprints": sorted(
+                manifest.manifest_fingerprint for manifest in source_manifests
+            )
+        },
+    )
+    composed_rows = {
+        (row.dataset_id, row.piece_id): row for row in composed.assignments
+    }
+    if composed_rows != source_rows:
+        raise Phase9CContractError("phase9c.plan.ssl_split_assignment_drift")
+    validate_split_manifest(composed, tuple(index_by_dataset.values()))
+
+    dilemmadata_rows = tuple(
+        row for row in composed.assignments if row.dataset_id == "dilemmadata"
+    )
+    held_out = {
+        row.piece_id for row in dilemmadata_rows if row.split in {"validation", "test"}
+    }
+    ssl_train = {row.piece_id for row in dilemmadata_rows if row.split == "train"}
+    if not held_out.isdisjoint(ssl_train):
+        raise Phase9CContractError("phase9c.plan.dilemmadata_ssl_holdout_leakage")
+    evidence = {
+        "policy": composed.policy,
+        "source_manifest_fingerprints": sorted(
+            manifest.manifest_fingerprint for manifest in source_manifests
+        ),
+        "composed_manifest_fingerprint": composed.manifest_fingerprint,
+        "assignment_count": len(composed.assignments),
+        "assignments_preserved_exactly": True,
+        "validated_against_all_three_indices": True,
+        "dilemmadata_validation_test_excluded_from_ssl_train": True,
+    }
+    return composed, evidence
+
+
+def materialize_ssl_split_manifest(config: Mapping[str, Any]) -> dict[str, Any]:
+    """Create or verify the configured common SSL manifest before planning."""
+
+    prepared = dict(config)
+    if str(prepared.get("preset", "bounded_acceptance")) == "bounded_acceptance":
+        return prepared
+    data = dict(prepared.get("data", {}))
+    index_paths = tuple(str(path) for path in data.get("ssl_index_paths", ()))
+    source_paths = tuple(
+        str(path) for path in data.get("ssl_source_split_manifests", ())
+    )
+    destination_text = str(data.get("ssl_split_manifest", ""))
+    if len(index_paths) != 3 or len(source_paths) != 2 or not destination_text:
+        raise Phase9CContractError("phase9c.plan.ssl_split_composition_config_invalid")
+    indices = tuple(load_corpus_index(path) for path in index_paths)
+    manifests = tuple(load_split_manifest(path) for path in source_paths)
+    composed, evidence = compose_ssl_split_manifest(indices, manifests)
+    payload = dumps_split_manifest(composed)
+    destination = Path(destination_text)
+    if destination.exists():
+        if not destination.is_file() or destination.read_text(encoding="utf-8") != payload:
+            raise Phase9CContractError("phase9c.plan.ssl_split_destination_conflict")
+    else:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{destination.name}.", suffix=".partial", dir=destination.parent
+        )
+        temporary = Path(temporary_name)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            try:
+                os.link(temporary, destination)
+            except FileExistsError:
+                if destination.read_text(encoding="utf-8") != payload:
+                    raise Phase9CContractError(
+                        "phase9c.plan.ssl_split_destination_conflict"
+                    )
+        finally:
+            temporary.unlink(missing_ok=True)
+    data["ssl_split_composition"] = evidence
+    prepared["data"] = data
+    return prepared
 
 
 def _repository_evidence(*, require_clean: bool) -> dict[str, object]:
@@ -120,6 +256,18 @@ def _production_data(config: Mapping[str, Any]) -> tuple[
     if set(by_dataset) != set(DEFAULT_MIXTURE):
         raise Phase9CContractError("phase9c.plan.ssl_dataset_inventory_invalid")
     ssl_split = load_split_manifest(ssl_split_path)
+    validate_split_manifest(ssl_split, indices)
+    composition = data.get("ssl_split_composition")
+    if (
+        not isinstance(composition, Mapping)
+        or composition.get("composed_manifest_fingerprint")
+        != ssl_split.manifest_fingerprint
+        or composition.get("assignments_preserved_exactly") is not True
+        or composition.get("validated_against_all_three_indices") is not True
+        or composition.get("dilemmadata_validation_test_excluded_from_ssl_train")
+        is not True
+    ):
+        raise Phase9CContractError("phase9c.plan.ssl_split_composition_evidence_invalid")
     train_keys = {
         (row.dataset_id, row.piece_id)
         for row in ssl_split.assignments
@@ -140,6 +288,7 @@ def _production_data(config: Mapping[str, Any]) -> tuple[
     if downstream_index.header.dataset_id != "dilemmadata":
         raise Phase9CContractError("phase9c.plan.downstream_dataset_invalid")
     downstream_split = load_split_manifest(downstream_split_path)
+    validate_split_manifest(downstream_split, (downstream_index,))
     split_rows: dict[str, list[object]] = {name: [] for name in ("train", "validation", "test")}
     for row in downstream_split.assignments:
         if row.dataset_id == "dilemmadata" and row.split in split_rows:
@@ -169,6 +318,7 @@ def _production_data(config: Mapping[str, Any]) -> tuple[
             for path, index in zip(index_paths, indices, strict=True)
         ],
         "ssl_split_manifest_fingerprint": ssl_split.manifest_fingerprint,
+        "ssl_split_composition": dict(composition),
         "downstream_raw_index_fingerprint": downstream_index.header.index_fingerprint,
         "downstream_target_index_sha256": _file_sha256(target_index),
         "downstream_split_manifest_fingerprint": downstream_split.manifest_fingerprint,
@@ -412,6 +562,8 @@ def build_experiment_plan(config: Mapping[str, Any]) -> dict[str, object]:
             "downstream_steps_per_epoch": preset.downstream_steps_per_epoch,
             "batch_size": preset.batch_size,
             "fixed_ssl_budget_no_downstream_early_stopping": True,
+            "fixed_downstream_optimizer_updates": downstream_epochs * downstream_steps,
+            "downstream_checkpoint_policy": "last_after_fixed_budget",
         },
         "supervised": {
             "reduction": "candidate_rows_mean_then_source_entries_mean_then_fixed_equal_task_sum",
@@ -422,14 +574,11 @@ def build_experiment_plan(config: Mapping[str, Any]) -> dict[str, object]:
         },
         "selection": {
             "split": "validation",
-            "primary_metric": "mean_task_nll_div_log_class_count",
+            "comparison_metric": "mean_task_nll_div_log_class_count",
             "lower_is_better": True,
-            "tie_breakers": [
-                "higher_mean_macro_f1",
-                "lower_mean_task_nll",
-                "earlier_epoch",
-                "lexicographic_checkpoint_identity",
-            ],
+            "checkpoint_policy": "last_after_fixed_budget",
+            "checkpoint_selection_between_epochs": False,
+            "validation_compares_final_checkpoints_only": True,
             "fixed_before_results": True,
         },
         "bootstrap": {
@@ -494,6 +643,8 @@ def build_experiment_plan(config: Mapping[str, Any]) -> dict[str, object]:
                     ),
                     "sample_schedule_fingerprint": downstream_schedule["engine_schedule_fingerprint"],
                     "fresh_head_fingerprint": protocol["paired_initialization"]["fresh_head_fingerprint"],
+                    "optimizer_update_budget": downstream_epochs * downstream_steps,
+                    "comparison_checkpoint": "last.pt",
                 }
             )
     validation_cells = [
@@ -505,6 +656,8 @@ def build_experiment_plan(config: Mapping[str, Any]) -> dict[str, object]:
             "prior_dependency": "train_priors/dilemmadata",
             "split": "validation",
             "membership_fingerprint": data_projection["validation_membership_fingerprint"],
+            "optimizer_update_budget": row["optimizer_update_budget"],
+            "comparison_checkpoint": row["comparison_checkpoint"],
         }
         for row in downstream_cells
     ]
@@ -545,4 +698,9 @@ def build_experiment_plan(config: Mapping[str, Any]) -> dict[str, object]:
     return {**plan_payload, "fingerprint": fingerprint(plan_payload)}
 
 
-__all__ = ["DEFAULT_MIXTURE", "build_experiment_plan"]
+__all__ = [
+    "DEFAULT_MIXTURE",
+    "build_experiment_plan",
+    "compose_ssl_split_manifest",
+    "materialize_ssl_split_manifest",
+]

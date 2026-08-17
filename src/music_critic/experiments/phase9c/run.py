@@ -9,7 +9,11 @@ from typing import Any
 
 from .artifacts import read_json, verify_bundle, write_json_once
 from .contracts import ACTIONS
-from .planner import DEFAULT_MIXTURE, build_experiment_plan
+from .planner import (
+    DEFAULT_MIXTURE,
+    build_experiment_plan,
+    materialize_ssl_split_manifest,
+)
 from .runner import execute_experiment
 
 
@@ -34,6 +38,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--ssl-index-paths", nargs="+")
     parser.add_argument("--ssl-cache-roots", nargs="+")
     parser.add_argument("--ssl-split-manifest")
+    parser.add_argument("--ssl-source-split-manifests", nargs=2)
     parser.add_argument("--downstream-raw-index")
     parser.add_argument("--downstream-raw-cache-root")
     parser.add_argument("--target-cache-index")
@@ -68,6 +73,7 @@ def _config(arguments: argparse.Namespace) -> dict[str, Any]:
         "ssl_index_paths",
         "ssl_cache_roots",
         "ssl_split_manifest",
+        "ssl_source_split_manifests",
         "downstream_raw_index",
         "downstream_raw_cache_root",
         "target_cache_index",
@@ -90,7 +96,7 @@ def main() -> int:
     if arguments.action == "verify":
         result = verify_bundle(root)
     else:
-        config = _config(arguments)
+        config = materialize_ssl_split_manifest(_config(arguments))
         plan = build_experiment_plan(config)
         if arguments.action == "plan":
             root.mkdir(parents=True, exist_ok=True)

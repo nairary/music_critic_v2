@@ -3356,15 +3356,21 @@ ablations only.
 
 SSL uses target-blind train graphs from HookTheory, POP909-CL, and
 Dilemmadata with equal default source weights, deterministic shuffled cycles,
-and one variant-independent schedule. The primary compute unit is the observed
+and one variant-independent schedule. The common SSL split manifest is composed
+deterministically from the existing HookTheory+POP909-CL and Dilemmadata
+manifests without changing any assignment, then validated against all three
+indices with Dilemmadata validation/test excluded from SSL train. The primary
+compute unit is the observed
 encoder forward, fixed at 12 per logical update. Downstream uses all 577 train
 records and the fixed complete 71-record validation split; the 71-record test
 split stays locked and has no batch, inference, target, metric, unlock, or full
 identity serialization in this phase.
 
-The fixed validation selection score is the unweighted mean of each task's
-source-entry NLL divided by `log(class_count)`. Tie breakers are mean macro-F1,
-ordinary mean task NLL, epoch, and checkpoint identity. Component bootstrap
+Every downstream configuration is compared at `last.pt` after the same number
+of applied optimizer updates. Validation compares these final checkpoints; it
+does not perform normalized-NLL selection between epochs. The comparison score
+is the unweighted mean of each task's source-entry NLL divided by
+`log(class_count)`. Component bootstrap
 measures validation-sample uncertainty only and production presets use at
 least 1,000 replicates.
 

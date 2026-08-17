@@ -669,8 +669,10 @@ The model and training phases remain pending.
   multilevel-equal under seed 17, paired schedules/initialization, and 12
   observed encoder forwards per logical SSL update.
 - Outputs: `plan/profile/run/resume/aggregate/select/verify`, target-blind
-  three-source SSL mixture, encoder-only transfer, scratch/pretrained frozen
-  probes and full fine-tunes, fixed 71-record validation, component bootstrap,
+  three-source SSL mixture with exact-assignment composition of the two existing
+  split manifests, encoder-only transfer, scratch/pretrained frozen probes and
+  full fine-tunes, fixed-update `last.pt` comparison on the 71-record validation,
+  component bootstrap,
   immutable test lock, resumable cells, bundle verifier, plots/tables, and a
   standalone exact-clean-HEAD RTX 3090 runner.
 - Optional: onset/beat/bar/track latent ablations are runner-supported but

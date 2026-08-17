@@ -1128,19 +1128,24 @@ CUDA context.
 not a new encoder, trainer, evaluator, cache, or target implementation:
 
 ```text
-three train-only raw indices
+existing HookTheory+POP909-CL and Dilemmadata split manifests
+  -> exact-assignment common manifest validated against three raw indices
+  -> three train-only raw indices
   -> deterministic source-balanced SSL schedule
   -> Phase 8B 12-forward matched SSL cell
   -> encoder-only export
   -> fresh Dilemmadata model and four heads
   -> frozen probe or full fine-tune
-  -> complete fixed validation
-  -> component bootstrap and validation-only selection
+  -> fixed-update `last.pt`
+  -> complete fixed validation comparison
+  -> component bootstrap
 ```
 
-The protocol binds one seed (17), initial encoder/head seed domains, dataset
+The manifest composition never repartitions records and rejects any assignment
+drift or Dilemmadata validation/test membership in SSL train. The protocol binds
+one seed (17), initial encoder/head seed domains, dataset
 mixture and actual sample schedules, observed compute, optimizer/scheduler/AMP
-policy, downstream budget, fixed membership, and test lock. Scratch-frozen
+policy, downstream budget, fixed `last.pt` policy, fixed membership, and test lock. Scratch-frozen
 uses an export of the paired untrained hierarchical encoder; scratch-full uses
 the same initialization seed without transfer. Pretrained cells load only the
 accepted encoder prefixes. Every optimizer, scheduler, scaler, and four-head

@@ -34,7 +34,6 @@ from .contracts import (
 from .metrics import (
     component_bootstrap_primary_delta,
     primary_validation_summary,
-    select_checkpoint,
 )
 
 
@@ -221,7 +220,7 @@ def _downstream_command(
         f"experiment.steps={logical_updates}",
         f"experiment.epochs={preset['downstream_epochs']}",
         f"experiment.optimizer_steps_per_epoch={preset['downstream_steps_per_epoch']}",
-        "experiment.validation_interval=1",
+        f"experiment.validation_interval={preset['downstream_epochs']}",
         "experiment.collect_gradient_evidence=true",
         "objective=supervised_harmonic",
         f"+objective.task_weights={{{task_weights}}}",
@@ -292,17 +291,67 @@ def _train_prior_command(
     ]
 
 
+def _fixed_budget_checkpoint_binding(
+    root: Path, cell: Mapping[str, object]
+) -> tuple[Path, dict[str, object]]:
+    dependency_cell = _cell_directory(root, str(cell["depends_on"]))
+    dependency = dependency_cell / "engine"
+    if not dependency.is_dir():
+        dependency = dependency_cell
+    training_report = read_json(dependency / "training_report.json")
+    expected_updates = int(cell["optimizer_update_budget"])
+    attempted = int(
+        training_report.get(
+            "optimizer_step_attempt_count",
+            training_report.get("attempted_optimizer_updates", -1),
+        )
+    )
+    applied = int(
+        training_report.get(
+            "optimizer_step_applied_count",
+            training_report.get("applied_optimizer_updates", -1),
+        )
+    )
+    skipped = int(
+        training_report.get(
+            "optimizer_step_skipped_count",
+            training_report.get("skipped_optimizer_updates", -1),
+        )
+    )
+    checkpoint_name = str(cell["comparison_checkpoint"])
+    checkpoint = dependency / checkpoint_name
+    if (
+        checkpoint_name != "last.pt"
+        or attempted != expected_updates
+        or applied != expected_updates
+        or skipped != 0
+        or not checkpoint.is_file()
+    ):
+        raise Phase9CContractError(
+            f"phase9c.comparison.fixed_budget_binding_invalid:{cell['cell_id']}"
+        )
+    return checkpoint, {
+        "policy": "last_after_fixed_budget",
+        "filename": "last.pt",
+        "sha256": file_sha256(checkpoint),
+        "expected_optimizer_updates": expected_updates,
+        "attempted_optimizer_updates": attempted,
+        "applied_optimizer_updates": applied,
+        "skipped_optimizer_updates": skipped,
+    }
+
+
 def _validation_command(
     root: Path, plan: Mapping[str, Any], cell: Mapping[str, object], staging: Path
 ) -> list[str]:
     paths = plan["runtime_paths"]
-    dependency = _cell_directory(root, str(cell["depends_on"])) / "engine"
+    checkpoint, _ = _fixed_budget_checkpoint_binding(root, cell)
     return [
         sys.executable,
         "-m",
         "music_critic.evaluation.dilemmadata_run",
         "--checkpoint",
-        str(dependency / "best.pt"),
+        str(checkpoint),
         "--raw-index",
         paths["downstream_raw_index"],
         "--raw-cache-root",
@@ -514,28 +563,33 @@ def run_production_profile_candidate(
 def _load_validation_rows(root: Path, plan: Mapping[str, Any]) -> list[dict[str, object]]:
     rows = []
     for cell in plan["validation_cells"]:
+        _, checkpoint_binding = _fixed_budget_checkpoint_binding(root, cell)
         report = read_json(_cell_directory(root, cell["cell_id"]) / "validation_report.json")
         summary = primary_validation_summary(report)
         rows.append(
             {
                 "variant_id": cell["variant_id"],
                 "transfer_mode": cell["transfer_mode"],
-                "epoch": 0,
-                "checkpoint_identity": str(cell["depends_on"]) + "/best.pt",
+                "checkpoint_identity": str(cell["depends_on"]) + "/last.pt",
+                "checkpoint_binding": checkpoint_binding,
                 "validation_summary": summary,
                 "validation_report": report,
             }
         )
+    if len(
+        {
+            int(row["checkpoint_binding"]["applied_optimizer_updates"])
+            for row in rows
+        }
+    ) != 1:
+        raise Phase9CContractError("phase9c.comparison.optimizer_budget_mismatch")
     return rows
 
 
 def aggregate_experiment(root: Path, plan: Mapping[str, Any]) -> dict[str, object]:
     rows = _load_validation_rows(root, plan)
-    selected_rows = []
     table_rows = []
     for row in rows:
-        selection = select_checkpoint([row])
-        selected_rows.append({**row, "selection": selection})
         summary = row["validation_summary"]
         table_rows.append(
             {
@@ -544,7 +598,8 @@ def aggregate_experiment(root: Path, plan: Mapping[str, Any]) -> dict[str, objec
                 "primary_score": summary["primary_score"],
                 "mean_macro_f1": summary["mean_macro_f1"],
                 "mean_task_nll": summary["mean_task_nll"],
-                "selected_epoch": 0,
+                "checkpoint_policy": "last_after_fixed_budget",
+                "optimizer_updates": row["checkpoint_binding"]["applied_optimizer_updates"],
             }
         )
     bootstrap = []
@@ -575,8 +630,21 @@ def aggregate_experiment(root: Path, plan: Mapping[str, Any]) -> dict[str, objec
     }
     bootstrap_report = {**bootstrap_payload, "fingerprint": fingerprint(bootstrap_payload)}
     selection_payload = {
-        "selection_split": "validation",
-        "configurations": [row["selection"] for row in selected_rows],
+        "comparison_split": "validation",
+        "comparison_metric": "mean_task_nll_div_log_class_count",
+        "checkpoint_policy": "last_after_fixed_budget",
+        "checkpoint_selection_between_epochs": False,
+        "validation_compares_final_checkpoints_only": True,
+        "configurations": [
+            {
+                "variant_id": row["variant_id"],
+                "transfer_mode": row["transfer_mode"],
+                "checkpoint_identity": row["checkpoint_identity"],
+                "checkpoint_binding": row["checkpoint_binding"],
+                "validation_summary": row["validation_summary"],
+            }
+            for row in rows
+        ],
         "test_access": False,
     }
     selection_report = {**selection_payload, "fingerprint": fingerprint(selection_payload)}

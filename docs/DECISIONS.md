@@ -3109,3 +3109,21 @@ This log is append-only.
   checkpoint semantics. Bounded fixture results are mechanics evidence only.
   Test evaluation, multi-seed claims, PDMX/Phase 10, PLL, and critic/quality
   work remain unauthorized.
+
+## 2026-08-17 — ADR-085: Phase 9C-A composes existing splits and compares fixed-budget final checkpoints
+
+- Status: Accepted; narrows and corrects ADR-084 before production execution.
+- Context: The initial control plane required a prebuilt three-source SSL
+  manifest and evaluated downstream `best.pt`, while its prose implied a
+  normalized-NLL selection rule that the training path did not implement.
+- Decision: Deterministically compose the existing HookTheory+POP909-CL and
+  Dilemmadata manifests without repartitioning. Preserve every source
+  assignment exactly, validate the result against all three indices, and reject
+  any Dilemmadata validation/test membership in SSL train.
+- Decision: Train every downstream configuration for the same number of fully
+  applied optimizer updates and compare only the resulting `last.pt` on the
+  complete validation split. Normalized NLL is a final-checkpoint comparison
+  metric, not a between-epoch checkpoint-selection policy. Test remains locked.
+- Consequences: No data/model/target/checkpoint-container contract changes and
+  no production execution. A skipped update, assignment drift, manifest/index
+  mismatch, destination conflict, or non-`last.pt` comparison fails closed.

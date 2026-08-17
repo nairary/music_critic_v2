@@ -51,6 +51,15 @@ theory/provenance columns, validation records, or test records. It does not
 import adapters or alignment oracles in the worker. Target-based selection is
 forbidden.
 
+Before planning, the CLI deterministically composes the existing
+HookTheory+POP909-CL split manifest and the existing Dilemmadata split manifest
+into the configured common SSL manifest. It never repartitions a record. Every
+assignment field must remain exactly equal to its source-manifest assignment;
+the result is validated against all three exact index fingerprints. Composition
+fails if any Dilemmadata validation/test record appears in SSL train, if source
+manifests overlap or omit an index, or if an existing destination has different
+bytes.
+
 ## Dilemmadata downstream boundary
 
 The production plan validates the existing component-closed split:
@@ -85,16 +94,23 @@ source/loaded encoder fingerprints, fresh-head fingerprint, and fresh
 optimizer/scheduler/scaler evidence. Frozen encoders must stay bit-exact;
 fine-tuned encoders must receive finite gradients and change.
 
-## Selection and bootstrap
+## Fixed-budget comparison and bootstrap
 
-The primary score was fixed before results:
+Every downstream variant is trained for the same declared and applied optimizer
+update count. The comparison checkpoint is exclusively `last.pt` after that
+budget; skipped updates, a missing checkpoint, or any count mismatch fail
+closed. The complete validation split compares those final checkpoints. There
+is no normalized-NLL checkpoint selection between epochs and `best.pt` is not
+used by Phase 9C-A comparison.
+
+The comparison metric was fixed before results:
 
 ```text
 mean over four tasks of (source-entry NLL / log(class_count))
 ```
 
-Lower is better. Ties use, in order: higher mean macro-F1, lower ordinary mean
-task NLL, earlier epoch, then lexicographic checkpoint identity.
+Lower is better. Phase 9C-A reports the final configurations without a separate
+between-configuration winner-selection procedure.
 
 Component bootstrap compares each SSL variant with scratch in the same
 transfer mode. Production presets require at least 1,000 replicates. These
@@ -150,6 +166,10 @@ An RTX configuration JSON supplies these fields:
       "/absolute/cache/pop909_cl",
       "/absolute/cache/dilemmadata"
     ],
+    "ssl_source_split_manifests": [
+      "/absolute/cache/hooktheory-pop909_cl.split.json",
+      "/absolute/cache/dilemmadata.split.json"
+    ],
     "ssl_split_manifest": "/absolute/cache/all-three.split.json",
     "downstream_raw_index": "/absolute/cache/dilemmadata.index.json",
     "downstream_raw_cache_root": "/absolute/cache/dilemmadata",
@@ -188,7 +208,8 @@ and runs the source-free verifier. It never starts `run` after `profile`.
 The bundle contains `experiment_plan.json`, `protocol.json`,
 `data_semantic_projection.json`, `profile_report.json`, per-cell resolved
 configs, SSL/downstream JSONL metrics, epoch performance, compute accounting,
-checkpoint manifests, transfer and validation reports, bootstrap and selection
+checkpoint manifests, fixed-budget bindings, transfer and validation reports,
+bootstrap and comparison
 reports, final JSON/CSV/Markdown comparisons, curve data, PNG plots,
 claim boundaries, and a SHA-256 artifact manifest.
 
@@ -204,7 +225,7 @@ identity.
 The committed test fixture runs all seven actions across three short SSL
 variants, initial/SSL encoder exports, scratch/pretrained frozen and full
 downstream paths, fixed validation, interruption/resume, aggregation,
-selection, and verification. It checks 12-forward matching, AMP accounting,
+comparison, and verification. It checks 12-forward matching, AMP accounting,
 fresh transfer state, frozen/fine-tune behavior, FP32 boundaries, test closure,
 component bootstrap, manifest corruption, unsafe tar members, and zero retained
 prediction/no-growth evidence. It does not use production caches or establish

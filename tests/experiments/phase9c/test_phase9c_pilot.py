@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from hashlib import sha256
 import io
 import json
 from pathlib import Path
@@ -15,16 +16,168 @@ from music_critic.experiments.phase9c import (
     Phase9CContractError,
     build_experiment_plan,
     build_source_balanced_schedule,
+    compose_ssl_split_manifest,
     component_bootstrap_primary_delta,
     execute_experiment,
+    materialize_ssl_split_manifest,
     primary_validation_summary,
     resolve_preset,
     safe_extract_members,
-    select_checkpoint,
     verify_bundle,
 )
 from music_critic.experiments.phase9c.artifacts import read_json
 from music_critic.experiments.phase9c.contracts import validate_test_lock
+from music_critic.experiments.phase9c.runner import _validation_command
+from music_critic.tasks import (
+    IndexedCorpusRecord,
+    create_split_manifest,
+    dumps_corpus_index,
+    dumps_split_manifest,
+    load_split_manifest,
+    make_corpus_index,
+    validate_split_manifest,
+)
+
+
+def _fixture_index(dataset_id: str, splits: tuple[str, ...]):
+    digest = sha256(dataset_id.encode()).hexdigest()
+    records = tuple(
+        IndexedCorpusRecord(
+            dataset_id=dataset_id,
+            piece_id=f"{dataset_id}-{ordinal}",
+            source_group_id=f"{dataset_id}-source-{ordinal}",
+            lineage_group_id=f"{dataset_id}-lineage-{ordinal}",
+            source_identity=f"{dataset_id}-identity-{ordinal}",
+            source_relative_path=f"source/{ordinal}.json",
+            source_sha256=sha256(f"source-{dataset_id}-{ordinal}".encode()).hexdigest(),
+            cache_key=sha256(f"cache-{dataset_id}-{ordinal}".encode()).hexdigest(),
+            canonical_relative_path=f"canonical/{ordinal}.json",
+            canonical_sha256=sha256(f"canonical-{dataset_id}-{ordinal}".encode()).hexdigest(),
+            target_availability=(),
+            suggested_split=split,
+        )
+        for ordinal, split in enumerate(splits)
+    )
+    return make_corpus_index(
+        dataset_id=dataset_id,
+        adapter_name="phase9c_fixture",
+        adapter_version="1.0.0",
+        adapter_config_fingerprint=digest,
+        source_identity=f"{dataset_id}-fixture",
+        source_fingerprint=digest,
+        creation_policy="phase9c_manifest_composition_test",
+        records=records,
+    )
+
+
+def _manifest(indices, *, seed: int):
+    return create_split_manifest(
+        indices,
+        {
+            (row.dataset_id, row.piece_id): row.suggested_split
+            for index in indices
+            for row in index.records
+        },
+        seed=seed,
+        policy="existing_fixture_assignment",
+    )
+
+
+def test_ssl_manifest_composition_preserves_assignments_and_holdouts(tmp_path: Path) -> None:
+    hook = _fixture_index("hooktheory", ("train", "validation"))
+    pop = _fixture_index("pop909_cl", ("train", "test"))
+    dilemma = _fixture_index("dilemmadata", ("train", "validation", "test"))
+    base = _manifest((hook, pop), seed=11)
+    downstream = _manifest((dilemma,), seed=13)
+
+    composed, evidence = compose_ssl_split_manifest(
+        (hook, pop, dilemma), (base, downstream)
+    )
+    validate_split_manifest(composed, (hook, pop, dilemma))
+    assert evidence["assignments_preserved_exactly"] is True
+    assert evidence["dilemmadata_validation_test_excluded_from_ssl_train"] is True
+    assert {
+        (row.dataset_id, row.piece_id): row
+        for row in composed.assignments
+    } == {
+        (row.dataset_id, row.piece_id): row
+        for manifest in (base, downstream)
+        for row in manifest.assignments
+    }
+
+    index_paths = []
+    for index in (hook, pop, dilemma):
+        path = tmp_path / f"{index.header.dataset_id}.index.json"
+        path.write_text(dumps_corpus_index(index), encoding="utf-8")
+        index_paths.append(str(path))
+    source_paths = []
+    for name, manifest in (("base", base), ("dilemma", downstream)):
+        path = tmp_path / f"{name}.split.json"
+        path.write_text(dumps_split_manifest(manifest), encoding="utf-8")
+        source_paths.append(str(path))
+    destination = tmp_path / "all-three.split.json"
+    config = materialize_ssl_split_manifest(
+        {
+            "preset": "rtx_profile",
+            "data": {
+                "ssl_index_paths": index_paths,
+                "ssl_source_split_manifests": source_paths,
+                "ssl_split_manifest": str(destination),
+            },
+        }
+    )
+    first_bytes = destination.read_bytes()
+    materialize_ssl_split_manifest(config)
+    assert destination.read_bytes() == first_bytes
+    assert load_split_manifest(destination) == composed
+    destination.write_text("{}", encoding="utf-8")
+    with pytest.raises(Phase9CContractError, match="destination_conflict"):
+        materialize_ssl_split_manifest(config)
+
+
+def test_production_profile_and_run_validation_command_uses_fixed_budget_last(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "run"
+    engine = root / "cells" / "downstream" / "variant" / "full_finetune" / "engine"
+    engine.mkdir(parents=True)
+    (engine / "last.pt").write_bytes(b"fixed-budget")
+    (engine / "training_report.json").write_text(
+        json.dumps(
+            {
+                "optimizer_step_attempt_count": 20,
+                "optimizer_step_applied_count": 20,
+                "optimizer_step_skipped_count": 0,
+            }
+        ),
+        encoding="utf-8",
+    )
+    plan = {
+        "runtime_paths": {
+            "downstream_raw_index": "/raw.index.json",
+            "downstream_raw_cache_root": "/raw-cache",
+            "target_cache_index": "/target.index.json",
+            "target_cache_root": "/target-cache",
+            "downstream_split_manifest": "/dilemmadata.split.json",
+        },
+        "protocol": {"preset": {"batch_size": 2}},
+    }
+    cell = {
+        "cell_id": "validation/variant/full_finetune",
+        "depends_on": "downstream/variant/full_finetune",
+        "optimizer_update_budget": 20,
+        "comparison_checkpoint": "last.pt",
+    }
+    command = _validation_command(root, plan, cell, tmp_path / "staging")
+    checkpoint = command[command.index("--checkpoint") + 1]
+    assert checkpoint.endswith("/engine/last.pt")
+    assert "best.pt" not in command
+
+    damaged = json.loads((engine / "training_report.json").read_text(encoding="utf-8"))
+    damaged["optimizer_step_applied_count"] = 19
+    (engine / "training_report.json").write_text(json.dumps(damaged), encoding="utf-8")
+    with pytest.raises(Phase9CContractError, match="fixed_budget_binding_invalid"):
+        _validation_command(root, plan, cell, tmp_path / "staging")
 
 
 def test_variant_registry_and_presets_keep_optional_ablations_explicit() -> None:
@@ -112,24 +265,10 @@ def _validation_report(offset: float = 0.0) -> dict[str, object]:
     return {"tasks": tasks, "entry_predictions": entries}
 
 
-def test_primary_score_tie_breakers_and_component_bootstrap() -> None:
+def test_primary_score_and_component_bootstrap() -> None:
     better = primary_validation_summary(_validation_report(0.0))
     worse = primary_validation_summary(_validation_report(0.1))
     assert better["primary_score"] < worse["primary_score"]
-    rows = [
-        {
-            "validation_summary": worse,
-            "epoch": 0,
-            "checkpoint_identity": "b",
-        },
-        {
-            "validation_summary": better,
-            "epoch": 1,
-            "checkpoint_identity": "a",
-        },
-    ]
-    selected = select_checkpoint(rows)
-    assert selected["selected_checkpoint_identity"] == "a"
     bootstrap = component_bootstrap_primary_delta(
         _validation_report(0.0),
         _validation_report(0.1),
@@ -156,7 +295,11 @@ def test_test_lock_and_plan_never_serialize_test_identities() -> None:
 
 def test_bounded_dag_resume_aggregate_select_verify_and_transfer(tmp_path: Path) -> None:
     plan = build_experiment_plan({"preset": "bounded_acceptance"})
+    assert plan["protocol"]["selection"]["checkpoint_policy"] == "last_after_fixed_budget"
+    assert plan["protocol"]["selection"]["checkpoint_selection_between_epochs"] is False
     root = tmp_path / "bundle"
+    profile = execute_experiment(root, plan, action="profile")
+    assert profile["production_started"] is False
     stopped = execute_experiment(root, plan, action="run", fail_after_cell=5)
     assert stopped["status"] == "stopped"
     result = execute_experiment(root, plan, action="resume")
@@ -187,13 +330,33 @@ def test_bounded_dag_resume_aggregate_select_verify_and_transfer(tmp_path: Path)
     assert aggregate["status"] == "aggregated"
     assert selected["status"] == "selected"
     comparison = read_json(root / "final_comparison_report.json")
+    binding_report = read_json(root / "selection_report.json")
     assert comparison["test_access"] is False
+    assert binding_report["checkpoint_selection_between_epochs"] is False
+    assert {
+        row["checkpoint_binding"]["filename"]
+        for row in binding_report["configurations"]
+    } == {"last.pt"}
+    assert {
+        row["checkpoint_binding"]["applied_optimizer_updates"]
+        for row in binding_report["configurations"]
+    } == {1}
     assert {row["transfer_mode"] for row in comparison["rows"]} >= {
         "frozen_probe",
         "full_finetune",
         "scratch_frozen_probe",
         "scratch_full_finetune",
     }
+
+    damaged_path = (
+        root / "cells" / "downstream" / "scratch" / "full_finetune"
+        / "training_report.json"
+    )
+    damaged = read_json(damaged_path)
+    damaged["applied_optimizer_updates"] = 0
+    damaged_path.write_text(json.dumps(damaged, sort_keys=True), encoding="utf-8")
+    with pytest.raises(Phase9CContractError, match="fixed_budget_binding_invalid"):
+        execute_experiment(root, plan, action="aggregate")
 
 
 def test_artifact_corruption_and_unsafe_tar_are_rejected(tmp_path: Path) -> None:

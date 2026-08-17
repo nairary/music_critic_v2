@@ -71,8 +71,10 @@ are not implemented yet. Phase 9B.2 adds external target sidecars and exactly
 four safe Dilemmadata quality/inversion heads, source-entry training/evaluation,
 and the bounded RTX hardware gate. Phase 9C-A adds the executable seed-17
 scratch/Phase-7A/Phase-8A/multilevel-equal validation pilot control plane with
-profiling, immutable resume, encoder-only transfer, component bootstrap, and a
-locked test split. Its production RTX profile and pilot remain pending.
+profiling, exact-assignment three-source split composition, fixed-update
+`last.pt` comparison, immutable resume, encoder-only transfer, component
+bootstrap, and a locked test split. Its production RTX profile and pilot remain
+pending.
 Phase 7A reconstruction is SSL representation plumbing only: it is not a
 masked-note likelihood, PLL, critic, quality score, or full-scale effectiveness
 claim. Phase 8A is not completion of Phase 8; comparative multi-level

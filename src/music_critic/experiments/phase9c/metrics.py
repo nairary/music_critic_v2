@@ -6,7 +6,7 @@ from collections import defaultdict
 import math
 import random
 from statistics import mean
-from typing import Mapping, Sequence
+from typing import Mapping
 
 from .contracts import PHASE9C_SELECTION_VERSION, Phase9CContractError, TASK_IDS, fingerprint
 
@@ -48,41 +48,6 @@ def primary_validation_summary(report: Mapping[str, object]) -> dict[str, object
         "mean_macro_f1": mean(macro_f1),
         "mean_task_nll": mean(nlls),
         "tasks": per_task,
-    }
-    return {**payload, "fingerprint": fingerprint(payload)}
-
-
-def selection_key(row: Mapping[str, object]) -> tuple[float, float, float, int, str]:
-    summary = row.get("validation_summary")
-    if not isinstance(summary, Mapping):
-        raise Phase9CContractError("phase9c.selection.summary_missing")
-    return (
-        float(summary["primary_score"]),
-        -float(summary["mean_macro_f1"]),
-        float(summary["mean_task_nll"]),
-        int(row["epoch"]),
-        str(row["checkpoint_identity"]),
-    )
-
-
-def select_checkpoint(rows: Sequence[Mapping[str, object]]) -> dict[str, object]:
-    if not rows:
-        raise Phase9CContractError("phase9c.selection.rows_empty")
-    selected = min(rows, key=selection_key)
-    payload = {
-        "contract_version": PHASE9C_SELECTION_VERSION,
-        "selection_split": "validation",
-        "primary_metric": "mean_task_nll_div_log_class_count",
-        "tie_breakers": [
-            "higher_mean_macro_f1",
-            "lower_mean_task_nll",
-            "earlier_epoch",
-            "lexicographic_checkpoint_identity",
-        ],
-        "selected_checkpoint_identity": selected["checkpoint_identity"],
-        "selected_epoch": selected["epoch"],
-        "selected_validation_summary": selected["validation_summary"],
-        "test_access": False,
     }
     return {**payload, "fingerprint": fingerprint(payload)}
 
@@ -178,6 +143,4 @@ __all__ = [
     "BOOTSTRAP_CONTRACT_VERSION",
     "component_bootstrap_primary_delta",
     "primary_validation_summary",
-    "select_checkpoint",
-    "selection_key",
 ]

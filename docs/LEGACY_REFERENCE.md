@@ -409,3 +409,8 @@ reused. The pilot composes only accepted current-V2 Phase 8B.2 and Phase 9B.2
 boundaries. Legacy theory-bearing inputs, float timing, gold semantic topology,
 missing-as-negative labels, corruption score interpretation, and observer
 distillation remain rejected.
+
+The pre-RTX blocking correction also opened and reused no legacy file or logic.
+Exact-assignment split composition and fixed-update `last.pt` comparison derive
+only from current V2 split, training-report, checkpoint, and evaluation
+evidence.

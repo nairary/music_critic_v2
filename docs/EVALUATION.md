@@ -354,8 +354,10 @@ equivalent physical index requires a new run rather than silent rebinding.
 
 ## Phase 9C-A validation comparison
 
-Every downstream cell evaluates the complete fixed 71-record / 71-component
-validation split once without replacement. It retains all four tasks' source-
+Every downstream cell evaluates `last.pt` after the same fully applied optimizer
+update budget on the complete fixed 71-record / 71-component validation split
+once without replacement. A skipped/missing update or checkpoint mismatch is a
+hard failure. It retains all four tasks' source-
 entry NLL, top-1, applicable top-3, balanced accuracy, macro/weighted F1,
 confusion matrix, record/component projections, train-only majority and
 empirical-prior baselines, undefined reasons, and zero-train-probability
@@ -367,9 +369,9 @@ The immutable primary score is:
 mean_task(NLL_task / log(class_count_task))
 ```
 
-Lower is better. Ties use higher mean macro-F1, lower ordinary mean NLL,
-earlier epoch, then lexicographic checkpoint identity. Frozen-probe and full-
-fine-tune tables remain separate.
+Lower is better. This metric compares final fixed-budget configurations; it
+does not select checkpoints between epochs or declare a winning configuration.
+Frozen-probe and full-fine-tune tables remain separate.
 
 Paired bootstrap resamples split-atomic components and reports the normalized-
 NLL difference of each SSL variant from scratch in the same transfer mode.
