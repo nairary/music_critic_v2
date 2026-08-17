@@ -184,6 +184,14 @@
   checkpoint-reload forward replay is instead finite bounded FP32 diagnostic
   `1.0.0` (`atol=rtol=0.005`, cosine >= `0.9999`); reloaded model tensors remain
   bit-exact. Hardware training success is still not claimed.
+- RTX attempt `809153d311407ae8102731147931cf7bd36b40de` then passed both
+  semantic cache validation and the remediated single-prediction leakage path,
+  but failed before optimizer updates because scalar total-loss fingerprinting
+  attempted a byte view directly on a 0-D tensor. The helper now performs one
+  bounded CPU transfer, preserves shape/dtype as separate digest inputs, and
+  byte-views a flattened contiguous tensor. Scalars, empty and non-contiguous
+  tensors work; prior vector/matrix fingerprints remain bit-exact. No contract
+  bump or hardware-training success claim results from this narrow runtime fix.
 - Phase 9B.2B head/loss and data semantics plus the pinned raw index, split,
   cache, graph, and model-input fingerprints remain unchanged. Legacy was not used;
   no long training, scratch-versus-SSL comparison, Phase 9C, PDMX, or Phase 10

@@ -635,7 +635,7 @@ def _tensor_fingerprint(value: torch.Tensor) -> str:
     digest = sha256()
     digest.update(str(tuple(tensor.shape)).encode("ascii"))
     digest.update(str(tensor.dtype).encode("ascii"))
-    digest.update(tensor.view(torch.uint8).numpy().tobytes())
+    digest.update(tensor.reshape(-1).view(torch.uint8).numpy().tobytes())
     return digest.hexdigest()
 
 

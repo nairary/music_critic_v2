@@ -111,3 +111,14 @@ target-index/cache validation and then failed before training at
 independent CUDA+AMP forwards byte-for-byte and therefore did not establish a
 target leak. It is retained as failed hardware evidence; no training success is
 claimed from it.
+
+The subsequent RTX attempt at
+`809153d311407ae8102731147931cf7bd36b40de` passed production semantic cache
+validation and the single-prediction leakage path, then failed before optimizer
+updates while fingerprinting scalar total loss evidence. The byte fingerprint
+now flattens a detached, single-transfer contiguous CPU tensor before viewing
+its bytes, supporting 0-D and empty tensors without converting values through
+Python scalars or lists. Shape and dtype remain separate digest inputs, and
+existing vector/matrix fingerprints remain bit-exact. This runtime correction
+does not change an evidence schema or contract version; hardware training
+success remains unclaimed.

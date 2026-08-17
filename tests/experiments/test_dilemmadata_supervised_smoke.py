@@ -32,6 +32,64 @@ RUNNER = REPO_ROOT / "scripts" / "run_phase9b2c_rtx3090_supervised_smoke.sh"
 HEAD = "a" * 40
 
 
+@pytest.mark.parametrize(
+    "value",
+    (
+        torch.tensor(1.25, dtype=torch.float32),
+        torch.tensor(1.25, dtype=torch.float16),
+        torch.tensor(7, dtype=torch.int64),
+        torch.empty(0, dtype=torch.float32),
+    ),
+)
+def test_tensor_fingerprint_supports_scalar_and_empty_tensors(
+    value: torch.Tensor,
+) -> None:
+    fingerprint = smoke._tensor_fingerprint(value)
+    assert len(fingerprint) == 64
+    assert fingerprint == smoke._tensor_fingerprint(value.clone())
+
+
+def test_tensor_fingerprint_supports_non_contiguous_tensor() -> None:
+    value = torch.arange(12, dtype=torch.float32).reshape(3, 4).transpose(0, 1)
+    assert not value.is_contiguous()
+    assert smoke._tensor_fingerprint(value) == smoke._tensor_fingerprint(
+        value.contiguous()
+    )
+
+
+def test_tensor_fingerprint_preserves_vector_and_matrix_contract() -> None:
+    assert smoke._tensor_fingerprint(
+        torch.tensor([1.0, 2.0, 3.0], dtype=torch.float32)
+    ) == "6c7930bbde426d083d789de06c6bc1ca6a52f03471d847da684b0d7b52570db1"
+    assert smoke._tensor_fingerprint(
+        torch.tensor([[1, 2], [3, 4]], dtype=torch.int64)
+    ) == "34bf5eb7a09595f77d3e81877e042c9e930e497357428ea9c77396b51c3315f7"
+
+
+def test_tensor_fingerprint_separates_scalar_values_dtypes_and_shapes() -> None:
+    fingerprints = {
+        smoke._tensor_fingerprint(torch.tensor(1.0, dtype=torch.float32)),
+        smoke._tensor_fingerprint(torch.tensor(2.0, dtype=torch.float32)),
+        smoke._tensor_fingerprint(torch.tensor(1.0, dtype=torch.float16)),
+        smoke._tensor_fingerprint(torch.tensor([1.0], dtype=torch.float32)),
+    }
+    assert len(fingerprints) == 4
+
+
+def test_supervision_loss_evidence_supports_scalar_total_loss() -> None:
+    output = SimpleNamespace(
+        supervisions=(),
+        harmonic_loss=SimpleNamespace(
+            total_loss=torch.tensor(3.5, dtype=torch.float16)
+        ),
+    )
+    evidence = smoke._supervision_loss_evidence(output)
+    assert evidence["fingerprint"] == smoke._fingerprint([])
+    assert evidence["total_loss_fingerprint"] == smoke._tensor_fingerprint(
+        output.harmonic_loss.total_loss
+    )
+
+
 def _replay_diagnostic() -> dict[str, object]:
     return {
         "contract_version": smoke.DILEMMADATA_CUDA_REPLAY_DIAGNOSTIC_VERSION,
