@@ -5,6 +5,8 @@ from hashlib import sha256
 import io
 import json
 from pathlib import Path
+import subprocess
+import sys
 import tarfile
 
 import pytest
@@ -21,13 +23,14 @@ from music_critic.experiments.phase9c import (
     execute_experiment,
     materialize_ssl_split_manifest,
     primary_validation_summary,
+    profile_experiment,
     resolve_preset,
     safe_extract_members,
     verify_bundle,
 )
 from music_critic.experiments.phase9c.artifacts import read_json
 from music_critic.experiments.phase9c.contracts import validate_test_lock
-from music_critic.experiments.phase9c.runner import _validation_command
+from music_critic.experiments.phase9c.runner import _ssl_command, _validation_command
 from music_critic.tasks import (
     IndexedCorpusRecord,
     create_split_manifest,
@@ -178,6 +181,96 @@ def test_production_profile_and_run_validation_command_uses_fixed_budget_last(
     (engine / "training_report.json").write_text(json.dumps(damaged), encoding="utf-8")
     with pytest.raises(Phase9CContractError, match="fixed_budget_binding_invalid"):
         _validation_command(root, plan, cell, tmp_path / "staging")
+
+
+def test_generated_ssl_command_composes_with_official_hydra_cli(tmp_path: Path) -> None:
+    plan = build_experiment_plan({"preset": "bounded_acceptance"})
+    plan["runtime_paths"] = {
+        "ssl_index_paths": ["/indices/hook.json", "/indices/pop.json", "/indices/dilemma.json"],
+        "ssl_cache_roots": ["/cache/hook", "/cache/pop", "/cache/dilemma"],
+        "ssl_split_manifest": "/splits/all-three.json",
+    }
+    generated = _ssl_command(
+        plan,
+        plan["ssl_cells"][0],
+        tmp_path / "staging",
+    )
+    command = [*generated[:3], "--cfg", "job", *generated[3:]]
+    result = subprocess.run(
+        command,
+        cwd=Path.cwd(),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert any(value.startswith("+data.mixture_weights=") for value in generated)
+    assert "dilemmadata: 0.3333333333333333" in result.stdout
+    assert "hooktheory: 0.3333333333333333" in result.stdout
+    assert "pop909_cl: 0.3333333333333333" in result.stdout
+
+
+def test_profile_cli_fails_closed_when_no_candidate_passes(tmp_path: Path) -> None:
+    root = tmp_path / "failed-profile"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "music_critic.experiments.phase9c.run",
+            "profile",
+            "--preset",
+            "bounded_acceptance",
+            "--profile-batch-candidates",
+            "16",
+            "--output-root",
+            str(root),
+        ],
+        cwd=Path.cwd(),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    assert result.returncode != 0
+    report = read_json(root / "profile_report.json")
+    assert report["status"] == "no_candidate_passed"
+    assert report["results"][0]["status"] == "oom"
+    assert report["production_started"] is False
+    assert "phase9c.rtx.profile.complete" not in result.stdout
+
+
+def test_failed_production_profile_preserves_candidate_root_and_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = build_experiment_plan(
+        {"preset": "bounded_acceptance", "profile_batch_candidates": [3]}
+    )
+    plan["data_semantic_projection"] = {"kind": "production"}
+    plan["profile_rebuild_config"] = {"preset": "rtx_profile"}
+
+    def fail_candidate(command, **_kwargs):
+        candidate_root = Path(command[-2])
+        candidate_root.mkdir(parents=True, exist_ok=True)
+        (candidate_root / "failure.txt").write_text("preserved", encoding="utf-8")
+        return subprocess.CompletedProcess(command, 42, "", "failed")
+
+    monkeypatch.setattr(
+        "music_critic.experiments.phase9c.runner.subprocess.run",
+        fail_candidate,
+    )
+    root = tmp_path / "profile"
+    report = profile_experiment(root, plan)
+    candidate_root = root / ".profile" / "candidate-3"
+    assert report["status"] == "no_candidate_passed"
+    assert report["results"][0]["candidate_root"] == str(candidate_root)
+    assert report["results"][0]["candidate_root_preserved"] is True
+    assert (candidate_root / "failure.txt").read_text(encoding="utf-8") == "preserved"
+    assert (candidate_root / "profile_subprocess_stderr.log").read_text(
+        encoding="utf-8"
+    ) == "failed"
+    assert read_json(candidate_root / "profile_subprocess.json")["returncode"] == 42
+    assert read_json(root / "profile_report.json")["status"] == "no_candidate_passed"
 
 
 def test_variant_registry_and_presets_keep_optional_ablations_explicit() -> None:

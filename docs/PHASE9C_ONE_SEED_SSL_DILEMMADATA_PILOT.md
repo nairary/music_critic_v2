@@ -137,6 +137,16 @@ encoder-forwards/sec, epoch time, and projected pilot time. OOM cleanup is the
 candidate-process exit boundary. A recommendation never mutates the later
 production config.
 
+The generated official SSL Hydra command appends the complete three-source map
+with `+data.mixture_weights={...}` so the structured `DataConfig` accepts the
+new `dilemmadata` key while retaining exact equal weights. Focused acceptance
+composes the generated command through `music_critic.ssl.run --cfg job`.
+
+Profile is fail-closed. If no candidate passes, `profile_report.json` records
+`status=no_candidate_passed`, the CLI and RTX wrapper return nonzero, and the
+wrapper never prints `phase9c.rtx.profile.complete`. Candidate roots and the
+aggregate profile report remain in the requested output root for diagnosis.
+
 Production epochs, steps, and batch size have no blind default. The production
 config must state them explicitly and bind a separately completed immutable
 profile report. `run` never follows `profile` automatically.

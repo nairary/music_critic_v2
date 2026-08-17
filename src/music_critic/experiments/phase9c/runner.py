@@ -149,7 +149,7 @@ def _ssl_command(plan: Mapping[str, Any], cell: Mapping[str, object], staging: P
         f"data.index_paths={_hydra_list(paths['ssl_index_paths'])}",
         f"data.cache_roots={_hydra_list(paths['ssl_cache_roots'])}",
         f"data.split_manifest={paths['ssl_split_manifest']}",
-        "data.mixture_weights={dilemmadata:0.3333333333333333,hooktheory:0.3333333333333333,pop909_cl:0.3333333333333333}",
+        "+data.mixture_weights={dilemmadata:0.3333333333333333,hooktheory:0.3333333333333333,pop909_cl:0.3333333333333333}",
         "model=hierarchical",
         "optimizer=adamw",
         "optimizer.learning_rate=0.0003",
@@ -449,8 +449,10 @@ def profile_experiment(root: Path, plan: Mapping[str, Any]) -> dict[str, object]
     for candidate in plan["profile_candidates"]:
         candidate = int(candidate)
         output = root / ".profile" / f"batch-{candidate}.json"
+        candidate_root = root / ".profile" / f"candidate-{candidate}"
         output.parent.mkdir(parents=True, exist_ok=True)
         if production:
+            candidate_root.mkdir(parents=True, exist_ok=True)
             command = [
                 sys.executable,
                 "-m",
@@ -458,7 +460,7 @@ def profile_experiment(root: Path, plan: Mapping[str, Any]) -> dict[str, object]
                 "profile-production-candidate",
                 str(rebuild_config_path),
                 str(candidate),
-                str(root / ".profile" / f"candidate-{candidate}"),
+                str(candidate_root),
                 str(output),
             ]
         else:
@@ -471,11 +473,27 @@ def profile_experiment(root: Path, plan: Mapping[str, Any]) -> dict[str, object]
                 str(output),
             ]
         process = subprocess.run(command, capture_output=True, text=True, check=False)
+        if production:
+            write_bytes_once(
+                candidate_root / "profile_subprocess_stdout.log",
+                process.stdout.encode("utf-8"),
+            )
+            write_bytes_once(
+                candidate_root / "profile_subprocess_stderr.log",
+                process.stderr.encode("utf-8"),
+            )
+            write_json_once(
+                candidate_root / "profile_subprocess.json",
+                {"argv": command, "shell": False, "returncode": process.returncode},
+            )
         if output.exists():
             row = read_json(output)
         else:
             row = {"status": "failed", "batch_size": candidate}
         row["returncode"] = process.returncode
+        if production:
+            row["candidate_root"] = str(candidate_root)
+            row["candidate_root_preserved"] = candidate_root.is_dir()
         results.append(row)
     passed = [row for row in results if row.get("status") == "passed"]
     recommended = max((int(row["batch_size"]) for row in passed), default=None)

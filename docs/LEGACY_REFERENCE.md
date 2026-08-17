@@ -414,3 +414,7 @@ The pre-RTX blocking correction also opened and reused no legacy file or logic.
 Exact-assignment split composition and fixed-update `last.pt` comparison derive
 only from current V2 split, training-report, checkpoint, and evaluation
 evidence.
+
+The RTX-profile Hydra runtime remediation likewise opened, imported, and reused
+no legacy file or logic. It changes only current-V2 Hydra override syntax and
+fail-closed profile process/report handling.

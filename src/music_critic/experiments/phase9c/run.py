@@ -117,6 +117,8 @@ def main() -> int:
                 fail_after_cell=arguments.fail_after_cell,
             )
     print(json.dumps(result, ensure_ascii=False, allow_nan=False, sort_keys=True, indent=2))
+    if arguments.action == "profile" and result.get("status") != "complete":
+        return 1
     return 0
 
 

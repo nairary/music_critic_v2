@@ -44,6 +44,10 @@ fi
 
 "${command[@]}" 2>&1 | tee "$log_path"
 status=${PIPESTATUS[0]}
+if [[ $status -eq 0 && "$action" == "profile" ]]; then
+  .venv/bin/python -c 'import json, pathlib, sys; report=json.loads((pathlib.Path(sys.argv[1]) / "profile_report.json").read_text(encoding="utf-8")); raise SystemExit(0 if report.get("status") == "complete" else 1)' "$output_root"
+  status=$?
+fi
 if [[ $status -ne 0 ]]; then
   echo "$output_root" > "$output_root/FAILED_ROOT.txt"
   echo "phase9c.rtx.failed_root=$output_root" >&2

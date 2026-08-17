@@ -197,9 +197,17 @@
   profile or run action, preserves failed roots, logs once, verifies the bundle
   independently, and creates a tar plus SHA sidecar. Profile batch candidates
   execute in separate short-DAG subprocesses; profile never starts production.
-- Focused Phase 9C tests pass `10 passed`; bounded public CLI plan/run/verify
+- RTX profile at exact head
+  `bebc7d96688b3b68c2eb94f5829541416a97220f` failed before SSL execution:
+  Hydra rejected the new structured `dilemmadata` mixture key in a non-append
+  override. The generated command now uses the official accepted
+  `+data.mixture_weights={...}` form. A no-candidate profile returns nonzero,
+  prints no completion marker, and preserves candidate roots plus report.
+- Focused Phase 9C tests pass `13 passed`; the focused Hydra/runtime subset
+  passes `4 passed`; bounded public CLI plan/run/verify
   completed with 24 immutable cells and 281 verified regular files. This is
-  fixture mechanics evidence only. Production profile/pilot were not run.
+  fixture mechanics evidence only. The failed profile is diagnostic evidence,
+  not a completed profile; the production pilot was not run.
 - Legacy was not opened or used. No cache/checkpoint/historical evidence was
   changed or deleted. PDMX, Phase 10, test evaluation, critic/quality scoring,
   and multi-seed production work remain out of scope.
