@@ -90,6 +90,109 @@ def test_supervision_loss_evidence_supports_scalar_total_loss() -> None:
     )
 
 
+class _OverflowScalerOracle:
+    def __init__(self, *, persistent: bool = False) -> None:
+        self._scale = 16.0
+        self._attempt = 0
+        self._persistent = persistent
+        self._overflow = False
+
+    def is_enabled(self) -> bool:
+        return True
+
+    def get_scale(self) -> float:
+        return self._scale
+
+    def scale(self, loss: torch.Tensor) -> torch.Tensor:
+        return loss
+
+    def unscale_(self, optimizer: torch.optim.Optimizer) -> None:
+        self._overflow = self._persistent or self._attempt == 0
+        if self._overflow:
+            parameter = optimizer.param_groups[0]["params"][0]
+            assert parameter.grad is not None
+            parameter.grad.fill_(float("inf"))
+
+    def step(self, optimizer: torch.optim.Optimizer) -> None:
+        if not self._overflow:
+            optimizer.step()
+
+    def update(self) -> None:
+        if self._overflow:
+            self._scale *= 0.5
+        self._attempt += 1
+
+
+def _tiny_amp_attempts(*, persistent: bool) -> tuple[list[dict[str, object]], object]:
+    model = torch.nn.Linear(2, 1)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1)
+    scaler = _OverflowScalerOracle(persistent=persistent)
+    groups = {"raw_encoder": tuple(name for name, _ in model.named_parameters())}
+    attempts = []
+    for _ in range(2):
+        optimizer.zero_grad(set_to_none=True)
+        loss = model(torch.ones(1, 2)).square().sum()
+        attempts.append(
+            smoke._amp_optimizer_attempt(
+                model=model,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                scaler=scaler,
+                loss=loss,
+                groups=groups,
+            )
+        )
+    return attempts, scheduler
+
+
+def test_first_overflow_skips_then_finite_attempt_applies() -> None:
+    attempts, scheduler = _tiny_amp_attempts(persistent=False)
+    first, second = attempts
+    assert first["optimizer_step_skipped"]
+    assert first["amp_scale_after"] < first["amp_scale_before"]
+    assert first["offending_parameter_names"] == ["weight"]
+    assert first["scheduler_epoch_after"] == first["scheduler_epoch_before"]
+    assert second["optimizer_step_applied"]
+    assert second["gradients"]["all_gradients_finite"]
+    assert second["scheduler_epoch_after"] == second["scheduler_epoch_before"] + 1
+    assert scheduler.last_epoch == 1
+    smoke._require_amp_training_acceptance(attempts)
+
+
+def test_persistent_overflow_fails_as_zero_applied_updates() -> None:
+    attempts, scheduler = _tiny_amp_attempts(persistent=True)
+    assert all(row["optimizer_step_skipped"] for row in attempts)
+    assert scheduler.last_epoch == 0
+    with pytest.raises(
+        smoke.DilemmadataSupervisedSmokeError, match="zero_applied_updates"
+    ):
+        smoke._require_amp_training_acceptance(attempts)
+
+
+def test_final_overflow_after_applied_step_fails_scale_recovery() -> None:
+    attempts, _ = _tiny_amp_attempts(persistent=False)
+    with pytest.raises(
+        smoke.DilemmadataSupervisedSmokeError,
+        match="scaler_scale_not_recovered",
+    ):
+        smoke._require_amp_training_acceptance(tuple(reversed(attempts)))
+
+
+def test_amp_policy_reuses_phase8b_scaler_configuration() -> None:
+    config = smoke._grad_scaler_config()
+    assert config == {
+        "policy_version": "1.0.0",
+        "policy_origin": "phase8b_public_grad_scaler_scale_transition",
+        "enabled": True,
+        "init_scale": smoke.PHASE8B_GRAD_SCALER_INITIAL_SCALE,
+        "growth_factor": 2.0,
+        "backoff_factor": 0.5,
+        "growth_interval": 2000,
+    }
+    assert config["init_scale"] == 16384.0
+
+
 def _replay_diagnostic() -> dict[str, object]:
     return {
         "contract_version": smoke.DILEMMADATA_CUDA_REPLAY_DIAGNOSTIC_VERSION,
@@ -112,6 +215,29 @@ def _replay_diagnostic() -> dict[str, object]:
             }
             for task_id in DILEMMADATA_ACTIVE_TASK_IDS
         ],
+    }
+
+
+def _fp32_boundary() -> dict[str, object]:
+    return {
+        "contract_version": "1.0.0",
+        "encoder_autocast_allowed": True,
+        "head_input_cast_without_detach": "float32_on_device",
+        "head_logits": {
+            task_id: "torch.float32" for task_id in DILEMMADATA_ACTIVE_TASK_IDS
+        },
+        "per_row_losses": {
+            task_id: "torch.float32" for task_id in DILEMMADATA_ACTIVE_TASK_IDS
+        },
+        "source_entry_losses": {
+            task_id: {
+                "entry_mean_losses": "torch.float32",
+                "mean_loss": "torch.float32",
+            }
+            for task_id in DILEMMADATA_ACTIVE_TASK_IDS
+        },
+        "total_loss_dtype": "torch.float32",
+        "cpu_transfer_count": 0,
     }
 
 
@@ -364,11 +490,26 @@ def _base_report(
             "total_loss": 4.0 - step * 0.01,
             "task_losses": {task: 1.0 for task in DILEMMADATA_ACTIVE_TASK_IDS},
             "gradient_norm_before_clip": 1.0,
-            "gradients": {"all_gradients_finite": True},
-            "amp_scale_before": 65536.0,
-            "amp_scale_after": 65536.0,
+            "gradients": {
+                "all_gradients_finite": True,
+                "non_finite_parameter_count": 0,
+                "non_finite_parameters": [],
+                "non_finite_parameters_truncated": False,
+            },
+            "amp_scale_before": 16384.0,
+            "amp_scale_after": 16384.0,
             "optimizer_step_applied": True,
+            "optimizer_step_skipped": False,
+            "offending_parameter_names": [],
+            "offending_parameter_count": 0,
+            "learning_rate_before": 3e-4,
             "learning_rate_after": 3e-4,
+            "scheduler_epoch_before": step,
+            "scheduler_epoch_after": step + 1,
+            "applied_state_finite": {
+                "all_parameters_finite": True,
+                "all_optimizer_state_tensors_finite": True,
+            },
         }
         for step in range(10)
     ]
@@ -390,6 +531,7 @@ def _base_report(
             "amp_enabled": True,
             "amp_dtype": "float16",
             "grad_scaler_enabled": True,
+            "grad_scaler_config": smoke._grad_scaler_config(),
             "cpu_fallback": False,
             "peak_allocated_bytes": 1024,
             "peak_reserved_bytes": 2048,
@@ -437,6 +579,7 @@ def _base_report(
             },
         },
         "cuda_replay_diagnostic": _replay_diagnostic(),
+        "fp32_head_loss_boundary": _fp32_boundary(),
         "source_entry_reduction": {
             "verified": True,
             "reduction": "candidate_rows_mean_per_source_entry_then_entries_mean_per_task_fixed_weight_sum",
@@ -447,7 +590,9 @@ def _base_report(
             "applied_update_count": 10,
             "skipped_update_count": 0,
             "all_losses_finite": True,
-            "all_gradients_finite": True,
+            "all_applied_gradients_finite": True,
+            "scaler_config": smoke._grad_scaler_config(),
+            "scale_recovered_after_skips": True,
             "aggregate_nonzero_gradient_by_group": groups,
             "parameter_changes": changes,
             "initial_loss": 4.0,
@@ -468,6 +613,9 @@ def _base_report(
             "cuda_device": "cuda:0",
             "amp_dtype": "float16",
             "grad_scaler_state_present": True,
+            "grad_scaler_config": smoke._grad_scaler_config(),
+            "grad_scaler_state_restored_exact": True,
+            "grad_scaler_state_fingerprint": "9" * 64,
             "optimizer_state_present": True,
             "scheduler_state_present": True,
             "scratch_loaded_encoder_tensors": [],
@@ -552,7 +700,7 @@ def _checkpoint(
         parameter.grad = torch.ones_like(parameter)
     optimizer.step()
     scheduler.step()
-    scaler = torch.amp.GradScaler("cpu", enabled=True)
+    scaler = smoke._new_grad_scaler("cpu")
     data_fingerprints = {
         **report["bindings"],
         "train_membership_fingerprint": report["train_membership_fingerprint"],
@@ -588,6 +736,9 @@ def _checkpoint(
     digest = sha256((root / "checkpoint.pt").read_bytes()).hexdigest()
     (root / "checkpoint.pt.sha256").write_text(digest + "\n", encoding="utf-8")
     report["checkpoint"]["sha256"] = digest
+    report["checkpoint"]["grad_scaler_state_fingerprint"] = smoke._fingerprint(
+        payload["scaler_state"]
+    )
     state_rows = [
         {"name": name, "fingerprint": smoke._tensor_fingerprint(value)}
         for name, value in payload["model_state"].items()
@@ -631,6 +782,18 @@ def _valid_evidence(root: Path) -> tuple[Path, dict[str, object]]:
             "optimization",
         ),
         (
+            lambda value: value["optimization"][
+                "aggregate_nonzero_gradient_by_group"
+            ].update(raw_encoder=False),
+            "optimization",
+        ),
+        (
+            lambda value: value["optimization"]["parameter_changes"][
+                "dilemmadata.an.chord.quality"
+            ].update(changed=False),
+            "optimization",
+        ),
+        (
             lambda value: value["optimization"]["curve"][0].update(total_loss=float("inf")),
             "json_invalid",
         ),
@@ -638,10 +801,16 @@ def _valid_evidence(root: Path) -> tuple[Path, dict[str, object]]:
             lambda value: value["optimization"]["curve"][0]["gradients"].update(
                 all_gradients_finite=False
             ),
-            "optimization_curve",
+            "applied_gradient",
         ),
         (
             lambda value: value["checkpoint"].update(reload_logits_bounded_cuda_replay=False),
+            "checkpoint",
+        ),
+        (
+            lambda value: value["checkpoint"].update(
+                grad_scaler_state_present=False
+            ),
             "checkpoint",
         ),
         (
@@ -708,6 +877,56 @@ def test_report_accepts_both_observed_indexes_with_same_semantics(
     assert validated["bindings"]["observed_target_cache_index_fingerprint"] == (
         observed_index
     )
+
+
+def test_report_accepts_honest_first_scaler_skip_then_applied_updates() -> None:
+    train, validation = _memberships()
+    priors, evaluation = _evaluation(train, validation)
+    report = _base_report(train, validation, priors, evaluation)
+    first = report["optimization"]["curve"][0]
+    first.update(
+        gradient_norm_before_clip=None,
+        amp_scale_after=8192.0,
+        optimizer_step_applied=False,
+        optimizer_step_skipped=True,
+        offending_parameter_names=["task_heads.heads.task_03.3.weight"],
+        offending_parameter_count=1,
+        scheduler_epoch_after=first["scheduler_epoch_before"],
+        applied_state_finite=None,
+    )
+    first["gradients"].update(
+        all_gradients_finite=False,
+        non_finite_parameter_count=1,
+        non_finite_parameters=["task_heads.heads.task_03.3.weight"],
+        non_finite_parameters_truncated=False,
+    )
+    for index, row in enumerate(report["optimization"]["curve"][1:], start=1):
+        row["amp_scale_before"] = 8192.0
+        row["amp_scale_after"] = 8192.0
+        row["scheduler_epoch_before"] = index - 1
+        row["scheduler_epoch_after"] = index
+    report["optimization"].update(
+        applied_update_count=9,
+        skipped_update_count=1,
+    )
+    smoke.validate_smoke_report(smoke._with_fingerprint(report))
+
+
+def test_report_requires_fp32_boundary_and_scaler_configuration() -> None:
+    train, validation = _memberships()
+    priors, evaluation = _evaluation(train, validation)
+    report = _base_report(train, validation, priors, evaluation)
+    report["fp32_head_loss_boundary"]["total_loss_dtype"] = "torch.float16"
+    with pytest.raises(
+        smoke.DilemmadataSupervisedSmokeError, match="fp32_boundary"
+    ):
+        smoke.validate_smoke_report(smoke._with_fingerprint(report))
+    report = _base_report(train, validation, priors, evaluation)
+    report["optimization"]["scaler_config"]["init_scale"] = 65536.0
+    with pytest.raises(
+        smoke.DilemmadataSupervisedSmokeError, match="optimization"
+    ):
+        smoke.validate_smoke_report(smoke._with_fingerprint(report))
 
 
 def _production_objects(observed_index: str):
@@ -978,7 +1197,7 @@ def test_checkpoint_observed_target_index_mismatch_is_failure_atomic(
     model = DilemmadataHierarchicalModel()
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10)
-    scaler = torch.amp.GradScaler("cpu", enabled=True)
+    scaler = smoke._new_grad_scaler("cpu")
     config = smoke._training_config(10)
     data = {"observed_target_cache_index_fingerprint": "1" * 64}
     path = tmp_path / "checkpoint.pt"
@@ -999,7 +1218,7 @@ def test_checkpoint_observed_target_index_mismatch_is_failure_atomic(
     destination_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         destination_optimizer, T_max=10
     )
-    destination_scaler = torch.amp.GradScaler("cpu", enabled=True)
+    destination_scaler = smoke._new_grad_scaler("cpu")
     before = {name: value.clone() for name, value in destination.state_dict().items()}
     with pytest.raises(TrainingCheckpointError, match="metadata_mismatch"):
         load_training_checkpoint(
@@ -1016,6 +1235,51 @@ def test_checkpoint_observed_target_index_mismatch_is_failure_atomic(
         torch.equal(destination.state_dict()[name], value)
         for name, value in before.items()
     )
+
+
+def test_checkpoint_restores_explicit_phase8b_scaler_state(tmp_path: Path) -> None:
+    model = DilemmadataHierarchicalModel()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10)
+    scaler = smoke._new_grad_scaler("cpu")
+    optimizer.zero_grad(set_to_none=True)
+    loss = next(model.parameters()).square().mean()
+    scaler.scale(loss).backward()
+    scaler.step(optimizer)
+    scaler.update()
+    expected_scaler_state = copy.deepcopy(scaler.state_dict())
+    config = smoke._training_config(10)
+    data = {"observed_target_cache_index_fingerprint": "1" * 64}
+    path = tmp_path / "checkpoint.pt"
+    save_training_checkpoint(
+        path,
+        model,
+        optimizer,
+        scheduler=scheduler,
+        scaler=scaler,
+        next_epoch=0,
+        best_validation_loss=None,
+        committed_metric_rows=0,
+        resolved_config=config,
+        data_fingerprints=data,
+    )
+    destination = DilemmadataHierarchicalModel()
+    destination_optimizer = torch.optim.AdamW(destination.parameters(), lr=3e-4)
+    destination_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        destination_optimizer, T_max=10
+    )
+    destination_scaler = smoke._new_grad_scaler("cpu")
+    load_training_checkpoint(
+        path,
+        destination,
+        destination_optimizer,
+        scheduler=destination_scheduler,
+        scaler=destination_scaler,
+        maximum_next_epoch=0,
+        resolved_config=config,
+        data_fingerprints=data,
+    )
+    assert destination_scaler.state_dict() == expected_scaler_state
 
 
 def test_wrong_head_missing_path_and_shell_output_collision(tmp_path: Path) -> None:

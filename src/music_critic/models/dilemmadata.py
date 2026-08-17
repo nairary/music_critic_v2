@@ -35,9 +35,10 @@ from music_critic.tasks import (
 )
 
 
-DILEMMADATA_MODEL_CONTRACT_VERSION = "1.1.0"
+DILEMMADATA_MODEL_CONTRACT_VERSION = "1.2.0"
 DILEMMADATA_HEAD_CONTRACT_VERSION = "1.0.0"
 DILEMMADATA_LOSS_CONTRACT_VERSION = "1.0.0"
+DILEMMADATA_FP32_HEAD_LOSS_BOUNDARY_VERSION = "1.0.0"
 DILEMMADATA_ENCODER_TRANSFER_VERSION = "1.0.0"
 DILEMMADATA_CLASS_WEIGHT_CONTRACT_VERSION = "1.0.0"
 
@@ -303,6 +304,17 @@ class DilemmadataHierarchicalOutput:
     def __post_init__(self) -> None:
         if self.model_contract_version != DILEMMADATA_MODEL_CONTRACT_VERSION:
             raise ValueError("dilemmadata.model.output_version_incompatible")
+        tensors = [prediction.logits for prediction in self.predictions]
+        tensors.extend(row.per_row_loss for row in self.supervisions)
+        tensors.extend(
+            value
+            for row in self.harmonic_loss.task_losses
+            for value in (row.entry_mean_losses, row.mean_loss)
+        )
+        if self.harmonic_loss.total_loss is not None:
+            tensors.append(self.harmonic_loss.total_loss)
+        if any(value.dtype != torch.float32 for value in tensors):
+            raise ValueError("dilemmadata.model.fp32_head_loss_boundary_violated")
 
 
 class DilemmadataHierarchicalModel(nn.Module):
@@ -322,6 +334,7 @@ class DilemmadataHierarchicalModel(nn.Module):
             config.hidden_dim,
             config.task_hidden_dim or config.hidden_dim,
             config.dropout,
+            force_float32=True,
         )
 
     def encode(
@@ -385,14 +398,18 @@ class DilemmadataHierarchicalModel(nn.Module):
     ) -> DilemmadataHierarchicalOutput:
         """Join targets after raw prediction without repeating the encoder/heads."""
 
-        supervisions = join_task_supervision(
-            predictions,
-            target_batches,
-            categorical_class_weights=class_weights,
-        )
-        loss = aggregate_dilemmadata_source_entry_losses(
-            supervisions, task_weights=dict(self.config.task_weights)
-        )
+        if any(row.logits.dtype != torch.float32 for row in predictions):
+            raise ValueError("dilemmadata.model.fp32_head_logits_required")
+        device_type = predictions[0].logits.device.type
+        with torch.amp.autocast(device_type, enabled=False):
+            supervisions = join_task_supervision(
+                predictions,
+                target_batches,
+                categorical_class_weights=class_weights,
+            )
+            loss = aggregate_dilemmadata_source_entry_losses(
+                supervisions, task_weights=dict(self.config.task_weights)
+            )
         return DilemmadataHierarchicalOutput(
             model_contract_version=DILEMMADATA_MODEL_CONTRACT_VERSION,
             encoder=encoded,
@@ -412,6 +429,9 @@ def dilemmadata_model_contract_dict(
         "model_contract_version": DILEMMADATA_MODEL_CONTRACT_VERSION,
         "head_contract_version": DILEMMADATA_HEAD_CONTRACT_VERSION,
         "loss_contract_version": DILEMMADATA_LOSS_CONTRACT_VERSION,
+        "fp32_head_loss_boundary_version": (
+            DILEMMADATA_FP32_HEAD_LOSS_BOUNDARY_VERSION
+        ),
         "config": asdict(model.config),
         "active_task_ids": list(DILEMMADATA_ACTIVE_TASK_IDS),
         "pu_tasks_without_heads": list(DILEMMADATA_PU_TASK_IDS),
@@ -419,6 +439,9 @@ def dilemmadata_model_contract_dict(
         "head_specs": [asdict(spec) for spec in model.task_specs],
         "prediction_input": "raw_graph_hierarchical_encoder_output_only",
         "target_join": "typed_post_prediction_supervise_only",
+        "amp_precision_boundary": (
+            "encoder_autocast_allowed_heads_logits_ce_source_entry_total_fp32"
+        ),
     }
 
 
@@ -635,6 +658,7 @@ __all__ = [
     "DILEMMADATA_ACTIVE_TASK_IDS",
     "DILEMMADATA_CLASS_WEIGHT_CONTRACT_VERSION",
     "DILEMMADATA_ENCODER_TRANSFER_VERSION",
+    "DILEMMADATA_FP32_HEAD_LOSS_BOUNDARY_VERSION",
     "DILEMMADATA_HEAD_CONTRACT_VERSION",
     "DILEMMADATA_LOSS_CONTRACT_VERSION",
     "DILEMMADATA_MODEL_CONTRACT_VERSION",

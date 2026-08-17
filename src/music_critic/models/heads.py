@@ -171,9 +171,12 @@ class SourceNativeTaskHeads(nn.Module):
         hidden_dim: int,
         task_hidden_dim: int,
         dropout: float,
+        *,
+        force_float32: bool = False,
     ) -> None:
         super().__init__()
         self.specs = specs
+        self.force_float32 = force_float32
         self.heads = nn.ModuleDict(
             {
                 _head_key(index): nn.Sequential(
@@ -238,6 +241,13 @@ class SourceNativeTaskHeads(nn.Module):
                 )
                 candidate_offset += count
             routed = torch.cat(embeddings, dim=0)
+            if self.force_float32:
+                with torch.amp.autocast(routed.device.type, enabled=False):
+                    logits = self.heads[_head_key(spec_index)](
+                        routed.to(dtype=torch.float32)
+                    )
+            else:
+                logits = self.heads[_head_key(spec_index)](routed)
             predictions.append(
                 TaskPrediction(
                     contract_version=TASK_PREDICTION_CONTRACT_VERSION,
@@ -251,7 +261,7 @@ class SourceNativeTaskHeads(nn.Module):
                     sample_indices=torch.cat(sample_indices, dim=0),
                     candidate_offsets_by_node_type=offsets,
                     candidate_counts_by_node_type=counts,
-                    logits=self.heads[_head_key(spec_index)](routed),
+                    logits=logits,
                 )
             )
         return tuple(predictions)

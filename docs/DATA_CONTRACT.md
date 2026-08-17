@@ -4,7 +4,7 @@ Status: **ACCEPTED FOR PHASE 1 IMPLEMENTATION**.
 
 ## Phase 9B.2C evidence-only extension
 
-`DilemmadataSupervisedSmoke@1.2.0` and its sealed bundle `1.2.0` bind the
+`DilemmadataSupervisedSmoke@1.3.0` and its sealed bundle `1.3.0` bind the
 existing production raw semantics, observed target-cache index, split, model contract,
 train/validation memberships, checkpoint, validation report, Git head, and
 RTX execution evidence. They are experiment evidence contracts, not data/model
@@ -12,10 +12,16 @@ input contracts. Phase 9B.2B target-cache/BatchTarget semantics and every raw
 projection, canonical cache, split, graph, and model-input byte/version remain
 unchanged.
 
-`DilemmadataHierarchicalModel@1.1.0` adds only the typed post-prediction
-`supervise` boundary used by both `forward` and leakage evidence. Its head/loss
-semantics do not change. Independent CUDA logits are replay diagnostic
-`1.0.0`, not a data or scientific fingerprint.
+`DilemmadataHierarchicalModel@1.2.0` retains the typed post-prediction
+`supervise` boundary used by both `forward` and leakage evidence and adds
+`DilemmadataFp32HeadLossBoundary@1.0.0`. Encoder activations may be float16,
+but each head input is cast differentiably on-device and head logits, CE rows,
+source-entry reductions, and total loss are FP32. The mathematical head/loss
+semantics do not change. `DilemmadataAmpPolicy@1.0.0` reuses the accepted
+Phase 8B public GradScaler transition rule and initial scale `16384`; its
+explicit configuration and exact state are checkpoint/report evidence.
+Independent CUDA logits are replay diagnostic `1.0.0`, not a data or
+scientific fingerprint.
 
 The stable target semantic projection is raw index + metadata index + 719
 records + aggregate `TargetBundle` fingerprint + current adapter/cache/registry

@@ -3021,3 +3021,35 @@ This log is append-only.
   preserved. No target artifacts are rebuilt; head/loss, raw index/cache,
   target cache, grouping, split, graph and model-input contracts are unchanged.
   Phase 9C and long training remain out of scope.
+
+## 2026-08-17 — ADR-082: Dilemmadata AMP reuses the Phase 8B FP32 and scaler policy
+
+- Status: Accepted as blocking Phase 9B.2C remediation in draft PR #24;
+  independent RTX 3090 execution remains pending.
+- Context: Exact RTX attempt
+  `cd87a3436f6db9ecadbab64dfb229ef039c465bf` passed production cache,
+  semantic-index, leakage, and replay gates. Its finite first loss yielded a
+  non-finite gradient at `task_heads.heads.task_03.3.weight`. The smoke failed
+  immediately after `GradScaler.unscale_`, before public overflow handling
+  could skip the attempt and reduce scale; no update or checkpoint occurred.
+- Decision: Advance `DilemmadataHierarchicalModel` to `1.2.0` and add the
+  opt-in `DilemmadataFp32HeadLossBoundary@1.0.0`. Permit encoder float16
+  autocast, cast each Dilemmadata head input differentiably to FP32 on-device,
+  and execute head logits, CE, source-entry reduction, and total loss in FP32.
+  Do not alter generic heads by default or detach/transfer the gradient path.
+- Decision: Advance smoke/bundle to `1.3.0` and add
+  `DilemmadataAmpPolicy@1.0.0`, reusing Phase 8B's public scale-transition
+  oracle with explicit initial scale `16384`, growth factor `2.0`, backoff
+  factor `0.5`, and growth interval `2000`. Record attempted/applied/skipped
+  attempts; a scale decrease is a skipped overflow and does not move the
+  scheduler. Record bounded offending names/scales, accept gradient/update
+  evidence only from finite applied attempts, require at least one applied
+  update and final recovery, require finite model/optimizer state and changes
+  in the encoder and all four heads, and checkpoint/restore the exact scaler
+  configuration and state.
+- Consequences: Persistent overflow and zero applied updates fail closed; the
+  failed SHA remains negative hardware evidence and no hardware training
+  success is claimed. Head/loss mathematical contracts, target artifacts,
+  raw/cache/grouping/split/graph/model-input versions and fingerprints remain
+  unchanged. No cache rebuild, corpus audit, long training, Phase 9C, PDMX, or
+  Phase 10 is authorized.

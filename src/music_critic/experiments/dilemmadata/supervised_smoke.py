@@ -29,11 +29,13 @@ from music_critic.evaluation import (
 )
 from music_critic.models import (
     DILEMMADATA_ACTIVE_TASK_IDS,
+    DILEMMADATA_FP32_HEAD_LOSS_BOUNDARY_VERSION,
     DILEMMADATA_OPEN_TASK_IDS,
     DILEMMADATA_PU_TASK_IDS,
     DilemmadataHierarchicalModel,
     dilemmadata_model_contract_fingerprint,
 )
+from music_critic.ssl.phase8b_engine import PHASE8B_GRAD_SCALER_INITIAL_SCALE
 from music_critic.tasks import (
     CorpusCacheConfig,
     DilemmadataTargetCacheConfig,
@@ -53,8 +55,12 @@ from music_critic.training.checkpoint import (
 from music_critic.training.device import move_multisource_batch
 
 
-DILEMMADATA_SUPERVISED_SMOKE_CONTRACT_VERSION = "1.2.0"
-DILEMMADATA_SUPERVISED_SMOKE_BUNDLE_VERSION = "1.2.0"
+DILEMMADATA_SUPERVISED_SMOKE_CONTRACT_VERSION = "1.3.0"
+DILEMMADATA_SUPERVISED_SMOKE_BUNDLE_VERSION = "1.3.0"
+DILEMMADATA_AMP_POLICY_VERSION = "1.0.0"
+DILEMMADATA_GRAD_SCALER_GROWTH_FACTOR = 2.0
+DILEMMADATA_GRAD_SCALER_BACKOFF_FACTOR = 0.5
+DILEMMADATA_GRAD_SCALER_GROWTH_INTERVAL = 2000
 DILEMMADATA_CUDA_REPLAY_DIAGNOSTIC_VERSION = "1.0.0"
 DILEMMADATA_CUDA_REPLAY_ABSOLUTE_TOLERANCE = 0.005
 DILEMMADATA_CUDA_REPLAY_RELATIVE_TOLERANCE = 0.005
@@ -91,7 +97,7 @@ DILEMMADATA_SUPERVISED_SMOKE_SPLIT_FINGERPRINT = (
     "58ac7720f65f7fd3102248fb39d89291a78d65c06fc2ab9a16d78a6ee1666a3e"
 )
 DILEMMADATA_SUPERVISED_SMOKE_MODEL_FINGERPRINT = (
-    "69a1ab3e6f5deb98a8bcfa26af7a3177b345ad157d164a3cf72e0273a0c58c81"
+    "9ba93993ae5fa0e78841c4c0f60b7f9e605d250baf91b03c6ad9f587377748db"
 )
 DILEMMADATA_SUPERVISED_SMOKE_GPU_NAME = "NVIDIA GeForce RTX 3090"
 
@@ -386,7 +392,7 @@ def _cuda_preflight() -> tuple[torch.device, dict[str, object]]:
         raise DilemmadataSupervisedSmokeError(
             "dilemmadata.smoke.gpu_mismatch", properties.name
         )
-    scaler = torch.amp.GradScaler("cuda", enabled=True)
+    scaler = _new_grad_scaler("cuda")
     if not scaler.is_enabled():
         raise DilemmadataSupervisedSmokeError(
             "dilemmadata.smoke.grad_scaler_disabled"
@@ -411,8 +417,32 @@ def _cuda_preflight() -> tuple[torch.device, dict[str, object]]:
         "amp_enabled": True,
         "amp_dtype": "float16",
         "grad_scaler_enabled": True,
+        "grad_scaler_config": _grad_scaler_config(),
         "cpu_fallback": False,
     }
+
+
+def _grad_scaler_config() -> dict[str, object]:
+    return {
+        "policy_version": DILEMMADATA_AMP_POLICY_VERSION,
+        "policy_origin": "phase8b_public_grad_scaler_scale_transition",
+        "enabled": True,
+        "init_scale": PHASE8B_GRAD_SCALER_INITIAL_SCALE,
+        "growth_factor": DILEMMADATA_GRAD_SCALER_GROWTH_FACTOR,
+        "backoff_factor": DILEMMADATA_GRAD_SCALER_BACKOFF_FACTOR,
+        "growth_interval": DILEMMADATA_GRAD_SCALER_GROWTH_INTERVAL,
+    }
+
+
+def _new_grad_scaler(device_type: str) -> torch.amp.GradScaler:
+    return torch.amp.GradScaler(
+        device_type,
+        init_scale=PHASE8B_GRAD_SCALER_INITIAL_SCALE,
+        growth_factor=DILEMMADATA_GRAD_SCALER_GROWTH_FACTOR,
+        backoff_factor=DILEMMADATA_GRAD_SCALER_BACKOFF_FACTOR,
+        growth_interval=DILEMMADATA_GRAD_SCALER_GROWTH_INTERVAL,
+        enabled=True,
+    )
 
 
 def _dialect(source_record_id: str) -> str:
@@ -789,6 +819,48 @@ def _supervision_loss_evidence(output: object) -> dict[str, object]:
     }
 
 
+def _fp32_head_loss_boundary_evidence(output: object) -> dict[str, object]:
+    logits = {row.task_id: str(row.logits.dtype) for row in output.predictions}
+    per_row = {
+        row.task_id: str(row.per_row_loss.dtype) for row in output.supervisions
+    }
+    entry = {
+        row.task_id: {
+            "entry_mean_losses": str(row.entry_mean_losses.dtype),
+            "mean_loss": str(row.mean_loss.dtype),
+        }
+        for row in output.harmonic_loss.task_losses
+    }
+    total = output.harmonic_loss.total_loss
+    if (
+        set(logits) != set(DILEMMADATA_ACTIVE_TASK_IDS)
+        or any(value != "torch.float32" for value in logits.values())
+        or set(per_row) != set(DILEMMADATA_ACTIVE_TASK_IDS)
+        or any(value != "torch.float32" for value in per_row.values())
+        or set(entry) != set(DILEMMADATA_ACTIVE_TASK_IDS)
+        or any(
+            value != "torch.float32"
+            for row in entry.values()
+            for value in row.values()
+        )
+        or total is None
+        or total.dtype != torch.float32
+    ):
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.fp32_head_loss_boundary_violated"
+        )
+    return {
+        "contract_version": DILEMMADATA_FP32_HEAD_LOSS_BOUNDARY_VERSION,
+        "encoder_autocast_allowed": True,
+        "head_input_cast_without_detach": "float32_on_device",
+        "head_logits": logits,
+        "per_row_losses": per_row,
+        "source_entry_losses": entry,
+        "total_loss_dtype": str(total.dtype),
+        "cpu_transfer_count": 0,
+    }
+
+
 def _prediction_replay_diagnostic(
     reference: Sequence[object], replay: Sequence[object]
 ) -> dict[str, object]:
@@ -1066,19 +1138,145 @@ def _gradient_evidence(
             elif bool(torch.count_nonzero(gradient)):
                 nonzero.append(name)
         nonzero_by_group[group] = nonzero
-    if non_finite:
-        raise DilemmadataSupervisedSmokeError(
-            "dilemmadata.smoke.gradient_non_finite", ",".join(non_finite)
-        )
     return {
-        "all_gradients_finite": True,
+        "all_gradients_finite": not non_finite,
         "gradient_parameter_count": gradient_parameter_count,
-        "non_finite_parameters": [],
+        "non_finite_parameter_count": len(non_finite),
+        "non_finite_parameters": non_finite[:64],
+        "non_finite_parameters_truncated": len(non_finite) > 64,
         "nonzero_parameter_count_by_group": {
             group: len(names) for group, names in nonzero_by_group.items()
         },
         "nonzero_parameters_by_group": nonzero_by_group,
     }
+
+
+def _applied_state_finite_evidence(
+    model: DilemmadataHierarchicalModel,
+    optimizer: torch.optim.Optimizer,
+) -> dict[str, object]:
+    non_finite_parameters = [
+        name
+        for name, parameter in model.named_parameters()
+        if not bool(torch.isfinite(parameter.detach()).all())
+    ]
+    non_finite_optimizer_state = []
+    for parameter_index, state in enumerate(optimizer.state.values()):
+        for name, value in state.items():
+            if isinstance(value, torch.Tensor) and not bool(
+                torch.isfinite(value).all()
+            ):
+                non_finite_optimizer_state.append(f"{parameter_index}:{name}")
+    if non_finite_parameters or non_finite_optimizer_state:
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.applied_state_non_finite",
+            ",".join(
+                (*non_finite_parameters[:32], *non_finite_optimizer_state[:32])
+            ),
+        )
+    return {
+        "all_parameters_finite": True,
+        "all_optimizer_state_tensors_finite": True,
+        "checked_parameter_count": sum(1 for _ in model.parameters()),
+        "checked_optimizer_state_tensor_count": sum(
+            isinstance(value, torch.Tensor)
+            for state in optimizer.state.values()
+            for value in state.values()
+        ),
+    }
+
+
+def _amp_optimizer_attempt(
+    *,
+    model: DilemmadataHierarchicalModel,
+    optimizer: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler.LRScheduler,
+    scaler: object,
+    loss: torch.Tensor,
+    groups: Mapping[str, Sequence[str]],
+    gradient_clip_norm: float = 1.0,
+) -> dict[str, object]:
+    """Apply the accepted Phase 8B public-scale skip/apply policy."""
+
+    scale_before = float(scaler.get_scale())
+    learning_rate_before = float(optimizer.param_groups[0]["lr"])
+    scheduler_epoch_before = int(scheduler.last_epoch)
+    scaler.scale(loss).backward()
+    scaler.unscale_(optimizer)
+    gradients = _gradient_evidence(model, groups)
+    gradient_norm = None
+    if gradients["all_gradients_finite"]:
+        norm = torch.nn.utils.clip_grad_norm_(
+            model.parameters(), gradient_clip_norm, error_if_nonfinite=True
+        )
+        if not bool(torch.isfinite(norm)):
+            raise DilemmadataSupervisedSmokeError(
+                "dilemmadata.smoke.gradient_norm_non_finite"
+            )
+        gradient_norm = float(norm.detach())
+    scaler.step(optimizer)
+    scaler.update()
+    scale_after = float(scaler.get_scale())
+    skipped = bool(scaler.is_enabled() and scale_after < scale_before)
+    if skipped:
+        if gradients["all_gradients_finite"]:
+            raise DilemmadataSupervisedSmokeError(
+                "dilemmadata.smoke.scaler_skip_without_nonfinite_evidence"
+            )
+        applied_state = None
+    else:
+        if not gradients["all_gradients_finite"]:
+            raise DilemmadataSupervisedSmokeError(
+                "dilemmadata.smoke.nonfinite_gradient_step_applied"
+            )
+        scheduler.step()
+        applied_state = _applied_state_finite_evidence(model, optimizer)
+    scheduler_epoch_after = int(scheduler.last_epoch)
+    if skipped and scheduler_epoch_after != scheduler_epoch_before:
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.scheduler_advanced_on_skipped_step"
+        )
+    if not skipped and scheduler_epoch_after != scheduler_epoch_before + 1:
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.scheduler_not_advanced_on_applied_step"
+        )
+    return {
+        "optimizer_step_applied": not skipped,
+        "optimizer_step_skipped": skipped,
+        "amp_scale_before": scale_before,
+        "amp_scale_after": scale_after,
+        "gradient_norm_before_clip": gradient_norm,
+        "gradients": gradients,
+        "offending_parameter_names": gradients["non_finite_parameters"],
+        "offending_parameter_count": gradients["non_finite_parameter_count"],
+        "learning_rate_before": learning_rate_before,
+        "learning_rate_after": float(optimizer.param_groups[0]["lr"]),
+        "scheduler_epoch_before": scheduler_epoch_before,
+        "scheduler_epoch_after": scheduler_epoch_after,
+        "applied_state_finite": applied_state,
+    }
+
+
+def _require_amp_training_acceptance(
+    attempts: Sequence[Mapping[str, object]],
+) -> None:
+    applied = [row for row in attempts if row["optimizer_step_applied"]]
+    if not applied:
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.zero_applied_updates"
+        )
+    if attempts[-1]["optimizer_step_skipped"]:
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.scaler_scale_not_recovered"
+        )
+    if any(
+        row["gradients"]["all_gradients_finite"] is not True
+        or not isinstance(row["applied_state_finite"], dict)
+        for row in applied
+    ):
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.applied_gradient_evidence_invalid"
+        )
 
 
 def _parameter_change_evidence(
@@ -1162,7 +1360,13 @@ def _training_config(updates: int) -> dict[str, object]:
         "preset": "supervised_scratch",
         "seed": DILEMMADATA_SUPERVISED_SMOKE_SEED,
         "device": "cuda:0",
-        "amp": {"enabled": True, "dtype": "float16", "grad_scaler": True},
+        "amp": {
+            "enabled": True,
+            "encoder_autocast_dtype": "float16",
+            "head_logits_dtype": "float32",
+            "loss_dtype": "float32",
+            "grad_scaler": _grad_scaler_config(),
+        },
         "optimizer": {
             "name": "adamw",
             "learning_rate": DILEMMADATA_SUPERVISED_SMOKE_LEARNING_RATE,
@@ -1250,6 +1454,7 @@ def _cuda_execution(
         initial_output.predictions, prediction_snapshot
     )
     original_supervision = _supervision_loss_evidence(initial_output)
+    fp32_boundary = _fp32_head_loss_boundary_evidence(initial_output)
     if post_original_join != initial_prediction:
         raise DilemmadataSupervisedSmokeError(
             "dilemmadata.smoke.target_join_changed_raw_predictions"
@@ -1277,6 +1482,7 @@ def _cuda_execution(
         mutated_batch.target_batches
     )
     mutated_supervision = _supervision_loss_evidence(mutated_output)
+    _fp32_head_loss_boundary_evidence(mutated_output)
     if (
         post_mutated_join != initial_prediction
         or original_target_fingerprint == mutated_target_fingerprint
@@ -1327,7 +1533,7 @@ def _cuda_execution(
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=updates
     )
-    scaler = torch.amp.GradScaler("cuda", enabled=True)
+    scaler = _new_grad_scaler("cuda")
     curve = []
     attempted = applied = skipped = 0
     aggregate_nonzero = {group: False for group in groups}
@@ -1338,6 +1544,7 @@ def _cuda_execution(
         with torch.amp.autocast("cuda", enabled=True, dtype=torch.float16):
             output = model(batch)
             loss = output.harmonic_loss.total_loss
+        _fp32_head_loss_boundary_evidence(output)
         tracked.extend(weakref.ref(row.logits) for row in output.predictions)
         if loss is None or not bool(torch.isfinite(loss)):
             raise DilemmadataSupervisedSmokeError(
@@ -1349,28 +1556,25 @@ def _cuda_execution(
                 "dilemmadata.smoke.four_task_supervision_incomplete",
                 f"step={step},tasks={task_ids}",
             )
-        scale_before = float(scaler.get_scale())
-        scaler.scale(loss).backward()
-        scaler.unscale_(optimizer)
-        gradients = _gradient_evidence(model, groups)
-        for group, count in gradients["nonzero_parameter_count_by_group"].items():
-            aggregate_nonzero[group] = aggregate_nonzero[group] or int(count) > 0
-        norm = torch.nn.utils.clip_grad_norm_(
-            model.parameters(), 1.0, error_if_nonfinite=True
+        attempt = _amp_optimizer_attempt(
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            scaler=scaler,
+            loss=loss,
+            groups=groups,
         )
-        if not bool(torch.isfinite(norm)):
-            raise DilemmadataSupervisedSmokeError(
-                "dilemmadata.smoke.gradient_norm_non_finite"
-            )
-        scaler.step(optimizer)
-        scaler.update()
-        scale_after = float(scaler.get_scale())
-        was_skipped = scale_after < scale_before
-        if was_skipped:
+        if attempt["optimizer_step_skipped"]:
             skipped += 1
         else:
             applied += 1
-            scheduler.step()
+            gradients = attempt["gradients"]
+            for group, count in gradients[
+                "nonzero_parameter_count_by_group"
+            ].items():
+                aggregate_nonzero[group] = (
+                    aggregate_nonzero[group] or int(count) > 0
+                )
         curve.append(
             {
                 "step": step,
@@ -1379,18 +1583,10 @@ def _cuda_execution(
                     item.task_id: float(item.mean_loss.detach())
                     for item in output.harmonic_loss.task_losses
                 },
-                "gradient_norm_before_clip": float(norm.detach()),
-                "gradients": gradients,
-                "amp_scale_before": scale_before,
-                "amp_scale_after": scale_after,
-                "optimizer_step_applied": not was_skipped,
-                "learning_rate_after": float(optimizer.param_groups[0]["lr"]),
+                **attempt,
             }
         )
-    if applied < 1:
-        raise DilemmadataSupervisedSmokeError(
-            "dilemmadata.smoke.zero_applied_updates"
-        )
+    _require_amp_training_acceptance(curve)
     if not all(aggregate_nonzero.values()):
         raise DilemmadataSupervisedSmokeError(
             "dilemmadata.smoke.gradient_coverage_incomplete",
@@ -1441,7 +1637,8 @@ def _cuda_execution(
     reloaded_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         reloaded_optimizer, T_max=updates
     )
-    reloaded_scaler = torch.amp.GradScaler("cuda", enabled=True)
+    reloaded_scaler = _new_grad_scaler("cuda")
+    saved_scaler_state = copy.deepcopy(scaler.state_dict())
     load_training_checkpoint(
         checkpoint_path,
         reloaded,
@@ -1452,6 +1649,10 @@ def _cuda_execution(
         resolved_config=training_config,
         data_fingerprints=data_fingerprints,
     )
+    if reloaded_scaler.state_dict() != saved_scaler_state:
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.checkpoint_scaler_state_mismatch"
+        )
     reload_model_state = _model_state_reload_evidence(model, reloaded)
     reloaded.eval()
     with torch.no_grad(), torch.amp.autocast(
@@ -1525,15 +1726,22 @@ def _cuda_execution(
             "target_mutation": target_invariance,
         },
         "cuda_replay_diagnostic": cuda_replay,
+        "fp32_head_loss_boundary": fp32_boundary,
         "source_entry_reduction": reduction,
         "optimization": {
             "attempted_update_count": attempted,
             "applied_update_count": applied,
             "skipped_update_count": skipped,
             "all_losses_finite": all(_finite(row["total_loss"]) for row in curve),
-            "all_gradients_finite": all(
-                row["gradients"]["all_gradients_finite"] for row in curve
+            "all_applied_gradients_finite": all(
+                row["gradients"]["all_gradients_finite"]
+                for row in curve
+                if row["optimizer_step_applied"]
             ),
+            "scaler_config": _grad_scaler_config(),
+            "scale_recovered_after_skips": not curve[-1][
+                "optimizer_step_skipped"
+            ],
             "aggregate_nonzero_gradient_by_group": aggregate_nonzero,
             "parameter_changes": changes,
             "initial_loss": curve[0]["total_loss"],
@@ -1556,6 +1764,9 @@ def _cuda_execution(
             "cuda_device": "cuda:0",
             "amp_dtype": "float16",
             "grad_scaler_state_present": bool(scaler.state_dict()),
+            "grad_scaler_config": _grad_scaler_config(),
+            "grad_scaler_state_restored_exact": True,
+            "grad_scaler_state_fingerprint": _fingerprint(saved_scaler_state),
             "optimizer_state_present": bool(optimizer.state_dict()["state"]),
             "scheduler_state_present": bool(scheduler.state_dict()),
             "scratch_loaded_encoder_tensors": [],
@@ -2142,6 +2353,44 @@ def _validate_cuda_replay_diagnostic(value: object) -> dict[str, object]:
     return value
 
 
+def _validate_fp32_head_loss_boundary(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.fp32_boundary_evidence_invalid"
+        )
+    logits = value.get("head_logits")
+    per_row = value.get("per_row_losses")
+    source_entry = value.get("source_entry_losses")
+    if (
+        value.get("contract_version")
+        != DILEMMADATA_FP32_HEAD_LOSS_BOUNDARY_VERSION
+        or value.get("encoder_autocast_allowed") is not True
+        or value.get("head_input_cast_without_detach")
+        != "float32_on_device"
+        or value.get("cpu_transfer_count") != 0
+        or not isinstance(logits, dict)
+        or set(logits) != set(DILEMMADATA_ACTIVE_TASK_IDS)
+        or any(dtype != "torch.float32" for dtype in logits.values())
+        or not isinstance(per_row, dict)
+        or set(per_row) != set(DILEMMADATA_ACTIVE_TASK_IDS)
+        or any(dtype != "torch.float32" for dtype in per_row.values())
+        or not isinstance(source_entry, dict)
+        or set(source_entry) != set(DILEMMADATA_ACTIVE_TASK_IDS)
+        or any(not isinstance(row, dict) for row in source_entry.values())
+        or any(
+            dtype != "torch.float32"
+            for row in source_entry.values()
+            if isinstance(row, dict)
+            for dtype in row.values()
+        )
+        or value.get("total_loss_dtype") != "torch.float32"
+    ):
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.fp32_boundary_evidence_invalid"
+        )
+    return value
+
+
 def validate_smoke_report(report: object) -> dict[str, object]:
     payload = _validate_fingerprinted(
         report, category="dilemmadata.smoke.report_fingerprint_mismatch"
@@ -2157,6 +2406,7 @@ def validate_smoke_report(report: object) -> dict[str, object]:
     excluded = payload.get("excluded_supervision")
     target_semantics = payload.get("target_semantic_validation")
     cuda_replay = payload.get("cuda_replay_diagnostic")
+    fp32_boundary = payload.get("fp32_head_loss_boundary")
     configured_updates = (
         optimization.get("attempted_update_count", -1)
         if isinstance(optimization, dict)
@@ -2198,6 +2448,7 @@ def validate_smoke_report(report: object) -> dict[str, object]:
         observed_target_index_fingerprint=str(observed_target_index),
     )
     _validate_cuda_replay_diagnostic(cuda_replay)
+    _validate_fp32_head_loss_boundary(fp32_boundary)
     if (
         bindings["target_semantic_projection_fingerprint"]
         != _fingerprint(validated_target_semantics)
@@ -2213,6 +2464,7 @@ def validate_smoke_report(report: object) -> dict[str, object]:
         or hardware.get("amp_enabled") is not True
         or hardware.get("amp_dtype") != "float16"
         or hardware.get("grad_scaler_enabled") is not True
+        or hardware.get("grad_scaler_config") != _grad_scaler_config()
         or hardware.get("cpu_fallback") is not False
         or not isinstance(hardware.get("peak_allocated_bytes"), int)
         or hardware["peak_allocated_bytes"] <= 0
@@ -2241,9 +2493,12 @@ def validate_smoke_report(report: object) -> dict[str, object]:
         or not isinstance(skipped, int)
         or applied + skipped != attempted
         or optimization.get("all_losses_finite") is not True
-        or optimization.get("all_gradients_finite") is not True
+        or optimization.get("all_applied_gradients_finite") is not True
+        or optimization.get("scaler_config") != _grad_scaler_config()
+        or optimization.get("scale_recovered_after_skips") is not True
         or not isinstance(curve, list)
         or len(curve) != attempted
+        or curve[-1].get("optimizer_step_applied") is not True
         or not isinstance(groups, dict)
         or set(groups) != expected_groups
         or not all(value is True for value in groups.values())
@@ -2262,24 +2517,92 @@ def validate_smoke_report(report: object) -> dict[str, object]:
     ):
         raise DilemmadataSupervisedSmokeError(
             "dilemmadata.smoke.optimization_evidence_invalid"
-        )
+    )
     for row in curve:
+        applied_row = (
+            row.get("optimizer_step_applied") if isinstance(row, dict) else None
+        )
+        skipped_row = (
+            row.get("optimizer_step_skipped") if isinstance(row, dict) else None
+        )
+        gradients = row.get("gradients") if isinstance(row, dict) else None
         if (
             not isinstance(row, dict)
             or not _finite(row.get("total_loss"))
             or not isinstance(row.get("task_losses"), dict)
             or set(row["task_losses"]) != set(DILEMMADATA_ACTIVE_TASK_IDS)
             or not all(_finite(value) for value in row["task_losses"].values())
-            or not _finite(row.get("gradient_norm_before_clip"))
-            or row.get("gradients", {}).get("all_gradients_finite") is not True
+            or not isinstance(applied_row, bool)
+            or not isinstance(skipped_row, bool)
+            or applied_row == skipped_row
+            or not isinstance(gradients, dict)
             or not _finite(row.get("amp_scale_before"))
             or not _finite(row.get("amp_scale_after"))
-            or not isinstance(row.get("optimizer_step_applied"), bool)
+            or not _finite(row.get("learning_rate_before"))
             or not _finite(row.get("learning_rate_after"))
+            or not isinstance(row.get("scheduler_epoch_before"), int)
+            or not isinstance(row.get("scheduler_epoch_after"), int)
         ):
             raise DilemmadataSupervisedSmokeError(
                 "dilemmadata.smoke.optimization_curve_invalid"
             )
+        if applied_row:
+            state = row.get("applied_state_finite")
+            if (
+                gradients.get("all_gradients_finite") is not True
+                or gradients.get("non_finite_parameter_count") != 0
+                or gradients.get("non_finite_parameters") != []
+                or gradients.get("non_finite_parameters_truncated") is not False
+                or row.get("offending_parameter_count") != 0
+                or row.get("offending_parameter_names") != []
+                or not _finite(row.get("gradient_norm_before_clip"))
+                or row["amp_scale_after"] < row["amp_scale_before"]
+                or not isinstance(state, dict)
+                or state.get("all_parameters_finite") is not True
+                or state.get("all_optimizer_state_tensors_finite") is not True
+                or row["scheduler_epoch_after"]
+                != row["scheduler_epoch_before"] + 1
+            ):
+                raise DilemmadataSupervisedSmokeError(
+                    "dilemmadata.smoke.applied_gradient_evidence_invalid"
+                )
+        elif (
+            gradients.get("all_gradients_finite") is not False
+            or not isinstance(row.get("offending_parameter_count"), int)
+            or row["offending_parameter_count"] <= 0
+            or not isinstance(row.get("offending_parameter_names"), list)
+            or not row["offending_parameter_names"]
+            or len(row["offending_parameter_names"]) > 64
+            or gradients.get("non_finite_parameter_count")
+            != row["offending_parameter_count"]
+            or gradients.get("non_finite_parameters")
+            != row["offending_parameter_names"]
+            or not isinstance(
+                gradients.get("non_finite_parameters_truncated"), bool
+            )
+            or row.get("gradient_norm_before_clip") is not None
+            or row.get("applied_state_finite") is not None
+            or row["amp_scale_after"] >= row["amp_scale_before"]
+            or row["scheduler_epoch_after"] != row["scheduler_epoch_before"]
+        ):
+            raise DilemmadataSupervisedSmokeError(
+                "dilemmadata.smoke.skipped_gradient_evidence_invalid"
+            )
+    if (
+        curve[0]["amp_scale_before"]
+        != PHASE8B_GRAD_SCALER_INITIAL_SCALE
+        or any(
+            right["amp_scale_before"] != left["amp_scale_after"]
+            for left, right in zip(curve, curve[1:])
+        )
+        or any(
+            right["scheduler_epoch_before"] != left["scheduler_epoch_after"]
+            for left, right in zip(curve, curve[1:])
+        )
+    ):
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.scaler_transition_evidence_invalid"
+        )
     if (
         not _finite(optimization.get("initial_loss"))
         or not _finite(optimization.get("minimum_loss"))
@@ -2362,6 +2685,9 @@ def validate_smoke_report(report: object) -> dict[str, object]:
         or checkpoint.get("cuda_device") != "cuda:0"
         or checkpoint.get("amp_dtype") != "float16"
         or checkpoint.get("grad_scaler_state_present") is not True
+        or checkpoint.get("grad_scaler_config") != _grad_scaler_config()
+        or checkpoint.get("grad_scaler_state_restored_exact") is not True
+        or not _is_sha256(checkpoint.get("grad_scaler_state_fingerprint"))
         or checkpoint.get("optimizer_state_present") is not True
         or checkpoint.get("scheduler_state_present") is not True
         or checkpoint.get("scratch_loaded_encoder_tensors") != []
@@ -2505,6 +2831,8 @@ def _validate_checkpoint(
         or not isinstance(payload.get("scheduler_state"), dict)
         or not isinstance(payload.get("scaler_state"), dict)
         or not payload["scaler_state"]
+        or report["checkpoint"]["grad_scaler_state_fingerprint"]
+        != _fingerprint(payload["scaler_state"])
     ):
         raise DilemmadataSupervisedSmokeError(
             "dilemmadata.smoke.checkpoint_binding_invalid"
@@ -2916,6 +3244,7 @@ if __name__ == "__main__":
 
 
 __all__ = [
+    "DILEMMADATA_AMP_POLICY_VERSION",
     "DILEMMADATA_CUDA_REPLAY_ABSOLUTE_TOLERANCE",
     "DILEMMADATA_CUDA_REPLAY_DIAGNOSTIC_VERSION",
     "DILEMMADATA_CUDA_REPLAY_MINIMUM_COSINE_SIMILARITY",

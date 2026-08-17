@@ -1093,7 +1093,7 @@ only after membership is fixed. Test access remains false. The independent
 verifier reconstructs no source data: it validates the sealed report,
 memberships, checkpoint state, official evaluation, artifact hashes, archive
 safety, exact Git head, and RTX 3090 hardware. The new smoke and bundle
-contracts are `1.2.0`. `DilemmadataHierarchicalModel@1.1.0` separates raw-only
+contracts are `1.3.0`. `DilemmadataHierarchicalModel@1.2.0` separates raw-only
 `predict` from typed post-prediction `supervise`; `forward` composes those two
 without duplicating join/loss semantics. Leakage evidence reuses one immutable
 prediction object for original and mutated targets. Independent CUDA+AMP logits
@@ -1103,6 +1103,15 @@ loss, and all other Phase 9B.2B data contracts remain unchanged.
 The observed target-index fingerprint is a strict run/resume/evaluation
 binding, while cross-host semantic acceptance is determined by the stronger
 full-cache projection above.
+
+The Dilemmadata-only FP32 head/loss boundary `1.0.0` leaves the hierarchical
+encoder eligible for float16 autocast, then performs a differentiable FP32
+cast before each of the four heads. Head logits, CE, source-entry reductions,
+and total loss remain FP32 without detach or CPU transfer. Its AMP policy
+`1.0.0` reuses Phase 8B's public GradScaler scale-decrease skip oracle at
+initial scale `16384`: skipped attempts record bounded overflow evidence and
+do not advance the scheduler; only finite applied attempts establish gradient
+and parameter-update acceptance.
 
 ## Incremental research scope
 

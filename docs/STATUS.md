@@ -7,9 +7,10 @@
   experiment readiness on branch `phase/9b2c-executable-supervised-smoke`,
   based exactly on merged PR #23 / `origin/main` commit
   `c2dc5f16ea1ea73f0c336fabcd22c586d9c38f82`
-- Supervised-smoke and sealed-bundle contracts: `1.2.0`; CUDA replay diagnostic:
-  `1.0.0`; Dilemmadata model contract: `1.1.0`. Independent RTX 3090
-  execution is pending, so the new PR remains draft
+- Supervised-smoke and sealed-bundle contracts: `1.3.0`; CUDA replay diagnostic:
+  `1.0.0`; Dilemmadata model contract: `1.2.0`; FP32 head/loss boundary and
+  AMP policy: `1.0.0`. Independent RTX 3090 execution is pending, so PR #24
+  remains draft
 - Dilemmadata target cache/index/identity/manifest, four-head head/loss,
   evaluation, encoder transfer and RTX plan contracts: `1.0.0`;
   `BatchTarget`: `1.2.0`. Phase 9B.2A alignment evidence/target adapter remain
@@ -153,7 +154,7 @@
 ## Phase 9B.2C executable supervised smoke
 
 - Added the committed fail-closed RTX 3090 runner and an independent,
-  source-free directory/tar verifier under contracts `1.2.0`. Inputs are only
+  source-free directory/tar verifier under contracts `1.3.0`. Inputs are only
   the pinned production raw/target indices and caches plus the existing split;
   source TSV conversion and the alignment oracle are guarded and must record
   zero calls.
@@ -192,6 +193,20 @@
   byte-views a flattened contiguous tensor. Scalars, empty and non-contiguous
   tensors work; prior vector/matrix fingerprints remain bit-exact. No contract
   bump or hardware-training success claim results from this narrow runtime fix.
+- RTX attempt `cd87a3436f6db9ecadbab64dfb229ef039c465bf` passed production
+  cache/semantic-index, single-prediction leakage, and bounded replay checks.
+  Its finite first loss produced a non-finite gradient at
+  `task_heads.heads.task_03.3.weight`; immediate post-`unscale_` rejection
+  prevented the accepted GradScaler skip/update policy, so no optimizer update
+  or checkpoint occurred. Model `1.2.0` now opts only Dilemmadata heads into an
+  FP32 on-device head/logit/CE/source-entry/total-loss island while preserving
+  differentiable encoder casts. Smoke/bundle `1.3.0` reuse Phase 8B's public
+  scale-transition policy with explicit scale `16384` and defaults, honest
+  attempted/applied/skipped accounting, scheduler-on-applied-only behavior,
+  bounded skipped-overflow names, finite applied state, and exact checkpointed
+  scaler configuration/state. The gate requires a recovered final applied
+  attempt plus finite changes in the encoder and all four heads. Hardware
+  training success remains unclaimed.
 - Phase 9B.2B head/loss and data semantics plus the pinned raw index, split,
   cache, graph, and model-input fingerprints remain unchanged. Legacy was not used;
   no long training, scratch-versus-SSL comparison, Phase 9C, PDMX, or Phase 10

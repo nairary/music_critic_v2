@@ -225,6 +225,64 @@ def test_original_and_mutated_joins_reuse_one_raw_prediction(
     )
 
 
+def test_autocast_keeps_dilemmadata_heads_and_loss_fp32_with_gradients() -> None:
+    model = _model()
+    batch = _batch()
+    model.train()
+    with torch.amp.autocast("cpu", enabled=True, dtype=torch.bfloat16):
+        output = model(batch)
+        assert all(row.logits.dtype == torch.float32 for row in output.predictions)
+        assert all(
+            row.per_row_loss.dtype == torch.float32
+            for row in output.supervisions
+        )
+        assert all(
+            row.entry_mean_losses.dtype == torch.float32
+            and row.mean_loss.dtype == torch.float32
+            for row in output.harmonic_loss.task_losses
+        )
+        assert output.harmonic_loss.total_loss is not None
+        assert output.harmonic_loss.total_loss.dtype == torch.float32
+        loss = output.harmonic_loss.total_loss + sum(
+            row.logits.square().mean() for row in output.predictions
+        )
+    loss.backward()
+    gradients = dict(model.named_parameters())
+    assert any(
+        parameter.grad is not None and torch.count_nonzero(parameter.grad)
+        for name, parameter in gradients.items()
+        if name.startswith("local_baseline.encoder.")
+    )
+    for index in range(4):
+        assert any(
+            parameter.grad is not None and torch.count_nonzero(parameter.grad)
+            for name, parameter in gradients.items()
+            if name.startswith(f"task_heads.heads.task_{index:02d}.")
+        )
+
+
+def test_plain_cpu_fp32_forward_remains_predict_then_supervise() -> None:
+    model = _model()
+    batch = _batch()
+    model.eval()
+    with torch.no_grad():
+        direct = model(batch)
+        encoded, predictions = model.predict(batch.raw_graph_batch)
+        composed = model.supervise(encoded, predictions, batch.target_batches)
+    assert all(row.logits.dtype == torch.float32 for row in direct.predictions)
+    assert direct.harmonic_loss.total_loss is not None
+    assert direct.harmonic_loss.total_loss.dtype == torch.float32
+    assert all(
+        torch.equal(left.logits, right.logits)
+        for left, right in zip(
+            direct.predictions, composed.predictions, strict=True
+        )
+    )
+    assert torch.equal(
+        direct.harmonic_loss.total_loss, composed.harmonic_loss.total_loss
+    )
+
+
 def test_source_entry_normalization_is_candidate_count_invariant() -> None:
     first, second = DILEMMADATA_ACTIVE_TASK_IDS[:2]
     report = aggregate_dilemmadata_source_entry_losses(

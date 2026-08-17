@@ -3321,12 +3321,19 @@ Runtime source adapter/oracle entry points are fail-closed guards with zero
 permitted calls. A separate source-free verifier validates directory and tar
 evidence, checkpoint semantics and hashes, memberships/bindings, unsafe archive
 members, and the exact current GPU. Publication is unique and atomic. The
-smoke/bundle contracts are `1.2.0`. Leakage evidence performs one raw
+smoke/bundle contracts are `1.3.0`. Leakage evidence performs one raw
 prediction and both post-prediction target joins against that same immutable
 object. Independent CUDA+AMP and checkpoint-reload logits use finite bounded
 FP32 replay diagnostic `1.0.0`; checkpoint model tensors remain bit-exact. The
-Dilemmadata model contract is `1.1.0` for this typed `supervise` boundary;
-head/loss and all raw/cache/split/graph/model-input contracts remain unchanged.
+Dilemmadata model contract is `1.2.0` for this typed `supervise` boundary and
+the Dilemmadata-only FP32 head/loss boundary `1.0.0`. Encoder AMP remains
+float16-capable, while head inputs/logits, CE, source-entry reduction, and total
+loss are FP32 on-device with encoder gradients intact. AMP policy `1.0.0`
+reuses Phase 8B's initial scale `16384` and public scale-transition accounting,
+advances the scheduler only on applied steps, and requires finite changes in
+the encoder and all four heads plus exact scaler checkpoint restore. Head/loss
+mathematical contracts and all raw/cache/split/graph/model-input contracts
+remain unchanged.
 Independent RTX execution
 is still required before the draft PR may become ready. This is mechanics
 evidence only and starts neither long training nor Phase 9C/PDMX/Phase 10.

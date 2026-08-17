@@ -4,16 +4,22 @@ Status: implemented; independent RTX 3090 execution is pending.
 
 ## Scope and contracts
 
-`DilemmadataSupervisedSmoke@1.2.0` and
-`DilemmadataSupervisedSmokeBundle@1.2.0` provide a bounded, fail-closed
+`DilemmadataSupervisedSmoke@1.3.0` and
+`DilemmadataSupervisedSmokeBundle@1.3.0` provide a bounded, fail-closed
 mechanics gate for the already accepted Phase 9B.2B model and data contracts.
 They do not change the raw projection, canonical cache, target cache, split,
 graph, model-input, head, loss, or evaluation contracts. The model contract
-advances to `1.1.0` solely to expose the typed post-prediction `supervise` API;
-`forward` delegates to the same join/loss implementation.
+advances to `1.2.0`: it retains the typed post-prediction `supervise` API and
+adds `DilemmadataFp32HeadLossBoundary@1.0.0`. `forward` delegates to the same
+join/loss implementation.
 
 The run is scratch-only, seed 17, explicit `cuda:0`, float16 autocast with an
-enabled GradScaler, AdamW at `3e-4`, and 10--20 attempted updates. Its CE
+enabled GradScaler, AdamW at `3e-4`, and 10--20 attempted updates. The
+versioned Dilemmadata boundary permits the encoder to execute under float16
+autocast, then casts each head input differentiably to FP32 on-device and runs
+head logits, CE, source-entry reduction, and total loss in FP32. The scaler
+reuses the accepted Phase 8B public-scale policy with explicit `init_scale=16384`,
+`growth_factor=2.0`, `backoff_factor=0.5`, and `growth_interval=2000`. Its CE
 inventory is exactly AN/DLC chord quality and inversion. Reconstruction has
 weight zero; the five PU and 13 open-string tasks have no head or CE loss.
 
@@ -26,7 +32,7 @@ metadata index
 split
 `58ac7720f65f7fd3102248fb39d89291a78d65c06fc2ab9a16d78a6ee1666a3e`,
 and model contract
-`69a1ab3e6f5deb98a8bcfa26af7a3177b345ad157d164a3cf72e0273a0c58c81`.
+`9ba93993ae5fa0e78841c4c0f60b7f9e605d250baf91b03c6ad9f587377748db`.
 
 The target-index fingerprint is an exact physical/run binding, not a universal
 scientific fingerprint. Local and RTX builds observed respectively
@@ -69,6 +75,13 @@ loss reduction, finite losses and gradients, encoder/four-head gradients and
 parameter updates, attempted/applied/skipped counters, checkpoint state and
 SHA, failure-atomic reload, official validation
 metrics, VRAM peaks, and zero retained prediction/CUDA tensors after cleanup.
+AMP accounting distinguishes attempted, applied, and skipped steps. A public
+scale decrease is a skipped overflow attempt, records bounded offending names,
+and never advances the scheduler. Only finite applied attempts contribute
+gradient/update acceptance; at least one applied update, a recovered final
+scale path, finite parameters/optimizer state, and changes in the encoder plus
+all four heads are mandatory. The exact scaler configuration and state are
+bound into the report and checkpoint and restored exactly.
 Before CUDA training, the source-free target-cache preflight verifies the
 index self-fingerprint and current cache/adapter/registry contracts, exact raw
 and metadata bindings, all 719 index records, every artifact SHA-256, every
@@ -122,3 +135,12 @@ Python scalars or lists. Shape and dtype remain separate digest inputs, and
 existing vector/matrix fingerprints remain bit-exact. This runtime correction
 does not change an evidence schema or contract version; hardware training
 success remains unclaimed.
+
+The RTX attempt at
+`cd87a3436f6db9ecadbab64dfb229ef039c465bf` passed production cache and
+semantic-index validation, the single-prediction leakage gate, and bounded CUDA
+replay. Its finite first loss then produced a non-finite gradient at
+`task_heads.heads.task_03.3.weight`; the old smoke rejected immediately after
+`unscale_`, before GradScaler could skip/update, and no checkpoint was created.
+The remediation above preserves this as failed hardware evidence and makes no
+hardware-training-success claim pending a new exact-SHA RTX run.
