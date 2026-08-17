@@ -7,9 +7,10 @@
   experiment readiness on branch `phase/9b2c-executable-supervised-smoke`,
   based exactly on merged PR #23 / `origin/main` commit
   `c2dc5f16ea1ea73f0c336fabcd22c586d9c38f82`
-- Supervised-smoke and sealed-bundle contracts: `1.1.0`. Independent RTX 3090
+- Supervised-smoke and sealed-bundle contracts: `1.2.0`; CUDA replay diagnostic:
+  `1.0.0`; Dilemmadata model contract: `1.1.0`. Independent RTX 3090
   execution is pending, so the new PR remains draft
-- Dilemmadata target cache/index/identity/manifest, four-head model/loss,
+- Dilemmadata target cache/index/identity/manifest, four-head head/loss,
   evaluation, encoder transfer and RTX plan contracts: `1.0.0`;
   `BatchTarget`: `1.2.0`. Phase 9B.2A alignment evidence/target adapter remain
   `1.1.0`; target sidecar and generic `TargetBundle` remain `1.0.0`
@@ -152,7 +153,7 @@
 ## Phase 9B.2C executable supervised smoke
 
 - Added the committed fail-closed RTX 3090 runner and an independent,
-  source-free directory/tar verifier under contracts `1.1.0`. Inputs are only
+  source-free directory/tar verifier under contracts `1.2.0`. Inputs are only
   the pinned production raw/target indices and caches plus the existing split;
   source TSV conversion and the alignment oracle are guarded and must record
   zero calls.
@@ -174,8 +175,17 @@
   Target-index is an exact run/resume binding: local `76feee8d...` and RTX
   `02fcf7eb...` are documented physical observations of the same semantic
   projection, with root-cause portability analysis deferred.
-- Phase 9B.2B contracts and the pinned raw index, split, cache, graph, and
-  model-input fingerprints remain unchanged. Legacy was not used;
+- RTX attempt `b7254151ef3b4f11eb55b13d33d02b35d114ee3c` passed that
+  semantic cache gate and failed before training because leakage evidence
+  required byte-exact logits from two independent CUDA+AMP forwards. The
+  remediation advances the model contract to `1.1.0` for typed
+  `predict`/`supervise`, runs one prediction for both original/mutated target
+  joins, and verifies its object/storage/values exact. Independent and
+  checkpoint-reload forward replay is instead finite bounded FP32 diagnostic
+  `1.0.0` (`atol=rtol=0.005`, cosine >= `0.9999`); reloaded model tensors remain
+  bit-exact. Hardware training success is still not claimed.
+- Phase 9B.2B head/loss and data semantics plus the pinned raw index, split,
+  cache, graph, and model-input fingerprints remain unchanged. Legacy was not used;
   no long training, scratch-versus-SSL comparison, Phase 9C, PDMX, or Phase 10
   began. See `PHASE9B2C_EXECUTABLE_SMOKE.md`.
 

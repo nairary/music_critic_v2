@@ -53,8 +53,12 @@ from music_critic.training.checkpoint import (
 from music_critic.training.device import move_multisource_batch
 
 
-DILEMMADATA_SUPERVISED_SMOKE_CONTRACT_VERSION = "1.1.0"
-DILEMMADATA_SUPERVISED_SMOKE_BUNDLE_VERSION = "1.1.0"
+DILEMMADATA_SUPERVISED_SMOKE_CONTRACT_VERSION = "1.2.0"
+DILEMMADATA_SUPERVISED_SMOKE_BUNDLE_VERSION = "1.2.0"
+DILEMMADATA_CUDA_REPLAY_DIAGNOSTIC_VERSION = "1.0.0"
+DILEMMADATA_CUDA_REPLAY_ABSOLUTE_TOLERANCE = 0.005
+DILEMMADATA_CUDA_REPLAY_RELATIVE_TOLERANCE = 0.005
+DILEMMADATA_CUDA_REPLAY_MINIMUM_COSINE_SIMILARITY = 0.9999
 DILEMMADATA_SUPERVISED_SMOKE_PHASE = "9B.2C"
 DILEMMADATA_SUPERVISED_SMOKE_SEED = 17
 DILEMMADATA_SUPERVISED_SMOKE_UPDATES = 10
@@ -87,7 +91,7 @@ DILEMMADATA_SUPERVISED_SMOKE_SPLIT_FINGERPRINT = (
     "58ac7720f65f7fd3102248fb39d89291a78d65c06fc2ab9a16d78a6ee1666a3e"
 )
 DILEMMADATA_SUPERVISED_SMOKE_MODEL_FINGERPRINT = (
-    "8543cd469da752a73716be6c453a2a4b7a45bb87cde323504f2fd4139bae7c78"
+    "69a1ab3e6f5deb98a8bcfa26af7a3177b345ad157d164a3cf72e0273a0c58c81"
 )
 DILEMMADATA_SUPERVISED_SMOKE_GPU_NAME = "NVIDIA GeForce RTX 3090"
 
@@ -649,6 +653,12 @@ def _prediction_evidence(predictions: Sequence[object]) -> dict[str, object]:
                     prediction.global_entity_indices
                 ),
                 "sample_indices": _tensor_fingerprint(prediction.sample_indices),
+                "candidate_offsets_by_node_type": _tensor_fingerprint(
+                    prediction.candidate_offsets_by_node_type
+                ),
+                "candidate_counts_by_node_type": _tensor_fingerprint(
+                    prediction.candidate_counts_by_node_type
+                ),
                 "candidate_count": int(prediction.logits.shape[0]),
             }
         )
@@ -665,6 +675,209 @@ def _prediction_evidence(predictions: Sequence[object]) -> dict[str, object]:
             prediction.task_id: int(prediction.logits.shape[0])
             for prediction in predictions
         },
+    }
+
+
+_PREDICTION_TENSOR_FIELDS = (
+    "candidate_node_type_codes",
+    "global_entity_indices",
+    "sample_indices",
+    "candidate_offsets_by_node_type",
+    "candidate_counts_by_node_type",
+    "logits",
+)
+
+
+def _prediction_snapshot(predictions: Sequence[object]) -> dict[str, object]:
+    return {
+        "sequence": predictions,
+        "rows": tuple(
+            {
+                "row": prediction,
+                "metadata": (
+                    prediction.contract_version,
+                    prediction.task_id,
+                    prediction.source_adapter,
+                    prediction.allowed_node_types,
+                ),
+                "tensors": {
+                    name: {
+                        "tensor": tensor,
+                        "storage_data_ptr": tensor.untyped_storage().data_ptr(),
+                        "data_ptr": tensor.data_ptr(),
+                        "storage_offset": tensor.storage_offset(),
+                        "stride": tensor.stride(),
+                        "value": tensor.detach().clone(),
+                    }
+                    for name in _PREDICTION_TENSOR_FIELDS
+                    for tensor in (getattr(prediction, name),)
+                },
+            }
+            for prediction in predictions
+        ),
+        "evidence": _prediction_evidence(predictions),
+    }
+
+
+def _assert_prediction_snapshot(
+    predictions: Sequence[object], snapshot: Mapping[str, object]
+) -> dict[str, object]:
+    rows = snapshot["rows"]
+    if predictions is not snapshot["sequence"] or len(predictions) != len(rows):
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.target_join_replaced_prediction_object"
+        )
+    for prediction, row in zip(predictions, rows, strict=True):
+        metadata = (
+            prediction.contract_version,
+            prediction.task_id,
+            prediction.source_adapter,
+            prediction.allowed_node_types,
+        )
+        if prediction is not row["row"] or metadata != row["metadata"]:
+            raise DilemmadataSupervisedSmokeError(
+                "dilemmadata.smoke.target_join_changed_candidate_identities"
+            )
+        for name in _PREDICTION_TENSOR_FIELDS:
+            tensor = getattr(prediction, name)
+            expected = row["tensors"][name]
+            if (
+                tensor is not expected["tensor"]
+                or tensor.untyped_storage().data_ptr()
+                != expected["storage_data_ptr"]
+                or tensor.data_ptr() != expected["data_ptr"]
+                or tensor.storage_offset() != expected["storage_offset"]
+                or tensor.stride() != expected["stride"]
+            ):
+                category = (
+                    "dilemmadata.smoke.target_join_changed_raw_predictions"
+                    if name == "logits"
+                    else "dilemmadata.smoke.target_join_changed_candidate_identities"
+                )
+                raise DilemmadataSupervisedSmokeError(category)
+            if not torch.equal(tensor, expected["value"]):
+                category = (
+                    "dilemmadata.smoke.target_join_changed_raw_predictions"
+                    if name == "logits"
+                    else "dilemmadata.smoke.target_join_changed_candidate_identities"
+                )
+                raise DilemmadataSupervisedSmokeError(category)
+    evidence = _prediction_evidence(predictions)
+    if evidence != snapshot["evidence"]:
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.target_join_changed_raw_predictions"
+        )
+    return evidence
+
+
+def _supervision_loss_evidence(output: object) -> dict[str, object]:
+    rows = [
+        {
+            "task_id": row.task_id,
+            "target_row_indices": _tensor_fingerprint(row.target_row_indices),
+            "candidate_indices": _tensor_fingerprint(row.candidate_indices),
+            "per_row_loss": _tensor_fingerprint(row.per_row_loss),
+        }
+        for row in output.supervisions
+    ]
+    total = output.harmonic_loss.total_loss
+    return {
+        "fingerprint": _fingerprint(rows),
+        "total_loss_fingerprint": None
+        if total is None
+        else _tensor_fingerprint(total),
+    }
+
+
+def _prediction_replay_diagnostic(
+    reference: Sequence[object], replay: Sequence[object]
+) -> dict[str, object]:
+    reference_identity = _prediction_evidence(reference)[
+        "candidate_identity_fingerprint"
+    ]
+    replay_identity = _prediction_evidence(replay)[
+        "candidate_identity_fingerprint"
+    ]
+    if len(reference) != len(replay) or reference_identity != replay_identity:
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.cuda_replay_candidate_identity_mismatch"
+        )
+    tasks = []
+    for left, right in zip(reference, replay, strict=True):
+        if left.task_id != right.task_id or left.logits.shape != right.logits.shape:
+            raise DilemmadataSupervisedSmokeError(
+                "dilemmadata.smoke.cuda_replay_candidate_identity_mismatch"
+            )
+        left_fp32 = left.logits.detach().float()
+        right_fp32 = right.logits.detach().float()
+        if not bool(torch.isfinite(left_fp32).all()) or not bool(
+            torch.isfinite(right_fp32).all()
+        ):
+            raise DilemmadataSupervisedSmokeError(
+                "dilemmadata.smoke.cuda_replay_non_finite"
+            )
+        difference = (left_fp32 - right_fp32).abs()
+        max_absolute = float(difference.max()) if difference.numel() else 0.0
+        denominator = torch.maximum(
+            torch.maximum(left_fp32.abs(), right_fp32.abs()),
+            torch.full_like(left_fp32, 1e-12),
+        )
+        max_relative = (
+            float((difference / denominator).max()) if difference.numel() else 0.0
+        )
+        if left_fp32.numel():
+            left_flat = left_fp32.reshape(-1)
+            right_flat = right_fp32.reshape(-1)
+            norms = float(torch.linalg.vector_norm(left_flat)) * float(
+                torch.linalg.vector_norm(right_flat)
+            )
+            cosine = (
+                1.0
+                if norms == 0.0 and torch.equal(left_flat, right_flat)
+                else float(torch.dot(left_flat, right_flat)) / norms
+                if norms > 0.0
+                else 0.0
+            )
+        else:
+            cosine = 1.0
+        within_elementwise = bool(
+            torch.all(
+                difference
+                <= DILEMMADATA_CUDA_REPLAY_ABSOLUTE_TOLERANCE
+                + DILEMMADATA_CUDA_REPLAY_RELATIVE_TOLERANCE
+                * left_fp32.abs()
+            )
+        )
+        if (
+            not within_elementwise
+            or cosine < DILEMMADATA_CUDA_REPLAY_MINIMUM_COSINE_SIMILARITY
+        ):
+            raise DilemmadataSupervisedSmokeError(
+                "dilemmadata.smoke.cuda_replay_tolerance_exceeded",
+                (
+                    f"task={left.task_id},max_abs={max_absolute},"
+                    f"max_rel={max_relative},cosine={cosine}"
+                ),
+            )
+        tasks.append(
+            {
+                "task_id": left.task_id,
+                "max_absolute_difference_fp32": max_absolute,
+                "max_relative_difference_fp32": max_relative,
+                "cosine_similarity_fp32": cosine,
+                "within_elementwise_tolerance": True,
+            }
+        )
+    return {
+        "contract_version": DILEMMADATA_CUDA_REPLAY_DIAGNOSTIC_VERSION,
+        "purpose": "independent_cuda_amp_replay_not_target_leakage",
+        "candidate_identities_exact": True,
+        "all_logits_finite": True,
+        "comparison_dtype": "float32",
+        "absolute_tolerance": DILEMMADATA_CUDA_REPLAY_ABSOLUTE_TOLERANCE,
+        "relative_tolerance": DILEMMADATA_CUDA_REPLAY_RELATIVE_TOLERANCE,
+        "minimum_cosine_similarity": DILEMMADATA_CUDA_REPLAY_MINIMUM_COSINE_SIMILARITY,
+        "tasks": tasks,
     }
 
 
@@ -686,6 +899,28 @@ def _mutate_targets(batch: object, model: DilemmadataHierarchicalModel) -> tuple
             "dilemmadata.smoke.target_mutation_empty"
         )
     return replace(batch, target_batches=tuple(targets)), mutated
+
+
+def _target_supervision_fingerprint(target_batches: Sequence[object]) -> str:
+    rows = []
+    for target in target_batches:
+        if target.task_id not in DILEMMADATA_ACTIVE_TASK_IDS:
+            continue
+        rows.append(
+            {
+                "task_id": target.task_id,
+                "values": _tensor_fingerprint(target.values),
+                "availability_mask": _tensor_fingerprint(
+                    target.availability_mask
+                ),
+                "entity_indices": _tensor_fingerprint(target.entity_indices),
+                "sample_indices": _tensor_fingerprint(target.sample_indices),
+                "source_entry_indices": _tensor_fingerprint(
+                    target.source_entry_indices
+                ),
+            }
+        )
+    return _fingerprint(rows)
 
 
 def _verify_source_entry_reduction(output: object) -> dict[str, object]:
@@ -866,6 +1101,32 @@ def _parameter_change_evidence(
     return result
 
 
+def _model_state_reload_evidence(
+    reference: DilemmadataHierarchicalModel,
+    reloaded: DilemmadataHierarchicalModel,
+) -> dict[str, object]:
+    left = reference.state_dict()
+    right = reloaded.state_dict()
+    if tuple(left) != tuple(right):
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.checkpoint_model_state_inventory_mismatch"
+        )
+    fingerprints = []
+    for name in left:
+        if not torch.equal(left[name].detach().cpu(), right[name].detach().cpu()):
+            raise DilemmadataSupervisedSmokeError(
+                "dilemmadata.smoke.checkpoint_model_state_mismatch", name
+            )
+        fingerprints.append(
+            {"name": name, "fingerprint": _tensor_fingerprint(left[name])}
+        )
+    return {
+        "model_state_tensors_exact": True,
+        "tensor_count": len(fingerprints),
+        "state_fingerprint": _fingerprint(fingerprints),
+    }
+
+
 def _selected_batch(
     dataset: IndexedMultiSourceDataset,
     identities: Sequence[tuple[str, str]],
@@ -972,13 +1233,24 @@ def _cuda_execution(
     with torch.no_grad(), torch.amp.autocast(
         "cuda", enabled=True, dtype=torch.float16
     ):
-        _, raw_predictions = model.predict(batch.raw_graph_batch)
-        initial_prediction = _prediction_evidence(raw_predictions)
-        initial_output = model(batch)
+        encoded, raw_predictions = model.predict(batch.raw_graph_batch)
     tracked.extend(weakref.ref(row.logits) for row in raw_predictions)
-    tracked.extend(weakref.ref(row.logits) for row in initial_output.predictions)
-    post_join_prediction = _prediction_evidence(initial_output.predictions)
-    if initial_prediction != post_join_prediction:
+    prediction_snapshot = _prediction_snapshot(raw_predictions)
+    initial_prediction = prediction_snapshot["evidence"]
+    original_target_fingerprint = _target_supervision_fingerprint(
+        batch.target_batches
+    )
+    with torch.no_grad(), torch.amp.autocast(
+        "cuda", enabled=True, dtype=torch.float16
+    ):
+        initial_output = model.supervise(
+            encoded, raw_predictions, batch.target_batches
+        )
+    post_original_join = _assert_prediction_snapshot(
+        initial_output.predictions, prediction_snapshot
+    )
+    original_supervision = _supervision_loss_evidence(initial_output)
+    if post_original_join != initial_prediction:
         raise DilemmadataSupervisedSmokeError(
             "dilemmadata.smoke.target_join_changed_raw_predictions"
         )
@@ -995,30 +1267,57 @@ def _cuda_execution(
     with torch.no_grad(), torch.amp.autocast(
         "cuda", enabled=True, dtype=torch.float16
     ):
-        _, mutated_predictions = model.predict(mutated_batch.raw_graph_batch)
-    tracked.extend(weakref.ref(row.logits) for row in mutated_predictions)
-    mutated_prediction = _prediction_evidence(mutated_predictions)
-    if mutated_prediction != initial_prediction:
+        mutated_output = model.supervise(
+            encoded, raw_predictions, mutated_batch.target_batches
+        )
+    post_mutated_join = _assert_prediction_snapshot(
+        mutated_output.predictions, prediction_snapshot
+    )
+    mutated_target_fingerprint = _target_supervision_fingerprint(
+        mutated_batch.target_batches
+    )
+    mutated_supervision = _supervision_loss_evidence(mutated_output)
+    if (
+        post_mutated_join != initial_prediction
+        or original_target_fingerprint == mutated_target_fingerprint
+        or original_supervision == mutated_supervision
+    ):
         raise DilemmadataSupervisedSmokeError(
-            "dilemmadata.smoke.target_mutation_changed_raw_predictions"
+            "dilemmadata.smoke.target_mutation_evidence_invalid"
         )
     target_invariance = {
         "verified": True,
+        "raw_prediction_call_count": 1,
+        "same_prediction_object_for_both_joins": True,
         "mutated_target_row_count": mutated_rows,
         "candidate_identity_fingerprint_before": initial_prediction[
             "candidate_identity_fingerprint"
         ],
-        "candidate_identity_fingerprint_after": mutated_prediction[
+        "candidate_identity_fingerprint_after": post_mutated_join[
             "candidate_identity_fingerprint"
         ],
         "raw_only_logits_fingerprint_before": initial_prediction[
             "raw_only_logits_fingerprint"
         ],
-        "raw_only_logits_fingerprint_after": mutated_prediction[
+        "raw_only_logits_fingerprint_after": post_mutated_join[
             "raw_only_logits_fingerprint"
         ],
+        "tensor_storage_and_values_exact_after_original_join": True,
+        "tensor_storage_and_values_exact_after_mutated_join": True,
+        "original_target_fingerprint": original_target_fingerprint,
+        "mutated_target_fingerprint": mutated_target_fingerprint,
+        "original_supervision_loss": original_supervision,
+        "mutated_supervision_loss": mutated_supervision,
     }
-    del mutated_predictions, mutated_batch, mutated_cpu
+    with torch.no_grad(), torch.amp.autocast(
+        "cuda", enabled=True, dtype=torch.float16
+    ):
+        _, replay_predictions = model.predict(batch.raw_graph_batch)
+    tracked.extend(weakref.ref(row.logits) for row in replay_predictions)
+    cuda_replay = _prediction_replay_diagnostic(
+        raw_predictions, replay_predictions
+    )
+    del mutated_output, mutated_batch, mutated_cpu, replay_predictions
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -1153,6 +1452,7 @@ def _cuda_execution(
         resolved_config=training_config,
         data_fingerprints=data_fingerprints,
     )
+    reload_model_state = _model_state_reload_evidence(model, reloaded)
     reloaded.eval()
     with torch.no_grad(), torch.amp.autocast(
         "cuda", enabled=True, dtype=torch.float16
@@ -1160,10 +1460,9 @@ def _cuda_execution(
         _, reload_predictions = reloaded.predict(batch.raw_graph_batch)
     tracked.extend(weakref.ref(row.logits) for row in reload_predictions)
     reload_prediction = _prediction_evidence(reload_predictions)
-    if final_prediction != reload_prediction:
-        raise DilemmadataSupervisedSmokeError(
-            "dilemmadata.smoke.checkpoint_reload_logits_mismatch"
-        )
+    checkpoint_replay = _prediction_replay_diagnostic(
+        final_predictions, reload_predictions
+    )
 
     component_by_identity = {
         (str(row["dataset_id"]), str(row["piece_id"])): str(
@@ -1220,10 +1519,12 @@ def _cuda_execution(
         "validation_membership_fingerprint": validation_membership["fingerprint"],
         "candidate_first": {
             "prediction_completed_before_target_join": True,
-            "prediction_equal_after_target_join": True,
+            "target_columns_read_only_after_raw_prediction": True,
+            "prediction_object_exact_after_target_joins": True,
             "initial": initial_prediction,
             "target_mutation": target_invariance,
         },
+        "cuda_replay_diagnostic": cuda_replay,
         "source_entry_reduction": reduction,
         "optimization": {
             "attempted_update_count": attempted,
@@ -1261,7 +1562,9 @@ def _cuda_execution(
             "scratch_supervised_heads_transferred": False,
             "scratch_ssl_heads_transferred": False,
             "reload_failure_atomic_contract": "training_checkpoint@1.0.0",
-            "reload_bit_exact_raw_only_logits": True,
+            "reload_model_state": reload_model_state,
+            "reload_logits_bounded_cuda_replay": True,
+            "reload_cuda_replay_diagnostic": checkpoint_replay,
             "final_raw_only_logits_fingerprint": final_prediction[
                 "raw_only_logits_fingerprint"
             ],
@@ -1794,6 +2097,51 @@ def _validate_target_semantic_validation(
     return payload
 
 
+def _validate_cuda_replay_diagnostic(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.cuda_replay_evidence_invalid"
+        )
+    tasks = value.get("tasks")
+    if (
+        value.get("contract_version")
+        != DILEMMADATA_CUDA_REPLAY_DIAGNOSTIC_VERSION
+        or value.get("purpose")
+        != "independent_cuda_amp_replay_not_target_leakage"
+        or value.get("candidate_identities_exact") is not True
+        or value.get("all_logits_finite") is not True
+        or value.get("comparison_dtype") != "float32"
+        or value.get("absolute_tolerance")
+        != DILEMMADATA_CUDA_REPLAY_ABSOLUTE_TOLERANCE
+        or value.get("relative_tolerance")
+        != DILEMMADATA_CUDA_REPLAY_RELATIVE_TOLERANCE
+        or value.get("minimum_cosine_similarity")
+        != DILEMMADATA_CUDA_REPLAY_MINIMUM_COSINE_SIMILARITY
+        or not isinstance(tasks, list)
+        or [row.get("task_id") for row in tasks if isinstance(row, dict)]
+        != list(DILEMMADATA_ACTIVE_TASK_IDS)
+    ):
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.cuda_replay_evidence_invalid"
+        )
+    for row in tasks:
+        if (
+            not isinstance(row, dict)
+            or row.get("within_elementwise_tolerance") is not True
+            or not _finite(row.get("max_absolute_difference_fp32"))
+            or float(row["max_absolute_difference_fp32"]) < 0.0
+            or not _finite(row.get("max_relative_difference_fp32"))
+            or float(row["max_relative_difference_fp32"]) < 0.0
+            or not _finite(row.get("cosine_similarity_fp32"))
+            or float(row["cosine_similarity_fp32"])
+            < DILEMMADATA_CUDA_REPLAY_MINIMUM_COSINE_SIMILARITY
+        ):
+            raise DilemmadataSupervisedSmokeError(
+                "dilemmadata.smoke.cuda_replay_evidence_invalid"
+            )
+    return value
+
+
 def validate_smoke_report(report: object) -> dict[str, object]:
     payload = _validate_fingerprinted(
         report, category="dilemmadata.smoke.report_fingerprint_mismatch"
@@ -1808,6 +2156,7 @@ def validate_smoke_report(report: object) -> dict[str, object]:
     claims = payload.get("claim_boundaries")
     excluded = payload.get("excluded_supervision")
     target_semantics = payload.get("target_semantic_validation")
+    cuda_replay = payload.get("cuda_replay_diagnostic")
     configured_updates = (
         optimization.get("attempted_update_count", -1)
         if isinstance(optimization, dict)
@@ -1848,6 +2197,7 @@ def validate_smoke_report(report: object) -> dict[str, object]:
         target_semantics,
         observed_target_index_fingerprint=str(observed_target_index),
     )
+    _validate_cuda_replay_diagnostic(cuda_replay)
     if (
         bindings["target_semantic_projection_fingerprint"]
         != _fingerprint(validated_target_semantics)
@@ -1956,19 +2306,40 @@ def validate_smoke_report(report: object) -> dict[str, object]:
         )
     candidate = payload.get("candidate_first")
     reduction = payload.get("source_entry_reduction")
+    target_mutation = (
+        candidate.get("target_mutation") if isinstance(candidate, dict) else None
+    )
     if (
         not isinstance(candidate, dict)
         or candidate.get("prediction_completed_before_target_join") is not True
-        or candidate.get("prediction_equal_after_target_join") is not True
-        or candidate.get("target_mutation", {}).get("verified") is not True
-        or candidate["target_mutation"].get(
+        or candidate.get("target_columns_read_only_after_raw_prediction") is not True
+        or candidate.get("prediction_object_exact_after_target_joins") is not True
+        or not isinstance(target_mutation, dict)
+        or target_mutation.get("verified") is not True
+        or target_mutation.get("raw_prediction_call_count") != 1
+        or target_mutation.get("same_prediction_object_for_both_joins") is not True
+        or target_mutation.get(
+            "tensor_storage_and_values_exact_after_original_join"
+        ) is not True
+        or target_mutation.get(
+            "tensor_storage_and_values_exact_after_mutated_join"
+        ) is not True
+        or target_mutation.get(
             "candidate_identity_fingerprint_before"
         )
-        != candidate["target_mutation"].get(
+        != target_mutation.get(
             "candidate_identity_fingerprint_after"
         )
-        or candidate["target_mutation"].get("raw_only_logits_fingerprint_before")
-        != candidate["target_mutation"].get("raw_only_logits_fingerprint_after")
+        or target_mutation.get("raw_only_logits_fingerprint_before")
+        != target_mutation.get("raw_only_logits_fingerprint_after")
+        or not _is_sha256(target_mutation.get("original_target_fingerprint"))
+        or not _is_sha256(target_mutation.get("mutated_target_fingerprint"))
+        or target_mutation.get("original_target_fingerprint")
+        == target_mutation.get("mutated_target_fingerprint")
+        or not isinstance(target_mutation.get("original_supervision_loss"), dict)
+        or not isinstance(target_mutation.get("mutated_supervision_loss"), dict)
+        or target_mutation.get("original_supervision_loss")
+        == target_mutation.get("mutated_supervision_loss")
         or not isinstance(reduction, dict)
         or reduction.get("verified") is not True
         or set(reduction.get("tasks", {})) != set(DILEMMADATA_ACTIVE_TASK_IDS)
@@ -1996,14 +2367,23 @@ def validate_smoke_report(report: object) -> dict[str, object]:
         or checkpoint.get("scratch_loaded_encoder_tensors") != []
         or checkpoint.get("scratch_supervised_heads_transferred") is not False
         or checkpoint.get("scratch_ssl_heads_transferred") is not False
-        or checkpoint.get("reload_bit_exact_raw_only_logits") is not True
-        or checkpoint.get("final_raw_only_logits_fingerprint")
-        != checkpoint.get("reloaded_raw_only_logits_fingerprint")
+        or checkpoint.get("reload_logits_bounded_cuda_replay") is not True
+        or not isinstance(checkpoint.get("reload_model_state"), dict)
+        or checkpoint["reload_model_state"].get("model_state_tensors_exact")
+        is not True
+        or not isinstance(checkpoint["reload_model_state"].get("tensor_count"), int)
+        or checkpoint["reload_model_state"]["tensor_count"] <= 0
+        or not _is_sha256(
+            checkpoint["reload_model_state"].get("state_fingerprint")
+        )
         or not _is_sha256(checkpoint.get("sha256"))
     ):
         raise DilemmadataSupervisedSmokeError(
             "dilemmadata.smoke.checkpoint_evidence_invalid"
         )
+    _validate_cuda_replay_diagnostic(
+        checkpoint.get("reload_cuda_replay_diagnostic")
+    )
     if (
         not isinstance(validation, dict)
         or validation.get("split") != "validation"
@@ -2142,6 +2522,19 @@ def _validate_checkpoint(
         raise DilemmadataSupervisedSmokeError(
             "dilemmadata.smoke.checkpoint_model_state_invalid", str(exc)
         ) from exc
+    model_state_rows = [
+        {"name": name, "fingerprint": _tensor_fingerprint(value)}
+        for name, value in payload["model_state"].items()
+    ]
+    reload_model_state = report["checkpoint"]["reload_model_state"]
+    if (
+        reload_model_state["tensor_count"] != len(model_state_rows)
+        or reload_model_state["state_fingerprint"]
+        != _fingerprint(model_state_rows)
+    ):
+        raise DilemmadataSupervisedSmokeError(
+            "dilemmadata.smoke.checkpoint_model_state_evidence_mismatch"
+        )
     head_roots = {
         name.split(".", 3)[2]
         for name in payload["model_state"]
@@ -2523,6 +2916,10 @@ if __name__ == "__main__":
 
 
 __all__ = [
+    "DILEMMADATA_CUDA_REPLAY_ABSOLUTE_TOLERANCE",
+    "DILEMMADATA_CUDA_REPLAY_DIAGNOSTIC_VERSION",
+    "DILEMMADATA_CUDA_REPLAY_MINIMUM_COSINE_SIMILARITY",
+    "DILEMMADATA_CUDA_REPLAY_RELATIVE_TOLERANCE",
     "DILEMMADATA_SUPERVISED_SMOKE_BUNDLE_VERSION",
     "DILEMMADATA_SUPERVISED_SMOKE_CONTRACT_VERSION",
     "DILEMMADATA_SUPERVISED_SMOKE_GPU_NAME",

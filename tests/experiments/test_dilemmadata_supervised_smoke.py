@@ -32,6 +32,111 @@ RUNNER = REPO_ROOT / "scripts" / "run_phase9b2c_rtx3090_supervised_smoke.sh"
 HEAD = "a" * 40
 
 
+def _replay_diagnostic() -> dict[str, object]:
+    return {
+        "contract_version": smoke.DILEMMADATA_CUDA_REPLAY_DIAGNOSTIC_VERSION,
+        "purpose": "independent_cuda_amp_replay_not_target_leakage",
+        "candidate_identities_exact": True,
+        "all_logits_finite": True,
+        "comparison_dtype": "float32",
+        "absolute_tolerance": smoke.DILEMMADATA_CUDA_REPLAY_ABSOLUTE_TOLERANCE,
+        "relative_tolerance": smoke.DILEMMADATA_CUDA_REPLAY_RELATIVE_TOLERANCE,
+        "minimum_cosine_similarity": (
+            smoke.DILEMMADATA_CUDA_REPLAY_MINIMUM_COSINE_SIMILARITY
+        ),
+        "tasks": [
+            {
+                "task_id": task_id,
+                "max_absolute_difference_fp32": 0.001,
+                "max_relative_difference_fp32": 0.001,
+                "cosine_similarity_fp32": 0.999999,
+                "within_elementwise_tolerance": True,
+            }
+            for task_id in DILEMMADATA_ACTIVE_TASK_IDS
+        ],
+    }
+
+
+def _predictions(*, delta: float = 0.0) -> tuple[SimpleNamespace, ...]:
+    rows = []
+    for index, task_id in enumerate(DILEMMADATA_ACTIVE_TASK_IDS):
+        rows.append(
+            SimpleNamespace(
+                contract_version="fixture@1",
+                task_id=task_id,
+                source_adapter=task_id.split(".")[1],
+                allowed_node_types=("note",),
+                candidate_node_type_codes=torch.tensor([0, 0]),
+                global_entity_indices=torch.tensor([index, index + 1]),
+                sample_indices=torch.tensor([0, 0]),
+                candidate_offsets_by_node_type=torch.tensor([0, 2]),
+                candidate_counts_by_node_type=torch.tensor([2, 0]),
+                logits=torch.tensor(
+                    [[1.0 + delta, 2.0], [3.0, 4.0 - delta]],
+                    dtype=torch.float32,
+                ),
+            )
+        )
+    return tuple(rows)
+
+
+def test_small_independent_replay_difference_is_not_target_leakage() -> None:
+    evidence = smoke._prediction_replay_diagnostic(
+        _predictions(), _predictions(delta=0.001)
+    )
+    assert evidence["purpose"] == "independent_cuda_amp_replay_not_target_leakage"
+    assert all(row["within_elementwise_tolerance"] for row in evidence["tasks"])
+
+
+def test_target_join_prediction_mutation_is_rejected() -> None:
+    predictions = _predictions()
+    snapshot = smoke._prediction_snapshot(predictions)
+    predictions[0].logits.add_(0.001)
+    with pytest.raises(
+        smoke.DilemmadataSupervisedSmokeError,
+        match="target_join_changed_raw_predictions",
+    ):
+        smoke._assert_prediction_snapshot(predictions, snapshot)
+
+
+def test_target_dependent_prediction_replacement_is_rejected() -> None:
+    predictions = _predictions()
+    snapshot = smoke._prediction_snapshot(predictions)
+    target_dependent_replay = _predictions(delta=0.001)
+    with pytest.raises(
+        smoke.DilemmadataSupervisedSmokeError,
+        match="target_join_replaced_prediction_object",
+    ):
+        smoke._assert_prediction_snapshot(target_dependent_replay, snapshot)
+
+
+def test_candidate_identity_mutation_is_rejected() -> None:
+    reference = _predictions()
+    replay = list(_predictions())
+    replay[0].global_entity_indices[0] += 1
+    with pytest.raises(
+        smoke.DilemmadataSupervisedSmokeError,
+        match="cuda_replay_candidate_identity_mismatch",
+    ):
+        smoke._prediction_replay_diagnostic(reference, tuple(replay))
+
+
+@pytest.mark.parametrize("failure", ("nan", "inf", "tolerance"))
+def test_cuda_replay_rejects_nonfinite_and_excessive_difference(
+    failure: str,
+) -> None:
+    reference = _predictions()
+    replay = list(_predictions())
+    replay[0].logits[0, 0] = {
+        "nan": float("nan"),
+        "inf": float("inf"),
+        "tolerance": 2.0,
+    }[failure]
+    category = "non_finite" if failure != "tolerance" else "tolerance_exceeded"
+    with pytest.raises(smoke.DilemmadataSupervisedSmokeError, match=category):
+        smoke._prediction_replay_diagnostic(reference, tuple(replay))
+
+
 def _target_semantics(observed_index: str) -> dict[str, object]:
     return smoke._with_fingerprint(
         {
@@ -253,17 +358,27 @@ def _base_report(
         "validation_membership_fingerprint": validation["fingerprint"],
         "candidate_first": {
             "prediction_completed_before_target_join": True,
-            "prediction_equal_after_target_join": True,
+            "target_columns_read_only_after_raw_prediction": True,
+            "prediction_object_exact_after_target_joins": True,
             "initial": {},
             "target_mutation": {
                 "verified": True,
+                "raw_prediction_call_count": 1,
+                "same_prediction_object_for_both_joins": True,
                 "mutated_target_row_count": 4,
                 "candidate_identity_fingerprint_before": "1" * 64,
                 "candidate_identity_fingerprint_after": "1" * 64,
                 "raw_only_logits_fingerprint_before": "2" * 64,
                 "raw_only_logits_fingerprint_after": "2" * 64,
+                "tensor_storage_and_values_exact_after_original_join": True,
+                "tensor_storage_and_values_exact_after_mutated_join": True,
+                "original_target_fingerprint": "4" * 64,
+                "mutated_target_fingerprint": "5" * 64,
+                "original_supervision_loss": {"fingerprint": "6" * 64},
+                "mutated_supervision_loss": {"fingerprint": "7" * 64},
             },
         },
+        "cuda_replay_diagnostic": _replay_diagnostic(),
         "source_entry_reduction": {
             "verified": True,
             "reduction": "candidate_rows_mean_per_source_entry_then_entries_mean_per_task_fixed_weight_sum",
@@ -301,7 +416,13 @@ def _base_report(
             "scratch_supervised_heads_transferred": False,
             "scratch_ssl_heads_transferred": False,
             "reload_failure_atomic_contract": "training_checkpoint@1.0.0",
-            "reload_bit_exact_raw_only_logits": True,
+            "reload_model_state": {
+                "model_state_tensors_exact": True,
+                "tensor_count": 1,
+                "state_fingerprint": "8" * 64,
+            },
+            "reload_logits_bounded_cuda_replay": True,
+            "reload_cuda_replay_diagnostic": _replay_diagnostic(),
             "final_raw_only_logits_fingerprint": "3" * 64,
             "reloaded_raw_only_logits_fingerprint": "3" * 64,
         },
@@ -409,6 +530,15 @@ def _checkpoint(
     digest = sha256((root / "checkpoint.pt").read_bytes()).hexdigest()
     (root / "checkpoint.pt.sha256").write_text(digest + "\n", encoding="utf-8")
     report["checkpoint"]["sha256"] = digest
+    state_rows = [
+        {"name": name, "fingerprint": smoke._tensor_fingerprint(value)}
+        for name, value in payload["model_state"].items()
+    ]
+    report["checkpoint"]["reload_model_state"] = {
+        "model_state_tensors_exact": True,
+        "tensor_count": len(state_rows),
+        "state_fingerprint": smoke._fingerprint(state_rows),
+    }
 
 
 def _valid_evidence(root: Path) -> tuple[Path, dict[str, object]]:
@@ -453,7 +583,7 @@ def _valid_evidence(root: Path) -> tuple[Path, dict[str, object]]:
             "optimization_curve",
         ),
         (
-            lambda value: value["checkpoint"].update(reload_bit_exact_raw_only_logits=False),
+            lambda value: value["checkpoint"].update(reload_logits_bounded_cuda_replay=False),
             "checkpoint",
         ),
         (

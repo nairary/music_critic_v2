@@ -99,7 +99,7 @@ def test_target_mutation_cannot_change_logits_and_gradients_reach_encoder_heads(
     batch = _batch()
     model.eval()
     with torch.no_grad():
-        _, raw_predictions = model.predict(batch.raw_graph_batch)
+        encoded, raw_predictions = model.predict(batch.raw_graph_batch)
     mutated_targets = []
     for target in batch.target_batches:
         if target.task_id in DILEMMADATA_ACTIVE_TASK_IDS:
@@ -110,10 +110,19 @@ def test_target_mutation_cannot_change_logits_and_gradients_reach_encoder_heads(
             mutated_targets.append(target)
     mutated = replace(batch, target_batches=tuple(mutated_targets))
     with torch.no_grad():
-        output = model(mutated)
+        original_output = model.supervise(
+            encoded, raw_predictions, batch.target_batches
+        )
+        output = model.supervise(
+            encoded, raw_predictions, mutated.target_batches
+        )
+    assert original_output.predictions is raw_predictions
+    assert output.predictions is raw_predictions
     assert all(
-        torch.equal(left.logits, right.logits)
-        for left, right in zip(raw_predictions, output.predictions, strict=True)
+        row.logits is prediction.logits
+        for row, prediction in zip(
+            output.predictions, raw_predictions, strict=True
+        )
     )
     assert output.encoder.local_encoder.final_output.embeddings
     assert output.encoder.coarse
@@ -174,6 +183,46 @@ def test_target_mutation_cannot_change_logits_and_gradients_reach_encoder_heads(
             for name, parameter in gradients.items()
             if name.startswith(f"task_heads.heads.task_{index:02d}.")
         )
+
+
+def test_original_and_mutated_joins_reuse_one_raw_prediction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    model = _model()
+    batch = _batch()
+    model.eval()
+    with torch.no_grad():
+        encoded, predictions = model.predict(batch.raw_graph_batch)
+    mutated_targets = []
+    for target in batch.target_batches:
+        if target.task_id in DILEMMADATA_ACTIVE_TASK_IDS:
+            values = target.values.clone()
+            values[target.availability_mask] = (
+                values[target.availability_mask] + 1
+            ) % next(
+                spec.output_dim
+                for spec in model.task_specs
+                if spec.task_id == target.task_id
+            )
+            mutated_targets.append(replace(target, values=values))
+        else:
+            mutated_targets.append(target)
+
+    def forbidden_predict(*args, **kwargs):
+        del args, kwargs
+        raise AssertionError("supervise must not replay target-dependent predict")
+
+    monkeypatch.setattr(model, "predict", forbidden_predict)
+    with torch.no_grad():
+        original = model.supervise(encoded, predictions, batch.target_batches)
+        mutated = model.supervise(encoded, predictions, tuple(mutated_targets))
+    assert original.predictions is predictions
+    assert mutated.predictions is predictions
+    assert original.harmonic_loss.total_loss is not None
+    assert mutated.harmonic_loss.total_loss is not None
+    assert not torch.equal(
+        original.harmonic_loss.total_loss, mutated.harmonic_loss.total_loss
+    )
 
 
 def test_source_entry_normalization_is_candidate_count_invariant() -> None:

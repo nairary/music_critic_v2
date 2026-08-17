@@ -2993,3 +2993,31 @@ This log is append-only.
   grouping, split, graph and model-input semantics remain unchanged. The PR
   remains draft until the bounded RTX smoke passes; Phase 9C remains out of
   scope.
+
+## 2026-08-17 — ADR-081: Leakage invariance and CUDA replay are separate gates
+
+- Status: Accepted as blocking Phase 9B.2C remediation in draft PR #24.
+- Context: RTX attempt
+  `b7254151ef3b4f11eb55b13d33d02b35d114ee3c` passed semantic target-cache
+  validation, then compared byte-exact logits from two independent CUDA+AMP
+  forwards and failed before training. Parallel GNN/scatter replay can differ
+  numerically without reading targets, so this conflated leakage with kernel
+  replay determinism.
+- Decision: Advance the Dilemmadata model contract to `1.1.0` and expose typed
+  `predict(raw_graph)` plus `supervise(encoded, predictions, target_batches,
+  class_weights)`. `forward` reuses `supervise`, preserving one join/loss
+  implementation. Leakage evidence predicts once, joins original and mutated
+  targets to that same object, and requires candidate identities plus every
+  prediction tensor object, storage, layout, and value to remain exact while
+  target and supervision/loss evidence changes.
+- Decision: Advance smoke/bundle to `1.2.0` and add CUDA replay diagnostic
+  `1.0.0`. Independent forwards require exact candidate identities, finite
+  logits, FP32 max-absolute/max-relative/cosine evidence, elementwise
+  `atol=0.005`, `rtol=0.005`, and cosine >= `0.9999`. Checkpoint model tensors
+  reload bit-exactly; independent reload logits use this diagnostic and are
+  not leakage evidence.
+- Consequences: The failed SHA is not hardware-training success and the PR
+  remains draft pending a new RTX run. The semantic target-index unblock is
+  preserved. No target artifacts are rebuilt; head/loss, raw index/cache,
+  target cache, grouping, split, graph and model-input contracts are unchanged.
+  Phase 9C and long training remain out of scope.

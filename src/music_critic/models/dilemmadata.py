@@ -28,13 +28,14 @@ from music_critic.models.hierarchy import (
 )
 from music_critic.models.hierarchy_contracts import HierarchicalBaselineConfig
 from music_critic.tasks import (
+    BatchTarget,
     DILEMMADATA_SOURCE_FAMILY_BY_TASK,
     DILEMMADATA_TARGET_ENCODING_BY_TASK,
     MultiSourceBatch,
 )
 
 
-DILEMMADATA_MODEL_CONTRACT_VERSION = "1.0.0"
+DILEMMADATA_MODEL_CONTRACT_VERSION = "1.1.0"
 DILEMMADATA_HEAD_CONTRACT_VERSION = "1.0.0"
 DILEMMADATA_LOSS_CONTRACT_VERSION = "1.0.0"
 DILEMMADATA_ENCODER_TRANSFER_VERSION = "1.0.0"
@@ -367,9 +368,26 @@ class DilemmadataHierarchicalModel(nn.Module):
         encoded, predictions = self.predict(
             batch.raw_graph_batch, return_layers=return_layers
         )
-        supervisions = join_task_supervision(
+        return self.supervise(
+            encoded,
             predictions,
             batch.target_batches,
+            class_weights=class_weights,
+        )
+
+    def supervise(
+        self,
+        encoded: ContextualEncoderOutput,
+        predictions: tuple[TaskPrediction, ...],
+        target_batches: tuple[BatchTarget, ...],
+        *,
+        class_weights: Mapping[str, Tensor] | None = None,
+    ) -> DilemmadataHierarchicalOutput:
+        """Join targets after raw prediction without repeating the encoder/heads."""
+
+        supervisions = join_task_supervision(
+            predictions,
+            target_batches,
             categorical_class_weights=class_weights,
         )
         loss = aggregate_dilemmadata_source_entry_losses(
@@ -400,7 +418,7 @@ def dilemmadata_model_contract_dict(
         "open_tasks_without_heads": list(DILEMMADATA_OPEN_TASK_IDS),
         "head_specs": [asdict(spec) for spec in model.task_specs],
         "prediction_input": "raw_graph_hierarchical_encoder_output_only",
-        "target_join": "post_forward_only",
+        "target_join": "typed_post_prediction_supervise_only",
     }
 
 

@@ -1093,7 +1093,13 @@ only after membership is fixed. Test access remains false. The independent
 verifier reconstructs no source data: it validates the sealed report,
 memberships, checkpoint state, official evaluation, artifact hashes, archive
 safety, exact Git head, and RTX 3090 hardware. The new smoke and bundle
-contracts are `1.1.0`; all Phase 9B.2B model/data contracts remain unchanged.
+contracts are `1.2.0`. `DilemmadataHierarchicalModel@1.1.0` separates raw-only
+`predict` from typed post-prediction `supervise`; `forward` composes those two
+without duplicating join/loss semantics. Leakage evidence reuses one immutable
+prediction object for original and mutated targets. Independent CUDA+AMP logits
+are a separate finite FP32 replay diagnostic `1.0.0` with fixed bounded error
+and cosine thresholds; checkpoint model state still reloads bit-exactly. Head,
+loss, and all other Phase 9B.2B data contracts remain unchanged.
 The observed target-index fingerprint is a strict run/resume/evaluation
 binding, while cross-host semantic acceptance is determined by the stronger
 full-cache projection above.
