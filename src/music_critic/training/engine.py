@@ -31,7 +31,12 @@ from music_critic.device import (
     resolve_cuda_device_index,
     resolve_runtime_device,
 )
-from music_critic.models import ACTIVE_TASK_IDS
+from music_critic.models import (
+    ACTIVE_TASK_IDS,
+    DILEMMADATA_ACTIVE_TASK_IDS,
+    DilemmadataHierarchicalModel,
+    load_dilemmadata_encoder_state,
+)
 from music_critic.tasks import MultiSourceBatch
 from music_critic.training.checkpoint import (
     TRAINING_CHECKPOINT_VERSION,
@@ -116,6 +121,10 @@ def _resolve_presets(config: dict[str, Any]) -> None:
         objective["reconstruction_weight"] = experiment[
             "default_reconstruction_weight"
         ]
+
+
+def _is_dilemmadata(config: dict[str, Any]) -> bool:
+    return config["data"]["name"] == "dilemmadata"
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -277,13 +286,24 @@ def _initialize_fresh_output(
 def _validate_config(config: dict[str, Any]) -> None:
     accepted = {
         "model": {"feature_only", "local_gnn", "hierarchical"},
-        "data": {"bounded", "hooktheory", "pop909_cl", "mixed"},
+        "data": {
+            "bounded",
+            "hooktheory",
+            "pop909_cl",
+            "dilemmadata",
+            "mixed",
+        },
         "experiment": {
             "one_batch",
             "smoke",
             "train",
             "supervised_baseline",
             "joint_visible_reconstruction",
+            "dilemmadata_one_batch",
+            "dilemmadata_smoke",
+            "dilemmadata_pilot",
+            "dilemmadata_evaluation",
+            "dilemmadata_scratch_vs_ssl",
         },
         "optimizer": {"adamw"},
         "objective": {
@@ -411,8 +431,13 @@ def _validate_config(config: dict[str, Any]) -> None:
             "training.config.objective_weights_invalid"
         )
     task_weights = config["objective"]["task_weights"]
+    accepted_task_ids = (
+        DILEMMADATA_ACTIVE_TASK_IDS
+        if _is_dilemmadata(config)
+        else ACTIVE_TASK_IDS
+    )
     if any(
-        task_id not in ACTIVE_TASK_IDS
+        task_id not in accepted_task_ids
         or isinstance(weight, bool)
         or not isinstance(weight, (int, float))
         or not math.isfinite(weight)
@@ -423,15 +448,28 @@ def _validate_config(config: dict[str, Any]) -> None:
             "training.config.task_weights_invalid"
         )
     explicit_requested_tasks = config.get("downstream_task_ids")
-    requested_tasks = explicit_requested_tasks or list(ACTIVE_TASK_IDS)
+    requested_tasks = explicit_requested_tasks or list(accepted_task_ids)
     if (
         not isinstance(requested_tasks, list)
         or not requested_tasks
         or len(requested_tasks) != len(set(requested_tasks))
-        or any(task_id not in ACTIVE_TASK_IDS for task_id in requested_tasks)
+        or any(task_id not in accepted_task_ids for task_id in requested_tasks)
     ):
         raise TrainingContractError(
             "training.config.downstream_task_ids_invalid"
+        )
+    if _is_dilemmadata(config) and set(requested_tasks) != set(
+        DILEMMADATA_ACTIVE_TASK_IDS
+    ):
+        raise TrainingContractError(
+            "training.config.dilemmadata_fixed_task_inventory_required"
+        )
+    if _is_dilemmadata(config) and (
+        config["model"]["name"] != "hierarchical"
+        or config["objective"]["reconstruction_weight"] != 0
+    ):
+        raise TrainingContractError(
+            "training.config.dilemmadata_hierarchical_ce_only_required"
         )
     if explicit_requested_tasks and task_weights and {
         task_id for task_id, weight in task_weights.items() if weight > 0
@@ -442,13 +480,25 @@ def _validate_config(config: dict[str, Any]) -> None:
     transfer = config.get("transfer")
     if not isinstance(transfer, dict) or transfer.get(
         "contract_version"
-    ) != "1.1.0" or transfer.get("mode") not in {
+    ) not in {"1.1.0", "1.2.0"} or transfer.get("mode") not in {
         "supervised_scratch",
         "frozen_probe",
         "full_finetune",
     }:
         raise TrainingContractError(
             "training.config.transfer_invalid"
+        )
+    if _is_dilemmadata(config) and transfer.get("contract_version") != "1.2.0":
+        raise TrainingContractError(
+            "training.config.dilemmadata_transfer_version_invalid"
+        )
+    if transfer.get("source_kind", "phase7a_ssl") not in {
+        "phase7a_ssl",
+        "phase8b_multilevel_ssl",
+        "phase6_hierarchical",
+    }:
+        raise TrainingContractError(
+            "training.config.transfer_source_kind_invalid"
         )
     comparison_bound = bool(transfer.get("comparison_protocol_fingerprint"))
     if comparison_bound:
@@ -602,20 +652,23 @@ def _losses(
     torch.Tensor | None,
     torch.Tensor | None,
 ]:
-    task_weights = config["objective"]["task_weights"]
-    active_tasks = [
-        (
-            supervision.per_row_loss.mean(),
-            float(task_weights.get(supervision.task_id, 1.0)),
-        )
-        for supervision in output.supervisions
-        if supervision.per_row_loss.numel()
-    ]
-    harmonic = None
-    if active_tasks:
-        harmonic = torch.stack(
-            [loss * weight for loss, weight in active_tasks]
-        ).sum() / sum(weight for _, weight in active_tasks)
+    if _is_dilemmadata(config):
+        harmonic = output.harmonic_loss.total_loss
+    else:
+        task_weights = config["objective"]["task_weights"]
+        active_tasks = [
+            (
+                supervision.per_row_loss.mean(),
+                float(task_weights.get(supervision.task_id, 1.0)),
+            )
+            for supervision in output.supervisions
+            if supervision.per_row_loss.numel()
+        ]
+        harmonic = None
+        if active_tasks:
+            harmonic = torch.stack(
+                [loss * weight for loss, weight in active_tasks]
+            ).sum() / sum(weight for _, weight in active_tasks)
     reconstruction = output.reconstruction_loss
     terms = []
     if (
@@ -695,6 +748,40 @@ def _task_losses(output: Any) -> dict[str, float]:
         item.task_id: float(item.mean_loss.detach())
         for item in output.harmonic_loss.task_losses
     }
+
+
+def _frozen_encoder_evidence(
+    model: BaselineModel, config: dict[str, Any]
+) -> dict[str, object] | None:
+    if config["transfer"]["mode"] != "frozen_probe":
+        return None
+    if isinstance(model, DilemmadataHierarchicalModel):
+        prefixes = (
+            "local_baseline.encoder.",
+            "context_encoder.pooling.",
+            "context_encoder.transformer.",
+            "context_encoder.fusion.",
+        )
+        still_trainable = sorted(
+            name
+            for name, parameter in model.named_parameters()
+            if name.startswith(prefixes) and parameter.requires_grad
+        )
+        if still_trainable:
+            raise TrainingContractError(
+                "dilemmadata.transfer.frozen_encoder_became_trainable"
+            )
+        return {
+            "encoder_frozen": True,
+            "trainable_encoder_parameters": still_trainable,
+        }
+    from music_critic.experiments.phase8b2.transfer import (
+        verify_frozen_encoder,
+    )
+
+    return verify_frozen_encoder(
+        model, config["phase8b2_transfer_runtime"]
+    )
 
 
 def _eval_logits(
@@ -794,6 +881,7 @@ def _validation_epoch(
             "reconstruction_weight"
         ],
         task_weights=config["objective"]["task_weights"],
+        fixed_task_weight_sum=_is_dilemmadata(config),
     )
     with torch.no_grad():
         for cpu_batch in batches:
@@ -933,6 +1021,7 @@ def _prepare(
     model = build_baseline_model(
         OmegaConf.create(config["model"]),
         task_weights=config["objective"]["task_weights"],
+        dilemmadata=_is_dilemmadata(config),
     ).to(device)
     encoder_export = None
     if transfer["mode"] != "supervised_scratch":
@@ -949,21 +1038,52 @@ def _prepare(
             raise TrainingContractError(
                 f"training.transfer.encoder_export_unreadable:{exc}"
             ) from exc
-    from music_critic.experiments.phase8b2.contracts import (
-        Phase8B2ContractError,
-    )
-    from music_critic.experiments.phase8b2.transfer import (
-        prepare_downstream_model,
-    )
-
-    try:
-        _, transfer_evidence = prepare_downstream_model(
-            model,
-            transfer_mode=transfer["mode"],
-            encoder_export=encoder_export,
+    if isinstance(model, DilemmadataHierarchicalModel):
+        if transfer["mode"] == "supervised_scratch":
+            transfer_evidence = {
+                "contract_version": "1.0.0",
+                "source_kind": "supervised_scratch",
+                "transfer_mode": "supervised_scratch",
+                "loaded_tensors": [],
+                "unloaded_fresh_tensors": sorted(model.state_dict()),
+                "optimizer_parameter_names": sorted(
+                    name for name, _ in model.named_parameters()
+                ),
+                "encoder_frozen": False,
+                "supervised_heads_transferred": False,
+                "ssl_heads_transferred": False,
+            }
+        else:
+            try:
+                transfer_evidence = asdict(
+                    load_dilemmadata_encoder_state(
+                        model,
+                        encoder_export,
+                        source_kind=transfer.get("source_kind", "phase7a_ssl"),
+                        source_checkpoint_sha256=transfer[
+                            "source_ssl_checkpoint_sha256"
+                        ],
+                        transfer_mode=transfer["mode"],
+                    )
+                )
+            except ValueError as exc:
+                raise TrainingContractError(str(exc)) from exc
+    else:
+        from music_critic.experiments.phase8b2.contracts import (
+            Phase8B2ContractError,
         )
-    except Phase8B2ContractError as exc:
-        raise TrainingContractError(str(exc)) from exc
+        from music_critic.experiments.phase8b2.transfer import (
+            prepare_downstream_model,
+        )
+
+        try:
+            _, transfer_evidence = prepare_downstream_model(
+                model,
+                transfer_mode=transfer["mode"],
+                encoder_export=encoder_export,
+            )
+        except Phase8B2ContractError as exc:
+            raise TrainingContractError(str(exc)) from exc
     transfer_evidence["comparison_protocol_fingerprint"] = transfer[
         "comparison_protocol_fingerprint"
     ] or None
@@ -978,7 +1098,10 @@ def _prepare(
     scheduler = _scheduler(
         optimizer,
         config,
-        one_batch=config["experiment"]["name"] == "one_batch",
+        one_batch=config["experiment"]["name"] in {
+            "one_batch",
+            "dilemmadata_one_batch",
+        },
     )
     scaler = torch.amp.GradScaler(
         device.type,
@@ -1122,7 +1245,6 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
     )
     from music_critic.experiments.phase8b2.transfer import (
         prepare_downstream_model,
-        verify_frozen_encoder,
     )
 
     started_at = time.perf_counter()
@@ -1207,20 +1329,28 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         "reconstruction_loss": _scalar(final_reconstruction),
         "total_loss": _scalar(final_total),
     }
-    if initial["harmonic_loss"] is None or initial[
-        "reconstruction_loss"
-    ] is None:
-        raise TrainingContractError(
-            "training.one_batch.requires_both_objectives"
-        )
-    if not (
-        final["harmonic_loss"] < initial["harmonic_loss"]
-        and final["reconstruction_loss"]
-        < initial["reconstruction_loss"]
-    ):
-        raise TrainingContractError(
-            "training.one_batch.objectives_did_not_both_decrease"
-        )
+    if _is_dilemmadata(config):
+        if initial["harmonic_loss"] is None or not (
+            final["harmonic_loss"] < initial["harmonic_loss"]
+        ):
+            raise TrainingContractError(
+                "training.one_batch.dilemmadata_objective_did_not_decrease"
+            )
+    else:
+        if initial["harmonic_loss"] is None or initial[
+            "reconstruction_loss"
+        ] is None:
+            raise TrainingContractError(
+                "training.one_batch.requires_both_objectives"
+            )
+        if not (
+            final["harmonic_loss"] < initial["harmonic_loss"]
+            and final["reconstruction_loss"]
+            < initial["reconstruction_loss"]
+        ):
+            raise TrainingContractError(
+                "training.one_batch.objectives_did_not_both_decrease"
+            )
     checkpoint = output_dir / "one_batch.pt"
     save_training_checkpoint(
         checkpoint,
@@ -1237,6 +1367,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
     reloaded = build_baseline_model(
         OmegaConf.create(config["model"]),
         task_weights=config["objective"]["task_weights"],
+        dilemmadata=_is_dilemmadata(config),
     ).to(device)
     reload_export = None
     if config["transfer"]["mode"] != "supervised_scratch":
@@ -1245,14 +1376,31 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
             map_location="cpu",
             weights_only=True,
         )
-    try:
-        prepare_downstream_model(
-            reloaded,
-            transfer_mode=config["transfer"]["mode"],
-            encoder_export=reload_export,
-        )
-    except Phase8B2ContractError as exc:
-        raise TrainingContractError(str(exc)) from exc
+    if isinstance(reloaded, DilemmadataHierarchicalModel):
+        if config["transfer"]["mode"] != "supervised_scratch":
+            try:
+                load_dilemmadata_encoder_state(
+                    reloaded,
+                    reload_export,
+                    source_kind=config["transfer"].get(
+                        "source_kind", "phase7a_ssl"
+                    ),
+                    source_checkpoint_sha256=config["transfer"][
+                        "source_ssl_checkpoint_sha256"
+                    ],
+                    transfer_mode=config["transfer"]["mode"],
+                )
+            except ValueError as exc:
+                raise TrainingContractError(str(exc)) from exc
+    else:
+        try:
+            prepare_downstream_model(
+                reloaded,
+                transfer_mode=config["transfer"]["mode"],
+                encoder_export=reload_export,
+            )
+        except Phase8B2ContractError as exc:
+            raise TrainingContractError(str(exc)) from exc
     reloaded_optimizer = _optimizer(reloaded, config)
     reloaded_scheduler = _scheduler(
         reloaded_optimizer, config, one_batch=True
@@ -1297,13 +1445,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         "device": _device_evidence(device, cuda_memory_lifecycle),
         "fingerprints": runtime.fingerprints,
         "phase8b2_transfer": config["phase8b2_transfer_runtime"],
-        "frozen_encoder_final": (
-            verify_frozen_encoder(
-                model, config["phase8b2_transfer_runtime"]
-            )
-            if config["transfer"]["mode"] == "frozen_probe"
-            else None
-        ),
+        "frozen_encoder_final": _frozen_encoder_evidence(model, config),
     }
     _write_json(output_dir / "one_batch_report.json", report)
     return report
@@ -1595,10 +1737,6 @@ def _run_epochs(
     stop_after_epoch: int | None,
     crash_after: str | None,
 ) -> dict[str, object]:
-    from music_critic.experiments.phase8b2.transfer import (
-        verify_frozen_encoder,
-    )
-
     started_at = time.perf_counter()
     resume = config["experiment"]["resume_from"]
     entry_rng = capture_rng_state() if resume else None
@@ -1696,6 +1834,7 @@ def _run_epochs(
                 "reconstruction_weight"
             ],
             task_weights=config["objective"]["task_weights"],
+            fixed_task_weight_sum=_is_dilemmadata(config),
         )
         downstream_batch_identities: list[list[list[str]]] = []
         train_started_at = time.perf_counter()
@@ -1980,13 +2119,7 @@ def _run_epochs(
         ),
         "actual_sample_schedule_verified": schedule_verified,
         "observed_sample_identities": observed_downstream_identities,
-        "frozen_encoder_final": (
-            verify_frozen_encoder(
-                model, config["phase8b2_transfer_runtime"]
-            )
-            if config["transfer"]["mode"] == "frozen_probe"
-            else None
-        ),
+        "frozen_encoder_final": _frozen_encoder_evidence(model, config),
     }
     _write_json_atomic(output_dir / "training_report.json", report)
     return report
@@ -2017,7 +2150,10 @@ def run_training(
         raise TrainingContractError(
             "training.crash.injection_point_invalid"
         )
-    if plain["experiment"]["name"] == "one_batch":
+    if plain["experiment"]["name"] in {
+        "one_batch",
+        "dilemmadata_one_batch",
+    }:
         if stop_after_epoch is not None or crash_after is not None:
             raise TrainingContractError(
                 "training.one_batch.test_hook_invalid"

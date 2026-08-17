@@ -3,21 +3,20 @@
 ## Current phase
 
 - Date: 2026-08-17
-- Current task: Phase 9B.2A production Dilemmadata theory sidecars and exact
-  alignment on branch `agent/phase-9b2a-dilemmadata-target-sidecars`, based
-  exactly on merged PR #21 / `origin/main` commit
-  `8e77a08f7fc063037d34593b5c8196c76a6cbd16`
-- Phase 9B.2A alignment evidence and target adapter: `1.1.0`; target audit
-  report and manifest: `1.1.0`; sidecar, metadata index, source-native family
-  and encoding registries, and alignment rules remain `1.0.0`; generic
-  external `TargetBundle`: `1.0.0`
+- Current task: Phase 9B.2B safe Dilemmadata heads, supervised pipeline and
+  scratch-versus-SSL pilot preparation on branch
+  `agent/phase-9b2b-dilemmadata-supervised`, based exactly on merged PR #22 /
+  `origin/main` commit `657b4191e270f0313a92ad05d111ceff7d907d0d`
+- Dilemmadata target cache/index/identity/manifest, four-head model/loss,
+  evaluation, encoder transfer and RTX plan contracts: `1.0.0`;
+  `BatchTarget`: `1.2.0`. Phase 9B.2A alignment evidence/target adapter remain
+  `1.1.0`; target sidecar and generic `TargetBundle` remain `1.0.0`
 - Phase 9B.1 raw adapter remains `1.0.1`; raw projection/cache/graph semantics
   and all their versions remain unchanged
 - Phase 9A full-corpus semantic fingerprint:
   `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`
-- Next Phase 9 task after review/merge: Phase 9B.2B, selecting safe model-ready
-  tasks, adding heads/losses/evaluation, and running the first scratch-versus-
-  SSL scientific pilot with and without Dilemmadata
+- Next task after review/merge: execute the independently fixed RTX 3090
+  scratch-versus-SSL plan. Phase 9C and Phase 10 remain unstarted
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -146,6 +145,52 @@
   selection/statistics/compute contracts: `1.1.0`; CUDA memory-statistics
   lifecycle: `1.0.0`; data semantic projection: `1.0.0`; evaluation
   piece-sufficient-statistics output: `1.3.0`
+
+## Phase 9B.2B safe Dilemmadata supervised result
+
+- Active CE inventory is exactly four distinct heads:
+  `dilemmadata.an.chord.{quality,inversion}` and
+  `dilemmadata.dlc.chord.{quality,inversion}`. Five positive-unlabeled event
+  tasks and 13 `open_string_cpu` tasks have no CE head/loss.
+- `DilemmadataTargetCache{,Index,Identity,Manifest}@1.0.0` writes atomic,
+  SHA-addressed JSON `TargetBundle@1.0.0` artifacts. Runtime attaches these
+  after verified raw loading and performs no source conversion or independent
+  alignment-oracle pass.
+- `BatchTarget@1.2.0` carries exact source-entry indices/counts. The loss is
+  candidate rows mean per source entry, source entries mean per task, then a
+  fixed equal-weight task sum without active-task renormalization.
+- Candidate logits use raw hierarchical encoder output only. Evaluation is
+  source-entry based with train-only majority/prior baselines, record/component
+  aggregation, paired component bootstrap, fixed validation and a test lock.
+  Phase 7A/8B initialization transfers only compatible encoder tensors;
+  heads/optimizer remain fresh.
+- Production sidecar build/check: 719 records; raw index
+  `c0451976b6b6eab88cb90aa6c47d6afdba1b81ce9b588f0f84daa846154adb0e`;
+  split `58ac7720f65f7fd3102248fb39d89291a78d65c06fc2ab9a16d78a6ee1666a3e`;
+  target-cache index
+  `76feee8d128cc3c5dd1a5b261599df89ef241baa21d82b3c24202a11218beea4`;
+  aggregate TargetBundle
+  `939ad5b871db28fefd76e47d56243ac2109a8bb01d57c6391f424ae943159072`.
+  Source-free hit check returned `ready=true`, 719/719.
+- Default `DilemmadataHierarchicalModel@1.0.0` contract fingerprint:
+  `8543cd469da752a73716be6c453a2a4b7a45bb87cde323504f2fd4139bae7c78`.
+- Corpus remains 108 AN + 611 DLC accepted (719 total), with group-safe split
+  577 train / 71 validation / 71 test across 565 / 71 / 71 components. Raw
+  adapter `1.0.1`, raw projection/cache identity `1.0.0`, raw index, split,
+  canonical/cache/graph/model-input contracts and bytes are unchanged.
+- Bounded one-batch, resume parity and real 2 AN + 2 DLC tests are plumbing
+  evidence only. The immutable RTX 3090 plan fixes seeds 17/29/43 and three
+  primary full-fine-tune variants; long training was not executed. CUDA+AMP is
+  an honest skip on the current CPU-only host.
+- Verification before publication: focused model/evaluation/plan/training
+  `13 passed`; broad non-worker regressions `437 passed, 7 skipped,
+  7 deselected`; opt-in real supervised batch `1 passed, 1 CUDA skip`; raw
+  audit `--check` semantic fingerprint
+  `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`;
+  target audit `--check` fingerprint
+  `a971ff0daf8d5a442beaa3365ec8c43ca9368f07baab4a1102927977f6ebdd05`.
+- Legacy was neither inspected nor reused. Phase 9C, PDMX, critic score, PLL,
+  Phase 10 and merge are outside this task.
 
 ## Phase 9B.2A production Dilemmadata target-sidecar result
 

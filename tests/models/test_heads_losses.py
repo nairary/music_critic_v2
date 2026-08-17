@@ -99,6 +99,12 @@ def _repeat_batch_target_rows(target, repeats: int):
             for _ in range(repeats)
         ),
         sample_indices=repeated(target.sample_indices),
+        source_entry_indices=torch.arange(
+            repeats, dtype=torch.long
+        ).repeat(target.entry_count),
+        source_entry_counts_by_sample=(
+            target.source_entry_counts_by_sample * repeats
+        ),
         confidence=repeated(target.confidence),
         confidence_mask=repeated(target.confidence_mask),
         entry_count=target.entry_count * repeats,

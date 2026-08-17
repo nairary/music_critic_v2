@@ -3284,12 +3284,28 @@ The contract and exact inventory are documented in
 `DILEMMADATA_TARGET_SIDECARS.md`. Phase 9B.2A does not add heads, losses,
 supervised training/evaluation, or scientific claims.
 
-### Phase 9B.2B future supervised increment
+### Phase 9B.2B safe supervised increment implemented
 
-After review and merge, select only safe model-ready Dilemmadata families, add
-heads/loss routing/evaluation, and run the first scratch-versus-SSL pilot with
-and without Dilemmadata. Open-vocabulary crosswalks remain deferred unless a
-separate evidence-backed decision changes them.
+The supervised inventory is closed to four source-native tasks: AN and DLC
+chord quality and inversion, each with a separate head/vocabulary. Five
+positive-unlabeled events and 13 open source-string tasks have no CE head or
+loss. `TargetBundle` sidecars are built offline into immutable SHA-addressed
+JSON and loaded lazily after the unchanged raw cache; source conversion and the
+alignment oracle never run inside a batch or epoch.
+
+`BatchTarget@1.2.0` carries source-entry identities and counts. Candidate-row
+CE is averaged within each source entry, source entries within each task, and
+fixed equal task weights are summed without active-task renormalization.
+Candidate logits are computed from raw-only hierarchical embeddings before
+target join. Evaluation follows the same unit and adds train-only baselines,
+record/component aggregation, component bootstrap, fixed validation and a
+test lock.
+
+Official one-batch/smoke/pilot/evaluation/comparison presets support scratch,
+Phase 7A encoder transfer and Phase 8B encoder transfer with fresh heads and
+optimizer. The immutable RTX 3090 plan fixes seeds 17/29/43 and equal schedules
+and budgets. Long training and scientific superiority claims are explicitly
+not part of this change; open-vocabulary crosswalks remain deferred.
 
 ## Phase 10. PDMX adapter and scalable cache
 

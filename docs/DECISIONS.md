@@ -2903,3 +2903,37 @@ This log is append-only.
   `1.0.1`, raw projection `1.0.0`, grouping, canonical piece, cache key/artifact,
   split, graph, and model-input contracts and fingerprints remain unchanged.
   Phase 9B.2B remains unauthorized.
+
+## 2026-08-17 — ADR-078: Dilemmadata supervision is cached, candidate-first, and source-entry normalized
+
+- Status: Accepted for Phase 9B.2B implementation and bounded plumbing
+  evidence; independent RTX results are pending.
+- Context: Nine Dilemmadata encodings are mechanically model-ready, but five
+  describe positive events without proven negatives and 13 retain open source
+  strings. Exact chord spans can expand one annotation into many candidates,
+  so ordinary row-mean CE would overweight long/dense chords. Re-running raw
+  conversion and the independent alignment oracle per epoch is also both
+  expensive and an unsafe source/runtime coupling.
+- Decision: Activate only AN/DLC chord quality and inversion, using four
+  distinct heads and source-native class indices. Five PU and 13 open-string
+  families have no ordinary CE head/loss. Build `TargetBundle` offline into an
+  immutable SHA-addressed JSON cache bound to raw, canonical, source,
+  alignment, registry and target identities. Load it lazily after raw cache
+  verification. Advance `BatchTarget` to `1.2.0` with exact source-entry
+  identity.
+- Decision: Produce logits solely from raw hierarchical encoder outputs, join
+  targets afterward, and reduce CE as rows per source entry, entries per task,
+  then a fixed task-weight sum without hidden active-task renormalization.
+  Use the same unit for evaluation and component bootstrap. Priors/optional
+  class weights are train-only; model selection is validation-only and test is
+  locked.
+- Decision: Permit scratch, Phase 7A SSL and Phase 8B multilevel SSL
+  initialization through failure-atomic encoder-only transfer. Heads and
+  optimizer are always fresh. Fix the RTX 3090 comparison protocol before test
+  access at seeds 17/29/43 with equal schedules/budgets and full fine-tuning.
+- Consequences: The existing 14 heads/checkpoints remain unchanged and
+  transferable through explicit encoder exports. Raw adapter `1.0.1`, raw
+  projection/cache identity `1.0.0`, canonical, grouping, split, graph and
+  model-input bytes/versions remain unchanged. Bounded overfit is plumbing
+  evidence only; long training, Phase 9C, PDMX, critic score, PLL and Phase 10
+  remain outside this change.

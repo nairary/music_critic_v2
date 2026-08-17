@@ -71,6 +71,7 @@ class TaskSupervision:
     node_type_codes: Tensor
     global_entity_indices: Tensor
     sample_indices: Tensor
+    source_entry_indices: Tensor
     per_row_loss: Tensor
 
     def __post_init__(self) -> None:
@@ -83,6 +84,7 @@ class TaskSupervision:
                 self.node_type_codes,
                 self.global_entity_indices,
                 self.sample_indices,
+                self.source_entry_indices,
                 self.per_row_loss,
             )
         ) or any(
@@ -93,6 +95,7 @@ class TaskSupervision:
                 self.node_type_codes,
                 self.global_entity_indices,
                 self.sample_indices,
+                self.source_entry_indices,
             )
         ):
             raise ValueError("task supervision tensors are inconsistent")
@@ -257,6 +260,8 @@ class SourceNativeTaskHeads(nn.Module):
 def join_task_supervision(
     predictions: tuple[TaskPrediction, ...],
     targets: tuple[BatchTarget, ...],
+    *,
+    categorical_class_weights: Mapping[str, Tensor] | None = None,
 ) -> tuple[TaskSupervision, ...]:
     """Join eligible targets to existing candidates using tensors only."""
 
@@ -287,6 +292,9 @@ def join_task_supervision(
         sample_indices = target.sample_indices.to(device).index_select(
             0, target_rows
         )
+        source_entry_indices = target.source_entry_indices.to(device).index_select(
+            0, target_rows
+        )
         candidate_indices = (
             prediction.candidate_offsets_by_node_type.index_select(
                 0, node_type_codes
@@ -315,7 +323,20 @@ def join_task_supervision(
         logits = prediction.logits.index_select(0, candidate_indices)
         values = target.values.to(device).index_select(0, target_rows)
         if target.encoding_kind == "closed_categorical_index":
-            losses = F.cross_entropy(logits, values, reduction="none")
+            class_weight = None
+            if categorical_class_weights is not None:
+                class_weight = categorical_class_weights.get(prediction.task_id)
+                if class_weight is not None:
+                    class_weight = class_weight.to(
+                        device=device, dtype=logits.dtype
+                    )
+                    if class_weight.shape != (logits.shape[1],):
+                        raise ValueError(
+                            "categorical class-weight shape differs from head"
+                        )
+            losses = F.cross_entropy(
+                logits, values, weight=class_weight, reduction="none"
+            )
         elif target.encoding_kind == "closed_multilabel":
             losses = F.binary_cross_entropy_with_logits(
                 logits, values.float(), reduction="none"
@@ -330,6 +351,7 @@ def join_task_supervision(
                 node_type_codes=node_type_codes,
                 global_entity_indices=entity_indices,
                 sample_indices=sample_indices,
+                source_entry_indices=source_entry_indices,
                 per_row_loss=losses,
             )
         )

@@ -636,9 +636,13 @@ The model and training phases remain pending.
   identity stays unchanged; an independent target-neutral raw oracle binds
   every ordered source row to its exact canonical note before target parsing;
   no heads or losses are added.
-- Phase 9B.2B future: select safe model-ready tasks, add heads, masked/PU losses
-  and evaluation, then run the first scratch-versus-SSL pilot with and without
-  Dilemmadata.
+- Phase 9B.2B: implemented the first safe supervised Dilemmadata path. Only AN
+  and DLC chord quality/inversion receive distinct categorical heads; five PU
+  and 13 open-string tasks remain headless. Immutable sidecar caching,
+  source-entry-normalized loss/evaluation, encoder-only transfer, official
+  Hydra presets, and a fixed RTX 3090 scratch-versus-SSL plan are present.
+  Bounded tests establish plumbing only; the long independent pilot remains a
+  post-merge execution task.
 - Tests: target deletion/replacement/reordering leaves canonical, graph, graph
   fingerprint, and model-input fingerprint unchanged; candidate
   multiple-analysis groups stay grouped and are rechecked using the Phase 9B

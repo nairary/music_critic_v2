@@ -18,6 +18,7 @@ from music_critic.data import (
     ProvenanceRecord,
     QualityFlag,
     TargetArray,
+    RationalTime,
 )
 from music_critic.graph import (
     GraphContractError,
@@ -40,7 +41,7 @@ class MultiSourceContractError(ValueError):
 
 
 _RAW_GRAPH_BINDING_TOKEN = object()
-BATCH_TARGET_CONTRACT_VERSION = "1.1.0"
+BATCH_TARGET_CONTRACT_VERSION = "1.2.0"
 TARGET_BUNDLE_CONTRACT_VERSION = "1.0.0"
 ENTITY_NODE_TYPE_TO_CODE = MappingProxyType(
     {
@@ -298,6 +299,115 @@ def dumps_target_bundle(bundle: TargetBundle, *, indent: int | None = None) -> s
         indent=indent,
         separators=None if indent is not None else (",", ":"),
     )
+
+
+def loads_target_bundle(payload: str) -> TargetBundle:
+    """Decode one strict deterministic external target sidecar.
+
+    Target bundles are intentionally independent of canonical-piece JSON.  The
+    decoder is kept here, beside the sole serializer and constructor
+    invariants, so offline caches never need pickle or an adapter import.
+    """
+
+    try:
+        value = json.loads(payload)
+        if not isinstance(value, dict) or set(value) != {
+            "alignment_spans",
+            "analysis_view_id",
+            "contract_version",
+            "dataset_id",
+            "diagnostics",
+            "piece_id",
+            "provenance",
+            "registry_extension_ids",
+            "targets",
+        }:
+            raise ValueError("target bundle root fields are invalid")
+
+        def rational(raw: object) -> RationalTime:
+            if not isinstance(raw, dict) or set(raw) != {"num", "den"}:
+                raise ValueError("target bundle rational is invalid")
+            return RationalTime(raw["num"], raw["den"])
+
+        spans = []
+        for raw in value["alignment_spans"]:
+            if not isinstance(raw, dict) or set(raw) != {
+                "annotation_id",
+                "annotation_type",
+                "layer",
+                "start_qn",
+                "end_qn",
+                "track_id",
+                "value",
+                "provenance_id",
+            }:
+                raise ValueError("target bundle alignment span fields are invalid")
+            spans.append(
+                AnnotationSpan(
+                    **{
+                        **raw,
+                        "start_qn": rational(raw["start_qn"]),
+                        "end_qn": rational(raw["end_qn"]),
+                    }
+                )
+            )
+        targets = []
+        for raw in value["targets"]:
+            if not isinstance(raw, dict):
+                raise ValueError("target bundle target entry is invalid")
+            targets.append(
+                SampleTarget(
+                    **{
+                        **raw,
+                        "entity_ids": tuple(raw["entity_ids"]),
+                        "values": tuple(
+                            tuple(item) if isinstance(item, list) else item
+                            for item in raw["values"]
+                        ),
+                        "availability_mask": tuple(raw["availability_mask"]),
+                        "confidence": tuple(raw["confidence"]),
+                        "source": tuple(raw["source"]),
+                        "provenance_ids": tuple(raw["provenance_ids"]),
+                    }
+                )
+            )
+        provenance = []
+        for raw in value["provenance"]:
+            if not isinstance(raw, dict):
+                raise ValueError("target bundle provenance entry is invalid")
+            provenance.append(
+                ProvenanceRecord(
+                    **{
+                        **raw,
+                        "parents": tuple(raw["parents"]),
+                        "details": tuple(tuple(item) for item in raw["details"]),
+                    }
+                )
+            )
+        diagnostics = []
+        for raw in value["diagnostics"]:
+            if not isinstance(raw, dict):
+                raise ValueError("target bundle diagnostic entry is invalid")
+            diagnostics.append(
+                QualityFlag(
+                    **{**raw, "entity_ids": tuple(raw["entity_ids"])}
+                )
+            )
+        return TargetBundle(
+            contract_version=value["contract_version"],
+            registry_extension_ids=tuple(value["registry_extension_ids"]),
+            dataset_id=value["dataset_id"],
+            piece_id=value["piece_id"],
+            analysis_view_id=value["analysis_view_id"],
+            alignment_spans=tuple(spans),
+            targets=tuple(targets),
+            provenance=tuple(provenance),
+            diagnostics=tuple(diagnostics),
+        )
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise MultiSourceContractError(
+            f"target_bundle.parse_invalid: {exc}"
+        ) from exc
 
 
 def target_bundle_fingerprint(bundle: TargetBundle) -> str:
@@ -589,6 +699,8 @@ class BatchTarget:
     entity_node_type_codes: torch.Tensor
     entity_node_types: tuple[str | None, ...]
     sample_indices: torch.Tensor
+    source_entry_indices: torch.Tensor
+    source_entry_counts_by_sample: torch.Tensor
     confidence: torch.Tensor | None
     confidence_mask: torch.Tensor | None
     entry_count: int
@@ -658,6 +770,7 @@ class BatchTarget:
                 torch.long,
             ),
             ("sample_indices", self.sample_indices, torch.long),
+            ("source_entry_indices", self.source_entry_indices, torch.long),
         ):
             if (
                 not isinstance(value, torch.Tensor)
@@ -671,6 +784,15 @@ class BatchTarget:
         dimensions["entity_node_types"] = len(self.entity_node_types)
         dimensions["provenance_cpu"] = len(self.provenance_cpu)
         dimensions["diagnostics_cpu"] = len(self.diagnostics_cpu)
+        if (
+            not isinstance(self.source_entry_counts_by_sample, torch.Tensor)
+            or self.source_entry_counts_by_sample.dtype != torch.long
+            or self.source_entry_counts_by_sample.ndim != 1
+            or bool((self.source_entry_counts_by_sample < 0).any())
+        ):
+            raise MultiSourceContractError(
+                "batch target source-entry counts must be rank-one non-negative longs"
+            )
         if self.confidence is not None:
             if (
                 not isinstance(self.confidence, torch.Tensor)
@@ -731,6 +853,32 @@ class BatchTarget:
         if self.sample_indices.numel() and self.sample_indices.min().item() < 0:
             raise MultiSourceContractError(
                 "batch target sample indices must be non-negative integers"
+            )
+        source_sample_indices_in_range = (
+            not self.sample_indices.numel()
+            or self.sample_indices.max().item()
+            < self.source_entry_counts_by_sample.shape[0]
+        )
+        if self.sample_indices.numel() and (
+            bool((self.source_entry_indices < 0).any())
+            or (
+                source_sample_indices_in_range
+                and bool(
+                    (
+                        self.source_entry_indices
+                        >= self.source_entry_counts_by_sample.index_select(
+                            0, self.sample_indices
+                        )
+                    ).any()
+                )
+            )
+        ):
+            raise MultiSourceContractError(
+                "batch target source-entry indices escape their source sample"
+            )
+        if int(self.source_entry_counts_by_sample.sum().item()) != self.source_entry_count:
+            raise MultiSourceContractError(
+                "batch target per-sample source-entry counts differ from total"
             )
         if torch.any(self.entity_index_mask & (self.entity_indices < 0)) or torch.any(
             (~self.entity_index_mask) & (self.entity_indices != -1)
@@ -827,6 +975,7 @@ class TaskBatchStatistics:
     conflict_row_count: int
     model_encodable_row_count: int
     supervision_eligible_row_count: int
+    effective_source_entry_count: int
     deferred_open_vocabulary_row_count: int
     node_type_counts: tuple[tuple[str, int], ...]
     model_ready: bool
@@ -847,6 +996,7 @@ class TaskBatchStatistics:
             self.conflict_row_count,
             self.model_encodable_row_count,
             self.supervision_eligible_row_count,
+            self.effective_source_entry_count,
             self.deferred_open_vocabulary_row_count,
         )
         if any(
@@ -878,6 +1028,7 @@ class TaskBatchStatistics:
             or self.deferred_open_vocabulary_row_count != expected_deferred
             or self.supervision_eligible_row_count
             > self.aligned_available_count
+            or self.effective_source_entry_count > self.source_entry_count
         ):
             raise MultiSourceContractError(
                 "task encodable, supervision-eligible, or deferred counts "
@@ -925,6 +1076,7 @@ class BatchStatistics:
     deferred_open_vocabulary_task_count: int
     model_encodable_row_count: int
     supervision_eligible_row_count: int
+    effective_source_entry_count: int
     deferred_open_vocabulary_row_count: int
 
     def __post_init__(self) -> None:
@@ -941,6 +1093,7 @@ class BatchStatistics:
             self.deferred_open_vocabulary_task_count,
             self.model_encodable_row_count,
             self.supervision_eligible_row_count,
+            self.effective_source_entry_count,
             self.deferred_open_vocabulary_row_count,
         )
         if any(
@@ -1015,6 +1168,9 @@ class BatchStatistics:
             "supervision_eligible_row_count": sum(
                 item.supervision_eligible_row_count
                 for item in self.task_counts
+            ),
+            "effective_source_entry_count": sum(
+                item.effective_source_entry_count for item in self.task_counts
             ),
             "deferred_open_vocabulary_row_count": sum(
                 item.deferred_open_vocabulary_row_count
@@ -1180,6 +1336,28 @@ class MultiSourceBatch:
                     target.availability_mask.tolist(), conflict_flags
                 )
             )
+            eligible_rows = torch.nonzero(
+                target.supervision_eligibility_mask,
+                as_tuple=False,
+            ).flatten()
+            effective_source_entries = (
+                0
+                if eligible_rows.numel() == 0
+                else int(
+                    torch.unique(
+                        torch.stack(
+                            (
+                                target.sample_indices.index_select(0, eligible_rows),
+                                target.source_entry_indices.index_select(
+                                    0, eligible_rows
+                                ),
+                            ),
+                            dim=1,
+                        ),
+                        dim=0,
+                    ).shape[0]
+                )
+            )
             expected_task_statistics = (
                 target.task_id,
                 target.source_entry_count,
@@ -1190,6 +1368,7 @@ class MultiSourceBatch:
                 conflict_count,
                 target.entry_count if target.model_ready else 0,
                 int(target.supervision_eligibility_mask.sum().item()),
+                effective_source_entries,
                 0 if target.model_ready else target.entry_count,
                 node_type_counts,
                 target.model_ready,
@@ -1204,6 +1383,7 @@ class MultiSourceBatch:
                 task_statistics.conflict_row_count,
                 task_statistics.model_encodable_row_count,
                 task_statistics.supervision_eligible_row_count,
+                task_statistics.effective_source_entry_count,
                 task_statistics.deferred_open_vocabulary_row_count,
                 task_statistics.node_type_counts,
                 task_statistics.model_ready,
@@ -1768,6 +1948,7 @@ __all__ = [
     "prepare_multisource_sample",
     "project_multisource_targets",
     "dumps_target_bundle",
+    "loads_target_bundle",
     "target_bundle_dict",
     "target_bundle_fingerprint",
     "validate_group_assignments",

@@ -28,10 +28,12 @@ class EpochMetricAccumulator:
         harmonic_weight: float,
         reconstruction_weight: float,
         task_weights: dict[str, float],
+        fixed_task_weight_sum: bool = False,
     ) -> None:
         self.harmonic_weight = harmonic_weight
         self.reconstruction_weight = reconstruction_weight
         self.task_weights = dict(task_weights)
+        self.fixed_task_weight_sum = fixed_task_weight_sum
         self._aggregates: dict[
             tuple[str, str, str], _Aggregate
         ] = {}
@@ -74,9 +76,34 @@ class EpochMetricAccumulator:
             losses = supervision.per_row_loss.detach()
             if losses.numel() == 0:
                 continue
-            row_datasets = sample_dataset_indices.index_select(
-                0, supervision.sample_indices
-            )
+            if supervision.task_id.startswith("dilemmadata."):
+                stride = supervision.source_entry_indices.max() + 1
+                keys = supervision.sample_indices * stride + (
+                    supervision.source_entry_indices
+                )
+                unique_keys, inverse = torch.unique(
+                    keys, sorted=True, return_inverse=True
+                )
+                entry_sums = torch.zeros(
+                    unique_keys.shape[0],
+                    dtype=losses.dtype,
+                    device=losses.device,
+                )
+                entry_sums.index_add_(0, inverse, losses)
+                entry_counts = torch.bincount(
+                    inverse, minlength=unique_keys.shape[0]
+                )
+                losses = entry_sums / entry_counts.to(losses.dtype)
+                entry_samples = torch.div(
+                    unique_keys, stride, rounding_mode="floor"
+                )
+                row_datasets = sample_dataset_indices.index_select(
+                    0, entry_samples
+                )
+            else:
+                row_datasets = sample_dataset_indices.index_select(
+                    0, supervision.sample_indices
+                )
             sums = torch.zeros(
                 len(dataset_ids),
                 dtype=losses.dtype,
@@ -203,6 +230,7 @@ class EpochMetricAccumulator:
             harmonic_weight=self.harmonic_weight,
             reconstruction_weight=self.reconstruction_weight,
             task_weights=self.task_weights,
+            fixed_task_weight_sum=self.fixed_task_weight_sum,
         )
         per_dataset = {}
         for dataset_id in sorted(self.dataset_counts):
@@ -228,6 +256,7 @@ class EpochMetricAccumulator:
                     harmonic_weight=self.harmonic_weight,
                     reconstruction_weight=self.reconstruction_weight,
                     task_weights=self.task_weights,
+                    fixed_task_weight_sum=self.fixed_task_weight_sum,
                 ),
             }
         return {
@@ -348,6 +377,7 @@ def _objective(
     harmonic_weight: float,
     reconstruction_weight: float,
     task_weights: dict[str, float],
+    fixed_task_weight_sum: bool = False,
 ) -> dict[str, float | None]:
     weighted_tasks = [
         (
@@ -359,8 +389,12 @@ def _objective(
     harmonic = (
         None
         if not weighted_tasks
-        else math.fsum(loss * weight for loss, weight in weighted_tasks)
-        / math.fsum(weight for _, weight in weighted_tasks)
+        else (
+            math.fsum(loss * weight for loss, weight in weighted_tasks)
+            if fixed_task_weight_sum
+            else math.fsum(loss * weight for loss, weight in weighted_tasks)
+            / math.fsum(weight for _, weight in weighted_tasks)
+        )
     )
     field_means = [
         float(value["mean_loss"])

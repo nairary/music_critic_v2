@@ -136,6 +136,7 @@ class AlignedTargetRow:
     confidence: float | None
     provenance: TargetRowProvenance
     diagnostics: tuple[TargetDiagnostic, ...]
+    source_entry_index: int
 
     def __post_init__(self) -> None:
         if not isinstance(self.availability, bool):
@@ -150,6 +151,14 @@ class AlignedTargetRow:
             )
         if self.local_entity_index < -1:
             raise TargetAlignmentError("local entity index cannot be below -1")
+        if (
+            isinstance(self.source_entry_index, bool)
+            or not isinstance(self.source_entry_index, int)
+            or self.source_entry_index < 0
+        ):
+            raise TargetAlignmentError(
+                "aligned row source-entry index must be non-negative"
+            )
         if self.confidence is not None and not 0 <= self.confidence <= 1:
             raise TargetAlignmentError(
                 "aligned row confidence must lie in [0, 1]"
@@ -429,6 +438,25 @@ def _merge_available_aligned_rows(
     instrumentation: AlignmentOperationCounts | None,
 ) -> tuple[AlignedTargetRow, ...]:
     spec = target_family_spec(target.task_id)
+    if target.task_id.startswith("dilemmadata."):
+        node_order = {
+            node_type: index
+            for index, node_type in enumerate(
+                spec.alignment_policy.candidate_node_types
+            )
+        }
+        return tuple(
+            sorted(
+                rows,
+                key=lambda row: (
+                    len(node_order)
+                    if row.entity_node_type is None
+                    else node_order[row.entity_node_type],
+                    row.local_entity_index,
+                    row.source_entry_index,
+                ),
+            )
+        )
     aligned: dict[tuple[str, int], list[AlignedTargetRow]] = {}
     retained: list[AlignedTargetRow] = []
     for row in rows:
@@ -475,6 +503,7 @@ def _merge_available_aligned_rows(
                         ),
                         provenance=provenance,
                         diagnostics=diagnostics,
+                        source_entry_index=candidate_rows[0].source_entry_index,
                     )
                 )
                 continue
@@ -495,6 +524,7 @@ def _merge_available_aligned_rows(
                     confidence=None,
                     provenance=provenance,
                     diagnostics=(*diagnostics, conflict),
+                    source_entry_index=candidate_rows[0].source_entry_index,
                 )
             )
 
@@ -527,6 +557,7 @@ def _align_target(
                     confidence=None,
                     provenance=provenance,
                     diagnostics=(),
+                    source_entry_index=source_index,
                 )
             )
             continue
@@ -546,6 +577,7 @@ def _align_target(
                     confidence=target.confidence[source_index],
                     provenance=provenance,
                     diagnostics=(),
+                    source_entry_index=source_index,
                 )
             )
             continue
@@ -558,6 +590,7 @@ def _align_target(
                 confidence=target.confidence[source_index],
                 provenance=provenance,
                 diagnostics=(),
+                source_entry_index=source_index,
             )
             for node_type, local_index in matches
         )

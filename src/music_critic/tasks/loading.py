@@ -31,8 +31,17 @@ from music_critic.tasks.multisource import (
     GroupAssignment,
     MultiSourceContractError,
     MultiSourceSample,
+    attach_target_bundle,
     prepare_multisource_sample,
     validate_group_assignments,
+)
+from music_critic.tasks.dilemmadata_cache import (
+    DilemmadataTargetCacheConfig,
+    DilemmadataTargetCacheError,
+    DilemmadataTargetCacheIndex,
+    load_dilemmadata_target_bundle,
+    load_dilemmadata_target_cache_index,
+    validate_dilemmadata_target_cache_index,
 )
 
 
@@ -609,6 +618,9 @@ class IndexedMultiSourceDataset(Dataset[MultiSourceSample]):
         index: CorpusIndex | str | Path,
         *,
         cache_config: CorpusCacheConfig,
+        target_cache_index: DilemmadataTargetCacheIndex | str | Path | None = None,
+        target_cache_config: DilemmadataTargetCacheConfig | None = None,
+        require_target_sidecars: bool = False,
     ) -> None:
         self.index = (
             load_corpus_index(index)
@@ -621,6 +633,48 @@ class IndexedMultiSourceDataset(Dataset[MultiSourceSample]):
             )
         validate_current_corpus_index(self.index)
         self.cache_config = cache_config
+        if not isinstance(require_target_sidecars, bool):
+            raise DatasetContractError(
+                "dataset.target_sidecar_requirement_invalid",
+                "require_target_sidecars must be boolean",
+            )
+        self.require_target_sidecars = require_target_sidecars
+        self.target_cache_index = (
+            load_dilemmadata_target_cache_index(target_cache_index)
+            if isinstance(target_cache_index, (str, Path))
+            else target_cache_index
+        )
+        self.target_cache_config = target_cache_config
+        if self.target_cache_index is not None:
+            if not isinstance(
+                self.target_cache_index, DilemmadataTargetCacheIndex
+            ) or not isinstance(
+                self.target_cache_config, DilemmadataTargetCacheConfig
+            ):
+                raise DatasetContractError(
+                    "dataset.target_cache_invalid",
+                    "target cache requires a validated index and cache config",
+                    dataset_id=self.dataset_id,
+                )
+            try:
+                validate_dilemmadata_target_cache_index(
+                    self.target_cache_index, self.index
+                )
+            except DilemmadataTargetCacheError as exc:
+                raise DatasetContractError(
+                    exc.category,
+                    str(exc),
+                    dataset_id=self.dataset_id,
+                ) from exc
+            self._target_records = self.target_cache_index.by_identity()
+        else:
+            self._target_records = {}
+        if self.require_target_sidecars and self.target_cache_index is None:
+            raise DatasetContractError(
+                "dataset.required_target_cache_missing",
+                "required Dilemmadata target-cache index was not supplied",
+                dataset_id=self.dataset_id,
+            )
 
     @property
     def dataset_id(self) -> str:
@@ -678,10 +732,41 @@ class IndexedMultiSourceDataset(Dataset[MultiSourceSample]):
                     dataset_id=record.dataset_id,
                     piece_id=record.piece_id,
                 )
+            target_record = self._target_records.get(
+                (record.dataset_id, record.piece_id)
+            )
+            if target_record is not None:
+                assert self.target_cache_config is not None
+                bundle = load_dilemmadata_target_bundle(
+                    target_record, self.target_cache_config
+                )
+                raw_fingerprint = sample.raw_graph_fingerprint
+                sample = attach_target_bundle(sample, bundle)
+                if sample.raw_graph_fingerprint != raw_fingerprint:
+                    raise DatasetContractError(
+                        "dataset.target_attachment_changed_raw_graph",
+                        "target attachment changed the raw graph fingerprint",
+                        dataset_id=record.dataset_id,
+                        piece_id=record.piece_id,
+                    )
+            elif self.require_target_sidecars:
+                raise DatasetContractError(
+                    "dataset.required_target_sidecar_missing",
+                    "required Dilemmadata target sidecar is absent",
+                    dataset_id=record.dataset_id,
+                    piece_id=record.piece_id,
+                )
             return sample
         except DatasetContractError:
             raise
         except CorpusContractError as exc:
+            raise DatasetContractError(
+                exc.category,
+                str(exc),
+                dataset_id=record.dataset_id,
+                piece_id=record.piece_id,
+            ) from exc
+        except DilemmadataTargetCacheError as exc:
             raise DatasetContractError(
                 exc.category,
                 str(exc),

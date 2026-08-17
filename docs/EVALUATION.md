@@ -317,3 +317,23 @@ locks and final reports distinguish this from model/data access with
 `test_membership_metadata_resolved=true`, `test_inference_performed=false`,
 `test_targets_accessed=false`, and `test_metrics_accessed=false`. No test model
 forward or target/metric read is permitted before single-use authorization.
+
+## Phase 9B.2B Dilemmadata source-entry evaluation
+
+Dilemmadata evaluation calls `model.predict(raw_graph_batch)` before reading a
+target sidecar. Candidate log-probabilities belonging to one source entry are
+averaged, preserving the training denominator. Each of the four active tasks
+reports mean NLL, top-1 accuracy, macro-F1 over classes with true support
+(`supported_true_classes_v1`), weighted-F1, balanced accuracy, per-class
+precision/recall/F1/support and confusion; quality tasks additionally report
+top-3 accuracy. Zero support and zero denominators use structured undefined
+reasons. Eligible expanded rows, effective source entries, masked, conflict
+and available-unaligned counts remain explicit.
+
+Metrics are projected globally, per record and per split-atomic raw-equivalence
+component. Alternative analysis views remain separate entries. Paired
+confidence intervals resample components, never expanded candidate rows.
+Majority and empirical-prior baselines are fingerprinted train-only artifacts;
+zero train probability is reported rather than smoothed from validation/test.
+Selection defaults to validation. Test inference requires an explicit unlock
+bound to the exact test-membership fingerprint.
