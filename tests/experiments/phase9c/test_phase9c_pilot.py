@@ -11,6 +11,7 @@ import sys
 import tarfile
 
 import pytest
+from omegaconf import OmegaConf
 
 from music_critic.experiments.phase9c import (
     OPTIONAL_VARIANTS,
@@ -31,7 +32,11 @@ from music_critic.experiments.phase9c import (
 )
 from music_critic.experiments.phase9c.artifacts import read_json
 from music_critic.experiments.phase9c.contracts import validate_test_lock
-from music_critic.experiments.phase9c.runner import _ssl_command, _validation_command
+from music_critic.experiments.phase9c.runner import (
+    _downstream_command,
+    _ssl_command,
+    _validation_command,
+)
 from music_critic.ssl.data import IndexedSSLRawDataset, load_ssl_eligibility_manifest
 from music_critic.tasks import (
     CorpusCacheConfig,
@@ -44,6 +49,7 @@ from music_critic.tasks import (
     MultiCorpusDataset,
     validate_split_manifest,
 )
+from music_critic.training.engine import _validate_config
 
 
 def _fixture_index(dataset_id: str, splits: tuple[str, ...]):
@@ -355,6 +361,70 @@ def test_generated_ssl_command_composes_with_official_hydra_cli(tmp_path: Path) 
     assert "dilemmadata: 0.3333333333333333" in result.stdout
     assert "hooktheory: 0.3333333333333333" in result.stdout
     assert "pop909_cl: 0.3333333333333333" in result.stdout
+
+
+def test_generated_scratch_commands_compose_and_satisfy_transfer_contract(
+    tmp_path: Path,
+) -> None:
+    plan = build_experiment_plan({"preset": "bounded_acceptance"})
+    plan["runtime_paths"].update(
+        {
+            "downstream_raw_index": "/indices/dilemmadata.json",
+            "downstream_raw_cache_root": "/cache/dilemmadata",
+            "target_cache_index": "/indices/dilemmadata-target.json",
+            "target_cache_root": "/cache/dilemmadata-target",
+            "downstream_split_manifest": "/splits/dilemmadata.json",
+        }
+    )
+    root = tmp_path / "candidate"
+    scratch_export = (
+        root
+        / "cells"
+        / "encoder_export"
+        / "initial_scratch"
+        / "engine"
+        / "encoder.pt"
+    )
+    scratch_export.parent.mkdir(parents=True)
+    scratch_export.write_bytes(b"paired-untrained-encoder")
+
+    cells = {
+        str(cell["transfer_mode"]): cell
+        for cell in plan["downstream_cells"]
+        if cell["variant_id"] == "scratch"
+    }
+
+    def compose_and_validate(
+        cell: dict[str, object], name: str
+    ) -> dict[str, object]:
+        generated = _downstream_command(root, plan, cell, tmp_path / name)
+        command = [*generated[:3], "--cfg", "job", *generated[3:]]
+        result = subprocess.run(
+            command,
+            cwd=Path.cwd(),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        config = OmegaConf.to_container(
+            OmegaConf.create(result.stdout), resolve=True
+        )
+        assert isinstance(config, dict)
+        _validate_config(config)
+        return config
+
+    frozen = compose_and_validate(cells["scratch_frozen_probe"], "frozen")
+    assert frozen["transfer"]["mode"] == "frozen_probe"
+    assert frozen["transfer"]["encoder_export_path"] == str(scratch_export)
+    assert frozen["transfer"]["source_kind"] == "phase6_hierarchical"
+
+    full = compose_and_validate(cells["scratch_full_finetune"], "full")
+    assert full["transfer"]["mode"] == "supervised_scratch"
+    assert full["transfer"]["encoder_export_path"] == ""
+    assert full["transfer"]["encoder_export_sha256"] == ""
+    assert full["transfer"]["source_ssl_checkpoint_sha256"] == ""
 
 
 def test_profile_cli_fails_closed_when_no_candidate_passes(tmp_path: Path) -> None:

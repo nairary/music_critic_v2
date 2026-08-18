@@ -217,7 +217,18 @@
   POP909-CL records 701/0 train and 101/0 validation. It excludes the exact
   failed identity. The three-source eligibility fingerprint and Dilemmadata
   counts will be materialized on the RTX host before the next candidate.
-- Focused Phase 9C tests pass `14 passed`; the focused SSL/Phase 8B.2/Phase 9C
+- The subsequent exact-head RTX profile at
+  `527feecb4abe995d50f812f4605ab71824da9ff7` completed all three SSL cells,
+  encoder exports, and train priors, then failed immediately in
+  `downstream/scratch/frozen_probe`: Phase 9C incorrectly mapped both scratch
+  modes to official `supervised_scratch` while also binding the paired
+  untrained encoder export required by scratch-frozen. Planning now maps only
+  scratch-full to source-free `supervised_scratch`; scratch-frozen uses official
+  `frozen_probe` with the paired Phase 6 hierarchical export. Generated commands
+  for both scratch modes pass official Hydra composition and the training
+  configuration validator. The failed candidate root and profile report remain
+  preserved; production was not started and test remained closed.
+- Focused Phase 9C tests pass `15 passed`; the focused SSL/Phase 8B.2/Phase 9C
   subset passes `48 passed, 1 skipped, 1 deselected` after the unchanged
   positive-worker sandbox test is excluded; bounded public CLI plan/run/verify
   completed with 24 immutable cells and 281 verified regular files. This is

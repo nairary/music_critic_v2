@@ -847,7 +847,9 @@ def build_experiment_plan(config: Mapping[str, Any]) -> dict[str, object]:
                         f"scratch_{mode}" if variant == "scratch" else mode
                     ),
                     "engine_transfer_mode": (
-                        "supervised_scratch" if variant == "scratch" else mode
+                        "supervised_scratch"
+                        if variant == "scratch" and mode == "full_finetune"
+                        else mode
                     ),
                     "depends_on": (
                         "encoder_export/initial_scratch"
