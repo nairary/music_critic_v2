@@ -1070,6 +1070,15 @@ the same source-entry unit, train-only majority/prior baselines, separate
 record and raw-equivalence-component aggregation, and paired component
 bootstrap. Validation alone selects models; test remains explicitly locked.
 
+An opt-in post-pilot diagnostic may pass a sealed train-only class-weight
+artifact to the four categorical CE heads. Its supported inverse-square-root
+weights are derived only from source-entry class counts in the existing train
+prior artifact; unsupported train classes receive zero weight, and positive
+weights are normalized to mean one over observed train entries. The artifact is
+fingerprint-verified before training. This changes training CE only:
+validation remains the ordinary unweighted source-entry evaluation and test
+remains locked. The default Phase 9C-A protocol remains unweighted.
+
 Encoder transfer accepts Phase 7A or Phase 8B exports but loads only the local
 encoder, hierarchy pooling/Transformer and fusion tensors failure-atomically.
 Four heads and AdamW are always fresh. The immutable RTX 3090 plan fixes seeds

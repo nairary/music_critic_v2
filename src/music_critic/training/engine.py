@@ -35,6 +35,7 @@ from music_critic.models import (
     ACTIVE_TASK_IDS,
     DILEMMADATA_ACTIVE_TASK_IDS,
     DilemmadataHierarchicalModel,
+    class_weight_tensors,
     load_dilemmadata_encoder_state,
 )
 from music_critic.tasks import MultiSourceBatch
@@ -125,6 +126,25 @@ def _resolve_presets(config: dict[str, Any]) -> None:
 
 def _is_dilemmadata(config: dict[str, Any]) -> bool:
     return config["data"]["name"] == "dilemmadata"
+
+
+def _resolve_dilemmadata_class_weights(
+    config: dict[str, Any], *, device: torch.device
+) -> dict[str, torch.Tensor] | None:
+    path = config["objective"].get("class_weight_artifact_path", "")
+    if not path:
+        return None
+    if not _is_dilemmadata(config):
+        raise TrainingContractError("training.config.class_weights_non_dilemmadata")
+    try:
+        artifact = json.loads(Path(path).read_text(encoding="utf-8"))
+        weights, evidence = class_weight_tensors(artifact, device=device)
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        raise TrainingContractError(
+            "training.config.class_weight_artifact_invalid"
+        ) from exc
+    config["objective"]["class_weight_evidence"] = evidence
+    return weights
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -431,6 +451,13 @@ def _validate_config(config: dict[str, Any]) -> None:
             "training.config.objective_weights_invalid"
         )
     task_weights = config["objective"]["task_weights"]
+    class_weight_artifact_path = config["objective"].get(
+        "class_weight_artifact_path", ""
+    )
+    if not isinstance(class_weight_artifact_path, str):
+        raise TrainingContractError(
+            "training.config.class_weight_artifact_path_invalid"
+        )
     accepted_task_ids = (
         DILEMMADATA_ACTIVE_TASK_IDS
         if _is_dilemmadata(config)
@@ -470,6 +497,10 @@ def _validate_config(config: dict[str, Any]) -> None:
     ):
         raise TrainingContractError(
             "training.config.dilemmadata_hierarchical_ce_only_required"
+        )
+    if not _is_dilemmadata(config) and class_weight_artifact_path:
+        raise TrainingContractError(
+            "training.config.class_weights_non_dilemmadata"
         )
     if explicit_requested_tasks and task_weights and {
         task_id for task_id, weight in task_weights.items() if weight > 0
@@ -817,6 +848,7 @@ def _optimize_batch(
     device: torch.device,
     *,
     collect_gradient_evidence: bool,
+    categorical_class_weights: dict[str, torch.Tensor] | None = None,
 ) -> tuple[Any, dict[str, object] | None, bool]:
     optimizer.zero_grad(set_to_none=True)
     with torch.amp.autocast(
@@ -824,12 +856,14 @@ def _optimize_batch(
         enabled=bool(config["device"]["amp"]),
         dtype=_amp_dtype(config),
     ):
-        output = model(
-            batch,
-            include_reconstruction=(
+        kwargs: dict[str, object] = {
+            "include_reconstruction": (
                 config["objective"]["reconstruction_weight"] > 0
-            ),
-        )
+            )
+        }
+        if isinstance(model, DilemmadataHierarchicalModel):
+            kwargs["class_weights"] = categorical_class_weights
+        output = model(batch, **kwargs)
         harmonic, reconstruction, total = _losses(output, config)
     if total is None:
         return output, None, True
@@ -970,6 +1004,7 @@ def _prepare(
     Any,
     torch.amp.GradScaler,
     CudaMemoryStatisticsLifecycleEvidence | None,
+    dict[str, torch.Tensor] | None,
 ]:
     _validate_config(config)
     device = _resolve_device(config)
@@ -1107,6 +1142,7 @@ def _prepare(
         device.type,
         enabled=bool(config["device"]["amp"]),
     )
+    class_weights = _resolve_dilemmadata_class_weights(config, device=device)
     output = Path(config["output_dir"]).resolve()
     return (
         output,
@@ -1117,6 +1153,7 @@ def _prepare(
         scheduler,
         scaler,
         cuda_memory_lifecycle,
+        class_weights,
     )
 
 
@@ -1257,6 +1294,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         scheduler,
         scaler,
         cuda_memory_lifecycle,
+        class_weights,
     ) = _prepare(config)
     _initialize_fresh_output(
         output_dir,
@@ -1272,12 +1310,14 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
     )
     model.eval()
     with torch.no_grad():
-        initial_output = model(
-            batch,
-            include_reconstruction=(
+        initial_kwargs: dict[str, object] = {
+            "include_reconstruction": (
                 config["objective"]["reconstruction_weight"] > 0
-            ),
-        )
+            )
+        }
+        if isinstance(model, DilemmadataHierarchicalModel):
+            initial_kwargs["class_weights"] = class_weights
+        initial_output = model(batch, **initial_kwargs)
         initial_harmonic, initial_reconstruction, _ = _losses(
             initial_output, config
         )
@@ -1298,6 +1338,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
             config,
             device,
             collect_gradient_evidence=True,
+            categorical_class_weights=class_weights,
         )
         if skipped or metric is None:
             raise TrainingContractError(
@@ -1315,12 +1356,14 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
     final_logits = _eval_logits(model, batch)
     model.eval()
     with torch.no_grad():
-        final_output = model(
-            batch,
-            include_reconstruction=(
+        final_kwargs: dict[str, object] = {
+            "include_reconstruction": (
                 config["objective"]["reconstruction_weight"] > 0
-            ),
-        )
+            )
+        }
+        if isinstance(model, DilemmadataHierarchicalModel):
+            final_kwargs["class_weights"] = class_weights
+        final_output = model(batch, **final_kwargs)
         final_harmonic, final_reconstruction, final_total = _losses(
             final_output, config
         )
@@ -1750,6 +1793,7 @@ def _run_epochs(
             scheduler,
             scaler,
             cuda_memory_lifecycle,
+            class_weights,
         ) = _prepare(config)
     except Exception:
         if entry_rng is not None:
@@ -1872,6 +1916,7 @@ def _run_epochs(
                         "collect_gradient_evidence"
                     ]
                 ),
+                categorical_class_weights=class_weights,
             )
             train_accumulator.gradient_evidence_scan_count += int(
                 gradient_metric is not None

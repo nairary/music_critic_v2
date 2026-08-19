@@ -2,18 +2,24 @@
 
 ## Current phase
 
-- Date: 2026-08-18
-- Current task: Phase 9C-A executable one-seed SSL → Dilemmadata production
-  pilot on branch `phase/9c-one-seed-ssl-dilemmadata-pilot`, based exactly on
-  merged PR #24 / `origin/main` commit
-  `96b9059`
+- Date: 2026-08-19
+- Current task: Phase 9C-A post-pilot, train-only class-balanced downstream
+  diagnostic on branch `phase/9c-one-seed-ssl-dilemmadata-pilot`; this is an
+  opt-in follow-up and does not alter the completed fixed-budget pilot
 - Phase 9C-A protocol and plan: `1.1.0`; eligibility artifact, artifact,
   profile, selection and test-lock contracts: `1.0.0`; seed: 17; primary variants: scratch, Phase 7A control,
   Phase 8A mask-only, and Phase 8B multilevel-equal; observed SSL compute:
   12 encoder forwards per logical update
-- Local bounded fixture DAG is implemented and passing. Independent RTX 3090
-  profile is the next gate; production batch size/budgets remain deliberately
-  unresolved and the production pilot has not run
+- The independent RTX 3090 profile completed with recommended batch size 2.
+  The one-seed primary validation pilot completed under immutable plan
+  fingerprint `22e9f8d8b4c02fc85003a9ee56a18c66ff3f81e80cdf8974292a4b97ac7261ca`:
+  every downstream cell used `last.pt` after exactly 3,000 applied updates and
+  test access remained false
+- Validation diagnostics found majority-argmax collapse in the frozen probes.
+  The new diagnostic consumes only a sealed Dilemmadata train-prior artifact,
+  applies supported inverse-sqrt class weights only to training CE, and leaves
+  validation scoring unweighted and test locked. Its result must use a fresh
+  output root and is not a replacement for the completed pilot
 - Supervised-smoke and sealed-bundle contracts: `1.4.0`; CUDA replay diagnostic:
   `1.0.0`; Dilemmadata model contract: `1.2.0`; FP32 head/loss boundary and
   AMP policy and CUDA lifecycle evidence: `1.0.0`. Independent RTX 3090
@@ -29,9 +35,9 @@
   `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`
 - PR #24 is merged at `96b9059`; commit
   `9600a17adb7ba87e198370309db474609a44874e` is in `origin/main` ancestry
-- Next gate: independent RTX profile, followed by separate explicit selection
-  of batch size/budgets and then the one-seed primary validation pilot. Test,
-  multi-seed work, PDMX and Phase 10 remain unstarted
+- Next gate: run an explicit class-balanced downstream diagnostic before
+  deciding whether a new full one-seed matrix is justified. Test, multi-seed
+  work, PDMX and Phase 10 remain unstarted
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed

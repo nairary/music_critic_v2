@@ -244,6 +244,9 @@ def main() -> None:
     priors.add_argument("--split-manifest", type=Path, required=True)
     priors.add_argument("--batch-size", type=int, required=True)
     priors.add_argument("--output", type=Path, required=True)
+    class_weights = sub.add_parser("build-class-weights")
+    class_weights.add_argument("--train-priors", type=Path, required=True)
+    class_weights.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.operation == "bounded-cell":
         spec = json.loads(args.spec.read_text(encoding="utf-8"))
@@ -296,6 +299,38 @@ def main() -> None:
             plan, args.root, batch_size=args.batch_size
         )
         write_json_once(args.output, report)
+    elif args.operation == "build-class-weights":
+        from music_critic.models import (
+            DILEMMADATA_ACTIVE_TASK_IDS,
+            class_weight_artifact,
+        )
+        from music_critic.evaluation import validate_dilemmadata_train_priors
+
+        try:
+            priors = json.loads(args.train_priors.read_text(encoding="utf-8"))
+            validate_dilemmadata_train_priors(priors)
+            tasks = priors["tasks"]
+            counts = {
+                task_id: tuple(tasks[task_id]["class_counts"])
+                for task_id in DILEMMADATA_ACTIVE_TASK_IDS
+            }
+            membership = str(priors["train_membership_fingerprint"])
+        except (
+            OSError,
+            KeyError,
+            TypeError,
+            ValueError,
+            json.JSONDecodeError,
+        ) as exc:
+            raise SystemExit("phase9c.class_weights.train_priors_invalid") from exc
+        write_json_once(
+            args.output,
+            class_weight_artifact(
+                counts,
+                policy="inverse_sqrt_frequency_supported",
+                train_membership_fingerprint=membership,
+            ),
+        )
     else:
         from torch.utils.data import DataLoader
 

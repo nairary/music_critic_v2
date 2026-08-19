@@ -3169,3 +3169,27 @@ This log is append-only.
   raw-structural SSL-eligible population required to make the predeclared
   masking schedule executable; downstream Dilemmadata membership, budgets,
   models, objectives, checkpoints, selection, and test lock are unchanged.
+
+## 2026-08-19 — ADR-087: Post-pilot class balancing is a sealed, opt-in downstream diagnostic
+
+- Status: Accepted as a narrow Phase 9C-A follow-up after the completed
+  one-seed validation pilot; it does not revise that pilot or authorize test
+  evaluation.
+- Context: The fixed-budget validation artifacts show frozen probes with one
+  argmax class per task and severe within-task imbalance. Equal weighting of
+  the four tasks does not balance classes inside a task, so this is an
+  optimization/readout diagnostic before making a claim about SSL information.
+- Decision: Materialize a fingerprinted class-weight artifact only from the
+  sealed Dilemmadata train-prior artifact. Use
+  `inverse_sqrt_frequency_supported`: a zero-support class has weight zero and
+  every positive-support class receives inverse-square-root count weighting,
+  scaled so the mean weight of an observed train source entry is one. Reject a
+  non-train, invalid, incomplete, or fingerprint-mismatched prior/artifact.
+- Decision: The artifact is explicit and opt-in through the Dilemmadata
+  training configuration. It affects categorical training CE only; validation
+  continues to report the existing unweighted source-entry metrics, and the
+  Phase 9C test lock remains unchanged.
+- Consequences: Any class-balanced result uses a fresh output root and is a
+  diagnostic comparison, not a replacement for the immutable unweighted
+  fixed-budget pilot. Splits, datasets, model structure, SSL protocol,
+  budgets, checkpoint policy, and production artifacts remain unchanged.

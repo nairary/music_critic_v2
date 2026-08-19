@@ -31,7 +31,11 @@ from music_critic.experiments.phase9c import (
     verify_bundle,
 )
 from music_critic.experiments.phase9c.artifacts import read_json
-from music_critic.experiments.phase9c.contracts import validate_test_lock
+from music_critic.experiments.phase9c.contracts import (
+    fingerprint,
+    validate_test_lock,
+)
+from music_critic.evaluation import DILEMMADATA_TRAIN_PRIOR_CONTRACT_VERSION
 from music_critic.experiments.phase9c.runner import (
     _downstream_command,
     _ssl_command,
@@ -49,6 +53,8 @@ from music_critic.tasks import (
     MultiCorpusDataset,
     validate_split_manifest,
 )
+from music_critic.models import DILEMMADATA_ACTIVE_TASK_IDS
+from music_critic.tasks import DILEMMADATA_TARGET_ENCODING_BY_TASK
 from music_critic.training.engine import _validate_config
 
 
@@ -145,6 +151,73 @@ def _cached_fixture_index(
         creation_policy=base.header.creation_policy,
         records=tuple(records),
     )
+
+
+def test_train_only_class_weight_worker_emits_zero_safe_artifact(
+    tmp_path: Path,
+) -> None:
+    prior_payload = {
+        "contract_version": DILEMMADATA_TRAIN_PRIOR_CONTRACT_VERSION,
+        "source_split": "train_only",
+        "train_membership_fingerprint": "a" * 64,
+        "tasks": {
+            task_id: {
+                "class_counts": [
+                    0 if index == 0 else index
+                    for index, _ in enumerate(
+                        DILEMMADATA_TARGET_ENCODING_BY_TASK[task_id].vocabulary
+                    )
+                ]
+            }
+            for task_id in DILEMMADATA_ACTIVE_TASK_IDS
+        },
+    }
+    priors = {**prior_payload, "fingerprint": fingerprint(prior_payload)}
+    source = tmp_path / "train_priors.json"
+    output = tmp_path / "class_weights.json"
+    source.write_text(json.dumps(priors), encoding="utf-8")
+    process = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "music_critic.experiments.phase9c.worker",
+            "build-class-weights",
+            "--train-priors",
+            str(source),
+            "--output",
+            str(output),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert process.returncode == 0, process.stderr
+    artifact = json.loads(output.read_text(encoding="utf-8"))
+    assert artifact["policy"] == "inverse_sqrt_frequency_supported"
+    assert artifact["source_split"] == "train_only"
+    assert all(
+        weights[0] == 0.0 for weights in artifact["weights"].values()
+    )
+
+    priors["source_split"] = "validation"
+    source.write_text(json.dumps(priors), encoding="utf-8")
+    rejected = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "music_critic.experiments.phase9c.worker",
+            "build-class-weights",
+            "--train-priors",
+            str(source),
+            "--output",
+            str(tmp_path / "rejected.json"),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert rejected.returncode != 0
+    assert "phase9c.class_weights.train_priors_invalid" in rejected.stderr
 
 
 def test_ssl_manifest_composition_preserves_assignments_and_holdouts(tmp_path: Path) -> None:

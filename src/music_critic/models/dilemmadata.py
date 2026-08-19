@@ -608,7 +608,12 @@ def _is_sha256_text(value: object) -> bool:
 def class_weight_artifact(
     counts: Mapping[str, tuple[int, ...]],
     *,
-    policy: Literal["unweighted", "inverse_frequency", "inverse_sqrt_frequency"],
+    policy: Literal[
+        "unweighted",
+        "inverse_frequency",
+        "inverse_sqrt_frequency",
+        "inverse_sqrt_frequency_supported",
+    ],
     train_membership_fingerprint: str,
 ) -> dict[str, object]:
     """Create a train-only fingerprinted optional class-weight ablation."""
@@ -617,6 +622,7 @@ def class_weight_artifact(
         "unweighted",
         "inverse_frequency",
         "inverse_sqrt_frequency",
+        "inverse_sqrt_frequency_supported",
     } or set(counts) != set(DILEMMADATA_ACTIVE_TASK_IDS):
         raise ValueError("dilemmadata.class_weights.config_invalid")
     weights: dict[str, list[float]] = {}
@@ -624,15 +630,29 @@ def class_weight_artifact(
         values = counts[task_id]
         if len(values) != len(
             DILEMMADATA_TARGET_ENCODING_BY_TASK[task_id].vocabulary or ()
-        ) or any(isinstance(value, bool) or value < 0 for value in values):
+        ) or any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in values
+        ):
             raise ValueError("dilemmadata.class_weights.counts_invalid")
         if policy == "unweighted":
             weights[task_id] = [1.0 for _ in values]
         else:
-            if any(value == 0 for value in values):
+            if (
+                policy != "inverse_sqrt_frequency_supported"
+                and any(value == 0 for value in values)
+            ):
                 raise ValueError("dilemmadata.class_weights.zero_train_support")
             power = -1.0 if policy == "inverse_frequency" else -0.5
-            weights[task_id] = [float(value) ** power for value in values]
+            raw = [0.0 if value == 0 else float(value) ** power for value in values]
+            if policy == "inverse_sqrt_frequency_supported":
+                scale = sum(values) / sum(
+                    count * weight
+                    for count, weight in zip(values, raw, strict=True)
+                )
+                weights[task_id] = [weight * scale for weight in raw]
+            else:
+                weights[task_id] = raw
     artifact = {
         "contract_version": DILEMMADATA_CLASS_WEIGHT_CONTRACT_VERSION,
         "policy": policy,
@@ -654,6 +674,83 @@ def class_weight_artifact(
     }
 
 
+def class_weight_tensors(
+    artifact: Mapping[str, object], *, device: torch.device
+) -> tuple[dict[str, Tensor], dict[str, object]]:
+    """Validate a fingerprinted train-only artifact and materialize FP32 CE weights."""
+
+    payload = dict(artifact)
+    observed = payload.pop("fingerprint", None)
+    expected = sha256(
+        json.dumps(
+            payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8")
+    ).hexdigest()
+    if (
+        observed != expected
+        or payload.get("contract_version")
+        != DILEMMADATA_CLASS_WEIGHT_CONTRACT_VERSION
+        or payload.get("policy")
+        not in {
+            "unweighted",
+            "inverse_frequency",
+            "inverse_sqrt_frequency",
+            "inverse_sqrt_frequency_supported",
+        }
+        or payload.get("source_split") != "train_only"
+        or not _is_sha256_text(payload.get("train_membership_fingerprint"))
+        or set(payload.get("class_counts", {})) != set(DILEMMADATA_ACTIVE_TASK_IDS)
+        or set(payload.get("weights", {})) != set(DILEMMADATA_ACTIVE_TASK_IDS)
+    ):
+        raise ValueError("dilemmadata.class_weights.artifact_invalid")
+    tensors: dict[str, Tensor] = {}
+    for task_id in DILEMMADATA_ACTIVE_TASK_IDS:
+        counts = payload["class_counts"][task_id]
+        weights = payload["weights"][task_id]
+        expected_width = len(
+            DILEMMADATA_TARGET_ENCODING_BY_TASK[task_id].vocabulary or ()
+        )
+        if (
+            not isinstance(counts, list)
+            or not isinstance(weights, list)
+            or len(counts) != expected_width
+            or len(weights) != expected_width
+            or any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in counts)
+            or any(
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or value < 0
+                for value in weights
+            )
+        ):
+            raise ValueError("dilemmadata.class_weights.artifact_invalid")
+        tensors[task_id] = torch.tensor(weights, dtype=torch.float32, device=device)
+    try:
+        expected_artifact = class_weight_artifact(
+            {
+                task_id: tuple(payload["class_counts"][task_id])
+                for task_id in DILEMMADATA_ACTIVE_TASK_IDS
+            },
+            policy=payload["policy"],
+            train_membership_fingerprint=payload["train_membership_fingerprint"],
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError("dilemmadata.class_weights.artifact_invalid") from exc
+    if dict(artifact) != expected_artifact:
+        raise ValueError("dilemmadata.class_weights.artifact_invalid")
+    evidence = {
+        "contract_version": DILEMMADATA_CLASS_WEIGHT_CONTRACT_VERSION,
+        "policy": payload["policy"],
+        "source_split": "train_only",
+        "train_membership_fingerprint": payload["train_membership_fingerprint"],
+        "artifact_fingerprint": observed,
+        "class_counts": payload["class_counts"],
+        "weights": payload["weights"],
+    }
+    return tensors, evidence
+
+
 __all__ = [
     "DILEMMADATA_ACTIVE_TASK_IDS",
     "DILEMMADATA_CLASS_WEIGHT_CONTRACT_VERSION",
@@ -673,6 +770,7 @@ __all__ = [
     "DilemmadataTaskHeadSpec",
     "aggregate_dilemmadata_source_entry_losses",
     "class_weight_artifact",
+    "class_weight_tensors",
     "dilemmadata_model_contract_dict",
     "dilemmadata_model_contract_fingerprint",
     "dilemmadata_task_head_specs",
