@@ -53,6 +53,7 @@ def _all_cells(plan: Mapping[str, Any]) -> list[dict[str, object]]:
         *plan["ssl_cells"],
         *plan["encoder_export_cells"],
         *plan["train_prior_cells"],
+        *plan.get("class_weight_cells", []),
         *plan["downstream_cells"],
         *plan["validation_cells"],
     ]
@@ -60,7 +61,11 @@ def _all_cells(plan: Mapping[str, Any]) -> list[dict[str, object]]:
 
 def _dependency_complete(root: Path, plan: Mapping[str, Any], cell: Mapping[str, object]) -> None:
     dependency = cell.get("depends_on")
-    dependencies = [dependency, cell.get("prior_dependency")]
+    dependencies = [
+        dependency,
+        cell.get("prior_dependency"),
+        cell.get("class_weight_dependency"),
+    ]
     for current in dependencies:
         if current is None:
             continue
@@ -211,13 +216,35 @@ def _downstream_command(
     paths = plan["runtime_paths"]
     variant = str(cell["variant_id"])
     engine_mode = str(cell["engine_transfer_mode"])
+    reference = cell.get("reference_encoder_export")
     dependency = cell.get("depends_on")
-    encoder_path = None if dependency is None else _cell_directory(root, str(dependency)) / "engine" / "encoder.pt"
-    source_checkpoint = (
-        encoder_path
-        if variant == "scratch"
-        else _cell_directory(root, f"ssl/{variant}") / "engine" / "last.pt"
-    )
+    if reference is not None:
+        if not isinstance(reference, Mapping):
+            raise Phase9CContractError("phase9c.runner.reference_ssl_invalid")
+        encoder_path = (
+            Path(str(reference["encoder_export_path"]))
+            if variant != "scratch" or engine_mode == "frozen_probe"
+            else None
+        )
+        source_checkpoint = Path(str(reference["source_ssl_checkpoint_path"]))
+        expected_export = str(reference["encoder_export_sha256"])
+        expected_checkpoint = str(reference["source_ssl_checkpoint_sha256"])
+        if (
+            (encoder_path is not None and file_sha256(encoder_path) != expected_export)
+            or file_sha256(source_checkpoint) != expected_checkpoint
+        ):
+            raise Phase9CContractError("phase9c.runner.reference_ssl_changed")
+    else:
+        encoder_path = (
+            None
+            if dependency is None
+            else _cell_directory(root, str(dependency)) / "engine" / "encoder.pt"
+        )
+        source_checkpoint = (
+            encoder_path
+            if variant == "scratch"
+            else _cell_directory(root, f"ssl/{variant}") / "engine" / "last.pt"
+        )
     logical_updates = int(preset["downstream_epochs"]) * int(preset["downstream_steps_per_epoch"])
     task_weights = ",".join(f"{task}:1.0" for task in protocol["task_ids"])
     command = [
@@ -262,14 +289,26 @@ def _downstream_command(
         "downstream_task_ids=" + _hydra_list(list(protocol["task_ids"])),
     ]
     if encoder_path is not None:
+        source_kind = cell.get("source_kind")
+        if source_kind is None:
+            source_kind = _source_kind(plan, variant)
         command.extend(
             [
                 f"transfer.encoder_export_path={encoder_path}",
                 f"transfer.encoder_export_sha256={file_sha256(encoder_path)}",
                 f"transfer.source_ssl_checkpoint_sha256={file_sha256(source_checkpoint)}",
-                f"transfer.source_kind={_source_kind(plan, variant)}",
+                "transfer.source_kind=" + str(source_kind),
             ]
         )
+    class_weight_dependency = cell.get("class_weight_dependency")
+    if class_weight_dependency is not None:
+        class_weight_path = (
+            _cell_directory(root, str(class_weight_dependency))
+            / "class_weights.json"
+        )
+        if not class_weight_path.is_file():
+            raise Phase9CContractError("phase9c.runner.class_weights_missing")
+        command.append(f"objective.class_weight_artifact_path={class_weight_path}")
     return command
 
 
@@ -296,6 +335,23 @@ def _train_prior_command(
         str(plan["protocol"]["preset"]["batch_size"]),
         "--output",
         str(staging / "train_priors.json"),
+    ]
+
+
+def _class_weight_command(
+    root: Path, cell: Mapping[str, object], staging: Path
+) -> list[str]:
+    if cell.get("policy") != "inverse_sqrt_frequency_supported":
+        raise Phase9CContractError("phase9c.runner.class_weight_policy_invalid")
+    return [
+        sys.executable,
+        "-m",
+        "music_critic.experiments.phase9c.worker",
+        "build-class-weights",
+        "--train-priors",
+        str(_cell_directory(root, "train_priors/dilemmadata") / "train_priors.json"),
+        "--output",
+        str(staging / "class_weights.json"),
     ]
 
 
@@ -396,6 +452,8 @@ def _production_cell_command(
         return _downstream_command(root, plan, cell, staging)
     if kind == "train_priors":
         return _train_prior_command(plan, staging)
+    if kind == "class_weights":
+        return _class_weight_command(root, cell, staging)
     if kind == "validation":
         return _validation_command(root, plan, cell, staging)
     raise Phase9CContractError("phase9c.runner.cell_kind_unknown")

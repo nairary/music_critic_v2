@@ -1079,6 +1079,14 @@ fingerprint-verified before training. This changes training CE only:
 validation remains the ordinary unweighted source-entry evaluation and test
 remains locked. The default Phase 9C-A protocol remains unweighted.
 
+The class-balanced diagnostic may reuse encoder exports from the completed
+unweighted pilot rather than repeating SSL. Before any downstream cell starts,
+the new plan binds the original data projection, seed, primary-variant list,
+SSL update budget, batch size, encoder-export hashes, and SSL checkpoint
+hashes. A missing or changed source artifact fails closed. It still creates
+fresh heads, optimizer, scheduler, scaler, train priors, weights, downstream
+`last.pt` checkpoints, and validation reports in a new output root.
+
 Encoder transfer accepts Phase 7A or Phase 8B exports but loads only the local
 encoder, hierarchy pooling/Transformer and fusion tensors failure-atomically.
 Four heads and AdamW are always fresh. The immutable RTX 3090 plan fixes seeds

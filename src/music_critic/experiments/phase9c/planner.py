@@ -386,6 +386,78 @@ def _file_sha256(path: str) -> str:
     return digest.hexdigest()
 
 
+def _reference_ssl_evidence(
+    root: str,
+    *,
+    data_projection: Mapping[str, object],
+    preset: Mapping[str, object],
+) -> dict[str, object]:
+    """Bind immutable encoder exports from the completed unweighted pilot."""
+
+    source_root = Path(root).resolve()
+    try:
+        source_plan = json.loads(
+            (source_root / "experiment_plan.json").read_text(encoding="utf-8")
+        )
+        source_protocol = json.loads(
+            (source_root / "protocol.json").read_text(encoding="utf-8")
+        )
+        source_projection = json.loads(
+            (source_root / "data_semantic_projection.json").read_text(
+                encoding="utf-8"
+            )
+        )
+    except (OSError, json.JSONDecodeError) as exc:
+        raise Phase9CContractError("phase9c.plan.reference_ssl_invalid") from exc
+    source_plan_payload = dict(source_plan)
+    source_plan_fingerprint = source_plan_payload.pop("fingerprint", None)
+    source_protocol_payload = dict(source_protocol)
+    source_protocol_fingerprint = source_protocol_payload.pop("fingerprint", None)
+    if (
+        source_plan_fingerprint != fingerprint(source_plan_payload)
+        or source_protocol_fingerprint != fingerprint(source_protocol_payload)
+        or source_plan.get("protocol") != source_protocol
+        or source_projection != data_projection
+        or source_protocol.get("seed") != PHASE9C_SEED
+        or source_protocol.get("executed_variants") != list(PRIMARY_VARIANTS)
+        or source_protocol.get("compute", {}).get("ssl_logical_updates")
+        != preset["ssl_updates"]
+        or source_protocol.get("compute", {}).get("batch_size")
+        != preset["batch_size"]
+    ):
+        raise Phase9CContractError("phase9c.plan.reference_ssl_incompatible")
+    exports: dict[str, dict[str, str]] = {}
+    for variant in PRIMARY_VARIANTS:
+        export_path = (
+            source_root
+            / "cells"
+            / "encoder_export"
+            / ("initial_scratch" if variant == "scratch" else variant)
+            / "engine"
+            / "encoder.pt"
+        )
+        checkpoint_path = (
+            export_path
+            if variant == "scratch"
+            else source_root / "cells" / "ssl" / variant / "engine" / "last.pt"
+        )
+        if not export_path.is_file() or not checkpoint_path.is_file():
+            raise Phase9CContractError("phase9c.plan.reference_ssl_artifact_missing")
+        exports[variant] = {
+            "encoder_export_path": str(export_path),
+            "encoder_export_sha256": _file_sha256(str(export_path)),
+            "source_ssl_checkpoint_path": str(checkpoint_path),
+            "source_ssl_checkpoint_sha256": _file_sha256(str(checkpoint_path)),
+        }
+    return {
+        "mode": "reuse_immutable_encoder_exports",
+        "source_root": str(source_root),
+        "source_protocol_fingerprint": source_protocol_fingerprint,
+        "source_plan_fingerprint": source_plan_fingerprint,
+        "exports": exports,
+    }
+
+
 def _bounded_identities() -> tuple[dict[str, tuple[str, ...]], tuple[str, ...]]:
     ssl = {
         dataset_id: tuple(f"{dataset_id}:fixture:{index}" for index in range(4))
@@ -652,6 +724,18 @@ def build_experiment_plan(config: Mapping[str, Any]) -> dict[str, object]:
         }
         runtime_paths = {}
 
+    class_weight_policy = str(
+        config.get("downstream_class_weight_policy", "unweighted")
+    )
+    if class_weight_policy not in {
+        "unweighted",
+        "inverse_sqrt_frequency_supported",
+    }:
+        raise Phase9CContractError("phase9c.plan.class_weight_policy_invalid")
+    reference_root = str(config.get("reference_ssl_root", ""))
+    if reference_root and (not production or class_weight_policy == "unweighted"):
+        raise Phase9CContractError("phase9c.plan.reference_ssl_config_invalid")
+
     batch_size = preset.batch_size or 1
     ssl_updates = preset.ssl_updates or 1
     downstream_epochs = preset.downstream_epochs or 1
@@ -721,6 +805,15 @@ def build_experiment_plan(config: Mapping[str, Any]) -> dict[str, object]:
             downstream_epochs * downstream_steps * batch_size,
             derive_seed(PHASE9C_SEED, "phase9c/downstream_data_order"),
         )
+    reference_ssl = (
+        _reference_ssl_evidence(
+            reference_root,
+            data_projection=data_projection,
+            preset=preset.to_dict(),
+        )
+        if reference_root
+        else None
+    )
     domains = SeedDomains.create(PHASE9C_SEED)
     ssl_variants = tuple(variant for variant in preset.variants if variant != "scratch")
     variant_schedules = {
@@ -784,7 +877,17 @@ def build_experiment_plan(config: Mapping[str, Any]) -> dict[str, object]:
             "grad_scaler_initial_scale": 16384,
             "scheduler_after_applied_update_only": True,
             "positive_unlabeled_and_open_string_heads": False,
+            "class_weighting": {
+                "policy": class_weight_policy,
+                "source": (
+                    "sealed_train_priors" if class_weight_policy != "unweighted"
+                    else "none"
+                ),
+                "applies_to": "training_categorical_ce_only",
+                "validation_unweighted": True,
+            },
         },
+        "reference_ssl": reference_ssl,
         "selection": {
             "split": "validation",
             "comparison_metric": "mean_task_nll_div_log_class_count",
@@ -806,7 +909,7 @@ def build_experiment_plan(config: Mapping[str, Any]) -> dict[str, object]:
     protocol = {**protocol_payload, "fingerprint": fingerprint(protocol_payload)}
     validate_protocol(protocol)
 
-    ssl_cells = [
+    ssl_cells = [] if reference_ssl is not None else [
         {
             "cell_id": f"ssl/{variant}",
             "variant_id": variant,
@@ -815,7 +918,7 @@ def build_experiment_plan(config: Mapping[str, Any]) -> dict[str, object]:
         }
         for variant in ssl_variants
     ]
-    export_cells = [
+    export_cells = [] if reference_ssl is not None else [
         {
             "cell_id": "encoder_export/initial_scratch",
             "variant_id": "scratch",
@@ -852,9 +955,41 @@ def build_experiment_plan(config: Mapping[str, Any]) -> dict[str, object]:
                         else mode
                     ),
                     "depends_on": (
-                        "encoder_export/initial_scratch"
-                        if variant == "scratch" and mode == "frozen_probe"
-                        else (None if variant == "scratch" else f"encoder_export/{variant}")
+                        None
+                        if reference_ssl is not None
+                        else (
+                            "encoder_export/initial_scratch"
+                            if variant == "scratch" and mode == "frozen_probe"
+                            else (
+                                None
+                                if variant == "scratch"
+                                else f"encoder_export/{variant}"
+                            )
+                        )
+                    ),
+                    **(
+                        {
+                            "reference_encoder_export": reference_ssl[
+                                "exports"
+                            ][variant],
+                            "source_kind": (
+                                "phase6_hierarchical"
+                                if variant == "scratch"
+                                else (
+                                    "phase7a_ssl"
+                                    if variant
+                                    in {"phase7a_control", "phase8a_mask_only"}
+                                    else "phase8b_multilevel_ssl"
+                                )
+                            ),
+                        }
+                        if reference_ssl is not None
+                        else {}
+                    ),
+                    **(
+                        {"class_weight_dependency": "class_weights/dilemmadata"}
+                        if class_weight_policy != "unweighted"
+                        else {}
                     ),
                     "sample_schedule_fingerprint": downstream_schedule["engine_schedule_fingerprint"],
                     "fresh_head_fingerprint": protocol["paired_initialization"]["fresh_head_fingerprint"],
@@ -895,6 +1030,18 @@ def build_experiment_plan(config: Mapping[str, Any]) -> dict[str, object]:
                 "depends_on": None,
             }
         ],
+        "class_weight_cells": (
+            [
+                {
+                    "cell_id": "class_weights/dilemmadata",
+                    "depends_on": "train_priors/dilemmadata",
+                    "policy": class_weight_policy,
+                    "source": "sealed_train_priors",
+                }
+            ]
+            if class_weight_policy != "unweighted"
+            else []
+        ),
         "validation_cells": validation_cells,
         "profile_candidates": list(config.get("profile_batch_candidates", [1, 2, 3, 4, 6, 8])),
         "profile_report_path": str(config.get("profile_report_path", "")),

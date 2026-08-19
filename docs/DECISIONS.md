@@ -3193,3 +3193,21 @@ This log is append-only.
   diagnostic comparison, not a replacement for the immutable unweighted
   fixed-budget pilot. Splits, datasets, model structure, SSL protocol,
   budgets, checkpoint policy, and production artifacts remain unchanged.
+
+## 2026-08-19 — ADR-088: Class-balanced diagnostic reuses only hash-bound SSL exports
+
+- Status: Accepted for the pending class-balanced downstream diagnostic.
+- Context: Repeating the three completed SSL cells would add substantial GPU
+  time while answering no new class-balancing question. Reuse is safe only if
+  it cannot silently substitute another data view, seed, budget, encoder
+  export, or SSL checkpoint.
+- Decision: The diagnostic may omit new SSL/export cells only when it binds a
+  completed pilot root with identical data projection, seed, primary variants,
+  SSL update budget, and batch size. The plan records SHA-256 values for every
+  reused encoder export and source SSL checkpoint; the runner rechecks them
+  before each downstream command. Any mismatch or missing artifact fails
+  closed.
+- Consequences: The diagnostic still starts fresh Dilemmadata heads, optimizer,
+  scheduler, scaler, train prior, class-weight artifact, downstream fixed-
+  budget `last.pt`, validation, and bootstrap artifacts under a new root. It
+  does not resume or mutate the completed pilot, and it does not unlock test.

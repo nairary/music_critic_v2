@@ -246,6 +246,16 @@ def validate_protocol(protocol: Mapping[str, Any]) -> None:
         is not False
         or payload.get("compute", {}).get("encoder_forwards_per_logical_update")
         != PHASE9C_ENCODER_FORWARDS_PER_UPDATE
+        or payload.get("supervised", {}).get("class_weighting", {}).get("policy")
+        not in {"unweighted", "inverse_sqrt_frequency_supported"}
+        or payload.get("supervised", {}).get("class_weighting", {}).get(
+            "applies_to"
+        )
+        != "training_categorical_ce_only"
+        or payload.get("supervised", {}).get("class_weighting", {}).get(
+            "validation_unweighted"
+        )
+        is not True
     ):
         raise Phase9CContractError("phase9c.protocol.invalid")
     validate_test_lock(payload.get("test_lock", {}))

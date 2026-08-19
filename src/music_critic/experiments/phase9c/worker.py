@@ -194,6 +194,27 @@ def _run_cell(spec: dict[str, object], output: Path) -> None:
             "tasks": tasks,
         }
         write_json_once(output / "train_priors.json", {**payload, "fingerprint": fingerprint(payload)})
+    elif kind == "class_weights":
+        from music_critic.models import DILEMMADATA_ACTIVE_TASK_IDS, class_weight_artifact
+        from music_critic.tasks import DILEMMADATA_TARGET_ENCODING_BY_TASK
+
+        counts = {
+            task_id: tuple(
+                1
+                for _ in DILEMMADATA_TARGET_ENCODING_BY_TASK[
+                    task_id
+                ].vocabulary
+            )
+            for task_id in DILEMMADATA_ACTIVE_TASK_IDS
+        }
+        write_json_once(
+            output / "class_weights.json",
+            class_weight_artifact(
+                counts,
+                policy="inverse_sqrt_frequency_supported",
+                train_membership_fingerprint=fingerprint({"fixture": "train"}),
+            ),
+        )
     elif kind == "validation":
         write_json_once(output / "validation_report.json", _task_report(variant, str(spec["transfer_mode"])))
     else:

@@ -35,9 +35,10 @@
   `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`
 - PR #24 is merged at `96b9059`; commit
   `9600a17adb7ba87e198370309db474609a44874e` is in `origin/main` ancestry
-- Next gate: run an explicit class-balanced downstream diagnostic before
-  deciding whether a new full one-seed matrix is justified. Test, multi-seed
-  work, PDMX and Phase 10 remain unstarted
+- Next gate: run the explicit class-balanced downstream diagnostic with
+  hash-bound reuse of the completed pilot's encoder exports, before deciding
+  whether a new full one-seed matrix is justified. Test, multi-seed work, PDMX
+  and Phase 10 remain unstarted
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed

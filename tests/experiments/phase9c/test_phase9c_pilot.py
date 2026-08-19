@@ -31,6 +31,7 @@ from music_critic.experiments.phase9c import (
     verify_bundle,
 )
 from music_critic.experiments.phase9c.artifacts import read_json
+from music_critic.experiments.phase9c.planner import _reference_ssl_evidence
 from music_critic.experiments.phase9c.contracts import (
     fingerprint,
     validate_test_lock,
@@ -218,6 +219,108 @@ def test_train_only_class_weight_worker_emits_zero_safe_artifact(
     )
     assert rejected.returncode != 0
     assert "phase9c.class_weights.train_priors_invalid" in rejected.stderr
+
+
+def test_class_balanced_diagnostic_binds_train_weights_before_downstream(
+    tmp_path: Path,
+) -> None:
+    plan = build_experiment_plan(
+        {
+            "preset": "bounded_acceptance",
+            "downstream_class_weight_policy": "inverse_sqrt_frequency_supported",
+        }
+    )
+    assert plan["ssl_cells"]
+    assert plan["class_weight_cells"] == [
+        {
+            "cell_id": "class_weights/dilemmadata",
+            "depends_on": "train_priors/dilemmadata",
+            "policy": "inverse_sqrt_frequency_supported",
+            "source": "sealed_train_priors",
+        }
+    ]
+    assert all(
+        cell["class_weight_dependency"] == "class_weights/dilemmadata"
+        for cell in plan["downstream_cells"]
+    )
+    root = tmp_path / "diagnostic"
+    result = execute_experiment(root, plan, action="run")
+    assert result["status"] == "complete"
+    assert (root / "cells" / "class_weights" / "dilemmadata" / "class_weights.json").is_file()
+    assert read_json(root / "selection_report.json")["test_access"] is False
+
+    scratch_full = next(
+        cell
+        for cell in plan["downstream_cells"]
+        if cell["cell_id"] == "downstream/scratch/full_finetune"
+    )
+    plan["runtime_paths"] = {
+        "downstream_raw_index": "/indices/dilemmadata.json",
+        "downstream_raw_cache_root": "/cache/dilemmadata",
+        "target_cache_index": "/indices/dilemmadata-target.json",
+        "target_cache_root": "/cache/dilemmadata-target",
+        "downstream_split_manifest": "/splits/dilemmadata.json",
+    }
+    command = _downstream_command(root, plan, scratch_full, tmp_path / "staging")
+    assert (
+        "objective.class_weight_artifact_path="
+        + str(
+            root
+            / "cells"
+            / "class_weights"
+            / "dilemmadata"
+            / "class_weights.json"
+        )
+    ) in command
+
+
+def test_reference_ssl_exports_are_hash_bound_and_data_compatible(
+    tmp_path: Path,
+) -> None:
+    plan = build_experiment_plan({"preset": "bounded_acceptance"})
+    source = tmp_path / "completed-pilot"
+    source.mkdir()
+    protocol = plan["protocol"]
+    (source / "protocol.json").write_text(json.dumps(protocol), encoding="utf-8")
+    source_plan_payload = {"protocol": protocol}
+    (source / "experiment_plan.json").write_text(
+        json.dumps(
+            {**source_plan_payload, "fingerprint": fingerprint(source_plan_payload)}
+        ),
+        encoding="utf-8",
+    )
+    (source / "data_semantic_projection.json").write_text(
+        json.dumps(plan["data_semantic_projection"]), encoding="utf-8"
+    )
+    for variant in PRIMARY_VARIANTS:
+        export = (
+            source
+            / "cells"
+            / "encoder_export"
+            / ("initial_scratch" if variant == "scratch" else variant)
+            / "engine"
+            / "encoder.pt"
+        )
+        export.parent.mkdir(parents=True, exist_ok=True)
+        export.write_bytes(variant.encode("utf-8"))
+        if variant != "scratch":
+            checkpoint = source / "cells" / "ssl" / variant / "engine" / "last.pt"
+            checkpoint.parent.mkdir(parents=True, exist_ok=True)
+            checkpoint.write_bytes((variant + "-checkpoint").encode("utf-8"))
+    evidence = _reference_ssl_evidence(
+        str(source),
+        data_projection=plan["data_semantic_projection"],
+        preset=protocol["preset"],
+    )
+    assert evidence["mode"] == "reuse_immutable_encoder_exports"
+    assert set(evidence["exports"]) == set(PRIMARY_VARIANTS)
+    (source / "data_semantic_projection.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(Phase9CContractError, match="reference_ssl_incompatible"):
+        _reference_ssl_evidence(
+            str(source),
+            data_projection=plan["data_semantic_projection"],
+            preset=protocol["preset"],
+        )
 
 
 def test_ssl_manifest_composition_preserves_assignments_and_holdouts(tmp_path: Path) -> None:

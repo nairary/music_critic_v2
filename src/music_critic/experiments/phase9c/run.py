@@ -35,6 +35,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--bootstrap-replicates", type=int)
     parser.add_argument("--profile-batch-candidates", type=int, nargs="+")
     parser.add_argument("--profile-report-path")
+    parser.add_argument(
+        "--downstream-class-weight-policy",
+        choices=("unweighted", "inverse_sqrt_frequency_supported"),
+    )
+    parser.add_argument("--reference-ssl-root")
     parser.add_argument("--ssl-index-paths", nargs="+")
     parser.add_argument("--ssl-cache-roots", nargs="+")
     parser.add_argument("--ssl-split-manifest")
@@ -64,6 +69,8 @@ def _config(arguments: argparse.Namespace) -> dict[str, Any]:
         "bootstrap_replicates",
         "profile_batch_candidates",
         "profile_report_path",
+        "downstream_class_weight_policy",
+        "reference_ssl_root",
     ):
         observed = getattr(arguments, name)
         if observed is not None:
