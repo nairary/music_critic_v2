@@ -545,3 +545,41 @@ The Phase 9B.2C `1.1.0` preflight accepts a target index only after complete
 source-free semantic/artifact validation. Its observed exact fingerprint is
 stored in checkpoint data bindings and must match on reload/resume; semantic
 equivalence does not permit switching physical indexes within a run.
+
+## Phase 9C-A one-seed training orchestration
+
+The official entry point is:
+
+```bash
+.venv/bin/python -m music_critic.experiments.phase9c.run ACTION \
+  --config CONFIG.json --output-root OUTPUT
+```
+
+The `one_seed_primary_pilot` preset fixes seed 17 and excludes optional
+single-level ablations. Production `ssl_updates`, downstream epochs/steps, and
+batch size must be explicit; they have no default before RTX profiling.
+`profile` and `run` are deliberately separate actions.
+
+SSL uses an equal-weight target-blind train-only mixture of HookTheory,
+POP909-CL, and Dilemmadata. It records actual identities, source counts,
+uniques/repeats, attempted/applied/skipped updates, policy views, and observed
+encoder forwards. Twelve actual encoder forwards per logical update—not
+optimizer-step count—define the primary compute match.
+
+The common SSL split manifest is created deterministically from the existing
+HookTheory+POP909-CL and Dilemmadata manifests. Source assignments are retained
+exactly, the result is validated against all three indices, and Dilemmadata
+validation/test membership is explicitly disjoint from SSL train.
+
+Downstream cells retain the four-task source-entry objective and Phase 9B.2C
+FP32/GradScaler boundary. Frozen probes exclude every encoder parameter from
+the optimizer and require bit-exact final tensors. Full fine-tunes require
+finite encoder gradients and a changed encoder fingerprint. All heads,
+optimizers, schedulers, and scalers are newly constructed. Checkpoint/resume is
+epoch-boundary and cell publication is failure-atomic.
+All comparison cells must finish the same number of applied optimizer updates.
+Only the resulting `last.pt` is evaluated; validation compares final fixed-
+budget checkpoints and performs no between-epoch checkpoint selection.
+
+See `PHASE9C_ONE_SEED_SSL_DILEMMADATA_PILOT.md` for paths, presets, RTX
+commands, and claim boundaries.

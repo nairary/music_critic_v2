@@ -795,6 +795,7 @@ class DatasetView(Dataset[MultiSourceSample]):
         *,
         split: str,
         global_index_fingerprints: tuple[tuple[str, str], ...] | None = None,
+        included_identities: frozenset[tuple[str, str]] | None = None,
         _token: object | None = None,
     ) -> None:
         if _token is not _DATASET_VIEW_TOKEN:
@@ -820,6 +821,10 @@ class DatasetView(Dataset[MultiSourceSample]):
             index
             for index, record in enumerate(dataset.index.records)
             if by_key[_record_key(record)] == split
+            and (
+                included_identities is None
+                or _record_key(record) in included_identities
+            )
         )
         self.selected_record_identities = tuple(
             _record_key(dataset.index.records[index])
@@ -877,6 +882,7 @@ class MultiCorpusDataset(Dataset[MultiSourceSample]):
         manifest: SplitManifest,
         *,
         split: str,
+        included_identities: frozenset[tuple[str, str]] | None = None,
     ) -> None:
         if not datasets:
             raise DatasetContractError(
@@ -907,6 +913,7 @@ class MultiCorpusDataset(Dataset[MultiSourceSample]):
                 manifest,
                 split=split,
                 global_index_fingerprints=constituent_fingerprints,
+                included_identities=included_identities,
                 _token=_DATASET_VIEW_TOKEN,
             )
             for dataset in ordered_datasets

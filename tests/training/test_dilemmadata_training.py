@@ -6,7 +6,8 @@ from hydra import compose, initialize
 import pytest
 import torch
 
-from music_critic.models import DILEMMADATA_ACTIVE_TASK_IDS
+from music_critic.models import DILEMMADATA_ACTIVE_TASK_IDS, class_weight_artifact
+from music_critic.tasks import DILEMMADATA_TARGET_ENCODING_BY_TASK
 from music_critic.training.config import register_training_configs
 from music_critic.training.data import DataRuntime, ValidationMembership
 from music_critic.training.engine import run_training
@@ -93,6 +94,57 @@ def test_dilemmadata_one_batch_updates_heads_encoder_and_reloads_exactly(
     assert report["phase8b2_transfer"]["ssl_heads_transferred"] is False
     assert set(report["candidate_counts"]) == set(DILEMMADATA_ACTIVE_TASK_IDS)
     assert report["fingerprints"]["target_cache_index_fingerprint"] == "t" * 64
+
+
+def test_dilemmadata_one_batch_accepts_train_only_class_weight_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = _runtime()
+    monkeypatch.setattr(
+        training_engine, "build_data_runtime", lambda config, seed: runtime
+    )
+    artifact = class_weight_artifact(
+        {
+            task_id: tuple(
+                0 if index == 0 else index
+                for index, _ in enumerate(
+                    DILEMMADATA_TARGET_ENCODING_BY_TASK[task_id].vocabulary
+                )
+            )
+            for task_id in DILEMMADATA_ACTIVE_TASK_IDS
+        },
+        policy="inverse_sqrt_frequency_supported",
+        train_membership_fingerprint="a" * 64,
+    )
+    artifact_path = tmp_path / "class_weights.json"
+    import json
+
+    artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+    config = _compose(
+        "experiment=dilemmadata_one_batch",
+        "model=hierarchical",
+        "data=dilemmadata",
+        "device=cpu",
+        "model.hidden_dim=16",
+        "model.local_gnn_layers=1",
+        "model.transformer_layers=1",
+        "model.attention_heads=4",
+        "model.ffn_multiplier=2",
+        "model.dropout=0",
+        "experiment.steps=2",
+        "optimizer.learning_rate=0.02",
+        f"objective.class_weight_artifact_path={artifact_path}",
+        f"output_dir={tmp_path / 'output'}",
+    )
+    report = run_training(config)
+    assert report["checkpoint_reload_bit_exact"] is True
+    resolved = json.loads((tmp_path / "output" / "resolved_config.json").read_text())
+    assert resolved["objective"]["class_weight_evidence"]["source_split"] == "train_only"
+    assert resolved["objective"]["class_weight_evidence"]["amp_loss_scaling"] == {
+        "initial_scale": 1.0,
+        "growth_interval": 2**31 - 1,
+        "reason": "rare_class_gradient_overflow_prevention",
+    }
 
 
 def test_dilemmadata_epoch_checkpoint_resume_is_bit_exact(

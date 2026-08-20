@@ -399,3 +399,22 @@ production cache, model, loss, checkpoint, and evaluation contracts. They
 continue to reject theory-bearing model inputs, target-dependent candidate
 generation, source conversion inside training, float timing, missing-as-
 negative labels, and test access before an explicit later authorization.
+
+## Phase 9C-A one-seed production pilot
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or used for Phase 9C-A. No legacy sampling, SSL, transfer,
+training, evaluation, checkpoint, resume, plotting, or selection logic was
+reused. The pilot composes only accepted current-V2 Phase 8B.2 and Phase 9B.2
+boundaries. Legacy theory-bearing inputs, float timing, gold semantic topology,
+missing-as-negative labels, corruption score interpretation, and observer
+distillation remain rejected.
+
+The pre-RTX blocking correction also opened and reused no legacy file or logic.
+Exact-assignment split composition and fixed-update `last.pt` comparison derive
+only from current V2 split, training-report, checkpoint, and evaluation
+evidence.
+
+The RTX-profile Hydra runtime remediation likewise opened, imported, and reused
+no legacy file or logic. It changes only current-V2 Hydra override syntax and
+fail-closed profile process/report handling.

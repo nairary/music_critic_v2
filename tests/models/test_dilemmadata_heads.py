@@ -16,6 +16,7 @@ from music_critic.models import (
     TaskSupervision,
     aggregate_dilemmadata_source_entry_losses,
     class_weight_artifact,
+    class_weight_tensors,
     load_dilemmadata_encoder_state,
 )
 from music_critic.tasks import collate_multisource_samples
@@ -395,3 +396,30 @@ def test_optional_class_weights_are_train_only_and_fingerprinted() -> None:
             policy="unweighted",
             train_membership_fingerprint="validation",
         )
+
+
+def test_supported_inverse_sqrt_weights_are_train_only_and_zero_safe() -> None:
+    counts = {
+        task_id: tuple(
+            0 if index == 0 else index
+            for index, _ in enumerate(
+                DILEMMADATA_TARGET_ENCODING_BY_TASK[task_id].vocabulary
+            )
+        )
+        for task_id in DILEMMADATA_ACTIVE_TASK_IDS
+    }
+    artifact = class_weight_artifact(
+        counts,
+        policy="inverse_sqrt_frequency_supported",
+        train_membership_fingerprint="a" * 64,
+    )
+    tensors, evidence = class_weight_tensors(artifact, device=torch.device("cpu"))
+    assert evidence["source_split"] == "train_only"
+    for task_id, values in tensors.items():
+        assert values.dtype == torch.float32
+        assert float(values[0]) == 0.0
+        counts_tensor = torch.tensor(counts[task_id], dtype=torch.float32)
+        assert torch.isclose((counts_tensor * values).sum() / counts_tensor.sum(), torch.tensor(1.0))
+    artifact["weights"][DILEMMADATA_ACTIVE_TASK_IDS[0]][1] = -1.0
+    with pytest.raises(ValueError, match="artifact_invalid"):
+        class_weight_tensors(artifact, device=torch.device("cpu"))

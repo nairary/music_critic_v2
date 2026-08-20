@@ -2,11 +2,37 @@
 
 ## Current phase
 
-- Date: 2026-08-17
-- Current task: Phase 9B.2C executable Dilemmadata supervised RTX smoke and
-  experiment readiness on branch `phase/9b2c-executable-supervised-smoke`,
-  based exactly on merged PR #23 / `origin/main` commit
-  `c2dc5f16ea1ea73f0c336fabcd22c586d9c38f82`
+- Date: 2026-08-20
+- Current task: documentation-only post-Phase 9C model proposal on branch
+  `phase/9c-one-seed-ssl-dilemmadata-pilot`. The discussion draft is in
+  [`POST_PHASE9C_MODEL_PROPOSAL.md`](POST_PHASE9C_MODEL_PROPOSAL.md); it changes
+  no accepted architecture, roadmap phase, contract, or experiment protocol
+- The opt-in train-only class-balanced downstream diagnostic completed on an
+  independent RTX 3090 using hash-bound reuse of the pilot encoder exports.
+  All downstream and validation cells completed, final reports and the bundle
+  were published, production training is no longer active, and test access
+  remained false. It is diagnostic evidence and does not replace the completed
+  fixed-budget pilot
+- Phase 9C-A protocol and plan: `1.1.0`; eligibility artifact, artifact,
+  profile, selection and test-lock contracts: `1.0.0`; seed: 17; primary variants: scratch, Phase 7A control,
+  Phase 8A mask-only, and Phase 8B multilevel-equal; observed SSL compute:
+  12 encoder forwards per logical update
+- The independent RTX 3090 profile completed with recommended batch size 2.
+  The one-seed primary validation pilot completed under immutable plan
+  fingerprint `22e9f8d8b4c02fc85003a9ee56a18c66ff3f81e80cdf8974292a4b97ac7261ca`:
+  every downstream cell used `last.pt` after exactly 3,000 applied updates and
+  test access remained false
+- Validation diagnostics found majority-argmax collapse in the frozen probes.
+  The completed follow-up consumed only a sealed Dilemmadata train-prior
+  artifact, applied supported inverse-sqrt class weights only to training CE,
+  and left validation scoring unweighted and test locked. Class weighting
+  improved scratch full-fine-tune macro-F1 but did not resolve the generally
+  weak downstream result; the SSL full-fine-tune normalized-NLL differences
+  were small and their paired bootstrap intervals crossed zero
+- The class-balanced diagnostic fixes AMP loss scale at one without growth:
+  this preserves the weighted CE while preventing rare-class gradients from
+  overflowing FP16 before clipping during full fine-tune. Unweighted runs
+  retain their previous AMP behavior
 - Supervised-smoke and sealed-bundle contracts: `1.4.0`; CUDA replay diagnostic:
   `1.0.0`; Dilemmadata model contract: `1.2.0`; FP32 head/loss boundary and
   AMP policy and CUDA lifecycle evidence: `1.0.0`. Independent RTX 3090
@@ -20,9 +46,13 @@
   and all their versions remain unchanged
 - Phase 9A full-corpus semantic fingerprint:
   `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`
-- Next gate: run and verify the committed bounded smoke on an independent RTX
-  3090. Long scratch-versus-SSL training, Phase 9C, PDMX and Phase 10 remain
-  unstarted
+- PR #24 is merged at `96b9059`; commit
+  `9600a17adb7ba87e198370309db474609a44874e` is in `origin/main` ancestry
+- Next gate: review the non-authoritative post-Phase 9C proposal before
+  accepting any implementation scope. Its recommended order is a tiny-subset
+  supervised trainability gate, then isolated transposition, temporal-readout,
+  and multi-task-fusion ablations, and only then another controlled SSL
+  comparison. Test, multi-seed work, PDMX and Phase 10 remain unstarted
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
@@ -151,6 +181,83 @@
   selection/statistics/compute contracts: `1.1.0`; CUDA memory-statistics
   lifecycle: `1.0.0`; data semantic projection: `1.0.0`; evaluation
   piece-sufficient-statistics output: `1.3.0`
+
+## Phase 9C-A executable one-seed pilot control plane
+
+- Added official `plan/profile/run/resume/aggregate/select/verify` actions and
+  presets `bounded_acceptance`, `rtx_profile`, `one_seed_primary_pilot`, and
+  `one_seed_full_ablation`.
+- The default primary matrix fixes seed 17 and scratch, Phase 7A control,
+  Phase 8A mask-only, and multilevel-equal. Onset/beat/bar/track variants are
+  supported only by the explicit full-ablation preset.
+- SSL planning is target-blind over train-only HookTheory, POP909-CL, and
+  Dilemmadata with equal default weights, deterministic shuffled cycles,
+  source counts/unique/repeats, one paired identity schedule, and 12 declared
+  and observed encoder forwards per logical update.
+- The common SSL split manifest is deterministically composed from the existing
+  HookTheory+POP909-CL and Dilemmadata manifests without changing any source
+  assignment. It is validated against all three indices and fails closed if
+  Dilemmadata validation/test intersects SSL train.
+- Downstream planning validates the 577/71/71 record and 565/71/71 component
+  split, creates scratch/pretrained frozen and full cells with paired fresh
+  heads, preserves the four-task source-entry loss and FP32/GradScaler policy,
+  and keeps test inference/targets/metrics/unlock/full identities false.
+- Every downstream comparison uses `last.pt` after the same fully applied
+  optimizer-update budget. Validation compares those final checkpoints using
+  the predeclared mean four-task `NLL/log(class_count)` metric; no between-epoch
+  checkpoint selection is claimed. Component bootstrap compares each SSL
+  variant with scratch in the same transfer mode and excludes optimization-seed
+  uncertainty.
+- Every cell stages and atomically publishes an immutable SHA-bound directory.
+  Resume rejects binding drift. The final bundle includes configs, JSONL
+  metrics, compute/checkpoint/transfer/validation evidence, tables, curve data,
+  dependency-free PNG plots, claim boundaries and a corruption-safe manifest;
+  unsafe tar members fail verification.
+- The standalone runner requires exact clean HEAD, RTX 3090 `cuda:0`, explicit
+  profile or run action, preserves failed roots, logs once, verifies the bundle
+  independently, and creates a tar plus SHA sidecar. Profile batch candidates
+  execute in separate short-DAG subprocesses; profile never starts production.
+- RTX profile at exact head
+  `bebc7d96688b3b68c2eb94f5829541416a97220f` failed before SSL execution:
+  Hydra rejected the new structured `dilemmadata` mixture key in a non-append
+  override. The generated command now uses the official accepted
+  `+data.mixture_weights={...}` form. A no-candidate profile returns nonzero,
+  prints no completion marker, and preserves candidate roots plus report.
+- The next exact-head RTX attempt passed Hydra composition but failed during
+  initial validation of `ssl/phase8a_mask_only` with
+  `phase8a.hierarchy.no_available_policy:78c952...`. The hash reproduces
+  exactly for HookTheory `piece:hooktheory-ANmpQBZngyM`, which has zero raw
+  notes. Phase 9C now materializes an immutable raw-only structural eligibility
+  view requiring at least two raw notes in at least two canonical bars and
+  applies it identically to every SSL train schedule and validation membership.
+  Indices and source split assignments remain unchanged; no fallback policy or
+  replacement sample is introduced. The Phase 9C-only `data=phase9c_mixed`
+  group leaves historical `data=mixed` configs unchanged.
+- A local complete HookTheory+POP909-CL metadata scan records HookTheory
+  eligible/excluded train counts 19,143/1,850 and validation counts 2,328/249;
+  POP909-CL records 701/0 train and 101/0 validation. It excludes the exact
+  failed identity. The three-source eligibility fingerprint and Dilemmadata
+  counts will be materialized on the RTX host before the next candidate.
+- The subsequent exact-head RTX profile at
+  `527feecb4abe995d50f812f4605ab71824da9ff7` completed all three SSL cells,
+  encoder exports, and train priors, then failed immediately in
+  `downstream/scratch/frozen_probe`: Phase 9C incorrectly mapped both scratch
+  modes to official `supervised_scratch` while also binding the paired
+  untrained encoder export required by scratch-frozen. Planning now maps only
+  scratch-full to source-free `supervised_scratch`; scratch-frozen uses official
+  `frozen_probe` with the paired Phase 6 hierarchical export. Generated commands
+  for both scratch modes pass official Hydra composition and the training
+  configuration validator. The failed candidate root and profile report remain
+  preserved; production was not started and test remained closed.
+- Focused Phase 9C tests pass `15 passed`; the focused SSL/Phase 8B.2/Phase 9C
+  subset passes `48 passed, 1 skipped, 1 deselected` after the unchanged
+  positive-worker sandbox test is excluded; bounded public CLI plan/run/verify
+  completed with 24 immutable cells and 281 verified regular files. This is
+  fixture mechanics evidence only. The failed profile is diagnostic evidence,
+  not a completed profile; the production pilot was not run.
+- Legacy was not opened or used. No cache/checkpoint/historical evidence was
+  changed or deleted. PDMX, Phase 10, test evaluation, critic/quality scoring,
+  and multi-seed production work remain out of scope.
 
 ## Phase 9B.2C executable supervised smoke
 

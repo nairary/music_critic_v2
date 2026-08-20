@@ -3081,3 +3081,138 @@ This log is append-only.
   not publish hardware evidence. Model, target, raw/cache/grouping/split/graph/
   model-input contracts and fingerprints remain unchanged; no rebuild, audit,
   long training, Phase 9C, PDMX, or Phase 10 is authorized.
+
+## 2026-08-17 — ADR-084: Phase 9C-A is a one-seed validation-only production pilot
+
+- Status: Accepted for executable control-plane implementation; independent
+  RTX profile and production pilot execution remain pending.
+- Context: Phase 8B.2 supplies compute-matched SSL mechanics and Phase 9B.2
+  supplies safe four-head Dilemmadata supervision, but the earlier comparison
+  contracts did not execute the requested three-source SSL → Dilemmadata
+  one-seed matrix or fix its normalized validation selection rule.
+- Decision: Add `Phase9CProtocol@1.0.0` and artifact/plan/profile/selection/test-
+  lock contracts `1.0.0`. Fix seed 17, primary variants scratch, Phase 7A,
+  Phase 8A mask-only and Phase 8B multilevel-equal, with optional single-level
+  variants excluded by default. Pair initialization and sample schedules and
+  require 12 observed encoder forwards per SSL logical update.
+- Decision: SSL uses only train raw graphs from HookTheory, POP909-CL, and
+  Dilemmadata under equal source weights and deterministic no-replacement
+  cycles. Downstream uses the complete 577/71 train/validation records and
+  keeps all 71 test records locked. Select by mean `NLL/log(class_count)` over
+  the four tasks, with macro-F1/NLL/epoch/identity tie breakers fixed before
+  results. Component bootstrap expresses validation-sample uncertainty only.
+- Decision: Production budgets and batch size are unset until a per-candidate
+  subprocess RTX profile. Profile never starts production automatically.
+  Cells stage and publish atomically, completed cells are immutable, and the
+  final regular-file bundle is independently SHA-256 verified.
+- Consequences: This adds no new data, graph, model, target, head, loss, or
+  checkpoint semantics. Bounded fixture results are mechanics evidence only.
+  Test evaluation, multi-seed claims, PDMX/Phase 10, PLL, and critic/quality
+  work remain unauthorized.
+
+## 2026-08-17 — ADR-085: Phase 9C-A composes existing splits and compares fixed-budget final checkpoints
+
+- Status: Accepted; narrows and corrects ADR-084 before production execution.
+- Context: The initial control plane required a prebuilt three-source SSL
+  manifest and evaluated downstream `best.pt`, while its prose implied a
+  normalized-NLL selection rule that the training path did not implement.
+- Decision: Deterministically compose the existing HookTheory+POP909-CL and
+  Dilemmadata manifests without repartitioning. Preserve every source
+  assignment exactly, validate the result against all three indices, and reject
+  any Dilemmadata validation/test membership in SSL train.
+- Decision: Train every downstream configuration for the same number of fully
+  applied optimizer updates and compare only the resulting `last.pt` on the
+  complete validation split. Normalized NLL is a final-checkpoint comparison
+  metric, not a between-epoch checkpoint-selection policy. Test remains locked.
+- Consequences: No data/model/target/checkpoint-container contract changes and
+  no production execution. A skipped update, assignment drift, manifest/index
+  mismatch, destination conflict, or non-`last.pt` comparison fails closed.
+
+## 2026-08-18 — ADR-086: Phase 9C-A binds a raw-only structural SSL eligibility view
+
+- Status: Accepted as the minimal production-runtime remediation before a new
+  independent RTX profile. Production execution remains pending.
+- Context: Exact head `2ee853f7dc025b4dedb51817e878682182140604`
+  composed Hydra successfully, then failed in the initial validation pass of
+  `ssl/phase8a_mask_only`. The exact exception fingerprint resolves to
+  HookTheory `piece:hooktheory-ANmpQBZngyM`, whose raw graph has zero note
+  nodes. A fixed hierarchy-policy pass cannot mask that graph while leaving a
+  pitched note visible. Silent policy fallback, replacement sampling, masking
+  all notes, or treating the record as an applied objective would violate the
+  accepted Phase 8A/8B.2 contracts.
+- Decision: Preserve every corpus-index record and every source split
+  assignment exactly. Materialize a separate immutable
+  `phase9c-ssl-eligibility@1.0.0` raw-only identity view, bound to all index and
+  split-manifest fingerprints. A record is eligible for the common paired SSL
+  population only when it contains at least two raw notes occupying at least
+  two canonical bars. This is the structural intersection needed by the
+  scheduled independent, onset, beat, contiguous-bar, and track/bar policies;
+  it reads no target sidecar and uses no label, mask, theory, provenance, or
+  confidence value.
+- Decision: Apply the same eligibility identities to train sampling, fixed SSL
+  validation membership, metadata schedule attestation, and every SSL variant.
+  Equal source weights and deterministic no-replacement cycles operate over
+  each source's eligible train view. Excluded records retain their original
+  train/validation assignment and remain available to unrelated data paths;
+  no record is repartitioned and Dilemmadata validation/test remain excluded
+  from SSL train.
+- Decision: Expose the view only through the new `data=phase9c_mixed` Hydra
+  group. Existing Phase 7/8 `data=mixed` resolved configs and checkpoint data
+  fingerprints remain unchanged. Advance only `Phase9CProtocol` and
+  `Phase9CPlan` to `1.1.0`; the new eligibility artifact starts at `1.0.0`.
+- Consequences: The original failed candidate root and report remain negative
+  evidence. A local full HookTheory+POP909-CL scan found 19,143/2,328 eligible
+  and 1,850/249 excluded train/validation HookTheory records, plus 701/101
+  eligible and zero excluded POP909-CL train/validation records. Production
+  Dilemmadata counts and the final three-source fingerprint are materialized
+  on the RTX host before candidate subprocesses. This changes only the
+  raw-structural SSL-eligible population required to make the predeclared
+  masking schedule executable; downstream Dilemmadata membership, budgets,
+  models, objectives, checkpoints, selection, and test lock are unchanged.
+
+## 2026-08-19 — ADR-087: Post-pilot class balancing is a sealed, opt-in downstream diagnostic
+
+- Status: Accepted as a narrow Phase 9C-A follow-up after the completed
+  one-seed validation pilot; it does not revise that pilot or authorize test
+  evaluation.
+- Context: The fixed-budget validation artifacts show frozen probes with one
+  argmax class per task and severe within-task imbalance. Equal weighting of
+  the four tasks does not balance classes inside a task, so this is an
+  optimization/readout diagnostic before making a claim about SSL information.
+- Decision: Materialize a fingerprinted class-weight artifact only from the
+  sealed Dilemmadata train-prior artifact. Use
+  `inverse_sqrt_frequency_supported`: a zero-support class has weight zero and
+  every positive-support class receives inverse-square-root count weighting,
+  scaled so the mean weight of an observed train source entry is one. Reject a
+  non-train, invalid, incomplete, or fingerprint-mismatched prior/artifact.
+- Decision: The artifact is explicit and opt-in through the Dilemmadata
+  training configuration. It affects categorical training CE only; validation
+  continues to report the existing unweighted source-entry metrics, and the
+  Phase 9C test lock remains unchanged.
+- Decision: For the class-balanced diagnostic only, use AMP loss scale one
+  without growth. This changes no weighted-loss value or optimizer update: it
+  prevents a rare-class gradient from overflowing FP16 after loss scaling and
+  before the existing fail-closed clipping check. The unweighted protocol
+  retains its existing AMP behavior.
+- Consequences: Any class-balanced result uses a fresh output root and is a
+  diagnostic comparison, not a replacement for the immutable unweighted
+  fixed-budget pilot. Splits, datasets, model structure, SSL protocol,
+  budgets, checkpoint policy, and production artifacts remain unchanged.
+
+## 2026-08-19 — ADR-088: Class-balanced diagnostic reuses only hash-bound SSL exports
+
+- Status: Accepted for the pending class-balanced downstream diagnostic.
+- Context: Repeating the three completed SSL cells would add substantial GPU
+  time while answering no new class-balancing question. Reuse is safe only if
+  it cannot silently substitute another data view, seed, budget, encoder
+  export, or SSL checkpoint.
+- Decision: The diagnostic may omit new SSL/export cells only when it binds a
+  completed pilot root with identical data projection, seed, primary variants,
+  SSL update budget, and batch size. The plan records SHA-256 values for every
+  reused encoder export and source SSL checkpoint; the runner rechecks them
+  before each downstream command. Any mismatch or missing artifact fails
+  closed.
+- Consequences: The diagnostic still starts fresh Dilemmadata heads, optimizer,
+  scheduler, scaler, train prior, class-weight artifact, downstream fixed-
+  budget `last.pt`, validation, and bootstrap artifacts under a new root. It
+  does not resume or mutate the completed pilot, and it does not unlock test.

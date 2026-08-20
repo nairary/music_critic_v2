@@ -66,13 +66,20 @@ target-independent cache identity, group-safe splits, and an SSL-ready loader
 while keeping canonical targets and annotations empty. Runtime policies and
 discovered records fail closed, and full-corpus readiness is checked against a
 committed production manifest after two independent source builds. Adaptive SSL,
-corruption training, preference training, PLL, theory sidecars/heads, and
-deployable scoring inference are not implemented yet.
+corruption training, preference training, PLL, and deployable scoring inference
+are not implemented yet. Phase 9B.2 adds external target sidecars and exactly
+four safe Dilemmadata quality/inversion heads, source-entry training/evaluation,
+and the bounded RTX hardware gate. Phase 9C-A adds the executable seed-17
+scratch/Phase-7A/Phase-8A/multilevel-equal validation pilot control plane with
+profiling, exact-assignment three-source split composition, fixed-update
+`last.pt` comparison, immutable resume, encoder-only transfer, component
+bootstrap, and a locked test split. Its production RTX profile and pilot remain
+pending.
 Phase 7A reconstruction is SSL representation plumbing only: it is not a
 masked-note likelihood, PLL, critic, quality score, or full-scale effectiveness
 claim. Phase 8A is not completion of Phase 8; comparative multi-level
-objectives remain Phase 8B, Dilemmadata theory remains Phase 9B.2, and
-PDMX-scale SSL evaluation remains Phase 10.
+objectives are Phase 8B, the one-seed Dilemmadata validation pilot is Phase
+9C-A, and PDMX-scale SSL evaluation remains Phase 10.
 
 ## Layout
 

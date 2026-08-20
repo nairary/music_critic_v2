@@ -86,6 +86,9 @@ class ObjectiveConfig:
     harmonic_weight: float | None = None
     reconstruction_weight: float | None = None
     task_weights: dict[str, float] = field(default_factory=dict)
+    # Dilemmadata-only train-split class weighting is opt-in so existing
+    # protocols keep their historical unweighted CE semantics.
+    class_weight_artifact_path: str = ""
 
 
 @dataclass

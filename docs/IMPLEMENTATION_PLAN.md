@@ -3344,6 +3344,44 @@ Independent RTX execution
 is still required before the draft PR may become ready. This is mechanics
 evidence only and starts neither long training nor Phase 9C/PDMX/Phase 10.
 
+### Phase 9C-A executable one-seed SSL → Dilemmadata pilot
+
+Phase 9C-A composes the accepted Phase 8B.2 compute-matched SSL path with the
+Phase 9B.2 Dilemmadata trainer and evaluator. Its official CLI supports
+`plan`, `profile`, `run`, `resume`, `aggregate`, `select`, and `verify`.
+The primary seed-17 matrix is scratch, Phase 7A control, Phase 8A mask-only,
+and Phase 8B multilevel-equal, each with separate frozen-probe and full-
+fine-tune results. Onset/beat/bar/track latent variants are explicit optional
+ablations only.
+
+SSL uses target-blind train graphs from HookTheory, POP909-CL, and
+Dilemmadata with equal default source weights, deterministic shuffled cycles,
+and one variant-independent schedule. The common SSL split manifest is composed
+deterministically from the existing HookTheory+POP909-CL and Dilemmadata
+manifests without changing any assignment, then validated against all three
+indices with Dilemmadata validation/test excluded from SSL train. The primary
+compute unit is the observed
+encoder forward, fixed at 12 per logical update. Downstream uses all 577 train
+records and the fixed complete 71-record validation split; the 71-record test
+split stays locked and has no batch, inference, target, metric, unlock, or full
+identity serialization in this phase.
+
+Every downstream configuration is compared at `last.pt` after the same number
+of applied optimizer updates. Validation compares these final checkpoints; it
+does not perform normalized-NLL selection between epochs. The comparison score
+is the unweighted mean of each task's source-entry NLL divided by
+`log(class_count)`. Component bootstrap
+measures validation-sample uncertainty only and production presets use at
+least 1,000 replicates.
+
+Production batch size and budgets are intentionally unresolved until a
+failure-atomic, per-candidate RTX profile. The committed bounded synthetic DAG
+exercises the complete control plane without long training. Exact commands,
+artifacts, isolation rules, and claim boundaries are in
+[`PHASE9C_ONE_SEED_SSL_DILEMMADATA_PILOT.md`](PHASE9C_ONE_SEED_SSL_DILEMMADATA_PILOT.md).
+No production pilot, test evaluation, PDMX, Phase 10, critic/quality work, or
+multi-seed claim is part of this implementation change.
+
 ## Phase 10. PDMX adapter and scalable cache
 
 ### Implement

@@ -660,6 +660,30 @@ The model and training phases remain pending.
   raw-MIDI inference requires none of staff, voice, spelling, `step`, `alter`,
   or `tpc`, and no release split separates a transitive source component.
 
+### Phase 9C-A — executable one-seed SSL → Dilemmadata pilot
+
+- Status: implemented as an executable production control plane; bounded
+  fixture acceptance is local, while independent RTX profile and the actual
+  one-seed pilot remain pending.
+- Goal: compare scratch, Phase 7A control, Phase 8A mask-only, and Phase 8B
+  multilevel-equal under seed 17, paired schedules/initialization, and 12
+  observed encoder forwards per logical SSL update.
+- Outputs: `plan/profile/run/resume/aggregate/select/verify`, target-blind
+  three-source SSL mixture with exact-assignment composition of the two existing
+  split manifests, an immutable raw-structural eligibility view shared by all
+  SSL variants without repartitioning, encoder-only transfer, scratch/pretrained frozen probes and
+  full fine-tunes, fixed-update `last.pt` comparison on the 71-record validation,
+  component bootstrap,
+  immutable test lock, resumable cells, bundle verifier, plots/tables, and a
+  standalone exact-clean-HEAD RTX 3090 runner.
+- Optional: onset/beat/bar/track latent ablations are runner-supported but
+  excluded from the primary preset.
+- Non-goals: production execution inside this change, test evaluation,
+  multi-seed inference, PDMX/Phase 10, critic/quality score, or superiority
+  claims.
+- Next gate: independent RTX profile; production batch size and budgets are
+  selected explicitly from that artifact before a separate pilot `run`.
+
 ## Phase 10 — PDMX adapter and large-scale SSL cache
 
 - Goal: support scalable role-agnostic public-domain score pretraining and

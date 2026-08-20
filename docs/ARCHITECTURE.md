@@ -1070,6 +1070,29 @@ the same source-entry unit, train-only majority/prior baselines, separate
 record and raw-equivalence-component aggregation, and paired component
 bootstrap. Validation alone selects models; test remains explicitly locked.
 
+An opt-in post-pilot diagnostic may pass a sealed train-only class-weight
+artifact to the four categorical CE heads. Its supported inverse-square-root
+weights are derived only from source-entry class counts in the existing train
+prior artifact; unsupported train classes receive zero weight, and positive
+weights are normalized to mean one over observed train entries. The artifact is
+fingerprint-verified before training. This changes training CE only:
+validation remains the ordinary unweighted source-entry evaluation and test
+remains locked. The default Phase 9C-A protocol remains unweighted.
+
+For this diagnostic only, AMP loss scaling is fixed at one (without growth).
+Rare-class weights can otherwise overflow an FP16 encoder gradient after loss
+scaling but before clipping; unit scaling preserves the exact weighted loss and
+the fixed-update fail-closed rule. The ordinary unweighted protocol retains its
+existing GradScaler behavior.
+
+The class-balanced diagnostic may reuse encoder exports from the completed
+unweighted pilot rather than repeating SSL. Before any downstream cell starts,
+the new plan binds the original data projection, seed, primary-variant list,
+SSL update budget, batch size, encoder-export hashes, and SSL checkpoint
+hashes. A missing or changed source artifact fails closed. It still creates
+fresh heads, optimizer, scheduler, scaler, train priors, weights, downstream
+`last.pt` checkpoints, and validation reports in a new output root.
+
 Encoder transfer accepts Phase 7A or Phase 8B exports but loads only the local
 encoder, hierarchy pooling/Transformer and fusion tensors failure-atomically.
 Four heads and AdamW are always fresh. The immutable RTX 3090 plan fixes seeds
@@ -1121,6 +1144,59 @@ bytes may retain a constant process/workspace residue but may not grow across
 measured passes. End/peak allocated and reserved bytes are recorded without a
 global live-tensor claim, and the standalone runner process exit releases the
 CUDA context.
+
+## Phase 9C-A experiment-control boundary
+
+`music_critic.experiments.phase9c` is a control plane over existing engines,
+not a new encoder, trainer, evaluator, cache, or target implementation:
+
+```text
+existing HookTheory+POP909-CL and Dilemmadata split manifests
+  -> exact-assignment common manifest validated against three raw indices
+  -> immutable raw-structural SSL eligibility view
+  -> three train-only eligible raw views
+  -> deterministic source-balanced SSL schedule
+  -> Phase 8B 12-forward matched SSL cell
+  -> encoder-only export
+  -> fresh Dilemmadata model and four heads
+  -> frozen probe or full fine-tune
+  -> fixed-update `last.pt`
+  -> complete fixed validation comparison
+  -> component bootstrap
+```
+
+The manifest composition never repartitions records and rejects any assignment
+drift or Dilemmadata validation/test membership in SSL train. The protocol binds
+one seed (17), initial encoder/head seed domains, dataset
+mixture and actual sample schedules, observed compute, optimizer/scheduler/AMP
+policy, downstream budget, fixed `last.pt` policy, fixed membership, and test lock. Scratch-frozen
+uses an export of the paired untrained hierarchical encoder; scratch-full uses
+the same initialization seed without transfer. Pretrained cells load only the
+accepted encoder prefixes. Every optimizer, scheduler, scaler, and four-head
+set is fresh.
+
+The Phase 9C-only eligibility view is fingerprint-bound to the unchanged
+indices and composed split manifest. It admits records with at least two raw
+notes in at least two canonical bars, the common structural minimum for every
+scheduled control/hierarchy policy. It is applied identically to train
+sampling and SSL validation for every variant. Excluded identities retain
+their source split assignments; the view uses no targets or theory fields and
+does not silently substitute a mask policy or replacement sample. Historical
+`data=mixed` behavior is unchanged; only `data=phase9c_mixed` consumes this
+view.
+
+Each DAG cell executes in a staging directory and is published by atomic
+rename with a content manifest. Resume rechecks the protocol and cell
+fingerprints; completed cells cannot be rewritten. RTX batch candidates run in
+separate short-DAG subprocesses so OOM cleanup is process exit. The later
+production run consumes, but cannot mutate, a separately reviewed profile
+report and requires explicit budgets.
+
+The test lock is independent of ordinary evaluator acknowledgements. Phase
+9C-A never creates a test action and its other seven actions cannot build test
+batches or access test targets/metrics. This control-plane addition changes no
+canonical, raw projection, graph, cache, split, target, model, head, loss, or
+checkpoint-container contract.
 
 ## Incremental research scope
 

@@ -338,7 +338,9 @@ def build_dilemmadata_train_priors(
     return _with_fingerprint(artifact)
 
 
-def _validate_priors(priors: Mapping[str, object]) -> None:
+def validate_dilemmadata_train_priors(priors: Mapping[str, object]) -> None:
+    """Fail closed unless a train-prior artifact has its sealed provenance."""
+
     payload = dict(priors)
     fingerprint = payload.pop("fingerprint", None)
     if (
@@ -346,6 +348,7 @@ def _validate_priors(priors: Mapping[str, object]) -> None:
         or payload.get("contract_version")
         != DILEMMADATA_TRAIN_PRIOR_CONTRACT_VERSION
         or payload.get("source_split") != "train_only"
+        or not _is_sha256(payload.get("train_membership_fingerprint"))
         or set(payload.get("tasks", {})) != set(DILEMMADATA_ACTIVE_TASK_IDS)
     ):
         raise DilemmadataEvaluationError(
@@ -397,7 +400,7 @@ def evaluate_dilemmadata_model(
 ) -> dict[str, object]:
     _validate_split_lock(split, membership_fingerprint, test_unlock)
     if train_priors is not None:
-        _validate_priors(train_priors)
+        validate_dilemmadata_train_priors(train_priors)
     model.eval()
     rows: list[dict[str, object]] = []
     alignment_counts: dict[str, Counter[str]] = {
@@ -608,4 +611,5 @@ __all__ = [
     "evaluate_dilemmadata_model",
     "make_dilemmadata_test_unlock",
     "paired_component_bootstrap",
+    "validate_dilemmadata_train_priors",
 ]

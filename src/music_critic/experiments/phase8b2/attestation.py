@@ -21,7 +21,11 @@ from music_critic.experiments.phase8b2.schedule import (
     SCHEDULE_CONTRACT_VERSION,
     SeedDomains,
 )
-from music_critic.ssl.data import IndexedSSLRawDataset, build_ssl_data_runtime
+from music_critic.ssl.data import (
+    IndexedSSLRawDataset,
+    build_ssl_data_runtime,
+    load_ssl_eligibility_manifest,
+)
 from music_critic.tasks import (
     CorpusCacheConfig,
     DeterministicQuotaSampler,
@@ -439,7 +443,43 @@ def _production_metadata_schedule(
         )
     )
     manifest = load_split_manifest(data["split_manifest"])
-    train = MultiCorpusDataset(datasets, manifest, split="train")
+    eligibility_path = str(data.get("ssl_eligibility_manifest", ""))
+    included_identities = None
+    if eligibility_path:
+        included_identities, evidence = load_ssl_eligibility_manifest(
+            eligibility_path
+        )
+        expected_indices = [
+            [index.header.dataset_id, index.header.index_fingerprint]
+            for index in sorted(indices, key=lambda item: item.header.dataset_id)
+        ]
+        if (
+            evidence.get("split_manifest_fingerprint")
+            != manifest.manifest_fingerprint
+            or evidence.get("index_fingerprints") != expected_indices
+        ):
+            raise Phase8B2ContractError(
+                "phase8b2.schedule.ssl_eligibility_binding_mismatch"
+            )
+        expected_population = {
+            (row.dataset_id, row.piece_id)
+            for row in manifest.assignments
+            if row.split in {"train", "validation"}
+        }
+        observed_population = set(included_identities) | {
+            (str(row[0]), str(row[1]))
+            for row in evidence["excluded_identities"]
+        }
+        if observed_population != expected_population:
+            raise Phase8B2ContractError(
+                "phase8b2.schedule.ssl_eligibility_coverage_mismatch"
+            )
+    train = MultiCorpusDataset(
+        datasets,
+        manifest,
+        split="train",
+        included_identities=included_identities,
+    )
     batch_size = int(data["batch_size"])
     slots: list[dict[str, object]] = []
     identities: list[tuple[str, str]] = []
