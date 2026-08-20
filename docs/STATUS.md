@@ -2,10 +2,17 @@
 
 ## Current phase
 
-- Date: 2026-08-19
-- Current task: Phase 9C-A post-pilot, train-only class-balanced downstream
-  diagnostic on branch `phase/9c-one-seed-ssl-dilemmadata-pilot`; this is an
-  opt-in follow-up and does not alter the completed fixed-budget pilot
+- Date: 2026-08-20
+- Current task: documentation-only post-Phase 9C model proposal on branch
+  `phase/9c-one-seed-ssl-dilemmadata-pilot`. The discussion draft is in
+  [`POST_PHASE9C_MODEL_PROPOSAL.md`](POST_PHASE9C_MODEL_PROPOSAL.md); it changes
+  no accepted architecture, roadmap phase, contract, or experiment protocol
+- The opt-in train-only class-balanced downstream diagnostic completed on an
+  independent RTX 3090 using hash-bound reuse of the pilot encoder exports.
+  All downstream and validation cells completed, final reports and the bundle
+  were published, production training is no longer active, and test access
+  remained false. It is diagnostic evidence and does not replace the completed
+  fixed-budget pilot
 - Phase 9C-A protocol and plan: `1.1.0`; eligibility artifact, artifact,
   profile, selection and test-lock contracts: `1.0.0`; seed: 17; primary variants: scratch, Phase 7A control,
   Phase 8A mask-only, and Phase 8B multilevel-equal; observed SSL compute:
@@ -16,10 +23,12 @@
   every downstream cell used `last.pt` after exactly 3,000 applied updates and
   test access remained false
 - Validation diagnostics found majority-argmax collapse in the frozen probes.
-  The new diagnostic consumes only a sealed Dilemmadata train-prior artifact,
-  applies supported inverse-sqrt class weights only to training CE, and leaves
-  validation scoring unweighted and test locked. Its result must use a fresh
-  output root and is not a replacement for the completed pilot
+  The completed follow-up consumed only a sealed Dilemmadata train-prior
+  artifact, applied supported inverse-sqrt class weights only to training CE,
+  and left validation scoring unweighted and test locked. Class weighting
+  improved scratch full-fine-tune macro-F1 but did not resolve the generally
+  weak downstream result; the SSL full-fine-tune normalized-NLL differences
+  were small and their paired bootstrap intervals crossed zero
 - The class-balanced diagnostic fixes AMP loss scale at one without growth:
   this preserves the weighted CE while preventing rare-class gradients from
   overflowing FP16 before clipping during full fine-tune. Unweighted runs
@@ -39,10 +48,11 @@
   `ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed`
 - PR #24 is merged at `96b9059`; commit
   `9600a17adb7ba87e198370309db474609a44874e` is in `origin/main` ancestry
-- Next gate: run the explicit class-balanced downstream diagnostic with
-  hash-bound reuse of the completed pilot's encoder exports, before deciding
-  whether a new full one-seed matrix is justified. Test, multi-seed work, PDMX
-  and Phase 10 remain unstarted
+- Next gate: review the non-authoritative post-Phase 9C proposal before
+  accepting any implementation scope. Its recommended order is a tiny-subset
+  supervised trainability gate, then isolated transposition, temporal-readout,
+  and multi-task-fusion ablations, and only then another controlled SSL
+  comparison. Test, multi-seed work, PDMX and Phase 10 remain unstarted
 - Completed phase: Phase 1 — canonical data schema and serialization
 - Phase 1A: Completed
 - Phase 1B.1: Completed
