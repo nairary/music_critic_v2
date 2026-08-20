@@ -3189,6 +3189,11 @@ This log is append-only.
   training configuration. It affects categorical training CE only; validation
   continues to report the existing unweighted source-entry metrics, and the
   Phase 9C test lock remains unchanged.
+- Decision: For the class-balanced diagnostic only, use AMP loss scale one
+  without growth. This changes no weighted-loss value or optimizer update: it
+  prevents a rare-class gradient from overflowing FP16 after loss scaling and
+  before the existing fail-closed clipping check. The unweighted protocol
+  retains its existing AMP behavior.
 - Consequences: Any class-balanced result uses a fresh output root and is a
   diagnostic comparison, not a replacement for the immutable unweighted
   fixed-budget pilot. Splits, datasets, model structure, SSL protocol,

@@ -140,6 +140,11 @@ def test_dilemmadata_one_batch_accepts_train_only_class_weight_artifact(
     assert report["checkpoint_reload_bit_exact"] is True
     resolved = json.loads((tmp_path / "output" / "resolved_config.json").read_text())
     assert resolved["objective"]["class_weight_evidence"]["source_split"] == "train_only"
+    assert resolved["objective"]["class_weight_evidence"]["amp_loss_scaling"] == {
+        "initial_scale": 1.0,
+        "growth_interval": 2**31 - 1,
+        "reason": "rare_class_gradient_overflow_prevention",
+    }
 
 
 def test_dilemmadata_epoch_checkpoint_resume_is_bit_exact(

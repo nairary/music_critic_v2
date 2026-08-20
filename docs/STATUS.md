@@ -20,6 +20,10 @@
   applies supported inverse-sqrt class weights only to training CE, and leaves
   validation scoring unweighted and test locked. Its result must use a fresh
   output root and is not a replacement for the completed pilot
+- The class-balanced diagnostic fixes AMP loss scale at one without growth:
+  this preserves the weighted CE while preventing rare-class gradients from
+  overflowing FP16 before clipping during full fine-tune. Unweighted runs
+  retain their previous AMP behavior
 - Supervised-smoke and sealed-bundle contracts: `1.4.0`; CUDA replay diagnostic:
   `1.0.0`; Dilemmadata model contract: `1.2.0`; FP32 head/loss boundary and
   AMP policy and CUDA lifecycle evidence: `1.0.0`. Independent RTX 3090

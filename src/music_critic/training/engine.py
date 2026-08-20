@@ -1138,11 +1138,31 @@ def _prepare(
             "dilemmadata_one_batch",
         },
     )
-    scaler = torch.amp.GradScaler(
-        device.type,
-        enabled=bool(config["device"]["amp"]),
-    )
     class_weights = _resolve_dilemmadata_class_weights(config, device=device)
+    if class_weights is None:
+        scaler = torch.amp.GradScaler(
+            device.type,
+            enabled=bool(config["device"]["amp"]),
+        )
+    else:
+        # The CE weights deliberately amplify rare-class gradients.  Scaling
+        # that loss again can overflow the FP16 encoder gradient before the
+        # scaler has a chance to record a skipped step.  Unit scale preserves
+        # the exact weighted objective while keeping the fixed-update cell
+        # fail-closed; it is frozen for this diagnostic rather than growing.
+        diagnostic_scale = 1.0
+        diagnostic_growth_interval = 2**31 - 1
+        scaler = torch.amp.GradScaler(
+            device.type,
+            enabled=bool(config["device"]["amp"]),
+            init_scale=diagnostic_scale,
+            growth_interval=diagnostic_growth_interval,
+        )
+        config["objective"]["class_weight_evidence"]["amp_loss_scaling"] = {
+            "initial_scale": diagnostic_scale,
+            "growth_interval": diagnostic_growth_interval,
+            "reason": "rare_class_gradient_overflow_prevention",
+        }
     output = Path(config["output_dir"]).resolve()
     return (
         output,

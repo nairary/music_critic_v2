@@ -1079,6 +1079,12 @@ fingerprint-verified before training. This changes training CE only:
 validation remains the ordinary unweighted source-entry evaluation and test
 remains locked. The default Phase 9C-A protocol remains unweighted.
 
+For this diagnostic only, AMP loss scaling is fixed at one (without growth).
+Rare-class weights can otherwise overflow an FP16 encoder gradient after loss
+scaling but before clipping; unit scaling preserves the exact weighted loss and
+the fixed-update fail-closed rule. The ordinary unweighted protocol retains its
+existing GradScaler behavior.
+
 The class-balanced diagnostic may reuse encoder exports from the completed
 unweighted pilot rather than repeating SSL. Before any downstream cell starts,
 the new plan binds the original data projection, seed, primary-variant list,
