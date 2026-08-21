@@ -12,22 +12,16 @@ import torch
 
 from music_critic.evaluation import validate_dilemmadata_train_priors
 from music_critic.experiments.phase8b2.schedule import (
-    SCHEDULE_CONTRACT_VERSION,
     SeedDomains,
-)
-from music_critic.tasks import (
-    CorpusCacheConfig,
-    DeterministicQuotaSampler,
-    IndexedMultiSourceDataset,
-    MultiCorpusDataset,
-    load_corpus_index,
-    load_split_manifest,
+    build_raw_downstream_sample_schedule,
 )
 from music_critic.models import class_weight_tensors
+from music_critic.training.config import DataConfig
+from music_critic.training.data import build_corpus_data_views
 
 
-PHASE9CB_PROTOCOL_VERSION = "1.0.0"
-PHASE9CB_PLAN_VERSION = "1.0.0"
+PHASE9CB_PROTOCOL_VERSION = "1.0.1"
+PHASE9CB_PLAN_VERSION = "1.0.1"
 PHASE9CB_SEED = 17
 PHASE9CB_CELLS = (
     "scratch_mlp",
@@ -184,53 +178,40 @@ def build_plan(config: Mapping[str, object]) -> dict[str, object]:
         }
     )
     domains = SeedDomains.create(PHASE9CB_SEED)
-    index = load_corpus_index(required["raw_index"])
-    dataset = IndexedMultiSourceDataset(
-        index,
-        cache_config=CorpusCacheConfig(raw_cache_root),
-        require_target_sidecars=False,
+    data_config = DataConfig(
+        name="dilemmadata",
+        index_paths=[str(required["raw_index"])],
+        cache_roots=[str(raw_cache_root)],
+        split_manifest=str(required["split_manifest"]),
+        target_cache_index=str(required["target_index"]),
+        target_cache_root=str(target_cache_root),
+        require_target_sidecars=True,
+        batch_size=integers["batch_size"],
+        epoch_size=(
+            integers["batch_size"] * integers["steps_per_epoch"]
+        ),
+        mixture_weights={"dilemmadata": 1.0},
     )
-    train = MultiCorpusDataset(
-        (dataset,), load_split_manifest(required["split_manifest"]), split="train"
-    )
-    identities: list[list[str]] = []
-    update = 0
-    epoch = 0
+    train = build_corpus_data_views(data_config).train
     logical_updates = integers["epochs"] * integers["steps_per_epoch"]
-    while update < logical_updates:
-        sampler = DeterministicQuotaSampler(
-            train,
-            weights={"dilemmadata": 1.0},
-            seed=domains.downstream_data_order,
-            epoch_size=integers["batch_size"] * integers["steps_per_epoch"],
-        )
-        sampler.set_epoch(epoch)
-        order = list(iter(sampler))
-        for start in range(0, len(order), integers["batch_size"]):
-            if update >= logical_updates:
-                break
-            rows = order[start : start + integers["batch_size"]]
-            if len(rows) != integers["batch_size"]:
-                raise Phase9CBError("phase9cb.plan.partial_batch_forbidden")
-            identities.extend([list(train.record_identity(row)) for row in rows])
-            update += 1
-        epoch += 1
-    sample_schedule_fingerprint = fingerprint(
-        {
-            "contract_version": SCHEDULE_CONTRACT_VERSION,
-            "kind": "raw_downstream_sample_schedule",
-            "identities": identities,
-        }
+    production_schedule = build_raw_downstream_sample_schedule(
+        train,
+        weights={"dilemmadata": 1.0},
+        seed=domains.downstream_data_order,
+        first_epoch=0,
+        epochs=integers["epochs"],
+        steps_per_epoch=integers["steps_per_epoch"],
+        batch_size=integers["batch_size"],
     )
-    profile_sample_count = integers["batch_size"] * min(
-        3, integers["steps_per_epoch"]
-    )
-    profile_sample_schedule_fingerprint = fingerprint(
-        {
-            "contract_version": SCHEDULE_CONTRACT_VERSION,
-            "kind": "raw_downstream_sample_schedule",
-            "identities": identities[:profile_sample_count],
-        }
+    profile_steps = min(3, integers["steps_per_epoch"])
+    profile_schedule = build_raw_downstream_sample_schedule(
+        train,
+        weights={"dilemmadata": 1.0},
+        seed=domains.downstream_data_order,
+        first_epoch=0,
+        epochs=1,
+        steps_per_epoch=profile_steps,
+        batch_size=integers["batch_size"],
     )
     schedule = {
         "seed": PHASE9CB_SEED,
@@ -247,12 +228,17 @@ def build_plan(config: Mapping[str, object]) -> dict[str, object]:
         "validation_protocol": "complete_validation_each_epoch_primary_last_pt",
         "downstream_initialization_seed": domains.downstream_initialization,
         "downstream_data_order_seed": domains.downstream_data_order,
-        "sample_schedule_fingerprint": sample_schedule_fingerprint,
+        "sample_schedule_fingerprint": production_schedule.fingerprint,
         "profile_sample_schedule_fingerprint": (
-            profile_sample_schedule_fingerprint
+            profile_schedule.fingerprint
         ),
-        "sample_count": len(identities),
+        "sample_count": len(production_schedule.identities),
+        "profile_epochs": 1,
+        "profile_steps_per_epoch": profile_steps,
+        "profile_epoch_size": integers["batch_size"] * profile_steps,
+        "profile_sample_count": len(profile_schedule.identities),
         "targets_read_for_schedule": False,
+        "target_sidecar_index_validated_for_schedule": True,
     }
     schedule = {**schedule, "fingerprint": fingerprint(schedule)}
     protocol = {
@@ -292,7 +278,7 @@ def build_plan(config: Mapping[str, object]) -> dict[str, object]:
                     if cell_id.startswith("ssl_")
                     else "supervised_scratch"
                 ),
-                "schedule_fingerprint": sample_schedule_fingerprint,
+                "schedule_fingerprint": production_schedule.fingerprint,
                 "comparison_checkpoint": "last.pt",
             }
         )

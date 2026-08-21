@@ -49,6 +49,9 @@ from music_critic.training.checkpoint import (
     training_checkpoint_metadata,
 )
 from music_critic.training.data import DataRuntime, build_data_runtime
+from music_critic.experiments.phase8b2.schedule import (
+    raw_downstream_sample_schedule_fingerprint,
+)
 from music_critic.training.device import move_multisource_batch
 from music_critic.training.metrics import EpochMetricAccumulator
 from music_critic.training.models import (
@@ -2136,19 +2139,10 @@ def _run_epochs(
             "phase8b2_downstream_sample_identities", []
         )
     ]
-    from music_critic.experiments.phase8b2.contracts import (
-        fingerprint as phase8b2_fingerprint,
-    )
-    from music_critic.experiments.phase8b2.schedule import (
-        SCHEDULE_CONTRACT_VERSION,
-    )
-
-    observed_schedule_fingerprint = phase8b2_fingerprint(
-        {
-            "contract_version": SCHEDULE_CONTRACT_VERSION,
-            "kind": "raw_downstream_sample_schedule",
-            "identities": observed_downstream_identities,
-        }
+    observed_schedule_fingerprint = (
+        raw_downstream_sample_schedule_fingerprint(
+            observed_downstream_identities
+        )
     )
     expected_schedule_fingerprint = config["transfer"].get(
         "sample_schedule_fingerprint"

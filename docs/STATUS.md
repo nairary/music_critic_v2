@@ -3,7 +3,7 @@
 ## Current phase
 
 - Date: 2026-08-21
-- Current task: Phase 9C-B diagnostic onset-BiGRU implementation on stacked
+- Current task: Phase 9C-B diagnostic onset-BiGRU profile remediation on stacked
   branch `phase/9cb-onset-bigru-decoder`. The base is Phase 9C-A head
   `e7b3903` because its draft PR #25 is not yet merged into `origin/main`.
 - Added optional `decoder.kind=onset_bigru` after unchanged hierarchical encode,
@@ -14,12 +14,22 @@
 - Added Phase 9C-B `plan/profile/run/resume/aggregate/verify`, exact metadata-
   only paired schedule, explicit SSL path/SHA/source kind, paired fresh-module
   fingerprints, fixed-update `last.pt`, RTX 3090 wrapper, independent bundle
-  verifier, and expanded Dilemmadata imbalance metrics. Production profile and
-  matrix were not run; test remained locked.
-- Phase 9C-B decoder/protocol/plan/bundle contracts: `1.0.0`; Dilemmadata
+  verifier, and expanded Dilemmadata imbalance metrics. The first independent
+  profile at `5ac4a30` completed three `scratch_mlp` optimizer updates and then
+  failed closed on the downstream schedule fingerprint. The defect was not
+  CUDA, OOM, or decoder execution: the planner used Phase 9C-B canonical bytes
+  while the engine used the Phase 8B.2 newline-terminated schedule contract,
+  and profile planning sliced a production schedule built with a different
+  epoch size. Planner and runtime now share the same target-configured dataset
+  view, `DeterministicQuotaSampler` builder, identity normalization, epoch
+  parameters, and fingerprint function. A fresh-root profile rerun is pending;
+  the production matrix was not started and test remained locked.
+- Phase 9C-B decoder/bundle contracts: `1.0.0`; protocol/plan contracts:
+  `1.0.1`; Dilemmadata
   evaluation report: `1.1.0`. Canonical, graph, cache, split, target, class-
   weight, head, loss, encoder-transfer, and MLP model contracts are unchanged.
-- Next gate: review code, run the independent RTX 3090 profile, then explicitly
+- Next gate: pass Required CI, rerun the independent RTX 3090 profile on a new
+  output root, then explicitly
   run the four seed-17 cells. No one-seed scientific claim is authorized.
 - The opt-in train-only class-balanced downstream diagnostic completed on an
   independent RTX 3090 using hash-bound reuse of the pilot encoder exports.

@@ -6,6 +6,8 @@ from dataclasses import asdict, dataclass
 from hashlib import sha256
 from typing import Iterable, Sequence
 
+from music_critic.tasks import DeterministicQuotaSampler, MultiCorpusDataset
+
 from music_critic.experiments.phase8b2.contracts import (
     ComparisonMode,
     Phase8B2ContractError,
@@ -37,6 +39,140 @@ _POLICIES = {
         "track_bar_pitch_span",
     ),
 }
+
+
+@dataclass(frozen=True, slots=True)
+class RawDownstreamEpochSchedule:
+    """One exact sampler epoch shared by planning and training runtime."""
+
+    seed: int
+    epoch: int
+    epoch_size: int
+    batch_size: int
+    sampler: DeterministicQuotaSampler
+    indices: tuple[int, ...]
+    identities: tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RawDownstreamSampleSchedule:
+    """Exact fixed-update identity schedule over one or more epochs."""
+
+    seed: int
+    first_epoch: int
+    epochs: int
+    steps_per_epoch: int
+    batch_size: int
+    identities: tuple[tuple[str, str], ...]
+    fingerprint: str
+
+
+def raw_downstream_sample_schedule_fingerprint(
+    identities: Sequence[Sequence[str]],
+) -> str:
+    """Fingerprint normalized identities through the single schedule contract."""
+
+    normalized = tuple(tuple(identity) for identity in identities)
+    if any(
+        len(identity) != 2
+        or not all(isinstance(value, str) and value for value in identity)
+        for identity in normalized
+    ):
+        raise Phase8B2ContractError(
+            "phase8b2.schedule.sample_identity_invalid"
+        )
+    return fingerprint(
+        {
+            "contract_version": SCHEDULE_CONTRACT_VERSION,
+            "kind": "raw_downstream_sample_schedule",
+            "identities": [list(identity) for identity in normalized],
+        }
+    )
+
+
+def build_raw_downstream_epoch_schedule(
+    dataset: MultiCorpusDataset,
+    *,
+    weights: dict[str, float],
+    seed: int,
+    epoch: int,
+    epoch_size: int,
+    batch_size: int,
+) -> RawDownstreamEpochSchedule:
+    """Build one exact quota-sampler epoch and its normalized identities."""
+
+    if (
+        isinstance(batch_size, bool)
+        or not isinstance(batch_size, int)
+        or batch_size <= 0
+        or epoch_size % batch_size
+    ):
+        raise Phase8B2ContractError(
+            "phase8b2.schedule.partial_batch_forbidden"
+        )
+    sampler = DeterministicQuotaSampler(
+        dataset,
+        weights=weights,
+        seed=seed,
+        epoch_size=epoch_size,
+    )
+    sampler.set_epoch(epoch)
+    indices = tuple(iter(sampler))
+    identities = tuple(dataset.record_identity(index) for index in indices)
+    return RawDownstreamEpochSchedule(
+        seed=seed,
+        epoch=epoch,
+        epoch_size=epoch_size,
+        batch_size=batch_size,
+        sampler=sampler,
+        indices=indices,
+        identities=identities,
+    )
+
+
+def build_raw_downstream_sample_schedule(
+    dataset: MultiCorpusDataset,
+    *,
+    weights: dict[str, float],
+    seed: int,
+    first_epoch: int,
+    epochs: int,
+    steps_per_epoch: int,
+    batch_size: int,
+) -> RawDownstreamSampleSchedule:
+    """Build the exact fixed-update schedule used by a runtime configuration."""
+
+    if any(
+        isinstance(value, bool) or not isinstance(value, int) or value <= 0
+        for value in (epochs, steps_per_epoch, batch_size)
+    ) or (
+        isinstance(first_epoch, bool)
+        or not isinstance(first_epoch, int)
+        or first_epoch < 0
+    ):
+        raise Phase8B2ContractError("phase8b2.schedule.budget_invalid")
+    epoch_size = steps_per_epoch * batch_size
+    identities = tuple(
+        identity
+        for epoch in range(first_epoch, first_epoch + epochs)
+        for identity in build_raw_downstream_epoch_schedule(
+            dataset,
+            weights=weights,
+            seed=seed,
+            epoch=epoch,
+            epoch_size=epoch_size,
+            batch_size=batch_size,
+        ).identities
+    )
+    return RawDownstreamSampleSchedule(
+        seed=seed,
+        first_epoch=first_epoch,
+        epochs=epochs,
+        steps_per_epoch=steps_per_epoch,
+        batch_size=batch_size,
+        identities=identities,
+        fingerprint=raw_downstream_sample_schedule_fingerprint(identities),
+    )
 
 
 def derive_seed(base_seed: int, domain: str, *coordinates: object) -> int:
@@ -371,13 +507,18 @@ def natural_view_count(variant_id: str) -> int:
 
 
 __all__ = [
+    "RawDownstreamEpochSchedule",
+    "RawDownstreamSampleSchedule",
     "SCHEDULE_CONTRACT_VERSION",
     "SEED_DOMAIN_CONTRACT_VERSION",
     "PolicyView",
     "SeedDomains",
     "VariantSchedule",
+    "build_raw_downstream_epoch_schedule",
+    "build_raw_downstream_sample_schedule",
     "build_variant_schedule",
     "derive_seed",
     "natural_view_count",
+    "raw_downstream_sample_schedule_fingerprint",
     "validate_paired_schedules",
 ]

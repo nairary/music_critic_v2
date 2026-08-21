@@ -71,11 +71,20 @@ def _training_command(
     protocol = plan["protocol"]
     schedule = protocol["schedule"]
     bindings = protocol["bindings"]
-    epochs = 1 if profile else int(schedule["epochs"])
+    epochs = (
+        int(schedule["profile_epochs"])
+        if profile
+        else int(schedule["epochs"])
+    )
     steps = (
-        min(3, int(schedule["steps_per_epoch"]))
+        int(schedule["profile_steps_per_epoch"])
         if profile
         else int(schedule["steps_per_epoch"])
+    )
+    epoch_size = (
+        int(schedule["profile_epoch_size"])
+        if profile
+        else int(schedule["batch_size"]) * steps
     )
     logical_updates = epochs * steps
     command = [
@@ -101,7 +110,7 @@ def _training_command(
         f"data.target_cache_root={bindings['target_cache_root']}",
         f"data.split_manifest={bindings['split_manifest']['path']}",
         f"data.batch_size={schedule['batch_size']}",
-        f"data.epoch_size={int(schedule['batch_size']) * steps}",
+        f"data.epoch_size={epoch_size}",
         "data.validation_epoch_size=0",
         "data.workers=0",
         "optimizer=adamw",

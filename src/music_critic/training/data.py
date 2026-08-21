@@ -30,7 +30,6 @@ from music_critic.adapters import (
 )
 from music_critic.tasks import (
     CorpusCacheConfig,
-    DeterministicQuotaSampler,
     DilemmadataTargetCacheConfig,
     IndexedMultiSourceDataset,
     MultiCorpusDataset,
@@ -46,6 +45,9 @@ from music_critic.tasks import (
     seed_multisource_worker,
 )
 from music_critic.training.config import DataConfig
+from music_critic.experiments.phase8b2.schedule import (
+    build_raw_downstream_epoch_schedule,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +72,18 @@ class DataRuntime:
     validation_membership: ValidationMembership
     fingerprints: dict[str, object]
     mixture_statistics: dict[str, object]
+
+
+@dataclass(frozen=True, slots=True)
+class CorpusDataViews:
+    """Validated production dataset objects shared by planners and runtime."""
+
+    indices: tuple[Any, ...]
+    target_index: Any | None
+    manifest: Any
+    indexed: tuple[IndexedMultiSourceDataset, ...]
+    train: MultiCorpusDataset
+    validation: MultiCorpusDataset
 
 
 def _fingerprint(value: object) -> str:
@@ -400,7 +414,9 @@ def _selected_groups(dataset: MultiCorpusDataset) -> tuple[set[str], set[str]]:
     return sources, lineages
 
 
-def _corpus_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
+def build_corpus_data_views(config: DataConfig | Any) -> CorpusDataViews:
+    """Build the exact target configuration and split views used at runtime."""
+
     if (
         not config.index_paths
         or len(config.index_paths) != len(config.cache_roots)
@@ -443,6 +459,23 @@ def _corpus_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
     validation = MultiCorpusDataset(
         indexed, manifest, split=config.validation_split
     )
+    return CorpusDataViews(
+        indices=indices,
+        target_index=target_index,
+        manifest=manifest,
+        indexed=indexed,
+        train=train,
+        validation=validation,
+    )
+
+
+def _corpus_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
+    views = build_corpus_data_views(config)
+    indices = views.indices
+    target_index = views.target_index
+    manifest = views.manifest
+    train = views.train
+    validation = views.validation
     train_sources, train_lineages = _selected_groups(train)
     val_sources, val_lineages = _selected_groups(validation)
     if train_sources & val_sources or train_lineages & val_lineages:
@@ -461,16 +494,17 @@ def _corpus_runtime(config: DataConfig | Any, seed: int) -> DataRuntime:
     membership = _training_membership(validation_selection)
 
     def loader(dataset, epoch_size: int, epoch: int):
-        sampler = DeterministicQuotaSampler(
+        schedule = build_raw_downstream_epoch_schedule(
             dataset,
             weights=weights,
             seed=seed,
+            epoch=epoch,
             epoch_size=epoch_size,
+            batch_size=config.batch_size,
         )
-        sampler.set_epoch(epoch)
         return make_multisource_dataloader(
             dataset,
-            sampler=sampler,
+            sampler=schedule.sampler,
             config=MultiSourceDataLoaderConfig(
                 batch_size=config.batch_size,
                 num_workers=config.workers,
@@ -552,7 +586,9 @@ def build_data_runtime(
 
 
 __all__ = [
+    "CorpusDataViews",
     "DataRuntime",
     "ValidationMembership",
+    "build_corpus_data_views",
     "build_data_runtime",
 ]

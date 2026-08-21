@@ -3243,3 +3243,26 @@ This log is append-only.
   entropy, distributions, support, accuracy aliases, and aggregate diagnostics.
   Canonical/raw graph/cache/split/target/class-weight/head/loss and MLP model
   contracts do not change. A one-seed outcome remains descriptive only.
+
+## 2026-08-21 — ADR-090: Downstream planning and runtime share one exact schedule builder
+
+- Status: Accepted for the Phase 9C-B profile remediation.
+- Context: The independent profile at `5ac4a30` completed three optimizer
+  updates in `scratch_mlp` and then failed closed on
+  `training.phase8b2.actual_sample_schedule_mismatch`. Planner and engine had
+  equal schedule payload semantics but different canonical byte encoders: the
+  Phase 9C-B generic encoder omitted the trailing newline required by the
+  Phase 8B.2 schedule contract. Profile planning also sliced a production
+  schedule rather than constructing the exact profile epoch size.
+- Decision: Production dataset-view construction is shared between planning
+  and runtime, including the Dilemmadata target-sidecar index requirement.
+  Both use one decoder-neutral builder around the real
+  `DeterministicQuotaSampler` and one normalized downstream fingerprint
+  function. Profile and production schedules are built separately with their
+  exact seed, first epoch, epoch count, steps per epoch, epoch size, batch size,
+  and identity representation.
+- Consequences: The observed-versus-declared check remains fail closed without
+  an allowlist or bypass. Phase 9C-B protocol and plan advance to `1.0.1`;
+  decoder, bundle, data, split, cache, target, class-weight, SSL, scientific
+  budget, and evaluation contracts remain unchanged. The failed root cannot be
+  resumed and the profile must use a fresh output root at the remediated SHA.

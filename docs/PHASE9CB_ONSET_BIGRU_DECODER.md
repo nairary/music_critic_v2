@@ -115,6 +115,30 @@ bottleneck; sequence information visible only with BiGRU; SSL
 objective/distribution as the next question; or target/noise/alignment/subset
 as the next question.
 
+## Profile schedule remediation
+
+The first independent profile at exact SHA `5ac4a30` completed all three
+requested optimizer updates in `scratch_mlp` and wrote checkpoints before the
+engine correctly failed closed with
+`training.phase8b2.actual_sample_schedule_mismatch`. This was not a CUDA, OOM,
+MLP, or BiGRU execution failure.
+
+The old planner hashed its downstream schedule with the Phase 9C-B generic
+canonical JSON encoder, which omits the newline required by the Phase 8B.2
+schedule fingerprint contract. The engine used the Phase 8B.2 encoder, so
+equal identities produced unequal SHA-256 values. The profile fingerprint was
+also derived as a slice of a production sampler epoch instead of rebuilding
+the exact three-update profile epoch.
+
+Protocol and plan `1.0.1` use one decoder-neutral builder for planning and
+training. It constructs the same target-sidecar-configured dataset view, the
+same real `DeterministicQuotaSampler`, and the same normalized
+`[dataset_id, piece_id]` identities with identical data-order seed, epoch,
+epoch size, batch size, and schedule fingerprint function. Production and
+profile schedules are built independently from their exact runtime budgets.
+The observed-versus-declared comparison remains fail closed with no skip or
+allowlist.
+
 ## Production configuration and RTX 3090 command
 
 The JSON configuration must name existing artifacts; the runner never chooses

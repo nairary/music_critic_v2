@@ -430,3 +430,9 @@ Dilemmadata supervision, training, evaluation, and Phase 9C-A contracts.
 Legacy theory-bearing inputs, float/epsilon onset grouping, mandatory semantic
 chord/section nodes, target-derived sequence order, missing-as-negative labels,
 observer distillation, and corruption-score interpretation remain rejected.
+
+The blocking Phase 9C-B profile remediation opened, imported, copied,
+modified, formatted, staged, and reused no legacy file or logic. The shared
+dataset-view and deterministic downstream schedule builder derives only from
+current V2 target-cache, split, sampler, training-runtime, and Phase 8B.2
+fingerprint contracts.
