@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field, replace
 from hashlib import sha256
 import json
 import math
@@ -27,6 +27,11 @@ from music_critic.models.hierarchy import (
     extract_hierarchy_ownership,
 )
 from music_critic.models.hierarchy_contracts import HierarchicalBaselineConfig
+from music_critic.models.onset_bigru import (
+    DilemmadataDecoderConfig,
+    OnsetBiGRUDecoder,
+    ONSET_BIGRU_DECODER_CONTRACT_VERSION,
+)
 from music_critic.tasks import (
     BatchTarget,
     DILEMMADATA_SOURCE_FAMILY_BY_TASK,
@@ -76,11 +81,20 @@ class DilemmadataHierarchicalConfig:
     dropout: float = 0.1
     residual: bool = True
     task_hidden_dim: int | None = None
+    decoder: DilemmadataDecoderConfig = field(
+        default_factory=DilemmadataDecoderConfig
+    )
     task_weights: tuple[tuple[str, float], ...] = tuple(
         (task_id, 1.0) for task_id in DILEMMADATA_ACTIVE_TASK_IDS
     )
 
     def __post_init__(self) -> None:
+        if isinstance(self.decoder, Mapping):
+            object.__setattr__(
+                self, "decoder", DilemmadataDecoderConfig(**self.decoder)
+            )
+        elif not isinstance(self.decoder, DilemmadataDecoderConfig):
+            raise ValueError("dilemmadata.model.decoder_config_invalid")
         hierarchy = self.hierarchy_config()
         del hierarchy
         if self.task_hidden_dim is not None and (
@@ -336,6 +350,11 @@ class DilemmadataHierarchicalModel(nn.Module):
             config.dropout,
             force_float32=True,
         )
+        self.sequence_decoder = (
+            OnsetBiGRUDecoder(config.hidden_dim, config.dropout)
+            if config.decoder.kind == "onset_bigru"
+            else None
+        )
 
     def encode(
         self,
@@ -366,6 +385,11 @@ class DilemmadataHierarchicalModel(nn.Module):
             return_layers=return_layers,
             feature_overlay=feature_overlay,
         )
+        if self.sequence_decoder is not None:
+            encoded = replace(
+                encoded,
+                fused=self.sequence_decoder(encoded.fused, raw_graph_batch),
+            )
         return encoded, self.task_heads(encoded.fused)
 
     def forward(
@@ -425,14 +449,16 @@ class DilemmadataHierarchicalModel(nn.Module):
 def dilemmadata_model_contract_dict(
     model: DilemmadataHierarchicalModel,
 ) -> dict[str, object]:
-    return {
+    config = asdict(model.config)
+    decoder = config.pop("decoder")
+    contract = {
         "model_contract_version": DILEMMADATA_MODEL_CONTRACT_VERSION,
         "head_contract_version": DILEMMADATA_HEAD_CONTRACT_VERSION,
         "loss_contract_version": DILEMMADATA_LOSS_CONTRACT_VERSION,
         "fp32_head_loss_boundary_version": (
             DILEMMADATA_FP32_HEAD_LOSS_BOUNDARY_VERSION
         ),
-        "config": asdict(model.config),
+        "config": config,
         "active_task_ids": list(DILEMMADATA_ACTIVE_TASK_IDS),
         "pu_tasks_without_heads": list(DILEMMADATA_PU_TASK_IDS),
         "open_tasks_without_heads": list(DILEMMADATA_OPEN_TASK_IDS),
@@ -443,6 +469,16 @@ def dilemmadata_model_contract_dict(
             "encoder_autocast_allowed_heads_logits_ce_source_entry_total_fp32"
         ),
     }
+    if model.config.decoder.kind == "onset_bigru":
+        contract.update(
+            {
+                "decoder_contract_version": ONSET_BIGRU_DECODER_CONTRACT_VERSION,
+                "decoder": decoder,
+                "sequence_input": "encoded.fused.embeddings.onset_raw_rows_only",
+                "owner_context": "raw_onset_to_beat_and_onset_to_bar_mean_pool",
+            }
+        )
+    return contract
 
 
 def dilemmadata_model_contract_fingerprint(
@@ -489,6 +525,20 @@ def _tensor_state_fingerprint(state: Mapping[str, Tensor]) -> str:
         digest.update(str(value.dtype).encode("ascii"))
         digest.update(value.view(torch.uint8).numpy().tobytes())
     return digest.hexdigest()
+
+
+def dilemmadata_fresh_supervised_fingerprint(
+    model: DilemmadataHierarchicalModel,
+) -> str:
+    """Fingerprint decoder/head tensors which encoder transfer must preserve."""
+
+    return _tensor_state_fingerprint(
+        {
+            name: value
+            for name, value in model.state_dict().items()
+            if not name.startswith(_ENCODER_PREFIXES)
+        }
+    )
 
 
 def load_dilemmadata_encoder_state(
@@ -773,6 +823,7 @@ __all__ = [
     "class_weight_tensors",
     "dilemmadata_model_contract_dict",
     "dilemmadata_model_contract_fingerprint",
+    "dilemmadata_fresh_supervised_fingerprint",
     "dilemmadata_task_head_specs",
     "load_dilemmadata_encoder_state",
 ]

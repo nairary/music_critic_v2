@@ -55,6 +55,7 @@ from music_critic.models.dilemmadata import (
     class_weight_tensors,
     dilemmadata_model_contract_dict,
     dilemmadata_model_contract_fingerprint,
+    dilemmadata_fresh_supervised_fingerprint,
     dilemmadata_task_head_specs,
     load_dilemmadata_encoder_state,
 )
@@ -115,6 +116,12 @@ from music_critic.models.hierarchy_contracts import (
     TOP_DOWN_FUSION_CONTRACT_VERSION,
     HierarchicalBaselineConfig,
 )
+from music_critic.models.onset_bigru import (
+    DilemmadataDecoderConfig,
+    DilemmadataDecoderConfigError,
+    ONSET_BIGRU_DECODER_CONTRACT_VERSION,
+    OnsetBiGRUDecoder,
+)
 from music_critic.models.reconstruction import (
     RECONSTRUCTION_FIELDS,
     RawReconstructionHeads,
@@ -143,6 +150,8 @@ __all__ = [
     "EXCLUDED_TASK_REASONS",
     "EmbeddingDelta",
     "DilemmadataEncoderTransferReport",
+    "DilemmadataDecoderConfig",
+    "DilemmadataDecoderConfigError",
     "DilemmadataHierarchicalConfig",
     "DilemmadataHierarchicalModel",
     "DilemmadataHierarchicalOutput",
@@ -175,6 +184,8 @@ __all__ = [
     "MODEL_CONTRACT_VERSION",
     "MultiScaleEncoderOutput",
     "OversmoothingValue",
+    "ONSET_BIGRU_DECODER_CONTRACT_VERSION",
+    "OnsetBiGRUDecoder",
     "RawFeatureChange",
     "RAW_RECONSTRUCTION_CONTRACT_VERSION",
     "RECONSTRUCTION_FIELDS",
@@ -197,6 +208,7 @@ __all__ = [
     "class_weight_tensors",
     "dilemmadata_model_contract_dict",
     "dilemmadata_model_contract_fingerprint",
+    "dilemmadata_fresh_supervised_fingerprint",
     "dilemmadata_task_head_specs",
     "load_dilemmadata_encoder_state",
     "aggregate_task_losses",
