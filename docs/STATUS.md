@@ -24,12 +24,14 @@
   view, `DeterministicQuotaSampler` builder, identity normalization, epoch
   parameters, and fingerprint function. A fresh-root profile rerun is pending;
   the production matrix was not started and test remained locked.
+- The remediation implementation at `4b337f1` passed Required CI run
+  `32520983280`: `1624 passed, 59 skipped, 12 warnings`; compileall passed.
 - Phase 9C-B decoder/bundle contracts: `1.0.0`; protocol/plan contracts:
   `1.0.1`; Dilemmadata
   evaluation report: `1.1.0`. Canonical, graph, cache, split, target, class-
   weight, head, loss, encoder-transfer, and MLP model contracts are unchanged.
-- Next gate: pass Required CI, rerun the independent RTX 3090 profile on a new
-  output root, then explicitly
+- Next gate: rerun the independent RTX 3090 profile on a new output root, then
+  explicitly
   run the four seed-17 cells. No one-seed scientific claim is authorized.
 - The opt-in train-only class-balanced downstream diagnostic completed on an
   independent RTX 3090 using hash-bound reuse of the pilot encoder exports.
