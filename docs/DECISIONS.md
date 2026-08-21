@@ -3216,3 +3216,30 @@ This log is append-only.
   scheduler, scaler, train prior, class-weight artifact, downstream fixed-
   budget `last.pt`, validation, and bootstrap artifacts under a new root. It
   does not resume or mutate the completed pilot, and it does not unlock test.
+
+## 2026-08-21 — ADR-089: Phase 9C-B isolates an optional raw-only onset sequence decoder
+
+- Status: Accepted as a one-seed diagnostic; independent RTX profile and the
+  four production cells remain pending.
+- Context: The class-balanced Phase 9C-A diagnostic did not establish a useful
+  SSL advantage. Its supervised decoder predicts every onset/beat/bar candidate
+  independently, so weak downstream results cannot distinguish an encoder
+  limitation from a temporal-readout bottleneck.
+- Decision: Preserve the accepted MLP path bit-exact and add an optional one-
+  layer bidirectional GRU over raw onset rows only. Each direction has
+  `hidden_dim / 2` units. Gated residual fusion preserves the local onset;
+  deterministic mean pooling through raw ownership provides separate gated
+  residual context to beat and bar with learned availability states. No target,
+  sidecar, label, provenance, confidence, float-time sorting, or synthetic onset
+  participates.
+- Decision: Compare scratch/SSL × MLP/onset-BiGRU under seed 17, the existing
+  supported inverse-square-root class weights, one exact metadata-only batch
+  schedule, equal attempted/applied budgets, complete validation, and final
+  `last.pt`. Require an explicit immutable SSL checkpoint, SHA-256, and source
+  kind; transfer only existing encoder prefixes and fingerprint fresh decoder/
+  head tensors before and after transfer. Test stays locked.
+- Consequences: Onset-BiGRU decoder, Phase 9C-B protocol/plan/bundle start at
+  `1.0.0`; Dilemmadata evaluation advances to `1.1.0` for normalized NLL,
+  entropy, distributions, support, accuracy aliases, and aggregate diagnostics.
+  Canonical/raw graph/cache/split/target/class-weight/head/loss and MLP model
+  contracts do not change. A one-seed outcome remains descriptive only.

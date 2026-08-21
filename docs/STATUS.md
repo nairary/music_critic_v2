@@ -2,11 +2,25 @@
 
 ## Current phase
 
-- Date: 2026-08-20
-- Current task: documentation-only post-Phase 9C model proposal on branch
-  `phase/9c-one-seed-ssl-dilemmadata-pilot`. The discussion draft is in
-  [`POST_PHASE9C_MODEL_PROPOSAL.md`](POST_PHASE9C_MODEL_PROPOSAL.md); it changes
-  no accepted architecture, roadmap phase, contract, or experiment protocol
+- Date: 2026-08-21
+- Current task: Phase 9C-B diagnostic onset-BiGRU implementation on stacked
+  branch `phase/9cb-onset-bigru-decoder`. The base is Phase 9C-A head
+  `e7b3903` because its draft PR #25 is not yet merged into `origin/main`.
+- Added optional `decoder.kind=onset_bigru` after unchanged hierarchical encode,
+  with isolated raw onset sequences, gated onset residuals, raw ownership mean
+  pooling into beat/bar, explicit availability states, and unchanged four
+  `SourceNativeTaskHeads`. `decoder.kind=mlp` retains its prior state inventory,
+  model-contract fingerprint, logits, loss, transfer, and checkpoint path.
+- Added Phase 9C-B `plan/profile/run/resume/aggregate/verify`, exact metadata-
+  only paired schedule, explicit SSL path/SHA/source kind, paired fresh-module
+  fingerprints, fixed-update `last.pt`, RTX 3090 wrapper, independent bundle
+  verifier, and expanded Dilemmadata imbalance metrics. Production profile and
+  matrix were not run; test remained locked.
+- Phase 9C-B decoder/protocol/plan/bundle contracts: `1.0.0`; Dilemmadata
+  evaluation report: `1.1.0`. Canonical, graph, cache, split, target, class-
+  weight, head, loss, encoder-transfer, and MLP model contracts are unchanged.
+- Next gate: review code, run the independent RTX 3090 profile, then explicitly
+  run the four seed-17 cells. No one-seed scientific claim is authorized.
 - The opt-in train-only class-balanced downstream diagnostic completed on an
   independent RTX 3090 using hash-bound reuse of the pilot encoder exports.
   All downstream and validation cells completed, final reports and the bundle

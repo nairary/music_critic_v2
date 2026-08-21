@@ -418,3 +418,15 @@ evidence.
 The RTX-profile Hydra runtime remediation likewise opened, imported, and reused
 no legacy file or logic. It changes only current-V2 Hydra override syntax and
 fail-closed profile process/report handling.
+
+## Phase 9C-B onset-BiGRU diagnostic
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or reused for Phase 9C-B. The decoder, raw-row sequence
+isolation, ownership pooling, residual fusion, transfer fingerprints, matrix
+runner, metrics, and verifier derive only from current V2 graph, hierarchy,
+Dilemmadata supervision, training, evaluation, and Phase 9C-A contracts.
+
+Legacy theory-bearing inputs, float/epsilon onset grouping, mandatory semantic
+chord/section nodes, target-derived sequence order, missing-as-negative labels,
+observer distillation, and corruption-score interpretation remain rejected.
