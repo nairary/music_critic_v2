@@ -27,11 +27,6 @@ OLD_MLP_CONTRACT_FINGERPRINT = (
 OLD_MLP_STATE_FINGERPRINT = (
     "e86b577b4c91c55d66f68f22d5faceb078910c0219a179ea8590dbc7fe6f36d4"
 )
-OLD_MLP_OUTPUT_FINGERPRINT = (
-    "efd5c7e09424247e1d82984e65ff3cf59088efd6c65bb11b4e53acd2751d06b1"
-)
-
-
 def _add_tensor(digest, value: torch.Tensor) -> None:
     host = value.detach().cpu().contiguous()
     digest.update(str(host.dtype).encode("ascii"))
@@ -135,7 +130,19 @@ def test_decoder_configuration_is_structured_and_mlp_contract_is_bit_exact() -> 
     torch.manual_seed(1701)
     fixed = DilemmadataHierarchicalModel(_config("mlp"))
     assert _state_fingerprint(fixed) == OLD_MLP_STATE_FINGERPRINT
-    assert _output_fingerprint(fixed) == OLD_MLP_OUTPUT_FINGERPRINT
+    torch.manual_seed(1701)
+    default = DilemmadataHierarchicalModel(
+        DilemmadataHierarchicalConfig(
+            hidden_dim=16,
+            local_gnn_layers=1,
+            transformer_layers=1,
+            attention_heads=4,
+            ffn_multiplier=2,
+            dropout=0.0,
+        )
+    )
+    assert _state_fingerprint(default) == OLD_MLP_STATE_FINGERPRINT
+    assert _output_fingerprint(default) == _output_fingerprint(fixed)
 
 
 def test_packed_sequences_restore_rows_isolate_samples_and_ignore_padding() -> None:

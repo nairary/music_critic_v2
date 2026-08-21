@@ -26,6 +26,11 @@
   the production matrix was not started and test remained locked.
 - The remediation implementation at `4b337f1` passed Required CI run
   `32520983280`: `1624 passed, 59 skipped, 12 warnings`; compileall passed.
+- A documentation-only closure run exposed that the old raw-FP32 MLP output
+  SHA regression was host-kernel-sensitive despite an unchanged hardcoded
+  state SHA. The portable regression retains the hardcoded MLP contract/state
+  fingerprints and requires bit-exact default-MLP versus explicit-MLP outputs
+  on the same runner; no model or decoder code changed.
 - Phase 9C-B decoder/bundle contracts: `1.0.0`; protocol/plan contracts:
   `1.0.1`; Dilemmadata
   evaluation report: `1.1.0`. Canonical, graph, cache, split, target, class-
