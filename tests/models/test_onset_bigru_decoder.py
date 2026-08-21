@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from dataclasses import replace
 from hashlib import sha256
 
@@ -13,6 +14,9 @@ from music_critic.models import (
     DilemmadataDecoderConfigError,
     DilemmadataHierarchicalConfig,
     DilemmadataHierarchicalModel,
+    DilemmadataModelContractError,
+    dilemmadata_config_from_model_contract,
+    dilemmadata_model_contract_dict,
     dilemmadata_model_contract_fingerprint,
     load_dilemmadata_encoder_state,
 )
@@ -143,6 +147,48 @@ def test_decoder_configuration_is_structured_and_mlp_contract_is_bit_exact() -> 
     )
     assert _state_fingerprint(default) == OLD_MLP_STATE_FINGERPRINT
     assert _output_fingerprint(default) == _output_fingerprint(fixed)
+
+
+def test_model_contract_reconstruction_is_typed_and_state_consistent() -> None:
+    mlp = _model("mlp")
+    bigru = _model("onset_bigru")
+    mlp_contract = dilemmadata_model_contract_dict(mlp)
+    bigru_contract = dilemmadata_model_contract_dict(bigru)
+
+    assert dilemmadata_config_from_model_contract(
+        mlp_contract, mlp.state_dict()
+    ).decoder.kind == "mlp"
+    assert dilemmadata_config_from_model_contract(
+        bigru_contract, bigru.state_dict()
+    ).decoder.kind == "onset_bigru"
+
+    failures = []
+    missing_decoder = copy.deepcopy(bigru_contract)
+    for name in (
+        "decoder",
+        "decoder_contract_version",
+        "sequence_input",
+        "owner_context",
+    ):
+        missing_decoder.pop(name)
+    failures.append((missing_decoder, bigru.state_dict(), "mlp_state_has"))
+    wrong_version = copy.deepcopy(bigru_contract)
+    wrong_version["decoder_contract_version"] = "0.0.0"
+    failures.append((wrong_version, bigru.state_dict(), "version_incompatible"))
+    substituted = copy.deepcopy(bigru_contract)
+    substituted["decoder"] = {"kind": "mlp"}
+    failures.append((substituted, bigru.state_dict(), "decoder_invalid"))
+    missing_structure = copy.deepcopy(bigru_contract)
+    missing_structure.pop("owner_context")
+    failures.append((missing_structure, bigru.state_dict(), "decoder_invalid"))
+    failures.append(
+        (bigru_contract, mlp.state_dict(), "missing_sequence_decoder")
+    )
+    failures.append((mlp_contract, bigru.state_dict(), "mlp_state_has"))
+
+    for contract, state, message in failures:
+        with pytest.raises(DilemmadataModelContractError, match=message):
+            dilemmadata_config_from_model_contract(contract, state)
 
 
 def test_packed_sequences_restore_rows_isolate_samples_and_ignore_padding() -> None:
@@ -343,6 +389,14 @@ def test_encoder_transfer_keeps_bigru_and_heads_fresh_and_cross_kind_rejects() -
     )
     with pytest.raises(RuntimeError):
         _model("mlp").load_state_dict(destination.state_dict(), strict=True)
+    with pytest.raises(ValueError, match="export_fields_invalid"):
+        load_dilemmadata_encoder_state(
+            _model(),
+            {"model_state": export["encoder_state"]},
+            source_kind="phase8b_multilevel_ssl",
+            source_checkpoint_sha256="a" * 64,
+            transfer_mode="full_finetune",
+        )
 
 
 def test_onset_bigru_epoch_resume_matches_uninterrupted_and_cross_kind_fails(

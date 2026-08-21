@@ -139,6 +139,32 @@ profile schedules are built independently from their exact runtime budgets.
 The observed-versus-declared comparison remains fail closed with no skip or
 allowlist.
 
+## Checkpoint reconstruction and encoder-export preflight remediation
+
+The second independent profile at exact SHA `9de8f34` passed `scratch_mlp`
+and `ssl_mlp`, then completed training and checkpointing for
+`scratch_onset_bigru`. Evaluation alone failed: its old reconstruction read
+only `model_contract.config`, while the writer deliberately stores the
+non-default decoder in the versioned top-level `model_contract.decoder`.
+Consequently the CLI instantiated an MLP and strict loading correctly rejected
+the checkpoint's `sequence_decoder.*` tensors.
+
+One shared typed reconstruction boundary now reads both contract regions. A
+legacy/default contract with no top-level decoder reconstructs MLP only when
+the state has no sequence-decoder tensors. Onset-BiGRU requires the exact
+decoder contract version, exact decoder config and raw-input/owner-context
+semantics, plus sequence-decoder state. Missing, substituted, malformed, and
+cross-kind contract/state pairs fail closed. Evaluation then retains
+`load_state_dict(..., strict=True)`; decoder kind is never inferred from state
+keys.
+
+Phase 9C-B also requires `ssl_encoder_export` and its SHA-256 explicitly. Plan
+construction loads the artifact on CPU and verifies an encoder-only envelope,
+the versioned export manifest when present, a non-empty tensor mapping, and
+only accepted encoder prefixes before any CUDA cell can start. A complete SSL
+training checkpoint is not an encoder export and is rejected rather than
+filtered.
+
 ## Production configuration and RTX 3090 command
 
 The JSON configuration must name existing artifacts; the runner never chooses
@@ -165,9 +191,9 @@ an SSL variant automatically and never rebuilds caches:
 }
 ```
 
-If the selected checkpoint itself is already an accepted encoder export, omit
-the two `ssl_encoder_export` fields and the runner uses the checkpoint path and
-SHA for both bindings.
+The two `ssl_encoder_export` fields are mandatory and must identify the
+separate accepted encoder export. They cannot be omitted or pointed at the
+full SSL training checkpoint.
 
 First run the independent bounded profile on a fresh output root:
 

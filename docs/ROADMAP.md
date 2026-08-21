@@ -686,12 +686,14 @@ The model and training phases remain pending.
 
 ### Phase 9C-B — diagnostic onset-BiGRU decoder matrix
 
-- Status: implementation and blocking schedule-fingerprint remediation are
-  complete locally. The first independent RTX 3090 profile completed three
-  `scratch_mlp` updates at `5ac4a30` and failed closed after training because
-  planner and engine used different canonical fingerprint functions. A
-  fresh-root profile rerun and the explicit one-seed production matrix remain
-  pending.
+- Status: implementation and both blocking profile remediations are complete
+  locally. After the schedule fix, the rerun at `9de8f34` passed both MLP
+  cells and trained/checkpointed `scratch_onset_bigru`, then failed only because
+  evaluation ignored its top-level decoder contract and rebuilt an MLP before
+  strict loading. Checkpoint reconstruction is now typed and decoder/state
+  consistent; the SSL encoder export is explicit and structurally checked in
+  preflight. A fresh-root profile rerun and the explicit one-seed production
+  matrix remain pending.
 - Goal: isolate whether the independent Dilemmadata MLP readout bottlenecks
   useful sequential SSL information.
 - Outputs: unchanged `decoder.kind=mlp`, optional raw-only

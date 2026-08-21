@@ -436,3 +436,10 @@ modified, formatted, staged, and reused no legacy file or logic. The shared
 dataset-view and deterministic downstream schedule builder derives only from
 current V2 target-cache, split, sampler, training-runtime, and Phase 8B.2
 fingerprint contracts.
+
+The second profile remediation likewise opened, imported, copied, modified,
+formatted, staged, and reused no legacy file or logic. Typed checkpoint-model
+reconstruction and explicit encoder-export validation derive only from current
+V2 model, training-checkpoint, SSL-export, and evaluation contracts. Legacy
+checkpoint guessing, partial state loading, and implicit artifact substitution
+remain rejected.

@@ -44,10 +44,17 @@ class _View:
         return "dilemmadata", f"piece-{index}"
 
 
-def _plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def _plan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    encoder_export_kind: str = "valid",
+):
+    tmp_path.mkdir(parents=True, exist_ok=True)
     files = {}
     for name in (
         "ssl_checkpoint",
+        "ssl_encoder_export",
         "raw_index",
         "target_index",
         "split_manifest",
@@ -57,6 +64,32 @@ def _plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         path = tmp_path / f"{name}.bin"
         path.write_bytes(name.encode("ascii"))
         files[name] = path
+    if encoder_export_kind == "valid":
+        names = ["local_baseline.encoder.fixture"]
+        export = {
+            "metadata": {
+                "encoder_export_contract_version": "1.0.0",
+                "hierarchical_encoder_contract": {"fixture": True},
+                "parameter_names": names,
+            },
+            "encoder_state": {
+                "local_baseline.encoder.fixture": torch.zeros(1)
+            }
+        }
+    elif encoder_export_kind == "checkpoint":
+        export = {"metadata": {}, "model_state": {}}
+    elif encoder_export_kind == "bare":
+        export = {
+            "encoder_state": {
+                "local_baseline.encoder.fixture": torch.zeros(1)
+            }
+        }
+    elif encoder_export_kind == "missing":
+        export = None
+    else:
+        raise AssertionError(encoder_export_kind)
+    if export is not None:
+        torch.save(export, files["ssl_encoder_export"])
     raw_cache = tmp_path / "raw"
     target_cache = tmp_path / "target"
     raw_cache.mkdir()
@@ -101,19 +134,24 @@ def _plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         contracts, "_validate_weight_artifacts", lambda *args: None
     )
-    return build_plan(
-        {
-            **{name: str(path) for name, path in files.items()},
-            "ssl_checkpoint_sha256": file_sha256(files["ssl_checkpoint"]),
-            "ssl_source_kind": "phase8b_multilevel_ssl",
-            "raw_cache_root": str(raw_cache),
-            "target_cache_root": str(target_cache),
-            "epochs": 1,
-            "steps_per_epoch": 2,
-            "batch_size": 2,
-            "git_head": "a" * 40,
-        }
-    )
+    config = {
+        **{name: str(path) for name, path in files.items()},
+        "ssl_checkpoint_sha256": file_sha256(files["ssl_checkpoint"]),
+        "ssl_source_kind": "phase8b_multilevel_ssl",
+        "raw_cache_root": str(raw_cache),
+        "target_cache_root": str(target_cache),
+        "epochs": 1,
+        "steps_per_epoch": 2,
+        "batch_size": 2,
+        "git_head": "a" * 40,
+    }
+    if export is None:
+        config.pop("ssl_encoder_export")
+    else:
+        config["ssl_encoder_export_sha256"] = file_sha256(
+            files["ssl_encoder_export"]
+        )
+    return build_plan(config)
 
 
 def test_plan_fixes_matrix_schedule_checkpoint_and_explicit_ssl(
@@ -133,6 +171,29 @@ def test_plan_fixes_matrix_schedule_checkpoint_and_explicit_ssl(
     assert any(row.startswith("transfer.source_ssl_checkpoint_sha256=") for row in command)
     assert "device.name=cuda:0" in command
     assert "seed=17" in command
+
+
+def test_plan_rejects_missing_or_full_checkpoint_encoder_export_before_cells(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with pytest.raises(ValueError, match="ssl_encoder_export_required"):
+        _plan(
+            tmp_path / "missing",
+            monkeypatch,
+            encoder_export_kind="missing",
+        )
+    with pytest.raises(ValueError, match="ssl_encoder_export_invalid"):
+        _plan(
+            tmp_path / "checkpoint",
+            monkeypatch,
+            encoder_export_kind="checkpoint",
+        )
+    with pytest.raises(ValueError, match="ssl_encoder_export_invalid"):
+        _plan(
+            tmp_path / "bare",
+            monkeypatch,
+            encoder_export_kind="bare",
+        )
 
 
 def test_profile_uses_one_production_schedule_builder_for_three_real_updates(

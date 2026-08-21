@@ -16,6 +16,10 @@ from music_critic.experiments.phase8b2.schedule import (
     build_raw_downstream_sample_schedule,
 )
 from music_critic.models import class_weight_tensors
+from music_critic.ssl.transfer import (
+    ENCODER_EXPORT_CONTRACT_VERSION,
+    validate_pretrained_encoder_export_structure,
+)
 from music_critic.training.config import DataConfig
 from music_critic.training.data import build_corpus_data_views
 
@@ -109,6 +113,25 @@ def _validate_weight_artifacts(
         raise Phase9CBError("phase9cb.plan.class_weight_binding_invalid")
 
 
+def _validate_encoder_export(path: Path) -> None:
+    try:
+        export = torch.load(path, map_location="cpu", weights_only=True)
+        validate_pretrained_encoder_export_structure(export)
+        if (
+            not isinstance(export, Mapping)
+            or not isinstance(export.get("metadata"), Mapping)
+            or export["metadata"].get("encoder_export_contract_version")
+            != ENCODER_EXPORT_CONTRACT_VERSION
+        ):
+            raise ValueError("versioned encoder export required")
+    except Exception as exc:
+        if isinstance(exc, Phase9CBError):
+            raise
+        raise Phase9CBError(
+            "phase9cb.plan.ssl_encoder_export_invalid"
+        ) from exc
+
+
 def build_plan(config: Mapping[str, object]) -> dict[str, object]:
     """Bind the four fixed cells without reading target contents or test rows."""
 
@@ -120,16 +143,12 @@ def build_plan(config: Mapping[str, object]) -> dict[str, object]:
         raise Phase9CBError("phase9cb.plan.ssl_checkpoint_sha256_mismatch")
     if source_kind not in PHASE9CB_SOURCE_KINDS:
         raise Phase9CBError("phase9cb.plan.ssl_source_kind_required")
-    export_value = config.get("ssl_encoder_export")
-    if export_value is None:
-        ssl_encoder_export = ssl_checkpoint
-        declared_export_sha = observed_ssl_sha
-    else:
-        ssl_encoder_export = _required_file(config, "ssl_encoder_export")
-        declared_export_sha = config.get("ssl_encoder_export_sha256")
+    ssl_encoder_export = _required_file(config, "ssl_encoder_export")
+    declared_export_sha = config.get("ssl_encoder_export_sha256")
     observed_export_sha = file_sha256(ssl_encoder_export)
     if declared_export_sha != observed_export_sha:
         raise Phase9CBError("phase9cb.plan.ssl_encoder_export_sha256_mismatch")
+    _validate_encoder_export(ssl_encoder_export)
     required = {
         name: _required_file(config, name)
         for name in (

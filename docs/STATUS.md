@@ -2,7 +2,7 @@
 
 ## Current phase
 
-- Date: 2026-08-21
+- Date: 2026-08-22
 - Current task: Phase 9C-B diagnostic onset-BiGRU profile remediation on stacked
   branch `phase/9cb-onset-bigru-decoder`. The base is Phase 9C-A head
   `e7b3903` because its draft PR #25 is not yet merged into `origin/main`.
@@ -24,6 +24,21 @@
   view, `DeterministicQuotaSampler` builder, identity normalization, epoch
   parameters, and fingerprint function. A fresh-root profile rerun is pending;
   the production matrix was not started and test remained locked.
+- The fresh-root rerun at `9de8f34` passed both MLP cells and completed
+  `scratch_onset_bigru` training/checkpointing, then failed only when the
+  evaluation CLI reconstructed the checkpoint from `contract["config"]` and
+  silently defaulted to MLP despite the versioned top-level BiGRU decoder
+  contract. Evaluation now uses one typed, fail-closed reconstruction helper:
+  absent decoder metadata is accepted only for a state-consistent default MLP;
+  onset-BiGRU requires its exact decoder version/structure/semantics and
+  matching sequence-decoder state before the unchanged strict state load.
+  Cross-kind and malformed contracts fail closed.
+- Phase 9C-B planning now requires a separate explicit hash-bound encoder
+  export and validates its encoder-only envelope, versioned manifest when
+  present, tensor inventory and prefixes before any CUDA cell. A full SSL
+  `last.pt` can no longer be filtered or substituted as an encoder export.
+  Focused model/evaluation/Phase 9C-B and transfer checks pass locally; a final
+  Required CI run and fresh-root RTX profile remain pending.
 - The remediation implementation at `4b337f1` passed Required CI run
   `32520983280`: `1624 passed, 59 skipped, 12 warnings`; compileall passed.
 - A documentation-only closure run exposed that the old raw-FP32 MLP output

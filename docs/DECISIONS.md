@@ -3266,3 +3266,25 @@ This log is append-only.
   decoder, bundle, data, split, cache, target, class-weight, SSL, scientific
   budget, and evaluation contracts remain unchanged. The failed root cannot be
   resumed and the profile must use a fresh output root at the remediated SHA.
+
+## 2026-08-22 — ADR-091: Checkpoint contracts reconstruct decoder type explicitly
+
+- Status: Accepted for the Phase 9C-B profile remediation.
+- Context: The profile at `9de8f34` trained and checkpointed the scratch
+  onset-BiGRU cell, but evaluation rebuilt only `model_contract.config`.
+  Because the writer stores a non-default decoder separately at top level, the
+  evaluator silently instantiated MLP and strict loading rejected valid
+  `sequence_decoder.*` tensors. Planning also allowed an omitted encoder
+  export to alias the full SSL checkpoint.
+- Decision: One typed Dilemmadata reconstruction helper consumes the complete
+  model contract and state inventory. No top-level decoder means default MLP;
+  onset-BiGRU requires the exact decoder contract version, structure and raw
+  semantics. Contract/state cross-kind pairs fail closed, followed by an
+  unchanged strict state load. Decoder type is never inferred from tensor
+  names. Phase 9C-B also requires and structurally validates a distinct,
+  hash-bound encoder-only export during plan preflight.
+- Consequences: Legacy/default MLP checkpoint logits remain unchanged; valid
+  onset-BiGRU checkpoints become evaluable. Missing, substituted or malformed
+  decoder contracts and full-checkpoint-as-export substitutions are rejected
+  before evaluation or CUDA cell execution. Model architecture, weights,
+  data, splits, caches and scientific budgets are unchanged.
