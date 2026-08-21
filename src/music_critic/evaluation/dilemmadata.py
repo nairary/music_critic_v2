@@ -20,7 +20,7 @@ from music_critic.models import (
 from music_critic.tasks import MultiSourceBatch
 
 
-DILEMMADATA_EVALUATION_CONTRACT_VERSION = "1.0.0"
+DILEMMADATA_EVALUATION_CONTRACT_VERSION = "1.1.0"
 DILEMMADATA_TRAIN_PRIOR_CONTRACT_VERSION = "1.0.0"
 DILEMMADATA_COMPONENT_BOOTSTRAP_VERSION = "1.0.0"
 DILEMMADATA_TEST_LOCK_VERSION = "1.0.0"
@@ -214,6 +214,7 @@ def _categorical_metrics(rows: list[dict[str, object]]) -> dict[str, object]:
     class_count = len(rows[0]["log_probabilities"])
     confusion = [[0 for _ in range(class_count)] for _ in range(class_count)]
     nll = 0.0
+    entropy = 0.0
     top3_correct = 0
     is_quality = str(rows[0]["task_id"]).endswith(".quality")
     for row in rows:
@@ -226,6 +227,10 @@ def _categorical_metrics(rows: list[dict[str, object]]) -> dict[str, object]:
         prediction = max(range(class_count), key=probabilities.__getitem__)
         confusion[label][prediction] += 1
         nll -= float(probabilities[label])
+        entropy -= sum(
+            math.exp(float(log_probability)) * float(log_probability)
+            for log_probability in probabilities
+        )
         if is_quality:
             top = sorted(
                 range(class_count),
@@ -239,6 +244,10 @@ def _categorical_metrics(rows: list[dict[str, object]]) -> dict[str, object]:
     recalls = []
     total = len(rows)
     correct = sum(confusion[index][index] for index in range(class_count))
+    true_support = [sum(confusion[index]) for index in range(class_count)]
+    predicted_counts = [
+        sum(row[index] for row in confusion) for index in range(class_count)
+    ]
     for class_id in range(class_count):
         tp = confusion[class_id][class_id]
         support = sum(confusion[class_id])
@@ -280,10 +289,18 @@ def _categorical_metrics(rows: list[dict[str, object]]) -> dict[str, object]:
         ),
         "class_count": class_count,
         "nll": nll / total,
+        "normalized_nll": (nll / total) / math.log(class_count),
         "top1_accuracy": correct / total,
+        "accuracy": correct / total,
         "macro_f1": sum(f1_values) / len(f1_values),
         "weighted_f1": weighted_f1_sum / total,
         "balanced_accuracy": sum(recalls) / len(recalls),
+        "prediction_entropy": entropy / total,
+        "true_class_support": true_support,
+        "predicted_class_counts": predicted_counts,
+        "predicted_class_distribution": [
+            count / total for count in predicted_counts
+        ],
         "top3_accuracy": (
             top3_correct / total
             if is_quality
@@ -461,6 +478,44 @@ def evaluate_dilemmadata_model(
                 else _baseline_metrics(task_rows, train_priors)
             ),
         }
+    available_tasks = [
+        tasks[task_id]
+        for task_id in DILEMMADATA_ACTIVE_TASK_IDS
+        if tasks[task_id]["available"] is True
+    ]
+    aggregate = {
+        "task_count": len(available_tasks),
+        "mean_normalized_nll": (
+            sum(float(row["normalized_nll"]) for row in available_tasks)
+            / len(available_tasks)
+            if available_tasks
+            else None
+        ),
+        "mean_macro_f1": (
+            sum(float(row["macro_f1"]) for row in available_tasks)
+            / len(available_tasks)
+            if available_tasks
+            else None
+        ),
+        "mean_balanced_accuracy": (
+            sum(float(row["balanced_accuracy"]) for row in available_tasks)
+            / len(available_tasks)
+            if available_tasks
+            else None
+        ),
+        "mean_accuracy": (
+            sum(float(row["accuracy"]) for row in available_tasks)
+            / len(available_tasks)
+            if available_tasks
+            else None
+        ),
+        "mean_prediction_entropy": (
+            sum(float(row["prediction_entropy"]) for row in available_tasks)
+            / len(available_tasks)
+            if available_tasks
+            else None
+        ),
+    }
     projection = {
         "contract_version": DILEMMADATA_EVALUATION_CONTRACT_VERSION,
         "split": split,
@@ -473,6 +528,7 @@ def evaluate_dilemmadata_model(
             None if train_priors is None else train_priors["fingerprint"]
         ),
         "tasks": tasks,
+        "aggregate": aggregate,
         "counts": {
             "source_entry_count": len(rows),
             "expanded_row_count": sum(

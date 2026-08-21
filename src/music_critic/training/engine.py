@@ -37,6 +37,7 @@ from music_critic.models import (
     DilemmadataHierarchicalModel,
     class_weight_tensors,
     load_dilemmadata_encoder_state,
+    dilemmadata_fresh_supervised_fingerprint,
 )
 from music_critic.tasks import MultiSourceBatch
 from music_critic.training.checkpoint import (
@@ -48,6 +49,9 @@ from music_critic.training.checkpoint import (
     training_checkpoint_metadata,
 )
 from music_critic.training.data import DataRuntime, build_data_runtime
+from music_critic.experiments.phase8b2.schedule import (
+    raw_downstream_sample_schedule_fingerprint,
+)
 from music_critic.training.device import move_multisource_batch
 from music_critic.training.metrics import EpochMetricAccumulator
 from music_critic.training.models import (
@@ -497,6 +501,22 @@ def _validate_config(config: dict[str, Any]) -> None:
     ):
         raise TrainingContractError(
             "training.config.dilemmadata_hierarchical_ce_only_required"
+        )
+    decoder = config["model"].get("decoder", {"kind": "mlp"})
+    if (
+        not isinstance(decoder, dict)
+        or decoder.get("kind", "mlp") not in {"mlp", "onset_bigru"}
+        or (
+            decoder.get("kind") == "onset_bigru"
+            and config["model"]["hidden_dim"] % 2
+        )
+    ):
+        raise TrainingContractError(
+            "training.config.dilemmadata_decoder_invalid"
+        )
+    if not _is_dilemmadata(config) and decoder.get("kind", "mlp") != "mlp":
+        raise TrainingContractError(
+            "training.config.decoder_non_dilemmadata"
         )
     if not _is_dilemmadata(config) and class_weight_artifact_path:
         raise TrainingContractError(
@@ -1058,6 +1078,11 @@ def _prepare(
         task_weights=config["objective"]["task_weights"],
         dilemmadata=_is_dilemmadata(config),
     ).to(device)
+    fresh_supervised_before_transfer = (
+        dilemmadata_fresh_supervised_fingerprint(model)
+        if isinstance(model, DilemmadataHierarchicalModel)
+        else None
+    )
     encoder_export = None
     if transfer["mode"] != "supervised_scratch":
         export_path = Path(transfer["encoder_export_path"]).resolve()
@@ -1119,6 +1144,18 @@ def _prepare(
             )
         except Phase8B2ContractError as exc:
             raise TrainingContractError(str(exc)) from exc
+    if isinstance(model, DilemmadataHierarchicalModel):
+        fresh_supervised_after_transfer = (
+            dilemmadata_fresh_supervised_fingerprint(model)
+        )
+        if fresh_supervised_after_transfer != fresh_supervised_before_transfer:
+            raise TrainingContractError(
+                "training.transfer.fresh_supervised_state_changed"
+            )
+        transfer_evidence["fresh_supervised_initialization_fingerprint"] = (
+            fresh_supervised_before_transfer
+        )
+        transfer_evidence["fresh_supervised_preserved_after_transfer"] = True
     transfer_evidence["comparison_protocol_fingerprint"] = transfer[
         "comparison_protocol_fingerprint"
     ] or None
@@ -2102,19 +2139,10 @@ def _run_epochs(
             "phase8b2_downstream_sample_identities", []
         )
     ]
-    from music_critic.experiments.phase8b2.contracts import (
-        fingerprint as phase8b2_fingerprint,
-    )
-    from music_critic.experiments.phase8b2.schedule import (
-        SCHEDULE_CONTRACT_VERSION,
-    )
-
-    observed_schedule_fingerprint = phase8b2_fingerprint(
-        {
-            "contract_version": SCHEDULE_CONTRACT_VERSION,
-            "kind": "raw_downstream_sample_schedule",
-            "identities": observed_downstream_identities,
-        }
+    observed_schedule_fingerprint = (
+        raw_downstream_sample_schedule_fingerprint(
+            observed_downstream_identities
+        )
     )
     expected_schedule_fingerprint = config["transfer"].get(
         "sample_schedule_fingerprint"

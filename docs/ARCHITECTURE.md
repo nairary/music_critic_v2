@@ -734,6 +734,8 @@ Save/load is atomic and resume is epoch-boundary-only. Encoder export `1.0.0`
 strictly transfers the local encoder, hierarchy pooling, Transformer, and
 fusion parameters into a compatible supervised hierarchical model without
 overwriting task or reconstruction heads.
+Consumers validate an explicit encoder-only envelope and tensor manifest;
+they never recover an export by filtering a full training checkpoint.
 
 Run reports keep four claim boundaries explicit: one-batch plumbing; bounded
 held-out/non-collapse evidence; named production-cache execution; and
@@ -1062,6 +1064,12 @@ and source-native vocabularies. Five positive-unlabeled event families and all
 logits depend only on raw encoder output; target deletion, replacement or
 masking cannot affect them. Local note/onset/beat/bar embeddings remain
 available beside coarse and fused embeddings.
+
+Dilemmadata checkpoint evaluation reconstructs its typed model config from the
+complete model contract. Absence of top-level decoder metadata denotes only
+the default MLP and must agree with the state inventory. Onset-BiGRU requires
+its exact decoder contract version and structure and a matching decoder state;
+the resulting model always loads the full state strictly.
 
 Expanded alignments carry a tensorized `(sample, source_entry)` identity. Loss
 is `rows.mean per source entry -> entries.mean per task -> fixed weighted task

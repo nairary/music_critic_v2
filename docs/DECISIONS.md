@@ -3216,3 +3216,75 @@ This log is append-only.
   scheduler, scaler, train prior, class-weight artifact, downstream fixed-
   budget `last.pt`, validation, and bootstrap artifacts under a new root. It
   does not resume or mutate the completed pilot, and it does not unlock test.
+
+## 2026-08-21 — ADR-089: Phase 9C-B isolates an optional raw-only onset sequence decoder
+
+- Status: Accepted as a one-seed diagnostic; independent RTX profile and the
+  four production cells remain pending.
+- Context: The class-balanced Phase 9C-A diagnostic did not establish a useful
+  SSL advantage. Its supervised decoder predicts every onset/beat/bar candidate
+  independently, so weak downstream results cannot distinguish an encoder
+  limitation from a temporal-readout bottleneck.
+- Decision: Preserve the accepted MLP path bit-exact and add an optional one-
+  layer bidirectional GRU over raw onset rows only. Each direction has
+  `hidden_dim / 2` units. Gated residual fusion preserves the local onset;
+  deterministic mean pooling through raw ownership provides separate gated
+  residual context to beat and bar with learned availability states. No target,
+  sidecar, label, provenance, confidence, float-time sorting, or synthetic onset
+  participates.
+- Decision: Compare scratch/SSL × MLP/onset-BiGRU under seed 17, the existing
+  supported inverse-square-root class weights, one exact metadata-only batch
+  schedule, equal attempted/applied budgets, complete validation, and final
+  `last.pt`. Require an explicit immutable SSL checkpoint, SHA-256, and source
+  kind; transfer only existing encoder prefixes and fingerprint fresh decoder/
+  head tensors before and after transfer. Test stays locked.
+- Consequences: Onset-BiGRU decoder, Phase 9C-B protocol/plan/bundle start at
+  `1.0.0`; Dilemmadata evaluation advances to `1.1.0` for normalized NLL,
+  entropy, distributions, support, accuracy aliases, and aggregate diagnostics.
+  Canonical/raw graph/cache/split/target/class-weight/head/loss and MLP model
+  contracts do not change. A one-seed outcome remains descriptive only.
+
+## 2026-08-21 — ADR-090: Downstream planning and runtime share one exact schedule builder
+
+- Status: Accepted for the Phase 9C-B profile remediation.
+- Context: The independent profile at `5ac4a30` completed three optimizer
+  updates in `scratch_mlp` and then failed closed on
+  `training.phase8b2.actual_sample_schedule_mismatch`. Planner and engine had
+  equal schedule payload semantics but different canonical byte encoders: the
+  Phase 9C-B generic encoder omitted the trailing newline required by the
+  Phase 8B.2 schedule contract. Profile planning also sliced a production
+  schedule rather than constructing the exact profile epoch size.
+- Decision: Production dataset-view construction is shared between planning
+  and runtime, including the Dilemmadata target-sidecar index requirement.
+  Both use one decoder-neutral builder around the real
+  `DeterministicQuotaSampler` and one normalized downstream fingerprint
+  function. Profile and production schedules are built separately with their
+  exact seed, first epoch, epoch count, steps per epoch, epoch size, batch size,
+  and identity representation.
+- Consequences: The observed-versus-declared check remains fail closed without
+  an allowlist or bypass. Phase 9C-B protocol and plan advance to `1.0.1`;
+  decoder, bundle, data, split, cache, target, class-weight, SSL, scientific
+  budget, and evaluation contracts remain unchanged. The failed root cannot be
+  resumed and the profile must use a fresh output root at the remediated SHA.
+
+## 2026-08-22 — ADR-091: Checkpoint contracts reconstruct decoder type explicitly
+
+- Status: Accepted for the Phase 9C-B profile remediation.
+- Context: The profile at `9de8f34` trained and checkpointed the scratch
+  onset-BiGRU cell, but evaluation rebuilt only `model_contract.config`.
+  Because the writer stores a non-default decoder separately at top level, the
+  evaluator silently instantiated MLP and strict loading rejected valid
+  `sequence_decoder.*` tensors. Planning also allowed an omitted encoder
+  export to alias the full SSL checkpoint.
+- Decision: One typed Dilemmadata reconstruction helper consumes the complete
+  model contract and state inventory. No top-level decoder means default MLP;
+  onset-BiGRU requires the exact decoder contract version, structure and raw
+  semantics. Contract/state cross-kind pairs fail closed, followed by an
+  unchanged strict state load. Decoder type is never inferred from tensor
+  names. Phase 9C-B also requires and structurally validates a distinct,
+  hash-bound encoder-only export during plan preflight.
+- Consequences: Legacy/default MLP checkpoint logits remain unchanged; valid
+  onset-BiGRU checkpoints become evaluable. Missing, substituted or malformed
+  decoder contracts and full-checkpoint-as-export substitutions are rejected
+  before evaluation or CUDA cell execution. Model architecture, weights,
+  data, splits, caches and scientific budgets are unchanged.

@@ -2,11 +2,57 @@
 
 ## Current phase
 
-- Date: 2026-08-20
-- Current task: documentation-only post-Phase 9C model proposal on branch
-  `phase/9c-one-seed-ssl-dilemmadata-pilot`. The discussion draft is in
-  [`POST_PHASE9C_MODEL_PROPOSAL.md`](POST_PHASE9C_MODEL_PROPOSAL.md); it changes
-  no accepted architecture, roadmap phase, contract, or experiment protocol
+- Date: 2026-08-22
+- Current task: Phase 9C-B diagnostic onset-BiGRU profile remediation on stacked
+  branch `phase/9cb-onset-bigru-decoder`. The base is Phase 9C-A head
+  `e7b3903` because its draft PR #25 is not yet merged into `origin/main`.
+- Added optional `decoder.kind=onset_bigru` after unchanged hierarchical encode,
+  with isolated raw onset sequences, gated onset residuals, raw ownership mean
+  pooling into beat/bar, explicit availability states, and unchanged four
+  `SourceNativeTaskHeads`. `decoder.kind=mlp` retains its prior state inventory,
+  model-contract fingerprint, logits, loss, transfer, and checkpoint path.
+- Added Phase 9C-B `plan/profile/run/resume/aggregate/verify`, exact metadata-
+  only paired schedule, explicit SSL path/SHA/source kind, paired fresh-module
+  fingerprints, fixed-update `last.pt`, RTX 3090 wrapper, independent bundle
+  verifier, and expanded Dilemmadata imbalance metrics. The first independent
+  profile at `5ac4a30` completed three `scratch_mlp` optimizer updates and then
+  failed closed on the downstream schedule fingerprint. The defect was not
+  CUDA, OOM, or decoder execution: the planner used Phase 9C-B canonical bytes
+  while the engine used the Phase 8B.2 newline-terminated schedule contract,
+  and profile planning sliced a production schedule built with a different
+  epoch size. Planner and runtime now share the same target-configured dataset
+  view, `DeterministicQuotaSampler` builder, identity normalization, epoch
+  parameters, and fingerprint function. A fresh-root profile rerun is pending;
+  the production matrix was not started and test remained locked.
+- The fresh-root rerun at `9de8f34` passed both MLP cells and completed
+  `scratch_onset_bigru` training/checkpointing, then failed only when the
+  evaluation CLI reconstructed the checkpoint from `contract["config"]` and
+  silently defaulted to MLP despite the versioned top-level BiGRU decoder
+  contract. Evaluation now uses one typed, fail-closed reconstruction helper:
+  absent decoder metadata is accepted only for a state-consistent default MLP;
+  onset-BiGRU requires its exact decoder version/structure/semantics and
+  matching sequence-decoder state before the unchanged strict state load.
+  Cross-kind and malformed contracts fail closed.
+- Phase 9C-B planning now requires a separate explicit hash-bound encoder
+  export and validates its encoder-only envelope, versioned manifest when
+  present, tensor inventory and prefixes before any CUDA cell. A full SSL
+  `last.pt` can no longer be filtered or substituted as an encoder export.
+  Focused model/evaluation/Phase 9C-B and transfer checks pass locally; a final
+  Required CI run and fresh-root RTX profile remain pending.
+- The remediation implementation at `4b337f1` passed Required CI run
+  `32520983280`: `1624 passed, 59 skipped, 12 warnings`; compileall passed.
+- A documentation-only closure run exposed that the old raw-FP32 MLP output
+  SHA regression was host-kernel-sensitive despite an unchanged hardcoded
+  state SHA. The portable regression retains the hardcoded MLP contract/state
+  fingerprints and requires bit-exact default-MLP versus explicit-MLP outputs
+  on the same runner; no model or decoder code changed.
+- Phase 9C-B decoder/bundle contracts: `1.0.0`; protocol/plan contracts:
+  `1.0.1`; Dilemmadata
+  evaluation report: `1.1.0`. Canonical, graph, cache, split, target, class-
+  weight, head, loss, encoder-transfer, and MLP model contracts are unchanged.
+- Next gate: rerun the independent RTX 3090 profile on a new output root, then
+  explicitly
+  run the four seed-17 cells. No one-seed scientific claim is authorized.
 - The opt-in train-only class-balanced downstream diagnostic completed on an
   independent RTX 3090 using hash-bound reuse of the pilot encoder exports.
   All downstream and validation cells completed, final reports and the bundle

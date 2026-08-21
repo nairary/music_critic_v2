@@ -684,6 +684,29 @@ The model and training phases remain pending.
 - Next gate: independent RTX profile; production batch size and budgets are
   selected explicitly from that artifact before a separate pilot `run`.
 
+### Phase 9C-B — diagnostic onset-BiGRU decoder matrix
+
+- Status: implementation and both blocking profile remediations are complete
+  locally. After the schedule fix, the rerun at `9de8f34` passed both MLP
+  cells and trained/checkpointed `scratch_onset_bigru`, then failed only because
+  evaluation ignored its top-level decoder contract and rebuilt an MLP before
+  strict loading. Checkpoint reconstruction is now typed and decoder/state
+  consistent; the SSL encoder export is explicit and structurally checked in
+  preflight. A fresh-root profile rerun and the explicit one-seed production
+  matrix remain pending.
+- Goal: isolate whether the independent Dilemmadata MLP readout bottlenecks
+  useful sequential SSL information.
+- Outputs: unchanged `decoder.kind=mlp`, optional raw-only
+  `decoder.kind=onset_bigru`, onset/beat/bar residual context without changing
+  candidate semantics, four-cell scratch/SSL × MLP/BiGRU matrix, fixed-update
+  `last.pt` comparison, complete imbalance diagnostics, profile/run/resume/
+  aggregate/verify, immutable evidence hashes, and exact RTX 3090 wrapper.
+- Non-goals: cache/split/target/class-weight changes, new SSL objectives,
+  attention/Transformer decoder, multi-seed or test evaluation, PDMX, and
+  Phase 10.
+- Next gate: code review, then independent RTX profile, then an explicit four-
+  cell seed-17 run. No scientific claim is authorized from one seed.
+
 ## Phase 10 — PDMX adapter and large-scale SSL cache
 
 - Goal: support scalable role-agnostic public-domain score pretraining and

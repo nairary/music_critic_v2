@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field, fields, replace
 from hashlib import sha256
 import json
 import math
@@ -27,6 +27,11 @@ from music_critic.models.hierarchy import (
     extract_hierarchy_ownership,
 )
 from music_critic.models.hierarchy_contracts import HierarchicalBaselineConfig
+from music_critic.models.onset_bigru import (
+    DilemmadataDecoderConfig,
+    OnsetBiGRUDecoder,
+    ONSET_BIGRU_DECODER_CONTRACT_VERSION,
+)
 from music_critic.tasks import (
     BatchTarget,
     DILEMMADATA_SOURCE_FAMILY_BY_TASK,
@@ -76,11 +81,20 @@ class DilemmadataHierarchicalConfig:
     dropout: float = 0.1
     residual: bool = True
     task_hidden_dim: int | None = None
+    decoder: DilemmadataDecoderConfig = field(
+        default_factory=DilemmadataDecoderConfig
+    )
     task_weights: tuple[tuple[str, float], ...] = tuple(
         (task_id, 1.0) for task_id in DILEMMADATA_ACTIVE_TASK_IDS
     )
 
     def __post_init__(self) -> None:
+        if isinstance(self.decoder, Mapping):
+            object.__setattr__(
+                self, "decoder", DilemmadataDecoderConfig(**self.decoder)
+            )
+        elif not isinstance(self.decoder, DilemmadataDecoderConfig):
+            raise ValueError("dilemmadata.model.decoder_config_invalid")
         hierarchy = self.hierarchy_config()
         del hierarchy
         if self.task_hidden_dim is not None and (
@@ -111,6 +125,10 @@ class DilemmadataHierarchicalConfig:
             dropout=self.dropout,
             local_residual=self.residual,
         )
+
+
+class DilemmadataModelContractError(ValueError):
+    """Stable failure for malformed or state-inconsistent model contracts."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -336,6 +354,11 @@ class DilemmadataHierarchicalModel(nn.Module):
             config.dropout,
             force_float32=True,
         )
+        self.sequence_decoder = (
+            OnsetBiGRUDecoder(config.hidden_dim, config.dropout)
+            if config.decoder.kind == "onset_bigru"
+            else None
+        )
 
     def encode(
         self,
@@ -366,6 +389,11 @@ class DilemmadataHierarchicalModel(nn.Module):
             return_layers=return_layers,
             feature_overlay=feature_overlay,
         )
+        if self.sequence_decoder is not None:
+            encoded = replace(
+                encoded,
+                fused=self.sequence_decoder(encoded.fused, raw_graph_batch),
+            )
         return encoded, self.task_heads(encoded.fused)
 
     def forward(
@@ -425,14 +453,16 @@ class DilemmadataHierarchicalModel(nn.Module):
 def dilemmadata_model_contract_dict(
     model: DilemmadataHierarchicalModel,
 ) -> dict[str, object]:
-    return {
+    config = asdict(model.config)
+    decoder = config.pop("decoder")
+    contract = {
         "model_contract_version": DILEMMADATA_MODEL_CONTRACT_VERSION,
         "head_contract_version": DILEMMADATA_HEAD_CONTRACT_VERSION,
         "loss_contract_version": DILEMMADATA_LOSS_CONTRACT_VERSION,
         "fp32_head_loss_boundary_version": (
             DILEMMADATA_FP32_HEAD_LOSS_BOUNDARY_VERSION
         ),
-        "config": asdict(model.config),
+        "config": config,
         "active_task_ids": list(DILEMMADATA_ACTIVE_TASK_IDS),
         "pu_tasks_without_heads": list(DILEMMADATA_PU_TASK_IDS),
         "open_tasks_without_heads": list(DILEMMADATA_OPEN_TASK_IDS),
@@ -443,6 +473,115 @@ def dilemmadata_model_contract_dict(
             "encoder_autocast_allowed_heads_logits_ce_source_entry_total_fp32"
         ),
     }
+    if model.config.decoder.kind == "onset_bigru":
+        contract.update(
+            {
+                "decoder_contract_version": ONSET_BIGRU_DECODER_CONTRACT_VERSION,
+                "decoder": decoder,
+                "sequence_input": "encoded.fused.embeddings.onset_raw_rows_only",
+                "owner_context": "raw_onset_to_beat_and_onset_to_bar_mean_pool",
+            }
+        )
+    return contract
+
+
+def dilemmadata_config_from_model_contract(
+    model_contract: object,
+    model_state: object,
+) -> DilemmadataHierarchicalConfig:
+    """Reconstruct a typed config without guessing a decoder from tensors."""
+
+    if not isinstance(model_contract, Mapping):
+        raise DilemmadataModelContractError(
+            "dilemmadata.model_contract.mapping_required"
+        )
+    if (
+        model_contract.get("model_contract_version")
+        != DILEMMADATA_MODEL_CONTRACT_VERSION
+    ):
+        raise DilemmadataModelContractError(
+            "dilemmadata.model_contract.version_incompatible"
+        )
+    raw_config = model_contract.get("config")
+    expected_config_fields = {
+        row.name for row in fields(DilemmadataHierarchicalConfig)
+    } - {"decoder"}
+    if (
+        not isinstance(raw_config, Mapping)
+        or set(raw_config) != expected_config_fields
+    ):
+        raise DilemmadataModelContractError(
+            "dilemmadata.model_contract.config_fields_invalid"
+        )
+    if not isinstance(model_state, Mapping) or any(
+        not isinstance(name, str) or not isinstance(value, Tensor)
+        for name, value in model_state.items()
+    ):
+        raise DilemmadataModelContractError(
+            "dilemmadata.model_contract.state_invalid"
+        )
+    has_decoder = "decoder" in model_contract
+    decoder_value = model_contract.get("decoder")
+    decoder_version = model_contract.get("decoder_contract_version")
+    has_sequence_tensors = any(
+        name.startswith("sequence_decoder.") for name in model_state
+    )
+    if not has_decoder:
+        if any(
+            name in model_contract
+            for name in (
+                "decoder_contract_version",
+                "sequence_input",
+                "owner_context",
+            )
+        ):
+            raise DilemmadataModelContractError(
+                "dilemmadata.model_contract.decoder_fields_inconsistent"
+            )
+        if has_sequence_tensors:
+            raise DilemmadataModelContractError(
+                "dilemmadata.model_contract.mlp_state_has_sequence_decoder"
+            )
+        decoder = DilemmadataDecoderConfig(kind="mlp")
+    else:
+        if decoder_version != ONSET_BIGRU_DECODER_CONTRACT_VERSION:
+            raise DilemmadataModelContractError(
+                "dilemmadata.model_contract.decoder_version_incompatible"
+            )
+        if (
+            not isinstance(decoder_value, Mapping)
+            or set(decoder_value) != {"kind"}
+            or decoder_value.get("kind") != "onset_bigru"
+            or model_contract.get("sequence_input")
+            != "encoded.fused.embeddings.onset_raw_rows_only"
+            or model_contract.get("owner_context")
+            != "raw_onset_to_beat_and_onset_to_bar_mean_pool"
+        ):
+            raise DilemmadataModelContractError(
+                "dilemmadata.model_contract.decoder_invalid"
+            )
+        if not has_sequence_tensors:
+            raise DilemmadataModelContractError(
+                "dilemmadata.model_contract.bigru_state_missing_sequence_decoder"
+            )
+        decoder = DilemmadataDecoderConfig(kind="onset_bigru")
+    config = dict(raw_config)
+    task_weights = config.get("task_weights")
+    if not isinstance(task_weights, (list, tuple)) or any(
+        not isinstance(row, (list, tuple)) or len(row) != 2
+        for row in task_weights
+    ):
+        raise DilemmadataModelContractError(
+            "dilemmadata.model_contract.task_weights_invalid"
+        )
+    config["task_weights"] = tuple(tuple(row) for row in task_weights)
+    config["decoder"] = decoder
+    try:
+        return DilemmadataHierarchicalConfig(**config)
+    except (TypeError, ValueError) as exc:
+        raise DilemmadataModelContractError(
+            "dilemmadata.model_contract.config_invalid"
+        ) from exc
 
 
 def dilemmadata_model_contract_fingerprint(
@@ -491,6 +630,20 @@ def _tensor_state_fingerprint(state: Mapping[str, Tensor]) -> str:
     return digest.hexdigest()
 
 
+def dilemmadata_fresh_supervised_fingerprint(
+    model: DilemmadataHierarchicalModel,
+) -> str:
+    """Fingerprint decoder/head tensors which encoder transfer must preserve."""
+
+    return _tensor_state_fingerprint(
+        {
+            name: value
+            for name, value in model.state_dict().items()
+            if not name.startswith(_ENCODER_PREFIXES)
+        }
+    )
+
+
 def load_dilemmadata_encoder_state(
     model: DilemmadataHierarchicalModel,
     source: object,
@@ -503,22 +656,15 @@ def load_dilemmadata_encoder_state(
 ) -> DilemmadataEncoderTransferReport:
     """Failure-atomically transfer only encoder tensors from a versioned export."""
 
-    if not isinstance(source, Mapping):
-        raise ValueError("dilemmadata.transfer.source_invalid")
-    raw_state = source.get("encoder_state")
-    if not isinstance(raw_state, Mapping):
-        container = source.get("model_state")
-        if isinstance(container, Mapping):
-            raw_state = {
-                name: value
-                for name, value in container.items()
-                if isinstance(name, str) and name.startswith(_ENCODER_PREFIXES)
-            }
-    if not isinstance(raw_state, Mapping) or any(
-        not isinstance(name, str) or not isinstance(value, Tensor)
-        for name, value in raw_state.items()
-    ):
-        raise ValueError("dilemmadata.transfer.encoder_state_invalid")
+    from music_critic.ssl.transfer import (
+        EncoderTransferError,
+        validate_pretrained_encoder_export_structure,
+    )
+
+    try:
+        raw_state = validate_pretrained_encoder_export_structure(source)
+    except EncoderTransferError as exc:
+        raise ValueError(str(exc)) from exc
     if not _is_sha256_text(source_checkpoint_sha256):
         raise ValueError("dilemmadata.transfer.source_sha256_invalid")
     expected_state = model.state_dict()
@@ -766,13 +912,16 @@ __all__ = [
     "DilemmadataHierarchicalModel",
     "DilemmadataHierarchicalOutput",
     "DilemmadataLossReport",
+    "DilemmadataModelContractError",
     "DilemmadataSourceEntryTaskLoss",
     "DilemmadataTaskHeadSpec",
     "aggregate_dilemmadata_source_entry_losses",
     "class_weight_artifact",
     "class_weight_tensors",
     "dilemmadata_model_contract_dict",
+    "dilemmadata_config_from_model_contract",
     "dilemmadata_model_contract_fingerprint",
+    "dilemmadata_fresh_supervised_fingerprint",
     "dilemmadata_task_head_specs",
     "load_dilemmadata_encoder_state",
 ]
