@@ -3,9 +3,46 @@
 ## Current phase
 
 - Date: 2026-08-22
-- Current task: Phase 9C-B diagnostic onset-BiGRU profile remediation on stacked
-  branch `phase/9cb-onset-bigru-decoder`. The base is Phase 9C-A head
-  `e7b3903` because its draft PR #25 is not yet merged into `origin/main`.
+- Current task: Phase 9C-C one-seed convergence diagnostic on stacked branch
+  `phase/9cc-mlp-convergence-diagnostic`, based on exact Phase 9C-B head
+  `786d0dd9320545f2eee50b6d59e609e72d96da49` while draft PR #26 remains
+  unmerged.
+- The remediated Phase 9C-B seed-17 matrix completed independently at
+  `outputs/phase9cb-seed17-20260821T234824Z`: four cells and the immutable
+  bundle verified, test access remained false, and scratch MLP was better than
+  SSL MLP after 3,000 applied updates. Its one-epoch artifact contains only one
+  aggregate train point and one final validation point, so convergence and a
+  plateau remain unproved.
+- Phase 9C-C fixes exactly `scratch_mlp` and `ssl_mlp`, seed 17, MLP full fine-
+  tune, batch size 2 and the unchanged data, split, class weights, optimizer,
+  seed domains and encoder export. Each cell is one continuous epoch with
+  exactly 9,000 applied updates; 1,000/3,000/6,000/9,000 are immutable
+  checkpoint/evaluation milestones, not epochs or restarts.
+- Scalar-only update telemetry is committed every 100 applied updates. A
+  separate Phase 9C-C atomic mid-epoch checkpoint every 1,000 binds model,
+  optimizer, scaler, RNG, cell, data, plan, schedule and applied position.
+  Resume advances the reconstructed epoch-zero iterator before restoring RNG.
+  AMP skips retry the same schedule batch and never count as applied;
+  persistent skips fail closed. The generic Phase 6C epoch checkpoint and
+  Phase 9C-B behavior remain unchanged.
+- Fixed milestone validation runs from saved checkpoints after continuous
+  training in separate evaluator processes, so it cannot mutate optimizer,
+  scaler, RNG or future sample order. The convergence report contains facts
+  and predeclared deltas only, with no plateau verdict, superiority claim or
+  significance claim; test remains locked.
+- Bounded CPU acceptance uses 12 applied updates, telemetry every 2 and
+  milestones 0/4/8/12. It covers trajectory invariance, resume parity, AMP-
+  skip accounting, two-cell pairing, corrupt/missing/cross-cell rejection,
+  test access rejection, executable verification and Phase 9C-B default
+  compatibility.
+- Local results: focused Phase 9C-C `7 passed`; impacted Phase 9C-B/training/
+  checkpoint/evaluation regressions `40 passed, 1 skipped`; repository/import
+  contracts `8 passed`. Compileall, runner `bash -n` and `git diff --check`
+  pass. The warnings are the existing upstream `torch.jit.script`
+  deprecation. No CUDA or production matrix was run locally.
+- Production convergence training has not run and no new scientific
+  conclusion is claimed. Next gate: Required CI and draft-PR review, then one
+  exact-head fresh-root RTX 3090 run.
 - Added optional `decoder.kind=onset_bigru` after unchanged hierarchical encode,
   with isolated raw onset sequences, gated onset residuals, raw ownership mean
   pooling into beat/bar, explicit availability states, and unchanged four
@@ -37,8 +74,8 @@
   export and validates its encoder-only envelope, versioned manifest when
   present, tensor inventory and prefixes before any CUDA cell. A full SSL
   `last.pt` can no longer be filtered or substituted as an encoder export.
-  Focused model/evaluation/Phase 9C-B and transfer checks pass locally; a final
-  Required CI run and fresh-root RTX profile remain pending.
+  Focused model/evaluation/Phase 9C-B and transfer checks passed locally; the
+  later fresh-root profile and one-seed matrix completed and verified.
 - The remediation implementation at `4b337f1` passed Required CI run
   `32520983280`: `1624 passed, 59 skipped, 12 warnings`; compileall passed.
 - A documentation-only closure run exposed that the old raw-FP32 MLP output
@@ -50,9 +87,9 @@
   `1.0.1`; Dilemmadata
   evaluation report: `1.1.0`. Canonical, graph, cache, split, target, class-
   weight, head, loss, encoder-transfer, and MLP model contracts are unchanged.
-- Next gate: rerun the independent RTX 3090 profile on a new output root, then
-  explicitly
-  run the four seed-17 cells. No one-seed scientific claim is authorized.
+- The Phase 9C-B independent profile and four seed-17 cells are complete. Its
+  descriptive result motivates Phase 9C-C; no one-seed superiority claim is
+  authorized.
 - The opt-in train-only class-balanced downstream diagnostic completed on an
   independent RTX 3090 using hash-bound reuse of the pilot encoder exports.
   All downstream and validation cells completed, final reports and the bundle

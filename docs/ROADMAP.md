@@ -707,6 +707,23 @@ The model and training phases remain pending.
 - Next gate: code review, then independent RTX profile, then an explicit four-
   cell seed-17 run. No scientific claim is authorized from one seed.
 
+### Phase 9C-C — one-seed scratch-vs-SSL MLP convergence diagnostic
+
+- Status: control plane and bounded CPU acceptance implemented on a stacked
+  branch; production RTX execution and scientific interpretation are pending.
+- Goal: determine whether the Phase 9C-B scratch/SSL MLP comparison was stopped
+  too early at 3,000 updates.
+- Outputs: exactly two MLP full-fine-tune cells, one continuous 9,000-applied-
+  update epoch, 100-update train telemetry, atomic 1,000-update mid-epoch
+  checkpoints/resume, fixed validation milestones 0/1,000/3,000/6,000/9,000,
+  convergence facts/deltas, immutable bundle, independent verifier and
+  run/resume/verify RTX 3090 wrapper.
+- Non-goals: BiGRU, frozen probes, new SSL objectives or pretraining, additional
+  seeds, model/data/cache/split/class-weight changes, test evaluation,
+  automatic plateau decisions, production execution in CI, PDMX or Phase 10.
+- Next gate: Required CI and draft-PR review, then an exact-head fresh-root RTX
+  run. Interpret convergence only after the verified evidence bundle exists.
+
 ## Phase 10 — PDMX adapter and large-scale SSL cache
 
 - Goal: support scalable role-agnostic public-domain score pretraining and

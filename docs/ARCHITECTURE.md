@@ -1206,6 +1206,39 @@ batches or access test targets/metrics. This control-plane addition changes no
 canonical, raw projection, graph, cache, split, target, model, head, loss, or
 checkpoint-container contract.
 
+## Phase 9C-C applied-update convergence boundary
+
+Phase 9C-C is a scoped control plane over the unchanged Dilemmadata MLP model,
+production loader, optimizer step and official evaluator. The generic Phase 6C
+checkpoint remains epoch-only. A separate `phase9cc` checkpoint binds one
+position inside epoch zero so the longer diagnostic does not reinterpret
+1,000/3,000/6,000/9,000 as epochs.
+
+```text
+one immutable DeterministicQuotaSampler schedule
+  -> scratch MLP / SSL-initialized MLP
+  -> applied update (AMP skip retries the same batch)
+  -> 100-update scalar-only telemetry
+  -> atomic model+optimizer+scaler+RNG+position checkpoint every 1,000
+  -> continue without validation or restart to update 9,000
+  -> strict checkpoint reconstruction in separate validation processes
+  -> fixed milestone metrics and checkpoint/membership bindings
+  -> factual convergence report and independent hash verification
+```
+
+Update telemetry requests a lightweight metric from the canonical optimizer
+step. It performs no prediction retention, CUDA-tensor serialization, sampler
+mutation or RNG draw. Existing callers default this option off, including the
+Phase 9C-B path. Checkpoint resume recreates the exact epoch-zero loader,
+advances it to the saved applied position, and only then restores saved RNG;
+thus iterator construction cannot perturb the resumed model trajectory.
+
+Milestone validation is deliberately outside the training process. Each
+evaluation strictly reconstructs the typed checkpoint model and binds its full
+report to checkpoint SHA-256, model-state fingerprint and the one declared
+validation membership. No milestone is a selection or stopping signal. Test
+has no action or unlock path in this control plane.
+
 ## Incremental research scope
 
 Phase 7A implements GraphMAE2-inspired decoder remasking but is not a faithful

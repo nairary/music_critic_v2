@@ -443,3 +443,15 @@ reconstruction and explicit encoder-export validation derive only from current
 V2 model, training-checkpoint, SSL-export, and evaluation contracts. Legacy
 checkpoint guessing, partial state loading, and implicit artifact substitution
 remain rejected.
+
+## Phase 9C-C MLP convergence diagnostic
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or reused for Phase 9C-C. The applied-update telemetry,
+mid-epoch checkpoint/resume boundary, fixed milestone evaluation, convergence
+report and verifier compose only current V2 Phase 9C-B schedule, training,
+checkpoint, transfer and evaluation contracts.
+
+Legacy epoch reinterpretation, checkpoint-shape guessing, partial state loads,
+target-derived scheduling, missing-as-negative labels, automatic plateau
+claims and test access remain rejected.

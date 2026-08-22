@@ -3288,3 +3288,29 @@ This log is append-only.
   decoder contracts and full-checkpoint-as-export substitutions are rejected
   before evaluation or CUDA cell execution. Model architecture, weights,
   data, splits, caches and scientific budgets are unchanged.
+
+## 2026-08-22 — ADR-092: Convergence uses applied-update checkpoints and post-training milestones
+
+- Status: Accepted for the Phase 9C-C one-seed diagnostic; production RTX
+  execution remains pending.
+- Context: The verified Phase 9C-B matrix compared final checkpoints after
+  3,000 updates but one epoch produced only one aggregate train point and one
+  final validation point. It cannot distinguish a stable disadvantage from an
+  early stopping artifact. Treating later observations as separate epochs or
+  runs would change the sampler and optimizer trajectory.
+- Decision: Compare only scratch MLP and SSL MLP under the exact paired seed-17
+  conditions for one continuous epoch and exactly 9,000 applied updates.
+  Record scalar update telemetry every 100. Save a separate Phase 9C-C atomic
+  checkpoint every 1,000 with model, optimizer, scaler, RNG and deterministic
+  sampler position. AMP-skipped attempts do not advance the schedule and the
+  same batch is retried; repeated overflow fails closed.
+- Decision: Evaluate immutable checkpoints at updates 0, 1,000, 3,000, 6,000
+  and 9,000 only after continuous training, using the unchanged strict official
+  validation loader. Bind checkpoint SHA, model state and validation membership
+  in every milestone. Validation cannot select, stop or mutate training. The
+  convergence report contains values and predeclared deltas but no automatic
+  plateau verdict, superiority claim or significance claim.
+- Consequences: The generic Phase 6C epoch checkpoint and Phase 9C-B behavior
+  remain unchanged. No model, decoder, SSL objective, class weight, target,
+  cache, split, graph, head, loss or scientific data budget changes. One-seed
+  results remain descriptive and test stays locked.
