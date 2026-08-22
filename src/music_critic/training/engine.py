@@ -868,6 +868,7 @@ def _optimize_batch(
     device: torch.device,
     *,
     collect_gradient_evidence: bool,
+    collect_update_metric: bool = False,
     categorical_class_weights: dict[str, torch.Tensor] | None = None,
 ) -> tuple[Any, dict[str, object] | None, bool]:
     optimizer.zero_grad(set_to_none=True)
@@ -893,7 +894,9 @@ def _optimize_batch(
     clipped_norm = torch.nn.utils.clip_grad_norm_(
         model.parameters(),
         float(config["optimizer"]["gradient_clip_norm"]),
-        error_if_nonfinite=collect_gradient_evidence,
+        error_if_nonfinite=(
+            collect_gradient_evidence or collect_update_metric
+        ),
     )
     gradient = (
         _gradient_evidence(model)
@@ -904,20 +907,22 @@ def _optimize_batch(
     scaler.update()
     scale_after = float(scaler.get_scale())
     skipped = scaler.is_enabled() and scale_after < scale_before
-    if not collect_gradient_evidence:
+    if not collect_gradient_evidence and not collect_update_metric:
         return output, None, skipped
-    return output, {
+    metric = {
         "harmonic_loss": _scalar(harmonic),
         "reconstruction_loss": _scalar(reconstruction),
         "total_loss": _scalar(total),
         "gradient_norm_before_clip": float(clipped_norm),
-        "gradient_coverage": gradient,
         "task_losses": _task_losses(output),
         "availability_counts": _availability_counts(output),
         "amp_scale_before": scale_before,
         "amp_scale_after": scale_after,
         "optimizer_step_applied": not skipped,
-    }, skipped
+    }
+    if collect_gradient_evidence:
+        metric["gradient_coverage"] = gradient
+    return output, metric, skipped
 
 
 def _validation_epoch(

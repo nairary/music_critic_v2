@@ -3382,6 +3382,36 @@ artifacts, isolation rules, and claim boundaries are in
 No production pilot, test evaluation, PDMX, Phase 10, critic/quality work, or
 multi-seed claim is part of this implementation change.
 
+### Phase 9C-C one-seed MLP convergence diagnostic
+
+Phase 9C-C follows the completed descriptive Phase 9C-B matrix without
+changing it. It executes only paired `scratch_mlp` and `ssl_mlp` cells at seed
+17. Both reuse the same production Dilemmadata view, target sidecars, split,
+class weights, optimizer, learning rate, initialization/data-order domains,
+batch size two and MLP decoder. SSL loads only the existing hash-bound
+multilevel-equal encoder export; supervised heads are fresh and identically
+initialized.
+
+Each cell is one continuous epoch of exactly 9,000 applied optimizer updates.
+Update telemetry is committed every 100 applied updates and atomic mid-epoch
+resume checkpoints every 1,000. AMP scale-decrease skips are attempts, not
+applied updates; the same schedule batch is retried and persistent overflow
+fails closed. Resume binds the full model/optimizer/scaler/RNG state and exact
+position in the one declared deterministic schedule.
+
+Validation runs from fixed checkpoint milestones 0, 1,000, 3,000, 6,000 and
+9,000 after continuous training, in evaluator processes that cannot modify the
+training trajectory. It always uses one immutable validation membership and
+never reads test, selects a checkpoint, stops training, or changes the future
+schedule. `convergence_report.json` records milestone facts, interval deltas,
+SSL-minus-scratch gaps, descriptive best/final differences and train moving
+averages without a plateau verdict or scientific claim.
+
+The exact artifact and runner contract is documented in
+[`PHASE9CC_MLP_CONVERGENCE.md`](PHASE9CC_MLP_CONVERGENCE.md). Production GPU
+execution is explicitly outside the implementation change and begins only via
+the independently reviewed fresh-root RTX command.
+
 ## Phase 10. PDMX adapter and scalable cache
 
 ### Implement
