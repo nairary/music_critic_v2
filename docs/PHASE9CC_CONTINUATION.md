@@ -23,7 +23,9 @@ The production parent is fixed by:
 The old plan did not record the path of the JSON file used to construct it.
 The continuation therefore requires that path explicitly and compares every
 file, hash, cache root, SSL source/export and learning-rate binding against the
-verified parent plan. A similarly named config is never substituted.
+verified parent plan. Its `git_head` must bind the continuation implementation
+SHA, while the parent SHA remains separately fixed in `parent_binding.json`.
+A similarly named config is never substituted.
 
 ## Preflight and continuation
 

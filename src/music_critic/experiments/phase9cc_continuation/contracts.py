@@ -110,6 +110,8 @@ def _load_config(path: Path) -> dict[str, object]:
 def _validate_config_against_parent(
     config_path: Path,
     parent_plan: Mapping[str, object],
+    *,
+    continuation_git_head: str,
 ) -> dict[str, object]:
     config = _load_config(config_path)
     protocol = parent_plan["protocol"]
@@ -161,7 +163,7 @@ def _validate_config_against_parent(
             )
     if (
         config.get("ssl_source_kind") != ssl["source_kind"]
-        or str(config.get("git_head")) != str(protocol["git_head"])
+        or str(config.get("git_head")) != continuation_git_head
         or float(config.get("learning_rate", 0.0003))
         != float(protocol["schedule"]["learning_rate"])
     ):
@@ -248,6 +250,8 @@ def build_continuation_plan(
         )
 
     parent_plan = _read(parent_root / "experiment_plan.json")
+    current_sha = _git_head()
+    current_branch = _git_branch()
     parent_sha = str(parent_plan["protocol"]["git_head"])
     parent_verification = verify_parent_bundle(
         parent_root, expected_sha=parent_sha
@@ -277,7 +281,11 @@ def build_continuation_plan(
         raise Phase9CCContinuationError(
             "phase9cc.continuation.parent_contract_invalid"
         )
-    _validate_config_against_parent(config_path, parent_plan)
+    _validate_config_against_parent(
+        config_path,
+        parent_plan,
+        continuation_git_head=current_sha,
+    )
 
     expected_checkpoint_hashes = dict(
         bounded.get(
@@ -332,8 +340,6 @@ def build_continuation_plan(
             "phase9cc.continuation.schedule_prefix_mismatch"
         )
 
-    current_sha = _git_head()
-    current_branch = _git_branch()
     if not bounded and (
         current_branch != CONTINUATION_BRANCH
         or _git("rev-parse", f"origin/{CONTINUATION_PARENT_BRANCH}")

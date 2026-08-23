@@ -28,11 +28,19 @@
   covers uninterrupted/interrupted resume parity, parent immutability, strict
   evaluation and replay preflight, AMP skip accounting, persistent-overflow,
   schedule-prefix/checkpoint/tamper rejection, and final bundle verification.
+- The reconstructed config now binds `git_head` to the exact continuation
+  implementation SHA, while the parent implementation SHA remains a distinct
+  immutable parent-manifest binding. A config that incorrectly reuses the
+  parent SHA is rejected before CUDA or optimizer work.
 - Focused continuation tests pass `3 passed`; impacted Phase 9C-C/model/
   evaluation/checkpoint regressions pass `41 passed, 1 skipped`; repository
   and import contracts pass `8 passed`. Full local pytest, corpus audits,
   production training and CUDA execution were not run. Compileall, shell
   syntax and `git diff --check` pass.
+- After the continuation-SHA config correction, the combined Phase 9C-C base
+  and continuation regression passes `10 passed` in 70.46 seconds. Compileall,
+  runner `bash -n`, and `git diff --check` pass; no CUDA or production run was
+  started.
 - The remediated Phase 9C-B seed-17 matrix completed independently at
   `outputs/phase9cb-seed17-20260821T234824Z`: four cells and the immutable
   bundle verified, test access remained false, and scratch MLP was better than

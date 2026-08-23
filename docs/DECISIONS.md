@@ -3330,6 +3330,9 @@ This log is append-only.
   model, optimizer, scaler, scheduler-null state and RNG, advance the same
   loader to the global applied position before restoring RNG, and never reload
   the SSL encoder export.
+- Decision: The reconstructed execution config binds `git_head` to the exact
+  continuation implementation SHA. The parent implementation SHA is a
+  separate immutable parent binding; conflating the two is rejected.
 - Decision: Reproduce both update-9,000 checkpoints on the unchanged validation
   membership, with strict model loading, exact candidate identities and the
   existing deterministic CUDA comparator, before either cell may optimize.

@@ -132,7 +132,7 @@ def _config(parent_plan: dict[str, object], path: Path) -> Path:
             "learning_rate": parent_plan["protocol"]["schedule"][
                 "learning_rate"
             ],
-            "git_head": parent_plan["protocol"]["git_head"],
+            "git_head": "b" * 40,
         }
     )
     path.write_text(json.dumps(config), encoding="utf-8")
@@ -383,6 +383,20 @@ def test_continuation_rejects_prefix_checkpoint_and_bundle_tampering(
     valid = _continuation_plan(
         parent, parent_plan, identities, config_path, monkeypatch
     )
+    parent_sha_config = tmp_path / "parent-sha-config.json"
+    parent_sha_value = json.loads(config_path.read_text(encoding="utf-8"))
+    parent_sha_value["git_head"] = parent_plan["protocol"]["git_head"]
+    parent_sha_config.write_text(
+        json.dumps(parent_sha_value), encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="config_scientific_binding_mismatch"):
+        _continuation_plan(
+            parent,
+            parent_plan,
+            identities,
+            parent_sha_config,
+            monkeypatch,
+        )
     manifest = parent_runner._read(parent / "manifest.json")
     hashes = {
         cell_id: file_sha256(
