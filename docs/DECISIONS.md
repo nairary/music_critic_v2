@@ -3314,3 +3314,30 @@ This log is append-only.
   remain unchanged. No model, decoder, SSL objective, class weight, target,
   cache, split, graph, head, loss or scientific data budget changes. One-seed
   results remain descriptive and test stays locked.
+
+## 2026-08-23 — ADR-093: Longer convergence is an exact immutable-parent continuation
+
+- Status: Accepted for the Phase 9C-C 9,000→15,000 continuation control plane;
+  independent RTX execution remains pending.
+- Context: The verified 9,000-update evidence is immutable, while interpreting
+  late convergence requires two additional milestones. Changing its plan and
+  resuming inside the sealed root would invalidate its manifest; loading only
+  model weights would discard optimizer, scaler, RNG and sampler trajectory.
+- Decision: Create a separate continuation root bound to the exact parent Git
+  SHA/branch, manifest fingerprint, config projection and both update-9,000
+  checkpoint hashes. Rebuild a single 15,000-update epoch-zero schedule and
+  require its 9,000-update prefix to equal the parent schedule exactly. Restore
+  model, optimizer, scaler, scheduler-null state and RNG, advance the same
+  loader to the global applied position before restoring RNG, and never reload
+  the SSL encoder export.
+- Decision: Reproduce both update-9,000 checkpoints on the unchanged validation
+  membership, with strict model loading, exact candidate identities and the
+  existing deterministic CUDA comparator, before either cell may optimize.
+  Continue telemetry/checkpoint numbering globally, evaluate only at
+  9,000/12,000/15,000, and preserve facts/deltas without an automatic plateau
+  threshold or scientific claim.
+- Consequences: The parent bundle remains byte-for-byte unchanged. A missing or
+  inconsistent parent/config/state/schedule binding, duplicate telemetry,
+  persistent AMP overflow, test access or cross-cell mismatch fails closed.
+  BiGRU, models, objectives, heads, losses, data, split, caches, class weights,
+  SSL artifacts and all other scientific settings remain unchanged.

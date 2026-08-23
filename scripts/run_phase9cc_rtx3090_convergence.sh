@@ -3,15 +3,31 @@ set -uo pipefail
 
 usage() {
   echo "usage: $0 {run|resume|verify} EXPECTED_SHA CONFIG_JSON OUTPUT_ROOT" >&2
+  echo "       $0 continue EXPECTED_SHA PARENT_OUTPUT_ROOT CONFIG_JSON NEW_ROOT --start-update 9000 --target-update 15000 --validation-milestones 9000,12000,15000" >&2
   exit 2
 }
 
-[[ $# -eq 4 ]] || usage
+if [[ ${1:-} == "continue" ]]; then
+  [[ $# -eq 11 ]] || usage
+  action=$1
+  expected_sha=$2
+  parent_output_root=$3
+  config_json=$4
+  output_root=$5
+  [[ $6 == "--start-update" && $7 == "9000" ]] || usage
+  [[ $8 == "--target-update" && $9 == "15000" ]] || usage
+  [[ ${10} == "--validation-milestones" && ${11} == "9000,12000,15000" ]] || usage
+else
+  [[ $# -eq 4 ]] || usage
+fi
+
 action=$1
 expected_sha=$2
-config_json=$3
-output_root=$4
-[[ "$action" == "run" || "$action" == "resume" || "$action" == "verify" ]] || usage
+if [[ "$action" != "continue" ]]; then
+  config_json=$3
+  output_root=$4
+fi
+[[ "$action" == "run" || "$action" == "resume" || "$action" == "verify" || "$action" == "continue" ]] || usage
 
 repo_root=$(git rev-parse --show-toplevel) || exit 1
 cd "$repo_root" || exit 1
@@ -27,6 +43,25 @@ fi
 if [[ -n "$(git status --porcelain --untracked-files=normal)" ]]; then
   echo "phase9cc.rtx.clean_head_required" >&2
   exit 1
+fi
+
+if [[ "$action" == "continue" ]]; then
+  if [[ ! -d "$parent_output_root" ]]; then
+    echo "phase9cc.continuation.parent_root_missing=$parent_output_root" >&2
+    exit 1
+  fi
+  if [[ ! -f "$config_json" ]]; then
+    echo "phase9cc.continuation.config_missing=$config_json" >&2
+    exit 1
+  fi
+  if [[ -f "$output_root/manifest.json" ]]; then
+    .venv/bin/python scripts/verify_phase9cc_continuation.py \
+      --bundle "$output_root" --expected-sha "$expected_sha" || exit 1
+    echo "phase9cc.rtx.continue.complete"
+    echo "EVIDENCE_BUNDLE=$output_root"
+    echo "LOG=$output_root/execution.log"
+    exit 0
+  fi
 fi
 
 if [[ "$action" == "verify" ]]; then
@@ -57,6 +92,35 @@ fi
 
 mkdir -p "$output_root"
 log_path="${output_root%/}.phase9cc_${action}.log"
+if [[ "$action" == "continue" ]]; then
+  .venv/bin/python -m music_critic.experiments.phase9cc_continuation.run continue \
+    --parent-output-root "$parent_output_root" \
+    --config "$config_json" \
+    --output-root "$output_root" \
+    --start-update 9000 \
+    --target-update 15000 \
+    --validation-milestones 9000,12000,15000 2>&1 | tee -a "$log_path"
+  status=${PIPESTATUS[0]}
+  mkdir -p "$output_root"
+  cp "$log_path" "$output_root/execution.log"
+  if [[ $status -ne 0 ]]; then
+    printf '%s\n' "$output_root" > "$output_root/FAILED_ROOT.txt"
+    printf '%s\n' "$log_path" > "$output_root/FAILED_LOG.txt"
+    echo "phase9cc.continuation.failed_root=$output_root" >&2
+    echo "phase9cc.continuation.failed_log=$log_path" >&2
+    exit "$status"
+  fi
+  rm -f "$output_root/FAILED_ROOT.txt" "$output_root/FAILED_LOG.txt"
+  .venv/bin/python -m music_critic.experiments.phase9cc_continuation.run finalize \
+    --output-root "$output_root" --expected-sha "$expected_sha" || exit 1
+  .venv/bin/python scripts/verify_phase9cc_continuation.py \
+    --bundle "$output_root" --expected-sha "$expected_sha" || exit 1
+  echo "phase9cc.rtx.continue.complete"
+  echo "EVIDENCE_BUNDLE=$output_root"
+  echo "LOG=$output_root/execution.log"
+  exit 0
+fi
+
 .venv/bin/python -m music_critic.experiments.phase9cc.run "$action" \
   --config "$config_json" --output-root "$output_root" 2>&1 | tee "$log_path"
 status=${PIPESTATUS[0]}

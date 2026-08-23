@@ -2,11 +2,37 @@
 
 ## Current phase
 
-- Date: 2026-08-22
-- Current task: Phase 9C-C one-seed convergence diagnostic on stacked branch
-  `phase/9cc-mlp-convergence-diagnostic`, based on exact Phase 9C-B head
-  `786d0dd9320545f2eee50b6d59e609e72d96da49` while draft PR #26 remains
-  unmerged.
+- Date: 2026-08-23
+- Current task: Phase 9C-C exact continuation from 9,000 to 15,000 applied
+  updates on stacked branch `phase/9cc-continuation-15000`, based on the
+  verified Phase 9C-C implementation head
+  `bff1a405ffb9d8d6de01c4abc3d567dcb02d000b`.
+- The completed parent evidence is fixed by manifest fingerprint
+  `6e64f33e64de9c3d864d75828a6916d95afa9fcbadc75c14359b884cab83ab10`
+  and update-9,000 checkpoint hashes `1b3d6ac9…50072f` (scratch) and
+  `2ffb2fc0…c0239` (SSL). The parent remains immutable; the continuation uses a
+  separate versioned root.
+- The continuation preflights both cells before any optimizer step: it verifies
+  the parent/config/checkpoint bindings, strictly reconstructs update 9,000,
+  reproduces validation membership/metrics, and applies the existing exact-
+  identity CUDA logits comparator. It then restores model, optimizer, scaler,
+  scheduler-null state and RNG and continues the same epoch-zero sampler
+  position without reloading the SSL encoder export.
+- Production continues global telemetry at 9,100…15,000, writes atomic
+  checkpoints at 10,000…15,000, and validates only at 9,000/12,000/15,000.
+  The report combines the parent milestones through 9,000 with 12,000 and
+  15,000, and records requested deltas and train-loss slope without a plateau,
+  superiority or significance verdict. Test remains locked.
+- Bounded CPU continuation uses start 12, target 24, milestones 12/18/24 and
+  telemetry every two updates on a production-format Dilemmadata batch. It
+  covers uninterrupted/interrupted resume parity, parent immutability, strict
+  evaluation and replay preflight, AMP skip accounting, persistent-overflow,
+  schedule-prefix/checkpoint/tamper rejection, and final bundle verification.
+- Focused continuation tests pass `3 passed`; impacted Phase 9C-C/model/
+  evaluation/checkpoint regressions pass `41 passed, 1 skipped`; repository
+  and import contracts pass `8 passed`. Full local pytest, corpus audits,
+  production training and CUDA execution were not run. Compileall, shell
+  syntax and `git diff --check` pass.
 - The remediated Phase 9C-B seed-17 matrix completed independently at
   `outputs/phase9cb-seed17-20260821T234824Z`: four cells and the immutable
   bundle verified, test access remained false, and scratch MLP was better than
@@ -40,9 +66,10 @@
   contracts `8 passed`. Compileall, runner `bash -n` and `git diff --check`
   pass. The warnings are the existing upstream `torch.jit.script`
   deprecation. No CUDA or production matrix was run locally.
-- Production convergence training has not run and no new scientific
-  conclusion is claimed. Next gate: Required CI and draft-PR review, then one
-  exact-head fresh-root RTX 3090 run.
+- The 9,000-update parent convergence run completed and verified independently;
+  the 15,000-update continuation has not run. No new scientific conclusion is
+  claimed. Next gate: Required CI and draft-PR review, then one exact-head
+  fresh continuation root on RTX 3090.
 - Added optional `decoder.kind=onset_bigru` after unchanged hierarchical encode,
   with isolated raw onset sequences, gated onset residuals, raw ownership mean
   pooling into beat/bar, explicit availability states, and unchanged four

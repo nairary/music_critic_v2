@@ -724,6 +724,23 @@ The model and training phases remain pending.
 - Next gate: Required CI and draft-PR review, then an exact-head fresh-root RTX
   run. Interpret convergence only after the verified evidence bundle exists.
 
+### Phase 9C-C continuation — exact 9,000 to 15,000 applied updates
+
+- Status: continuation control plane implemented on a separate stacked branch;
+  production RTX execution is pending.
+- Goal: continue only the two verified seed-17 MLP trajectories from their
+  exact update-9,000 checkpoints to update 15,000 without reopening the parent
+  bundle, restarting the epoch, or reloading the SSL export.
+- Outputs: parent/config/checkpoint binding, complete-schedule prefix proof,
+  two-cell update-9,000 reproduction preflight, global 100-update telemetry,
+  1,000-update atomic resume checkpoints, validation at 9,000/12,000/15,000,
+  combined convergence facts through 15,000 and an independent verifier.
+- Non-goals: BiGRU, new initialization/pretraining, model/data/split/cache/
+  weight changes, extra seeds, test access, automatic plateau thresholds or
+  scientific superiority/significance claims.
+- Next gate: focused review and one Required CI on the final implementation
+  SHA, followed by an explicit fresh continuation root on RTX 3090.
+
 ## Phase 10 — PDMX adapter and large-scale SSL cache
 
 - Goal: support scalable role-agnostic public-domain score pretraining and

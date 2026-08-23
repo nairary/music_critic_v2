@@ -1239,6 +1239,37 @@ report to checkpoint SHA-256, model-state fingerprint and the one declared
 validation membership. No milestone is a selection or stopping signal. Test
 has no action or unlock path in this control plane.
 
+## Phase 9C-C immutable-parent continuation boundary
+
+The 9,000-update verified bundle cannot be reopened with a larger plan because
+its plan, checkpoints, manifest and payload are immutable. The continuation is
+therefore a separate root whose `parent_binding.json` names the exact parent
+plan/protocol/manifest, config projection and update-9000 checkpoint hashes.
+
+```text
+verified immutable 9,000-update parent
+  -> rebuild one 15,000-update epoch-zero schedule
+  -> require exact equality of the complete 9,000-update prefix
+  -> strict checkpoint + optimizer/scaler/scheduler/RNG restore
+  -> advance loader to global applied position, then restore RNG
+  -> updates 9,001..15,000 without encoder transfer or epoch restart
+  -> fixed validation at 9,000/12,000/15,000
+  -> combined factual report and separately hashed continuation bundle
+```
+
+Both cells finish their update-9,000 reproduction preflight before either cell
+may execute a new optimizer update. The preflight binds validation membership,
+model state, support/distributions, exact raw candidate identities, and the
+existing deterministic CUDA logits comparator. A parent mismatch cannot fall
+back to weights-only loading or fresh training.
+
+Continuation telemetry and checkpoints retain global applied/attempted/skipped
+counts. Only applied updates advance the deterministic sampler; an AMP skip
+retries the same batch and persistent overflow fails closed. The independent
+verifier rebuilds both parent and extended schedules, validates every external
+parent binding and every new artifact hash, and rejects BiGRU cells, duplicate
+telemetry, missing checkpoints, test access or scientific claims.
+
 ## Incremental research scope
 
 Phase 7A implements GraphMAE2-inspired decoder remasking but is not a faithful

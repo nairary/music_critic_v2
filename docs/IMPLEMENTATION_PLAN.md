@@ -3412,6 +3412,32 @@ The exact artifact and runner contract is documented in
 execution is explicitly outside the implementation change and begins only via
 the independently reviewed fresh-root RTX command.
 
+### Phase 9C-C exact continuation to 15,000 applied updates
+
+The verified 9,000-update bundle is an immutable parent, not a resumable output
+whose budget may be edited. A separate continuation plan binds its exact Git
+SHA and branch, manifest and payload, original config projection, both final
+checkpoint hashes, validation membership, data/cache/split/class-weight/SSL
+artifacts and schedule fingerprint. Any mismatch stops before CUDA training.
+
+The runtime builds one epoch-zero schedule through update 15,000 with the same
+target-configured view, quota sampler, batch size and data-order seed. Its
+complete first 9,000 updates must equal the rebuilt parent schedule. Each cell
+strictly restores model, optimizer, scaler, scheduler-null state and RNG from
+the parent checkpoint; it advances the epoch-zero loader to update 9,000 before
+restoring RNG and does not execute encoder transfer again.
+
+Both parent checkpoints must first reproduce their update-9,000 validation
+membership, model state, candidate identities, logits and metrics under the
+existing deterministic CUDA comparator. Only then may either cell continue.
+Telemetry is global at updates 9,100…15,000, checkpoints are global at
+10,000…15,000, and validation is limited to 9,000, 12,000 and 15,000. The
+combined report retains milestones 0/1,000/3,000/6,000/9,000/12,000/15,000,
+requested deltas, SSL gaps, best/final facts and train-loss slope without an
+automatic plateau threshold or scientific claim. The exact invocation and
+artifact inventory are documented in
+[`PHASE9CC_CONTINUATION.md`](PHASE9CC_CONTINUATION.md).
+
 ## Phase 10. PDMX adapter and scalable cache
 
 ### Implement
