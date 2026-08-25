@@ -12,6 +12,9 @@ This log is append-only.
   sealed MLP continuation bundle.
 - Consequence: evidence stays one-seed descriptive with locked test access and
   no automatic plateau, superiority or significance verdict.
+- Decision: sealed historical reference bundles are verified against their own
+  recorded Git/config/manifest contract. They are not rebuilt under the
+  consumer experiment's newer Git head.
 
 ## 2026-07-16 — ADR-001: Separate clean repository
 

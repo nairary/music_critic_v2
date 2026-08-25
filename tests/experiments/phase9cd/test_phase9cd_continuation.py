@@ -5,9 +5,14 @@ from pathlib import Path
 import pytest
 import torch
 
+from music_critic.experiments.phase9cc.runner import _write
 from music_critic.experiments.phase9cc.training import model_state_fingerprint
-from music_critic.experiments.phase9cc_continuation.contracts import file_sha256
+from music_critic.experiments.phase9cc_continuation.contracts import (
+    file_sha256,
+    fingerprint,
+)
 from music_critic.experiments.phase9cc_continuation.training import _restore_parent
+from music_critic.experiments.phase9cd import contracts as phase9cd_contracts
 from music_critic.experiments.phase9cd.contracts import CELLS, MILESTONES
 from music_critic.experiments.phase9cd.runner import _delta
 from music_critic.training.checkpoint import capture_rng_state
@@ -106,3 +111,43 @@ def test_phase9cd_inventory_metrics_and_rtx_interface() -> None:
     assert "scratch_onset_bigru,ssl_onset_bigru" in script
     assert "3000,6000,9000,12000,15000" in script
     assert "--mlp-reference-root" in script
+
+
+def test_sealed_mlp_reference_verification_does_not_rebuild_old_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = {
+        "protocol": {
+            "git_head": "m" * 40,
+            "test_lock": {
+                "test_inference": False,
+                "test_targets_accessed": False,
+                "test_metrics_accessed": False,
+                "test_unlock": False,
+            },
+        }
+    }
+    report = {"test_access": False}
+    report = {**report, "fingerprint": fingerprint(report)}
+    _write(tmp_path / "continuation_plan.json", plan)
+    _write(tmp_path / "convergence_report.json", report)
+    files = {
+        name: file_sha256(tmp_path / name)
+        for name in ("continuation_plan.json", "convergence_report.json")
+    }
+    manifest = {"contract_version": "1.0.0", "files": files, "file_count": 2}
+    manifest = {**manifest, "fingerprint": fingerprint(manifest)}
+    _write(tmp_path / "manifest.json", manifest)
+    (tmp_path / "payload.sha256").write_text(
+        f"{file_sha256(tmp_path / 'manifest.json')}  manifest.json\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(phase9cd_contracts, "MLP_SHA", "m" * 40)
+    monkeypatch.setattr(
+        phase9cd_contracts, "MLP_REPORT_FINGERPRINT", report["fingerprint"]
+    )
+    monkeypatch.setattr(
+        phase9cd_contracts, "MLP_MANIFEST_FINGERPRINT", manifest["fingerprint"]
+    )
+    verified = phase9cd_contracts.verify_sealed_mlp_reference(tmp_path)
+    assert verified["report"] == report

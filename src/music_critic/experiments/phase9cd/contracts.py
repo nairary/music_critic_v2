@@ -24,9 +24,6 @@ from music_critic.experiments.phase9cc_continuation.contracts import (
     file_sha256,
     fingerprint,
 )
-from music_critic.experiments.phase9cc_continuation.runner import (
-    verify_bundle as verify_mlp_reference,
-)
 
 
 PROTOCOL_VERSION = "1.0.0"
@@ -61,6 +58,43 @@ MLP_MANIFEST_FINGERPRINT = (
 MLP_REPORT_FINGERPRINT = (
     "c8abc49b4fc90bfded668daadb387613dceb7d7b6f3f620f152ed636abb3b6d0"
 )
+
+
+def verify_sealed_mlp_reference(root: Path) -> dict[str, object]:
+    """Verify a sealed historical MLP bundle without rebuilding its old plan."""
+
+    manifest = _read(root / "manifest.json")
+    unsigned = dict(manifest)
+    observed = unsigned.pop("fingerprint", None)
+    if observed != fingerprint(unsigned):
+        raise Phase9CCContinuationError("phase9cd.mlp_manifest_invalid")
+    for relative, digest in manifest.get("files", {}).items():
+        path = root / relative
+        if not path.is_file() or file_sha256(path) != digest:
+            raise Phase9CCContinuationError(
+                f"phase9cd.mlp_payload_invalid:{relative}"
+            )
+    actual = {
+        str(path.relative_to(root))
+        for path in root.rglob("*")
+        if path.is_file() and path.name not in {"manifest.json", "payload.sha256"}
+    }
+    if actual != set(manifest.get("files", {})):
+        raise Phase9CCContinuationError("phase9cd.mlp_file_inventory_invalid")
+    expected_payload = f"{file_sha256(root / 'manifest.json')}  manifest.json\n"
+    if (root / "payload.sha256").read_text(encoding="utf-8") != expected_payload:
+        raise Phase9CCContinuationError("phase9cd.mlp_payload_digest_invalid")
+    plan = _read(root / "continuation_plan.json")
+    report = _read(root / "convergence_report.json")
+    if (
+        plan.get("protocol", {}).get("git_head") != MLP_SHA
+        or report.get("fingerprint") != MLP_REPORT_FINGERPRINT
+        or manifest.get("fingerprint") != MLP_MANIFEST_FINGERPRINT
+        or report.get("test_access") is not False
+        or any(plan.get("protocol", {}).get("test_lock", {}).values())
+    ):
+        raise Phase9CCContinuationError("phase9cd.mlp_reference_invalid")
+    return {"manifest": manifest, "plan": plan, "report": report}
 
 
 def _checkpoint(path: Path) -> dict[str, object]:
@@ -197,7 +231,7 @@ def build_plan(
         bounded.get("mlp_report_fingerprint", MLP_REPORT_FINGERPRINT)
     )
     if not bounded:
-        verify_mlp_reference(mlp_reference_root, expected_sha=MLP_SHA)
+        verify_sealed_mlp_reference(mlp_reference_root)
     if (
         mlp_manifest.get("fingerprint") != expected_mlp_manifest
         or mlp_report.get("fingerprint") != expected_mlp_report
@@ -353,4 +387,12 @@ def build_plan(
     return {**plan, "fingerprint": fingerprint(plan)}
 
 
-__all__ = ["BRANCH", "CELLS", "MILESTONES", "START_UPDATE", "TARGET_UPDATE", "build_plan"]
+__all__ = [
+    "BRANCH",
+    "CELLS",
+    "MILESTONES",
+    "START_UPDATE",
+    "TARGET_UPDATE",
+    "build_plan",
+    "verify_sealed_mlp_reference",
+]

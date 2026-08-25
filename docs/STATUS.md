@@ -13,6 +13,12 @@
 - Focused tests pass `11 passed` in 108.20 seconds. Compileall, runner `bash
   -n` and `git diff --check` pass. No full pytest, corpus audit, CUDA, MLP
   training or production run was started.
+- The first RTX preflight at `08438c6` stopped before CUDA work because sealed
+  MLP verification attempted to rebuild its historical plan under the new
+  Phase 9C-D Git head. MLP reference verification now checks its own immutable
+  plan/report/manifest/payload inventory without rebinding the old config.
+  Focused continuation/decoder/reference regression passes `8 passed` in
+  42.38 seconds; no optimizer update was executed by the failed attempt.
 
 ## Current phase
 

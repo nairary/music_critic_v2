@@ -24,7 +24,6 @@ from music_critic.experiments.phase9cc_continuation.runner import (
     _run_evaluation,
     _validation_row,
     model_contract_metadata_from_payload,
-    verify_bundle as verify_mlp_bundle,
 )
 from music_critic.experiments.phase9cc_continuation.training import (
     CONTINUATION_CHECKPOINT_VERSION,
@@ -46,6 +45,7 @@ from .contracts import (
     START_UPDATE,
     TARGET_UPDATE,
     build_plan,
+    verify_sealed_mlp_reference,
 )
 
 
@@ -310,7 +310,7 @@ def verify_bundle(root: Path, *, expected_sha: str | None = None):
     mlp_root = Path(mlp["root"])
     parent_verified = verify_phase9cb(parent_root, expected_sha=parent["git_sha"])
     if not protocol.get("bounded_test_protocol"):
-        verify_mlp_bundle(mlp_root, expected_sha=mlp["git_sha"])
+        verify_sealed_mlp_reference(mlp_root)
     if (
         parent_verified["manifest_fingerprint"] != parent["manifest_fingerprint"]
         or file_sha256(Path(parent["manifest_path"])) != parent["manifest_sha256"]
