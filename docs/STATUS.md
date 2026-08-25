@@ -19,6 +19,12 @@
   plan/report/manifest/payload inventory without rebinding the old config.
   Focused continuation/decoder/reference regression passes `8 passed` in
   42.38 seconds; no optimizer update was executed by the failed attempt.
+- The next RTX preflight reached strict BiGRU replay but exposed that the
+  generic Phase 9C-B epoch checkpoint has no redundant top-level model-state
+  fingerprint field. Evidence serialization now uses the independently
+  computed fingerprint only after exact equality with the plan binding; a
+  present checkpoint declaration must also agree. Focused regression passes
+  `8 passed` in 49.16 seconds, again before any optimizer update.
 
 ## Current phase
 

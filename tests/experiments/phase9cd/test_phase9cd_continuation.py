@@ -12,6 +12,9 @@ from music_critic.experiments.phase9cc_continuation.contracts import (
     fingerprint,
 )
 from music_critic.experiments.phase9cc_continuation.training import _restore_parent
+from music_critic.experiments.phase9cc_continuation.runner import (
+    _bound_parent_model_fingerprint,
+)
 from music_critic.experiments.phase9cd import contracts as phase9cd_contracts
 from music_critic.experiments.phase9cd.contracts import CELLS, MILESTONES
 from music_critic.experiments.phase9cd.runner import _delta
@@ -73,6 +76,19 @@ def test_real_bigru_parent_restores_full_state_and_rejects_cross_kind(
     )
     assert model_state_fingerprint(model) == binding["model_state_fingerprint"]
     assert restored["optimizer_state"] == payload["optimizer_state"]
+    assert _bound_parent_model_fingerprint(payload, cell) == binding[
+        "model_state_fingerprint"
+    ]
+
+    tampered_binding = {
+        **cell,
+        "parent_checkpoint": {
+            **binding,
+            "model_state_fingerprint": "0" * 64,
+        },
+    }
+    with pytest.raises(ValueError, match="preflight.model_fingerprint_mismatch"):
+        _bound_parent_model_fingerprint(payload, tampered_binding)
 
     wrong_model = _model("mlp")
     with pytest.raises(ValueError, match="resume.model_binding_invalid"):

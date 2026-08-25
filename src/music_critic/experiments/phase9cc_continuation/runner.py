@@ -297,6 +297,19 @@ def _parent_milestone(
     return rows[0]
 
 
+def _bound_parent_model_fingerprint(
+    payload: Mapping[str, object], cell: Mapping[str, object]
+) -> str:
+    computed = model_state_fingerprint(payload.get("model_state"))
+    bound = str(cell["parent_checkpoint"]["model_state_fingerprint"])
+    declared = payload.get("model_state_fingerprint")
+    if computed != bound or (declared is not None and declared != bound):
+        raise Phase9CCContinuationError(
+            "phase9cc.continuation.preflight.model_fingerprint_mismatch"
+        )
+    return bound
+
+
 def _preflight_cell(
     root: Path,
     plan: Mapping[str, object],
@@ -371,6 +384,7 @@ def _preflight_cell(
     replay_diagnostic = _prediction_replay_diagnostic(reference, replay)
     prediction_evidence = _prediction_evidence(reference)
     payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    parent_model_fingerprint = _bound_parent_model_fingerprint(payload, cell)
     identities = schedule_identities(plan)
     batch_size = int(plan["protocol"]["schedule"]["batch_size"])
     next_identities = identities[start * batch_size : (start + 1) * batch_size]
@@ -380,7 +394,7 @@ def _preflight_cell(
         "update": start,
         "parent_checkpoint_path": str(checkpoint),
         "parent_checkpoint_sha256": file_sha256(checkpoint),
-        "parent_model_state_fingerprint": payload["model_state_fingerprint"],
+        "parent_model_state_fingerprint": parent_model_fingerprint,
         "reloaded_model_state_fingerprint": model_state_fingerprint(
             payload["model_state"]
         ),
