@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import math
+import os
 from pathlib import Path
+import tempfile
+from itertools import pairwise
 from typing import Mapping
 
 import torch
@@ -44,6 +47,9 @@ from .contracts import (
     PROTOCOL_VERSION,
     START_UPDATE,
     TARGET_UPDATE,
+    RECOVERY_PLAN_FINGERPRINT,
+    RECOVERY_PROTOCOL_FINGERPRINT,
+    RECOVERY_TRAINING_SHA,
     build_plan,
     verify_sealed_mlp_reference,
 )
@@ -85,6 +91,13 @@ def _delta(right: Mapping[str, object], left: Mapping[str, object], names=METRIC
 
 def _row_with_source(row: Mapping[str, object], root: Path, source: str):
     return {**row, "artifact_source": source, "artifact_root": str(root)}
+
+
+def _milestone_transitions(values: object) -> list[tuple[int, int]]:
+    milestones = [int(value) for value in values]
+    if not milestones or milestones != sorted(set(milestones)):
+        raise Phase9CCContinuationError("phase9cd.aggregate.milestones_invalid")
+    return list(pairwise(milestones)) + [(milestones[0], milestones[-1])]
 
 
 def evaluate_milestones(root: Path, plan: Mapping[str, object], cell, *, device: str):
@@ -173,7 +186,7 @@ def aggregate(root: Path, plan: Mapping[str, object]):
         combined[cell_id] = rows
         indexed[cell_id] = {int(row["update"]): row for row in rows}
     milestones = list(protocol["schedule"]["validation_milestones"])
-    transitions = list(zip(milestones, milestones[1:], strict=True)) + [(milestones[0], milestones[-1])]
+    transitions = _milestone_transitions(milestones)
     within = {
         cell_id: {
             f"{left}_to_{right}": _delta(indexed[cell_id][right]["aggregate"], indexed[cell_id][left]["aggregate"])
@@ -271,10 +284,151 @@ def _write_manifest(root: Path):
     value = {"contract_version": "1.0.0", "files": files, "file_count": len(files)}
     value = {**value, "fingerprint": fingerprint(value)}
     _write(root / "manifest.json", value)
-    (root / "payload.sha256").write_text(
-        f"{file_sha256(root / 'manifest.json')}  manifest.json\n", encoding="utf-8"
+    _write_text_atomic(
+        root / "payload.sha256",
+        f"{file_sha256(root / 'manifest.json')}  manifest.json\n",
     )
     return value
+
+
+def _write_text_atomic(path: Path, value: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".partial", dir=path.parent
+    )
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(value)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary_name, path)
+    except BaseException:
+        Path(temporary_name).unlink(missing_ok=True)
+        raise
+
+
+def _recovery_artifact_inventory(root: Path, plan: Mapping[str, object]) -> dict[str, str]:
+    schedule = plan["protocol"]["schedule"]
+    if (
+        plan.get("fingerprint") != RECOVERY_PLAN_FINGERPRINT
+        or plan["protocol"].get("fingerprint") != RECOVERY_PROTOCOL_FINGERPRINT
+        or plan["protocol"].get("git_head") != RECOVERY_TRAINING_SHA
+        or plan["protocol"]["parent_binding"].get("manifest_fingerprint")
+        != PARENT_MANIFEST_FINGERPRINT
+        or schedule.get("validation_milestones") != list(MILESTONES)
+        or schedule.get("target_applied_update") != TARGET_UPDATE
+    ):
+        raise Phase9CCContinuationError("phase9cd.recovery.source_binding_invalid")
+    inventory: dict[str, str] = {}
+    for cell in plan.get("cells", ()):
+        cell_id = str(cell.get("cell_id"))
+        if cell_id not in CELLS:
+            raise Phase9CCContinuationError("phase9cd.recovery.cell_invalid")
+        directory = root / "cells" / cell_id
+        training_path = directory / "training_report.json"
+        telemetry_path = directory / "train_telemetry.jsonl"
+        validation_path = directory / "validation_milestones.json"
+        training = _read(training_path)
+        _verify_fingerprint(training, f"phase9cd.recovery.training_invalid:{cell_id}")
+        if (
+            training.get("complete") is not True
+            or training.get("applied_updates") != TARGET_UPDATE
+            or training.get("attempted_updates") != TARGET_UPDATE
+            or training.get("skipped_updates") != 0
+            or training.get("sample_schedule_position") != TARGET_UPDATE
+        ):
+            raise Phase9CCContinuationError(f"phase9cd.recovery.training_invalid:{cell_id}")
+        validation = _read(validation_path)
+        _verify_fingerprint(validation, f"phase9cd.recovery.validation_invalid:{cell_id}")
+        rows = validation.get("milestones", ())
+        if [row.get("update") for row in rows] != list(MILESTONES):
+            raise Phase9CCContinuationError(f"phase9cd.recovery.milestones_invalid:{cell_id}")
+        for row in rows:
+            update = int(row["update"])
+            checkpoint = (
+                Path(str(row["checkpoint_path"]))
+                if row.get("checkpoint_source") == "parent"
+                else directory / str(row["checkpoint_path"])
+            )
+            report_path = directory / str(row["validation_report_path"])
+            if (
+                not checkpoint.is_file()
+                or file_sha256(checkpoint) != row.get("checkpoint_sha256")
+                or not report_path.is_file()
+                or file_sha256(report_path) != row.get("validation_report_sha256")
+            ):
+                raise Phase9CCContinuationError(
+                    f"phase9cd.recovery.milestone_binding_invalid:{cell_id}:{update}"
+                )
+            report = _read(report_path)
+            if (
+                report.get("fingerprint") != row.get("validation_report_fingerprint")
+                or report.get("membership_fingerprint")
+                != row.get("validation_membership_fingerprint")
+            ):
+                raise Phase9CCContinuationError(
+                    f"phase9cd.recovery.validation_binding_invalid:{cell_id}:{update}"
+                )
+            for artifact in (checkpoint, report_path):
+                key = str(artifact.relative_to(root)) if artifact.is_relative_to(root) else str(artifact)
+                inventory[key] = file_sha256(artifact)
+        for artifact in (training_path, telemetry_path, validation_path):
+            if not artifact.is_file():
+                raise Phase9CCContinuationError(f"phase9cd.recovery.artifact_missing:{artifact}")
+            inventory[str(artifact.relative_to(root))] = file_sha256(artifact)
+    if tuple(cell.get("cell_id") for cell in plan.get("cells", ())) != CELLS:
+        raise Phase9CCContinuationError("phase9cd.recovery.cell_inventory_invalid")
+    return dict(sorted(inventory.items()))
+
+
+def recover_finalize(
+    root: Path,
+    *,
+    finalizer_sha: str,
+    training_sha: str,
+    historical_failure_log: Path,
+) -> dict[str, object]:
+    """Finalize a completed failed run without executing training or validation."""
+
+    root = root.resolve()
+    if training_sha != RECOVERY_TRAINING_SHA:
+        raise Phase9CCContinuationError("phase9cd.recovery.training_sha_invalid")
+    from .contracts import _git_head
+
+    if _git_head() != finalizer_sha:
+        raise Phase9CCContinuationError("phase9cd.recovery.finalizer_sha_invalid")
+    if any((root / name).exists() for name in ("manifest.json", "payload.sha256")):
+        raise Phase9CCContinuationError("phase9cd.recovery.already_finalized")
+    plan = _read(root / "continuation_plan.json")
+    inventory = _recovery_artifact_inventory(root, plan)
+    failure_log = historical_failure_log.expanduser().resolve()
+    if not failure_log.is_file():
+        raise Phase9CCContinuationError("phase9cd.recovery.failure_log_missing")
+    failure_sha = file_sha256(failure_log)
+    if "zip() argument 2 is shorter than argument 1" not in failure_log.read_text(
+        encoding="utf-8", errors="replace"
+    ):
+        raise Phase9CCContinuationError("phase9cd.recovery.failure_category_invalid")
+    provenance = {
+        "contract_version": "1.0.0",
+        "training_git_sha": training_sha,
+        "finalizer_git_sha": finalizer_sha,
+        "source_plan_fingerprint": plan["fingerprint"],
+        "source_protocol_fingerprint": plan["protocol"]["fingerprint"],
+        "source_failure_category": "phase9cd.aggregate.adjacent_milestone_strict_zip_length_mismatch",
+        "historical_failure_log": {"path": str(failure_log), "sha256": failure_sha},
+        "sealed_source_artifacts": inventory,
+        "training_reexecuted": False,
+        "validation_reexecuted": False,
+        "test_access": False,
+    }
+    provenance = {**provenance, "fingerprint": fingerprint(provenance)}
+    _write(root / "finalization_provenance.json", provenance)
+    report = aggregate(root, plan)
+    if _recovery_artifact_inventory(root, plan) != inventory:
+        raise Phase9CCContinuationError("phase9cd.recovery.source_artifact_changed")
+    _write_manifest(root)
+    return verify_bundle(root, expected_sha=finalizer_sha)
 
 
 def verify_bundle(root: Path, *, expected_sha: str | None = None):
@@ -293,7 +447,19 @@ def verify_bundle(root: Path, *, expected_sha: str | None = None):
     ):
         raise Phase9CCContinuationError("phase9cd.verify.protocol_invalid")
     _verify_fingerprint(protocol, "phase9cd.verify.protocol_fingerprint_invalid")
-    if expected_sha is not None and protocol.get("git_head") != expected_sha:
+    provenance_path = root / "finalization_provenance.json"
+    provenance = _read(provenance_path) if provenance_path.is_file() else None
+    observed_sha = protocol.get("git_head")
+    if provenance is not None:
+        _verify_fingerprint(provenance, "phase9cd.verify.finalization_provenance_invalid")
+        if (
+            provenance.get("training_git_sha") != protocol.get("git_head")
+            or provenance.get("training_reexecuted") is not False
+            or provenance.get("validation_reexecuted") is not False
+        ):
+            raise Phase9CCContinuationError("phase9cd.verify.finalization_provenance_invalid")
+        observed_sha = provenance.get("finalizer_git_sha")
+    if expected_sha is not None and observed_sha != expected_sha:
         raise Phase9CCContinuationError("phase9cd.verify.git_head_mismatch")
     schedule = protocol["schedule"]
     if not protocol.get("bounded_test_protocol") and (
@@ -462,4 +628,4 @@ def finalize(root: Path, *, expected_sha: str):
     return verify_bundle(root, expected_sha=expected_sha)
 
 
-__all__ = ["aggregate", "execute", "finalize", "verify_bundle"]
+__all__ = ["aggregate", "execute", "finalize", "recover_finalize", "verify_bundle"]

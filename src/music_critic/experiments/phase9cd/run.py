@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from .contracts import build_plan
-from .runner import execute, finalize, verify_bundle
+from .runner import execute, finalize, recover_finalize, verify_bundle
 
 
 def _milestones(value: str) -> tuple[int, ...]:
@@ -16,12 +16,16 @@ def _milestones(value: str) -> tuple[int, ...]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("continue", "finalize", "verify"))
+    parser.add_argument(
+        "action", choices=("continue", "finalize", "recover-finalize", "verify")
+    )
     parser.add_argument("--parent-output-root", type=Path)
     parser.add_argument("--mlp-reference-root", type=Path)
     parser.add_argument("--config", type=Path)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--expected-sha")
+    parser.add_argument("--training-sha")
+    parser.add_argument("--historical-failure-log", type=Path)
     parser.add_argument("--start-update", type=int, default=3000)
     parser.add_argument("--target-update", type=int, default=15000)
     parser.add_argument("--validation-milestones", type=_milestones, default=(3000, 6000, 9000, 12000, 15000))
@@ -39,6 +43,21 @@ def main() -> int:
                 target_update=args.target_update,
                 validation_milestones=args.validation_milestones,
             ),
+        )
+    elif args.action == "recover-finalize":
+        if (
+            args.expected_sha is None
+            or args.training_sha is None
+            or args.historical_failure_log is None
+        ):
+            parser.error(
+                "--expected-sha, --training-sha, and --historical-failure-log are required"
+            )
+        result = recover_finalize(
+            args.output_root,
+            finalizer_sha=args.expected_sha,
+            training_sha=args.training_sha,
+            historical_failure_log=args.historical_failure_log,
         )
     elif args.action == "finalize":
         if args.expected_sha is None:

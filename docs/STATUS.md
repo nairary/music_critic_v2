@@ -1,5 +1,23 @@
 # Music Critic V2 Status
 
+## Phase 9C-D post-training recovery — 2026-08-25
+
+- The exact-head RTX run at `75ed55d34e285776394193227475c632814559c5`
+  completed both onset-BiGRU cells through 15,000 applied updates with zero
+  skips and all five validation milestones, then stopped only in report
+  aggregation because strict `zip` compared milestone lists of lengths N and
+  N-1.
+- Adjacent milestone transitions now use `itertools.pairwise` after an explicit
+  non-empty, strictly increasing, unique milestone check. A separate
+  `recover-finalize` action seals the completed root without calling training
+  or validation, binds the historical training SHA separately from the current
+  finalizer SHA, verifies every training/checkpoint/validation binding, records
+  the immutable failure log and source-artifact inventory, and publishes the
+  reports, provenance, manifest and payload digest atomically per artifact.
+- Focused Phase 9C-D recovery tests pass `7 passed` in 1.42 seconds. No CUDA,
+  production training, validation rerun, corpus audit, legacy access, or full
+  repository suite was performed.
+
 ## Phase 9C-D implementation — 2026-08-25
 
 - Added the stacked Phase 9C-D implementation for `scratch_onset_bigru` and
