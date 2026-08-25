@@ -2,6 +2,17 @@
 
 This log is append-only.
 
+## 2026-08-25 — Phase 9C-D reuses the stateful continuation boundary
+
+- Decision: adapt the verified Phase 9C-B checkpoint envelope into the Phase
+  9C-C continuation runtime instead of adding another training engine.
+- Decision: restore the complete BiGRU downstream state and never reload the
+  SSL encoder export; resolve checkpoints from parent reports and manifest.
+- Decision: bind the BiGRU schedule and read-only decoder comparison to the
+  sealed MLP continuation bundle.
+- Consequence: evidence stays one-seed descriptive with locked test access and
+  no automatic plateau, superiority or significance verdict.
+
 ## 2026-07-16 — ADR-001: Separate clean repository
 
 - Status: Accepted

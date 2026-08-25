@@ -27,6 +27,7 @@ from music_critic.training import engine as training_engine
 from music_critic.training.checkpoint import capture_rng_state, restore_rng_state
 from music_critic.training.device import move_multisource_batch
 from music_critic.training.models import model_contract_metadata
+from music_critic.models import dilemmadata_config_from_model_contract
 
 from .contracts import (
     Phase9CCContinuationError,
@@ -75,9 +76,61 @@ def continuation_training_config(
     parent_cell = next(
         row for row in parent_plan["cells"] if row["cell_id"] == cell["cell_id"]
     )
-    config = parent_training_config(
-        parent_plan, parent_cell, output, device=device
-    )
+    if plan["protocol"]["parent_binding"].get("kind") == "phase9cb":
+        payload = _load_payload(Path(cell["parent_checkpoint"]["path"]))
+        typed = dilemmadata_config_from_model_contract(
+            payload["metadata"]["model_contract"], payload["model_state"]
+        )
+        synthetic = copy.deepcopy(parent_plan)
+        synthetic["protocol"]["model"] = {
+            "name": "hierarchical",
+            "hidden_dim": typed.hidden_dim,
+            "local_gnn_layers": typed.local_gnn_layers,
+            "transformer_layers": typed.transformer_layers,
+            "attention_heads": typed.attention_heads,
+            "ffn_multiplier": typed.ffn_multiplier,
+            "dropout": typed.dropout,
+            "residual": typed.residual,
+            "decoder": {"kind": typed.decoder.kind},
+        }
+        synthetic["protocol"]["schedule"].update(
+            {
+                "required_applied_updates": plan["protocol"]["schedule"][
+                    "target_applied_update"
+                ],
+                "optimizer_steps_per_epoch": plan["protocol"]["schedule"][
+                    "target_applied_update"
+                ],
+                "epoch_size": plan["protocol"]["schedule"]["epoch_size"],
+                "telemetry_interval_applied": plan["protocol"]["schedule"][
+                    "telemetry_interval_applied"
+                ],
+                "checkpoint_interval_applied": plan["protocol"]["schedule"][
+                    "checkpoint_interval_applied"
+                ],
+                "maximum_consecutive_skips": plan["protocol"]["schedule"][
+                    "maximum_consecutive_skips"
+                ],
+                "sample_schedule_fingerprint": plan["protocol"]["schedule"][
+                    "full_schedule_fingerprint"
+                ],
+            }
+        )
+        parent_cell = {
+            **parent_cell,
+            "transfer_mode": (
+                "full_finetune"
+                if str(cell["cell_id"]).startswith("ssl_")
+                else "supervised_scratch"
+            ),
+        }
+        config = parent_training_config(
+            synthetic, parent_cell, output, device=device
+        )
+    else:
+        config = parent_training_config(
+            parent_plan, parent_cell, output, device=device
+        )
     schedule = plan["protocol"]["schedule"]
     target = int(schedule["target_applied_update"])
     config["data"]["epoch_size"] = int(schedule["epoch_size"])
@@ -172,24 +225,37 @@ def _restore_parent(
     progress = payload.get("progress", {})
     parent = plan["protocol"]["parent_binding"]
     start = int(plan["protocol"]["schedule"]["start_applied_update"])
-    if (
-        metadata.get("plan_fingerprint") != parent["plan_fingerprint"]
-        or metadata.get("protocol_fingerprint")
-        != parent["protocol_fingerprint"]
-        or metadata.get("cell_id") != cell["cell_id"]
-        or metadata.get("schedule_fingerprint")
-        != parent["schedule_fingerprint"]
-        or progress.get("applied_updates") != start
-        or progress.get("schedule_position") != start
-        or payload.get("model_state_fingerprint")
-        != binding["model_state_fingerprint"]
-        or not isinstance(payload.get("rng_state"), dict)
-    ):
+    phase9cb = parent.get("kind") == "phase9cb"
+    binding_valid = (
+        metadata.get("training_checkpoint_version") == "1.0.0"
+        and metadata.get("resume_boundary") == "epoch_only"
+        and payload.get("next_epoch") == 1
+        and model_state_fingerprint(payload.get("model_state"))
+        == binding["model_state_fingerprint"]
+    ) if phase9cb else (
+        metadata.get("plan_fingerprint") == parent["plan_fingerprint"]
+        and metadata.get("protocol_fingerprint")
+        == parent["protocol_fingerprint"]
+        and metadata.get("cell_id") == cell["cell_id"]
+        and metadata.get("schedule_fingerprint")
+        == parent["schedule_fingerprint"]
+        and progress.get("applied_updates") == start
+        and progress.get("schedule_position") == start
+        and payload.get("model_state_fingerprint")
+        == binding["model_state_fingerprint"]
+    )
+    if not binding_valid or not isinstance(payload.get("rng_state"), dict):
         raise Phase9CCContinuationError(
             "phase9cc.continuation.parent_checkpoint_binding_mismatch"
         )
+    state_payload = payload
+    if phase9cb:
+        state_payload = {
+            **payload,
+            "model_state_fingerprint": binding["model_state_fingerprint"],
+        }
     _restore_state(
-        payload,
+        state_payload,
         model=model,
         optimizer=optimizer,
         scheduler=scheduler,
@@ -386,7 +452,10 @@ def run_cell_training(
             scheduler=scheduler,
             scaler=scaler,
         )
-        progress = payload["progress"]
+        progress = payload.get("progress") or {
+            "attempted_updates": cell["parent_checkpoint"]["attempted_updates"],
+            "skipped_updates": cell["parent_checkpoint"]["skipped_updates"],
+        }
         applied = start
         attempted = int(progress["attempted_updates"])
         skipped = int(progress["skipped_updates"])
@@ -558,11 +627,18 @@ def run_cell_training(
         raise Phase9CCContinuationError(
             "phase9cc.continuation.training.final_schedule_mismatch"
         )
-    parent_training = _read(
+    parent_directory = (
         Path(plan["protocol"]["parent_binding"]["root"])
         / "cells"
         / str(cell["cell_id"])
-        / "training_report.json"
+    )
+    parent_training = _read(
+        parent_directory
+        / (
+            "engine/training_report.json"
+            if plan["protocol"]["parent_binding"].get("kind") == "phase9cb"
+            else "training_report.json"
+        )
     )
     report = {
         "contract_version": CONTINUATION_TRAINING_REPORT_VERSION,
@@ -593,7 +669,9 @@ def run_cell_training(
         "initial_or_resume_model_state_fingerprint": initial_model_fingerprint,
         "final_model_state_fingerprint": model_state_fingerprint(model),
         "parent_checkpoint_sha256": cell["parent_checkpoint"]["sha256"],
-        "parent_transfer": parent_training["transfer"],
+        "parent_transfer": parent_training.get(
+            "transfer", parent_training.get("phase8b2_transfer")
+        ),
         "restore_mode": "model_optimizer_scaler_scheduler_rng_sampler",
         "encoder_export_reloaded": False,
         "data_fingerprints": runtime.fingerprints,

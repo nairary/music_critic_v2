@@ -11,6 +11,10 @@ independently ablatable onset/beat/bar/track recovery objectives. Phase 8B.2A
 adds the reproducible comparison/transfer control plane; scaled scientific
 evidence, adaptive SSL, and critic paths remain future work.
 
+Phase 9C-D adapts the verified Phase 9C-B checkpoint envelope into the shared
+Phase 9C-C stateful continuation boundary. Decoder kind and parent layout are
+bindings; training, telemetry, checkpoint and resume remain decoder-neutral.
+
 ## System flow
 
 ```mermaid

@@ -277,6 +277,17 @@ def _parent_milestone(
     plan: Mapping[str, object], cell_id: str, update: int
 ) -> dict[str, object]:
     root = Path(plan["protocol"]["parent_binding"]["root"])
+    if plan["protocol"]["parent_binding"].get("kind") == "phase9cb":
+        report_path = root / "cells" / cell_id / "validation_report.json"
+        report = _read(report_path)
+        return {
+            "update": update,
+            "validation_report_path": str(
+                report_path.relative_to(root / "cells" / cell_id)
+            ),
+            "aggregate": report["aggregate"],
+            "tasks": report["tasks"],
+        }
     milestone = _read(root / "cells" / cell_id / "validation_milestones.json")
     rows = [row for row in milestone["milestones"] if row["update"] == update]
     if len(rows) != 1:

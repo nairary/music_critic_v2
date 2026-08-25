@@ -1,5 +1,19 @@
 # Music Critic V2 Status
 
+## Phase 9C-D implementation — 2026-08-25
+
+- Added the stacked Phase 9C-D implementation for `scratch_onset_bigru` and
+  `ssl_onset_bigru`, continuing exact Phase 9C-B update-3,000 state to update
+  15,000 through the shared Phase 9C-C telemetry/checkpoint/resume loop.
+- Parent paths and hashes, metrics, decoder contract, full state, membership
+  and logits fail closed before training. The sealed MLP continuation is
+  hash- and schedule-bound read-only.
+- Added BiGRU convergence and decoder comparison reports, five milestones,
+  independent verification and parameterized RTX wrapper.
+- Focused tests pass `11 passed` in 108.20 seconds. Compileall, runner `bash
+  -n` and `git diff --check` pass. No full pytest, corpus audit, CUDA, MLP
+  training or production run was started.
+
 ## Current phase
 
 - Date: 2026-08-23

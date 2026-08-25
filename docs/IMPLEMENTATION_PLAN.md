@@ -8,6 +8,9 @@
 >   amendments are recorded in `docs/DECISIONS.md`, including the cross-dataset
 >   contract in `docs/HARMONIC_SUPERVISION.md`.
 
+Phase 9C-D continuation is specified in
+[`PHASE9CD_BIGRU_CONTINUATION.md`](PHASE9CD_BIGRU_CONTINUATION.md).
+
 # Codex Implementation Specification: Music Critic V2
 
 **Repository:** `nairary/Fine-tune-text2midi-llm-with-gnn-theory-critic`  

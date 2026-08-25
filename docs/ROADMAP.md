@@ -3,6 +3,13 @@
 The scientific detail in `IMPLEMENTATION_PLAN.md` remains authoritative. This
 document is the phase execution checklist.
 
+## Phase 9C-D — onset-BiGRU convergence continuation
+
+- Continue the two verified Phase 9C-B onset-BiGRU checkpoints from 3,000 to
+  15,000 applied updates without transfer or reinitialization.
+- Require schedule parity with the sealed MLP continuation and publish
+  descriptive convergence and decoder-comparison reports with test locked.
+
 The accepted future-facing boundary among auxiliary harmonic supervision,
 actual accompaniment likelihood, and preference/quality scoring is in
 [`HARMONIC_SUPERVISION.md`](HARMONIC_SUPERVISION.md). It changes no completed

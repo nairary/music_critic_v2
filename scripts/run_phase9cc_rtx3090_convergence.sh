@@ -4,19 +4,31 @@ set -uo pipefail
 usage() {
   echo "usage: $0 {run|resume|verify} EXPECTED_SHA CONFIG_JSON OUTPUT_ROOT" >&2
   echo "       $0 continue EXPECTED_SHA PARENT_OUTPUT_ROOT CONFIG_JSON NEW_ROOT --start-update 9000 --target-update 15000 --validation-milestones 9000,12000,15000" >&2
+  echo "       $0 continue EXPECTED_SHA BIGRU_PARENT_ROOT CONFIG_JSON NEW_ROOT --cells scratch_onset_bigru,ssl_onset_bigru --start-update 3000 --target-update 15000 --validation-milestones 3000,6000,9000,12000,15000 --mlp-reference-root MLP_ROOT" >&2
   exit 2
 }
 
 if [[ ${1:-} == "continue" ]]; then
-  [[ $# -eq 11 ]] || usage
+  [[ $# -eq 11 || $# -eq 15 ]] || usage
   action=$1
   expected_sha=$2
   parent_output_root=$3
   config_json=$4
   output_root=$5
-  [[ $6 == "--start-update" && $7 == "9000" ]] || usage
-  [[ $8 == "--target-update" && $9 == "15000" ]] || usage
-  [[ ${10} == "--validation-milestones" && ${11} == "9000,12000,15000" ]] || usage
+  phase9cd=false
+  if [[ $# -eq 15 ]]; then
+    phase9cd=true
+    [[ $6 == "--cells" && $7 == "scratch_onset_bigru,ssl_onset_bigru" ]] || usage
+    [[ $8 == "--start-update" && $9 == "3000" ]] || usage
+    [[ ${10} == "--target-update" && ${11} == "15000" ]] || usage
+    [[ ${12} == "--validation-milestones" && ${13} == "3000,6000,9000,12000,15000" ]] || usage
+    [[ ${14} == "--mlp-reference-root" && -n ${15} ]] || usage
+    mlp_reference_root=${15}
+  else
+    [[ $6 == "--start-update" && $7 == "9000" ]] || usage
+    [[ $8 == "--target-update" && $9 == "15000" ]] || usage
+    [[ ${10} == "--validation-milestones" && ${11} == "9000,12000,15000" ]] || usage
+  fi
 else
   [[ $# -eq 4 ]] || usage
 fi
@@ -55,8 +67,13 @@ if [[ "$action" == "continue" ]]; then
     exit 1
   fi
   if [[ -f "$output_root/manifest.json" ]]; then
-    .venv/bin/python scripts/verify_phase9cc_continuation.py \
-      --bundle "$output_root" --expected-sha "$expected_sha" || exit 1
+    if [[ "$phase9cd" == true ]]; then
+      .venv/bin/python scripts/verify_phase9cd_continuation.py \
+        --bundle "$output_root" --expected-sha "$expected_sha" || exit 1
+    else
+      .venv/bin/python scripts/verify_phase9cc_continuation.py \
+        --bundle "$output_root" --expected-sha "$expected_sha" || exit 1
+    fi
     echo "phase9cc.rtx.continue.complete"
     echo "EVIDENCE_BUNDLE=$output_root"
     echo "LOG=$output_root/execution.log"
@@ -93,13 +110,24 @@ fi
 mkdir -p "$output_root"
 log_path="${output_root%/}.phase9cc_${action}.log"
 if [[ "$action" == "continue" ]]; then
-  .venv/bin/python -m music_critic.experiments.phase9cc_continuation.run continue \
-    --parent-output-root "$parent_output_root" \
-    --config "$config_json" \
-    --output-root "$output_root" \
-    --start-update 9000 \
-    --target-update 15000 \
-    --validation-milestones 9000,12000,15000 2>&1 | tee -a "$log_path"
+  if [[ "$phase9cd" == true ]]; then
+    .venv/bin/python -m music_critic.experiments.phase9cd.run continue \
+      --parent-output-root "$parent_output_root" \
+      --mlp-reference-root "$mlp_reference_root" \
+      --config "$config_json" \
+      --output-root "$output_root" \
+      --start-update 3000 \
+      --target-update 15000 \
+      --validation-milestones 3000,6000,9000,12000,15000 2>&1 | tee -a "$log_path"
+  else
+    .venv/bin/python -m music_critic.experiments.phase9cc_continuation.run continue \
+      --parent-output-root "$parent_output_root" \
+      --config "$config_json" \
+      --output-root "$output_root" \
+      --start-update 9000 \
+      --target-update 15000 \
+      --validation-milestones 9000,12000,15000 2>&1 | tee -a "$log_path"
+  fi
   status=${PIPESTATUS[0]}
   mkdir -p "$output_root"
   cp "$log_path" "$output_root/execution.log"
@@ -111,10 +139,17 @@ if [[ "$action" == "continue" ]]; then
     exit "$status"
   fi
   rm -f "$output_root/FAILED_ROOT.txt" "$output_root/FAILED_LOG.txt"
-  .venv/bin/python -m music_critic.experiments.phase9cc_continuation.run finalize \
-    --output-root "$output_root" --expected-sha "$expected_sha" || exit 1
-  .venv/bin/python scripts/verify_phase9cc_continuation.py \
-    --bundle "$output_root" --expected-sha "$expected_sha" || exit 1
+  if [[ "$phase9cd" == true ]]; then
+    .venv/bin/python -m music_critic.experiments.phase9cd.run finalize \
+      --output-root "$output_root" --expected-sha "$expected_sha" || exit 1
+    .venv/bin/python scripts/verify_phase9cd_continuation.py \
+      --bundle "$output_root" --expected-sha "$expected_sha" || exit 1
+  else
+    .venv/bin/python -m music_critic.experiments.phase9cc_continuation.run finalize \
+      --output-root "$output_root" --expected-sha "$expected_sha" || exit 1
+    .venv/bin/python scripts/verify_phase9cc_continuation.py \
+      --bundle "$output_root" --expected-sha "$expected_sha" || exit 1
+  fi
   echo "phase9cc.rtx.continue.complete"
   echo "EVIDENCE_BUNDLE=$output_root"
   echo "LOG=$output_root/execution.log"
