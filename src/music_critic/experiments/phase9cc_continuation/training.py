@@ -49,10 +49,8 @@ def schedule_identities(
     if protocol.get("bounded_test_protocol") and isinstance(bounded, list):
         identities = tuple(tuple(value) for value in bounded)
     else:
-        parent_root = Path(protocol["parent_binding"]["root"])
-        parent_plan = _read(parent_root / "experiment_plan.json")
         identities = _production_schedule(
-            parent_plan,
+            plan,
             int(protocol["schedule"]["target_applied_update"]),
         )
     if raw_downstream_sample_schedule_fingerprint(identities) != protocol[
@@ -72,11 +70,19 @@ def continuation_training_config(
     device: str,
 ) -> dict[str, Any]:
     parent_root = Path(plan["protocol"]["parent_binding"]["root"])
-    parent_plan = _read(parent_root / "experiment_plan.json")
+    parent_kind = plan["protocol"]["parent_binding"].get("kind", "phase9cc")
+    parent_plan = _read(
+        parent_root
+        / (
+            "continuation_plan.json"
+            if parent_kind == "phase9cc_continuation"
+            else "experiment_plan.json"
+        )
+    )
     parent_cell = next(
         row for row in parent_plan["cells"] if row["cell_id"] == cell["cell_id"]
     )
-    if plan["protocol"]["parent_binding"].get("kind") == "phase9cb":
+    if parent_kind == "phase9cb":
         payload = _load_payload(Path(cell["parent_checkpoint"]["path"]))
         typed = dilemmadata_config_from_model_contract(
             payload["metadata"]["model_contract"], payload["model_state"]
@@ -118,6 +124,48 @@ def continuation_training_config(
         )
         parent_cell = {
             **parent_cell,
+            "encoder_initialization": (
+                "ssl" if str(cell["cell_id"]).startswith("ssl_") else "scratch"
+            ),
+            "transfer_mode": (
+                "full_finetune"
+                if str(cell["cell_id"]).startswith("ssl_")
+                else "supervised_scratch"
+            ),
+        }
+        config = parent_training_config(
+            synthetic, parent_cell, output, device=device
+        )
+    elif parent_kind == "phase9cc_continuation":
+        synthetic = copy.deepcopy(parent_plan)
+        synthetic["protocol"]["schedule"].update(
+            {
+                "required_applied_updates": plan["protocol"]["schedule"][
+                    "target_applied_update"
+                ],
+                "optimizer_steps_per_epoch": plan["protocol"]["schedule"][
+                    "target_applied_update"
+                ],
+                "epoch_size": plan["protocol"]["schedule"]["epoch_size"],
+                "telemetry_interval_applied": plan["protocol"]["schedule"][
+                    "telemetry_interval_applied"
+                ],
+                "checkpoint_interval_applied": plan["protocol"]["schedule"][
+                    "checkpoint_interval_applied"
+                ],
+                "maximum_consecutive_skips": plan["protocol"]["schedule"][
+                    "maximum_consecutive_skips"
+                ],
+                "sample_schedule_fingerprint": plan["protocol"]["schedule"][
+                    "full_schedule_fingerprint"
+                ],
+            }
+        )
+        parent_cell = {
+            **parent_cell,
+            "encoder_initialization": (
+                "ssl" if str(cell["cell_id"]).startswith("ssl_") else "scratch"
+            ),
             "transfer_mode": (
                 "full_finetune"
                 if str(cell["cell_id"]).startswith("ssl_")
@@ -567,6 +615,10 @@ def run_cell_training(
             if was_skipped:
                 skipped += 1
                 consecutive_skips += 1
+                if schedule.get("require_zero_skips"):
+                    raise Phase9CCContinuationError(
+                        "phase9cc.continuation.training.skipped_update_forbidden"
+                    )
                 if consecutive_skips > int(schedule["maximum_consecutive_skips"]):
                     raise Phase9CCContinuationError(
                         "phase9cc.continuation.training.persistent_amp_overflow"

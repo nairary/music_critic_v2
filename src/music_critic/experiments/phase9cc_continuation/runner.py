@@ -49,10 +49,17 @@ from .contracts import (
     CONTINUATION_PARENT_SHA,
     CONTINUATION_PLAN_VERSION,
     CONTINUATION_PROTOCOL_VERSION,
+    EXTENSION_MILESTONES,
+    EXTENSION_PARENT_CHECKPOINT_SHA256,
+    EXTENSION_PARENT_MANIFEST_FINGERPRINT,
+    EXTENSION_PARENT_SHA,
+    EXTENSION_START_UPDATE,
+    EXTENSION_TARGET_UPDATE,
     Phase9CCContinuationError,
     build_continuation_plan,
     file_sha256,
     fingerprint,
+    _sealed_continuation_parent,
 )
 from .training import (
     CONTINUATION_CHECKPOINT_VERSION,
@@ -726,14 +733,18 @@ def verify_bundle(
             "phase9cc.continuation.verify.test_access"
         )
     schedule = protocol["schedule"]
+    extension = protocol.get("continuation_generation") == 2
+    expected_start = EXTENSION_START_UPDATE if extension else 9000
+    expected_target = EXTENSION_TARGET_UPDATE if extension else 15000
+    expected_milestones = list(EXTENSION_MILESTONES) if extension else [9000, 12000, 15000]
     if not protocol.get("bounded_test_protocol") and (
-        schedule.get("start_applied_update") != 9000
-        or schedule.get("target_applied_update") != 15000
+        schedule.get("start_applied_update") != expected_start
+        or schedule.get("target_applied_update") != expected_target
         or schedule.get("additional_applied_updates") != 6000
         or schedule.get("batch_size") != 2
         or schedule.get("telemetry_interval_applied") != 100
         or schedule.get("checkpoint_interval_applied") != 1000
-        or schedule.get("validation_milestones") != [9000, 12000, 15000]
+        or schedule.get("validation_milestones") != expected_milestones
     ):
         raise Phase9CCContinuationError(
             "phase9cc.continuation.verify.production_protocol_invalid"
@@ -748,8 +759,10 @@ def verify_bundle(
         )
     parent = protocol["parent_binding"]
     parent_root = Path(parent["root"])
-    parent_result = verify_parent_bundle(
-        parent_root, expected_sha=parent["git_sha"]
+    parent_result = (
+        _sealed_continuation_parent(parent_root)
+        if parent.get("kind") == "phase9cc_continuation"
+        else verify_parent_bundle(parent_root, expected_sha=parent["git_sha"])
     )
     if (
         parent_result["manifest_fingerprint"] != parent["manifest_fingerprint"]
@@ -757,6 +770,15 @@ def verify_bundle(
         != parent["manifest_sha256"]
         or file_sha256(parent_root / "payload.sha256")
         != parent["payload_sha256"]
+        or (
+            extension
+            and (
+                file_sha256(parent_root / "convergence_report.json")
+                != parent.get("report_sha256")
+                or parent_result["report"].get("fingerprint")
+                != parent.get("report_fingerprint")
+            )
+        )
     ):
         raise Phase9CCContinuationError(
             "phase9cc.continuation.verify.parent_manifest_mismatch"
@@ -768,14 +790,23 @@ def verify_bundle(
         or (
             not protocol.get("bounded_test_protocol")
             and (
-                parent.get("git_sha") != CONTINUATION_PARENT_SHA
+                parent.get("git_sha")
+                != (EXTENSION_PARENT_SHA if extension else CONTINUATION_PARENT_SHA)
                 or parent.get("manifest_fingerprint")
-                != CONTINUATION_PARENT_MANIFEST_FINGERPRINT
+                != (
+                    EXTENSION_PARENT_MANIFEST_FINGERPRINT
+                    if extension
+                    else CONTINUATION_PARENT_MANIFEST_FINGERPRINT
+                )
                 or {
                     name: value["sha256"]
                     for name, value in parent["checkpoints"].items()
                 }
-                != CONTINUATION_PARENT_CHECKPOINT_SHA256
+                != (
+                    EXTENSION_PARENT_CHECKPOINT_SHA256
+                    if extension
+                    else CONTINUATION_PARENT_CHECKPOINT_SHA256
+                )
             )
         )
     ):
@@ -800,8 +831,15 @@ def verify_bundle(
     target = int(schedule["target_applied_update"])
     telemetry_interval = int(schedule["telemetry_interval_applied"])
     checkpoint_interval = int(schedule["checkpoint_interval_applied"])
-    parent_plan = _read(parent_root / "experiment_plan.json")
-    old_identities = parent_schedule(parent_plan)
+    parent_plan = _read(
+        parent_root
+        / (
+            "continuation_plan.json"
+            if parent.get("kind") == "phase9cc_continuation"
+            else "experiment_plan.json"
+        )
+    )
+    old_identities = schedule_identities(parent_plan) if parent.get("kind") == "phase9cc_continuation" else parent_schedule(parent_plan)
     prefix_count = start * batch_size
     if (
         identities[:prefix_count] != old_identities
@@ -884,6 +922,7 @@ def verify_bundle(
             or training.get("restore_mode")
             != "model_optimizer_scaler_scheduler_rng_sampler"
             or training.get("test_access") is not False
+            or (schedule.get("require_zero_skips") and training.get("skipped_updates") != 0)
             or not isinstance(training.get("resume_evidence"), dict)
             or training["resume_evidence"].get(
                 "loader_advanced_before_rng_restore"
@@ -1027,12 +1066,21 @@ def verify_bundle(
     _verify_fingerprint(
         report, "phase9cc.continuation.verify.convergence_fingerprint_invalid"
     )
+    parent_report = _read(parent_root / "convergence_report.json") if extension else None
+    expected_inventory = (
+        sorted(
+            set(parent_report["milestone_inventory"])
+            | set(schedule["validation_milestones"])
+        )
+        if parent_report is not None
+        else [0, 1000, 3000, 6000, 9000, 12000, 15000]
+    )
     if (
         report.get("plan_fingerprint") != plan["fingerprint"]
         or (
             not protocol.get("bounded_test_protocol")
             and report.get("milestone_inventory")
-            != [0, 1000, 3000, 6000, 9000, 12000, 15000]
+            != expected_inventory
         )
         or report.get("automatic_plateau_verdict") is not None
         or report.get("test_access") is not False

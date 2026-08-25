@@ -51,6 +51,26 @@ CONTINUATION_PARENT_CHECKPOINT_SHA256 = {
 CONTINUATION_START_UPDATE = 9000
 CONTINUATION_TARGET_UPDATE = 15000
 CONTINUATION_MILESTONES = (9000, 12000, 15000)
+EXTENSION_PARENT_SHA = "a045c44c62dd881c2fbd667e70820aad7ca6282d"
+EXTENSION_PARENT_BRANCH = "phase/9cc-continuation-15000"
+EXTENSION_BRANCH = "phase/9cd-bigru-convergence-15000"
+EXTENSION_PARENT_MANIFEST_FINGERPRINT = (
+    "da7b663da3b39d7ebe2426278610ba54d3b59af7e8d471f8d18584e287340088"
+)
+EXTENSION_PARENT_REPORT_FINGERPRINT = (
+    "c8abc49b4fc90bfded668daadb387613dceb7d7b6f3f620f152ed636abb3b6d0"
+)
+EXTENSION_PARENT_CHECKPOINT_SHA256 = {
+    "scratch_mlp": "993fce2feb906ac72504192d433713c7d2847667a575e92cae22fb626da2a6a4",
+    "ssl_mlp": "cf3048115173969328d710a1d0c81c05bc6260129c5c80533737a76e3ad686cc",
+}
+EXTENSION_PARENT_MODEL_STATE_FINGERPRINT = {
+    "scratch_mlp": "aec7b30b103336335e83062b39ad746151478bfd3409700403e1619320cd6d33",
+    "ssl_mlp": "6d2b39b0ee05fd791aa85d1851ec3713a93d977f1b6adce774d6ad2d11bd49ce",
+}
+EXTENSION_START_UPDATE = 15000
+EXTENSION_TARGET_UPDATE = 21000
+EXTENSION_MILESTONES = (15000, 18000, 21000)
 
 
 class Phase9CCContinuationError(ValueError):
@@ -206,6 +226,55 @@ def _production_schedule(
     return built.identities
 
 
+def _sealed_continuation_parent(root: Path) -> dict[str, object]:
+    manifest = _read(root / "manifest.json")
+    unsigned = dict(manifest)
+    observed = unsigned.pop("fingerprint", None)
+    if observed != fingerprint(unsigned):
+        raise Phase9CCContinuationError("phase9cc.extension.parent_manifest_invalid")
+    for relative, digest in manifest.get("files", {}).items():
+        path = root / relative
+        if not path.is_file() or file_sha256(path) != digest:
+            raise Phase9CCContinuationError(
+                f"phase9cc.extension.parent_payload_invalid:{relative}"
+            )
+    actual = {
+        str(path.relative_to(root))
+        for path in root.rglob("*")
+        if path.is_file() and path.name not in {"manifest.json", "payload.sha256"}
+    }
+    if actual != set(manifest.get("files", {})):
+        raise Phase9CCContinuationError("phase9cc.extension.parent_inventory_invalid")
+    expected_payload = f"{file_sha256(root / 'manifest.json')}  manifest.json\n"
+    if (root / "payload.sha256").read_text(encoding="utf-8") != expected_payload:
+        raise Phase9CCContinuationError("phase9cc.extension.parent_digest_invalid")
+    plan = _read(root / "continuation_plan.json")
+    report = _read(root / "convergence_report.json")
+    if (
+        report.get("test_access") is not False
+        or any(plan.get("protocol", {}).get("test_lock", {}).values())
+        or report.get("plan_fingerprint") != plan.get("fingerprint")
+    ):
+        raise Phase9CCContinuationError("phase9cc.extension.parent_contract_invalid")
+    target = int(plan["protocol"]["schedule"]["target_applied_update"])
+    checkpoints = {
+        cell_id: file_sha256(
+            root / "cells" / cell_id / "checkpoints" / f"update-{target}.pt"
+        )
+        for cell_id in PHASE9CC_CELLS
+    }
+    return {
+        "manifest_fingerprint": manifest["fingerprint"],
+        "manifest": manifest,
+        "plan": plan,
+        "report": report,
+        "checkpoint_hashes": checkpoints,
+        "required_applied_updates": int(
+            plan["protocol"]["schedule"]["target_applied_update"]
+        ),
+    }
+
+
 def build_continuation_plan(
     parent_root: Path,
     config_path: Path,
@@ -220,11 +289,17 @@ def build_continuation_plan(
     parent_root = parent_root.expanduser().resolve()
     config_path = config_path.expanduser().resolve()
     bounded = dict(_bounded_protocol or {})
-    if not bounded and (
-        start_update != CONTINUATION_START_UPDATE
-        or target_update != CONTINUATION_TARGET_UPDATE
-        or validation_milestones != CONTINUATION_MILESTONES
-    ):
+    extension = (
+        start_update == EXTENSION_START_UPDATE
+        and target_update == EXTENSION_TARGET_UPDATE
+        and validation_milestones == EXTENSION_MILESTONES
+    )
+    original = (
+        start_update == CONTINUATION_START_UPDATE
+        and target_update == CONTINUATION_TARGET_UPDATE
+        and validation_milestones == CONTINUATION_MILESTONES
+    )
+    if not bounded and not (original or extension):
         raise Phase9CCContinuationError(
             "phase9cc.continuation.production_protocol_invalid"
         )
@@ -249,26 +324,42 @@ def build_continuation_plan(
             "phase9cc.continuation.budget_invalid"
         )
 
-    parent_plan = _read(parent_root / "experiment_plan.json")
+    parent_is_continuation = (parent_root / "continuation_plan.json").is_file()
+    parent_plan = _read(
+        parent_root
+        / ("continuation_plan.json" if parent_is_continuation else "experiment_plan.json")
+    )
     current_sha = _git_head()
     current_branch = _git_branch()
     parent_sha = str(parent_plan["protocol"]["git_head"])
-    parent_verification = verify_parent_bundle(
-        parent_root, expected_sha=parent_sha
+    parent_verification = (
+        _sealed_continuation_parent(parent_root)
+        if parent_is_continuation
+        else verify_parent_bundle(parent_root, expected_sha=parent_sha)
     )
     parent_manifest = _read(parent_root / "manifest.json")
     expected_parent_manifest = str(
         bounded.get(
             "parent_manifest_fingerprint",
-            CONTINUATION_PARENT_MANIFEST_FINGERPRINT,
+            EXTENSION_PARENT_MANIFEST_FINGERPRINT
+            if extension
+            else CONTINUATION_PARENT_MANIFEST_FINGERPRINT,
         )
     )
     expected_parent_sha = str(
-        bounded.get("parent_git_sha", CONTINUATION_PARENT_SHA)
+        bounded.get(
+            "parent_git_sha", EXTENSION_PARENT_SHA if extension else CONTINUATION_PARENT_SHA
+        )
     )
     if (
         parent_sha != expected_parent_sha
         or parent_manifest.get("fingerprint") != expected_parent_manifest
+        or (
+            extension
+            and not bounded
+            and parent_verification["report"].get("fingerprint")
+            != EXTENSION_PARENT_REPORT_FINGERPRINT
+        )
         or parent_verification.get("required_applied_updates") != start_update
         or tuple(parent_plan["protocol"].get("cells", ())) != PHASE9CC_CELLS
         or parent_plan["protocol"].get("model", {}).get("decoder", {}).get("kind")
@@ -290,7 +381,9 @@ def build_continuation_plan(
     expected_checkpoint_hashes = dict(
         bounded.get(
             "parent_checkpoint_sha256",
-            CONTINUATION_PARENT_CHECKPOINT_SHA256,
+            EXTENSION_PARENT_CHECKPOINT_SHA256
+            if extension
+            else CONTINUATION_PARENT_CHECKPOINT_SHA256,
         )
     )
     parent_checkpoints = {}
@@ -301,6 +394,11 @@ def build_continuation_plan(
         observed_sha = file_sha256(path)
         payload = _checkpoint(path)
         progress = payload.get("progress", {})
+        expected_state_fingerprint = (
+            EXTENSION_PARENT_MODEL_STATE_FINGERPRINT.get(cell_id)
+            if extension and not bounded
+            else payload.get("model_state_fingerprint")
+        )
         if (
             expected_checkpoint_hashes.get(cell_id) != observed_sha
             or parent_verification["checkpoint_hashes"].get(cell_id)
@@ -309,6 +407,7 @@ def build_continuation_plan(
             or progress.get("schedule_position") != start_update
             or model_state_fingerprint(payload.get("model_state"))
             != payload.get("model_state_fingerprint")
+            or payload.get("model_state_fingerprint") != expected_state_fingerprint
         ):
             raise Phase9CCContinuationError(
                 f"phase9cc.continuation.parent_checkpoint_invalid:{cell_id}"
@@ -321,7 +420,15 @@ def build_continuation_plan(
             "skipped_updates": progress["skipped_updates"],
         }
 
-    old_identities = parent_schedule(parent_plan)
+    parent_bounded_identities = parent_plan["protocol"].get(
+        "bounded_schedule_identities"
+    )
+    if bounded and isinstance(parent_bounded_identities, list):
+        old_identities = tuple(tuple(value) for value in parent_bounded_identities)
+    elif bounded:
+        old_identities = parent_schedule(parent_plan)
+    else:
+        old_identities = _production_schedule(parent_plan, start_update)
     bounded_identities = bounded.get("schedule_identities")
     full_identities = (
         tuple(tuple(value) for value in bounded_identities)
@@ -334,15 +441,21 @@ def build_continuation_plan(
         len(full_identities) != target_update * batch_size
         or full_identities[:prefix_count] != old_identities
         or raw_downstream_sample_schedule_fingerprint(old_identities)
-        != parent_plan["protocol"]["schedule"]["sample_schedule_fingerprint"]
+        != (
+            parent_plan["protocol"]["schedule"].get("full_schedule_fingerprint")
+            or parent_plan["protocol"]["schedule"].get("sample_schedule_fingerprint")
+        )
     ):
         raise Phase9CCContinuationError(
             "phase9cc.continuation.schedule_prefix_mismatch"
         )
 
     if not bounded and (
-        current_branch != CONTINUATION_BRANCH
-        or _git("rev-parse", f"origin/{CONTINUATION_PARENT_BRANCH}")
+        current_branch != (EXTENSION_BRANCH if extension else CONTINUATION_BRANCH)
+        or _git(
+            "rev-parse",
+            f"origin/{EXTENSION_PARENT_BRANCH if extension else CONTINUATION_PARENT_BRANCH}",
+        )
         != parent_sha
     ):
         raise Phase9CCContinuationError(
@@ -374,9 +487,10 @@ def build_continuation_plan(
         "downstream_data_order_seed": parent_plan["protocol"]["schedule"][
             "downstream_data_order_seed"
         ],
-        "parent_schedule_fingerprint": parent_plan["protocol"]["schedule"][
-            "sample_schedule_fingerprint"
-        ],
+        "parent_schedule_fingerprint": (
+            parent_plan["protocol"]["schedule"].get("full_schedule_fingerprint")
+            or parent_plan["protocol"]["schedule"].get("sample_schedule_fingerprint")
+        ),
         "full_schedule_fingerprint": (
             raw_downstream_sample_schedule_fingerprint(full_identities)
         ),
@@ -394,6 +508,7 @@ def build_continuation_plan(
         "learning_rate": parent_plan["protocol"]["schedule"]["learning_rate"],
         "scheduler": parent_plan["protocol"]["schedule"]["scheduler"],
         "amp": parent_plan["protocol"]["schedule"]["amp"],
+        "require_zero_skips": bool(extension and not bounded),
     }
     schedule = {**schedule, "fingerprint": fingerprint(schedule)}
     parent_binding = {
@@ -401,14 +516,33 @@ def build_continuation_plan(
         "root": str(parent_root),
         "git_sha": parent_sha,
         "git_branch": str(
-            bounded.get("parent_git_branch", CONTINUATION_PARENT_BRANCH)
+            bounded.get(
+                "parent_git_branch",
+                EXTENSION_PARENT_BRANCH if extension else CONTINUATION_PARENT_BRANCH,
+            )
         ),
+        "kind": "phase9cc_continuation" if parent_is_continuation else "phase9cc",
         "plan_fingerprint": parent_plan["fingerprint"],
         "protocol_fingerprint": parent_plan["protocol"]["fingerprint"],
         "manifest_path": str(parent_root / "manifest.json"),
         "manifest_sha256": file_sha256(parent_root / "manifest.json"),
         "manifest_fingerprint": parent_manifest["fingerprint"],
         "payload_sha256": file_sha256(parent_root / "payload.sha256"),
+        "report_path": (
+            str(parent_root / "convergence_report.json")
+            if parent_is_continuation
+            else None
+        ),
+        "report_sha256": (
+            file_sha256(parent_root / "convergence_report.json")
+            if parent_is_continuation
+            else None
+        ),
+        "report_fingerprint": (
+            parent_verification["report"]["fingerprint"]
+            if parent_is_continuation
+            else None
+        ),
         "config_path": str(config_path),
         "config_sha256": file_sha256(config_path),
         "checkpoints": parent_checkpoints,
@@ -439,6 +573,7 @@ def build_continuation_plan(
         "parent_binding": parent_binding,
         "test_lock": parent_plan["protocol"]["test_lock"],
         "claim_boundary": "one_seed_descriptive_continuation_no_plateau_verdict",
+        "continuation_generation": 2 if parent_is_continuation else 1,
         "bounded_test_protocol": bool(bounded),
     }
     if bounded:

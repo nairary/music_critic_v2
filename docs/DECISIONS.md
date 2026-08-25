@@ -1,5 +1,18 @@
 # Architecture Decision Log
 
+## 2026-08-25 — Stateful continuation bundles may be sealed parents
+
+- Decision: a verified Phase 9C-C continuation bundle may serve as the
+  immutable full-state parent of one later continuation generation when its
+  manifest, report, checkpoint state and complete sample-schedule prefix are
+  all verified independently.
+- Decision: the child restores model, heads, optimizer, GradScaler,
+  scheduler-null, RNG and sampler position; it never reloads the SSL encoder
+  export or mutates the parent bundle.
+- Consequence: MLP convergence can extend from 15,000 to 21,000 without a
+  weights-only restart while retaining the existing one-seed, validation-only,
+  no-superiority claim boundary.
+
 This log is append-only.
 
 ## 2026-08-25 — Phase 9C-D reuses the stateful continuation boundary

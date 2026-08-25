@@ -18,6 +18,27 @@
   production training, validation rerun, corpus audit, legacy access, or full
   repository suite was performed.
 
+## Phase 9C-C MLP continuation to 21,000 — 2026-08-25
+
+- The stateful continuation boundary now accepts the verified 15,000-update
+  continuation bundle as a sealed parent for one exact second generation from
+  15,000 to 21,000. Production remains limited to `scratch_mlp` and `ssl_mlp`,
+  milestones 15,000/18,000/21,000, seed 17, batch size 2, AdamW 0.0003,
+  scheduler none and float16 AMP.
+- The adapter verifies the exact parent manifest/report, update-15,000
+  checkpoint SHA-256 and model-state fingerprints, reconstructs the original
+  target-configured dataset view, proves the entire 15,000-update schedule is
+  the prefix of the shared 21,000-update schedule, and restores model, heads,
+  optimizer, scaler, scheduler-null, RNG and sampler position. The parent root
+  is read-only and any production skip fails immediately.
+- The convergence report combines all immutable parent milestones with
+  18,000/21,000, reports the three requested deltas, final scratch-vs-SSL gap,
+  best available validation milestone, full update/checkpoint/state bindings
+  and locked test access without a superiority or plateau claim.
+- Combined focused Phase 9C-C continuation and Phase 9C-D recovery tests pass
+  `10 passed` in 50.74 seconds. No full suite, CUDA, production experiment,
+  corpus audit, or legacy access was run.
+
 ## Phase 9C-D implementation — 2026-08-25
 
 - Added the stacked Phase 9C-D implementation for `scratch_onset_bigru` and

@@ -4,6 +4,7 @@ set -uo pipefail
 usage() {
   echo "usage: $0 {run|resume|verify} EXPECTED_SHA CONFIG_JSON OUTPUT_ROOT" >&2
   echo "       $0 continue EXPECTED_SHA PARENT_OUTPUT_ROOT CONFIG_JSON NEW_ROOT --start-update 9000 --target-update 15000 --validation-milestones 9000,12000,15000" >&2
+  echo "       $0 continue EXPECTED_SHA MLP_15000_ROOT CONFIG_JSON NEW_ROOT --start-update 15000 --target-update 21000 --validation-milestones 15000,18000,21000" >&2
   echo "       $0 continue EXPECTED_SHA BIGRU_PARENT_ROOT CONFIG_JSON NEW_ROOT --cells scratch_onset_bigru,ssl_onset_bigru --start-update 3000 --target-update 15000 --validation-milestones 3000,6000,9000,12000,15000 --mlp-reference-root MLP_ROOT" >&2
   exit 2
 }
@@ -25,9 +26,15 @@ if [[ ${1:-} == "continue" ]]; then
     [[ ${14} == "--mlp-reference-root" && -n ${15} ]] || usage
     mlp_reference_root=${15}
   else
-    [[ $6 == "--start-update" && $7 == "9000" ]] || usage
-    [[ $8 == "--target-update" && $9 == "15000" ]] || usage
-    [[ ${10} == "--validation-milestones" && ${11} == "9000,12000,15000" ]] || usage
+    [[ $6 == "--start-update" ]] || usage
+    start_update=$7
+    [[ $8 == "--target-update" ]] || usage
+    target_update=$9
+    [[ ${10} == "--validation-milestones" ]] || usage
+    validation_milestones=${11}
+    if [[ "$start_update,$target_update,$validation_milestones" != "9000,15000,9000,12000,15000" && "$start_update,$target_update,$validation_milestones" != "15000,21000,15000,18000,21000" ]]; then
+      usage
+    fi
   fi
 else
   [[ $# -eq 4 ]] || usage
@@ -124,9 +131,9 @@ if [[ "$action" == "continue" ]]; then
       --parent-output-root "$parent_output_root" \
       --config "$config_json" \
       --output-root "$output_root" \
-      --start-update 9000 \
-      --target-update 15000 \
-      --validation-milestones 9000,12000,15000 2>&1 | tee -a "$log_path"
+      --start-update "$start_update" \
+      --target-update "$target_update" \
+      --validation-milestones "$validation_milestones" 2>&1 | tee -a "$log_path"
   fi
   status=${PIPESTATUS[0]}
   mkdir -p "$output_root"

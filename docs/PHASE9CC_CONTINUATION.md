@@ -1,4 +1,12 @@
-# Phase 9C-C exact continuation to 15,000 updates
+# Phase 9C-C exact continuation to 15,000 and 21,000 updates
+
+The same fail-closed state boundary also supports a sealed second generation
+from the verified update-15,000 bundle to update 21,000. That production
+profile is restricted to milestones 15,000/18,000/21,000 and the exact parent
+manifest/report/checkpoint/state bindings recorded in the implementation. It
+uses a new output root, proves schedule-prefix identity, restores full state,
+fails on any skipped update, keeps test locked, and makes no automatic plateau
+or superiority claim.
 
 ## Scope
 

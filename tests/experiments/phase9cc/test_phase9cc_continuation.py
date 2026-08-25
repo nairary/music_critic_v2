@@ -294,6 +294,64 @@ def test_bounded_exact_continuation_preflight_resume_and_verifier(
         for path in parent.rglob("*")
         if path.is_file()
     }
+
+    extension_config = _config(plan, tmp_path / "extension-config.json")
+    extension_manifest = parent_runner._read(uninterrupted / "manifest.json")
+    extension_hashes = {
+        cell_id: file_sha256(
+            uninterrupted
+            / "cells"
+            / cell_id
+            / "checkpoints"
+            / "update-24.pt"
+        )
+        for cell_id in PHASE9CC_CELLS
+    }
+    extended_identities = identities + identities + identities[:8]
+    extension_plan = contracts.build_continuation_plan(
+        uninterrupted,
+        extension_config,
+        start_update=24,
+        target_update=28,
+        validation_milestones=(24, 26, 28),
+        _bounded_protocol={
+            "telemetry_interval": 2,
+            "checkpoint_interval": 2,
+            "maximum_consecutive_skips": 2,
+            "schedule_identities": extended_identities,
+            "parent_manifest_fingerprint": extension_manifest["fingerprint"],
+            "parent_git_sha": plan["protocol"]["git_head"],
+            "parent_git_branch": "phase/test-parent-continuation",
+            "parent_checkpoint_sha256": extension_hashes,
+        },
+    )
+    assert extension_plan["protocol"]["continuation_generation"] == 2
+    monkeypatch.setattr(
+        training_engine,
+        "build_data_runtime",
+        lambda config, seed: _runtime(28),
+    )
+    extension_root = tmp_path / "extension"
+    extension_result = runner.execute(extension_root, extension_plan, device="cpu")
+    assert extension_result["status"] == "execution_complete_pending_manifest"
+    (extension_root / "execution.log").write_text("bounded extension\n")
+    extension_verified = runner.finalize(extension_root, expected_sha="b" * 40)
+    assert extension_verified["start_applied_update"] == 24
+    assert extension_verified["final_applied_update"] == 28
+    for cell_id in PHASE9CC_CELLS:
+        extension_training = parent_runner._read(
+            extension_root / "cells" / cell_id / "training_report.json"
+        )
+        assert extension_training["restore_mode"] == (
+            "model_optimizer_scaler_scheduler_rng_sampler"
+        )
+        assert extension_training["skipped_updates"] == 0
+        assert [
+            row["applied_updates"]
+            for row in parent_runner._rows(
+                extension_root / "cells" / cell_id / "train_telemetry.jsonl"
+            )
+        ] == [26, 28]
     for cell_id in PHASE9CC_CELLS:
         directory = uninterrupted / "cells" / cell_id
         report = parent_runner._read(directory / "training_report.json")
