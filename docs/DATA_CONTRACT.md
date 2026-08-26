@@ -2,6 +2,48 @@
 
 Status: **ACCEPTED FOR PHASE 1 IMPLEMENTATION**.
 
+## Phase 9E-A derived common-harmony extension
+
+Phase 9E-A does not change `CanonicalPiece@2.0.0` or
+`TargetBundle@1.0.0`. It adds the external frozen contracts
+`DilemmadataCommonHarmonicProjection@1.0.0`,
+`DilemmadataCommonHarmonicRegistry@1.0.0`,
+`DilemmadataCommonMappingEvidence@1.0.0`,
+`DilemmadataCommonHarmonicAuditReport@1.0.0`,
+`DilemmadataCommonHarmonicAuditManifest@1.0.0`, and
+`AnalysisGNNReferenceMapping@1.0.0`.
+
+A projection is identified by dataset, piece, and the unchanged
+`analysis_view_id`, and binds the source TargetBundle contract/fingerprint plus
+the common registry fingerprint. Its targets and entries are uniquely sorted.
+Each entry contains source task/value pairs, exact source provenance IDs,
+supplemental target-only spelling/mode fields when present, one mapping state,
+common value, per-field availability, named information loss, stable
+diagnostic, mapping-evidence IDs, and dependency entity IDs. Canonical JSON
+uses UTF-8, sorted keys, no NaN, compact separators for fingerprints, and a
+trailing newline only for indented human-readable files.
+
+Mapping states are `exact`, `coarsened`, `ambiguous`, `unsupported`, and
+`invalid`; projected entries additionally distinguish `missing` and `masked`.
+Only `exact` and registry-preregistered `coarsened` entries may contain a
+common value or an available field. A coarsened entry must name its loss.
+Ambiguous, unsupported, and invalid entries require a stable diagnostic and
+must expose no value. Missing or masked fields remain unavailable and never
+become a negative class.
+
+Pitch-class values are integers `0..11`. Factorized local key contains tonic
+pitch class and `major/minor/unknown/other` mode with independent masks.
+Pitch-class sets are sorted unique integer tuples derived only from a mapped
+root and a registry-bound quality template. The projection retains source
+spelling while declaring enharmonic reduction as information loss. Inversion
+is one of `root/first/second/third` and is masked when figured-bass/ordinal
+evidence conflicts with a proven chord cardinality.
+
+The compact audit manifest contains no corpus payload or absolute path and is
+self-fingerprinted. Its `--check` path requires no Dilemmadata or AnalysisGNN
+checkout. None of these contracts is serialized into canonical raw data, raw
+graphs, model inputs, cache keys, grouping, or split identity.
+
 ## Phase 9B.2C evidence-only extension
 
 `DilemmadataSupervisedSmoke@1.4.0` and its sealed bundle `1.4.0` bind the

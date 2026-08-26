@@ -3441,6 +3441,24 @@ automatic plateau threshold or scientific claim. The exact invocation and
 artifact inventory are documented in
 [`PHASE9CC_CONTINUATION.md`](PHASE9CC_CONTINUATION.md).
 
+### Phase 9E-A common harmonic projection implemented
+
+Phase 9E-A adds a target-only, immutable and SHA-bound projection from the
+accepted Dilemmadata AN and DLC `TargetBundle` sidecars into six explicitly
+shared harmonic families: quality, inversion, root pitch class, bass pitch
+class, factorized local key and a deliberately narrow pitch-class set. Every
+available source label resolves to exactly one of `exact`, `coarsened`,
+`ambiguous`, `unsupported` or `invalid`; unavailable entries remain explicitly
+`missing`/`masked`. The projection never changes canonical pieces, raw graphs,
+cache/index identities, grouping, splits or source-native target bundles.
+
+The source mapping registry, pinned AnalysisGNN comparison, deterministic JSON
+contracts, full-corpus audit, source-free compact manifest and exact accepted
+corpus evidence are documented in
+[`DILEMMADATA_TARGET_SIDECARS.md`](DILEMMADATA_TARGET_SIDECARS.md). This phase
+does not add or train a common head, change losses, evaluate models on test
+targets, unlock test data, ingest PDMX or begin critic/quality work.
+
 ## Phase 10. PDMX adapter and scalable cache
 
 ### Implement

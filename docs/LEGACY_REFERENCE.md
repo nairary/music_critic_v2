@@ -455,3 +455,21 @@ checkpoint, transfer and evaluation contracts.
 Legacy epoch reinterpretation, checkpoint-shape guessing, partial state loads,
 target-derived scheduling, missing-as-negative labels, automatic plateau
 claims and test access remain rejected.
+
+## Phase 9E-A common harmonic projection
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or reused for Phase 9E-A. No legacy label mapping, chord
+vocabulary, pitch conversion, model, checkpoint, graph, or audit logic was
+adapted. The implementation derives only from current V2 raw/target contracts,
+the accepted pinned Dilemmadata evidence, and the independently pinned official
+AnalysisGNN repository used as an external MIT-licensed mapping reference.
+
+Legacy theory-bearing inputs, missing-as-negative labels, Python-hash class
+IDs, runtime vocabulary growth, implicit enharmonic collapse, inferred bass,
+mandatory semantic segmentation, majority analysis selection, and
+unversioned/shared label tables remain rejected. The frozen mapping state
+machine, immutable derived target sidecar, explicit losses/divergences,
+per-field local-key masks, proven-template pitch-class-set dependency, and
+source-free audit manifest are new V2-only contracts. V2 runs and checks the
+committed evidence without either the legacy or AnalysisGNN checkout.

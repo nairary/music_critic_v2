@@ -3371,3 +3371,46 @@ This log is append-only.
   persistent AMP overflow, test access or cross-cell mismatch fails closed.
   BiGRU, models, objectives, heads, losses, data, split, caches, class weights,
   SSL artifacts and all other scientific settings remain unchanged.
+
+## 2026-08-26 — ADR-094: AN/DLC share a derived audited harmonic projection
+
+- Status: Accepted for Phase 9E-A representation and audit only.
+- Context: Phase 9C used four independent source-native AN/DLC quality and
+  inversion heads. That evidence remains valid but does not define a common
+  theory task, and the immutable source `TargetBundle@1.0.0` lacks a declared
+  cross-dialect semantic state machine. AnalysisGNN offers a useful external
+  starting mapping, but its `+7` and `+M7` rows explicitly collapse richer DLC
+  qualities to `augmented triad`.
+- Decision: Keep every source-native sidecar authoritative and byte-immutable.
+  Add `DilemmadataCommonHarmonicProjection@1.0.0` only after the existing
+  raw/target identity and ordered alignment binding succeeds. Bind every
+  projection to its exact TargetBundle and the frozen
+  `DilemmadataCommonHarmonicRegistry@1.0.0`. Never include common targets in
+  canonical bytes, raw/cache/index/graph/model-input/group/split identity or
+  raw-MIDI inference.
+- Decision: Define six MVP families: common quality, ordinal inversion,
+  root/bass pitch class, factorized local key, and pitch-class set. Every
+  available source entry receives exactly one of exact, coarsened, ambiguous,
+  unsupported, or invalid; projected missing and masked states remain
+  separate. Only exact and preregistered coarsened states expose supervision.
+  Coarsening must name its loss, spelling-to-PC conversion must record
+  enharmonic loss, unknown mode keeps an independent false field mask, and
+  inconsistent inversion/cardinality evidence is masked rather than guessed.
+- Decision: Derive pitch-class sets only from mapped roots and ten independently
+  registered interval templates. Incomplete, extended, augmented-sixth, and
+  other unproved qualities retain quality supervision but no fabricated set.
+  Never infer source bass from the lowest raw note and never choose/vote across
+  alternative analysis views.
+- Decision: Pin AnalysisGNN only as MIT-licensed external evidence at commit
+  `e115182fb29b74bdcb6bf3547ed427d967580947`; record exact reference file
+  hashes and mapping rows without runtime import, dependency, or vendoring.
+  Preserve precise DLC `+7` as `augmented seventh chord` and `+M7` as
+  `augmented major tetrachord`, marking both as explicit divergences rather
+  than silently copying the reference collapse.
+- Consequences: The full audit covers all 1,633 sources and all 719 accepted
+  views, preserves the 577/71/71 split, and reports mapping loss and overlap
+  conflicts without model evaluation. Canonical/raw graph/model input/grouping/
+  source-target fingerprints remain invariant. Phase 9E-A adds no model, head,
+  loss, tensorizer, training config, checkpoint reuse, test inference/metric,
+  or scientific claim. A later Phase 9E-B must separately preregister a fair
+  shared-task baseline.

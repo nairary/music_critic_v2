@@ -1,5 +1,45 @@
 # Music Critic V2 Status
 
+## Phase 9E-A common harmonic projection — 2026-08-26
+
+- Implemented `DilemmadataCommonHarmonicProjection@1.0.0` as a derived,
+  immutable target sidecar bound to the existing source-native
+  `TargetBundle@1.0.0`; canonical/raw cache/graph/model-input/group/split
+  contracts and all historical target artifacts remain unchanged.
+- Added the frozen common registry/mapping/reference/audit contracts at
+  `1.0.0`. The registry explicitly covers all 64 AN and 15 DLC quality rows,
+  all AN/DLC inversion rows, exact spelling/TPC pitch-class conversion,
+  factorized local key, and pitch-class-set derivation from ten proven quality
+  templates. Fourteen AN qualities are declared coarsened; no lossy row is
+  labelled exact. DLC `+7` and `+M7` explicitly diverge from the pinned
+  AnalysisGNN augmented-triad collapse.
+- The one authorized full-corpus audit covered 1,633 source records, 1,507
+  components, 98 explicit AN/DLC overlaps, 914 raw quarantines, and all 719
+  accepted annotation views plus all 30 conservative same-input alternative
+  groups on the unchanged 577/71/71 split. Accepted common
+  outcomes were 712,509 exact, 43 coarsened, 4 ambiguous, 997 unsupported,
+  281,938 masked, and zero invalid entries.
+- Canonical piece, raw graph, model input, grouping, and source-native bundle
+  fingerprints remained unchanged. Common registry fingerprint is
+  `6e33d6027608d03478a73b93f3a97f610bb5a23ece41b41a778eaa02bd6f67ae`;
+  combined projections are
+  `3f5b6e7629872fa2ca97a86041f05e59b4f93b1f0b8f8b22f910f3da299cc8df`;
+  compact manifest is
+  `b0459c84443c85cf3d4a22088ca14064ae99d427216550379deb0cc2b347e7ee`;
+  the bound full-report semantic fingerprint is
+  `d41c78c627f693b41433c88b4c5a1d8bf1b7ebb424f80f6f94f1201460775ea8`.
+- The full report remains outside Git. The committed manifest contains no
+  corpus payload or absolute path and passes source-free `--check`. Locked-test
+  membership/targets were used only for representation coverage; no training,
+  inference, metric, selection, unlock, CUDA, legacy access, or Phase 9E-B
+  work occurred.
+- Required local verification passed: the focused projection/audit/existing
+  target-adapter/repository-contract suite reported `50 passed, 2 warnings in
+  3.36s`; source-free `--check`, `compileall`, `git diff --check`, and the base
+  object `git show --check` also passed. The final Required CI run belongs to
+  the committed implementation SHA and is reported externally rather than
+  encoded into its own input commit.
+
 ## Phase 9C-D post-training recovery — 2026-08-25
 
 - The exact-head RTX run at `75ed55d34e285776394193227475c632814559c5`
@@ -67,11 +107,13 @@
 
 ## Current phase
 
-- Date: 2026-08-23
-- Current task: Phase 9C-C exact continuation from 9,000 to 15,000 applied
-  updates on stacked branch `phase/9cc-continuation-15000`, based on the
-  verified Phase 9C-C implementation head
-  `bff1a405ffb9d8d6de01c4abc3d567dcb02d000b`.
+- Date: 2026-08-26
+- Current task: Phase 9E-A common harmonic projection on stacked branch
+  `phase/9ea-an-dlc-common-harmonic-projection`, based on exact accepted
+  research head `6490e231716cb191d4e476c0f4854adc03c57eb4`.
+- Phase 9E-A is representation/audit only. Phase 9E-B, model training, shared
+  heads/losses, and test evaluation remain unauthorized pending focused review
+  and Required CI. Historical Phase 9C execution context follows below.
 - The completed parent evidence is fixed by manifest fingerprint
   `6e64f33e64de9c3d864d75828a6916d95afa9fcbadc75c14359b884cab83ab10`
   and update-9,000 checkpoint hashes `1b3d6ac9…50072f` (scratch) and
