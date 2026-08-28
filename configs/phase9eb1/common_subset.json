@@ -1,0 +1,72 @@
+{
+  "applied_update_budget": 10000,
+  "arm": "analysisgnn-common-subset",
+  "config_fingerprint": "235ee3508365866ab15f70a41219dc161fec33309439709865bee78634da2dfa",
+  "augmentation": {
+    "split_before_augmentation": true,
+    "test": ["P1"],
+    "train": ["P1", "m2", "M2", "m3", "M3", "P4", "A4", "P5", "m6", "M6", "m7", "M7"],
+    "validation": ["P1"]
+  },
+  "candidate_update": {
+    "graphs_per_update": 1,
+    "schedule": "seeded_shuffled_source_transposition_views"
+  },
+  "contract_version": "1.0.0",
+  "data": {
+    "assignment_fingerprint": "a2b6bb29a26a87f74eb1921888d2651bd4fbe3bffec51e9cb88fbe9bb3084eec",
+    "common_registry_fingerprint": "bb50920808b6ad3a19fb32b8315a417a837b2ab008efd7bee71e71d120e2ee2e",
+    "dialect_counts": {"an_joint": 108, "dlc": 611},
+    "manifest_fingerprint": "be0d36aea152e2542e6a8fdd5ce757e16bdb55c57a9b124f470237c8b4e4da02",
+    "raw_index_fingerprint": "c0451976b6b6eab88cb90aa6c47d6afdba1b81ce9b588f0f84daa846154adb0e",
+    "record_count": 719,
+    "records_fingerprint": "5924a6c39379952315207423333a6c825bcad9ac3e5710e55937aebf62fe8944",
+    "split_counts": {"test": 71, "train": 577, "validation": 71},
+    "split_fingerprint": "58ac7720f65f7fd3102248fb39d89291a78d65c06fc2ab9a16d78a6ee1666a3e"
+  },
+  "evaluation": {
+    "balanced_accuracy_rule": "mean_recall_over_supported_true_classes",
+    "bootstrap_samples": 2000,
+    "entry_aggregation": "mean_note_log_probability",
+    "macro_f1_rule": "mean_f1_over_supported_true_classes",
+    "metrics": ["nll", "normalized_mean_nll", "macro_f1", "balanced_accuracy", "accuracy", "majority_class_baseline_accuracy", "joint_quality_inversion_accuracy"],
+    "selection": "mean_normalized_quality_inversion_nll"
+  },
+  "graph_schema_fingerprint": "77bc67ee93bdb97d3a8d31831fca33eb637e6a8a961b1bf3c8acfac40b0c4620",
+  "model": {
+    "base_feature_width": 25,
+    "bigru_bidirectional": true,
+    "bigru_layers": 2,
+    "dropout": 0.3,
+    "encoder": "HybridGNN",
+    "hidden_channels": 256,
+    "head_layers": 2,
+    "key_signature_embedding": [15, 64],
+    "logit_fusion": true,
+    "num_layers": 3,
+    "output_channels": 128,
+    "pitch_spelling_embedding": [35, 64],
+    "tasks": {"inversion": 4, "quality": 50},
+    "use_beat_hierarchy": true,
+    "use_jk": true,
+    "use_measure_hierarchy": true
+  },
+  "optimization": {
+    "class_weights": null,
+    "ignore_index": -1,
+    "label_smoothing": 0.1,
+    "learning_rate": 0.005,
+    "optimizer": "AdamW",
+    "schedule": "500_applied_update_warmup_then_cosine",
+    "uncertainty_weighting": "half_inverse_square_plus_log1p_square",
+    "warmup_applied_updates": 500,
+    "weight_decay": 0.0005
+  },
+  "seeds": [17, 23, 42],
+  "source": {
+    "analysisgnn_commit": "e115182fb29b74bdcb6bf3547ed427d967580947",
+    "dilemmadata_commit": "d60ee75b4a9495e932a4a7be39381578be17e222",
+    "graphmuse_commit": "c36eedba811a24c0addf96bdd3d1df449cf753c1"
+  },
+  "validation_every_applied_updates": 500
+}

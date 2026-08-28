@@ -1,0 +1,18 @@
+{
+  "artifact_path": "melkisedeath/AnalysisGNN/model-rhsjiz03:v0",
+  "artifact_version": 0,
+  "attestation_fingerprint": "adb3aadb04536c84bd92ca30a2489653387a649dc1cc8579617f82433a722df0",
+  "checkpoint_bytes": 289662455,
+  "checkpoint_sha256": "a557d0046e2c03c19514e1351a3cd0f2b49c31b991c370307345a7f1c6a65f31",
+  "claim": "historical_checkpoint_and_result_attestation",
+  "config_sha256": "1bce62b022ae8f05a55fae108fbbfb5106b8151afc2b53e2bfb433372b09e09e",
+  "epoch": 98,
+  "global_step": 8910,
+  "original_filename": "epoch=98-step=8910.ckpt",
+  "output_log_sha256": "5b41967f07d4559cd31f18a8d76185a7b252a83a0b4515971e71262a92c7d11f",
+  "requirements_sha256": "e33910c8bb6b66828ee898521aa44278ab96af2e87558f3b3b0b7da55f3dc668",
+  "run_path": "melkisedeath/AnalysisGNN/rhsjiz03",
+  "run_source_commit": "7738a282abe5090d44627759786dfa31b71e1a43",
+  "source_commit": "e115182fb29b74bdcb6bf3547ed427d967580947",
+  "summary_sha256": "53f24c85da6c75103996bb5b0d12047ebbd286dfce9607f29d510a46af1a946e"
+}

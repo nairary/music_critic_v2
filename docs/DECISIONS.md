@@ -3464,3 +3464,42 @@ This log is append-only.
   reuse that exact success, while source, tests, scripts, configuration,
   workflow, and unknown paths remain fail-open. Models, data, scientific
   fingerprints, Phase 9E-A projection, and Phase 9E-B1 do not change.
+
+## 2026-08-28 — ADR-097: AnalysisGNN is reconstructed as an isolated two-task comparator
+
+- Status: Accepted for Phase 9E-B1; full CUDA execution remains pending.
+- Context: The public `rhsjiz03` checkpoint verifies an AnalysisGNN architecture
+  and historical metrics, but its recorded source revision is unpublished,
+  GraphMuse is absent from its lock, current preprocessing is broken, and its
+  transposed-view split is unsuitable for the frozen V2 common subset.
+- Decision: Keep public bytes as historical attestation only. Reconstruct from
+  official AnalysisGNN commit `e115182...` plus explicitly substituted
+  GraphMuse `c36eedb...` and three minimal patches. Record all deviations and
+  prohibit “official”, “exact”, or “independent reproduction” claims.
+- Decision: Add an experiment-only adapter from accepted raw `CanonicalPiece`
+  plus identity-bound target sidecars to the native 13-relation
+  note/beat/measure surface. Topology and hierarchy use exact rational timing;
+  targets never construct input features or edges. Split source groups first,
+  then expose all 12 transpositions only to training.
+- Decision: Train exactly the checkpoint-attested HybridGNN/JK/two-layer BiGRU
+  representation with output 128 from scratch, but expose only common
+  quality-50 and inversion-4 MLP heads with cross-task logit fusion. Use 10,000
+  applied updates for each seed 17/23/42 and validate every 500; this integer
+  budget is frozen because the scientific specification requires equality but
+  provides no number.
+- Decision: One full source/transposition graph is one candidate update. Seeded
+  shuffled ordering, source grouping, graph hashes, and applied/skipped
+  outcomes are materialized. This is declared separately from the public
+  run's sampled-subgraph batch 240 / size 500 behavior.
+- Decision: Aggregate mean note log probabilities once per source entry. Report
+  NLL, normalized mean NLL, macro-F1 over supported classes, balanced accuracy,
+  accuracy, majority baseline, joint accuracy, confusion/support, grouped
+  bootstrap, every seed, and mean ± sample standard deviation. `train` cannot
+  open test. Only after all three
+  validation-selected checkpoint hashes are frozen may an explicitly named
+  operator create the dataset/config/checkpoint-bound unlock; CUDA evaluation
+  then opens test once per seed.
+- Consequences: Phase 9E-B1 does not modify Music Critic architecture, decoder,
+  SSL, BiGRU/Transformer, canonical/raw inference, or Phase 9E-A evidence.
+  Generated data/checkpoints/results remain uncommitted. Missing CUDA or build
+  prerequisites is recorded as pending execution, never synthetic evidence.

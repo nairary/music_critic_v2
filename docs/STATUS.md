@@ -3338,3 +3338,59 @@ not clamped or mutated.
   update, and locked test split remain mandatory. Local CPU results cannot
   establish hardware success; draft PR #19 stays draft and Phase 9 remains
   unstarted pending a new independent exact-head RTX 3090 run.
+
+## Phase 9E-B1 AnalysisGNN reconstruction — 2026-08-28
+
+- Historical public evidence is attested at official AnalysisGNN commit
+  `e115182fb29b74bdcb6bf3547ed427d967580947`, run `rhsjiz03`, and artifact
+  `model-rhsjiz03:v0`. The 289,662,455-byte checkpoint SHA-256 is exactly
+  `a557d0046e2c03c19514e1351a3cd0f2b49c31b991c370307345a7f1c6a65f31`;
+  config, requirements, summary, and output-log bytes also have pinned hashes.
+  This is historical attestation, not independent reproduction.
+- A Python 3.12.8 / torch 2.2.2+cu118 / PyG 2.6.1 / Lightning 2.5.0.post0
+  reconstruction lock and environment builder pin GraphMuse to the nearest
+  pre-run API/state-compatible public commit. Three minimal, cleanly applicable
+  patches restore GraphMuse preprocessing, the public 25-wide simple feature
+  path, and missing-label masks. Every known difference is declared; no exact
+  official reproduction claim is made.
+- The experiment-local common arm fixes 719 accepted records (108 AN, 611 DLC),
+  the unchanged source-group 577/71/71 split, train-only 12 transpositions,
+  quality-50 and inversion-4, native note/beat/measure relations, the
+  checkpoint-attested 3×256 HybridGNN with JK and two-layer bidirectional GRU,
+  output 128, two MLP heads, and cross-task fusion. Root, bass, local key,
+  pitch-class set, and auxiliary heads are absent.
+- Optimization is frozen to smoothed CE 0.1 with `ignore_index=-1`, no class
+  weights, learned two-task uncertainty, AdamW 0.005/0.0005, 500 applied-update
+  warmup, cosine decay, and exactly 10,000 applied updates per seed 17/23/42.
+  Evaluation aggregates mean note log probabilities per source entry and emits
+  per-task NLL, normalized mean NLL, macro-F1, balanced accuracy, accuracy,
+  majority baseline, joint accuracy, confusion/support, grouped bootstrap,
+  checkpoint/file hashes, and mean ± sample standard deviation. One complete
+  source/transposition graph is one candidate update; the seeded schedule and
+  applied/skipped counts are explicit artifacts.
+- Focused Phase 9E-B1 plus impacted common-projection/repository tests pass
+  `38 passed`
+  with two upstream `torch.jit.script` deprecation warnings. Source and
+  script compileall, JSON parsing, upstream `git apply --check`, patched-tree
+  `git diff --check`, historical byte attestation, cache-contract checks, and
+  shell syntax pass. The single preliminary model-only CPU forward/backward
+  observed finite loss/gradients and `[8,50]`/`[8,4]` logits, but a subsequent
+  static inventory removed an extra shape-preserving hierarchy projection to
+  match the checkpoint. It was not rerun under the one-smoke local cap and is
+  not acceptance evidence; the final two-linear hierarchy layout has a unit
+  contract.
+- The permitted local production replay completed: 719 records, 108/611
+  dialect counts and 577/71/71 splits. Assignment fingerprint is
+  `a2b6bb29...`, record fingerprint `5924a6c3...`, and preprocessing-manifest
+  fingerprint `be0d36ae...`; the 2,066,520,375-byte ignored cache contains
+  2,158 files. Graph fingerprints remain an RTX/pinned-GraphMuse artifact.
+- The current runtime policy permits only tests/static validation, one bounded
+  CPU forward/backward without a training loop, and corpus/cache replay. The
+  current host is CPU-only and lacks a compiler plus the pinned
+  reconstruction dependencies. Its model-only smoke uses a recorded import
+  stub that is forbidden for results. Final pinned-GraphMuse CPU graph smoke,
+  GPU smoke,
+  historical training/evaluation reconstruction, all training/checkpoint
+  selection, and locked-test evaluation are therefore `NOT RUN locally` and
+  pending external Python-3.12/CUDA execution. No result, checkpoint, dataset,
+  graph, or Phase 9E-A artifact is committed.

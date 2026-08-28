@@ -1,0 +1,12 @@
+diff --git a/analysisgnn/descriptors/general.py b/analysisgnn/descriptors/general.py
+index 99c43c8..0674124 100644
+--- a/analysisgnn/descriptors/general.py
++++ b/analysisgnn/descriptors/general.py
+@@ -128,5 +128,7 @@ def select_features(part, features):
+     if features == "voice":
+         note_features, _ = voice_separation_features(part)
++    elif features == "simple":
++        note_features, _ = voice_separation_features(part)
+     elif features == "chord":
+         note_features, _ = chord_analysis_features(part)
+     elif features == "panalysis":

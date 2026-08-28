@@ -481,3 +481,18 @@ the pinned official AnalysisGNN `process_inversion_from_chord` evidence:
 DLC `2` and `42` map to third inversion. AN ordinal `2` remains a distinct
 source-task value mapped to second inversion. A shared token-only inversion
 reference is rejected; no upstream module is vendored or imported at runtime.
+
+## Phase 9E-B1 AnalysisGNN reconstruction
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or reused for Phase 9E-B1. No legacy model, graph,
+preprocessing, split, training, evaluation, or checkpoint logic was adapted.
+The isolated comparator derives from the user-supplied scientific
+specification, current V2 exact raw/target contracts, unchanged Phase 9E-A
+projection, pinned Dilemmadata evidence, and the official public AnalysisGNN
+and GraphMuse histories.
+
+Legacy theory-bearing inputs, float timing equality, target-derived topology,
+missing-as-negative labels, semantic-segmentation inference requirements,
+runtime legacy imports, checkpoint-shape guessing, and transposition leakage
+remain rejected. No adapted legacy concept was accepted.

@@ -1,0 +1,23 @@
+# Phase 9E-B1 pinned paper-reconstruction environment (Linux x86_64, CUDA 11.8)
+# Install AnalysisGNN and GraphMuse from the exact git revisions below after
+# installing these wheels. GraphMuse was not present in the public run lock;
+# its revision is therefore an explicit reconstruction substitution.
+python==3.12.8
+torch==2.2.2
+torch-geometric==2.6.1
+pytorch-lightning==2.5.0.post0
+torchmetrics==1.6.0
+partitura==1.6.0
+numpy==1.26.4
+pandas==2.2.3
+scikit-learn==1.6.0
+scipy==1.14.1
+wandb==0.19.1
+pyyaml==6.0.2
+torch-scatter==2.1.2+pt22cu118
+torch-sparse==0.6.18+pt22cu118
+torch-cluster==1.6.3+pt22cu118
+torch-spline-conv==1.2.2+pt22cu118
+pyg-lib==0.4.0+pt22cu118
+analysisgnn @ git+https://github.com/manoskary/analysisgnn@e115182fb29b74bdcb6bf3547ed427d967580947
+graphmuse @ git+https://github.com/manoskary/graphmuse@c36eedba811a24c0addf96bdd3d1df449cf753c1

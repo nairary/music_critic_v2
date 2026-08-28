@@ -1,0 +1,28 @@
+{
+  "contract": "phase9eb1-runtime-policy-v1",
+  "local_allowed": [
+    "unit_and_contract_tests",
+    "bash_yaml_and_static_validation",
+    "one_bounded_cpu_forward_backward_without_training_loop",
+    "dilemmadata_discovery_corpus_replay_and_cache_construction",
+    "record_split_target_and_fingerprint_verification",
+    "config_manifest_command_and_documentation_preparation"
+  ],
+  "local_forbidden": [
+    "training_loop",
+    "10000_applied_optimizer_updates",
+    "seed_17_23_42_training",
+    "checkpoint_selection",
+    "gpu_evaluation",
+    "locked_test_predictions_or_metrics"
+  ],
+  "remote_rtx_required": [
+    "real_graphmuse_cpu_smoke",
+    "gpu_smoke",
+    "historical_reconstruction_training_and_evaluation",
+    "three_seed_common_training",
+    "checkpoint_selection",
+    "explicit_locked_test_unlock",
+    "locked_test_evaluation_and_three_seed_summary"
+  ]
+}

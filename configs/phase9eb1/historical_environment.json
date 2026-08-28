@@ -1,0 +1,20 @@
+{
+  "claim": "public_run_dependency_attestation_not_reconstruction_lock",
+  "requirements_sha256": "e33910c8bb6b66828ee898521aa44278ab96af2e87558f3b3b0b7da55f3dc668",
+  "critical_versions": {
+    "cuda_wheel_family": "cu118",
+    "numpy": "1.26.4",
+    "partitura": "1.6.0",
+    "python": "3.12.8",
+    "pytorch-lightning": "2.5.0.post0",
+    "torch": "2.2.2",
+    "torch-geometric": "2.6.1",
+    "torch-cluster": "1.6.3+pt22cu118",
+    "torch-scatter": "2.1.2+pt22cu118",
+    "torch-sparse": "0.6.18+pt22cu118",
+    "torch-spline-conv": "1.2.2+pt22cu118",
+    "wandb": "0.19.1"
+  },
+  "graphmuse_in_public_lock": null,
+  "graphmuse_reconstruction_substitution": "c36eedba811a24c0addf96bdd3d1df449cf753c1"
+}
