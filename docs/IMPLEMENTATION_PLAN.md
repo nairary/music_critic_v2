@@ -3459,6 +3459,16 @@ corpus evidence are documented in
 does not add or train a common head, change losses, evaluate models on test
 targets, unlock test data, ingest PDMX or begin critic/quality work.
 
+The remediated `AnalysisGNNReferenceMapping@1.0.1` keys inversion evidence by
+source task and source value. AN ordinal `2` therefore remains `second`, while
+DLC figured bass `2` is the `4/2` shorthand and maps to `third`, matching the
+pinned AnalysisGNN `process_inversion_from_chord` implementation. All ten
+inversion rows agree with the reference. The combined quality-plus-inversion
+table has 36 agreements, 2 divergences and 51 not-applicable rows; the only
+divergences are DLC quality `+7` and `+M7`. Common target semantics, projection
+and registry contract versions, the 719 accepted views, and split 577/71/71 do
+not change.
+
 ## Phase 10. PDMX adapter and scalable cache
 
 ### Implement

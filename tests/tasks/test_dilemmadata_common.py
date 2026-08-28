@@ -100,7 +100,7 @@ def test_versions_registry_reference_and_frozen_contracts() -> None:
     assert DILEMMADATA_COMMON_MAPPING_EVIDENCE_VERSION == "1.0.0"
     assert DILEMMADATA_COMMON_HARMONIC_AUDIT_REPORT_VERSION == "1.0.0"
     assert DILEMMADATA_COMMON_HARMONIC_AUDIT_MANIFEST_VERSION == "1.0.0"
-    assert ANALYSISGNN_REFERENCE_MAPPING_VERSION == "1.0.0"
+    assert ANALYSISGNN_REFERENCE_MAPPING_VERSION == "1.0.1"
     assert len(DILEMMADATA_COMMON_HARMONIC_REGISTRY.families) == 6
     assert len(DILEMMADATA_COMMON_HARMONIC_REGISTRY.quality_mapping_rows) == 79
     assert len(DILEMMADATA_COMMON_HARMONIC_REGISTRY.inversion_mapping_rows) == 10
@@ -143,6 +143,34 @@ def test_every_quality_and_inversion_vocabulary_row_is_explicit() -> None:
     assert map_dilemmadata_common_quality(
         "dilemmadata.dlc.chord.quality", "+M7"
     ).analysisgnn_agreement == "diverge"
+
+
+def test_analysisgnn_inversion_reference_is_dialect_specific_for_token_two() -> None:
+    reference_by_source = {
+        (source_task_id, source_value): reference_value
+        for source_task_id, source_value, reference_value in (
+            ANALYSISGNN_REFERENCE.inversion_rows
+        )
+    }
+    an = map_dilemmadata_common_inversion(
+        "dilemmadata.an.chord.inversion", "2"
+    )
+    dlc = map_dilemmadata_common_inversion(
+        "dilemmadata.dlc.chord.inversion", "2"
+    )
+
+    assert reference_by_source[("dilemmadata.an.chord.inversion", "2")] == "second"
+    assert (an.common_value, an.analysisgnn_reference_value, an.analysisgnn_agreement) == (
+        "second",
+        "second",
+        "agree",
+    )
+    assert reference_by_source[("dilemmadata.dlc.chord.inversion", "2")] == "third"
+    assert (dlc.common_value, dlc.analysisgnn_reference_value, dlc.analysisgnn_agreement) == (
+        "third",
+        "third",
+        "agree",
+    )
 
 
 def test_mapping_states_do_not_turn_missing_or_bad_values_into_classes() -> None:

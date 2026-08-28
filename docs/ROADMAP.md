@@ -756,9 +756,9 @@ The model and training phases remain pending.
   target space for quality, ordinal inversion, root/bass pitch class,
   factorized local key, and proven-template pitch-class set.
 - Contracts: common projection, registry, mapping evidence, audit report,
-  compact audit manifest, and pinned AnalysisGNN reference mapping all start at
-  `1.0.0`. The source-native `TargetBundle@1.0.0` remains authoritative and
-  immutable.
+  and compact audit manifest remain `1.0.0`; the pinned AnalysisGNN reference
+  mapping is `1.0.1` after the dialect-specific inversion remediation. The
+  source-native `TargetBundle@1.0.0` remains authoritative and immutable.
 - Mapping: all 64 AN and 15 DLC quality values and all 10 inversion values have
   explicit frozen rows. Exact, coarsened, ambiguous, unsupported, invalid,
   missing, and masked states stay distinct; only exact/preregistered coarsened
@@ -769,6 +769,10 @@ The model and training phases remain pending.
   719 common projections pass canonical/raw-graph/model-input/grouping/
   source-target invariance. The compact source-free manifest is committed and
   self-fingerprinted; the corpus report remains outside Git.
+- Parity: AN ordinal `2` references `second`; DLC figured bass `2` references
+  `third`, matching AnalysisGNN's `2`/`42` conversion. All 10 inversion rows
+  agree. Combined parity is 36 agree / 2 diverge / 51 not applicable, with
+  divergences limited to DLC quality `+7` and `+M7`.
 - Non-goals: AnalysisGNN runtime import/model/checkpoint, shared heads/losses,
   training, test inference/metrics/selection, raw/cache/graph/group/split
   changes, Phase 9E-B, PDMX, critic/ranking, or a claim that the taxonomy is

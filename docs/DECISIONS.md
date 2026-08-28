@@ -3414,3 +3414,27 @@ This log is append-only.
   loss, tensorizer, training config, checkpoint reuse, test inference/metric,
   or scientific claim. A later Phase 9E-B must separately preregister a fair
   shared-task baseline.
+
+## 2026-08-28 — ADR-095: AnalysisGNN inversion evidence is dialect-specific
+
+- Status: Accepted as a Phase 9E-A evidence remediation.
+- Context: `AnalysisGNNReferenceMapping@1.0.0` keyed inversion evidence only by
+  the rendered token. That incorrectly reused AN ordinal `2 -> second` for DLC
+  figured bass `2`, even though the pinned official AnalysisGNN function maps
+  DLC `2` and `42` to third inversion. The common projection already mapped
+  both dialects correctly.
+- Decision: Version the external reference as
+  `AnalysisGNNReferenceMapping@1.0.1` and identify every inversion row by
+  `(source_task_id, source_value)`. Preserve AN `2 -> second`; record DLC
+  `2 -> third`. Keep common projection, common registry, mapping-evidence,
+  audit-report, and audit-manifest contract versions unchanged because their
+  target semantics and row shapes do not change.
+- Decision: Require the audit parity table to retain source-task identity,
+  require 10 inversion agreements and zero inversion divergences, and accept
+  only the two declared DLC quality divergences: `+7` and `+M7` against the
+  AnalysisGNN augmented-triad collapse.
+- Consequences: Combined parity is 36 agree / 2 diverge / 51 not applicable.
+  The reference, registry, combined projection, report-semantic, and compact
+  manifest fingerprints are regenerated. The 719 accepted projections,
+  577/71/71 split, raw/cache/graph/model-input/grouping/source-target evidence,
+  common values, masks, vocabularies, and Phase 9E-B1 remain unchanged.

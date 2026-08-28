@@ -1309,6 +1309,16 @@ registry, full generated report, and unchanged raw/source-target evidence. Test
 membership is visible only to the representation-coverage audit; Phase 9E-A
 has no model, inference, metric, selection, loss, or training path.
 
+AnalysisGNN inversion evidence has dialect-specific identity:
+`(source_task_id, source_value)`. AN ordinal `2` maps to `second`; DLC figured
+bass `2` (the `4/2` shorthand accepted with `42` by the pinned upstream
+function) maps to `third`. Both rows agree with their common values. Inversion
+parity is 10 agree / 0 diverge, and combined quality-plus-inversion parity is
+36 agree / 2 diverge / 51 not applicable. Only DLC quality `+7` and `+M7`
+diverge. This reference correction changes derived evidence fingerprints, not
+the common target values, masks, raw boundary, source-native sidecars, or
+inference architecture.
+
 ## Incremental research scope
 
 Phase 7A implements GraphMAE2-inspired decoder remasking but is not a faithful

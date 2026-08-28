@@ -389,7 +389,9 @@ def _collapse_table() -> tuple[DilemmadataCommonCollapseEvidence, ...]:
 
 
 def _parity_rows() -> tuple[tuple[str, str, str, str, str], ...]:
-    return tuple(
+    """Return parity rows keyed by dialect-specific source task and value."""
+
+    rows = tuple(
         sorted(
             (
                 row.source_task_id,
@@ -404,6 +406,12 @@ def _parity_rows() -> tuple[tuple[str, str, str, str, str], ...]:
             )
         )
     )
+    identities = tuple((task_id, source_value) for task_id, source_value, *_ in rows)
+    if identities != tuple(sorted(set(identities))):
+        raise RuntimeError(
+            "AnalysisGNN parity rows must have unique source-task/value identity"
+        )
+    return rows
 
 
 def _projection_target(projection: object, task_id: str) -> object:
@@ -869,6 +877,14 @@ def manifest_projection(
         for fact in report.facts
         if fact.name == "accepted_split_record_count"
     }
+    parity_totals = Counter(row[4] for row in report.analysisgnn_parity)
+    divergences = {
+        (task_id, source_value, reference_value, common_value)
+        for task_id, source_value, reference_value, common_value, agreement in (
+            report.analysisgnn_parity
+        )
+        if agreement == "diverge"
+    }
     ready = (
         report.projection_count == report.annotation_view_count
         and report.projection_count > 0
@@ -876,7 +892,23 @@ def manifest_projection(
         and all(row.unchanged for row in report.invariance_evidence)
         and set(split_counts) == {"test", "train", "validation"}
         and all(isinstance(value, int) and value > 0 for value in split_counts.values())
-        and any(row.analysisgnn_agreement == "diverge" for row in DILEMMADATA_COMMON_HARMONIC_REGISTRY.quality_mapping_rows)
+        and parity_totals
+        == Counter({"agree": 36, "diverge": 2, "not_applicable": 51})
+        and divergences
+        == {
+            (
+                "dilemmadata.dlc.chord.quality",
+                "+7",
+                "augmented triad",
+                "augmented seventh chord",
+            ),
+            (
+                "dilemmadata.dlc.chord.quality",
+                "+M7",
+                "augmented triad",
+                "augmented major tetrachord",
+            ),
+        }
         and all(
             row.state in {"exact", "coarsened", "ambiguous", "unsupported", "invalid"}
             for row in DILEMMADATA_COMMON_HARMONIC_REGISTRY.quality_mapping_rows
@@ -973,6 +1005,12 @@ def _validate_manifest_evidence(
     alternative_group_count = facts.get(
         ("candidate_same_input_alternative_group_count", ())
     )
+    parity_counts = {
+        dict(dimensions).get("agreement"): value
+        for (name, dimensions), value in facts.items()
+        if name == "analysisgnn_parity_total"
+    }
+    parity_row_count = facts.get(("analysisgnn_parity_row_count", ()))
     return (
         isinstance(projection_count, int)
         and projection_count > 0
@@ -981,6 +1019,8 @@ def _validate_manifest_evidence(
         and sum(split_counts.values()) == projection_count
         and invalid_total == 0
         and alternative_group_count == 30
+        and parity_row_count == 89
+        and parity_counts == {"agree": 36, "diverge": 2, "not_applicable": 51}
         and test_used is False
         and invariants_valid
         and artifacts_valid
@@ -1065,7 +1105,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         manifest = manifest_projection(report)
         _write(
             arguments.manifest,
-            dumps_dilemmadata_common_audit_manifest(manifest),
+            dumps_dilemmadata_common_audit_manifest(manifest, indent=None),
         )
     return 0
 

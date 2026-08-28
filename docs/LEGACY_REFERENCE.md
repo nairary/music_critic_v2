@@ -473,3 +473,11 @@ machine, immutable derived target sidecar, explicit losses/divergences,
 per-field local-key masks, proven-template pitch-class-set dependency, and
 source-free audit manifest are new V2-only contracts. V2 runs and checks the
 committed evidence without either the legacy or AnalysisGNN checkout.
+
+The 2026-08-28 Phase 9E-A remediation likewise opened, imported, copied,
+modified, formatted, staged, and reused no legacy file or logic. It corrected
+only the current V2 frozen external reference schema after directly verifying
+the pinned official AnalysisGNN `process_inversion_from_chord` evidence:
+DLC `2` and `42` map to third inversion. AN ordinal `2` remains a distinct
+source-task value mapped to second inversion. A shared token-only inversion
+reference is rejected; no upstream module is vendored or imported at runtime.

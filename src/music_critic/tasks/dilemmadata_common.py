@@ -32,7 +32,7 @@ DILEMMADATA_COMMON_HARMONIC_REGISTRY_VERSION = "1.0.0"
 DILEMMADATA_COMMON_MAPPING_EVIDENCE_VERSION = "1.0.0"
 DILEMMADATA_COMMON_HARMONIC_AUDIT_REPORT_VERSION = "1.0.0"
 DILEMMADATA_COMMON_HARMONIC_AUDIT_MANIFEST_VERSION = "1.0.0"
-ANALYSISGNN_REFERENCE_MAPPING_VERSION = "1.0.0"
+ANALYSISGNN_REFERENCE_MAPPING_VERSION = "1.0.1"
 COMMON_QUALITY_TEMPLATE_VERSION = "1.0.0"
 
 ANALYSISGNN_REPOSITORY = "https://github.com/manoskary/analysisgnn"
@@ -63,6 +63,17 @@ COMMON_ROOT_PC_TASK = "dilemmadata.common.chord.root_pc"
 COMMON_BASS_PC_TASK = "dilemmadata.common.chord.bass_pc"
 COMMON_LOCAL_KEY_TASK = "dilemmadata.common.key.local"
 COMMON_PITCH_CLASS_SET_TASK = "dilemmadata.common.chord.pitch_class_set"
+
+_AN_QUALITY_TASK = "dilemmadata.an.chord.quality"
+_DLC_QUALITY_TASK = "dilemmadata.dlc.chord.quality"
+_AN_INVERSION_TASK = "dilemmadata.an.chord.inversion"
+_DLC_INVERSION_TASK = "dilemmadata.dlc.chord.inversion"
+_AN_ROOT_TASK = "dilemmadata.an.chord.root"
+_DLC_ROOT_TASK = "dilemmadata.dlc.chord.root"
+_AN_BASS_TASK = "dilemmadata.an.chord.bass"
+_DLC_BASS_TASK = "dilemmadata.dlc.chord.bass"
+_AN_LOCAL_KEY_TASK = "dilemmadata.an.key.local"
+_DLC_LOCAL_KEY_TASK = "dilemmadata.dlc.key.local"
 
 COMMON_TASK_IDS = (
     COMMON_BASS_PC_TASK,
@@ -158,7 +169,7 @@ class AnalysisGNNReferenceMapping:
     license_spdx: str
     files: tuple[tuple[str, str], ...]
     dlc_quality_rows: tuple[tuple[str, str], ...]
-    inversion_rows: tuple[tuple[str, str], ...]
+    inversion_rows: tuple[tuple[str, str, str], ...]
     fingerprint: str
 
     def __post_init__(self) -> None:
@@ -191,10 +202,24 @@ class AnalysisGNNReferenceMapping:
                 "dilemmadata.common.analysisgnn_rows_invalid",
                 "AnalysisGNN quality rows must use deterministic source-value order",
             )
-        if self.inversion_rows != tuple(sorted(self.inversion_rows)):
+        inversion_keys = tuple(
+            (source_task_id, source_value)
+            for source_task_id, source_value, _reference_value in self.inversion_rows
+        )
+        if (
+            self.inversion_rows != tuple(sorted(self.inversion_rows))
+            or inversion_keys != tuple(sorted(set(inversion_keys)))
+            or any(
+                source_task_id not in {_AN_INVERSION_TASK, _DLC_INVERSION_TASK}
+                or not source_value
+                or reference_value not in {"root", "first", "second", "third"}
+                for source_task_id, source_value, reference_value in self.inversion_rows
+            )
+        ):
             raise DilemmadataCommonProjectionError(
                 "dilemmadata.common.analysisgnn_rows_invalid",
-                "AnalysisGNN inversion rows must use deterministic source-value order",
+                "AnalysisGNN inversion rows must use unique, deterministic "
+                "source-task/value identity",
             )
         expected = _fingerprint(_analysisgnn_payload(self, clear=True))
         if self.fingerprint != expected:
@@ -230,17 +255,21 @@ _ANALYSISGNN_DLC_QUALITY = {
     "o7": "diminished seventh chord",
 }
 
-_ANALYSISGNN_INVERSION = {
-    "0": "root",
-    "1": "first",
-    "2": "second",
-    "3": "third",
-    "42": "third",
-    "43": "second",
-    "6": "first",
-    "64": "second",
-    "65": "first",
-    "7": "root",
+_ANALYSISGNN_INVERSION_BY_SOURCE = {
+    _AN_INVERSION_TASK: {
+        "0": "root",
+        "1": "first",
+        "2": "second",
+        "3": "third",
+    },
+    _DLC_INVERSION_TASK: {
+        "2": "third",
+        "43": "second",
+        "6": "first",
+        "64": "second",
+        "65": "first",
+        "7": "root",
+    },
 }
 
 
@@ -252,7 +281,15 @@ def _make_analysisgnn_reference() -> AnalysisGNNReferenceMapping:
         "license_spdx": ANALYSISGNN_LICENSE_SPDX,
         "files": tuple(sorted(ANALYSISGNN_REFERENCE_FILES)),
         "dlc_quality_rows": tuple(sorted(_ANALYSISGNN_DLC_QUALITY.items())),
-        "inversion_rows": tuple(sorted(_ANALYSISGNN_INVERSION.items())),
+        "inversion_rows": tuple(
+            sorted(
+                (source_task_id, source_value, reference_value)
+                for source_task_id, mapping in (
+                    _ANALYSISGNN_INVERSION_BY_SOURCE.items()
+                )
+                for source_value, reference_value in mapping.items()
+            )
+        ),
     }
     return AnalysisGNNReferenceMapping(
         **values,
@@ -261,6 +298,14 @@ def _make_analysisgnn_reference() -> AnalysisGNNReferenceMapping:
 
 
 ANALYSISGNN_REFERENCE = _make_analysisgnn_reference()
+_ANALYSISGNN_INVERSION_BY_KEY = MappingProxyType(
+    {
+        (source_task_id, source_value): reference_value
+        for source_task_id, source_value, reference_value in (
+            ANALYSISGNN_REFERENCE.inversion_rows
+        )
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -419,18 +464,6 @@ class DilemmadataCommonFamilySpec:
                 "common value fields must be non-empty, unique, and sorted",
             )
         _validate_identifier(self.mapping_policy, "mapping_policy")
-
-
-_AN_QUALITY_TASK = "dilemmadata.an.chord.quality"
-_DLC_QUALITY_TASK = "dilemmadata.dlc.chord.quality"
-_AN_INVERSION_TASK = "dilemmadata.an.chord.inversion"
-_DLC_INVERSION_TASK = "dilemmadata.dlc.chord.inversion"
-_AN_ROOT_TASK = "dilemmadata.an.chord.root"
-_DLC_ROOT_TASK = "dilemmadata.dlc.chord.root"
-_AN_BASS_TASK = "dilemmadata.an.chord.bass"
-_DLC_BASS_TASK = "dilemmadata.dlc.chord.bass"
-_AN_LOCAL_KEY_TASK = "dilemmadata.an.key.local"
-_DLC_LOCAL_KEY_TASK = "dilemmadata.dlc.key.local"
 
 
 def _normal_quality(value: str) -> str:
@@ -642,7 +675,7 @@ def _inversion_evidence_rows() -> tuple[DilemmadataCommonMappingEvidence, ...]:
         vocabulary = DILEMMADATA_SOURCE_FAMILY_BY_TASK[task_id].vocabulary
         assert vocabulary is not None and set(vocabulary) == set(mapping)
         for source_value, common_value in sorted(mapping.items()):
-            reference = _ANALYSISGNN_INVERSION[source_value]
+            reference = _ANALYSISGNN_INVERSION_BY_KEY[(task_id, source_value)]
             rows.append(
                 DilemmadataCommonMappingEvidence(
                     contract_version=DILEMMADATA_COMMON_MAPPING_EVIDENCE_VERSION,

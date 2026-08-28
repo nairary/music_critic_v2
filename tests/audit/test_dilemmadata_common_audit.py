@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 import json
 from pathlib import Path
 
@@ -90,23 +91,46 @@ def test_analysisgnn_parity_and_lossy_collapses_are_explicit() -> None:
     assert ANALYSISGNN_REFERENCE.fingerprint in {
         value for name, value in report.fingerprints if name == "analysisgnn_reference"
     }
+    parity_by_source = {
+        (task, source): (reference, common, agreement)
+        for task, source, reference, common, agreement in report.analysisgnn_parity
+    }
+    assert parity_by_source[("dilemmadata.an.chord.inversion", "2")] == (
+        "second",
+        "second",
+        "agree",
+    )
+    assert parity_by_source[("dilemmadata.dlc.chord.inversion", "2")] == (
+        "third",
+        "third",
+        "agree",
+    )
+    inversion_parity = [
+        row for row in report.analysisgnn_parity if row[0].endswith("chord.inversion")
+    ]
+    assert Counter(row[4] for row in inversion_parity) == Counter({"agree": 10})
+    assert Counter(row[4] for row in report.analysisgnn_parity) == Counter(
+        {"agree": 36, "diverge": 2, "not_applicable": 51}
+    )
     divergence = {
         (task, source, reference, common)
         for task, source, reference, common, agreement in report.analysisgnn_parity
         if agreement == "diverge"
     }
-    assert (
-        "dilemmadata.dlc.chord.quality",
-        "+7",
-        "augmented triad",
-        "augmented seventh chord",
-    ) in divergence
-    assert (
-        "dilemmadata.dlc.chord.quality",
-        "+M7",
-        "augmented triad",
-        "augmented major tetrachord",
-    ) in divergence
+    assert divergence == {
+        (
+            "dilemmadata.dlc.chord.quality",
+            "+7",
+            "augmented triad",
+            "augmented seventh chord",
+        ),
+        (
+            "dilemmadata.dlc.chord.quality",
+            "+M7",
+            "augmented triad",
+            "augmented major tetrachord",
+        ),
+    }
     assert any(
         any(state == "coarsened" for _dialect, _source, state in row.source_rows)
         for row in report.collapse_table
@@ -168,3 +192,13 @@ def test_committed_common_manifest_contract_when_present() -> None:
     assert summary[
         ("candidate_same_input_alternative_group_count", ())
     ] == 30
+    assert summary[("analysisgnn_parity_row_count", ())] == 89
+    assert summary[
+        ("analysisgnn_parity_total", (("agreement", "agree"),))
+    ] == 36
+    assert summary[
+        ("analysisgnn_parity_total", (("agreement", "diverge"),))
+    ] == 2
+    assert summary[
+        ("analysisgnn_parity_total", (("agreement", "not_applicable"),))
+    ] == 51

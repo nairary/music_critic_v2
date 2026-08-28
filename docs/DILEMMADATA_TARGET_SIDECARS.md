@@ -240,11 +240,15 @@ declared interval templates permit pitch-class-set derivation; incomplete,
 extended, augmented-sixth, or otherwise unproved qualities stay available as
 quality supervision but have pitch-class-set masked.
 
-The separate inversion comparison has nine agreements and one explicit
-divergence: DLC figured bass `2` is third inversion (shorthand for `4/2`),
-whereas the pinned reference treats the bare token as the ordinal `second`.
-The combined frozen quality-plus-inversion parity table therefore contains 35
-agreements, 51 not-applicable rows, and three divergences.
+The AnalysisGNN reference schema is `AnalysisGNNReferenceMapping@1.0.1` and
+identifies inversion rows by source task plus source value. AN ordinal `2` and
+DLC figured bass `2` are therefore distinct dialect-specific values: AN `2`
+maps to `second`, while DLC `2` is shorthand for `4/2` and maps to `third`.
+The latter matches the pinned AnalysisGNN conversion of `2`/`42` to third
+inversion. All ten inversion rows agree with the common projection. The
+combined frozen quality-plus-inversion parity table contains 36 agreements,
+51 not-applicable rows, and two divergences, exclusively DLC quality `+7` and
+`+M7`.
 
 AN spelling and DLC line-of-fifths TPC use an exact target-only conversion to
 chromatic pitch class. Enharmonic reduction is recorded as information loss.
@@ -272,15 +276,15 @@ fingerprints were unchanged. The raw index remains
 the split remains
 `58ac7720f65f7fd3102248fb39d89291a78d65c06fc2ab9a16d78a6ee1666a3e`,
 the common registry is
-`6e33d6027608d03478a73b93f3a97f610bb5a23ece41b41a778eaa02bd6f67ae`,
+`bb50920808b6ad3a19fb32b8315a417a837b2ab008efd7bee71e71d120e2ee2e`,
 and the combined projection fingerprint is
-`3f5b6e7629872fa2ca97a86041f05e59b4f93b1f0b8f8b22f910f3da299cc8df`.
+`7bf051343b24d79530ee483f9d8b49fd13f10e0fa1db0c535cbdb23a00c18f77`.
 The pinned AnalysisGNN reference fingerprint is
-`ae30f4604dd9510af834e719fa2d97bb0c89f7c42a16b8d0707f80b705ae6179`,
+`1e6a713665eddabac8f98c67df990aa1a7a01fde5f0956b9f9207158cad611ba`,
 the full report semantic fingerprint is
-`d41c78c627f693b41433c88b4c5a1d8bf1b7ebb424f80f6f94f1201460775ea8`,
+`a3d3c3ac869613787602e7239eb0af10dfb904621ac5b81b9d9431c33e3750a1`,
 and the compact manifest fingerprint is
-`b0459c84443c85cf3d4a22088ca14064ae99d427216550379deb0cc2b347e7ee`.
+`4ce7b657d2003d2ce3aadcfe9de9e39c7f9a49b69e985a745a399ef02e056294`.
 The committed compact manifest is
 `tests/fixtures/dilemmadata/common_harmonic_manifest.json`; `--check` validates
 it without corpus access. Locked-test targets were read only for the declared
