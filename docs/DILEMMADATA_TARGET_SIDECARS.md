@@ -217,3 +217,76 @@ The accepted raw index remains
 `c0451976b6b6eab88cb90aa6c47d6afdba1b81ce9b588f0f84daa846154adb0e`
 and the split manifest remains
 `58ac7720f65f7fd3102248fb39d89291a78d65c06fc2ab9a16d78a6ee1666a3e`.
+
+## Phase 9E-A common harmonic projection
+
+Phase 9E-A adds a second, derived target sidecar without revising
+`TargetBundle@1.0.0`. `DilemmadataCommonHarmonicProjection@1.0.0` binds the
+exact source-bundle fingerprint and the frozen
+`DilemmadataCommonHarmonicRegistry@1.0.0`; its six model-ready families are
+common chord quality, ordinal inversion, root pitch class, bass pitch class,
+factorized local key, and target-derived pitch-class set. Every entry retains
+its source task/value/provenance, per-field mask, mapping state, diagnostic,
+information loss, mapping evidence, and dependency entity IDs.
+
+The quality registry covers all 64 AN and 15 DLC vocabulary rows. It contains
+50 common classes: 65 rows are exact and 14 AN rows are explicitly coarsened
+because they embed inversion or an enharmonic-equivalence qualification. No
+lossy row is labelled exact. The pinned AnalysisGNN reference is commit
+`e115182fb29b74bdcb6bf3547ed427d967580947` under MIT; 26 quality rows agree,
+51 are not applicable to its frozen mapping, and DLC `+7`/`+M7` deliberately
+diverge from its acknowledged collapse to `augmented triad`. Ten independently
+declared interval templates permit pitch-class-set derivation; incomplete,
+extended, augmented-sixth, or otherwise unproved qualities stay available as
+quality supervision but have pitch-class-set masked.
+
+The AnalysisGNN reference schema is `AnalysisGNNReferenceMapping@1.0.1` and
+identifies inversion rows by source task plus source value. AN ordinal `2` and
+DLC figured bass `2` are therefore distinct dialect-specific values: AN `2`
+maps to `second`, while DLC `2` is shorthand for `4/2` and maps to `third`.
+The latter matches the pinned AnalysisGNN conversion of `2`/`42` to third
+inversion. All ten inversion rows agree with the common projection. The
+combined frozen quality-plus-inversion parity table contains 36 agreements,
+51 not-applicable rows, and two divergences, exclusively DLC quality `+7` and
+`+M7`.
+
+AN spelling and DLC line-of-fifths TPC use an exact target-only conversion to
+chromatic pitch class. Enharmonic reduction is recorded as information loss.
+DLC retained spellings/modes are supplemental target evidence reconstructed
+only after the existing raw/target row binding passes. TPC/spelling conflicts
+are invalid structured outcomes. Bass is never inferred from the lowest raw
+note. Local tonic and mode have independent field masks; unknown mode is kept
+unknown. Figured bass and AN ordinals map to `root/first/second/third`, while a
+conflict with a proven chord cardinality is ambiguous and masked.
+
+The full Phase 9E-A representation audit covered all 1,633 source records and
+1,507 components, including 98 explicit AN/DLC overlaps, and built one common
+projection for each of the unchanged 719 accepted annotation views. All 30
+conservative same-input alternative-analysis groups were audited independently.
+The accepted split remains 577/71/71. It observed 712,509 exact, 43 coarsened, 4
+ambiguous, 997 unsupported, 281,938 masked common entries, and no accepted
+invalid entry. The 997 unsupported rows are pitch-class-set derivations with
+no proven template. Overlap evidence contains 4 exact agreements, 2
+enharmonic-only agreements, 66 conflicts, and 702 unavailable comparisons;
+conflicts remain evidence and never select a preferred view.
+
+Canonical-piece, raw-graph, model-input, grouping, and source-target-bundle
+fingerprints were unchanged. The raw index remains
+`c0451976b6b6eab88cb90aa6c47d6afdba1b81ce9b588f0f84daa846154adb0e`,
+the split remains
+`58ac7720f65f7fd3102248fb39d89291a78d65c06fc2ab9a16d78a6ee1666a3e`,
+the common registry is
+`bb50920808b6ad3a19fb32b8315a417a837b2ab008efd7bee71e71d120e2ee2e`,
+and the combined projection fingerprint is
+`7bf051343b24d79530ee483f9d8b49fd13f10e0fa1db0c535cbdb23a00c18f77`.
+The pinned AnalysisGNN reference fingerprint is
+`1e6a713665eddabac8f98c67df990aa1a7a01fde5f0956b9f9207158cad611ba`,
+the full report semantic fingerprint is
+`a3d3c3ac869613787602e7239eb0af10dfb904621ac5b81b9d9431c33e3750a1`,
+and the compact manifest fingerprint is
+`4ce7b657d2003d2ce3aadcfe9de9e39c7f9a49b69e985a745a399ef02e056294`.
+The committed compact manifest is
+`tests/fixtures/dilemmadata/common_harmonic_manifest.json`; `--check` validates
+it without corpus access. Locked-test targets were read only for the declared
+representation/coverage audit—no model inference, metric, selection, or test
+unlock occurred.

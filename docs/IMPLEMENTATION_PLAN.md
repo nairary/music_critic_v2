@@ -3441,6 +3441,34 @@ automatic plateau threshold or scientific claim. The exact invocation and
 artifact inventory are documented in
 [`PHASE9CC_CONTINUATION.md`](PHASE9CC_CONTINUATION.md).
 
+### Phase 9E-A common harmonic projection implemented
+
+Phase 9E-A adds a target-only, immutable and SHA-bound projection from the
+accepted Dilemmadata AN and DLC `TargetBundle` sidecars into six explicitly
+shared harmonic families: quality, inversion, root pitch class, bass pitch
+class, factorized local key and a deliberately narrow pitch-class set. Every
+available source label resolves to exactly one of `exact`, `coarsened`,
+`ambiguous`, `unsupported` or `invalid`; unavailable entries remain explicitly
+`missing`/`masked`. The projection never changes canonical pieces, raw graphs,
+cache/index identities, grouping, splits or source-native target bundles.
+
+The source mapping registry, pinned AnalysisGNN comparison, deterministic JSON
+contracts, full-corpus audit, source-free compact manifest and exact accepted
+corpus evidence are documented in
+[`DILEMMADATA_TARGET_SIDECARS.md`](DILEMMADATA_TARGET_SIDECARS.md). This phase
+does not add or train a common head, change losses, evaluate models on test
+targets, unlock test data, ingest PDMX or begin critic/quality work.
+
+The remediated `AnalysisGNNReferenceMapping@1.0.1` keys inversion evidence by
+source task and source value. AN ordinal `2` therefore remains `second`, while
+DLC figured bass `2` is the `4/2` shorthand and maps to `third`, matching the
+pinned AnalysisGNN `process_inversion_from_chord` implementation. All ten
+inversion rows agree with the reference. The combined quality-plus-inversion
+table has 36 agreements, 2 divergences and 51 not-applicable rows; the only
+divergences are DLC quality `+7` and `+M7`. Common target semantics, projection
+and registry contract versions, the 719 accepted views, and split 577/71/71 do
+not change.
+
 ## Phase 10. PDMX adapter and scalable cache
 
 ### Implement

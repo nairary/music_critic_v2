@@ -3371,3 +3371,96 @@ This log is append-only.
   persistent AMP overflow, test access or cross-cell mismatch fails closed.
   BiGRU, models, objectives, heads, losses, data, split, caches, class weights,
   SSL artifacts and all other scientific settings remain unchanged.
+
+## 2026-08-26 — ADR-094: AN/DLC share a derived audited harmonic projection
+
+- Status: Accepted for Phase 9E-A representation and audit only.
+- Context: Phase 9C used four independent source-native AN/DLC quality and
+  inversion heads. That evidence remains valid but does not define a common
+  theory task, and the immutable source `TargetBundle@1.0.0` lacks a declared
+  cross-dialect semantic state machine. AnalysisGNN offers a useful external
+  starting mapping, but its `+7` and `+M7` rows explicitly collapse richer DLC
+  qualities to `augmented triad`.
+- Decision: Keep every source-native sidecar authoritative and byte-immutable.
+  Add `DilemmadataCommonHarmonicProjection@1.0.0` only after the existing
+  raw/target identity and ordered alignment binding succeeds. Bind every
+  projection to its exact TargetBundle and the frozen
+  `DilemmadataCommonHarmonicRegistry@1.0.0`. Never include common targets in
+  canonical bytes, raw/cache/index/graph/model-input/group/split identity or
+  raw-MIDI inference.
+- Decision: Define six MVP families: common quality, ordinal inversion,
+  root/bass pitch class, factorized local key, and pitch-class set. Every
+  available source entry receives exactly one of exact, coarsened, ambiguous,
+  unsupported, or invalid; projected missing and masked states remain
+  separate. Only exact and preregistered coarsened states expose supervision.
+  Coarsening must name its loss, spelling-to-PC conversion must record
+  enharmonic loss, unknown mode keeps an independent false field mask, and
+  inconsistent inversion/cardinality evidence is masked rather than guessed.
+- Decision: Derive pitch-class sets only from mapped roots and ten independently
+  registered interval templates. Incomplete, extended, augmented-sixth, and
+  other unproved qualities retain quality supervision but no fabricated set.
+  Never infer source bass from the lowest raw note and never choose/vote across
+  alternative analysis views.
+- Decision: Pin AnalysisGNN only as MIT-licensed external evidence at commit
+  `e115182fb29b74bdcb6bf3547ed427d967580947`; record exact reference file
+  hashes and mapping rows without runtime import, dependency, or vendoring.
+  Preserve precise DLC `+7` as `augmented seventh chord` and `+M7` as
+  `augmented major tetrachord`, marking both as explicit divergences rather
+  than silently copying the reference collapse.
+- Consequences: The full audit covers all 1,633 sources and all 719 accepted
+  views, preserves the 577/71/71 split, and reports mapping loss and overlap
+  conflicts without model evaluation. Canonical/raw graph/model input/grouping/
+  source-target fingerprints remain invariant. Phase 9E-A adds no model, head,
+  loss, tensorizer, training config, checkpoint reuse, test inference/metric,
+  or scientific claim. A later Phase 9E-B must separately preregister a fair
+  shared-task baseline.
+
+## 2026-08-28 — ADR-095: AnalysisGNN inversion evidence is dialect-specific
+
+- Status: Accepted as a Phase 9E-A evidence remediation.
+- Context: `AnalysisGNNReferenceMapping@1.0.0` keyed inversion evidence only by
+  the rendered token. That incorrectly reused AN ordinal `2 -> second` for DLC
+  figured bass `2`, even though the pinned official AnalysisGNN function maps
+  DLC `2` and `42` to third inversion. The common projection already mapped
+  both dialects correctly.
+- Decision: Version the external reference as
+  `AnalysisGNNReferenceMapping@1.0.1` and identify every inversion row by
+  `(source_task_id, source_value)`. Preserve AN `2 -> second`; record DLC
+  `2 -> third`. Keep common projection, common registry, mapping-evidence,
+  audit-report, and audit-manifest contract versions unchanged because their
+  target semantics and row shapes do not change.
+- Decision: Require the audit parity table to retain source-task identity,
+  require 10 inversion agreements and zero inversion divergences, and accept
+  only the two declared DLC quality divergences: `+7` and `+M7` against the
+  AnalysisGNN augmented-triad collapse.
+- Consequences: Combined parity is 36 agree / 2 diverge / 51 not applicable.
+  The reference, registry, combined projection, report-semantic, and compact
+  manifest fingerprints are regenerated. The 719 accepted projections,
+  577/71/71 split, raw/cache/graph/model-input/grouping/source-target evidence,
+  common values, masks, vocabularies, and Phase 9E-B1 remain unchanged.
+
+## 2026-08-28 — ADR-096: Required CI is event-deduplicated and tree-aware
+
+- Status: Accepted as CI infrastructure remediation before Phase 9E-B1.
+- Context: The stable `full-suite` job ran once for a feature-branch push and
+  again for the resulting pull-request synchronization. It also installed
+  Python, PyTorch, and project dependencies for changes limited to
+  documentation.
+- Decision: Keep `pull_request` for every PR and restrict `push` to default
+  protected branch `main`. Keep the required job/check name `full-suite` and
+  make the decision inside that job; do not use workflow path filters or
+  commit-message skip directives.
+- Decision: Treat only `docs/**` and lowercase `*.md` paths as safely
+  excludable. Any other path, an empty diff, or any comparison failure is
+  CI-relevant. A documentation-only job reports its changed paths and reason,
+  installs no Python or dependencies, runs no pytest/compileall, and succeeds.
+- Decision: Fingerprint the complete tracked Git tree excluding only those
+  documentation paths. An exact first-party cache marker may reuse a previous
+  successful `full-suite`; no prefix restore is allowed. A miss or fingerprint
+  failure runs the real suite, and a marker is created/saved only after pytest
+  and compileall succeed.
+- Consequences: One feature-branch update with an open PR creates only the PR
+  workflow run. Documentation layered on an already verified code tree can
+  reuse that exact success, while source, tests, scripts, configuration,
+  workflow, and unknown paths remain fail-open. Models, data, scientific
+  fingerprints, Phase 9E-A projection, and Phase 9E-B1 do not change.

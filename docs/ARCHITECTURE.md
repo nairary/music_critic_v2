@@ -1274,6 +1274,51 @@ verifier rebuilds both parent and extended schedules, validates every external
 parent binding and every new artifact hash, and rejects BiGRU cells, duplicate
 telemetry, missing checkpoints, test access or scientific claims.
 
+## Phase 9E-A common harmonic target boundary
+
+Phase 9E-A composes only after the accepted raw/target binding:
+
+```text
+raw-only CanonicalPiece ────────────────┐
+                                        ├─ verified identity/alignment
+source-native TargetBundle@1.0.0 ──────┘
+                   │
+                   ▼
+ DilemmadataCommonHarmonicProjection@1.0.0
+```
+
+The common sidecar is SHA-bound to the source TargetBundle and
+`DilemmadataCommonHarmonicRegistry@1.0.0`. It cannot replace, reorder, hide, or
+mutate source-native targets. Its six target-only families share quality,
+ordinal inversion, root/bass pitch class, factorized local key, and a derived
+pitch-class set across AN and DLC while retaining source values, alternative
+analysis views, mapping states, losses, diagnostics, provenance, and dependency
+IDs. Only exact and preregistered coarsened entries expose supervision;
+ambiguous, unsupported, invalid, missing, and masked entries expose no class.
+
+The projection never participates in canonical construction, raw-cache/index
+keys, graph building, candidate generation, model-input fingerprints,
+component closure, or split planning. Supplemental DLC spelling/mode evidence
+is target-only and can be reconstructed only under the already-passed ordered
+raw/target row binding. Pitch-class sets depend on a mapped root plus one of ten
+versioned proven interval templates; there is no lowest-raw-note bass fallback,
+quality guessing, runtime vocabulary growth, or preferred-view selection.
+
+The source-free audit manifest binds the pinned AnalysisGNN reference, common
+registry, full generated report, and unchanged raw/source-target evidence. Test
+membership is visible only to the representation-coverage audit; Phase 9E-A
+has no model, inference, metric, selection, loss, or training path.
+
+AnalysisGNN inversion evidence has dialect-specific identity:
+`(source_task_id, source_value)`. AN ordinal `2` maps to `second`; DLC figured
+bass `2` (the `4/2` shorthand accepted with `42` by the pinned upstream
+function) maps to `third`. Both rows agree with their common values. Inversion
+parity is 10 agree / 0 diverge, and combined quality-plus-inversion parity is
+36 agree / 2 diverge / 51 not applicable. Only DLC quality `+7` and `+M7`
+diverge. This reference correction changes derived evidence fingerprints, not
+the common target values, masks, raw boundary, source-native sidecars, or
+inference architecture.
+
 ## Incremental research scope
 
 Phase 7A implements GraphMAE2-inspired decoder remasking but is not a faithful

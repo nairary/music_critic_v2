@@ -1,5 +1,78 @@
 # Music Critic V2 Status
 
+## Required CI event/tree policy remediation — 2026-08-28
+
+- Restricted workflow `push` runs to protected default branch `main` while
+  retaining `pull_request` for every PR and the stable required check name
+  `full-suite`; feature/phase branches with PRs no longer receive a duplicate
+  push-triggered run.
+- Added dependency-free, fail-open Git diff classification. Only `docs/**` and
+  lowercase `*.md` are safely excludable. Documentation-only jobs skip Python,
+  PyTorch/project installation, pytest, and compileall, then report changed
+  files and the skip reason in the job summary.
+- Added a tracked non-documentation Git-tree fingerprint and exact successful
+  `full-suite` marker using first-party split cache restore/save. Cache misses,
+  fingerprint failures, empty diffs, and unknown paths execute the real suite;
+  markers are produced only after pytest and compileall succeed.
+- Corrected `DATA_CONTRACT.md`: AnalysisGNN inversion rows contain a reference
+  value, but their identity is only `(source_task_id, source_value)`.
+- Targeted CI-policy and repository-contract verification passed `18 passed`;
+  both Bash helpers pass `bash -n`, and `git diff --check` is clean. The local
+  full repository suite was not run.
+- No model, data, scientific fingerprint, Phase 9E-A projection, or Phase
+  9E-B1 change is part of this remediation.
+
+## Phase 9E-A common harmonic projection remediation — 2026-08-28
+
+- Implemented `DilemmadataCommonHarmonicProjection@1.0.0` as a derived,
+  immutable target sidecar bound to the existing source-native
+  `TargetBundle@1.0.0`; canonical/raw cache/graph/model-input/group/split
+  contracts and all historical target artifacts remain unchanged.
+- Added the frozen common registry/mapping/audit contracts at `1.0.0`; the
+  dialect-specific AnalysisGNN reference is `1.0.1`. The registry explicitly
+  covers all 64 AN and 15 DLC quality rows,
+  all AN/DLC inversion rows, exact spelling/TPC pitch-class conversion,
+  factorized local key, and pitch-class-set derivation from ten proven quality
+  templates. Fourteen AN qualities are declared coarsened; no lossy row is
+  labelled exact. DLC `+7` and `+M7` explicitly diverge from the pinned
+  AnalysisGNN augmented-triad collapse.
+- Corrected the external inversion evidence identity from token-only to
+  `(source_task_id, source_value)`. AN ordinal `2` remains `second`; DLC
+  figured bass `2` is the `4/2` shorthand and is `third`, matching the pinned
+  AnalysisGNN function. Both rows agree. Inversion parity is 10/0; combined
+  parity is 36 agree / 2 diverge / 51 not applicable, and the only divergences
+  are DLC quality `+7` and `+M7`.
+- The one authorized full-corpus audit covered 1,633 source records, 1,507
+  components, 98 explicit AN/DLC overlaps, 914 raw quarantines, and all 719
+  accepted annotation views plus all 30 conservative same-input alternative
+  groups on the unchanged 577/71/71 split. Accepted common
+  outcomes were 712,509 exact, 43 coarsened, 4 ambiguous, 997 unsupported,
+  281,938 masked, and zero invalid entries.
+- Canonical piece, raw graph, model input, grouping, and source-native bundle
+  fingerprints remained unchanged. Common registry fingerprint is
+  `bb50920808b6ad3a19fb32b8315a417a837b2ab008efd7bee71e71d120e2ee2e`;
+  combined projections are
+  `7bf051343b24d79530ee483f9d8b49fd13f10e0fa1db0c535cbdb23a00c18f77`;
+  AnalysisGNN reference is
+  `1e6a713665eddabac8f98c67df990aa1a7a01fde5f0956b9f9207158cad611ba`;
+  compact manifest is
+  `4ce7b657d2003d2ce3aadcfe9de9e39c7f9a49b69e985a745a399ef02e056294`;
+  the bound full-report semantic fingerprint is
+  `a3d3c3ac869613787602e7239eb0af10dfb904621ac5b81b9d9431c33e3750a1`.
+- The full report remains outside Git. The committed manifest contains no
+  corpus payload or absolute path and passes source-free `--check`. Locked-test
+  membership/targets were used only for representation coverage; no training,
+  inference, metric, selection, unlock, CUDA, legacy access, or Phase 9E-B
+  work occurred.
+- The single authorized production common-projection audit regenerated only
+  derived common evidence. It preserved 719 projections, split 577/71/71, raw
+  index `c0451976…adb0e`, split `58ac7720…66a3e`, and source-target fingerprints.
+  No raw audit, cache rebuild, model evaluation, CUDA, or full suite ran.
+- Targeted verification passed: `27 passed, 2 warnings in 2.39s` for the two
+  common-projection/audit modules plus `tests/test_repository_contract.py`.
+  The source-free manifest check returned `valid=true`, `ready=true`; the
+  specified stale-claim/fingerprint scan and `git diff --check` were clean.
+
 ## Phase 9C-D post-training recovery — 2026-08-25
 
 - The exact-head RTX run at `75ed55d34e285776394193227475c632814559c5`
@@ -67,11 +140,14 @@
 
 ## Current phase
 
-- Date: 2026-08-23
-- Current task: Phase 9C-C exact continuation from 9,000 to 15,000 applied
-  updates on stacked branch `phase/9cc-continuation-15000`, based on the
-  verified Phase 9C-C implementation head
-  `bff1a405ffb9d8d6de01c4abc3d567dcb02d000b`.
+- Date: 2026-08-28
+- Current task: Phase 9E-A dialect-specific AnalysisGNN inversion parity
+  remediation on stacked branch
+  `phase/9ea-an-dlc-common-harmonic-projection`, based on exact accepted
+  research head `6490e231716cb191d4e476c0f4854adc03c57eb4`.
+- Phase 9E-A is representation/audit only. Phase 9E-B, model training, shared
+  heads/losses, and test evaluation remain unauthorized pending focused review
+  and Required CI. Historical Phase 9C execution context follows below.
 - The completed parent evidence is fixed by manifest fingerprint
   `6e64f33e64de9c3d864d75828a6916d95afa9fcbadc75c14359b884cab83ab10`
   and update-9,000 checkpoint hashes `1b3d6ac9…50072f` (scratch) and

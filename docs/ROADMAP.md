@@ -748,6 +748,39 @@ The model and training phases remain pending.
 - Next gate: focused review and one Required CI on the final implementation
   SHA, followed by an explicit fresh continuation root on RTX 3090.
 
+### Phase 9E-A — AN/DLC common harmonic projection
+
+- Status: implemented as a target-only representation and audit phase; it
+  trains and evaluates no model.
+- Goal: replace no source artifact, but derive an auditable shared AN/DLC
+  target space for quality, ordinal inversion, root/bass pitch class,
+  factorized local key, and proven-template pitch-class set.
+- Contracts: common projection, registry, mapping evidence, audit report,
+  and compact audit manifest remain `1.0.0`; the pinned AnalysisGNN reference
+  mapping is `1.0.1` after the dialect-specific inversion remediation. The
+  source-native `TargetBundle@1.0.0` remains authoritative and immutable.
+- Mapping: all 64 AN and 15 DLC quality values and all 10 inversion values have
+  explicit frozen rows. Exact, coarsened, ambiguous, unsupported, invalid,
+  missing, and masked states stay distinct; only exact/preregistered coarsened
+  entries expose supervision. Root/bass/local-key spelling loss and all
+  derived pitch-class-set dependencies remain explicit.
+- Evidence: one full-source audit covers 1,633 records, 1,507 components, 98
+  explicit cross-dialect overlaps, and the unchanged 577/71/71 accepted split;
+  719 common projections pass canonical/raw-graph/model-input/grouping/
+  source-target invariance. The compact source-free manifest is committed and
+  self-fingerprinted; the corpus report remains outside Git.
+- Parity: AN ordinal `2` references `second`; DLC figured bass `2` references
+  `third`, matching AnalysisGNN's `2`/`42` conversion. All 10 inversion rows
+  agree. Combined parity is 36 agree / 2 diverge / 51 not applicable, with
+  divergences limited to DLC quality `+7` and `+M7`.
+- Non-goals: AnalysisGNN runtime import/model/checkpoint, shared heads/losses,
+  training, test inference/metrics/selection, raw/cache/graph/group/split
+  changes, Phase 9E-B, PDMX, critic/ranking, or a claim that the taxonomy is
+  uniquely correct.
+- Next gate: focused tests and Required CI on the final implementation SHA.
+  Only after acceptance may Phase 9E-B specify a fair AnalysisGNN reproduction
+  and shared-task baseline on this exact split.
+
 ## Phase 10 — PDMX adapter and large-scale SSL cache
 
 - Goal: support scalable role-agnostic public-domain score pretraining and
