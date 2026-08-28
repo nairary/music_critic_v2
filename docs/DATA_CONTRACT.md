@@ -13,8 +13,9 @@ Phase 9E-A does not change `CanonicalPiece@2.0.0` or
 `DilemmadataCommonHarmonicAuditManifest@1.0.0`, and
 `AnalysisGNNReferenceMapping@1.0.1`.
 
-AnalysisGNN inversion reference rows use the composite identity
-`(source_task_id, source_value, reference_value)`, not a token-only lookup.
+AnalysisGNN inversion reference rows contain
+`(source_task_id, source_value, reference_value)`, while row identity is the
+pair `(source_task_id, source_value)`, not a token-only lookup.
 Consequently the two source values spelled `2` remain distinct: AN ordinal `2`
 references `second`, whereas DLC figured bass `2` references `third` as the
 upstream `4/2` shorthand. Both common mappings agree. The reference schema

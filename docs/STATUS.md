@@ -1,5 +1,27 @@
 # Music Critic V2 Status
 
+## Required CI event/tree policy remediation — 2026-08-28
+
+- Restricted workflow `push` runs to protected default branch `main` while
+  retaining `pull_request` for every PR and the stable required check name
+  `full-suite`; feature/phase branches with PRs no longer receive a duplicate
+  push-triggered run.
+- Added dependency-free, fail-open Git diff classification. Only `docs/**` and
+  lowercase `*.md` are safely excludable. Documentation-only jobs skip Python,
+  PyTorch/project installation, pytest, and compileall, then report changed
+  files and the skip reason in the job summary.
+- Added a tracked non-documentation Git-tree fingerprint and exact successful
+  `full-suite` marker using first-party split cache restore/save. Cache misses,
+  fingerprint failures, empty diffs, and unknown paths execute the real suite;
+  markers are produced only after pytest and compileall succeed.
+- Corrected `DATA_CONTRACT.md`: AnalysisGNN inversion rows contain a reference
+  value, but their identity is only `(source_task_id, source_value)`.
+- Targeted CI-policy and repository-contract verification passed `18 passed`;
+  both Bash helpers pass `bash -n`, and `git diff --check` is clean. The local
+  full repository suite was not run.
+- No model, data, scientific fingerprint, Phase 9E-A projection, or Phase
+  9E-B1 change is part of this remediation.
+
 ## Phase 9E-A common harmonic projection remediation — 2026-08-28
 
 - Implemented `DilemmadataCommonHarmonicProjection@1.0.0` as a derived,
