@@ -17,8 +17,9 @@
     "locked_test_predictions_or_metrics"
   ],
   "remote_rtx_required": [
-    "real_graphmuse_cpu_smoke",
-    "gpu_smoke",
+    "real_train_graphmuse_cpu_smoke",
+    "same_real_train_graphmuse_cuda_smoke",
+    "smoke_artifact_identity_review_and_stop_gate",
     "historical_reconstruction_training_and_evaluation",
     "three_seed_common_training",
     "checkpoint_selection",

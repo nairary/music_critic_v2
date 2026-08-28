@@ -14,7 +14,7 @@
   "split_counts": {"test": 71, "train": 577, "validation": 71},
   "test_metrics": "NOT_RUN_locally_locked",
   "preliminary_model_only_cpu_forward_backward": "RUN_ONCE_then_superseded_by_static_hierarchy_projection_correction_not_acceptance_evidence",
-  "final_pinned_graphmuse_cpu_graph_smoke": "NOT_RUN_locally",
+  "final_real_train_pinned_graphmuse_cpu_graph_smoke": "NOT_RUN_locally",
   "training": "NOT_RUN_locally",
-  "gpu_smoke": "NOT_RUN_locally"
+  "same_real_train_pinned_graphmuse_cuda_graph_smoke": "NOT_RUN_locally"
 }

@@ -3369,7 +3369,7 @@ not clamped or mutated.
   source/transposition graph is one candidate update; the seeded schedule and
   applied/skipped counts are explicit artifacts.
 - Focused Phase 9E-B1 plus impacted common-projection/repository tests pass
-  `38 passed`
+  `40 passed`
   with two upstream `torch.jit.script` deprecation warnings. Source and
   script compileall, JSON parsing, upstream `git apply --check`, patched-tree
   `git diff --check`, historical byte attestation, cache-contract checks, and
@@ -3394,3 +3394,26 @@ not clamped or mutated.
   selection, and locked-test evaluation are therefore `NOT RUN locally` and
   pending external Python-3.12/CUDA execution. No result, checkpoint, dataset,
   graph, or Phase 9E-A artifact is committed.
+
+## Phase 9E-B1 pre-RTX remediation — 2026-08-28
+
+- Corrected common-model onset pooling to the dependency-free exact semantics
+  of official `torch_scatter.scatter_mean(..., out=encoded.clone())`: the
+  accumulator starts with each note's encoded embedding, adds non-self onset
+  neighbors, divides by clamped official neighbor count, and preserves notes
+  with no onset neighbors. A dedicated regression covers an isolated note plus
+  two-note and three-note onset groups against an independent reference loop.
+- Added `real-graph-smoke`, which deterministically chooses the largest TRAIN
+  record, loads its canonical/target/common sidecars, constructs the real P1
+  GraphMuse graph, and performs one finite forward/backward without an
+  optimizer. Its artifact records split/identity, graph hash, node/edge counts,
+  logit shapes, gradients and full environment; validation/test selection is
+  rejected.
+- The RTX runbook now orders environment → prepare-data → real TRAIN graph CPU
+  smoke → the same graph CUDA smoke → artifact comparison and STOP. Synthetic
+  smoke is explicitly model-only diagnostic evidence and cannot satisfy graph
+  acceptance.
+- Only the two targeted Phase 9E-B1 files ran: `18 passed, 2 warnings in
+  0.99s`; targeted compileall and `git diff --check` pass. Corpus replay, full
+  suite, local real-graph smoke, training, checkpoint selection, validation/test
+  evaluation and CUDA remain `NOT RUN` in this remediation.

@@ -12,6 +12,7 @@ import platform
 import subprocess
 import sys
 import types
+from typing import Any
 
 import torch
 
@@ -26,8 +27,15 @@ from music_critic.experiments.analysisgnn.contracts import (
     graph_schema_fingerprint,
 )
 from music_critic.experiments.analysisgnn.dataset import (
+    CommonDatasetManifest,
+    CommonDatasetRecord,
     load_common_manifest,
+    load_common_record,
     prepare_common_dataset,
+)
+from music_critic.experiments.analysisgnn.graph import (
+    build_analysisgnn_graph,
+    graph_fingerprint,
 )
 from music_critic.experiments.analysisgnn.metrics import summarize_seeds
 from music_critic.experiments.analysisgnn.model import AnalysisGNNCommonModel
@@ -193,6 +201,7 @@ def smoke(device_name: str, *, allow_model_only_stub: bool = False) -> dict[str,
         raise AssertionError("smoke graph unexpectedly has no labels")
     loss.backward()
     return {
+        "claim": "synthetic_model_only_diagnostic_not_graph_acceptance",
         "architecture": model.architecture_manifest(),
         "device": str(device),
         "environment": environment_report(),
@@ -207,6 +216,121 @@ def smoke(device_name: str, *, allow_model_only_stub: bool = False) -> dict[str,
         "task_losses": {
             task: float(value.detach().cpu()) for task, value in task_losses.items()
         },
+    }
+
+
+def _select_real_smoke_record(
+    manifest: CommonDatasetManifest,
+    cache_root: str | Path,
+) -> tuple[CommonDatasetRecord, Any, Any, Any]:
+    """Select the largest TRAIN piece with deterministic identity tie-breaking."""
+
+    selected: tuple[CommonDatasetRecord, Any, Any, Any] | None = None
+    selected_key: tuple[int, str, str] | None = None
+    train_rows = sorted(
+        (row for row in manifest.records if row.split == "train"),
+        key=lambda row: (row.record_id, row.piece_id),
+    )
+    if not train_rows:
+        raise ValueError("real graph smoke requires at least one TRAIN record")
+    for row in train_rows:
+        piece, targets, projection = load_common_record(cache_root, row)
+        key = (-len(piece.notes), row.record_id, row.piece_id)
+        if selected_key is None or key < selected_key:
+            selected_key = key
+            selected = (row, piece, targets, projection)
+    if selected is None or selected[0].split != "train":
+        raise AssertionError("real graph smoke selection escaped the TRAIN split")
+    return selected
+
+
+def real_graph_smoke(
+    manifest: CommonDatasetManifest,
+    cache_root: str | Path,
+    *,
+    device_name: str,
+) -> dict[str, object]:
+    """Run one real GraphMuse TRAIN-graph forward/backward without an optimizer."""
+
+    device = torch.device(device_name)
+    if device.type == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA real graph smoke requested but CUDA is unavailable")
+    row, piece, targets, projection = _select_real_smoke_record(manifest, cache_root)
+    if row.split != "train":
+        raise AssertionError("validation/test records are forbidden in real graph smoke")
+    graph, entries = build_analysisgnn_graph(
+        piece,
+        targets,
+        projection,
+        transposition="P1",
+    )
+    digest = graph_fingerprint(graph)
+    node_counts = {
+        node_type: int(graph[node_type].num_nodes) for node_type in graph.node_types
+    }
+    edge_counts = {
+        "|".join(edge_type): int(graph[edge_type].edge_index.shape[1])
+        for edge_type in graph.edge_types
+    }
+    note_count = node_counts.get("note", 0)
+    expected_shapes = {"quality": [note_count, 50], "inversion": [note_count, 4]}
+
+    torch.manual_seed(17)
+    if device.type == "cuda":
+        torch.cuda.manual_seed_all(17)
+    model = AnalysisGNNCommonModel().to(device)
+    objective = TwoTaskUncertaintyLoss().to(device)
+    graph = graph.to(device)
+    model.train()
+    logits = model(graph)  # type: ignore[arg-type]
+    logit_shapes = {task: list(value.shape) for task, value in logits.items()}
+    if logit_shapes != expected_shapes:
+        raise AssertionError(
+            f"real graph smoke logits differ: {logit_shapes} != {expected_shapes}"
+        )
+    if not all(bool(torch.isfinite(value).all()) for value in logits.values()):
+        raise FloatingPointError("real graph smoke produced non-finite logits")
+    loss, task_losses = objective(
+        logits,
+        {task: graph["note"][task] for task in ("quality", "inversion")},
+    )
+    if loss is None or not bool(torch.isfinite(loss)):
+        raise FloatingPointError("real graph smoke has no finite supervised loss")
+    loss.backward()
+    gradients = [
+        parameter.grad
+        for parameter in (*model.parameters(), *objective.parameters())
+        if parameter.grad is not None
+    ]
+    finite_gradients = bool(gradients) and all(
+        bool(torch.isfinite(gradient).all()) for gradient in gradients
+    )
+    if not finite_gradients:
+        raise FloatingPointError("real graph smoke produced absent or non-finite gradients")
+    return {
+        "acceptance": True,
+        "architecture": model.architecture_manifest(),
+        "claim": "real_pinned_graphmuse_train_graph_smoke_without_optimizer_step",
+        "device": str(device),
+        "edge_counts": edge_counts,
+        "environment": environment_report(),
+        "finite_gradients": finite_gradients,
+        "graph_entry_count": len(entries),
+        "graph_sha256": digest,
+        "logit_shapes": logit_shapes,
+        "loss": float(loss.detach().cpu()),
+        "node_counts": node_counts,
+        "optimizer_step": False,
+        "piece_id": row.piece_id,
+        "record_id": row.record_id,
+        "selected_note_count": len(piece.notes),
+        "selection": "maximum_note_count_then_record_id_then_piece_id_over_train_only",
+        "source_group_id": row.source_group_id,
+        "split": row.split,
+        "task_losses": {
+            task: float(value.detach().cpu()) for task, value in task_losses.items()
+        },
+        "transposition": "P1",
     }
 
 
@@ -230,6 +354,11 @@ def _parser() -> argparse.ArgumentParser:
     smoke_parser.add_argument("--device", choices=("cpu", "cuda"), required=True)
     smoke_parser.add_argument("--allow-model-only-stub", action="store_true")
     smoke_parser.add_argument("--output", type=Path)
+    real_smoke = commands.add_parser("real-graph-smoke")
+    real_smoke.add_argument("--cache-root", type=Path, required=True)
+    real_smoke.add_argument("--manifest", type=Path, required=True)
+    real_smoke.add_argument("--device", choices=("cpu", "cuda"), required=True)
+    real_smoke.add_argument("--output", type=Path, required=True)
     train = commands.add_parser("train")
     train.add_argument("--cache-root", type=Path, required=True)
     train.add_argument("--manifest", type=Path, required=True)
@@ -278,6 +407,14 @@ def main(argv: list[str] | None = None) -> int:
         result = smoke(args.device, allow_model_only_stub=args.allow_model_only_stub)
         if args.output:
             _write(args.output, result)
+    elif args.command == "real-graph-smoke":
+        manifest = load_common_manifest(args.manifest)
+        result = real_graph_smoke(
+            manifest,
+            args.cache_root,
+            device_name=args.device,
+        )
+        _write(args.output, result)
     elif args.command == "train":
         manifest = load_common_manifest(args.manifest)
         result = train_seed(

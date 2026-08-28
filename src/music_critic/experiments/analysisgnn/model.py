@@ -22,6 +22,24 @@ if TYPE_CHECKING:
     from torch_geometric.data import HeteroData
 
 
+def _official_onset_pool(
+    encoded: torch.Tensor, onset_edges: torch.Tensor
+) -> torch.Tensor:
+    """Dependency-free equivalent of the public ``scatter_mean(..., out=x.clone())``."""
+
+    pooled = encoded.clone()
+    neighbor_count = encoded.new_zeros(encoded.shape[0])
+    if onset_edges.numel():
+        pooled.index_add_(0, onset_edges[0], encoded[onset_edges[1]])
+        neighbor_count.index_add_(
+            0,
+            onset_edges[0],
+            encoded.new_ones(onset_edges.shape[1]),
+        )
+    pooled.div_(neighbor_count.clamp_min(1).unsqueeze(-1))
+    return pooled
+
+
 class CrossTaskTransformer(nn.Module):
     """The public AnalysisGNN residual cross-task logit fusion block."""
 
@@ -167,18 +185,7 @@ class AnalysisGNNCommonModel(nn.Module):
         )
         onset = graph["note", "onset", "note"].edge_index
         onset = onset[:, onset[0] != onset[1]]
-        pooled = encoded.clone()
-        if onset.numel():
-            sums = torch.zeros_like(encoded)
-            counts = torch.zeros((encoded.shape[0], 1), dtype=encoded.dtype, device=encoded.device)
-            sums.index_add_(0, onset[0], encoded[onset[1]])
-            counts.index_add_(
-                0,
-                onset[0],
-                torch.ones((onset.shape[1], 1), dtype=encoded.dtype, device=encoded.device),
-            )
-            present = counts.squeeze(-1).gt(0)
-            pooled[present] = sums[present] / counts[present]
+        pooled = _official_onset_pool(encoded, onset)
         return self.embedding_projection(torch.cat((encoded, pooled), dim=-1))
 
     def forward(self, graph: "HeteroData") -> dict[str, torch.Tensor]:

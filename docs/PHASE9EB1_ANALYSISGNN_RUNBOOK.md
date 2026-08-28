@@ -85,9 +85,80 @@ the resolved freeze and applied diff. Compare against
 The historical reconstruction must retain the public configuration (including
 weight decay `0.005`, 21 heads, batch 240, SWA, and 100 epochs) and be labelled
 `pinned_paper_reconstruction`. It must not substitute the common dataset for
-the public corpus.
+the public corpus. Do not start it before the real-graph smoke gate below has
+been reviewed.
 
-Exact RTX command for that arm (offline W&B logging, local artifacts only):
+## Pre-training RTX acceptance order
+
+Preparation validates the pinned Dilemmadata release, rebuilds target-neutral
+pieces and source-native sidecars, and binds the unchanged Phase 9E-A common
+projection. It fails unless there are exactly 108 AN + 611 DLC records and the
+source-first split is 577/71/71.
+
+Run these commands in order: environment capture, data preparation, the real
+TRAIN graph on CPU, and the same deterministically selected TRAIN graph on
+CUDA.
+
+```bash
+phase9eb1_python=outputs/phase9eb1/environment/venv/bin/python
+export CUDA_VISIBLE_DEVICES=0
+export MUSIC_CRITIC_DILEMMADATA_ROOT=/absolute/path/to/johentsch-dilemmadata-d60ee75
+PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
+  "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py environment \
+  --output outputs/phase9eb1/smoke/environment.json
+PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
+  "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py prepare-data \
+  --corpus-root "$MUSIC_CRITIC_DILEMMADATA_ROOT" \
+  --output-root outputs/phase9eb1/common-data
+PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
+  "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py real-graph-smoke \
+  --cache-root outputs/phase9eb1/common-data \
+  --manifest outputs/phase9eb1/common-data/manifest.json \
+  --device cpu --output outputs/phase9eb1/smoke/real-train-cpu.json
+PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
+  "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py real-graph-smoke \
+  --cache-root outputs/phase9eb1/common-data \
+  --manifest outputs/phase9eb1/common-data/manifest.json \
+  --device cuda --output outputs/phase9eb1/smoke/real-train-cuda.json
+```
+
+Both smoke artifacts must report `split=train`, `transposition=P1`, finite
+loss/gradients, logits `[N,50]` and `[N,4]`, and `optimizer_step=false`.
+Verify that selection and graph construction are identical before proceeding:
+
+```bash
+"$phase9eb1_python" - <<'PY'
+from pathlib import Path
+import json
+
+root = Path("outputs/phase9eb1/smoke")
+cpu = json.loads((root / "real-train-cpu.json").read_text())
+cuda = json.loads((root / "real-train-cuda.json").read_text())
+for artifact in (cpu, cuda):
+    assert artifact["acceptance"] is True
+    assert artifact["split"] == "train"
+    assert artifact["optimizer_step"] is False
+for key in ("record_id", "piece_id", "graph_sha256", "node_counts", "edge_counts"):
+    assert cpu[key] == cuda[key], key
+print(cpu["record_id"], cpu["graph_sha256"])
+PY
+```
+
+**STOP. Inspect and retain all three smoke artifacts before starting any
+training command.**
+
+The existing `smoke` command uses a synthetic graph and remains a model-only
+diagnostic. Even without `--allow-model-only-stub`, it is not pinned GraphMuse
+graph acceptance and cannot replace either `real-graph-smoke` artifact.
+
+The ignored manifest binds every piece, source group, split, raw projection,
+target bundle, and common projection. Graph fingerprints are recorded per
+view. Training has 6,924 views (577 × 12); validation/test use only P1.
+
+## Historical reconstruction after smoke review
+
+After the STOP gate has been reviewed, the exact RTX command for the historical
+arm is:
 
 ```bash
 export CUDA_VISIBLE_DEVICES=0
@@ -110,49 +181,9 @@ the operator must record the supplied corpus inventory and fingerprint as a
 substitution. Without that exact input, this command is a pinned paper
 reconstruction only.
 
-## Smoke order
-
-Run environment capture, CPU smoke, then GPU smoke:
-
-```bash
-phase9eb1_python=outputs/phase9eb1/environment/venv/bin/python
-export MUSIC_CRITIC_DILEMMADATA_ROOT=/absolute/path/to/johentsch-dilemmadata-d60ee75
-PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
-  "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py environment \
-  --output outputs/phase9eb1/smoke/environment.json
-PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
-  "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py smoke \
-  --device cpu --output outputs/phase9eb1/smoke/cpu.json
-PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
-  "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py smoke \
-  --device cuda --output outputs/phase9eb1/smoke/gpu.json
-```
-
-`--allow-model-only-stub` is only a diagnostic on build-tool-free hosts. It
-cannot be used for preprocessing, reconstruction training, or benchmark
-results and is recorded as a substitution.
-
-## Common-subset data
-
-Preparation validates the pinned Dilemmadata release, rebuilds target-neutral
-pieces and source-native sidecars, and binds the unchanged Phase 9E-A common
-projection. It fails unless there are exactly 108 AN + 611 DLC records and the
-source-first split is 577/71/71.
-
-```bash
-phase9eb1_python=outputs/phase9eb1/environment/venv/bin/python
-PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
-  "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py prepare-data \
-  --corpus-root "$MUSIC_CRITIC_DILEMMADATA_ROOT" \
-  --output-root outputs/phase9eb1/common-data
-```
-
-The ignored manifest binds every piece, source group, split, raw projection,
-target bundle, and common projection. Graph fingerprints are recorded per
-view. Training has 6,924 views (577 × 12); validation/test use only P1.
-
 ## Three scratch seeds
 
+Run these commands only after the real CPU/CUDA smoke artifacts pass review.
 Do not open test during preparation, smoke, or validation selection:
 
 ```bash
@@ -243,7 +274,8 @@ corpus for reconstruction, Dilemmadata commit
 replayable 719-record source data. The W&B historical checkpoint is attestation
 input only and is forbidden as common-arm initialization.
 
-Expected remote artifacts are: environment report/freeze; CPU and GPU smoke;
+Expected remote artifacts are: environment report/freeze; real TRAIN-graph CPU
+and CUDA smoke with matching record/graph fingerprints;
 historical reconstruction config, substitutions, logs, selected checkpoint and
 evaluation; common dataset/split/graph manifests; three fresh seed logs and
 validation-selected checkpoint hashes; a three-checkpoint locked-test unlock;
