@@ -3438,3 +3438,29 @@ This log is append-only.
   manifest fingerprints are regenerated. The 719 accepted projections,
   577/71/71 split, raw/cache/graph/model-input/grouping/source-target evidence,
   common values, masks, vocabularies, and Phase 9E-B1 remain unchanged.
+
+## 2026-08-28 — ADR-096: Required CI is event-deduplicated and tree-aware
+
+- Status: Accepted as CI infrastructure remediation before Phase 9E-B1.
+- Context: The stable `full-suite` job ran once for a feature-branch push and
+  again for the resulting pull-request synchronization. It also installed
+  Python, PyTorch, and project dependencies for changes limited to
+  documentation.
+- Decision: Keep `pull_request` for every PR and restrict `push` to default
+  protected branch `main`. Keep the required job/check name `full-suite` and
+  make the decision inside that job; do not use workflow path filters or
+  commit-message skip directives.
+- Decision: Treat only `docs/**` and lowercase `*.md` paths as safely
+  excludable. Any other path, an empty diff, or any comparison failure is
+  CI-relevant. A documentation-only job reports its changed paths and reason,
+  installs no Python or dependencies, runs no pytest/compileall, and succeeds.
+- Decision: Fingerprint the complete tracked Git tree excluding only those
+  documentation paths. An exact first-party cache marker may reuse a previous
+  successful `full-suite`; no prefix restore is allowed. A miss or fingerprint
+  failure runs the real suite, and a marker is created/saved only after pytest
+  and compileall succeed.
+- Consequences: One feature-branch update with an open PR creates only the PR
+  workflow run. Documentation layered on an already verified code tree can
+  reuse that exact success, while source, tests, scripts, configuration,
+  workflow, and unknown paths remain fail-open. Models, data, scientific
+  fingerprints, Phase 9E-A projection, and Phase 9E-B1 do not change.
