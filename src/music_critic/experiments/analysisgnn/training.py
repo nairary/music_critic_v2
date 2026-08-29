@@ -9,7 +9,7 @@ import math
 import os
 from pathlib import Path
 import random
-from typing import Iterable
+from typing import Iterable, Mapping
 
 import torch
 
@@ -32,6 +32,7 @@ from music_critic.experiments.analysisgnn.graph import (
     GraphEntry,
     build_analysisgnn_graph,
     graph_fingerprint,
+    ordered_analysis_notes,
 )
 from music_critic.experiments.analysisgnn.metrics import (
     EntryPrediction,
@@ -46,7 +47,12 @@ from music_critic.experiments.analysisgnn.optimization import (
     configure_optimizer,
 )
 from music_critic.experiments.analysisgnn.preflight import (
+    source_row_bindings_from_report,
     validate_label_binding_preflight,
+)
+from music_critic.experiments.analysisgnn.source_row_binding import (
+    DilemmadataSourceRowBinding,
+    build_source_row_binding,
 )
 
 
@@ -102,10 +108,29 @@ def _graph(
     row: CommonDatasetRecord,
     transposition: str,
     device: torch.device,
+    *,
+    source_row_bindings: Mapping[str, DilemmadataSourceRowBinding],
+    corpus_root: Path | None = None,
 ) -> tuple[object, tuple[GraphEntry, ...], str]:
     piece, targets, projection = load_common_record(cache_root, row)
+    source_row_binding = source_row_bindings.get(row.record_id)
+    if source_row_binding is None and corpus_root is not None:
+        source_row_binding = build_source_row_binding(
+            row,
+            piece,
+            targets,
+            projection,
+            corpus_root,
+            notes=ordered_analysis_notes(piece),
+        )
     graph, entries = build_analysisgnn_graph(
-        piece, targets, projection, transposition=transposition
+        piece,
+        targets,
+        projection,
+        transposition=transposition,
+        record_id=row.record_id,
+        dialect=row.dialect,
+        source_row_binding=source_row_binding,
     )
     digest = graph_fingerprint(graph)
     return graph.to(device), entries, digest
@@ -119,6 +144,8 @@ def _evaluate_source_split(
     *,
     split: str,
     device: torch.device,
+    source_row_bindings: Mapping[str, DilemmadataSourceRowBinding],
+    corpus_root: Path | None = None,
 ) -> tuple[dict[str, object], tuple[EntryPrediction, ...], tuple[dict[str, str], ...]]:
     if split not in {"validation", "test"}:
         raise ValueError("evaluation may only open validation or test")
@@ -126,7 +153,14 @@ def _evaluate_source_split(
     predictions: list[EntryPrediction] = []
     graph_rows: list[dict[str, str]] = []
     for row in (item for item in manifest.records if item.split == split):
-        graph, entries, graph_digest = _graph(Path(cache_root), row, "P1", device)
+        graph, entries, graph_digest = _graph(
+            Path(cache_root),
+            row,
+            "P1",
+            device,
+            source_row_bindings=source_row_bindings,
+            corpus_root=corpus_root,
+        )
         logits = model(graph)  # type: ignore[arg-type]
         graph_rows.append(
             {"piece_id": row.piece_id, "transposition": "P1", "sha256": graph_digest}
@@ -155,11 +189,17 @@ def evaluate_validation(
     cache_root: str | Path,
     *,
     device: torch.device,
+    source_row_bindings: Mapping[str, DilemmadataSourceRowBinding],
 ) -> tuple[dict[str, object], tuple[EntryPrediction, ...], tuple[dict[str, str], ...]]:
     """Expose validation scoring without a public test-split switch."""
 
     return _evaluate_source_split(
-        model, manifest, cache_root, split="validation", device=device
+        model,
+        manifest,
+        cache_root,
+        split="validation",
+        device=device,
+        source_row_bindings=source_row_bindings,
     )
 
 
@@ -229,6 +269,7 @@ def train_seed(
     preflight_report = validate_label_binding_preflight(
         label_binding_preflight, manifest
     )
+    source_row_bindings = source_row_bindings_from_report(preflight_report)
     _seed(seed)
     output = Path(output_root) / f"seed-{seed}"
     if output.exists() and any(output.iterdir()):
@@ -300,7 +341,11 @@ def train_seed(
         row, transposition = train_views[candidate_index % len(train_views)]
         candidate_index += 1
         graph, _entries, graph_digest = _graph(
-            Path(cache_root), row, transposition, runtime_device
+            Path(cache_root),
+            row,
+            transposition,
+            runtime_device,
+            source_row_bindings=source_row_bindings,
         )
         graph_digests[(row.piece_id, transposition)] = graph_digest
         model.train()
@@ -364,7 +409,11 @@ def train_seed(
         )
         if applied_update % config.validation_every_applied_updates == 0:
             validation, _rows, validation_graphs = evaluate_validation(
-                model, manifest, cache_root, device=runtime_device
+                model,
+                manifest,
+                cache_root,
+                device=runtime_device,
+                source_row_bindings=source_row_bindings,
             )
             score = validation_objective(validation)
             _append(
@@ -481,6 +530,7 @@ def evaluate_seed_test(
     cache_root: str | Path,
     runs_root: str | Path,
     unlock_path: str | Path,
+    corpus_root: str | Path,
     *,
     seed: int,
     device: str = "cuda",
@@ -524,7 +574,13 @@ def evaluate_seed_test(
     checkpoint = torch.load(checkpoint_path, map_location=runtime_device, weights_only=True)
     model.load_state_dict(checkpoint["model"])
     test_metrics, prediction_rows, test_graphs = _evaluate_source_split(
-        model, manifest, cache_root, split="test", device=runtime_device
+        model,
+        manifest,
+        cache_root,
+        split="test",
+        device=runtime_device,
+        source_row_bindings={},
+        corpus_root=Path(corpus_root),
     )
     bootstrap = grouped_bootstrap(
         prediction_rows, samples=config.bootstrap_samples, seed=seed

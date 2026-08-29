@@ -26,6 +26,10 @@ from music_critic.experiments.analysisgnn.contracts import (
     canonical_json,
     graph_schema_fingerprint,
 )
+from music_critic.experiments.analysisgnn.source_row_binding import (
+    DilemmadataSourceRowBinding,
+    detect_row_transition_entries,
+)
 from music_critic.tasks.dilemmadata_common import (
     COMMON_INVERSION_TASK,
     COMMON_QUALITY_TASK,
@@ -249,13 +253,16 @@ def bind_entry_supervision(
     *,
     record_id: str,
     piece_id: str,
+    dialect: str | None = None,
+    source_row_binding: DilemmadataSourceRowBinding | None = None,
+    allow_historical_span_forensics: bool = False,
     fail_on_conflict: bool = True,
 ) -> tuple[
     dict[str, torch.Tensor],
     tuple[GraphEntry, ...],
     tuple[LabelOverlap, ...],
 ]:
-    """Bind note targets while preserving every available source membership."""
+    """Bind note targets with exact DLC row provenance before generic spans."""
 
     span_by_id = {span.annotation_id: span for span in source.alignment_spans}
     task_specs = (
@@ -268,12 +275,73 @@ def bind_entry_supervision(
     note_onsets = tuple(note.onset_qn for note in notes)
     if note_onsets != tuple(sorted(note_onsets)):
         raise AnalysisGNNGraphError("label binding requires onset-sorted notes")
+    resolved_dialect = dialect or ("dlc" if record_id.startswith("dlc:") else "an_joint")
+    transitions = detect_row_transition_entries(source, projection)
+    if source_row_binding is not None and (
+        source_row_binding.record_id != record_id
+        or source_row_binding.piece_id != piece_id
+        or source_row_binding.dialect != resolved_dialect
+    ):
+        raise AnalysisGNNGraphError(
+            "source-row binding identity mismatch: "
+            + canonical_json(
+                {
+                    "binding_piece_id": source_row_binding.piece_id,
+                    "binding_record_id": source_row_binding.record_id,
+                    "dialect": resolved_dialect,
+                    "piece_id": piece_id,
+                    "record_id": record_id,
+                }
+            )
+        )
+    binding_groups = {
+        (
+            group.task,
+            group.start_qn,
+            tuple(entry.entry_index for entry in group.entries),
+        ): group
+        for group in (() if source_row_binding is None else source_row_binding.groups)
+    }
+    if resolved_dialect == "dlc" and source_row_binding is not None:
+        expected_binding_keys = {
+            (task, start_qn, tuple(row[0] for row in entries))
+            for task, start_qn, entries in transitions
+        }
+        if set(binding_groups) != expected_binding_keys:
+            raise AnalysisGNNGraphError(
+                "source-row binding group set differs from detected transitions: "
+                + canonical_json(
+                    {
+                        "binding_groups": [
+                            {
+                                "entry_indices": list(entry_indices),
+                                "start_qn": {"den": start.den, "num": start.num},
+                                "task": task,
+                            }
+                            for task, start, entry_indices in sorted(binding_groups)
+                        ],
+                        "detected_groups": [
+                            {
+                                "entry_indices": list(entry_indices),
+                                "start_qn": {"den": start.den, "num": start.num},
+                                "task": task,
+                            }
+                            for task, start, entry_indices in sorted(
+                                expected_binding_keys
+                            )
+                        ],
+                        "piece_id": piece_id,
+                        "record_id": record_id,
+                    }
+                )
+            )
     for common_task, name, vocabulary in task_specs:
         target = next(row for row in projection.targets if row.task_id == common_task)
         labels = torch.full((len(notes),), -1, dtype=torch.long)
         candidates: list[list[tuple[int, str, int, str]]] = [
             [] for _note in notes
         ]
+        candidate_by_entry: dict[int, tuple[int, str, int, str]] = {}
         for entry_index, entry in enumerate(target.entries):
             available = entry.state in {"exact", "coarsened"}
             label = vocabulary[str(entry.common_value)] if available else -1
@@ -300,6 +368,12 @@ def bind_entry_supervision(
                 # An unavailable row remains auditable as a source entry, but
                 # it can neither supervise a note nor replace available rows.
                 continue
+            candidate_by_entry[entry_index] = (
+                entry_index,
+                entry.entity_id,
+                label,
+                str(entry.common_value),
+            )
             first = bisect_left(note_onsets, span.start_qn)
             last = (
                 bisect_right(note_onsets, span.end_qn)
@@ -308,8 +382,91 @@ def bind_entry_supervision(
             )
             for note_index in range(first, last):
                 candidates[note_index].append(
-                    (entry_index, entry.entity_id, label, str(entry.common_value))
+                    candidate_by_entry[entry_index]
                 )
+        task_transitions = tuple(
+            transition for transition in transitions if transition[0] == name
+        )
+        if resolved_dialect == "dlc" and not allow_historical_span_forensics:
+            for _task, start_qn, transition_entries in task_transitions:
+                entry_indices = tuple(row[0] for row in transition_entries)
+                diagnostic = {
+                    "ambiguity_reason": "exact_source_row_provenance_required",
+                    "candidate_entries": [
+                        {
+                            "end_qn": {
+                                "den": end_qn.den,
+                                "num": end_qn.num,
+                            },
+                            "entity_id": entity_id,
+                            "entry_index": entry_index,
+                        }
+                        for entry_index, entity_id, end_qn in transition_entries
+                    ],
+                    "piece_id": piece_id,
+                    "record_id": record_id,
+                    "selected_binding_basis": "source_row_provenance",
+                    "start_qn": {"den": start_qn.den, "num": start_qn.num},
+                    "task": name,
+                }
+                if len(transition_entries) != 2:
+                    raise AnalysisGNNGraphError(
+                        "ambiguous DLC duplicate-timestamp transition: "
+                        + canonical_json(diagnostic)
+                    )
+                group = binding_groups.get((name, start_qn, entry_indices))
+                if group is None or tuple(
+                    (entry.entry_index, entry.entity_id)
+                    for entry in group.entries
+                ) != tuple((row[0], row[1]) for row in transition_entries):
+                    raise AnalysisGNNGraphError(
+                        "missing or mismatched DLC source-row provenance: "
+                        + canonical_json(diagnostic)
+                    )
+                assignment_by_note = {
+                    row.note_index: row for row in group.assignments
+                }
+                boundary_indices = tuple(
+                    index for index, onset in enumerate(note_onsets) if onset == start_qn
+                )
+                if tuple(sorted(assignment_by_note)) != boundary_indices:
+                    raise AnalysisGNNGraphError(
+                        "incomplete DLC source-row provenance: "
+                        + canonical_json(
+                            {
+                                **diagnostic,
+                                "expected_note_indices": list(boundary_indices),
+                                "provenance_note_indices": sorted(assignment_by_note),
+                            }
+                        )
+                    )
+                transition_set = set(entry_indices)
+                for note_index in boundary_indices:
+                    assignment = assignment_by_note[note_index]
+                    if (
+                        assignment.note_id != str(notes[note_index].note_id)
+                        or assignment.entry_index not in transition_set
+                    ):
+                        raise AnalysisGNNGraphError(
+                            "malformed DLC source-row provenance: "
+                            + canonical_json(
+                                {
+                                    **diagnostic,
+                                    "note_id": str(notes[note_index].note_id),
+                                    "note_index": note_index,
+                                    "source_row_identity": assignment.source_identity,
+                                    "source_row_ordinal": assignment.source_row_ordinal,
+                                }
+                            )
+                        )
+                    candidates[note_index] = [
+                        candidate
+                        for candidate in candidates[note_index]
+                        if candidate[0] not in transition_set
+                    ]
+                    selected = candidate_by_entry.get(assignment.entry_index)
+                    if selected is not None:
+                        candidates[note_index].append(selected)
         memberships: list[tuple[int, int]] = []
         for note_index, note_candidates in enumerate(candidates):
             if not note_candidates:
@@ -355,6 +512,7 @@ def bind_entry_supervision(
                                 "note_index": note_index,
                                 "piece_id": piece_id,
                                 "record_id": record_id,
+                                "selected_binding_basis": "generic_span_after_exact_row_binding",
                                 "task": name,
                             }
                         )
@@ -381,6 +539,9 @@ def build_analysisgnn_graph(
     projection: DilemmadataCommonHarmonicProjection,
     *,
     transposition: str = "P1",
+    record_id: str | None = None,
+    dialect: str | None = None,
+    source_row_binding: DilemmadataSourceRowBinding | None = None,
 ) -> tuple["HeteroData", tuple[GraphEntry, ...]]:
     """Build one native note/beat/measure graph without target leakage."""
 
@@ -404,6 +565,7 @@ def build_analysisgnn_graph(
         ) from exc
 
     ordered = ordered_analysis_notes(piece)
+    resolved_record_id = record_id or source_targets.analysis_view_id
     timing = [piece.duration_qn]
     for note in ordered:
         timing.extend((note.onset_qn, note.duration_qn))
@@ -472,13 +634,15 @@ def build_analysisgnn_graph(
         ordered,
         source_targets,
         projection,
-        record_id=source_targets.analysis_view_id,
+        record_id=resolved_record_id,
         piece_id=piece.piece_id,
+        dialect=dialect,
+        source_row_binding=source_row_binding,
     )
     for name, value in labels.items():
         graph["note"][name] = value
     graph.phase9eb1_schema_fingerprint = graph_schema_fingerprint()
-    graph.record_id = source_targets.analysis_view_id
+    graph.record_id = resolved_record_id
     graph.transposition = transposition
     if set(graph.edge_types) != set(EDGE_TYPES):
         raise AnalysisGNNGraphError("constructed graph edge schema differs from pinned contract")

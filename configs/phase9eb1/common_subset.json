@@ -1,7 +1,7 @@
 {
   "applied_update_budget": 10000,
   "arm": "analysisgnn-common-subset",
-  "config_fingerprint": "de91db314fe4aeaa6e312448f938d9bc5fe80962ce6b088ac63723d30771b5d9",
+  "config_fingerprint": "f006dcdc251621344afb1251ac0d1d8c09667de48865a850caa3b3501c60b07a",
   "augmentation": {
     "split_before_augmentation": true,
     "test": ["P1"],
@@ -12,7 +12,7 @@
     "graphs_per_update": 1,
     "schedule": "seeded_shuffled_source_transposition_views"
   },
-  "contract_version": "1.0.1",
+  "contract_version": "1.1.0",
   "data": {
     "assignment_fingerprint": "a2b6bb29a26a87f74eb1921888d2651bd4fbe3bffec51e9cb88fbe9bb3084eec",
     "common_registry_fingerprint": "bb50920808b6ad3a19fb32b8315a417a837b2ab008efd7bee71e71d120e2ee2e",
@@ -32,7 +32,7 @@
     "metrics": ["nll", "normalized_mean_nll", "macro_f1", "balanced_accuracy", "accuracy", "majority_class_baseline_accuracy", "joint_quality_inversion_accuracy"],
     "selection": "mean_normalized_quality_inversion_nll"
   },
-  "graph_schema_fingerprint": "393067f9b78f312d3ca90517277ca186f3367fff015d39b08de39036cf76d299",
+  "graph_schema_fingerprint": "3a54b5358b10c5ff1c6765cab8601010bfcde769d9ae118c69d2e6baffd785b5",
   "model": {
     "base_feature_width": 25,
     "bigru_bidirectional": true,

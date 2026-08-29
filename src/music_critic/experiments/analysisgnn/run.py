@@ -49,6 +49,8 @@ from music_critic.experiments.analysisgnn.optimization import (
 from music_critic.experiments.analysisgnn.preflight import (
     label_binding_preflight,
     require_zero_conflicting_overlaps,
+    source_row_bindings_from_report,
+    validate_label_binding_preflight,
 )
 from music_critic.experiments.analysisgnn.training import (
     create_test_unlock,
@@ -262,6 +264,7 @@ def real_graph_smoke(
     cache_root: str | Path,
     *,
     device_name: str,
+    label_binding_preflight_path: str | Path,
 ) -> dict[str, object]:
     """Run one real GraphMuse TRAIN-graph forward/backward without an optimizer."""
 
@@ -269,6 +272,10 @@ def real_graph_smoke(
     require_deterministic_cuda_environment(device)
     if device.type == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("CUDA real graph smoke requested but CUDA is unavailable")
+    preflight_report = validate_label_binding_preflight(
+        label_binding_preflight_path, manifest
+    )
+    source_row_bindings = source_row_bindings_from_report(preflight_report)
     row, piece, targets, projection = _select_real_smoke_record(manifest, cache_root)
     if row.split != "train":
         raise AssertionError("validation/test records are forbidden in real graph smoke")
@@ -277,6 +284,9 @@ def real_graph_smoke(
         targets,
         projection,
         transposition="P1",
+        record_id=row.record_id,
+        dialect=row.dialect,
+        source_row_binding=source_row_bindings.get(row.record_id),
     )
     digest = graph_fingerprint(graph)
     node_counts = {
@@ -367,6 +377,7 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--output-root", type=Path, required=True)
     preflight = commands.add_parser("label-binding-preflight")
     preflight.add_argument("--cache-root", type=Path, required=True)
+    preflight.add_argument("--corpus-root", type=Path, required=True)
     preflight.add_argument("--manifest", type=Path, required=True)
     preflight.add_argument("--output", type=Path, required=True)
     forensics = commands.add_parser("label-binding-forensics")
@@ -384,6 +395,7 @@ def _parser() -> argparse.ArgumentParser:
     real_smoke.add_argument("--cache-root", type=Path, required=True)
     real_smoke.add_argument("--manifest", type=Path, required=True)
     real_smoke.add_argument("--device", choices=("cpu", "cuda"), required=True)
+    real_smoke.add_argument("--label-binding-preflight", type=Path, required=True)
     real_smoke.add_argument("--output", type=Path, required=True)
     train = commands.add_parser("train")
     train.add_argument("--cache-root", type=Path, required=True)
@@ -401,6 +413,7 @@ def _parser() -> argparse.ArgumentParser:
     unlock.add_argument("--authorize-locked-test", action="store_true", required=True)
     evaluate = commands.add_parser("evaluate-test")
     evaluate.add_argument("--cache-root", type=Path, required=True)
+    evaluate.add_argument("--corpus-root", type=Path, required=True)
     evaluate.add_argument("--manifest", type=Path, required=True)
     evaluate.add_argument("--runs-root", type=Path, required=True)
     evaluate.add_argument("--unlock", type=Path, required=True)
@@ -432,7 +445,9 @@ def main(argv: list[str] | None = None) -> int:
         }
     elif args.command == "label-binding-preflight":
         manifest = load_common_manifest(args.manifest)
-        result = label_binding_preflight(manifest, args.cache_root)
+        result = label_binding_preflight(
+            manifest, args.cache_root, corpus_root=args.corpus_root
+        )
         _write(args.output, result)
         require_zero_conflicting_overlaps(result)
     elif args.command == "label-binding-forensics":
@@ -456,6 +471,7 @@ def main(argv: list[str] | None = None) -> int:
             manifest,
             args.cache_root,
             device_name=args.device,
+            label_binding_preflight_path=args.label_binding_preflight,
         )
         _write(args.output, result)
     elif args.command == "train":
@@ -486,6 +502,7 @@ def main(argv: list[str] | None = None) -> int:
             args.cache_root,
             args.runs_root,
             args.unlock,
+            args.corpus_root,
             seed=args.seed,
             device=args.device,
         )

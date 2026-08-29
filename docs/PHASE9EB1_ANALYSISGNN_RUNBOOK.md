@@ -10,16 +10,31 @@ changes the Music Critic model, decoder, SSL, V2 BiGRU/Transformer, or Phase
 9E-A artifacts. Data, graphs, logs, checkpoints, and predictions remain in
 ignored output roots.
 
-## Current forensic stop gate
+## Exact source-row remediation gate
 
-The 2026-08-29 source-native conflict audit keeps Phase 9E-B1 fail closed.
-The structural preflight fingerprint
-`da1d02a0ab58ce9ad765a37822e59e96ddbdbce2fc20302ce46ebb5c82faa500`
-contains 18 different-class source groups and 128 conflicting source notes.
-Those counts were already computed once per accepted record; 7,066 is the
-whole effective-view schedule, not the number of independent source errors.
-Applying the unchanged view schedule yields 150 conflict-group occurrences
-and 1,008 conflicting note occurrences.
+The 2026-08-29 blocker was generic span binding, not contradictory source
+supervision. Dilemmadata's outer merge can retain two rows at one timestamp;
+pinned AnalysisGNN labels each retained note row from that same TSV row. The
+V2 span projection turned the pair into a point `[t,t]` plus interval
+`[t,next)` and incorrectly attached both entries to every boundary note.
+
+`DilemmadataSourceRowBinding@1.0.0` now restores the exact boundary mapping.
+The canonical note ID's raw ordinal is parsed only because the structured raw
+adapter lineage was not serialized in the existing cache, then validated
+against the pinned TSV onset/pitch/staff/voice and
+`unfolded_harmony_index`. Two raw identities are bound to the stable typed
+point/interval entry order independently for quality and inversion. No target
+value, common class, or class index selects the entry. Exact provenance
+replaces generic span membership only at that proved DLC boundary; later
+interval notes and ordinary spans retain generic exact-time binding. AN never
+inherits this DLC rule without its own evidence.
+
+The one permitted all-719 read-only preflight produced fingerprint
+`810221595f5bb11882d59e9fe4ee91f6d965bff148386cfcd0bbbd45b676b9de`.
+It resolved 68/68 source-native row groups and 452 rows, with zero unresolved,
+ambiguous, or remaining conflicting groups/notes. The unchanged view schedule
+contains 640 group occurrences and 4,016 row occurrences. Therefore
+`acceptance=true` and `training_authorized=true`.
 
 The deterministic forensic command is evidence-only and runs against the
 existing cache and the exact failed preflight. It does not create a graph,
@@ -34,15 +49,20 @@ model, optimizer, prediction, metric, checkpoint, or run directory:
   --output outputs/phase9eb1/smoke/label-binding-forensics.json
 ```
 
-Full evidence remains ignored. The committed compact projection is
+The superseded full forensic evidence remains ignored and unchanged. Its
+committed compact projection is
 `tests/fixtures/analysisgnn/phase9eb1_label_binding_forensics.json`. Its
 semantic fingerprint is
 `4dc5db61525be807a49677893b6f5b338eb35b0f59854ed508cf0d38f5f012ba`;
 it binds full artifact fingerprint
 `b425c470da9cd9754a4cbedb240a44835391ad2dac9dbcd11ba108aef66d40e9`.
-Detailed evidence is restricted to TRAIN/VALIDATION. TEST exposes only sealed
-aggregates (6 groups, 48 source notes, 1 record) and was not used for model or
-policy selection.
+The new committed remediation evidence is
+`tests/fixtures/analysisgnn/phase9eb1_source_row_remediation.json`, fingerprint
+`13054693d85ec859026dc92452bf8c853d6bedb705e2256964544db2b01078e2`.
+Detailed binding remains restricted to TRAIN/VALIDATION. TEST exposes only
+sealed structural aggregates (16 groups, 128 rows), no record IDs, values,
+classes, or note diagnostics, and was not used for model evaluation or policy
+selection.
 
 All 18 source groups are exact point-versus-interval pairs with the same
 start, and all 128 affected notes are ordinary non-grace, non-zero-duration
@@ -54,14 +74,11 @@ For every one of the 12 detailed TRAIN groups, the original TSV ordinal held
 by the immutable V2 note ID maps the note row to exactly one of the two source
 entries.
 
-No semantic policy is adopted in this audit. The next separate remediation
-should preserve exact source-row-to-entry membership; if that provenance
-cannot be contract-bound, the conservative fallback is masking only the
-ambiguous task-note targets. Arbitrary first/last, point, or interval
-precedence is rejected. Until that remediation passes a new all-719
-conflict-free preflight, `acceptance=false`, `training_authorized=false`, and
-the CPU smoke, CUDA smoke, historical reconstruction, seed training,
-validation inference, and locked-test evaluation below are **DO NOT RUN**.
+Missing, malformed, incomplete, duplicate, or ambiguous row provenance fails
+closed. No fallback masking was needed for the frozen corpus. Arbitrary
+first/last, point, or interval precedence remains rejected. RTX CPU/CUDA smoke
+is now authorized in the registered order below; training remains behind the
+explicit post-smoke STOP/review gate.
 
 ## Historical attestation
 
@@ -141,20 +158,19 @@ weight decay `0.005`, 21 heads, batch 240, SWA, and 100 epochs) and be labelled
 the public corpus. Do not start it before the real-graph smoke gate below has
 been reviewed.
 
-## Registered pre-training RTX acceptance order — currently blocked
+## Registered pre-training RTX acceptance order — source-row gate open
 
 Preparation validates the pinned Dilemmadata release, rebuilds target-neutral
 pieces and source-native sidecars, and binds the unchanged Phase 9E-A common
 projection. It fails unless there are exactly 108 AN + 611 DLC records and the
 source-first split is 577/71/71.
 
-The following is the registered order, retained for contract review only while
-the forensic stop gate above is closed. Do not execute it yet. After a separate
-policy remediation is accepted, run environment capture, data preparation, the
-structural label-binding preflight over all 719 accepted records, the real
-TRAIN graph on CPU, and the same deterministically selected TRAIN graph on
-CUDA. The preflight reads target sidecars only to validate structural binding;
-it constructs no model, prediction, metric, selector, optimizer, or run.
+On the RTX host, use the existing manifest-bound cache, repeat the exact
+source-row preflight over all 719 accepted records, then run the real TRAIN
+graph on CPU and the same deterministically selected graph on CUDA. Do not
+reconstruct or overwrite the common cache for this remediation. The preflight
+reads raw identity columns and target sidecars only to validate binding; it
+constructs no graph, model, prediction, metric, selector, optimizer, or run.
 
 ```bash
 phase9eb1_python=outputs/phase9eb1/environment/venv/bin/python
@@ -165,28 +181,28 @@ PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
   "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py environment \
   --output outputs/phase9eb1/smoke/environment.json
 PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
-  "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py prepare-data \
-  --corpus-root "$MUSIC_CRITIC_DILEMMADATA_ROOT" \
-  --output-root outputs/phase9eb1/common-data
-PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
   "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py label-binding-preflight \
   --cache-root outputs/phase9eb1/common-data \
+  --corpus-root "$MUSIC_CRITIC_DILEMMADATA_ROOT" \
   --manifest outputs/phase9eb1/common-data/manifest.json \
   --output outputs/phase9eb1/smoke/label-binding-preflight.json
 PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
   "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py real-graph-smoke \
   --cache-root outputs/phase9eb1/common-data \
   --manifest outputs/phase9eb1/common-data/manifest.json \
+  --label-binding-preflight outputs/phase9eb1/smoke/label-binding-preflight.json \
   --device cpu --output outputs/phase9eb1/smoke/real-train-cpu.json
 PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
   "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py real-graph-smoke \
   --cache-root outputs/phase9eb1/common-data \
   --manifest outputs/phase9eb1/common-data/manifest.json \
+  --label-binding-preflight outputs/phase9eb1/smoke/label-binding-preflight.json \
   --device cuda --output outputs/phase9eb1/smoke/real-train-cuda.json
 ```
 
-The preflight must report `acceptance=true`, `record_count=719`, and
-`conflicting_overlap_note_count=0`. Its transposition count covers the same
+The preflight must report `acceptance=true`, `training_authorized=true`,
+`record_count=719`, `remaining_conflicting_groups=0`, and
+`remaining_conflicting_notes=0`. Its transposition count covers the same
 7,066 views because span membership and common quality/inversion classes are
 invariant under the pitch-only transpositions. Both graph smoke artifacts must
 report `split=train`, `transposition=P1`, finite
@@ -223,11 +239,12 @@ The ignored manifest binds every piece, source group, split, raw projection,
 target bundle, and common projection. Graph fingerprints are recorded per
 view. Training has 6,924 views (577 × 12); validation/test use only P1.
 
-## Historical reconstruction after smoke review — currently blocked
+## Historical reconstruction after smoke review
 
 This preregistered command is retained as historical contract evidence. It is
-currently **DO NOT RUN**. Only after a future conflict-free preflight and the
-CPU/CUDA STOP review may the historical arm use:
+remains **DO NOT RUN before the CPU/CUDA STOP review**. The source-row
+preflight is now conflict-free; after independent smoke-artifact review the
+historical arm may use:
 
 ```bash
 export CUDA_VISIBLE_DEVICES=0
@@ -251,11 +268,11 @@ the operator must record the supplied corpus inventory and fingerprint as a
 substitution. Without that exact input, this command is a pinned paper
 reconstruction only.
 
-## Three scratch seeds — currently blocked
+## Three scratch seeds — gated by CPU/CUDA smoke review
 
-These preregistered commands are currently **DO NOT RUN**. Run them only after
-a separately accepted policy remediation, a conflict-free all-719 preflight,
-and reviewed real CPU/CUDA smoke artifacts. Do not open test during
+These preregistered commands remain **DO NOT RUN before the STOP review**.
+The all-719 source-row preflight is accepted; start them only after reviewed
+real CPU/CUDA smoke artifacts. Do not open test during
 preparation, smoke, or validation selection:
 
 ```bash
@@ -295,6 +312,7 @@ for phase9eb1_seed in 17 23 42; do
     outputs/phase9eb1/environment/venv/bin/python \
     scripts/run_phase9eb1_analysisgnn.py evaluate-test \
     --cache-root outputs/phase9eb1/common-data \
+    --corpus-root "$MUSIC_CRITIC_DILEMMADATA_ROOT" \
     --manifest outputs/phase9eb1/common-data/manifest.json \
     --runs-root "$phase9eb1_runs" \
     --unlock "$phase9eb1_runs/test-unlock.json" \
@@ -323,11 +341,15 @@ skipped outcome are written to `batch_schedule.jsonl`. This is an explicit
 common-arm substitution for the public run's sampled-subgraph batch 240.
 
 Each task stores source evaluation membership as a lexicographically sorted
-sparse tensor `[2, M]`: row 0 is `note_index`, row 1 is `entry_index`. A note
+sparse tensor `[2, M]`: row 0 is `note_index`, row 1 is `entry_index`. At a
+proved DLC duplicate-row transition, each boundary note contributes only the
+pair selected by exact source-row provenance; point and interval entries remain
+separate and receive predictions from their own rows. Outside that case, a note
 covered by equivalent available spans receives one training class but retains
-one pair per source entry, so every entry is aggregated independently. A
-different available class on the same note is a fail-closed graph error.
-Unavailable rows never create memberships or replace available supervision.
+one pair per source entry. A remaining different available class on one note is
+a fail-closed graph error. An available entry with no memberships emits an
+explicit masked/NaN prediction row rather than borrowed logits. Unavailable
+rows never create memberships or replace available supervision.
 
 Per-seed outputs include configs/bindings, architecture, update logs,
 validation, graph fingerprints, checkpoint SHA-256, per-entry
@@ -350,8 +372,10 @@ evaluation are `NOT RUN locally`; no synthetic results replace them.
 
 ## RTX host inputs and expected artifacts
 
-The repository path on the RTX host is `/home/humtech/Paper/critic`. This path
-does not authorize smoke or training while the forensic gate is closed.
+The repository path on the RTX host is `/home/humtech/Paper/critic`. The
+accepted source-row preflight authorizes the registered CPU/CUDA smoke there;
+it does not bypass the post-smoke STOP review or independently authorize
+training.
 
 Required environment variables are `CUDA_VISIBLE_DEVICES=0`,
 `CUBLAS_WORKSPACE_CONFIG=:4096:8`,

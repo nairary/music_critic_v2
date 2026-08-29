@@ -527,3 +527,12 @@ against two different classes. No policy was implemented; exact V2 source-row
 membership is only the evidence-backed recommendation for a later remediation,
 with task-note masking retained as the conservative fallback if source-row
 provenance cannot be contract-bound.
+
+The exact source-row remediation likewise did not open, search, import, copy,
+modify, format, stage, or reuse the legacy repository or its logic. It turns
+the already recorded pinned Dilemmadata/AnalysisGNN row-alignment evidence into
+an experiment-local checked contract. The implementation uses current V2
+canonical note IDs, exact rational timing, source-native target entities, and
+the unchanged common projection. Arbitrary precedence, legacy label logic,
+runtime external imports, and fallback masking remain rejected; no legacy or
+pinned external checkout is required for ordinary V2 inference.

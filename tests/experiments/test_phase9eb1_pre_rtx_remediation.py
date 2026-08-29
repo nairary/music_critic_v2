@@ -123,6 +123,7 @@ def test_real_graph_smoke_builds_p1_and_runs_no_optimizer_step(
         piece_id="train-piece",
         source_group_id="train-group",
         split="train",
+        dialect="dlc",
     )
     piece = SimpleNamespace(notes=(object(), object(), object()))
     monkeypatch.setattr(
@@ -138,8 +139,14 @@ def test_real_graph_smoke_builds_p1_and_runs_no_optimizer_step(
         _projection: object,
         *,
         transposition: str,
+        record_id: str,
+        dialect: str,
+        source_row_binding: object,
     ) -> tuple[HeteroData, tuple[object, ...]]:
         called["transposition"] = transposition
+        called["record_id"] = record_id
+        called["dialect"] = dialect
+        called["source_row_binding"] = source_row_binding
         return _smoke_graph(), (object(), object())
 
     class FakeModel(nn.Module):
@@ -158,6 +165,10 @@ def test_real_graph_smoke_builds_p1_and_runs_no_optimizer_step(
     monkeypatch.setattr(run_module, "graph_fingerprint", lambda _graph: "a" * 64)
     monkeypatch.setattr(run_module, "AnalysisGNNCommonModel", FakeModel)
     monkeypatch.setattr(
+        run_module, "validate_label_binding_preflight", lambda *_args: {}
+    )
+    monkeypatch.setattr(run_module, "source_row_bindings_from_report", lambda _report: {})
+    monkeypatch.setattr(
         run_module, "environment_report", lambda: {"claim": "targeted-test"}
     )
 
@@ -165,8 +176,14 @@ def test_real_graph_smoke_builds_p1_and_runs_no_optimizer_step(
         SimpleNamespace(records=(row,)),
         "/ignored/cache",
         device_name="cpu",
+        label_binding_preflight_path="/ignored/preflight.json",
     )
-    assert called == {"transposition": "P1"}
+    assert called == {
+        "dialect": "dlc",
+        "record_id": "train-record",
+        "source_row_binding": None,
+        "transposition": "P1",
+    }
     assert result["acceptance"] is True
     assert result["record_id"] == "train-record"
     assert result["split"] == "train"
@@ -184,17 +201,23 @@ def test_real_graph_smoke_rejects_non_train_selection(
         piece_id="validation-piece",
         source_group_id="validation-group",
         split="validation",
+        dialect="dlc",
     )
     monkeypatch.setattr(
         run_module,
         "_select_real_smoke_record",
         lambda *_args, **_kwargs: (row, SimpleNamespace(notes=(object(),)), object(), object()),
     )
+    monkeypatch.setattr(
+        run_module, "validate_label_binding_preflight", lambda *_args: {}
+    )
+    monkeypatch.setattr(run_module, "source_row_bindings_from_report", lambda _report: {})
     with pytest.raises(AssertionError, match="validation/test"):
         run_module.real_graph_smoke(
             SimpleNamespace(records=(row,)),
             "/ignored/cache",
             device_name="cpu",
+            label_binding_preflight_path="/ignored/preflight.json",
         )
 
 
@@ -203,7 +226,6 @@ def test_runbook_and_runtime_policy_freeze_real_smoke_stop_order() -> None:
         REPOSITORY_ROOT / "docs" / "PHASE9EB1_ANALYSISGNN_RUNBOOK.md"
     ).read_text(encoding="utf-8")
     environment = runbook.index("scripts/run_phase9eb1_analysisgnn.py environment")
-    prepare = runbook.index("scripts/run_phase9eb1_analysisgnn.py prepare-data")
     preflight = runbook.index(
         "scripts/run_phase9eb1_analysisgnn.py label-binding-preflight"
     )
@@ -213,7 +235,7 @@ def test_runbook_and_runtime_policy_freeze_real_smoke_stop_order() -> None:
     )
     stop = runbook.index("**STOP.")
     training = runbook.index("scripts/run_phase9eb1_analysisgnn.py train")
-    assert environment < prepare < preflight < cpu < cuda < stop < training
+    assert environment < preflight < cpu < cuda < stop < training
 
     policy = json.loads(
         (REPOSITORY_ROOT / "configs" / "phase9eb1" / "runtime_policy.json").read_text(

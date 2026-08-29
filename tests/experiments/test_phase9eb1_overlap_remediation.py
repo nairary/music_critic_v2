@@ -24,6 +24,9 @@ from music_critic.experiments.analysisgnn.preflight import (
     LABEL_BINDING_PREFLIGHT_VERSION,
     validate_label_binding_preflight,
 )
+from music_critic.experiments.analysisgnn.source_row_binding import (
+    source_row_binding_from_payload,
+)
 from music_critic.experiments.analysisgnn.training import (
     require_deterministic_cuda_environment,
     train_seed,
@@ -81,8 +84,8 @@ def _real_overlap_fixture(
         ),
         SimpleNamespace(
             annotation_id="masked-overlap:139",
-            start_qn=RationalTime(86),
-            end_qn=RationalTime(87),
+            start_qn=RationalTime(87),
+            end_qn=RationalTime(88),
         ),
     )
     quality_entries = tuple(
@@ -101,6 +104,57 @@ def _real_overlap_fixture(
     return notes, SimpleNamespace(alignment_spans=spans), projection
 
 
+def _real_row_binding() -> object:
+    binding = {
+        "contract_version": "1.0.0",
+        "dialect": "dlc",
+        "groups": [
+            {
+                "assignments": [
+                    {
+                        "entry_index": 137 if offset % 2 == 0 else 138,
+                        "entity_id": POINT_ENTITY_ID if offset % 2 == 0 else INTERVAL_ENTITY_ID,
+                        "note_id": (
+                            "note:dilemmadata-a88f753949b33e7705b36448-"
+                            f"{530 + offset:08d}"
+                        ),
+                        "note_index": offset,
+                        "source_identity": "133" if offset % 2 == 0 else "134",
+                        "source_row_ordinal": 530 + offset,
+                    }
+                    for offset in range(6)
+                ],
+                "binding_basis": (
+                    "validated_note_id_ordinal_plus_raw_identity_and_typed_entry_order"
+                ),
+                "entries": [
+                    {
+                        "entry_index": 137,
+                        "entity_id": POINT_ENTITY_ID,
+                        "source_identity": "133",
+                        "span_end": {"den": 1, "num": 86},
+                        "span_start": {"den": 1, "num": 86},
+                    },
+                    {
+                        "entry_index": 138,
+                        "entity_id": INTERVAL_ENTITY_ID,
+                        "source_identity": "134",
+                        "span_end": {"den": 1, "num": 87},
+                        "span_start": {"den": 1, "num": 86},
+                    },
+                ],
+                "start_qn": {"den": 1, "num": 86},
+                "task": "quality",
+            }
+        ],
+        "piece_id": PIECE_ID,
+        "record_id": RECORD_ID,
+        "schema": "phase9eb1-dilemmadata-source-row-binding",
+    }
+    binding["semantic_fingerprint"] = fingerprint(binding)
+    return source_row_binding_from_payload(binding)
+
+
 def test_real_corelli_equivalent_point_interval_overlap_keeps_both_entries() -> None:
     notes, source, projection = _real_overlap_fixture()
     tensors, entries, overlaps = bind_entry_supervision(
@@ -109,6 +163,8 @@ def test_real_corelli_equivalent_point_interval_overlap_keeps_both_entries() -> 
         projection,
         record_id=RECORD_ID,
         piece_id=PIECE_ID,
+        dialect="dlc",
+        source_row_binding=_real_row_binding(),
     )
     vocabulary = DILEMMADATA_COMMON_FAMILY_BY_TASK[COMMON_QUALITY_TASK].vocabulary
     assert vocabulary is not None
@@ -117,20 +173,13 @@ def test_real_corelli_equivalent_point_interval_overlap_keeps_both_entries() -> 
     assert tensors["quality"].tolist() == [major_class] * 6
     assert tensors["quality_mask"].tolist() == [True] * 6
     expected_memberships = tuple(
-        (note_index, entry_index)
+        (note_index, 137 if note_index % 2 == 0 else 138)
         for note_index in range(6)
-        for entry_index in (137, 138)
     )
     assert tuple(
         zip(*tensors["quality_membership_index"].tolist())
     ) == expected_memberships
-    assert len(overlaps) == 6
-    assert all(
-        overlap.entry_indices == (137, 138)
-        and overlap.common_classes == ("major triad", "major triad")
-        and overlap.comparison == "equivalent_available_class"
-        for overlap in overlaps
-    )
+    assert overlaps == ()
 
     task_entries = tuple(entry for entry in entries if entry.task == "quality")
     logits = torch.zeros((6, 50))
@@ -153,7 +202,7 @@ def test_real_corelli_equivalent_point_interval_overlap_keeps_both_entries() -> 
     assert predictions[139].mask is False
 
 
-def test_real_corelli_conflicting_available_classes_fail_closed_with_diagnostics() -> None:
+def test_missing_corelli_row_provenance_fails_closed_with_diagnostics() -> None:
     notes, source, projection = _real_overlap_fixture(interval_class="minor triad")
     with pytest.raises(AnalysisGNNGraphError) as caught:
         bind_entry_supervision(
@@ -162,16 +211,15 @@ def test_real_corelli_conflicting_available_classes_fail_closed_with_diagnostics
             projection,
             record_id=RECORD_ID,
             piece_id=PIECE_ID,
+            dialect="dlc",
         )
     diagnostic = str(caught.value)
     for expected in (
         RECORD_ID,
         PIECE_ID,
         '"task":"quality"',
-        '"entry_index":137',
-        '"entry_index":138',
-        "major triad",
-        "minor triad",
+        '"selected_binding_basis":"source_row_provenance"',
+        "exact_source_row_provenance_required",
     ):
         assert expected in diagnostic
 
@@ -197,24 +245,38 @@ def test_training_preflight_artifact_is_hash_bound_and_conflict_free(
     manifest = _frozen_manifest()
     report = {
         "acceptance": True,
+        "training_authorized": True,
         "contract_version": LABEL_BINDING_PREFLIGHT_VERSION,
         "counts": {
-            "conflicting_overlap_note_count": 0,
+            "ambiguous_row_groups": 0,
             "record_count": 719,
-            "transposition_view_count": 7_066,
+            "records_checked": 719,
+            "remaining_conflicting_groups": 0,
+            "remaining_conflicting_notes": 0,
+            "unresolved_row_groups": 0,
         },
         "dataset_manifest_fingerprint": manifest.manifest_fingerprint,
+        "effective_view_counts": {},
         "graph_schema_fingerprint": graph_schema_fingerprint(),
-        "overlaps": [],
+        "sealed_test": {
+            "details_sealed": True,
+            "record_ids_exposed": False,
+            "source_values_or_classes_exposed": False,
+        },
+        "source_row_binding_version": "1.0.0",
         "source_split_fingerprint": manifest.source_split_fingerprint,
-        "split_counts": manifest.split_counts,
-        "task_counts": {},
+        "split_aggregates": {},
+        "task_aggregates": {},
         "test_access_policy": (
-            "structural_label_binding_only_no_model_predictions_metrics_or_selection"
+            "sealed_structural_source_row_binding_no_model_predictions_metrics_or_selection"
         ),
+        "test_targets_used_for_model_evaluation": False,
+        "train_validation_bindings": [],
+        "train_validation_diagnostics": [],
         "transposition_binding": (
-            "computed_once_per_accepted_record_and_reused_for_pitch_only_views"
+            "source_row_identity_computed_once_and_reused_for_pitch_only_views"
         ),
+        "transposition_view_count": 7_066,
     }
     report["preflight_fingerprint"] = fingerprint(report)
     path = tmp_path / "preflight.json"
@@ -223,7 +285,8 @@ def test_training_preflight_artifact_is_hash_bound_and_conflict_free(
     assert validated["preflight_fingerprint"] == report["preflight_fingerprint"]
 
     report["acceptance"] = False
-    report["counts"]["conflicting_overlap_note_count"] = 1
+    report["training_authorized"] = False
+    report["counts"]["remaining_conflicting_note_count"] = 1
     report.pop("preflight_fingerprint")
     report["preflight_fingerprint"] = fingerprint(report)
     path.write_text(json.dumps(report), encoding="utf-8")
@@ -266,7 +329,7 @@ def test_reconstruction_lock_adds_music21_without_changing_graph_pins() -> None:
     config = json.loads(
         (root / "configs/phase9eb1/common_subset.json").read_text()
     )
-    assert config["contract_version"] == "1.0.1"
+    assert config["contract_version"] == "1.1.0"
     assert config["config_fingerprint"] == (
         COMMON_BENCHMARK_CONFIG.config_fingerprint
     )

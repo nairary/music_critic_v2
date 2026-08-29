@@ -3517,3 +3517,54 @@ not clamped or mutated.
   `19 passed, 2 warnings in 1.02s`; warnings are the upstream
   `torch.jit.script` deprecation. Targeted compileall and `git diff --check`
   pass. No full suite was run.
+
+## Phase 9E-B1 exact source-row binding remediation — 2026-08-29
+
+- Root cause is fixed at the experiment boundary: generic temporal spans
+  discarded Dilemmadata outer-merge row identity, so same-start point and
+  interval entries were both assigned to every boundary note. Pinned
+  AnalysisGNN instead retains and labels each TSV/note row independently.
+- `DilemmadataSourceRowBinding@1.0.0` validates the canonical note ID ordinal
+  against pinned raw onset, pitch, staff, voice, and
+  `unfolded_harmony_index`, then binds the two source identities to stable
+  typed point/interval entry order separately for quality and inversion.
+  Values/classes never select membership, and pitch-only transposition cannot
+  change it. Exact provenance replaces generic span membership only at proved
+  DLC duplicate-row boundaries; ordinary spans and AN behavior are unchanged.
+- Real Corelli `op03n04a` entries 137/138 split 3+3 over six source rows
+  (ordinals 530–535), retain independent entry predictions, and produce one
+  major-triad target per note. Previous TRAIN conflict cases split 4+4
+  (`op01n07c` 128/129), 3+3 (`op03n03b` 42/43), and 3+3 (`op03n03d` 3/4),
+  with no residual conflict. Missing, unknown, duplicate, incomplete, or
+  ambiguous provenance fails closed; masked rows cannot replace available
+  supervision.
+- The single permitted all-719 read-only preflight resolved 68/68
+  source-native groups and 452 rows. It reports zero unresolved/ambiguous
+  groups, zero equivalent non-row overlaps, and zero remaining conflicts.
+  Effective counts are 640 groups / 4,016 row occurrences over the unchanged
+  7,066 views. Fingerprint is
+  `810221595f5bb11882d59e9fe4ee91f6d965bff148386cfcd0bbbd45b676b9de`;
+  `acceptance=true` and `training_authorized=true`.
+- TEST remains sealed: 16 groups / 128 rows are structural aggregates only,
+  with no record IDs, values, classes, note diagnostics, predictions, or
+  metrics; `test_targets_used_for_model_evaluation=false`. Historical
+  forensic artifacts remain unchanged and are referenced as superseded
+  blocker evidence. New compact remediation evidence fingerprint is
+  `13054693d85ec859026dc92452bf8c853d6bedb705e2256964544db2b01078e2`.
+- Phase contract/config changed `1.0.1 -> 1.1.0`, config fingerprint
+  `de91db31... -> f006dcdc...`, and graph schema fingerprint
+  `393067f9... -> 3a54b535...`. Dataset assignment `a2b6bb29...`, records
+  `5924a6c3...`, manifest `be0d36ae...`, registry `bb509208...`, raw index
+  `c0451976...`, and split `58ac7720...` remain unchanged, as do the 719
+  subset, 577/71/71 split, cache, target sidecars, common projection, and test
+  lock.
+- RTX CPU/CUDA real-graph smoke is authorized next, with
+  `CUBLAS_WORKSPACE_CONFIG=:4096:8` mandatory; training remains behind the
+  explicit smoke-artifact STOP/review gate. No graph smoke, model construction,
+  optimizer update, training, validation/test inference, locked-test metrics,
+  corpus reconstruction, or full suite ran locally.
+- Targeted source-row, graph/binding, metrics, preflight, forensic, runbook,
+  and repository contracts pass `48 passed, 2 warnings in 1.99s`; warnings are
+  the unchanged upstream `torch.jit.script` deprecation. Targeted compileall,
+  JSON validation, preflight artifact revalidation, and `git diff --check`
+  pass.

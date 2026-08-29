@@ -1,10 +1,10 @@
 {
-  "contract": "phase9eb1-runtime-policy-v1.0.1",
+  "contract": "phase9eb1-runtime-policy-v1.1.0",
   "local_allowed": [
     "unit_and_contract_tests",
     "bash_yaml_and_static_validation",
     "one_bounded_cpu_forward_backward_without_training_loop",
-    "dilemmadata_discovery_corpus_replay_and_cache_construction",
+    "read_only_pinned_source_row_binding_preflight_without_cache_reconstruction",
     "record_split_target_and_fingerprint_verification",
     "all_719_structural_label_binding_preflight_without_model_evaluation",
     "config_manifest_command_and_documentation_preparation"

@@ -3582,3 +3582,41 @@ This log is append-only.
   `training_authorized=false` remain mandatory. Graph semantics/schema,
   source-native targets, cache, common projection, 719 subset, 577/71/71 split,
   model, optimizer, and all existing scientific fingerprints remain unchanged.
+
+## 2026-08-29 — ADR-100: Proven Dilemmadata duplicate rows override boundary spans
+
+- Status: Accepted for Phase 9E-B1; RTX smoke is authorized, while training
+  remains behind the registered CPU/CUDA artifact-review STOP gate.
+- Context: Pinned Dilemmadata outer-merge rows preserve independent harmony
+  identities at a shared timestamp, and pinned AnalysisGNN labels each retained
+  TSV/note row. The V2 common cache preserves the raw ordinal only in the
+  deterministic canonical note ID; the raw adapter's structured lineage and
+  target emitter's source-row tuple were not serialized. Generic `[t,t]` and
+  `[t,next)` spans therefore erased the exact boundary relationship.
+- Decision: Define `DilemmadataSourceRowBinding@1.0.0`. Only because no
+  structured field survives in the frozen cache, parse the note ID ordinal and
+  validate it against pinned TSV onset/pitch/staff/voice. Bind its
+  `unfolded_harmony_index` to stable typed point/interval entity order,
+  independently per quality/inversion task. Source identity, membership, and
+  serialization are class-independent, transposition-invariant, uniquely
+  sorted, and contain no absolute paths or runtime timestamps.
+- Decision: At a proved DLC duplicate-row boundary, exact provenance replaces
+  generic memberships for those entries. It does not replace ordinary span
+  binding after the boundary, does not change equivalent non-row sparse
+  multi-membership, and does not apply to AN. Unavailable entries retain
+  metadata but create no training/evaluation membership. Missing, malformed,
+  incomplete, duplicated, or ambiguous evidence is a fail-closed graph error;
+  first/last/point/interval precedence and fallback masking are rejected.
+- Decision: `LabelBindingPreflight@2.0.0` reads the existing cache plus pinned
+  raw identity fields before a run/model/optimizer. TRAIN/VALIDATION may retain
+  exact binding details; TEST emits sealed structural aggregates only. Training
+  and real graph smoke require the manifest/schema/hash-bound artifact with
+  zero unresolved, ambiguous, or conflicting groups. Locked-test evaluation,
+  after the existing explicit unlock, reconstructs the same frozen TEST rule
+  in memory from pinned source and does not serialize preflight details.
+- Consequences: The all-719 preflight resolved 68/68 groups and 452 rows, with
+  zero remaining conflicts; 7,066-view effective counts are 640/4,016. TEST
+  contributes only 16/128 sealed structural counts and no model use. The
+  graph/experiment version advances to `1.1.0`; all dataset, split, sidecar,
+  common-projection, model, metric, optimizer-budget, and test-unlock contracts
+  remain unchanged.

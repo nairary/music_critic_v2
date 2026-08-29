@@ -474,6 +474,8 @@ def _record_conflicts(
         projection,
         record_id=record.record_id,
         piece_id=record.piece_id,
+        dialect=record.dialect,
+        allow_historical_span_forensics=True,
         fail_on_conflict=False,
     )
     grouped, equivalents = _group_overlaps(overlaps)
