@@ -10,6 +10,59 @@ changes the Music Critic model, decoder, SSL, V2 BiGRU/Transformer, or Phase
 9E-A artifacts. Data, graphs, logs, checkpoints, and predictions remain in
 ignored output roots.
 
+## Current forensic stop gate
+
+The 2026-08-29 source-native conflict audit keeps Phase 9E-B1 fail closed.
+The structural preflight fingerprint
+`da1d02a0ab58ce9ad765a37822e59e96ddbdbce2fc20302ce46ebb5c82faa500`
+contains 18 different-class source groups and 128 conflicting source notes.
+Those counts were already computed once per accepted record; 7,066 is the
+whole effective-view schedule, not the number of independent source errors.
+Applying the unchanged view schedule yields 150 conflict-group occurrences
+and 1,008 conflicting note occurrences.
+
+The deterministic forensic command is evidence-only and runs against the
+existing cache and the exact failed preflight. It does not create a graph,
+model, optimizer, prediction, metric, checkpoint, or run directory:
+
+```bash
+.venv/bin/python scripts/run_phase9eb1_analysisgnn.py label-binding-forensics \
+  --cache-root outputs/phase9eb1/common-data \
+  --corpus-root "$MUSIC_CRITIC_DILEMMADATA_ROOT" \
+  --manifest outputs/phase9eb1/common-data/manifest.json \
+  --preflight outputs/phase9eb1/smoke/label-binding-preflight-remediation.json \
+  --output outputs/phase9eb1/smoke/label-binding-forensics.json
+```
+
+Full evidence remains ignored. The committed compact projection is
+`tests/fixtures/analysisgnn/phase9eb1_label_binding_forensics.json`. Its
+semantic fingerprint is
+`4dc5db61525be807a49677893b6f5b338eb35b0f59854ed508cf0d38f5f012ba`;
+it binds full artifact fingerprint
+`b425c470da9cd9754a4cbedb240a44835391ad2dac9dbcd11ba108aef66d40e9`.
+Detailed evidence is restricted to TRAIN/VALIDATION. TEST exposes only sealed
+aggregates (6 groups, 48 source notes, 1 record) and was not used for model or
+policy selection.
+
+All 18 source groups are exact point-versus-interval pairs with the same
+start, and all 128 affected notes are ordinary non-grace, non-zero-duration
+rows. The pinned Dilemmadata producer outer-merges simultaneous note and
+harmony rows and forward-fills within the harmony identity. Pinned
+AnalysisGNN `e115182...` then retains TSV row order, creates one graph note and
+one quality/inversion label per row, and defines no point/interval precedence.
+For every one of the 12 detailed TRAIN groups, the original TSV ordinal held
+by the immutable V2 note ID maps the note row to exactly one of the two source
+entries.
+
+No semantic policy is adopted in this audit. The next separate remediation
+should preserve exact source-row-to-entry membership; if that provenance
+cannot be contract-bound, the conservative fallback is masking only the
+ambiguous task-note targets. Arbitrary first/last, point, or interval
+precedence is rejected. Until that remediation passes a new all-719
+conflict-free preflight, `acceptance=false`, `training_authorized=false`, and
+the CPU smoke, CUDA smoke, historical reconstruction, seed training,
+validation inference, and locked-test evaluation below are **DO NOT RUN**.
+
 ## Historical attestation
 
 Pinned identities:
@@ -88,14 +141,16 @@ weight decay `0.005`, 21 heads, batch 240, SWA, and 100 epochs) and be labelled
 the public corpus. Do not start it before the real-graph smoke gate below has
 been reviewed.
 
-## Pre-training RTX acceptance order
+## Registered pre-training RTX acceptance order — currently blocked
 
 Preparation validates the pinned Dilemmadata release, rebuilds target-neutral
 pieces and source-native sidecars, and binds the unchanged Phase 9E-A common
 projection. It fails unless there are exactly 108 AN + 611 DLC records and the
 source-first split is 577/71/71.
 
-Run these commands in order: environment capture, data preparation, the
+The following is the registered order, retained for contract review only while
+the forensic stop gate above is closed. Do not execute it yet. After a separate
+policy remediation is accepted, run environment capture, data preparation, the
 structural label-binding preflight over all 719 accepted records, the real
 TRAIN graph on CPU, and the same deterministically selected TRAIN graph on
 CUDA. The preflight reads target sidecars only to validate structural binding;
@@ -168,10 +223,11 @@ The ignored manifest binds every piece, source group, split, raw projection,
 target bundle, and common projection. Graph fingerprints are recorded per
 view. Training has 6,924 views (577 × 12); validation/test use only P1.
 
-## Historical reconstruction after smoke review
+## Historical reconstruction after smoke review — currently blocked
 
-After the STOP gate has been reviewed, the exact RTX command for the historical
-arm is:
+This preregistered command is retained as historical contract evidence. It is
+currently **DO NOT RUN**. Only after a future conflict-free preflight and the
+CPU/CUDA STOP review may the historical arm use:
 
 ```bash
 export CUDA_VISIBLE_DEVICES=0
@@ -195,10 +251,12 @@ the operator must record the supplied corpus inventory and fingerprint as a
 substitution. Without that exact input, this command is a pinned paper
 reconstruction only.
 
-## Three scratch seeds
+## Three scratch seeds — currently blocked
 
-Run these commands only after the real CPU/CUDA smoke artifacts pass review.
-Do not open test during preparation, smoke, or validation selection:
+These preregistered commands are currently **DO NOT RUN**. Run them only after
+a separately accepted policy remediation, a conflict-free all-719 preflight,
+and reviewed real CPU/CUDA smoke artifacts. Do not open test during
+preparation, smoke, or validation selection:
 
 ```bash
 export CUDA_VISIBLE_DEVICES=0
@@ -291,6 +349,9 @@ historical reconstruction, all training/checkpoint selection, and locked-test
 evaluation are `NOT RUN locally`; no synthetic results replace them.
 
 ## RTX host inputs and expected artifacts
+
+The repository path on the RTX host is `/home/humtech/Paper/critic`. This path
+does not authorize smoke or training while the forensic gate is closed.
 
 Required environment variables are `CUDA_VISIBLE_DEVICES=0`,
 `CUBLAS_WORKSPACE_CONFIG=:4096:8`,

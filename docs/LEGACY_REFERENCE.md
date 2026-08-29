@@ -506,3 +506,24 @@ AnalysisGNN experiment adapter and immutable Phase 9E-A sidecars. The rejected
 assumptions are one-entry-per-note supervision, arbitrary point/interval
 priority, deleting zero-duration entries, unavailable-row overwrite, and
 silently resolving different available common classes.
+
+The subsequent conflicting-label forensic audit also did not open, search,
+import, copy, modify, format, stage, or reuse the legacy repository or its
+logic. Exact external evidence came only from read-only Dilemmadata commit
+`d60ee75b4a9495e932a4a7be39381578be17e222`,
+`processing/utils.py::make_labeled_pitch_array`, and read-only official
+AnalysisGNN commit `e115182fb29b74bdcb6bf3547ed427d967580947`:
+`analysisgnn/utils/dcl_tsv_utils.py::{load_labeled_pitch_array,
+create_graph_from_df,create_labels_dlc,process_inversion_from_chord}`,
+`analysisgnn/data/datasets/dlc.py::DLCGraphDataset._process_single`, and
+`analysisgnn/models/analysis.py::onsetwise_logit_aggregation`. These sources
+were inspected as provenance only and remain absent from the V2 runtime.
+
+The adapted concept is the official row-aligned DLC target interpretation:
+one retained TSV row becomes one graph note with one quality/inversion label.
+The audit rejects inferring point/interval, first/last, or grace precedence,
+because the pinned code defines none. It also rejects training one V2 note row
+against two different classes. No policy was implemented; exact V2 source-row
+membership is only the evidence-backed recommendation for a later remediation,
+with task-note masking retained as the conservative fallback if source-row
+provenance cannot be contract-bound.

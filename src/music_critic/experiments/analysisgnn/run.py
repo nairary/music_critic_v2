@@ -37,6 +37,10 @@ from music_critic.experiments.analysisgnn.graph import (
     build_analysisgnn_graph,
     graph_fingerprint,
 )
+from music_critic.experiments.analysisgnn.forensics import (
+    compact_forensic_evidence,
+    label_binding_forensic_audit,
+)
 from music_critic.experiments.analysisgnn.metrics import summarize_seeds
 from music_critic.experiments.analysisgnn.model import AnalysisGNNCommonModel
 from music_critic.experiments.analysisgnn.optimization import (
@@ -365,6 +369,13 @@ def _parser() -> argparse.ArgumentParser:
     preflight.add_argument("--cache-root", type=Path, required=True)
     preflight.add_argument("--manifest", type=Path, required=True)
     preflight.add_argument("--output", type=Path, required=True)
+    forensics = commands.add_parser("label-binding-forensics")
+    forensics.add_argument("--cache-root", type=Path, required=True)
+    forensics.add_argument("--corpus-root", type=Path, required=True)
+    forensics.add_argument("--manifest", type=Path, required=True)
+    forensics.add_argument("--preflight", type=Path, required=True)
+    forensics.add_argument("--output", type=Path, required=True)
+    forensics.add_argument("--compact-output", type=Path)
     smoke_parser = commands.add_parser("smoke")
     smoke_parser.add_argument("--device", choices=("cpu", "cuda"), required=True)
     smoke_parser.add_argument("--allow-model-only-stub", action="store_true")
@@ -424,6 +435,17 @@ def main(argv: list[str] | None = None) -> int:
         result = label_binding_preflight(manifest, args.cache_root)
         _write(args.output, result)
         require_zero_conflicting_overlaps(result)
+    elif args.command == "label-binding-forensics":
+        manifest = load_common_manifest(args.manifest)
+        result = label_binding_forensic_audit(
+            manifest,
+            args.cache_root,
+            args.preflight,
+            corpus_root=args.corpus_root,
+        )
+        _write(args.output, result)
+        if args.compact_output:
+            _write(args.compact_output, compact_forensic_evidence(result))
     elif args.command == "smoke":
         result = smoke(args.device, allow_model_only_stub=args.allow_model_only_stub)
         if args.output:

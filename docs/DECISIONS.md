@@ -3546,3 +3546,39 @@ This log is append-only.
   the conflicting count zero. The 719 subset, 577/71/71 assignment, common
   projections, dataset/manifest fingerprints, model, optimizer budget, and
   locked-test policy are unchanged.
+
+## 2026-08-29 — ADR-099: Conflicting AnalysisGNN labels require source-row evidence before policy
+
+- Status: Forensic evidence accepted for Phase 9E-B1; semantic remediation is
+  deliberately not accepted by this decision and training remains blocked.
+- Context: `LabelBindingPreflight@1.0.0` reports 18 different-class groups and
+  128 conflicting notes. Its implementation scans each of the 719 accepted
+  records once and only reports 7,066 as the corpus view schedule. Therefore
+  those overlap counts are already source-native; pitch transposition must not
+  be treated as independent annotation evidence.
+- Decision: Define a conflict identity from record, piece, dialect, common
+  task, sorted source entity IDs, exact source span boundaries, and source
+  values. Transpositions are repetitions of that identity. Persist full
+  TRAIN/VALIDATION note/entry evidence only in ignored output, commit a compact
+  deterministic projection, and expose TEST solely as sealed aggregate counts.
+  TEST values, classes, record IDs, and note diagnostics cannot participate in
+  policy selection or model evaluation.
+- Decision: Bind the temporal interpretation to read-only Dilemmadata commit
+  `d60ee75...` and public AnalysisGNN commit `e115182...`. Dilemmadata's outer
+  note/harmony merge can emit multiple note rows at one timestamp and carries
+  one harmony identity/value on each row. AnalysisGNN keeps those TSV rows and
+  attaches quality/inversion labels row-wise; it defines neither point-span nor
+  interval-span precedence and no grace-specific precedence.
+- Decision: Record exact source TSV ordinals for detailed conflicts. All 12
+  TRAIN/VALIDATION groups are same-start point/interval transitions on
+  ordinary notes, and each conflicting V2 note row maps by its immutable note
+  ID ordinal to exactly one of the two source entries. This supports an exact
+  source-row membership policy for a future separate remediation, but does not
+  implement or authorize it here. If that provenance cannot be made a checked
+  contract, mask only ambiguous task-note supervision as the minimal fallback.
+- Consequences: Arbitrary first/last, point, or interval precedence is rejected;
+  source-entry masking would invalidate those entry metrics, and excluding
+  whole records would alter the frozen 719 subset. `acceptance=false` and
+  `training_authorized=false` remain mandatory. Graph semantics/schema,
+  source-native targets, cache, common projection, 719 subset, 577/71/71 split,
+  model, optimizer, and all existing scientific fingerprints remain unchanged.

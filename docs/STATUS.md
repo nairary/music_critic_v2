@@ -3466,3 +3466,54 @@ not clamped or mutated.
   validation, locked-test evaluation, full suite, or corpus reconstruction was
   run; only the explicitly allowed structural preflight read the existing
   cache. The test lock remains closed and unchanged.
+
+## Phase 9E-B1 conflicting label-binding forensics — 2026-08-29
+
+- Added an evidence-only deterministic forensic surface over the exact failed
+  preflight and existing 719-record cache. It creates no graph, model,
+  optimizer, prediction, metric, selector, checkpoint, or training directory.
+  Full evidence remains ignored; compact committed evidence is
+  `tests/fixtures/analysisgnn/phase9eb1_label_binding_forensics.json`.
+- Corrected the audit premise: preflight overlap rows were already computed
+  once per accepted source record, so 18 groups / 128 notes are source-native,
+  not counts over 7,066 transposition views. The unchanged schedule produces
+  150 effective group occurrences and 1,008 note occurrences: TRAIN has 12
+  groups / 80 source notes / 3 records and 144 / 960 effective occurrences;
+  VALIDATION has zero; sealed TEST has 6 groups / 48 source notes / 1 record
+  and exposes no record IDs, values, classes, or note diagnostics.
+- Every source conflict is `point_vs_interval_same_start` plus
+  `duplicate_timestamp_transition`; all affected notes are ordinary,
+  non-grace, non-zero-duration rows. Quality accounts for 16 source groups /
+  112 source notes and inversion for 2 / 16. Equivalent Corelli entries
+  137/138 remain excluded from the conflicting report.
+- Read-only source evidence at Dilemmadata commit `d60ee75...` shows an outer
+  note/harmony merge and identity-scoped forward fill. Pinned AnalysisGNN
+  `e115182...` reads the resulting TSV without a same-onset deduplication or
+  precedence pass, constructs one graph-note row per TSV row, and encodes
+  quality/inversion row-wise. It defines no point/interval or grace precedence.
+  The V2 note ID retains the originating TSV ordinal, and all 12 detailed
+  TRAIN groups have exactly one source entry for each conflicting note row.
+- No semantic policy changed. The evidence-based next remediation is exact
+  source-row-to-entry membership, not first/last, point, or interval
+  precedence. If row provenance cannot be contract-bound, the conservative
+  fallback is masking only conflicting task-note targets. Source-entry masking
+  prevents entry metrics and record exclusion changes the frozen subset, so
+  neither is preferred.
+- Full artifact semantic fingerprint is
+  `b425c470da9cd9754a4cbedb240a44835391ad2dac9dbcd11ba108aef66d40e9`;
+  compact evidence fingerprint is
+  `4dc5db61525be807a49677893b6f5b338eb35b0f59854ed508cf0d38f5f012ba`.
+  All corpus, assignment, split, target, common-projection, graph-schema,
+  config, and dependency-lock fingerprints are unchanged.
+- `acceptance=false`, `training_authorized=false`, and
+  `test_targets_used_for_model_evaluation=false`. CPU/CUDA graph smoke,
+  historical reconstruction, training/optimizer updates, validation inference,
+  checkpoint selection, locked-test evaluation, full suite, corpus
+  reconstruction, and new raw audit remain not run. The RTX checkout is
+  `/home/humtech/Paper/critic`, but no RTX smoke or training command is
+  authorized until a separate policy remediation makes the all-719 preflight
+  conflict-free.
+- Targeted forensic, overlapping-supervision, and pre-RTX contracts pass
+  `19 passed, 2 warnings in 1.02s`; warnings are the upstream
+  `torch.jit.script` deprecation. Targeted compileall and `git diff --check`
+  pass. No full suite was run.
