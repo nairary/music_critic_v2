@@ -15,7 +15,7 @@ import re
 from typing import Literal
 
 
-PHASE9EB1_CONTRACT_VERSION = "1.1.0"
+PHASE9EB1_CONTRACT_VERSION = "1.1.1"
 GRAPH_SCHEMA_VERSION = "1.1.0"
 ANALYSISGNN_REPOSITORY = "https://github.com/manoskary/analysisgnn"
 ANALYSISGNN_COMMIT = "e115182fb29b74bdcb6bf3547ed427d967580947"
@@ -111,7 +111,30 @@ class Phase9EB1ContractError(ValueError):
     """Raised when a run attempts to leave the preregistered protocol."""
 
 
+def _json_path(parent: str, key: object) -> str:
+    if isinstance(key, str) and key.isidentifier():
+        return f"{parent}.{key}"
+    return f"{parent}[{json.dumps(key, ensure_ascii=False)}]"
+
+
+def _reject_non_finite_json(value: object, *, path: str = "$") -> None:
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise Phase9EB1ContractError(
+                f"canonical JSON contains non-finite float at {path}: {value!r}"
+            )
+        return
+    if isinstance(value, dict):
+        for key in sorted(value, key=lambda item: str(item)):
+            _reject_non_finite_json(value[key], path=_json_path(path, key))
+        return
+    if isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            _reject_non_finite_json(item, path=f"{path}[{index}]")
+
+
 def canonical_json(value: object, *, indent: int | None = None) -> str:
+    _reject_non_finite_json(value)
     return json.dumps(
         value,
         ensure_ascii=False,
@@ -173,6 +196,12 @@ class Phase9EB1Config:
     balanced_accuracy_rule: Literal[
         "mean_recall_over_supported_true_classes"
     ] = "mean_recall_over_supported_true_classes"
+    joint_quality_inversion_alignment: Literal[
+        "same_record_shared_source_entity_id"
+    ] = "same_record_shared_source_entity_id"
+    undefined_metric_reporting: Literal[
+        "null_plus_availability_support_and_reason"
+    ] = "null_plus_availability_support_and_reason"
     validation_selection: Literal[
         "mean_normalized_quality_inversion_nll"
     ] = "mean_normalized_quality_inversion_nll"
@@ -240,6 +269,13 @@ class Phase9EB1Config:
             != "mean_recall_over_supported_true_classes"
         ):
             raise Phase9EB1ContractError("evaluation averaging rule differs from protocol")
+        if (
+            self.joint_quality_inversion_alignment
+            != "same_record_shared_source_entity_id"
+            or self.undefined_metric_reporting
+            != "null_plus_availability_support_and_reason"
+        ):
+            raise Phase9EB1ContractError("evaluation availability contract differs")
         if self.bootstrap_samples <= 0 or not expected:
             raise Phase9EB1ContractError("bootstrap sample count must be positive")
 

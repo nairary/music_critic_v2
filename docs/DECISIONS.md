@@ -3620,3 +3620,38 @@ This log is append-only.
   graph/experiment version advances to `1.1.0`; all dataset, split, sidecar,
   common-projection, model, metric, optimizer-budget, and test-unlock contracts
   remain unchanged.
+
+## 2026-08-29 — ADR-101: Zero-support Phase 9E-B1 metrics are explicitly unavailable
+
+- Status: Accepted for Phase 9E-B1 validation remediation; CUDA rerun remains
+  behind the registered preflight and CPU/CUDA smoke gates.
+- Context: The remediated seed-17 run completed 500 finite applied updates and
+  failed while canonicalizing its first validation row. The exact value was
+  `$.metrics.joint_quality_inversion.accuracy = NaN`. The frozen 71-record
+  VALIDATION partition contains 13,475 available quality entries and 7,064
+  available inversion entries but zero shared `(record_id, entity_id)` pairs:
+  source entity identities are intentionally task-specific. Thus the registered
+  joint accuracy has mathematical support zero; quality/inversion NLL and the
+  model update history are not implicated.
+- Decision: Keep the registered joint alignment
+  `same_record_shared_source_entity_id`; do not invent cross-task matches from
+  ordering, spans, labels, or source-row membership in this remediation. A
+  zero-support joint metric is represented as `accuracy=null`,
+  `available=false`, `support=0`, and a stable `undefined_reason`. Bootstrap
+  and seed summaries carry null plus defined/requested counts when their joint
+  statistic is unavailable. Undefined never means zero.
+- Decision: Canonical JSON continues to reject all non-finite floats and now
+  reports their deterministic nested field path. Validation selection requires
+  finite quality and inversion NLL and fails closed with the required field
+  path before checkpoint selection. Serialize an append row before opening its
+  destination so a rejected row cannot create a new empty artifact.
+- Decision: Advance only the Phase experiment/reporting contract to `1.1.1`
+  and bind the joint alignment plus undefined-reporting policy into the config
+  fingerprint. Keep graph schema `1.1.0` and every data, split, augmentation,
+  model, optimizer, source-row, and test-lock contract unchanged.
+- Consequences: Preserve the failed 500-update run and its empty validation
+  artifact as evidence, and restart seed 17 from applied update 0 in a new
+  output root. The config fingerprint advances from `f006dcdc...` to
+  `3c93b1c5d733ade2048104ad164a04fddaee33a54e650de4d9f513251209a469`;
+  graph and dataset fingerprints do not change. No TEST target or metric was
+  opened to make this decision.

@@ -14,6 +14,9 @@ import torch
 from music_critic.experiments.analysisgnn.contracts import TASK_CLASS_COUNTS
 
 
+JOINT_ZERO_SUPPORT_REASON = "zero_joint_quality_inversion_support"
+
+
 @dataclass(frozen=True, slots=True)
 class EntryPrediction:
     record_id: str
@@ -168,7 +171,48 @@ def joint_accuracy(rows: Iterable[EntryPrediction]) -> dict[str, object]:
     correct = sum(
         all(row.prediction == row.target for row in values.values()) for values in pairs
     )
-    return {"accuracy": correct / len(pairs) if pairs else float("nan"), "support": len(pairs)}
+    support = len(pairs)
+    return {
+        "accuracy": correct / support if support else None,
+        "available": support > 0,
+        "support": support,
+        "undefined_reason": None if support else JOINT_ZERO_SUPPORT_REASON,
+    }
+
+
+def _optional_joint_accuracy(value: object, *, path: str) -> float | None:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{path} must be a metric object")
+    available = value.get("available")
+    support = value.get("support")
+    accuracy = value.get("accuracy")
+    reason = value.get("undefined_reason")
+    if not isinstance(available, bool):
+        raise ValueError(f"{path}.available must be boolean")
+    if isinstance(support, bool) or not isinstance(support, int) or support < 0:
+        raise ValueError(f"{path}.support must be a non-negative integer")
+    if available:
+        if support == 0:
+            raise ValueError(f"{path}.support must be positive when available")
+        if isinstance(accuracy, bool) or not isinstance(accuracy, (int, float)):
+            raise ValueError(f"{path}.accuracy must be numeric when available")
+        result = float(accuracy)
+        if not math.isfinite(result):
+            raise ValueError(
+                f"{path}.accuracy must be finite when available: {result!r}"
+            )
+        if reason is not None:
+            raise ValueError(f"{path}.undefined_reason must be null when available")
+        return result
+    if accuracy is not None:
+        raise ValueError(f"{path}.accuracy must be null when unavailable")
+    if support != 0:
+        raise ValueError(f"{path}.support must be zero when unavailable")
+    if reason != JOINT_ZERO_SUPPORT_REASON:
+        raise ValueError(
+            f"{path}.undefined_reason must identify zero joint support"
+        )
+    return None
 
 
 def benchmark_metrics(rows: Iterable[EntryPrediction]) -> dict[str, object]:
@@ -233,7 +277,12 @@ def grouped_bootstrap(
                 "majority_class_baseline_accuracy",
             ):
                 values[task][name].append(float(metrics[task][name]))  # type: ignore[index]
-        joint_values.append(float(metrics["joint_quality_inversion"]["accuracy"]))  # type: ignore[index]
+        joint_value = _optional_joint_accuracy(
+            metrics["joint_quality_inversion"],
+            path="$.joint_quality_inversion",
+        )
+        if joint_value is not None:
+            joint_values.append(joint_value)
         normalized_nll_values.append(float(metrics["normalized_mean_nll"]))
 
     def percentile(series: list[float], q: float) -> float:
@@ -252,11 +301,28 @@ def grouped_bootstrap(
         }
         for task, task_values in values.items()
     }
+    complete_joint_support = len(joint_values) == samples
     intervals["joint_quality_inversion"] = {
         "accuracy": (
-            percentile(joint_values, 0.025),
-            percentile(joint_values, 0.975),
-        )
+            (
+                percentile(joint_values, 0.025),
+                percentile(joint_values, 0.975),
+            )
+            if complete_joint_support
+            else None
+        ),
+        "available": complete_joint_support,
+        "defined_sample_count": len(joint_values),
+        "requested_sample_count": samples,
+        "undefined_reason": (
+            None
+            if complete_joint_support
+            else (
+                "zero_joint_quality_inversion_bootstrap_support"
+                if not joint_values
+                else "incomplete_joint_quality_inversion_bootstrap_support"
+            )
+        ),
     }
     intervals["normalized_mean_nll"] = (
         percentile(normalized_nll_values, 0.025),
@@ -281,11 +347,35 @@ def summarize_seeds(seed_metrics: Mapping[int, Mapping[str, object]]) -> dict[st
             values = [float(seed_metrics[seed][task][metric]) for seed in sorted(seed_metrics)]  # type: ignore[index]
             summary[task][metric] = {"mean": mean(values), "std": stdev(values)}  # type: ignore[index]
     joint = [
-        float(seed_metrics[seed]["joint_quality_inversion"]["accuracy"])  # type: ignore[index]
+        value
         for seed in sorted(seed_metrics)
+        if (
+            value := _optional_joint_accuracy(
+                seed_metrics[seed]["joint_quality_inversion"],
+                path=f"$.seeds[{seed}].joint_quality_inversion",
+            )
+        )
+        is not None
     ]
+    complete_joint_support = len(joint) == len(seed_metrics)
     summary["joint_quality_inversion"] = {
-        "accuracy": {"mean": mean(joint), "std": stdev(joint)}
+        "accuracy": (
+            {"mean": mean(joint), "std": stdev(joint)}
+            if complete_joint_support
+            else None
+        ),
+        "available": complete_joint_support,
+        "required_seed_count": len(seed_metrics),
+        "supporting_seed_count": len(joint),
+        "undefined_reason": (
+            None
+            if complete_joint_support
+            else (
+                "zero_joint_quality_inversion_seed_support"
+                if not joint
+                else "incomplete_joint_quality_inversion_seed_support"
+            )
+        ),
     }
     normalized_nll = [
         float(seed_metrics[seed]["normalized_mean_nll"])
@@ -300,6 +390,7 @@ def summarize_seeds(seed_metrics: Mapping[int, Mapping[str, object]]) -> dict[st
 
 __all__ = [
     "EntryPrediction",
+    "JOINT_ZERO_SUPPORT_REASON",
     "aggregate_entry_predictions",
     "benchmark_metrics",
     "grouped_bootstrap",

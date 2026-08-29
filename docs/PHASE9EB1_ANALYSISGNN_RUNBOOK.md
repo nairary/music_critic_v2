@@ -80,6 +80,42 @@ first/last, point, or interval precedence remains rejected. RTX CPU/CUDA smoke
 is now authorized in the registered order below; training remains behind the
 explicit post-smoke STOP/review gate.
 
+## Validation zero-support remediation
+
+The first remediated seed-17 run completed 500 finite applied updates, then
+failed before writing its first validation row. Preserve that entire run
+directory as evidence: `training.jsonl` and the schedule prove the 500 applied
+updates, while the empty `validation.jsonl` and traceback prove that no
+validation result or selected checkpoint was committed. Never resume, rename,
+truncate, or reuse that directory.
+
+The rejected value was exactly
+`$.metrics.joint_quality_inversion.accuracy = NaN`. A read-only audit of the
+unchanged frozen VALIDATION partition found 71 records, 13,475 available
+quality entries, 7,064 available inversion entries, and zero shared
+`(record_id, source entity_id)` identities. Quality and inversion source IDs
+are task-specific, so the registered joint metric has support zero even though
+both task metrics and the validation-selection NLLs are finite. This is an
+undefined metric, not a model divergence and not a source-row binding failure.
+The audit did not open TEST targets or perform model evaluation.
+
+Phase contract `1.1.1` represents that known state deterministically as
+`{"accuracy": null, "available": false, "support": 0,
+"undefined_reason": "zero_joint_quality_inversion_support"}`. Bootstrap and
+three-seed summaries likewise use `null` plus availability and defined-count
+evidence; they never substitute zero. Quality and inversion NLL remain required
+finite inputs to checkpoint selection and fail closed with their nested field
+path otherwise. Canonical JSON still rejects every `NaN` and infinity, now
+reporting the first deterministic nested path before opening an append target.
+
+The patch changes only the Phase config fingerprint from `f006dcdc...` to
+`3c93b1c5d733ade2048104ad164a04fddaee33a54e650de4d9f513251209a469`.
+Graph schema remains
+`3a54b5358b10c5ff1c6765cab8601010bfcde769d9ae118c69d2e6baffd785b5`;
+the 719-record manifest, 577/71/71 split, augmentation, model, optimizer,
+source-row binding, preflight fingerprint, and locked-test policy are
+unchanged.
+
 ## Historical attestation
 
 Pinned identities:
@@ -278,7 +314,10 @@ preparation, smoke, or validation selection:
 ```bash
 export CUDA_VISIBLE_DEVICES=0
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
-phase9eb1_runs=outputs/phase9eb1/common-runs-remediation
+phase9eb1_failed_runs=outputs/phase9eb1/common-runs-remediation
+test -s "$phase9eb1_failed_runs/seed-17/training.jsonl"
+test ! -s "$phase9eb1_failed_runs/seed-17/validation.jsonl"
+phase9eb1_runs=outputs/phase9eb1/common-runs-validation-remediation
 test ! -e "$phase9eb1_runs"
 PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
   outputs/phase9eb1/environment/venv/bin/python \
@@ -324,9 +363,10 @@ outputs/phase9eb1/environment/venv/bin/python \
   --output "$phase9eb1_runs/three-seed-summary.json"
 ```
 
-The `test ! -e` guard plus `train`'s non-empty-directory refusal makes the
-seed-17 command a fresh restart at applied update 0. Do not resume or reuse the
-failed 31-update directory.
+The evidence guards do not modify the failed run. The new `test ! -e` guard
+plus `train`'s non-empty-directory refusal makes the seed-17 command a fresh
+restart at applied update 0. Do not resume or reuse either the earlier
+31-update failure or the preserved 500-update validation failure.
 
 Each seed uses exactly 10,000 applied updates; CE smoothing `0.1`,
 `ignore_index=-1`, no class weights, learned two-task uncertainty, AdamW
@@ -355,7 +395,9 @@ Per-seed outputs include configs/bindings, architecture, update logs,
 validation, graph fingerprints, checkpoint SHA-256, per-entry
 logits/predictions/masks, all required metrics, joint accuracy, confusion
 matrices/support, majority baseline, normalized mean NLL, grouped bootstrap,
-and a file-hash manifest. Summary requires
+and a file-hash manifest. Joint accuracy is explicitly unavailable with null,
+support, availability, and reason fields whenever its identity support is zero;
+it is never coerced to zero. Summary requires
 exactly seeds 17/23/42 and reports mean ± sample standard deviation.
 
 ## Current host observation

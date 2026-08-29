@@ -1,7 +1,7 @@
 {
   "applied_update_budget": 10000,
   "arm": "analysisgnn-common-subset",
-  "config_fingerprint": "f006dcdc251621344afb1251ac0d1d8c09667de48865a850caa3b3501c60b07a",
+  "config_fingerprint": "3c93b1c5d733ade2048104ad164a04fddaee33a54e650de4d9f513251209a469",
   "augmentation": {
     "split_before_augmentation": true,
     "test": ["P1"],
@@ -12,7 +12,7 @@
     "graphs_per_update": 1,
     "schedule": "seeded_shuffled_source_transposition_views"
   },
-  "contract_version": "1.1.0",
+  "contract_version": "1.1.1",
   "data": {
     "assignment_fingerprint": "a2b6bb29a26a87f74eb1921888d2651bd4fbe3bffec51e9cb88fbe9bb3084eec",
     "common_registry_fingerprint": "bb50920808b6ad3a19fb32b8315a417a837b2ab008efd7bee71e71d120e2ee2e",
@@ -28,9 +28,11 @@
     "balanced_accuracy_rule": "mean_recall_over_supported_true_classes",
     "bootstrap_samples": 2000,
     "entry_aggregation": "mean_note_log_probability",
+    "joint_quality_inversion_alignment": "same_record_shared_source_entity_id",
     "macro_f1_rule": "mean_f1_over_supported_true_classes",
     "metrics": ["nll", "normalized_mean_nll", "macro_f1", "balanced_accuracy", "accuracy", "majority_class_baseline_accuracy", "joint_quality_inversion_accuracy"],
-    "selection": "mean_normalized_quality_inversion_nll"
+    "selection": "mean_normalized_quality_inversion_nll",
+    "undefined_metric_reporting": "null_plus_availability_support_and_reason"
   },
   "graph_schema_fingerprint": "3a54b5358b10c5ff1c6765cab8601010bfcde769d9ae118c69d2e6baffd785b5",
   "model": {

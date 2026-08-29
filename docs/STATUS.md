@@ -3568,3 +3568,44 @@ not clamped or mutated.
   the unchanged upstream `torch.jit.script` deprecation. Targeted compileall,
   JSON validation, preflight artifact revalidation, and `git diff --check`
   pass.
+
+## Phase 9E-B1 validation zero-support remediation — 2026-08-29
+
+- The seed-17 remediation run reached 500 finite applied updates and failed
+  while serializing its first validation row. The exact rejected field is
+  `$.metrics.joint_quality_inversion.accuracy = NaN`; `validation.jsonl`
+  remains empty. The failed run is retained unchanged as evidence and is not a
+  resume source.
+- Root cause is metric identity support, not model divergence or source-row
+  supervision. A read-only scan of all 71 unchanged VALIDATION records found
+  13,475 available quality entries and 7,064 available inversion entries, but
+  zero common `(record_id, source entity_id)` identities. Quality and inversion
+  entity IDs are task-specific, so `joint_accuracy` deliberately has support
+  zero under its registered identity contract. No TEST target was opened.
+- A known zero-support joint metric now reports `accuracy=null`,
+  `available=false`, `support=0`, and
+  `undefined_reason=zero_joint_quality_inversion_support`. Bootstrap and
+  three-seed summaries propagate null plus defined/requested counts and never
+  coerce undefined to zero. Supported joint metrics remain finite numerics.
+- Canonical JSON continues to prohibit `NaN` and infinity, but now fails with
+  the first deterministic nested field path. Append payloads are canonicalized
+  before opening their artifact. Validation checkpoint selection separately
+  requires finite `$.quality.nll` and `$.inversion.nll` and fails closed before
+  selection if either is absent, nonnumeric, or non-finite.
+- The Phase reporting/config contract advances `1.1.0 -> 1.1.1`; config
+  fingerprint changes `f006dcdc... ->
+  3c93b1c5d733ade2048104ad164a04fddaee33a54e650de4d9f513251209a469`.
+  Graph schema/fingerprint remains `1.1.0` /
+  `3a54b5358b10c5ff1c6765cab8601010bfcde769d9ae118c69d2e6baffd785b5`.
+  Dataset assignment `a2b6bb29...`, records `5924a6c3...`, manifest
+  `be0d36ae...`, registry `bb509208...`, raw index `c0451976...`, split
+  `58ac7720...`, and source-row preflight `81022159...` remain unchanged, as
+  do subset 719, split 577/71/71, augmentation, model, optimizer, source-row
+  binding, and test lock.
+- Targeted Phase 9E-B1 and repository-contract tests pass
+  `52 passed, 2 warnings in 1.98s`; warnings are the unchanged upstream
+  `torch.jit.script` deprecation. Targeted compileall, config/graph/dataset
+  contract validation, and `git diff --check` pass. No
+  training, optimizer update, CPU/CUDA smoke, model validation inference,
+  locked-TEST evaluation, full suite, corpus replay, or output mutation ran
+  locally.

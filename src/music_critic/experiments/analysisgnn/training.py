@@ -75,9 +75,10 @@ def _write(path: Path, payload: str) -> None:
 
 
 def _append(path: Path, value: object) -> None:
+    payload = canonical_json(value) + "\n"
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as stream:
-        stream.write(canonical_json(value) + "\n")
+        stream.write(payload)
 
 
 def _seed(seed: int) -> None:
@@ -204,9 +205,31 @@ def evaluate_validation(
 
 
 def validation_objective(metrics: dict[str, object]) -> float:
-    quality = float(metrics["quality"]["nll"]) / math.log(50)  # type: ignore[index]
-    inversion = float(metrics["inversion"]["nll"]) / math.log(4)  # type: ignore[index]
-    return 0.5 * (quality + inversion)
+    def required_nll(task: str) -> float:
+        path = f"$.{task}.nll"
+        task_metrics = metrics.get(task)
+        if not isinstance(task_metrics, Mapping) or "nll" not in task_metrics:
+            raise ValueError(f"required validation metric {path} is absent")
+        value = task_metrics["nll"]
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"required validation metric {path} must be numeric")
+        result = float(value)
+        if not math.isfinite(result):
+            raise ValueError(
+                f"required validation metric {path} must be finite: {result!r}"
+            )
+        return result
+
+    score = 0.5 * (
+        required_nll("quality") / math.log(50)
+        + required_nll("inversion") / math.log(4)
+    )
+    if not math.isfinite(score):
+        raise ValueError(
+            f"required validation metric $.normalized_selection_score "
+            f"must be finite: {score!r}"
+        )
+    return score
 
 
 def _checkpoint(

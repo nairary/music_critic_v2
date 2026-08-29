@@ -329,7 +329,7 @@ def test_reconstruction_lock_adds_music21_without_changing_graph_pins() -> None:
     config = json.loads(
         (root / "configs/phase9eb1/common_subset.json").read_text()
     )
-    assert config["contract_version"] == "1.1.0"
+    assert config["contract_version"] == "1.1.1"
     assert config["config_fingerprint"] == (
         COMMON_BENCHMARK_CONFIG.config_fingerprint
     )
