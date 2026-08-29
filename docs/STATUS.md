@@ -3417,3 +3417,52 @@ not clamped or mutated.
   0.99s`; targeted compileall and `git diff --check` pass. Corpus replay, full
   suite, local real-graph smoke, training, checkpoint selection, validation/test
   evaluation and CUDA remain `NOT RUN` in this remediation.
+
+## Phase 9E-B1 overlapping-supervision remediation — 2026-08-29
+
+- Root cause is the experiment-local label adapter's one-entry-per-note
+  assumption. The failed seed-17 TRAIN view was
+  `dlc:corelli:op03n04a` /
+  `piece:dilemmadata-dlc-a88f753949b33e7705b36448` at transposition `m6`:
+  exact major-triad entries 137 `[86,86]` and 138 `[86,87]` both contain the
+  same six onset-86 notes. This is equivalent supervision, not a semantic
+  conflict.
+- Graph schema `1.0.1` now stores one note training target and a deterministic
+  sparse `[note_index, entry_index]` tensor per task. Equivalent available
+  classes deduplicate only the target; every membership remains available for
+  independent source-entry aggregation. Masked/unavailable rows cannot create
+  or overwrite memberships. Different available classes fail closed with
+  record/piece/task/note/entry/entity/class diagnostics. The real-ID regression
+  verifies six major-triad targets and predictions for both entries 137/138;
+  its different-class variant verifies the exception.
+- `LabelBindingPreflight@1.0.0` scans all 719 manifest-bound records before a
+  run directory/model/optimizer and emits a deterministic ignored JSON
+  artifact. It checks one exact membership contract reused by all pitch-only
+  views (7,066 total) and performs no model inference, metric, selection, or
+  locked-test evaluation. Training requires a current manifest/schema-bound,
+  hash-valid artifact with zero conflicting available-class notes.
+- The safe final preflight artifact fingerprint is
+  `da1d02a0ab58ce9ad765a37822e59e96ddbdbce2fc20302ce46ebb5c82faa500`.
+  It reports 224 equivalent note overlaps in 36 groups across six records and
+  128 conflicting note overlaps in 18 groups across four records; the requested
+  Corelli entries 137/138 account for exactly six equivalent quality notes.
+  `acceptance=false` therefore blocks CPU/CUDA progression and a fresh seed-17
+  start. Resolving the other exact point/interval class conflicts requires a
+  separately authorized semantic/data-policy decision; this remediation does
+  not prioritize an entry, delete point spans, or alter the dataset.
+- CUDA paths fail before initialization unless
+  `CUBLAS_WORKSPACE_CONFIG=:4096:8`; deterministic algorithms are fail-closed.
+  The reconstruction lock/environment adds only `music21==9.3.0` and leaves
+  torch 2.2.2, PyG 2.6.1, and GraphMuse `c36eedb...` unchanged.
+- Contract/config fingerprint changed from `235ee350...` to `de91db31...` and
+  graph schema fingerprint from `77bc67ee...` to `393067f9...`. Dependency-lock
+  SHA-256 changed from `9aa9c794...` to `674dfe2e...`. Dataset assignment
+  `a2b6bb29...`, records `5924a6c3...`, manifest `be0d36ae...`, registry
+  `bb509208...`, raw index `c0451976...`, and split `58ac7720...` remain
+  unchanged, as do the 719 subset and 577/71/71 split.
+- Approved targeted tests pass `24 passed, 2 warnings in 1.02s`; warnings are
+  the upstream `torch.jit.script` deprecation. Targeted compileall and
+  `git diff --check` pass. No training, optimizer update, CPU/CUDA graph smoke,
+  validation, locked-test evaluation, full suite, or corpus reconstruction was
+  run; only the explicitly allowed structural preflight read the existing
+  cache. The test lock remains closed and unchanged.

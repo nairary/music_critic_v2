@@ -8,6 +8,7 @@ torch-geometric==2.6.1
 pytorch-lightning==2.5.0.post0
 torchmetrics==1.6.0
 partitura==1.6.0
+music21==9.3.0
 numpy==1.26.4
 pandas==2.2.3
 scikit-learn==1.6.0

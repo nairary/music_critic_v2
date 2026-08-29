@@ -15,7 +15,8 @@ import re
 from typing import Literal
 
 
-PHASE9EB1_CONTRACT_VERSION = "1.0.0"
+PHASE9EB1_CONTRACT_VERSION = "1.0.1"
+GRAPH_SCHEMA_VERSION = "1.0.1"
 ANALYSISGNN_REPOSITORY = "https://github.com/manoskary/analysisgnn"
 ANALYSISGNN_COMMIT = "e115182fb29b74bdcb6bf3547ed427d967580947"
 ANALYSISGNN_RUN_PATH = "melkisedeath/AnalysisGNN/rhsjiz03"
@@ -306,7 +307,8 @@ def graph_schema_fingerprint() -> str:
             "edge_types": EDGE_TYPES,
             "graphmuse_commit": GRAPHMUSE_COMMIT,
             "node_types": NODE_TYPES,
-            "schema": "analysisgnn-native-note-beat-measure-v1",
+            "schema": "analysisgnn-native-note-beat-measure",
+            "schema_version": GRAPH_SCHEMA_VERSION,
         }
     )
 
@@ -328,6 +330,7 @@ __all__ = [
     "EXPECTED_SPLIT_FINGERPRINT",
     "GRAPHMUSE_COMMIT",
     "GRAPHMUSE_REPOSITORY",
+    "GRAPH_SCHEMA_VERSION",
     "HISTORICAL_ARTIFACT",
     "HISTORICAL_CHECKPOINT_BYTES",
     "HISTORICAL_CHECKPOINT_SHA256",

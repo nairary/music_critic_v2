@@ -6,6 +6,7 @@ from dataclasses import asdict
 from hashlib import sha256
 import json
 import math
+import os
 from pathlib import Path
 import random
 from typing import Iterable
@@ -44,6 +45,12 @@ from music_critic.experiments.analysisgnn.optimization import (
     apply_update_learning_rate,
     configure_optimizer,
 )
+from music_critic.experiments.analysisgnn.preflight import (
+    validate_label_binding_preflight,
+)
+
+
+DETERMINISTIC_CUBLAS_WORKSPACE_CONFIG = ":4096:8"
 
 
 def _sha256(path: Path) -> str:
@@ -72,7 +79,22 @@ def _seed(seed: int) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-    torch.use_deterministic_algorithms(True, warn_only=True)
+    torch.use_deterministic_algorithms(True)
+
+
+def require_deterministic_cuda_environment(device: str | torch.device) -> None:
+    """Fail before CUDA initialization when the required cuBLAS mode is absent."""
+
+    runtime_device = torch.device(device)
+    if (
+        runtime_device.type == "cuda"
+        and os.environ.get("CUBLAS_WORKSPACE_CONFIG")
+        != DETERMINISTIC_CUBLAS_WORKSPACE_CONFIG
+    ):
+        raise RuntimeError(
+            "CUDA execution requires CUBLAS_WORKSPACE_CONFIG=:4096:8 "
+            "to be exported before process start"
+        )
 
 
 def _graph(
@@ -119,7 +141,7 @@ def _evaluate_source_split(
                     task=task,
                     note_logits=logits[task],
                     note_targets=graph["note"][task],  # type: ignore[index]
-                    note_entry_index=graph["note"][f"{task}_entry_index"],  # type: ignore[index]
+                    note_membership_index=graph["note"][f"{task}_membership_index"],  # type: ignore[index]
                     entity_ids=tuple(entry.entity_id for entry in task_entries),
                     entry_masks=tuple(entry.mask for entry in task_entries),
                 )
@@ -190,6 +212,7 @@ def train_seed(
     seed: int,
     device: str = "cuda",
     dependency_lock: str | Path,
+    label_binding_preflight: str | Path,
     runtime_environment: dict[str, object],
     config: Phase9EB1Config = COMMON_BENCHMARK_CONFIG,
 ) -> dict[str, object]:
@@ -198,8 +221,14 @@ def train_seed(
     if seed not in config.seeds:
         raise ValueError("seed is outside the frozen three-seed protocol")
     runtime_device = torch.device(device)
-    if runtime_device.type != "cuda" or not torch.cuda.is_available():
+    if runtime_device.type != "cuda":
         raise RuntimeError("Phase 9E-B1 training requires the remote CUDA gate")
+    require_deterministic_cuda_environment(runtime_device)
+    if not torch.cuda.is_available():
+        raise RuntimeError("Phase 9E-B1 training requires the remote CUDA gate")
+    preflight_report = validate_label_binding_preflight(
+        label_binding_preflight, manifest
+    )
     _seed(seed)
     output = Path(output_root) / f"seed-{seed}"
     if output.exists() and any(output.iterdir()):
@@ -232,6 +261,9 @@ def train_seed(
         canonical_json(
             {
                 "dataset_manifest_fingerprint": manifest.manifest_fingerprint,
+                "label_binding_preflight_fingerprint": preflight_report[
+                    "preflight_fingerprint"
+                ],
                 "source_split_fingerprint": manifest.source_split_fingerprint,
                 "train_transpositions": list(TRANSPOSITIONS),
             },
@@ -457,7 +489,10 @@ def evaluate_seed_test(
     """Open locked test only after a hash-bound three-checkpoint unlock."""
 
     runtime_device = torch.device(device)
-    if runtime_device.type != "cuda" or not torch.cuda.is_available():
+    if runtime_device.type != "cuda":
+        raise RuntimeError("locked-test evaluation requires CUDA")
+    require_deterministic_cuda_environment(runtime_device)
+    if not torch.cuda.is_available():
         raise RuntimeError("locked-test evaluation requires CUDA")
     unlock = json.loads(Path(unlock_path).read_text(encoding="utf-8"))
     unlock_fingerprint = unlock.pop("unlock_fingerprint", None)
@@ -528,9 +563,11 @@ def evaluate_seed_test(
 
 
 __all__ = [
+    "DETERMINISTIC_CUBLAS_WORKSPACE_CONFIG",
     "create_test_unlock",
     "evaluate_seed_test",
     "evaluate_validation",
+    "require_deterministic_cuda_environment",
     "train_seed",
     "validation_objective",
 ]

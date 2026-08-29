@@ -3503,3 +3503,46 @@ This log is append-only.
   SSL, BiGRU/Transformer, canonical/raw inference, or Phase 9E-A evidence.
   Generated data/checkpoints/results remain uncommitted. Missing CUDA or build
   prerequisites is recorded as pending execution, never synthetic evidence.
+
+## 2026-08-29 — ADR-098: AnalysisGNN source-entry supervision is many-to-many and preflight-gated
+
+- Status: Accepted for Phase 9E-B1 remediation; fresh CUDA training is blocked
+  until the frozen corpus has zero conflicting available-class overlaps.
+- Context: Seed 17 stopped after 31 applied updates on TRAIN record
+  `dlc:corelli:op03n04a`, piece
+  `piece:dilemmadata-dlc-a88f753949b33e7705b36448`, transposition `m6`.
+  Quality entries 137 `[86,86]` and 138 `[86,87]` are both exact major
+  triads, and six notes at onset 86 legitimately belong to both. The original
+  graph adapter stored only one entry index per note and treated this
+  equivalent overlap as an error.
+- Decision: A task graph stores one note-level class target plus a
+  lexicographically sorted sparse `[note_index, entry_index]` membership
+  tensor. Multiple available exact/coarsened memberships with one common class
+  yield that single training target and retain every source entry for
+  independent mean-note-log-probability aggregation. Unavailable/masked rows
+  create no memberships and cannot replace available supervision. Different
+  available common classes on one note remain a fail-closed error with
+  record/piece/task/note/entry/entity/class diagnostics; zero-duration entries
+  are neither deleted nor arbitrarily preferred.
+- Decision: `LabelBindingPreflight@1.0.0` scans all 719 manifest-bound records
+  before any run directory, model, or optimizer is created. Pitch-only
+  transpositions reuse the same exact onset/span membership, covering the
+  unchanged 7,066-view contract. The deterministic, manifest/schema-bound JSON
+  reports equivalent and conflicting overlap groups/notes and is accepted only
+  when conflicting available-class note count is zero. It may inspect locked
+  sidecars for structural binding only and cannot construct model predictions,
+  metrics, selection, or test claims.
+- Decision: Version the experiment contract and graph schema to `1.0.1`.
+  CUDA execution requires `CUBLAS_WORKSPACE_CONFIG=:4096:8` before CUDA
+  initialization and uses fail-closed deterministic algorithms. Add
+  `music21==9.3.0`, required by the pinned external AnalysisGNN import, without
+  changing torch 2.2.2, PyG 2.6.1, or GraphMuse `c36eedb...`.
+- Consequences: The safe local preflight found 224 equivalent note overlaps in
+  36 source-entry groups and 128 conflicting note overlaps in 18 groups. The
+  requested Corelli 137/138 case accounts for six equivalent quality notes,
+  but four other records contain conflicting exact point/interval pairs.
+  Therefore the gate correctly prevents CPU/CUDA smoke progression and seed-17
+  restart until a separately authorized semantic/data-policy remediation makes
+  the conflicting count zero. The 719 subset, 577/71/71 assignment, common
+  projections, dataset/manifest fingerprints, model, optimizer budget, and
+  locked-test policy are unchanged.

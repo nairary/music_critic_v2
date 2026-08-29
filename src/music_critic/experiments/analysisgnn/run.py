@@ -42,9 +42,14 @@ from music_critic.experiments.analysisgnn.model import AnalysisGNNCommonModel
 from music_critic.experiments.analysisgnn.optimization import (
     TwoTaskUncertaintyLoss,
 )
+from music_critic.experiments.analysisgnn.preflight import (
+    label_binding_preflight,
+    require_zero_conflicting_overlaps,
+)
 from music_critic.experiments.analysisgnn.training import (
     create_test_unlock,
     evaluate_seed_test,
+    require_deterministic_cuda_environment,
     train_seed,
 )
 
@@ -101,11 +106,13 @@ def environment_report() -> dict[str, object]:
         "claim": "runtime_environment_observation",
         "cuda_available": torch.cuda.is_available(),
         "cuda_runtime": torch.version.cuda,
+        "cublas_workspace_config": os.environ.get("CUBLAS_WORKSPACE_CONFIG"),
         "cudnn": torch.backends.cudnn.version(),
         "dependencies": {
             name: _dependency(name)
             for name in (
                 "graphmuse",
+                "music21",
                 "numpy",
                 "partitura",
                 "pytorch-lightning",
@@ -154,6 +161,7 @@ def _synthetic_graph(device: torch.device) -> object:
 
 def smoke(device_name: str, *, allow_model_only_stub: bool = False) -> dict[str, object]:
     device = torch.device(device_name)
+    require_deterministic_cuda_environment(device)
     if device.type == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("CUDA smoke requested but CUDA is unavailable")
     substitution = None
@@ -188,6 +196,7 @@ def smoke(device_name: str, *, allow_model_only_stub: bool = False) -> dict[str,
         sys.modules.setdefault("torch_scatter", torch_scatter)
         substitution = "model_only_empty_csamplers_import_stub"
     torch.manual_seed(17)
+    torch.use_deterministic_algorithms(True)
     model = AnalysisGNNCommonModel().to(device)
     objective = TwoTaskUncertaintyLoss().to(device)
     graph = _synthetic_graph(device)
@@ -253,6 +262,7 @@ def real_graph_smoke(
     """Run one real GraphMuse TRAIN-graph forward/backward without an optimizer."""
 
     device = torch.device(device_name)
+    require_deterministic_cuda_environment(device)
     if device.type == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("CUDA real graph smoke requested but CUDA is unavailable")
     row, piece, targets, projection = _select_real_smoke_record(manifest, cache_root)
@@ -278,6 +288,7 @@ def real_graph_smoke(
     torch.manual_seed(17)
     if device.type == "cuda":
         torch.cuda.manual_seed_all(17)
+    torch.use_deterministic_algorithms(True)
     model = AnalysisGNNCommonModel().to(device)
     objective = TwoTaskUncertaintyLoss().to(device)
     graph = graph.to(device)
@@ -350,6 +361,10 @@ def _parser() -> argparse.ArgumentParser:
     prepare = commands.add_parser("prepare-data")
     prepare.add_argument("--corpus-root", type=Path, required=True)
     prepare.add_argument("--output-root", type=Path, required=True)
+    preflight = commands.add_parser("label-binding-preflight")
+    preflight.add_argument("--cache-root", type=Path, required=True)
+    preflight.add_argument("--manifest", type=Path, required=True)
+    preflight.add_argument("--output", type=Path, required=True)
     smoke_parser = commands.add_parser("smoke")
     smoke_parser.add_argument("--device", choices=("cpu", "cuda"), required=True)
     smoke_parser.add_argument("--allow-model-only-stub", action="store_true")
@@ -366,6 +381,7 @@ def _parser() -> argparse.ArgumentParser:
     train.add_argument("--seed", type=int, choices=(17, 23, 42), required=True)
     train.add_argument("--device", choices=("cuda",), default="cuda")
     train.add_argument("--dependency-lock", type=Path, required=True)
+    train.add_argument("--label-binding-preflight", type=Path, required=True)
     unlock = commands.add_parser("unlock-test")
     unlock.add_argument("--manifest", type=Path, required=True)
     unlock.add_argument("--runs-root", type=Path, required=True)
@@ -403,6 +419,11 @@ def main(argv: list[str] | None = None) -> int:
             for key, value in asdict(manifest).items()
             if key != "records"
         }
+    elif args.command == "label-binding-preflight":
+        manifest = load_common_manifest(args.manifest)
+        result = label_binding_preflight(manifest, args.cache_root)
+        _write(args.output, result)
+        require_zero_conflicting_overlaps(result)
     elif args.command == "smoke":
         result = smoke(args.device, allow_model_only_stub=args.allow_model_only_stub)
         if args.output:
@@ -416,6 +437,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         _write(args.output, result)
     elif args.command == "train":
+        require_deterministic_cuda_environment(args.device)
         manifest = load_common_manifest(args.manifest)
         result = train_seed(
             manifest,
@@ -424,6 +446,7 @@ def main(argv: list[str] | None = None) -> int:
             seed=args.seed,
             device=args.device,
             dependency_lock=args.dependency_lock,
+            label_binding_preflight=args.label_binding_preflight,
             runtime_environment=environment_report(),
         )
     elif args.command == "unlock-test":

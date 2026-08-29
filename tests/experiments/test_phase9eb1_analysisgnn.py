@@ -160,7 +160,7 @@ def test_entry_aggregation_uses_mean_note_log_probability() -> None:
         task="inversion",
         note_logits=logits,
         note_targets=torch.tensor([0, 0, -1]),
-        note_entry_index=torch.tensor([0, 0, 1]),
+        note_membership_index=torch.tensor([[0, 1], [0, 0]]),
         entity_ids=("span:0", "span:1"),
         entry_masks=(True, False),
     )

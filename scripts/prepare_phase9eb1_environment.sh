@@ -37,7 +37,8 @@ fi
   pyg-lib==0.4.0+pt22cu118
 "$environment_directory/venv/bin/python" -m pip install \
   numpy==1.26.4 pandas==2.2.3 scipy==1.14.1 scikit-learn==1.6.0 \
-  partitura==1.6.0 pytorch-lightning==2.5.0.post0 torchmetrics==1.6.0 \
+  partitura==1.6.0 music21==9.3.0 \
+  pytorch-lightning==2.5.0.post0 torchmetrics==1.6.0 \
   wandb==0.19.1 pyyaml==6.0.2
 
 mkdir -p "$source_root"

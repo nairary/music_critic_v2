@@ -204,21 +204,28 @@ def test_runbook_and_runtime_policy_freeze_real_smoke_stop_order() -> None:
     ).read_text(encoding="utf-8")
     environment = runbook.index("scripts/run_phase9eb1_analysisgnn.py environment")
     prepare = runbook.index("scripts/run_phase9eb1_analysisgnn.py prepare-data")
+    preflight = runbook.index(
+        "scripts/run_phase9eb1_analysisgnn.py label-binding-preflight"
+    )
     cpu = runbook.index("--device cpu --output outputs/phase9eb1/smoke/real-train-cpu.json")
     cuda = runbook.index(
         "--device cuda --output outputs/phase9eb1/smoke/real-train-cuda.json"
     )
     stop = runbook.index("**STOP.")
     training = runbook.index("scripts/run_phase9eb1_analysisgnn.py train")
-    assert environment < prepare < cpu < cuda < stop < training
+    assert environment < prepare < preflight < cpu < cuda < stop < training
 
     policy = json.loads(
         (REPOSITORY_ROOT / "configs" / "phase9eb1" / "runtime_policy.json").read_text(
             encoding="utf-8"
         )
     )
-    assert policy["remote_rtx_required"][:3] == [
+    assert policy["remote_rtx_required"][:4] == [
+        "conflict_free_all_719_label_binding_preflight",
         "real_train_graphmuse_cpu_smoke",
         "same_real_train_graphmuse_cuda_smoke",
         "smoke_artifact_identity_review_and_stop_gate",
     ]
+    assert policy["cuda_environment_required"] == {
+        "CUBLAS_WORKSPACE_CONFIG": ":4096:8"
+    }

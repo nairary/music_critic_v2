@@ -7,6 +7,7 @@ topology or input features.
 
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from hashlib import sha256
 import math
@@ -108,6 +109,22 @@ class GraphEntry:
     entity_id: str
     label: int
     mask: bool
+
+
+@dataclass(frozen=True, slots=True)
+class LabelOverlap:
+    """One note covered by multiple available source-entry spans."""
+
+    record_id: str
+    piece_id: str
+    task: str
+    note_index: int
+    note_id: str
+    entry_indices: tuple[int, ...]
+    entity_ids: tuple[str, ...]
+    class_ids: tuple[int, ...]
+    common_classes: tuple[str, ...]
+    comparison: str
 
 
 def _as_float(value: RationalTime) -> float:
@@ -217,11 +234,29 @@ def _ticks(value: RationalTime, resolution: int) -> int:
     return value.num * (resolution // value.den)
 
 
-def _entry_labels(
+def ordered_analysis_notes(piece: CanonicalPiece) -> tuple[Any, ...]:
+    """Return the single deterministic note order used by graphs and preflight."""
+
+    return tuple(
+        sorted(piece.notes, key=lambda note: (note.onset_qn, note.pitch, note.note_id))
+    )
+
+
+def bind_entry_supervision(
     notes: tuple[Any, ...],
     source: TargetBundle,
     projection: DilemmadataCommonHarmonicProjection,
-) -> tuple[dict[str, torch.Tensor], tuple[GraphEntry, ...]]:
+    *,
+    record_id: str,
+    piece_id: str,
+    fail_on_conflict: bool = True,
+) -> tuple[
+    dict[str, torch.Tensor],
+    tuple[GraphEntry, ...],
+    tuple[LabelOverlap, ...],
+]:
+    """Bind note targets while preserving every available source membership."""
+
     span_by_id = {span.annotation_id: span for span in source.alignment_spans}
     task_specs = (
         (COMMON_QUALITY_TASK, "quality", _QUALITY_TO_INDEX),
@@ -229,10 +264,16 @@ def _entry_labels(
     )
     tensors: dict[str, torch.Tensor] = {}
     rows: list[GraphEntry] = []
+    overlaps: list[LabelOverlap] = []
+    note_onsets = tuple(note.onset_qn for note in notes)
+    if note_onsets != tuple(sorted(note_onsets)):
+        raise AnalysisGNNGraphError("label binding requires onset-sorted notes")
     for common_task, name, vocabulary in task_specs:
         target = next(row for row in projection.targets if row.task_id == common_task)
         labels = torch.full((len(notes),), -1, dtype=torch.long)
-        entries = torch.full((len(notes),), -1, dtype=torch.long)
+        candidates: list[list[tuple[int, str, int, str]]] = [
+            [] for _note in notes
+        ]
         for entry_index, entry in enumerate(target.entries):
             available = entry.state in {"exact", "coarsened"}
             label = vocabulary[str(entry.common_value)] if available else -1
@@ -240,18 +281,98 @@ def _entry_labels(
             span = span_by_id.get(entry.entity_id)
             if span is None:
                 if available:
-                    raise AnalysisGNNGraphError(f"available {name} entry has no alignment span")
+                    raise AnalysisGNNGraphError(
+                        "available supervision entry has no alignment span: "
+                        + canonical_json(
+                            {
+                                "class_id": label,
+                                "common_class": str(entry.common_value),
+                                "entry_index": entry_index,
+                                "entity_id": entry.entity_id,
+                                "piece_id": piece_id,
+                                "record_id": record_id,
+                                "task": name,
+                            }
+                        )
+                    )
                 continue
-            for note_index, note in enumerate(notes):
-                if _contains(span.start_qn, span.end_qn, note.onset_qn):
-                    if entries[note_index] >= 0 and entries[note_index] != entry_index:
-                        raise AnalysisGNNGraphError(f"overlapping {name} supervision spans")
-                    entries[note_index] = entry_index
-                    labels[note_index] = label
+            if not available:
+                # An unavailable row remains auditable as a source entry, but
+                # it can neither supervise a note nor replace available rows.
+                continue
+            first = bisect_left(note_onsets, span.start_qn)
+            last = (
+                bisect_right(note_onsets, span.end_qn)
+                if span.start_qn == span.end_qn
+                else bisect_left(note_onsets, span.end_qn)
+            )
+            for note_index in range(first, last):
+                candidates[note_index].append(
+                    (entry_index, entry.entity_id, label, str(entry.common_value))
+                )
+        memberships: list[tuple[int, int]] = []
+        for note_index, note_candidates in enumerate(candidates):
+            if not note_candidates:
+                continue
+            ordered_candidates = tuple(sorted(note_candidates))
+            class_ids = tuple(candidate[2] for candidate in ordered_candidates)
+            unique_classes = tuple(sorted(set(class_ids)))
+            if len(ordered_candidates) > 1:
+                overlap = LabelOverlap(
+                    record_id=record_id,
+                    piece_id=piece_id,
+                    task=name,
+                    note_index=note_index,
+                    note_id=str(notes[note_index].note_id),
+                    entry_indices=tuple(candidate[0] for candidate in ordered_candidates),
+                    entity_ids=tuple(candidate[1] for candidate in ordered_candidates),
+                    class_ids=class_ids,
+                    common_classes=tuple(
+                        candidate[3] for candidate in ordered_candidates
+                    ),
+                    comparison=(
+                        "equivalent_available_class"
+                        if len(unique_classes) == 1
+                        else "conflicting_available_class"
+                    ),
+                )
+                overlaps.append(overlap)
+                if len(unique_classes) != 1 and fail_on_conflict:
+                    raise AnalysisGNNGraphError(
+                        "conflicting available supervision overlap: "
+                        + canonical_json(
+                            {
+                                "classes": [
+                                    {
+                                        "class_id": candidate[2],
+                                        "common_class": candidate[3],
+                                        "entry_index": candidate[0],
+                                        "entity_id": candidate[1],
+                                    }
+                                    for candidate in ordered_candidates
+                                ],
+                                "note_id": overlap.note_id,
+                                "note_index": note_index,
+                                "piece_id": piece_id,
+                                "record_id": record_id,
+                                "task": name,
+                            }
+                        )
+                    )
+            if len(unique_classes) == 1:
+                labels[note_index] = unique_classes[0]
+            memberships.extend(
+                (note_index, candidate[0]) for candidate in ordered_candidates
+            )
+        membership_index = (
+            torch.tensor(memberships, dtype=torch.long).t().contiguous()
+            if memberships
+            else torch.empty((2, 0), dtype=torch.long)
+        )
         tensors[name] = labels
-        tensors[f"{name}_entry_index"] = entries
+        tensors[f"{name}_membership_index"] = membership_index
         tensors[f"{name}_mask"] = labels.ne(-1)
-    return tensors, tuple(rows)
+    return tensors, tuple(rows), tuple(overlaps)
 
 
 def build_analysisgnn_graph(
@@ -282,7 +403,7 @@ def build_analysisgnn_graph(
             "pinned GraphMuse is required; run scripts/prepare_phase9eb1_environment.sh"
         ) from exc
 
-    ordered = tuple(sorted(piece.notes, key=lambda note: (note.onset_qn, note.pitch, note.note_id)))
+    ordered = ordered_analysis_notes(piece)
     timing = [piece.duration_qn]
     for note in ordered:
         timing.extend((note.onset_qn, note.duration_qn))
@@ -347,7 +468,13 @@ def build_analysisgnn_graph(
 
     add_hierarchy("measure", piece.bars)
     add_hierarchy("beat", piece.beats)
-    labels, entries = _entry_labels(ordered, source_targets, projection)
+    labels, entries, _overlaps = bind_entry_supervision(
+        ordered,
+        source_targets,
+        projection,
+        record_id=source_targets.analysis_view_id,
+        piece_id=piece.piece_id,
+    )
     for name, value in labels.items():
         graph["note"][name] = value
     graph.phase9eb1_schema_fingerprint = graph_schema_fingerprint()
@@ -388,6 +515,9 @@ def graph_fingerprint(graph: "HeteroData") -> str:
 __all__ = [
     "AnalysisGNNGraphError",
     "GraphEntry",
+    "LabelOverlap",
+    "bind_entry_supervision",
     "build_analysisgnn_graph",
     "graph_fingerprint",
+    "ordered_analysis_notes",
 ]

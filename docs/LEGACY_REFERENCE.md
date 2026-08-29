@@ -496,3 +496,13 @@ Legacy theory-bearing inputs, float timing equality, target-derived topology,
 missing-as-negative labels, semantic-segmentation inference requirements,
 runtime legacy imports, checkpoint-shape guessing, and transposition leakage
 remain rejected. No adapted legacy concept was accepted.
+
+The 2026-08-29 overlapping-supervision remediation likewise opened, searched,
+imported, copied, modified, formatted, staged, and reused no legacy repository
+file or logic. Sparse note-to-source-entry memberships, equivalent-class
+deduplication, conflict diagnostics, the all-719 structural preflight, and the
+deterministic CUDA environment gate derive only from the current V2
+AnalysisGNN experiment adapter and immutable Phase 9E-A sidecars. The rejected
+assumptions are one-entry-per-note supervision, arbitrary point/interval
+priority, deleting zero-duration entries, unavailable-row overwrite, and
+silently resolving different available common classes.

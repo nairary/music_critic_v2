@@ -67,7 +67,7 @@ Committed config, runtime, metric, and digest evidence lives in
 ## Pinned reconstruction environment
 
 The environment requires Python 3.12.8, PyTorch 2.2.2 CUDA 11.8 wheels, PyG
-2.6.1, Lightning 2.5.0.post0, and the explicitly substituted GraphMuse commit
+2.6.1, Lightning 2.5.0.post0, `music21==9.3.0`, and the explicitly substituted GraphMuse commit
 `c36eedba811a24c0addf96bdd3d1df449cf753c1`. A C compiler available as `cc`
 is required, and the target environment directory must not already exist.
 
@@ -95,13 +95,16 @@ pieces and source-native sidecars, and binds the unchanged Phase 9E-A common
 projection. It fails unless there are exactly 108 AN + 611 DLC records and the
 source-first split is 577/71/71.
 
-Run these commands in order: environment capture, data preparation, the real
+Run these commands in order: environment capture, data preparation, the
+structural label-binding preflight over all 719 accepted records, the real
 TRAIN graph on CPU, and the same deterministically selected TRAIN graph on
-CUDA.
+CUDA. The preflight reads target sidecars only to validate structural binding;
+it constructs no model, prediction, metric, selector, optimizer, or run.
 
 ```bash
 phase9eb1_python=outputs/phase9eb1/environment/venv/bin/python
 export CUDA_VISIBLE_DEVICES=0
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
 export MUSIC_CRITIC_DILEMMADATA_ROOT=/absolute/path/to/johentsch-dilemmadata-d60ee75
 PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
   "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py environment \
@@ -110,6 +113,11 @@ PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
   "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py prepare-data \
   --corpus-root "$MUSIC_CRITIC_DILEMMADATA_ROOT" \
   --output-root outputs/phase9eb1/common-data
+PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
+  "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py label-binding-preflight \
+  --cache-root outputs/phase9eb1/common-data \
+  --manifest outputs/phase9eb1/common-data/manifest.json \
+  --output outputs/phase9eb1/smoke/label-binding-preflight.json
 PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
   "$phase9eb1_python" scripts/run_phase9eb1_analysisgnn.py real-graph-smoke \
   --cache-root outputs/phase9eb1/common-data \
@@ -122,7 +130,11 @@ PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
   --device cuda --output outputs/phase9eb1/smoke/real-train-cuda.json
 ```
 
-Both smoke artifacts must report `split=train`, `transposition=P1`, finite
+The preflight must report `acceptance=true`, `record_count=719`, and
+`conflicting_overlap_note_count=0`. Its transposition count covers the same
+7,066 views because span membership and common quality/inversion classes are
+invariant under the pitch-only transpositions. Both graph smoke artifacts must
+report `split=train`, `transposition=P1`, finite
 loss/gradients, logits `[N,50]` and `[N,4]`, and `optimizer_step=false`.
 Verify that selection and graph construction are identical before proceeding:
 
@@ -144,7 +156,8 @@ print(cpu["record_id"], cpu["graph_sha256"])
 PY
 ```
 
-**STOP. Inspect and retain all three smoke artifacts before starting any
+**STOP. Inspect and retain the environment, label-binding preflight, and both
+graph-smoke artifacts before starting any
 training command.**
 
 The existing `smoke` command uses a synthetic graph and remains a model-only
@@ -162,6 +175,7 @@ arm is:
 
 ```bash
 export CUDA_VISIBLE_DEVICES=0
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
 export WANDB_MODE=offline
 export MUSIC_CRITIC_ANALYSISGNN_PUBLIC_DATA_ROOT=/absolute/path/to/struttura
 export PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse
@@ -187,22 +201,36 @@ Run these commands only after the real CPU/CUDA smoke artifacts pass review.
 Do not open test during preparation, smoke, or validation selection:
 
 ```bash
-for phase9eb1_seed in 17 23 42; do
+export CUDA_VISIBLE_DEVICES=0
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+phase9eb1_runs=outputs/phase9eb1/common-runs-remediation
+test ! -e "$phase9eb1_runs"
+PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
+  outputs/phase9eb1/environment/venv/bin/python \
+  scripts/run_phase9eb1_analysisgnn.py train \
+  --cache-root outputs/phase9eb1/common-data \
+  --manifest outputs/phase9eb1/common-data/manifest.json \
+  --output-root "$phase9eb1_runs" \
+  --dependency-lock outputs/phase9eb1/environment/resolved-freeze.txt \
+  --label-binding-preflight outputs/phase9eb1/smoke/label-binding-preflight.json \
+  --seed 17 --device cuda
+for phase9eb1_seed in 23 42; do
   PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
     outputs/phase9eb1/environment/venv/bin/python \
     scripts/run_phase9eb1_analysisgnn.py train \
     --cache-root outputs/phase9eb1/common-data \
     --manifest outputs/phase9eb1/common-data/manifest.json \
-    --output-root outputs/phase9eb1/common-runs \
+    --output-root "$phase9eb1_runs" \
     --dependency-lock outputs/phase9eb1/environment/resolved-freeze.txt \
+    --label-binding-preflight outputs/phase9eb1/smoke/label-binding-preflight.json \
     --seed "$phase9eb1_seed" --device cuda
 done
 export RTX_OPERATOR_ID=operator-or-job-identity
 outputs/phase9eb1/environment/venv/bin/python \
   scripts/run_phase9eb1_analysisgnn.py unlock-test \
   --manifest outputs/phase9eb1/common-data/manifest.json \
-  --runs-root outputs/phase9eb1/common-runs \
-  --output outputs/phase9eb1/common-runs/test-unlock.json \
+  --runs-root "$phase9eb1_runs" \
+  --output "$phase9eb1_runs/test-unlock.json" \
   --authorized-by "$RTX_OPERATOR_ID" --authorize-locked-test
 for phase9eb1_seed in 17 23 42; do
   PYTHONPATH=outputs/phase9eb1/environment/sources/graphmuse \
@@ -210,15 +238,19 @@ for phase9eb1_seed in 17 23 42; do
     scripts/run_phase9eb1_analysisgnn.py evaluate-test \
     --cache-root outputs/phase9eb1/common-data \
     --manifest outputs/phase9eb1/common-data/manifest.json \
-    --runs-root outputs/phase9eb1/common-runs \
-    --unlock outputs/phase9eb1/common-runs/test-unlock.json \
+    --runs-root "$phase9eb1_runs" \
+    --unlock "$phase9eb1_runs/test-unlock.json" \
     --seed "$phase9eb1_seed" --device cuda
 done
 outputs/phase9eb1/environment/venv/bin/python \
   scripts/run_phase9eb1_analysisgnn.py summarize \
-  --runs-root outputs/phase9eb1/common-runs \
-  --output outputs/phase9eb1/common-runs/three-seed-summary.json
+  --runs-root "$phase9eb1_runs" \
+  --output "$phase9eb1_runs/three-seed-summary.json"
 ```
+
+The `test ! -e` guard plus `train`'s non-empty-directory refusal makes the
+seed-17 command a fresh restart at applied update 0. Do not resume or reuse the
+failed 31-update directory.
 
 Each seed uses exactly 10,000 applied updates; CE smoothing `0.1`,
 `ignore_index=-1`, no class weights, learned two-task uncertainty, AdamW
@@ -231,6 +263,13 @@ One candidate update contains one complete source/transposition graph. The
 seeded shuffled source-view order, source group, graph hash, and applied or
 skipped outcome are written to `batch_schedule.jsonl`. This is an explicit
 common-arm substitution for the public run's sampled-subgraph batch 240.
+
+Each task stores source evaluation membership as a lexicographically sorted
+sparse tensor `[2, M]`: row 0 is `note_index`, row 1 is `entry_index`. A note
+covered by equivalent available spans receives one training class but retains
+one pair per source entry, so every entry is aggregated independently. A
+different available class on the same note is a fail-closed graph error.
+Unavailable rows never create memberships or replace available supervision.
 
 Per-seed outputs include configs/bindings, architecture, update logs,
 validation, graph fingerprints, checkpoint SHA-256, per-entry
@@ -254,6 +293,7 @@ evaluation are `NOT RUN locally`; no synthetic results replace them.
 ## RTX host inputs and expected artifacts
 
 Required environment variables are `CUDA_VISIBLE_DEVICES=0`,
+`CUBLAS_WORKSPACE_CONFIG=:4096:8`,
 `MUSIC_CRITIC_ANALYSISGNN_PUBLIC_DATA_ROOT` for the historical arm,
 `MUSIC_CRITIC_DILEMMADATA_ROOT` for the pinned Dilemmadata release,
 `PYTHONPATH` pointing to the pinned GraphMuse checkout, and `WANDB_MODE=offline`
@@ -274,8 +314,9 @@ corpus for reconstruction, Dilemmadata commit
 replayable 719-record source data. The W&B historical checkpoint is attestation
 input only and is forbidden as common-arm initialization.
 
-Expected remote artifacts are: environment report/freeze; real TRAIN-graph CPU
-and CUDA smoke with matching record/graph fingerprints;
+Expected remote artifacts are: environment report/freeze; conflict-free
+719-record label-binding preflight; real TRAIN-graph CPU and CUDA smoke with
+matching record/graph fingerprints;
 historical reconstruction config, substitutions, logs, selected checkpoint and
 evaluation; common dataset/split/graph manifests; three fresh seed logs and
 validation-selected checkpoint hashes; a three-checkpoint locked-test unlock;

@@ -36,7 +36,7 @@ def aggregate_entry_predictions(
     task: str,
     note_logits: torch.Tensor,
     note_targets: torch.Tensor,
-    note_entry_index: torch.Tensor,
+    note_membership_index: torch.Tensor,
     entity_ids: Sequence[str],
     entry_masks: Sequence[bool],
 ) -> tuple[EntryPrediction, ...]:
@@ -47,22 +47,49 @@ def aggregate_entry_predictions(
     expected_classes = TASK_CLASS_COUNTS[task]
     if note_logits.ndim != 2 or note_logits.shape[1] != expected_classes:
         raise ValueError("note logits have the wrong class surface")
-    if note_targets.shape != note_entry_index.shape or note_targets.shape[0] != note_logits.shape[0]:
-        raise ValueError("note target/entry tensors do not align with logits")
+    if note_targets.ndim != 1 or note_targets.shape[0] != note_logits.shape[0]:
+        raise ValueError("note targets do not align with logits")
+    if note_membership_index.ndim != 2 or note_membership_index.shape[0] != 2:
+        raise ValueError("note membership index must have shape [2, membership_count]")
+    if note_membership_index.dtype != torch.long:
+        raise ValueError("note membership index must use torch.long")
+    if len(entity_ids) != len(entry_masks):
+        raise ValueError("source-entry identities and masks must have equal length")
+    if any(not isinstance(mask, bool) for mask in entry_masks):
+        raise ValueError("source-entry masks must contain booleans")
     log_probabilities = note_logits.detach().float().log_softmax(dim=-1).cpu()
     targets = note_targets.detach().cpu()
-    indices = note_entry_index.detach().cpu()
+    memberships = note_membership_index.detach().long().cpu()
+    note_indices = memberships[0]
+    entry_indices = memberships[1]
+    membership_pairs = tuple(zip(note_indices.tolist(), entry_indices.tolist()))
+    if membership_pairs != tuple(sorted(set(membership_pairs))):
+        raise ValueError("note membership pairs must be unique and lexicographically sorted")
+    if any(
+        note_index < 0
+        or note_index >= note_logits.shape[0]
+        or entry_index < 0
+        or entry_index >= len(entity_ids)
+        for note_index, entry_index in membership_pairs
+    ):
+        raise ValueError("note membership index is out of bounds")
+    if any(
+        not entry_masks[entry_index]
+        for _note_index, entry_index in membership_pairs
+    ):
+        raise ValueError("unavailable source entries cannot have note memberships")
     rows: list[EntryPrediction] = []
     for entry_index, (entity_id, entry_mask) in enumerate(zip(entity_ids, entry_masks)):
-        note_mask = indices.eq(entry_index)
-        available = bool(entry_mask) and bool(note_mask.any())
+        entry_membership_mask = entry_indices.eq(entry_index)
+        member_note_indices = note_indices[entry_membership_mask]
+        available = bool(entry_mask) and bool(member_note_indices.numel())
         if available:
-            target_values = targets[note_mask]
+            target_values = targets[member_note_indices]
             valid_targets = target_values[target_values.ne(-1)].unique()
             if valid_targets.numel() != 1:
                 raise ValueError("an available source entry must have one note-level target")
             target = int(valid_targets.item())
-            aggregated = log_probabilities[note_mask].mean(dim=0)
+            aggregated = log_probabilities[member_note_indices].mean(dim=0)
             aggregated = aggregated - torch.logsumexp(aggregated, dim=-1)
             logits = tuple(float(value) for value in aggregated.tolist())
             prediction = int(aggregated.argmax().item())
