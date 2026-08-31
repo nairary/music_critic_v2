@@ -21,6 +21,20 @@ def test_remediation_audit_graph_gates_cover_context_and_cycles() -> None:
     assert context["each_note_has_beat_context"] is True
     assert _acyclic_next_in_track(graph)
 
+    grace_context = {
+        "note": SimpleNamespace(num_nodes=1),
+        ("note", "belongs_to_bar", "bar"): SimpleNamespace(
+            edge_index=torch.tensor([[0], [0]], dtype=torch.long)
+        ),
+        ("note", "in_onset", "onset"): SimpleNamespace(
+            edge_index=torch.tensor([[0], [0]], dtype=torch.long)
+        ),
+        ("onset", "belongs_to_beat", "beat"): SimpleNamespace(
+            edge_index=torch.tensor([[0], [0]], dtype=torch.long)
+        ),
+    }
+    assert _context_gate(grace_context)["each_note_has_beat_context"] is True
+
     cyclic = graph.clone()
     cyclic[("note", "next_in_track", "note")].edge_index = torch.tensor(
         [[0], [0]],

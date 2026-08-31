@@ -120,12 +120,20 @@ def _acyclic_next_in_track(graph) -> bool:
 def _context_gate(graph) -> dict[str, object]:
     note_count = int(graph["note"].num_nodes)
     bar_edges = graph[("note", "belongs_to_bar", "bar")].edge_index
-    beat_edges = graph[("note", "active_at", "beat")].edge_index
+    onset_edges = graph[("note", "in_onset", "onset")].edge_index
+    beat_edges = graph[("onset", "belongs_to_beat", "beat")].edge_index
     bar_counts = Counter(int(value) for value in bar_edges[0].tolist())
-    beat_counts = Counter(int(value) for value in beat_edges[0].tolist())
+    onset_by_note: dict[int, list[int]] = defaultdict(list)
+    for note, onset in onset_edges.t().tolist():
+        onset_by_note[int(note)].append(int(onset))
+    beat_counts_by_onset = Counter(int(value) for value in beat_edges[0].tolist())
     return {
         "each_note_has_one_bar": all(bar_counts[index] == 1 for index in range(note_count)),
-        "each_note_has_beat_context": all(beat_counts[index] >= 1 for index in range(note_count)),
+        "each_note_has_beat_context": all(
+            len(onset_by_note[index]) == 1
+            and beat_counts_by_onset[onset_by_note[index][0]] == 1
+            for index in range(note_count)
+        ),
         "note_count": note_count,
     }
 
