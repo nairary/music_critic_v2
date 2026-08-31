@@ -426,11 +426,6 @@ class ClassBalanceAccumulator:
             )
             train_tiers = Counter(str(row["support_tier"]) for row in train)
             validation_tiers = Counter(str(row["validation_tier"]) for row in validation)
-            train_problem = [
-                str(row["class_value"])
-                for row in train
-                if row["support_tier"] in {"absent", "insufficient"}
-            ]
             recommendation, reasons = recommend_head_trainability(
                 vocabulary_size=task.vocabulary_size,
                 train_tiers=[str(row["support_tier"]) for row in train],
@@ -497,7 +492,7 @@ class ClassBalanceAccumulator:
                         tier: train_tiers[tier] for tier in TRAIN_SUPPORT_ORDER
                     },
                     "task_id": task.task_id,
-                    "train_missing_class_count": len(train_problem),
+                    "train_missing_class_count": train_tiers["absent"],
                     "train_observed_class_count": sum(count > 0 for count in counts),
                     "usable_classes": [
                         str(row["class_value"]) for row in train if row["support_tier"] == "usable"
@@ -560,8 +555,6 @@ def recommend_head_trainability(
         insufficient_reasons.append("train_supported_class_unobservable_in_validation")
     if insufficient_reasons:
         return "insufficient_support", insufficient_reasons
-    if any(tier != "observable" for tier in validation_tiers):
-        return "insufficient_support", ["validation_support_below_observable_threshold"]
     imbalance: list[str] = []
     if majority_share > HEAD_THRESHOLDS["majority_share"]:
         imbalance.append("majority_share_above_0_50")
@@ -575,6 +568,8 @@ def recommend_head_trainability(
         return "trainable_with_reweighting", imbalance
     if all(tier in {"usable", "broad"} for tier in train_tiers):
         return "trainable", ["all_train_classes_usable_and_validation_classes_observable"]
+    if any(tier == "fragile_validation" for tier in validation_tiers):
+        return "insufficient_support", ["validation_support_below_observable_threshold"]
     return "trainable_with_reweighting", ["train_support_below_usable"]
 
 
@@ -1133,14 +1128,46 @@ def quality_focus_summary(
         "augmented major tetrachord",
         "augmented triad",
     )
+    def balance(rows: Sequence[Mapping[str, object]], task_id: str) -> dict[str, object]:
+        train = [row for row in rows if row["task_id"] == task_id and row["split"] == "train"]
+        validation = [
+            row for row in rows if row["task_id"] == task_id and row["split"] == "validation"
+        ]
+        counts = [int(row["canonical_target_row_count"]) for row in train]
+        nonzero = [count for count in counts if count > 0]
+        total = sum(counts)
+        entropy = -sum(
+            (count / total) * math.log(count / total) for count in nonzero
+        ) if total else 0.0
+        return {
+            "majority_share": _round(max(nonzero) / total) if nonzero else 0.0,
+            "max_to_min_nonzero_ratio": (
+                _round(max(nonzero) / min(nonzero)) if nonzero else None
+            ),
+            "normalized_entropy": (
+                _round(entropy / math.log(len(train)))
+                if total and len(train) > 1
+                else 0.0
+            ),
+            "train_absent_classes": [
+                str(row["class_value"]) for row in train if row["support_tier"] == "absent"
+            ],
+            "train_observed_class_count": len(nonzero),
+            "validation_observed_class_count": sum(
+                int(row["canonical_target_row_count"]) > 0 for row in validation
+            ),
+            "vocabulary_size": len(train),
+        }
     return {
         "compatibility_quality_15": {
+            "balance": balance(compatibility_rows, "quality_compatibility"),
             "vocabulary_id": COMPATIBILITY_QUALITY_VOCABULARY_ID,
             "augmented_triad": task_row_lookup(
                 compatibility_rows, "quality_compatibility", "augmented triad"
             ),
         },
         "corrected_quality_17": {
+            "balance": balance(corrected_rows, "quality"),
             "vocabulary_id": CORRECTED_QUALITY_VOCABULARY_ID,
             "focus_classes": {
                 value: task_row_lookup(corrected_rows, "quality", value) for value in focus

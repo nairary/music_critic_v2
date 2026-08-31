@@ -823,6 +823,31 @@ The model and training phases remain pending.
 - Next gate: review/Required CI, then specify a separate model/training phase
   using this frozen contract without reopening TEST.
 
+### Phase 9E-B4 — multi-head class-balance and trainability audit
+
+- Status: implemented and production-audited; no model, training, inference,
+  dataset mutation, or TEST target access exists in this phase.
+- Goal: distinguish raw entity volume from independent source-row, record, and
+  frozen-component support for every class of all 20 B3 production heads.
+- Result: deterministic TRAIN/VALIDATION rows include zero-support classes,
+  AN/DLC coverage, broadcast factors, concentration/effective support,
+  versioned support tiers, head-level imbalance, and future metric guidance.
+  Corrected quality-17, projected compatibility quality-15, Roman-184, and the
+  corrected event/compatibility note five-way tuples are audited separately.
+- Trainability result: 1 head is `trainable`, 7 are
+  `trainable_with_reweighting`, 5 have `insufficient_support`, and 7 are
+  `descriptive_only`. Diagnostic TRAIN-only weight vectors are emitted, but
+  final loss weighting and sampling policy remain explicitly unfrozen.
+- TEST lock: assignment count/component identity may be checked; filtering
+  occurs before target loader invocation. Production evidence records zero
+  TEST target records and rows opened and no target-based TEST decision.
+- Non-goals: class merging/deletion, split repair, augmentation, model/heads,
+  loss or sampler implementation, training, validation inference, TEST
+  inference/metrics, and any B1/B2/B3 artifact mutation.
+- Next gate: focused review and Required CI, followed by a separate design
+  decision on whether unsupported/descriptive heads are deferred, reported as
+  secondary-only, or receive a new data/split policy before baseline training.
+
 ## Phase 10 — PDMX adapter and large-scale SSL cache
 
 - Goal: support scalable role-agnostic public-domain score pretraining and

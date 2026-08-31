@@ -1,5 +1,66 @@
 # Music Critic V2 Status
 
+## Phase 9E-B4 AnalysisGNN class-balance audit — 2026-08-31
+
+- Added `DilemmadataAnalysisGNNClassBalanceAudit@1.0.0` over the unchanged B3
+  paper-candidate universe and frozen split. The target-aware loader filters
+  assignment rows before record-path resolution or target-sidecar
+  materialization: 1,295 TRAIN and 162 VALIDATION records were opened; the 162
+  TEST assignments were seen only as target-free identities. TEST target
+  records/rows opened are exactly 0/0; targets counted, decision use,
+  inference, metrics, and evaluation are all false.
+- All 20 production heads now have deterministic class rows for TRAIN and
+  VALIDATION, including zero-support classes. Entity, canonical source-target
+  row, record, frozen component, AN/DLC, broadcast, largest-record/component,
+  top-five-component, and effective-component support are separate. Missing
+  and masked observations remain outside every vocabulary.
+- Trainability partition is: `trainable={inversion}`;
+  `trainable_with_reweighting={primary_degree, harmonic_rhythm, cadence,
+  pedal, chord_tone, is_root, is_bass}`; `insufficient_support={root, bass,
+  secondary_degree, quality, pitch_class_set}`; and
+  `descriptive_only={local_key, tonicized_key, roman_numeral, phrase, section,
+  metrical_strength, note_degree}`. These planning labels describe annotation
+  sufficiency for a baseline, not expected model quality.
+- Corrected quality-17 has 16 observed TRAIN and VALIDATION classes;
+  `augmented seventh chord` has 245 TRAIN rows/38 components and 77 VALIDATION
+  rows/6 components, while `augmented major tetrachord` has 145/24 and 9/4.
+  Corrected `augmented triad` has 2,403 TRAIN rows; the separate quality-15
+  projection raises it to 2,793 by collapsing only those two classes.
+- Roman-184 has 6 TRAIN-absent and 71 VALIDATION-absent classes; 56/107/125
+  classes occur in fewer than 3/10/20 TRAIN components, and 65/113/151 have
+  fewer than 20/100/1,000 TRAIN canonical rows. Top 10/20/50 classes cover
+  86.57%/95.72%/99.48%. `#VII` and `bvio7` remain present;
+  `none` and `#VIIbvio7` remain absent. Four VALIDATION classes are unseen in
+  TRAIN: `vii%9`, `N+7`, `bV+7`, and `#v7`.
+- Corrected harmonic-event tuples reproduce 98,715 TRAIN and 10,507 VALIDATION
+  complete rows, with 3,339/879 unique tuples and 187 VALIDATION tuples unseen
+  in TRAIN. Compatibility note tuples contain 187,548/20,465 note rows but
+  only 98,438/10,477 canonical harmonic rows, 3,334/877 unique tuples, and 185
+  unseen VALIDATION tuples, making broadcast explicit.
+- TRAIN-only inverse-frequency, inverse-square-root, and effective-number
+  candidate vectors are normalized to mean 1 over supported classes; missing
+  classes retain null/unsupported weights. No production loss/sampler policy
+  was frozen: 12 heads are not ready, 7 receive a component-balanced sampling
+  candidate, and 1 receives a class-weighting candidate under the diagnostic
+  policy.
+- The one production target-access run at
+  `outputs/phase9eb4/analysisgnn-class-balance-671097b/` completed `valid=true`.
+  A source-free derived-artifact reseal corrected recommendation/reporting
+  logic without reopening any source record. Final semantic fingerprint is
+  `4b1edf9f47815bafa5e197be87b9331a19789142c0625ef4aceda1f87649df4d`;
+  source-free `--check` returns `valid=true`.
+- The exact targeted B4/B3/repository gate passes `64 passed, 2 warnings in
+  2.46s`. Source-free `--check`, compileall, the 217-line contract-claim
+  search, and `git diff --check` pass. `rg` is unavailable in the environment,
+  so the requested scan used recursive `grep` over the same `src/tests/scripts/docs`
+  roots. The local full suite is intentionally not run; GitHub `full-suite` is
+  authoritative after push.
+- Dataset inventories, exclusions, split, TEST assignment, vocabularies,
+  target values/masks, source-native sidecars, raw graphs, B2/B3 evidence,
+  model, heads, losses, samplers, and training configs are unchanged. No
+  legacy file was opened or reused; no model, training, inference, validation
+  metric, or TEST evaluation ran.
+
 ## Phase 9E-B3 expanded AnalysisGNN multi-task contract — 2026-08-31
 
 - Added `dilemmadata-full-raw-v1` (353 AN + 1,280 DLC = 1,633) and
@@ -250,14 +311,14 @@
 
 ## Current phase
 
-- Date: 2026-08-28
-- Current task: Phase 9E-A dialect-specific AnalysisGNN inversion parity
-  remediation on stacked branch
-  `phase/9ea-an-dlc-common-harmonic-projection`, based on exact accepted
-  research head `6490e231716cb191d4e476c0f4854adc03c57eb4`.
-- Phase 9E-A is representation/audit only. Phase 9E-B, model training, shared
-  heads/losses, and test evaluation remain unauthorized pending focused review
-  and Required CI. Historical Phase 9C execution context follows below.
+- Date: 2026-08-31
+- Current task: Phase 9E-B4 TRAIN/VALIDATION-only AnalysisGNN class-balance
+  audit on stacked branch `phase/9eb4-analysisgnn-class-balance-audit`, based
+  on exact B3 head `88a80bfb5d74050430f3e3dda2b4f16f0485a8e0`.
+- B4 is evidence and planning only. Model/training implementation, final loss
+  weighting, sampler selection, validation inference, and TEST evaluation
+  remain future separately authorized work. Historical Phase 9C execution
+  context follows below.
 - The completed parent evidence is fixed by manifest fingerprint
   `6e64f33e64de9c3d864d75828a6916d95afa9fcbadc75c14359b884cab83ab10`
   and update-9,000 checkpoint hashes `1b3d6ac9…50072f` (scratch) and

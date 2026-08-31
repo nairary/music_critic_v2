@@ -1879,3 +1879,52 @@ uses quality-15 on `note`, reached through one unambiguous
 `primary_degree`, `secondary_degree`, `quality`, and `inversion`. The note-level
 contract resolves inconsistent official evaluator branches in favor of the
 paper text and has not been evaluated.
+
+## 15. Phase 9E-B4 class-balance audit contract
+
+`DilemmadataAnalysisGNNClassBalanceAudit@1.0.0` is derived evidence, not a
+canonical record, raw graph, model input, target sidecar, loss, sampler, or
+evaluation result. Its input identity binds the frozen B3 paper-candidate
+manifest, task/vocabulary registry, target-sidecar descriptors, and component
+split. The audit may deserialize target-bearing rows only after a record's
+assignment is known to be TRAIN or VALIDATION. TEST assignment identities may
+be counted, but TEST paths and target loaders cannot be resolved or invoked.
+
+For a production task, `entity_count` counts available unmasked entities of
+the registry-declared entity type. `canonical_target_row_count` deduplicates
+by record, task/source field, stable source-row ordinal, and class. Record and
+component support count distinct frozen identities, never inferred grouping.
+AN/DLC counts use the source dialect. Concentration uses canonical row counts;
+effective component count is `(sum_i n_i)^2 / sum_i(n_i^2)`. Broadcast factor
+is entity count divided by canonical row count and is null for zero support.
+Every vocabulary class has one TRAIN and one VALIDATION row, including zeros.
+Missing/masked states are reported separately and are never class IDs.
+
+TRAIN tiers are `absent` at zero rows, `insufficient` below 20 rows or 3
+components, `usable` from 100 rows and 10 components, and `broad` from 1,000
+rows and 50 components; remaining supported classes are `fragile`.
+VALIDATION is `unobservable` at zero, `fragile_validation` below 10 rows or 2
+components, and otherwise `observable`. These are versioned planning
+thresholds, not universal learning laws.
+
+Head decisions apply in order. More than 25% absent/insufficient TRAIN classes
+or fewer than 20 available TRAIN components is `descriptive_only`. Remaining
+TRAIN absent/insufficient classes or a TRAIN-supported class absent from
+VALIDATION is `insufficient_support`. With all TRAIN classes at least fragile
+and nonzero VALIDATION coverage, majority share above 0.50, nonzero max/min
+ratio above 20, normalized entropy below 0.70, or a fragile TRAIN class yields
+`trainable_with_reweighting`. `trainable` requires all TRAIN classes usable or
+broad, all VALIDATION classes observable, and no imbalance flag. A status only
+states whether annotations support a baseline; it does not predict quality.
+
+Candidate inverse-frequency, inverse-square-root, and effective-number weights
+use only TRAIN canonical rows. Effective-number beta is 0.9999. Each nonzero
+vector is normalized to mean one; absent TRAIN classes are null and
+`unsupported`. These vectors are diagnostic and do not freeze production
+weights or sampling.
+
+Corrected joint rows use the five B3 components on harmonic events and
+quality-17. Compatibility rows broadcast the same canonical harmonic identity
+to notes and project quality to 15 classes. Artifacts preserve note/entity row,
+canonical harmonic row, record, and component units independently. TEST tuples
+are unavailable by construction.

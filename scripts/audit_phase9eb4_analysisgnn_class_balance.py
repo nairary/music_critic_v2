@@ -6,10 +6,12 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 from hashlib import sha256
+from itertools import zip_longest
 import json
 from pathlib import Path
 import subprocess
 import sys
+from collections.abc import Callable
 from typing import Iterable, Mapping
 
 from music_critic.adapters.dilemmadata import (
@@ -37,6 +39,7 @@ from music_critic.experiments.analysisgnn.class_balance import (
     project_quality_record,
     quality_focus_summary,
     recommendation_payload,
+    recommend_head_trainability,
     roman_numeral_summary,
     semantic_fingerprint,
 )
@@ -67,6 +70,7 @@ EXPECTED_B3_SEMANTIC_FINGERPRINT = (
 )
 REQUIRED_B3_ARTIFACTS = (
     "dataset_manifest.json",
+    "entity_registry.jsonl",
     "paper_candidate_manifest.json",
     "paper_candidate_records.jsonl",
     "split_assignments.jsonl",
@@ -161,14 +165,51 @@ def _target_free_inputs(
         str(row["record_id"]): row
         for row in _read_jsonl(b3_root / "paper_candidate_records.jsonl")
     }
-    descriptors = {
-        str(row["record_id"]): row
-        for row in _read_jsonl(b3_root / "target_sidecars.jsonl")
-    }
     assignment_ids = {str(row["record_id"]) for row in assignments}
-    if assignment_ids != set(candidate) or assignment_ids != set(descriptors):
+    if assignment_ids != set(candidate):
         raise RuntimeError("B3 target-free manifests do not cover the same records")
+    allowed_ids = {
+        str(row["record_id"])
+        for row in assignments
+        if row["split"] in ("train", "validation")
+    }
+    with (
+        (b3_root / "entity_registry.jsonl").open("r", encoding="utf-8") as registry,
+        (b3_root / "target_sidecars.jsonl").open("r", encoding="utf-8") as sidecars,
+    ):
+        registry_ids, descriptors = _selected_target_descriptors(
+            registry, sidecars, allowed_ids=allowed_ids
+        )
+    if registry_ids != assignment_ids or set(descriptors) != allowed_ids:
+        raise RuntimeError("B3 descriptor registry coverage changed")
     return assignments, candidate, descriptors
+
+
+def _selected_target_descriptors(
+    registry_lines: Iterable[str],
+    descriptor_lines: Iterable[str],
+    *,
+    allowed_ids: set[str],
+    descriptor_decoder: Callable[[str], object] = json.loads,
+) -> tuple[set[str], dict[str, dict[str, object]]]:
+    """Decode descriptors only after target-free registry split filtering."""
+
+    descriptors: dict[str, dict[str, object]] = {}
+    registry_ids: set[str] = set()
+    for entity_line, descriptor_line in zip_longest(registry_lines, descriptor_lines):
+        if entity_line is None or descriptor_line is None:
+            raise RuntimeError("B3 entity/target descriptor line counts differ")
+        entity = json.loads(entity_line)
+        record_id = str(entity["record_id"])
+        registry_ids.add(record_id)
+        # TEST descriptor bytes remain opaque and are never deserialized.
+        if record_id not in allowed_ids:
+            continue
+        descriptor = descriptor_decoder(descriptor_line)
+        if not isinstance(descriptor, dict) or descriptor.get("record_id") != record_id:
+            raise RuntimeError("B3 entity/target descriptor ordering changed")
+        descriptors[record_id] = descriptor
+    return registry_ids, descriptors
 
 
 def _record_path(root: Path, record_id: str) -> tuple[Path, str, str, str | None]:
@@ -253,6 +294,25 @@ def _artifact_hashes(output: Path, names: Iterable[str]) -> dict[str, str]:
     return {name: _hash_file(output / name) for name in names}
 
 
+def _candidate_weight_summary(weights: Mapping[str, object]) -> dict[str, object]:
+    heads = weights.get("heads")
+    if not isinstance(heads, list):
+        raise RuntimeError("candidate-weight head rows are invalid")
+    policies = Counter(str(row["diagnostic_policy_recommendation"]) for row in heads)
+    return {
+        "fingerprint": weights["fingerprint"],
+        "head_policies": {
+            str(row["task_id"]): str(row["diagnostic_policy_recommendation"])
+            for row in heads
+        },
+        "methods": list(class_balance_contract()["weight_methods"]),
+        "policy_counts": dict(sorted(policies.items())),
+        "train_only": weights["train_only"],
+        "validation_counts_used": weights["validation_counts_used"],
+        "weighting_policy_frozen": weights["weighting_policy_frozen"],
+    }
+
+
 def _report(summary: Mapping[str, object], heads: Sequence[Mapping[str, object]]) -> str:
     lines = [
         "# Phase 9E-B4 AnalysisGNN class-balance audit",
@@ -320,6 +380,7 @@ def _compact_fixture(
     artifact_sha256 = _artifact_hashes(output, OUTPUT_ARTIFACTS)
     fixture: dict[str, object] = {
         "artifact_sha256": artifact_sha256,
+        "candidate_class_weight_summary": summary["candidate_class_weight_summary"],
         "class_balance_contract": summary["class_balance_contract"],
         "fixture_schema": "phase9eb4-analysisgnn-class-balance-fixture-v1",
         "head_count": len(heads),
@@ -387,6 +448,115 @@ def check_fixture(path: Path = DEFAULT_FIXTURE) -> dict[str, object]:
     ):
         raise RuntimeError("Phase 9E-B4 artifact SHA-256 is invalid")
     return value
+
+
+def reseal_derived_artifacts(
+    output: Path, fixture: Path, *, b3_root: Path = DEFAULT_B3_ROOT
+) -> dict[str, object]:
+    """Rebuild recommendations/report hashes from completed semantic counts.
+
+    This path is deliberately source-free: it cannot open the corpus, raw
+    records, or target sidecars and therefore cannot weaken the TEST lock.
+    """
+
+    summary = json.loads((output / "audit_summary.json").read_text(encoding="utf-8"))
+    if summary.get("valid") is not True:
+        raise RuntimeError("only a completed valid B4 audit may be resealed")
+    _b3_summary, b3_hashes = _verify_b3(b3_root)
+    summary["input_fingerprints"]["b3_artifact_sha256"] = b3_hashes
+    class_rows = _read_jsonl(output / "class_counts.jsonl")
+    joint_rows = _read_jsonl(output / "joint_tuple_counts.jsonl")
+    head_payload = json.loads((output / "head_balance_summary.json").read_text(encoding="utf-8"))
+    heads = head_payload.get("heads")
+    if not isinstance(heads, list) or len(heads) != 20:
+        raise RuntimeError("completed B4 head summary is invalid")
+    by_task_split: dict[tuple[str, str], list[Mapping[str, object]]] = {}
+    for task in PRODUCTION_AUDIT_TASKS:
+        for split in ("train", "validation"):
+            by_task_split[(task.task_id, split)] = [
+                row
+                for row in class_rows
+                if row["task_id"] == task.task_id and row["split"] == split
+            ]
+    remediated_heads: list[dict[str, object]] = []
+    for old in heads:
+        head = dict(old)
+        task_id = str(head["task_id"])
+        train = by_task_split[(task_id, "train")]
+        validation = by_task_split[(task_id, "validation")]
+        head["train_missing_class_count"] = sum(
+            row["support_tier"] == "absent" for row in train
+        )
+        status, reasons = recommend_head_trainability(
+            vocabulary_size=int(head["vocabulary_size"]),
+            train_tiers=[str(row["support_tier"]) for row in train],
+            validation_tiers=[str(row["validation_tier"]) for row in validation],
+            available_train_components=int(head["available_train_component_count"]),
+            majority_share=float(head["majority_share"]),
+            max_to_min_nonzero_ratio=(
+                None
+                if head["max_to_min_nonzero_ratio"] is None
+                else float(head["max_to_min_nonzero_ratio"])
+            ),
+            normalized_entropy=float(head["normalized_entropy"]),
+        )
+        head["recommendation"] = status
+        head["recommendation_reasons"] = reasons
+        remediated_heads.append(head)
+    recommendations = recommendation_payload(remediated_heads)
+    production_rows = [row for row in class_rows if row["task_id"] != "quality_compatibility"]
+    weights = candidate_class_weights(production_rows, remediated_heads)
+    semantic = semantic_fingerprint(
+        class_rows=class_rows,
+        head_summaries=remediated_heads,
+        joint_rows=joint_rows,
+        recommendations=recommendations,
+        weights=weights,
+    )
+    summary["recommendation_groups"] = {
+        status: [
+            str(row["task_id"])
+            for row in remediated_heads
+            if row["recommendation"] == status
+        ]
+        for status in (
+            "trainable",
+            "trainable_with_reweighting",
+            "insufficient_support",
+            "descriptive_only",
+        )
+    }
+    summary["candidate_class_weight_summary"] = _candidate_weight_summary(weights)
+    compatibility_rows = [
+        row for row in class_rows if row["task_id"] == "quality_compatibility"
+    ]
+    summary["quality"] = quality_focus_summary(
+        production_rows, compatibility_rows
+    )
+    summary["semantic_fingerprint"] = semantic
+    _write_json(output / "head_balance_summary.json", {"heads": remediated_heads})
+    _write_json(output / "trainability_recommendations.json", recommendations)
+    _write_json(output / "candidate_class_weights.json", weights)
+    (output / "AUDIT_REPORT.md").write_text(
+        _report(summary, remediated_heads), encoding="utf-8", newline="\n"
+    )
+    summary["artifact_sha256"] = _artifact_hashes(
+        output,
+        (
+            "class_counts.jsonl",
+            "head_balance_summary.json",
+            "joint_tuple_counts.jsonl",
+            "trainability_recommendations.json",
+            "candidate_class_weights.json",
+            "AUDIT_REPORT.md",
+        ),
+    )
+    _write_json(output / "audit_summary.json", summary)
+    _write_json(
+        fixture,
+        _compact_fixture(summary=summary, heads=remediated_heads, output=output),
+    )
+    return summary
 
 
 def build_audit(
@@ -489,6 +659,7 @@ def build_audit(
     )
     summary: dict[str, object] = {
         "class_balance_contract": class_balance_contract(),
+        "candidate_class_weight_summary": _candidate_weight_summary(weights),
         "dataset_changed": False,
         "graphs_changed": False,
         "head_count": len(heads),
@@ -554,6 +725,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--fixture", type=Path, default=DEFAULT_FIXTURE)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--reseal-derived", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -562,6 +734,21 @@ def main(argv: list[str] | None = None) -> int:
     if args.check:
         value = check_fixture(args.fixture)
         print(canonical_json({"valid": value["valid"]}, indent=2))
+        return 0
+    if args.reseal_derived:
+        summary = reseal_derived_artifacts(
+            args.output or default_output(), args.fixture, b3_root=args.b3_root
+        )
+        print(
+            canonical_json(
+                {
+                    "semantic_fingerprint": summary["semantic_fingerprint"],
+                    "source_free": True,
+                    "valid": summary["valid"],
+                },
+                indent=2,
+            )
+        )
         return 0
     summary = build_audit(
         args.root,

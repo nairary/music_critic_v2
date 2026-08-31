@@ -1406,3 +1406,21 @@ while pinned evaluator branches disagree and the onset-test branch omits it.
 V2 selects the paper-text definition for scientific comparison but has not
 evaluated that metric. Neither contract is an exact official reproduction, and
 no TEST metric was computed.
+
+## Phase 9E-B4 class-balance evidence boundary
+
+Phase 9E-B4 adds a read-only planning layer after the B3 target-sidecar and
+split boundaries. Assignment lookup precedes every target-bearing load. The
+TEST branch terminates at target-free assignment evidence; only TRAIN and
+VALIDATION reach sidecar materialization and aggregation.
+
+The aggregator is streaming by record and retains only class-level counters,
+record/component identity sets, and tuple sufficient statistics. Production
+entity rows and canonical source-annotation rows remain separate. For the
+paper-text compatibility view, many notes may point to one harmonic target row;
+the note count cannot substitute for independent harmonic support.
+
+The output is not routed into the encoder, HybridGNN, GRU, task heads, losses,
+sampler, checkpoint, or evaluator. Candidate weights and component-balanced
+sampling statuses are diagnostic artifacts only. A later model/training phase
+must make a separate recorded decision before consuming either.

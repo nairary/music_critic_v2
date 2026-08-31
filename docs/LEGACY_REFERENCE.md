@@ -586,3 +586,22 @@ as a paper-compatible claim. A distinct unevaluated note-level contract follows
 the paper's five semantic components while recording that pinned validation/NCT
 and onset-test evaluator branches disagree. No external or legacy code is a
 runtime dependency.
+
+## Phase 9E-B4 class-balance audit
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or reused for B4. No legacy class-frequency, balancing,
+sampling, metric, dataset, split, model, or training logic was adapted. The
+audit derives only from the current V2 B3 registry, vocabularies, masks,
+canonical source-row provenance, frozen components/split, and target-sidecar
+contract. V2 and source-free B4 verification remain independent of the legacy
+checkout.
+
+Accepted concepts are V2-only: missing/masked targets stay outside classes;
+entity repetition is separated from canonical annotation support; record and
+component independence are explicit; TRAIN determines candidate weights; and
+VALIDATION measures coverage without opening TEST. Rejected assumptions are
+raw entity count as independent sample size, filename grouping, missing as a
+negative class, validation-informed weighting, TEST distribution inspection,
+silent rare-class merging, and automatic sampler/loss changes based on one
+audit.

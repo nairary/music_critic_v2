@@ -212,6 +212,16 @@ def test_head_recommendation_uses_frozen_priority() -> None:
     status, _ = recommend_head_trainability(
         vocabulary_size=2,
         train_tiers=("usable", "broad"),
+        validation_tiers=("fragile_validation", "observable"),
+        available_train_components=20,
+        majority_share=0.75,
+        max_to_min_nonzero_ratio=3,
+        normalized_entropy=0.8,
+    )
+    assert status == "trainable_with_reweighting"
+    status, _ = recommend_head_trainability(
+        vocabulary_size=2,
+        train_tiers=("usable", "broad"),
         validation_tiers=("observable", "observable"),
         available_train_components=20,
         majority_share=0.5,

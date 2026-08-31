@@ -3755,3 +3755,38 @@ This log is append-only.
   Universe, exclusions, split, TEST lock, entities, relations, sidecars, raw
   graphs, and structural availability are unchanged. Only semantic contract
   artifacts and their dependent fingerprints advance to version 2.
+
+## 2026-08-31 — ADR-105: Baseline trainability requires independent component support
+
+- Status: Accepted for Phase 9E-B4 planning evidence only. It does not
+  authorize model construction, loss weighting, sampling, training, inference,
+  validation metrics, or TEST access.
+- Context: B3 proves large target volume and a 20-head schema, but an entity
+  count may repeat one source annotation across notes, one work, or one source
+  component. A rare class can therefore look numerically large without
+  supporting independent training or evaluation. Roman-184 and the two
+  corrected augmented quality classes make this distinction material.
+- Decision: Define `DilemmadataAnalysisGNNClassBalanceAudit@1.0.0`. For every
+  class, count available entities, canonical source-target rows, records,
+  frozen source components, AN/DLC support, broadcast, concentration, and
+  effective component count separately. Missing/masked targets never become a
+  class and every zero class remains explicit. Freeze the operational tier and
+  recommendation thresholds in the semantic fingerprint.
+- Decision: Use TRAIN for support, concentration, decisions, joint tuple
+  reference, and candidate weights. Use VALIDATION only for coverage and
+  TRAIN-unseen tuples. Filter the frozen assignment before resolving a
+  target-bearing record or sidecar. TEST may contribute only its target-free
+  162-record/151-component assignment evidence; TEST target records/rows,
+  distributions, inference, metrics, and decisions remain zero/false.
+- Decision: Keep source-faithful quality-17, projected compatibility
+  quality-15, and Roman-184 unchanged. Corrected tuples use harmonic events;
+  compatibility tuples use notes but preserve canonical harmonic-row support.
+  Candidate inverse, inverse-square-root, and effective-number weights are
+  TRAIN-only diagnostics with null unsupported classes. Final weighting and
+  component-sampling policy are not selected.
+- Consequences: Only inversion meets the strict `trainable` baseline contract;
+  7 heads require reweighting diagnostics, 5 have insufficient support, and 7
+  are descriptive-only. This is evidence about annotations, not a prediction
+  of model performance. Dataset, exclusions, split, vocabularies, target
+  values/masks, source sidecars, graphs, model, losses, samplers, and training
+  configs remain unchanged.

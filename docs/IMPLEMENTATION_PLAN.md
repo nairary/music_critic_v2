@@ -3323,6 +3323,43 @@ corrected event-level structural support in TRAIN/VALIDATION, `valid=true`,
 Encoder/HybridGNN/GRU/heads, training, validation inference, paper-text metric
 evaluation, and TEST metrics are intentionally absent.
 
+### Phase 9E-B4 class-balance and trainability audit implemented
+
+- Define `DilemmadataAnalysisGNNClassBalanceAudit@1.0.0` as a deterministic,
+  serializable, source-free-checkable planning contract outside model inputs,
+  target sidecars, and AnalysisGNN runtime.
+- Filter the frozen 1,295/162/162 assignment before any target-bearing record
+  loader. Aggregate only TRAIN class/weight/joint evidence and use VALIDATION
+  only for class/tuple coverage. TEST assignments are counted target-free;
+  target records/rows opened and all target-based TEST actions remain zero.
+- For every vocabulary class of all 20 production heads, preserve separate
+  entity and deduplicated canonical source-row counts plus record, frozen
+  component, AN/DLC, broadcast, concentration, and effective-component
+  support. Missing/masked observations do not enter a class; zero-support rows
+  remain explicit.
+- Freeze operational TRAIN/VALIDATION support thresholds and ordered
+  head-level decisions in the contract fingerprint. Emit raw counts beside
+  every tier and state that trainability is only baseline annotation
+  sufficiency, not a model-performance claim.
+- Audit source-faithful quality-17 and the quality-15 compatibility projection
+  separately, retaining explicit `+7`/`+M7` evidence. Preserve corrected
+  Roman-184 and report its complete long tail in JSONL plus compact summaries.
+- Audit corrected five-way tuples on harmonic events and compatibility tuples
+  on notes while separately counting note rows and canonical harmonic rows.
+  Validation-unseen tuples are defined only relative to TRAIN.
+- Compute diagnostic TRAIN-only inverse-frequency, inverse-square-root, and
+  effective-number vectors normalized to mean one over supported classes;
+  unsupported weights are null. Recommend unweighted, class-weighting,
+  component-balanced, or not-ready planning statuses without changing any
+  loss, sampler, or training config.
+
+Acceptance is 20 complete head summaries, explicit zero classes, TEST loader
+non-invocation regression, deterministic artifacts/fingerprints, a committed
+compact fixture, source-free `--check`, and targeted B3/B4/repository tests.
+The production audit result is 1 trainable, 7 reweighting, 5 insufficient, and
+7 descriptive-only heads. Model architecture, training, inference, dataset,
+split, vocabulary, target/mask, graph, B2/B3, and TEST contracts are unchanged.
+
 ### Phase 9B.2A production target sidecars implemented
 
 - separate target-only AN/DLC parsing over Phase 9A-evidenced fields;
