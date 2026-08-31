@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import torch
 
 from music_critic.graph import build_raw_graph
@@ -25,6 +27,16 @@ def test_remediation_audit_graph_gates_cover_context_and_cycles() -> None:
         dtype=torch.long,
     )
     assert not _acyclic_next_in_track(cyclic)
+
+    source = torch.arange(0, 2000, dtype=torch.long)
+    target = torch.arange(1, 2001, dtype=torch.long)
+    long_chain = {
+        "note": SimpleNamespace(num_nodes=2001),
+        ("note", "next_in_track", "note"): SimpleNamespace(
+            edge_index=torch.stack((source, target))
+        ),
+    }
+    assert _acyclic_next_in_track(long_chain)
 
 
 def test_target_smoke_selection_is_deterministic_and_avoids_source_test_splits() -> None:

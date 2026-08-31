@@ -95,27 +95,26 @@ def _write_jsonl(path: Path, rows: Iterable[Mapping[str, object]]) -> None:
 def _acyclic_next_in_track(graph) -> bool:
     edge_type = ("note", "next_in_track", "note")
     edge_index = graph[edge_type].edge_index
-    successors: dict[int, tuple[int, ...]] = defaultdict(tuple)
+    node_count = int(graph["note"].num_nodes)
     mutable: dict[int, list[int]] = defaultdict(list)
+    indegree = [0] * node_count
     for source, target in edge_index.t().tolist():
-        mutable[int(source)].append(int(target))
-    successors = {source: tuple(targets) for source, targets in mutable.items()}
-    visiting: set[int] = set()
-    visited: set[int] = set()
-
-    def visit(node: int) -> bool:
-        if node in visiting:
-            return False
-        if node in visited:
-            return True
-        visiting.add(node)
-        if not all(visit(target) for target in successors.get(node, ())):
-            return False
-        visiting.remove(node)
-        visited.add(node)
-        return True
-
-    return all(visit(node) for node in range(int(graph["note"].num_nodes)))
+        source_index = int(source)
+        target_index = int(target)
+        mutable[source_index].append(target_index)
+        indegree[target_index] += 1
+    queue = [index for index, value in enumerate(indegree) if value == 0]
+    cursor = 0
+    visited_count = 0
+    while cursor < len(queue):
+        node = queue[cursor]
+        cursor += 1
+        visited_count += 1
+        for target in mutable.get(node, ()):
+            indegree[target] -= 1
+            if indegree[target] == 0:
+                queue.append(target)
+    return visited_count == node_count
 
 
 def _context_gate(graph) -> dict[str, object]:
