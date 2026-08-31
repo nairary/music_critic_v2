@@ -1,4 +1,4 @@
-"""Phase 9E-B1 AnalysisGNN reconstruction and common-subset benchmark."""
+"""AnalysisGNN evidence, B1 pilot, and B3 target-only dataset contracts."""
 
 from music_critic.experiments.analysisgnn.contracts import (
     ANALYSISGNN_COMMIT,
@@ -8,6 +8,25 @@ from music_critic.experiments.analysisgnn.contracts import (
     HistoricalAttestation,
     Phase9EB1Config,
 )
+from music_critic.experiments.analysisgnn.multitask_contract import (
+    FULL_RAW_UNIVERSE_ID,
+    PAPER_CANDIDATE_UNIVERSE_ID,
+    PINNED_CODE_REGISTRY_ID,
+    PRODUCTION_REGISTRY_ID,
+    AnalysisGNNMultitaskContractError,
+    get_task,
+    get_entity_mappings,
+    get_vocabulary,
+    load_dataset_universe,
+    load_fingerprinted_payload,
+    load_split_assignments,
+    materialize_target_sidecar,
+    paper_candidate_records,
+    production_task_registry,
+    require_test_evaluation_unlock,
+    stable_split_assignments,
+    validate_loaded_registry,
+)
 
 __all__ = [
     "ANALYSISGNN_COMMIT",
@@ -16,4 +35,21 @@ __all__ = [
     "HISTORICAL_CHECKPOINT_SHA256",
     "HistoricalAttestation",
     "Phase9EB1Config",
+    "FULL_RAW_UNIVERSE_ID",
+    "PAPER_CANDIDATE_UNIVERSE_ID",
+    "PINNED_CODE_REGISTRY_ID",
+    "PRODUCTION_REGISTRY_ID",
+    "AnalysisGNNMultitaskContractError",
+    "get_task",
+    "get_entity_mappings",
+    "get_vocabulary",
+    "load_dataset_universe",
+    "load_fingerprinted_payload",
+    "load_split_assignments",
+    "materialize_target_sidecar",
+    "paper_candidate_records",
+    "production_task_registry",
+    "require_test_evaluation_unlock",
+    "stable_split_assignments",
+    "validate_loaded_registry",
 ]
