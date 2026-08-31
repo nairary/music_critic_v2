@@ -43,6 +43,28 @@ raw adapter/cache/graph version.
 | exact alignment rules | `1.0.0` |
 | target audit report / manifest | `1.1.0` / `1.1.0` |
 
+### Phase 9E-B2 remediated compatibility path
+
+The table above remains authoritative for every historical unmodified record.
+For a raw record recovered by Phase 9E-B2 only, the raw adapter is `1.1.0`, the
+raw-to-target alignment evidence is `1.2.0`, and the target adapter is `1.2.0`;
+the external sidecar and generic `TargetBundle` contracts stay `1.0.0`.
+
+Alignment `1.2.0` is bound to `DilemmadataRawRepairEvidence@1.0.0` and applies
+the same exact raw-derived onset transform before target alignment. Repair
+evidence itself is not target content. A `note` repair-mask scope affects only
+entries bound to the repaired canonical note; an `all` scope affects only the
+task entries whose structural coordinate cannot be proved. Missing one target
+family remains ordinary per-task unavailability and never rejects a raw
+record. The target adapter cannot guide tie, time, measure, bar, beat, note, or
+graph reconstruction.
+
+The production remediation smoke builds representative AN and DLC sidecars in
+memory only and verifies transform equality, repair-fingerprint binding,
+per-task availability, and local masking. It writes no historical sidecar.
+All source sidecars and common projections for the previous 719 records remain
+unchanged.
+
 The Dilemmadata registry is an explicit extension to, not a mutation of, the
 18-task HookTheory/POP909-CL core registry. Therefore the accepted Phase 9B.1
 cache/index and split fingerprints do not change. A sample with a Dilemmadata

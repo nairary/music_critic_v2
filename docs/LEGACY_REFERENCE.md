@@ -536,3 +536,20 @@ canonical note IDs, exact rational timing, source-native target entities, and
 the unchanged common projection. Arbitrary precedence, legacy label logic,
 runtime external imports, and fallback masking remain rejected; no legacy or
 pinned external checkout is required for ordinary V2 inference.
+
+## Phase 9E-B2 Dilemmadata raw coverage remediation
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or reused. No legacy preprocessing, tie, meter, graph,
+target, split, model, training, or evaluation logic was adapted. The repair
+policies derive only from the pinned Dilemmadata raw evidence, current V2 exact
+timing/canonical/graph contracts, and the preceding read-only coverage audit.
+
+The accepted V2 concepts are exact rational timing, target-blind raw
+construction, stable source identity, local masks for missing or ambiguous
+labels, and deterministic provenance. Float/epsilon equality, random tie
+selection, target-derived topology, fabricated note duration, whole-record
+exclusion for a local repair, mandatory gold segmentation, runtime legacy
+imports, and using the AnalysisGNN 14-record selection as a raw-adapter filter
+remain rejected. AnalysisGNN code, model, checkpoint, and labels were not used
+to make any repair decision, and this phase makes no exact-reproduction claim.

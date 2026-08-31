@@ -2,6 +2,44 @@
 
 Status: **ACCEPTED FOR PHASE 1 IMPLEMENTATION**.
 
+## Phase 9E-B2 Dilemmadata raw-coverage remediation
+
+Phase 9E-B2 adds `DilemmadataAdapter@1.1.0`,
+`DilemmadataRawRepairEvidence@1.0.0`,
+`DilemmadataRawTargetAlignmentEvidence@1.2.0`, and
+`DilemmadataCoverageRemediationReport@1.0.0`. The historical accepted path
+remains `DilemmadataAdapter@1.0.1` with alignment evidence `1.1.0`; a record
+which needs no repair must take that path byte-for-byte. `CanonicalPiece`
+schema `2.0.0`, raw graph schema, model-input schema, cache, grouping, and split
+contracts do not change.
+
+Every repair is a deterministic function of raw score evidence. The evidence
+object stores `record_id`, source entity ID and type, repair type, ordered
+source evidence, candidate count, selected candidate ID, the single exact
+affine time transform, affected entity IDs, and target-mask scope. It is
+canonically ordered, finite, self-fingerprinted, and bound into remediated
+alignment evidence. It is provenance, never a target or model input. Harmony,
+theory values, validity gates, alternative labels, and analyst/reviewer fields
+are unavailable to raw reconstruction.
+
+An explicitly short first source measure may add exact structural leading
+padding. This creates empty beat/bar context but no artificial note and applies
+one offset to every timed raw entity. Explicit monotonic source-measure
+boundaries override a nominal grid; ambiguous monotonic mappings maximize raw
+event/interval overlap and use stable source identity for the last tie-break.
+Neither policy changes source pitch or duration. A locally unresolved measure
+identity masks only measure-dependent target entries.
+
+Tie predecessors are ranked by raw tie/note identity, part, staff, voice,
+pitch, exact predecessor end, and stable source ordinal. Multiple equivalent
+candidates are selected stably and locally masked when their target binding is
+not unique. An orphan stop/continuation becomes a new attack and may start the
+remaining chain. An explicit grace note remains zero-duration; a zero-duration
+intermediate tie segment is removed and its unique neighbours are reconnected,
+while an isolated segment alone is removed. No epsilon, random choice, target
+label, artificial positive duration, negative duration, or whole-record
+failure is permitted for these recoverable cases.
+
 ## Phase 9E-A derived common-harmony extension
 
 Phase 9E-A does not change `CanonicalPiece@2.0.0` or

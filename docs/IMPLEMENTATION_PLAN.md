@@ -3263,6 +3263,34 @@ canonical target/annotation collection empty.
 - one official Phase 8B optimizer step consumes two real AN and two real DLC
   pieces without accessing target sidecars.
 
+### Phase 9E-B2 raw coverage remediation implemented
+
+- Preserve the `DilemmadataAdapter@1.0.1` path exactly for all previously
+  accepted records and use `1.1.0` only when deterministic raw repair is
+  necessary.
+- Represent a proved leading partial measure by one exact affine time offset
+  and structural empty beat slots, without artificial notes or pickup
+  downbeats.
+- Rank tie predecessors by raw source identity, part/staff/voice, pitch, exact
+  end time, and stable ordinal; select ambiguities deterministically, promote
+  orphans to attacks, and localize note-target masks.
+- Treat explicit monotonic source measure boundaries as authoritative and
+  resolve multiple valid measure mappings by raw interval overlap followed by
+  stable identity. Preserve note pitch/onset/duration.
+- Retain explicit grace notes, remove zero-duration sounding tie segments, and
+  reconnect only unique chains without inventing duration.
+- Serialize `DilemmadataRawRepairEvidence@1.0.0`, bind it to alignment
+  evidence `1.2.0`, and keep it outside model inputs and targets.
+- Audit all 1,633 pinned records through two independent conversions/graphs,
+  record-by-record preservation of the historical 719, representative
+  target-sidecar compatibility, and immutable Phase 9E-B1 tree hashes.
+
+Acceptance is 1,633/1,633 raw records (353 AN, 1,280 DLC), zero remaining
+quarantine, stable repair/audit fingerprints, unchanged historical graphs and
+577/71/71 split, and a separate AnalysisGNN-compatible candidate ceiling of
+1,619 after 14 policy exclusions. This phase does not create a new split,
+multi-head model, checkpoint, training output, validation run, or TEST result.
+
 ### Phase 9B.2A production target sidecars implemented
 
 - separate target-only AN/DLC parsing over Phase 9A-evidenced fields;

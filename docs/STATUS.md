@@ -1,5 +1,65 @@
 # Music Critic V2 Status
 
+## Phase 9E-B2 Dilemmadata raw coverage remediation — 2026-08-31
+
+- The old `1633 -> 719` reduction was the Phase 9B.1 whole-record fail-closed
+  response to six local raw categories whose primary counts exactly cover the
+  914 quarantines: leading partial measure 327, missing tie predecessor 383,
+  multiple exact tie predecessors 104, source measure anchor off nominal grid
+  51, ambiguous measure mapping 38, and contradictory zero-duration tie
+  continuation 11.
+- `DilemmadataAdapter@1.1.0` now applies deterministic raw-only repair after
+  the byte-compatible `1.0.1` path rejects a record. It uses one exact pickup
+  transform with empty structural beats, raw-identity tie ranking/stable
+  tie-break, orphan continuation attacks, authoritative source boundaries,
+  overlap/stable-identity measure selection, explicit grace retention, and
+  zero-duration tie removal/reconnection. It does not read target labels,
+  choose randomly, invent duration, or make repair provenance a model input.
+- `DilemmadataRawRepairEvidence@1.0.0` stores stable source evidence,
+  candidates/selection, transform, affected entities, and local mask scope.
+  Remediated raw/target alignment and target adapter versions are `1.2.0`;
+  missing target families remain unavailable rather than excluding a work.
+- The immutable production audit at
+  `outputs/phase9eb2/dilemmadata-coverage-remediation-877c168/` is
+  `ready=true`: 1,633/1,633 accepted, zero quarantined, AN 353 and DLC 1,280.
+  All two-pass canonical/graph outputs are identical; every graph validates,
+  every repair has valid evidence, and duration, leakage, cycle, exact
+  bar/beat-context, old-tree, and representative 11-record target-sidecar
+  gates pass.
+- Repair applications are records/events: ambiguous measure selection
+  82/1,361; authoritative exact source boundaries 510/510; leading structural
+  padding 454/454; nonmonotonic mapping rederivation 15/1,037; orphan tie
+  promotion 143/547; tie hierarchy selection 257/1,293; cross-voice tie
+  reconstruction 366/2,263; zero-duration removal/reconnection 7/12; isolated
+  removal 6/43; staged successor reconnection 6/43. Remaining quarantine
+  reasons are empty.
+- Structural record availability after remediation is 353 AN / 1,280 DLC /
+  1,633 total for bass, chord quality, chord-tone/non-chord-tone, harmonic
+  rhythm, is-bass, is-root, local key, metrical downbeat, note degree,
+  pitch-class set, Roman numeral, root, and scale degree. The other totals are
+  inversion 353/1,279/1,632; tonicized key 341/1,240/1,581; cadence
+  0/920/920; pedal/organ point 0/1,280/1,280; phrase 0/1,279/1,279; and section
+  0/1,218/1,218.
+- Record-by-record comparison reports zero failures for all previous 719
+  canonical/graph serializations. Common manifest `be0d36ae...`, raw index
+  `c0451976...`, and split `58ac7720...` with 577/71/71 remain unchanged; the
+  unchanged 2,158-file Phase 9E-B1 output tree is `92a49df...`. The raw
+  universe is 1,633 and the separate 14-overlap AnalysisGNN selection ceiling
+  is 1,619.
+- Audit semantic fingerprint is
+  `831890a6f1b1d6a33c2c213201ca38ff290326160bb32a84d0c6d019cf481218`;
+  report SHA-256 is `315771023e6b28a293e815bd3c90620bbe5e54c73d57cfe130e4b42cca2b13d6`,
+  summary SHA-256 is `e0551a3e996199a509b7e3de1c7d1e7c21d83bc885469893eb813bfd7358c6dc`,
+  record-results SHA-256 is `86196888...`, repair-evidence SHA-256 is
+  `82c3fecd...`, and target-smoke SHA-256 is `36099819...`.
+- All Dilemmadata tests plus the repository contract pass `267 passed, 6
+  skipped, 4 warnings in 206.41s`; the skips are existing opt-in/external
+  integration tests. The full repository suite passes `1,734 passed, 59
+  skipped, 12 warnings in 1,446.63s`. Compileall and `git diff --check` pass.
+  Training, validation inference, locked-TEST evaluation, a new split,
+  multi-head construction, checkpoint/output replacement, and exact
+  AnalysisGNN reproduction were not performed.
+
 ## Required CI event/tree policy remediation — 2026-08-28
 
 - Restricted workflow `push` runs to protected default branch `main` while

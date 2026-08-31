@@ -3655,3 +3655,47 @@ This log is append-only.
   `3c93b1c5d733ade2048104ad164a04fddaee33a54e650de4d9f513251209a469`;
   graph and dataset fingerprints do not change. No TEST target or metric was
   opened to make this decision.
+
+## 2026-08-31 — ADR-102: Recover local Dilemmadata raw irregularities without target evidence
+
+- Status: Accepted for Phase 9E-B2 raw coverage remediation; expanded split,
+  multi-head training, validation inference, and TEST evaluation are not
+  authorized by this decision.
+- Context: The Phase 9B.1 fail-closed adapter accepted 719 of the 1,633 pinned
+  Dilemmadata records and quarantined 914. The preceding read-only audit traced
+  those record failures to local raw irregularities: leading partial measures,
+  missing or multiple tie predecessors, explicit source anchors outside a
+  nominal grid, ambiguous measure mappings, and zero-duration tie segments.
+  Excluding a whole work loses valid raw structure and available independent
+  target families, but resolving from harmonic labels would leak supervision
+  into model input.
+- Decision: Keep `DilemmadataAdapter@1.0.1` byte-exact and first in the
+  conversion path. Only a record rejected there may use
+  `DilemmadataAdapter@1.1.0`. Every repair must be selected from exact raw
+  timing, source tie/note identity, part/staff/voice, pitch, source measure
+  boundaries, meter, and stable source ordinal. Values in theory, validity,
+  alternative-analysis, and analyst/reviewer columns cannot be read or used
+  for reconstruction.
+- Decision: Represent a proved leading partial measure with one exact affine
+  time transform and structural empty beats. Treat monotonic explicit source
+  boundaries as authoritative. When multiple measure or tie candidates remain,
+  rank by the registered raw evidence hierarchy and stable identity. Promote
+  an orphan tie continuation to an attack; retain an explicit grace onset;
+  remove a zero-duration sounding tie segment and reconnect only a unique
+  chain. Never invent a positive duration, snap with epsilon, choose randomly,
+  or alter source pitch/duration.
+- Decision: Define `DilemmadataRawRepairEvidence@1.0.0`, alignment evidence
+  `1.2.0`, and coverage report `1.0.0`. Persist record/source identity, repair
+  type and raw evidence, candidate count/selection, exact transform, affected
+  entities, and local mask scope in canonical stable order. This evidence is
+  bound into audit/target alignment provenance but is neither target nor model
+  input. Uncertainty masks only the affected note or structurally dependent
+  target entries; a missing target family is normal unavailability.
+- Consequences: The pinned raw ceiling is 1,633 accepted records (353 AN,
+  1,280 DLC) with zero remaining quarantine. The previous 719 canonical and
+  graph serializations remain byte-identical; raw index `c0451976...`, common
+  manifest `be0d36ae...`, and split `58ac7720...` with 577/71/71 membership
+  remain unchanged. The AnalysisGNN 14-overlap exclusion remains a separate
+  experiment-selection policy, yielding a 1,619 paper-candidate ceiling. No
+  exact AnalysisGNN reproduction is claimed, and no model, checkpoint,
+  training output, validation result, or TEST result changes.

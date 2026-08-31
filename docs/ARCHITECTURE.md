@@ -990,6 +990,37 @@ piece resample. Exact AP remains descriptive because bootstrap AP would require
 prediction-score rows. Diagnostics never select a checkpoint.
 See `PHASE8B2_COMPARISON_PROTOCOL.md`.
 
+## Phase 9E-B2 Dilemmadata raw-coverage remediation boundary
+
+The remediated path is a compatibility extension of the Phase 9B.1 raw
+boundary, not a new dataset or model path:
+
+```text
+pinned raw AN/DLC row stream
+  -> exact raw parse and source identities
+  -> deterministic local repair + RawRepairEvidence@1.0.0
+  -> CanonicalPiece@2.0.0 (targets=annotations=empty)
+  -> unchanged raw graph builder and validator
+  -> optional TargetBundle through shared alignment transform/local mask
+```
+
+The old adapter is tried first. All 719 formerly accepted records therefore
+retain their canonical bytes, graph serialization and fingerprints. Only a
+previously rejected raw record enters the `1.1.0` repair path. Structural
+leading padding, source-boundary partitioning, measure selection, tie recovery,
+and zero-duration removal are computed without target columns. Repair
+provenance is bound to conversion/audit identity but cannot enter tensors or
+topology.
+
+The full-corpus gate discovers each of the 1,633 pinned records once, converts
+and builds every raw graph twice, validates exact bar/beat context and acyclic
+temporal/tie relations, and compares every old record against its immutable
+Phase 9E-B1 artifact. Target-sidecar conversion is a separate representative
+smoke over the same raw-derived transform and local masks. The raw adapter
+universe is 1,633 records; the 14 AnalysisGNN overlap exclusions are an
+orthogonal experiment-selection policy producing a ceiling of 1,619, not a
+raw parsing rule.
+
 ## Phase 9B.1 Dilemmadata raw-corpus boundary
 
 Dilemmadata enters the runtime through a pinned, target-independent adapter:

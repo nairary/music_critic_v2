@@ -781,6 +781,28 @@ The model and training phases remain pending.
   Only after acceptance may Phase 9E-B specify a fair AnalysisGNN reproduction
   and shared-task baseline on this exact split.
 
+### Phase 9E-B2 — Dilemmadata raw coverage remediation
+
+- Status: implemented and production-audited as a raw-only compatibility
+  extension; it creates no split, model, head, loss, or experiment result.
+- Goal: localize the six formerly fatal raw categories: leading partial
+  measures, missing/ambiguous tie predecessors, explicit off-grid source
+  anchors, ambiguous measure mapping, zero-duration tie continuations, and
+  deterministic repair provenance.
+- Result: the pinned raw ceiling is 1,633 accepted records (353 AN and 1,280
+  DLC) with zero quarantine. All previous 719 canonical pieces and graph
+  fingerprints remain byte-identical and their 577/71/71 split remains
+  unchanged.
+- Boundary: every repair uses exact raw timing and source identity only;
+  uncertainty is recorded and masked locally. Repair provenance is excluded
+  from model input. The AnalysisGNN 14-overlap exclusion is a separate
+  experiment policy, leaving a paper-candidate ceiling of 1,619.
+- Non-goals: new TRAIN/VALIDATION/TEST membership, multi-head construction,
+  training, validation or TEST inference, checkpoint changes, and any claim
+  of exact AnalysisGNN reproduction.
+- Next gate: design any expanded split and multi-head comparison as a separate
+  phase after review of the raw-coverage evidence.
+
 ## Phase 10 — PDMX adapter and large-scale SSL cache
 
 - Goal: support scalable role-agnostic public-domain score pretraining and
