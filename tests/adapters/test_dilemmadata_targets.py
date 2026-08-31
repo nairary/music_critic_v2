@@ -10,6 +10,8 @@ import torch
 
 from music_critic.adapters import (
     DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION,
+    DILEMMADATA_REMEDIATED_ALIGNMENT_EVIDENCE_VERSION,
+    DILEMMADATA_REMEDIATED_TARGET_ADAPTER_VERSION,
     DILEMMADATA_TARGET_ADAPTER_VERSION,
     DILEMMADATA_TARGET_AUDIT_MANIFEST_VERSION,
     DILEMMADATA_TARGET_AUDIT_REPORT_VERSION,
@@ -118,6 +120,7 @@ def _write_tsv(path: Path, header: list[str], rows: list[list[str]]) -> None:
 
 def test_public_versions_registry_inventory_and_frozen_encodings() -> None:
     assert DILEMMADATA_TARGET_ADAPTER_VERSION == "1.1.0"
+    assert DILEMMADATA_REMEDIATED_TARGET_ADAPTER_VERSION == "1.2.0"
     assert DILEMMADATA_TARGET_SIDECAR_VERSION == "1.0.0"
     assert DILEMMADATA_TARGET_AUDIT_REPORT_VERSION == "1.1.0"
     assert DILEMMADATA_TARGET_AUDIT_MANIFEST_VERSION == "1.1.0"
@@ -126,6 +129,7 @@ def test_public_versions_registry_inventory_and_frozen_encodings() -> None:
     assert DILEMMADATA_TARGET_ENCODING_REGISTRY_VERSION == "1.0.0"
     assert DILEMMADATA_TARGET_ALIGNMENT_RULES_VERSION == "1.0.0"
     assert DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION == "1.1.0"
+    assert DILEMMADATA_REMEDIATED_ALIGNMENT_EVIDENCE_VERSION == "1.2.0"
     assert TARGET_BUNDLE_CONTRACT_VERSION == "1.0.0"
     assert DILEMMADATA_TARGET_REGISTRY_ID == "music_critic.dilemmadata@1.0.0"
 
@@ -328,6 +332,104 @@ def test_post_acceptance_raw_mutation_cannot_be_hidden_by_target_adapter(
     rediscovered = convert_dilemmadata_record(_record(copied, "an:training:same"))
     assert isinstance(rediscovered, DilemmadataAccepted)
     assert rediscovered.record.raw_projection_sha256 != accepted.record.raw_projection_sha256
+
+
+def test_remediated_sidecar_uses_raw_time_transform_without_leakage(
+    tmp_path: Path,
+) -> None:
+    copied = tmp_path / "corpus"
+    shutil.copytree(CORPUS, copied)
+    source = copied / "pitch_arrays" / "DLC" / "demo" / "same.tsv"
+    header, rows = _read_tsv(source)
+    header.extend(["downbeat", "mc_playthrough", "mn"])
+    rows[0].extend(["0", "0a", "0"])
+    rows[1].extend(["1", "1a", "1"])
+    _write_tsv(source, header, rows)
+
+    raw = _accepted(copied, "dlc:demo:same")
+    assert raw.alignment_evidence.version == DILEMMADATA_REMEDIATED_ALIGNMENT_EVIDENCE_VERSION
+    assert raw.alignment_evidence.rows[1].onset_qn == RationalTime(4)
+    outcome = build_dilemmadata_target_sidecar(raw)
+    assert isinstance(outcome, DilemmadataTargetAccepted)
+    conversion = next(
+        row
+        for row in outcome.target_bundle.provenance
+        if row.provenance_id == "prov:dilemmadata-target-conversion"
+    )
+    assert conversion.version == DILEMMADATA_REMEDIATED_TARGET_ADAPTER_VERSION
+    assert (
+        "raw_repair_evidence_fingerprint",
+        raw.repair_evidence.fingerprint,
+    ) in conversion.details
+    cadence = next(
+        target
+        for target in outcome.target_bundle.targets
+        if target.task_id == "dilemmadata.dlc.cadence"
+    )
+    cadence_span = next(
+        span
+        for span in outcome.target_bundle.alignment_spans
+        if span.annotation_id == cadence.entity_ids[0]
+    )
+    assert cadence_span.start_qn == RationalTime(4)
+    assert len(outcome.target_bundle.targets) == 13
+
+    before_raw = _raw_evidence(raw)
+    _set_cell(source, 1, "chord_type", "m")
+    mutated_raw = _accepted(copied, "dlc:demo:same")
+    mutated_target = build_dilemmadata_target_sidecar(mutated_raw)
+    assert isinstance(mutated_target, DilemmadataTargetAccepted)
+    assert _raw_evidence(mutated_raw) == before_raw
+    assert mutated_target.sidecar_fingerprint != outcome.sidecar_fingerprint
+
+
+def test_ambiguous_tie_masks_only_note_identity_target_family(
+    tmp_path: Path,
+) -> None:
+    copied = tmp_path / "corpus"
+    shutil.copytree(CORPUS, copied)
+    source = copied / "pitch_arrays" / "AN" / "training" / "same_joint.tsv"
+    header, template = _read_tsv(source)
+    columns = {name: header.index(name) for name in header}
+
+    def row(voice: str, *, continuation: bool, degree: str) -> list[str]:
+        value = template[0].copy()
+        value[columns["s_voice_id"]] = voice
+        value[columns["s_isOnset"]] = "False" if continuation else "True"
+        value[columns["s_offset_frac"]] = "1" if continuation else "0"
+        value[columns["onset_div"]] = "480" if continuation else "0"
+        value[columns["note_degree"]] = degree
+        return value
+
+    _write_tsv(
+        source,
+        header,
+        [
+            row("1", continuation=False, degree="1"),
+            row("2", continuation=False, degree="2"),
+            row("3", continuation=True, degree="3"),
+        ],
+    )
+    raw = _accepted(copied, "an:training:same")
+    outcome = build_dilemmadata_target_sidecar(raw)
+    assert isinstance(outcome, DilemmadataTargetAccepted)
+    note_degree = next(
+        target
+        for target in outcome.target_bundle.targets
+        if target.task_id == "dilemmadata.an.note.scale_degree"
+    )
+    chord_boundary = next(
+        target
+        for target in outcome.target_bundle.targets
+        if target.task_id == "dilemmadata.an.chord.boundary"
+    )
+    assert note_degree.availability_mask == (False, False)
+    assert all(value is None for value in note_degree.values)
+    assert any(chord_boundary.availability_mask)
+    assert _family(
+        outcome,
+        "dilemmadata.an.note.scale_degree",
+    ).masked_count == 3
 
 
 def test_forged_raw_to_target_alignment_evidence_fails_closed() -> None:

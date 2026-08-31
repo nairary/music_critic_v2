@@ -13,10 +13,14 @@ from torch.utils.data import DataLoader
 from music_critic.adapters import (
     DILEMMADATA_ACCEPTANCE_REPORT_VERSION,
     DILEMMADATA_ADAPTER_VERSION,
+    DILEMMADATA_COVERAGE_REMEDIATION_REPORT_VERSION,
     DILEMMADATA_CORPUS_IDENTITY_VERSION,
     DILEMMADATA_GROUPING_VERSION,
     DILEMMADATA_PRODUCTION_MANIFEST_VERSION,
+    DILEMMADATA_RAW_REPAIR_EVIDENCE_VERSION,
     DILEMMADATA_RAW_PROJECTION_VERSION,
+    DILEMMADATA_REMEDIATED_ADAPTER_VERSION,
+    DILEMMADATA_REMEDIATED_ALIGNMENT_EVIDENCE_VERSION,
     DILEMMADATA_RECORD_BINDING_VERSION,
     DilemmadataAccepted,
     DilemmadataAdapterConfig,
@@ -27,6 +31,7 @@ from music_critic.adapters import (
     convert_dilemmadata_record,
     discover_dilemmadata_corpus,
     iter_dilemmadata_corpus,
+    validate_dilemmadata_raw_repair_evidence,
 )
 from music_critic.data import dumps_piece, loads_piece
 from music_critic.graph import (
@@ -117,12 +122,16 @@ def _raw_evidence(outcome: DilemmadataAccepted) -> tuple[str, str, str, str]:
 
 def test_public_versions_and_pinned_identity_gate() -> None:
     assert DILEMMADATA_ADAPTER_VERSION == "1.0.1"
+    assert DILEMMADATA_REMEDIATED_ADAPTER_VERSION == "1.1.0"
     assert DILEMMADATA_CORPUS_IDENTITY_VERSION == "1.0.0"
     assert DILEMMADATA_RAW_PROJECTION_VERSION == "1.0.0"
     assert DILEMMADATA_GROUPING_VERSION == "1.0.0"
     assert DILEMMADATA_RECORD_BINDING_VERSION == "1.0.0"
     assert DILEMMADATA_ACCEPTANCE_REPORT_VERSION == "1.1.0"
     assert DILEMMADATA_PRODUCTION_MANIFEST_VERSION == "1.1.0"
+    assert DILEMMADATA_RAW_REPAIR_EVIDENCE_VERSION == "1.0.0"
+    assert DILEMMADATA_REMEDIATED_ALIGNMENT_EVIDENCE_VERSION == "1.2.0"
+    assert DILEMMADATA_COVERAGE_REMEDIATION_REPORT_VERSION == "1.0.0"
 
     with pytest.raises(DilemmadataCorpusIdentityError):
         discover_dilemmadata_corpus(CORPUS)
@@ -358,7 +367,7 @@ def test_theory_column_mutations_do_not_change_raw_or_model_evidence(
         (("s_offset_frac", "onset_div"), ("1/2", "240"), False),
         (("s_duration_frac", "duration_div"), ("1/2", "240"), False),
         (("ts_beats",), ("3",), False),
-        (("s_isOnset",), ("False",), True),
+        (("s_isOnset",), ("False",), False),
         (("s_voice_id",), ("2",), False),
     ],
     ids=["pitch", "onset", "duration", "meter", "tie", "voice"],
@@ -437,7 +446,9 @@ def test_dlc_zero_duration_is_retained_as_grace_without_invented_time(
     assert outcome.statistics.grace_note_count == 1
 
 
-def test_zero_duration_tie_continuation_is_quarantined(tmp_path: Path) -> None:
+def test_zero_duration_tie_continuation_is_removed_not_lengthened(
+    tmp_path: Path,
+) -> None:
     copied = tmp_path / "corpus"
     shutil.copytree(CORPUS, copied)
     source = copied / "pitch_arrays" / "DLC" / "demo" / "same.tsv"
@@ -446,8 +457,18 @@ def test_zero_duration_tie_continuation_is_quarantined(tmp_path: Path) -> None:
     _set_cell(source, 0, "is_note_onset", "False")
 
     outcome = convert_dilemmadata_record(_record(copied, "dlc:demo:same"))
-    assert isinstance(outcome, DilemmadataQuarantine)
-    assert "dilemmadata.grace_conflict" in outcome.categories
+    assert isinstance(outcome, DilemmadataAccepted)
+    assert outcome.repair_evidence is not None
+    assert validate_dilemmadata_raw_repair_evidence(outcome.repair_evidence)
+    assert [note.pitch for note in outcome.piece.notes] == [64]
+    assert outcome.alignment_evidence.rows[0].canonical_note_id is None
+    assert outcome.alignment_evidence.rows[0].repair_mask_scope == "note"
+    assert {
+        repair.repair_type for repair in outcome.repair_evidence.repairs
+    } >= {
+        "zero_duration_tie_segment_staged_for_successor",
+        "zero_duration_tie_segment_removed_isolated",
+    }
 
 
 def test_post_discovery_raw_mutation_fails_fingerprint_binding(
@@ -586,7 +607,9 @@ def test_pickup_meter_change_and_measure_anchors_are_reconstructed(tmp_path: Pat
     assert not outcome.piece.bars[2].is_incomplete
 
 
-def test_inconsistent_measure_anchor_is_quarantined(tmp_path: Path) -> None:
+def test_inconsistent_measure_anchor_is_deterministically_mapped(
+    tmp_path: Path,
+) -> None:
     copied = tmp_path / "corpus"
     shutil.copytree(CORPUS, copied)
     source = copied / "pitch_arrays" / "AN" / "training" / "same_joint.tsv"
@@ -597,11 +620,203 @@ def test_inconsistent_measure_anchor_is_quarantined(tmp_path: Path) -> None:
     _write_tsv(source, header, rows)
 
     outcome = convert_dilemmadata_record(_record(copied, "an:training:same"))
-    assert isinstance(outcome, DilemmadataQuarantine)
-    assert "dilemmadata.bar_reconstruction_failed" in outcome.categories
+    assert isinstance(outcome, DilemmadataAccepted)
+    assert outcome.repair_evidence is not None
+    mapping = [
+        repair
+        for repair in outcome.repair_evidence.repairs
+        if repair.repair_type == "ambiguous_measure_mapping_selected"
+    ]
+    assert len(mapping) == 1
+    assert mapping[0].candidate_count == 2
+    assert mapping[0].chosen_candidate_id == "source-anchor:0/1"
 
 
-def test_inconsistent_simultaneous_meter_is_quarantined(tmp_path: Path) -> None:
+def test_leading_partial_measure_uses_structural_silence_and_one_transform(
+    tmp_path: Path,
+) -> None:
+    copied = tmp_path / "corpus"
+    shutil.copytree(CORPUS, copied)
+    source = copied / "pitch_arrays" / "DLC" / "demo" / "same.tsv"
+    header, rows = _read_tsv(source)
+    header.extend(["downbeat", "mc_playthrough", "mn"])
+    rows[0].extend(["0", "0a", "0"])
+    rows[1].extend(["1", "1a", "1"])
+    _write_tsv(source, header, rows)
+
+    first = _accepted(copied, "dlc:demo:same")
+    second = _accepted(copied, "dlc:demo:same")
+    assert dumps_piece(first.piece) == dumps_piece(second.piece)
+    assert first.repair_evidence == second.repair_evidence
+    assert first.repair_evidence is not None
+    assert first.repair_evidence.time_transform.offset_qn.to_fraction() == 3
+    assert [note.onset_qn.to_fraction() for note in first.piece.notes] == [3, 4]
+    assert len(first.piece.notes) == 2
+    assert [beat.start_qn.to_fraction() for beat in first.piece.beats[:4]] == [
+        0,
+        1,
+        2,
+        3,
+    ]
+    pickup_beat = next(
+        beat for beat in first.piece.beats if beat.start_qn.to_fraction() == 3
+    )
+    assert not pickup_beat.is_downbeat
+    assert first.alignment_evidence.rows[0].onset_qn.to_fraction() == 3
+    assert first.piece.annotations == first.piece.targets == ()
+    graph = build_raw_graph(first.piece, assume_valid=True)
+    assert graph_fingerprint(graph) == graph_fingerprint(
+        build_raw_graph(second.piece, assume_valid=True)
+    )
+
+
+def test_unique_cross_voice_tie_and_orphan_successor_chain_are_retained(
+    tmp_path: Path,
+) -> None:
+    copied = tmp_path / "corpus"
+    shutil.copytree(CORPUS, copied)
+    source = copied / "pitch_arrays" / "AN" / "training" / "same_joint.tsv"
+    header, rows = _read_tsv(source)
+    columns = {name: header.index(name) for name in header}
+    continuation = rows[0].copy()
+    continuation[columns["onset_div"]] = "480"
+    continuation[columns["s_offset_frac"]] = "1"
+    continuation[columns["s_isOnset"]] = "False"
+    continuation[columns["s_voice_id"]] = "2"
+    _write_tsv(source, header, [rows[0], continuation])
+
+    cross_voice = _accepted(copied, "an:training:same")
+    assert len(cross_voice.piece.notes) == 1
+    assert cross_voice.piece.notes[0].duration_qn.to_fraction() == 2
+    assert cross_voice.repair_evidence is not None
+    assert "tie_cross_voice_predecessor_reconstructed" in {
+        row.repair_type for row in cross_voice.repair_evidence.repairs
+    }
+
+    header, rows = _read_tsv(source)
+    columns = {name: header.index(name) for name in header}
+    rows[0][columns["s_isOnset"]] = "False"
+    rows[1][columns["s_voice_id"]] = rows[0][columns["s_voice_id"]]
+    _write_tsv(source, header, rows)
+    orphan = _accepted(copied, "an:training:same")
+    assert len(orphan.piece.notes) == 1
+    assert orphan.piece.notes[0].duration_qn.to_fraction() == 2
+    assert "orphan_tie_continuation_promoted_to_attack" in {
+        row.repair_type for row in orphan.repair_evidence.repairs
+    }
+
+
+def test_multiple_tie_candidates_have_stable_choice_evidence_and_local_mask(
+    tmp_path: Path,
+) -> None:
+    copied = tmp_path / "corpus"
+    shutil.copytree(CORPUS, copied)
+    source = copied / "pitch_arrays" / "AN" / "training" / "same_joint.tsv"
+    header, template = _read_tsv(source)
+    columns = {name: header.index(name) for name in header}
+
+    def candidate(voice: str, *, continuation: bool = False) -> list[str]:
+        row = template[0].copy()
+        row[columns["s_voice_id"]] = voice
+        row[columns["s_isOnset"]] = "False" if continuation else "True"
+        row[columns["s_offset_frac"]] = "1" if continuation else "0"
+        row[columns["onset_div"]] = "480" if continuation else "0"
+        return row
+
+    _write_tsv(
+        source,
+        header,
+        [candidate("1"), candidate("2"), candidate("3", continuation=True)],
+    )
+    first = _accepted(copied, "an:training:same")
+    second = _accepted(copied, "an:training:same")
+    assert dumps_piece(first.piece) == dumps_piece(second.piece)
+    repair = next(
+        row
+        for row in first.repair_evidence.repairs
+        if row.repair_type == "tie_candidate_hierarchy_selected"
+    )
+    assert repair.candidate_count == 2
+    assert repair.chosen_candidate_id == "source-note:ordinal-00000000"
+    assert repair.target_mask_scope == "note"
+    assert len(first.piece.notes) == 2
+    assert sorted(note.duration_qn.to_fraction() for note in first.piece.notes) == [1, 2]
+    assert all(
+        row.repair_mask_scope == "note"
+        for row in first.alignment_evidence.rows
+    )
+
+
+def test_zero_duration_intermediate_tie_is_reconnected_without_added_time(
+    tmp_path: Path,
+) -> None:
+    copied = tmp_path / "corpus"
+    shutil.copytree(CORPUS, copied)
+    source = copied / "pitch_arrays" / "DLC" / "demo" / "same.tsv"
+    header, template = _read_tsv(source)
+    columns = {name: header.index(name) for name in header}
+
+    def row(onset: int, duration: str, duration_div: str, onset_flag: str) -> list[str]:
+        value = template[0].copy()
+        value[columns["quarterbeats_playthrough"]] = str(onset)
+        value[columns["onset_div"]] = str(onset * 480)
+        value[columns["duration"]] = duration
+        value[columns["duration_div"]] = duration_div
+        value[columns["is_note_onset"]] = onset_flag
+        return value
+
+    _write_tsv(
+        source,
+        header,
+        [
+            row(0, "1/4", "480", "True"),
+            row(1, "0", "0", "False"),
+            row(1, "1/4", "480", "False"),
+        ],
+    )
+    outcome = _accepted(copied, "dlc:demo:same")
+    assert len(outcome.piece.notes) == 1
+    assert outcome.piece.notes[0].duration_qn.to_fraction() == 2
+    assert "zero_duration_tie_segment_removed_and_reconnected" in {
+        repair.repair_type for repair in outcome.repair_evidence.repairs
+    }
+    assert {
+        row.canonical_note_id for row in outcome.alignment_evidence.rows
+    } == {outcome.piece.notes[0].note_id}
+
+
+def test_exact_off_grid_source_anchor_is_retained_with_fractional_pickup_beat(
+    tmp_path: Path,
+) -> None:
+    copied = tmp_path / "corpus"
+    shutil.copytree(CORPUS, copied)
+    source = copied / "pitch_arrays" / "AN" / "training" / "same_joint.tsv"
+    header, rows = _read_tsv(source)
+    header.extend(["s_measure", "measureNumberWithSuffix", "mn_onset"])
+    columns = {name: header.index(name) for name in header[:-3]}
+    rows[0][columns["ts_beats"]] = "2"
+    rows[0][columns["ts_beat_type"]] = "2"
+    rows[1][columns["ts_beats"]] = "2"
+    rows[1][columns["ts_beat_type"]] = "2"
+    rows[0].extend(["0", "0", "0"])
+    rows[1].extend(["1", "1", "0"])
+    _write_tsv(source, header, rows)
+
+    outcome = _accepted(copied, "an:training:same")
+    assert outcome.repair_evidence is not None
+    assert "exact_source_measure_boundaries_authoritative" in {
+        row.repair_type for row in outcome.repair_evidence.repairs
+    }
+    assert outcome.piece.bars[0].duration_qn.to_fraction() == 1
+    assert outcome.piece.bars[0].metric_offset_qn.to_fraction() == 3
+    assert outcome.piece.beats[0].position_in_bar_qn.to_fraction() == 3
+    assert not outcome.piece.beats[0].is_downbeat
+    assert outcome.validation_report.errors == ()
+
+
+def test_inconsistent_simultaneous_meter_uses_stable_raw_vote_and_masks_locally(
+    tmp_path: Path,
+) -> None:
     copied = tmp_path / "corpus"
     shutil.copytree(CORPUS, copied)
     source = copied / "pitch_arrays" / "AN" / "training" / "same_joint.tsv"
@@ -610,8 +825,19 @@ def test_inconsistent_simultaneous_meter_is_quarantined(tmp_path: Path) -> None:
     _set_cell(source, 1, "ts_beats", "3")
 
     outcome = convert_dilemmadata_record(_record(copied, "an:training:same"))
-    assert isinstance(outcome, DilemmadataQuarantine)
-    assert "dilemmadata.meter_conflict" in outcome.categories
+    assert isinstance(outcome, DilemmadataAccepted)
+    repair = next(
+        row
+        for row in outcome.repair_evidence.repairs
+        if row.repair_type == "simultaneous_meter_evidence_selected"
+    )
+    assert repair.candidate_count == 2
+    assert repair.chosen_candidate_id == "meter:3/4"
+    assert repair.target_mask_scope == "all"
+    assert all(
+        row.repair_mask_scope == "all"
+        for row in outcome.alignment_evidence.rows
+    )
 
 
 def test_inconsistent_simultaneous_key_signature_has_distinct_category(
