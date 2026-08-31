@@ -1928,3 +1928,46 @@ quality-17. Compatibility rows broadcast the same canonical harmonic identity
 to notes and project quality to 15 classes. Artifacts preserve note/entity row,
 canonical harmonic row, record, and component units independently. TEST tuples
 are unavailable by construction.
+
+## 16. Phase 9E-B5A transposition audit contract
+
+`DilemmadataAnalysisGNNTranspositionAudit@1.0.0` is derived planning evidence,
+not a canonical piece, cached graph, target sidecar, loader augmentation,
+sampler, model, loss, or evaluation result. It binds the unchanged B3 universe,
+component split, task/vocabulary registry, B4 thresholds, B2 raw graph
+fingerprints, and two distinct profile identities.
+
+`analysisgnn-official-transposition-e115182-v1` records pinned public behavior
+without making it a V2 dependency: named intervals `P1` through `M7`, positive
+semitones, modulo pitch paths, music21 label transforms, transposition-invariant
+representations, final-class OOV routing, and materialized-view splitting.
+`music-critic-v2-closed-transposition-v1` instead uses shift-PC identities
+0–11 with signed semitones `0,1,2,3,4,5,6,-5,-4,-3,-2,-1`. A future epoch draw
+is uniform over one record's valid shifts, including identity, and keyed by
+profile, supplied seed, epoch, and source record. VALIDATION and TEST have only
+identity views.
+
+For absolute targets, a class ID is never arithmetically shifted. The contract
+decodes a task/dialect semantic value, applies deterministic source-spelling
+semantics, requires target-vocabulary membership and inverse closure, then
+looks up a target class ID. Pitch-class sets use sorted cyclic PC shifts.
+Relative, structural, and boolean values remain unchanged while masks and
+source-row provenance are preserved. An invalid corrected mapping records a
+reason and excludes only that variant; missing/masked values never become
+negative or OOV labels.
+
+An augmented identity contains source record, immutable source graph
+fingerprint, profile, shift PC, and signed semitones. Variants retain source
+split and component. The on-the-fly graph view changes only non-percussion note
+pitch/pitch-class/octave and recomputed track-relative pitch. A MIDI range
+failure rejects the whole shift. Node/edge counts and identities, topology,
+timing, meter/tempo, ownership, ties/graces, repairs, provenance, and target
+masks are invariant.
+
+Full-orbit totals count every valid shift once and are diagnostic.
+Expected-epoch totals assign probability `1 / valid_shift_count` per shift.
+`variant_entity_count`, `variant_canonical_row_count`, variant count, source
+component count, and component/shift support remain separate units; variants
+are never independent works or components. TRAIN targets are the only targets
+opened. VALIDATION/TEST raw pieces may be read for collisions, but their target
+descriptor bytes are filtered before decoding and target access is 0/0.

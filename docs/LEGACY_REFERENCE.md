@@ -605,3 +605,19 @@ raw entity count as independent sample size, filename grouping, missing as a
 negative class, validation-informed weighting, TEST distribution inspection,
 silent rare-class merging, and automatic sampler/loss changes based on one
 audit.
+
+## Phase 9E-B5A transposition audit
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or reused for B5A. The legacy project supplies no V2
+transposition contract. The official profile was reconstructed independently
+from the separately pinned public AnalysisGNN commit `e115182...`; its source
+files and hashes are evidence only and are not runtime dependencies.
+
+Accepted V2 concepts are global pitch/key-consistent transposition, explicit
+equivariant versus invariant targets, immutable source/component identity, and
+TRAIN-only augmentation. Rejected assumptions are modulo octave wrapping,
+per-note octave repair, arithmetic class-ID shifting, random enharmonic choice,
+OOV fallback in corrected V2, view-level split assignment, counting variants
+as independent components, and inferring quality/Roman/phrase support from
+pitch-only augmentation.

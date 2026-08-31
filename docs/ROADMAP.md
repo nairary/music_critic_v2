@@ -848,6 +848,33 @@ The model and training phases remain pending.
   decision on whether unsupported/descriptive heads are deferred, reported as
   secondary-only, or receive a new data/split policy before baseline training.
 
+### Phase 9E-B5A — transposition policy and post-augmentation audit
+
+- Status: implemented and production-audited; augmentation is not connected to
+  training and no head role is frozen.
+- Goal: separate pinned AnalysisGNN behavior from a safe V2 candidate,
+  classify all raw graph features and 20 targets, prove invariants, close
+  semantic vocabularies, and measure TRAIN support after augmentation.
+- Result: corrected V2 uses deterministic TRAIN-only on-the-fly uniform draws
+  over each record's valid subset of the signed 12-PC orbit. Of 1,295 TRAIN
+  records, 1,231 have 12 valid shifts and 64 have 2–11; identity is always
+  valid. The 6,408-row mapping has 5,956 round-trip-valid rows. No held-out raw
+  collision exists, and variants retain their frozen source component.
+- Balance result: bass recovers 37/37 classes; root reaches 36/37; local and
+  tonicized key reach 48/50; pitch-class-set balance improves without changing
+  its 93-class coverage. Quality-17, Roman-184, note-degree, phrase, section,
+  and all other relative/structural/boolean distributions remain invariant.
+  No previously non-trainable B4 head becomes strictly `trainable` under the
+  frozen thresholds, so recommendations remain candidates only.
+- TEST lock: VALIDATION/TEST are identity-only. Their raw records may enter the
+  collision audit, but target descriptors/payloads are filtered before decode;
+  TEST target records/rows remain 0/0 and no evaluation occurs.
+- Non-goals: graph-cache mutation, dataset/split/vocabulary/mask changes,
+  model/heads/loss/sampler implementation, training, inference, or automatic
+  adoption of recommendation roles.
+- Next gate: focused review and Required CI, then a separate baseline-contract
+  decision on loss-active, auxiliary, derived, and deferred heads.
+
 ## Phase 10 — PDMX adapter and large-scale SSL cache
 
 - Goal: support scalable role-agnostic public-domain score pretraining and

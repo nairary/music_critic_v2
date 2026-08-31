@@ -3790,3 +3790,34 @@ This log is append-only.
   of model performance. Dataset, exclusions, split, vocabularies, target
   values/masks, source sidecars, graphs, model, losses, samplers, and training
   configs remain unchanged.
+
+## 2026-08-31 — ADR-106: Separate pinned and corrected transposition profiles
+
+- Status: Accepted for Phase 9E-B5A planning evidence only. It does not enable
+  augmentation in a Dataset or freeze a baseline head/loss/sampling policy.
+- Context: Pinned AnalysisGNN materializes 12 named-interval views with modulo
+  pitch behavior, final-class OOV fallback, and a view-level TRAIN/VALIDATION
+  split. Reusing that path as safe V2 augmentation would combine reproduction
+  evidence with corrections, permit leakage, and obscure enharmonic vocabulary
+  failures. B4 measures only raw TRAIN support.
+- Decision: Keep `analysisgnn-official-transposition-e115182-v1` as immutable
+  external evidence and define `music-critic-v2-closed-transposition-v1` as a
+  separate candidate. Corrected V2 is TRAIN-only, on-the-fly, deterministic
+  under a supplied seed, uniform over each record's valid shift-PC subset, and
+  identity-only in VALIDATION/TEST. Its physical orbit is
+  `(0,+1,+2,+3,+4,+5,+6,-5,-4,-3,-2,-1)` with tritone `+6`.
+- Decision: Absolute pitch labels are decoded and mapped by source-aware
+  spelling with vocabulary and inverse closure; PC sets are cyclic; relative,
+  structural, and boolean targets are invariant. Missing values and masks are
+  preserved. A range, closure, non-bijection, or held-out collision failure
+  excludes the whole record/shift without octave folding or split repair.
+- Decision: Treat a variant as a view of its frozen record/component. Report
+  full-orbit and exact one-draw expectations separately from independent source
+  support. Use B4 thresholds only for advisory official/corrected tables; do
+  not mutate head roles, weights, sampler, model, or training configuration.
+- Consequences: 1,231/1,295 TRAIN records admit all shifts and 64 have partial
+  orbits; no identity-only record or held-out collision exists. Bass reaches
+  full vocabulary coverage, root/local/tonicized key remain partly unsupported,
+  and pitch-class-set balance improves. Quality-17, Roman-184, note-degree,
+  phrase, and section remain exactly invariant, so no new head becomes strictly
+  trainable under B4. TEST targets remain unopened.

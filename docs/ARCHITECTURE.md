@@ -1424,3 +1424,26 @@ The output is not routed into the encoder, HybridGNN, GRU, task heads, losses,
 sampler, checkpoint, or evaluator. Candidate weights and component-balanced
 sampling statuses are diagnostic artifacts only. A later model/training phase
 must make a separate recorded decision before consuming either.
+
+## Phase 9E-B5A transposition evidence boundary
+
+The transposition layer has three separated planes. The immutable raw plane is
+the existing canonical piece/B2 graph fingerprint. A TRAIN-only view plane may
+copy a graph and change only non-percussion pitch, pitch class, octave, and the
+track-relative feature recomputed from those pitches. The target plane applies
+the same shift through task-aware semantic mappings while preserving masks and
+source provenance. No plane writes an augmented graph to the raw cache.
+
+Official evidence and corrected execution are different contracts. The former
+serializes pinned AnalysisGNN source locations and known modulo, OOV, sampling,
+and split behavior. The latter owns a closed 12-PC orbit, deterministic seeded
+record/epoch draw, record-level MIDI/spelling/collision eligibility, and
+identity-only held-out behavior. Neither profile imports the external project.
+
+Collision comparison may read target-free raw graph inputs from VALIDATION and
+TEST. Assignment filtering occurs before any target descriptor decoder, so
+only TRAIN reaches target materialization. A transposed TRAIN view never gets a
+new record/component identity and is excluded, rather than reassigned, if it
+matches held-out raw input. Full-orbit counts and analytical one-draw
+expectations are planning evidence; no Dataset, sampler, model, or evaluator
+currently consumes them.

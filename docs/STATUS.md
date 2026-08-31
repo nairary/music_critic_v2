@@ -1,5 +1,62 @@
 # Music Critic V2 Status
 
+## Phase 9E-B5A AnalysisGNN transposition audit — 2026-08-31
+
+- Added `DilemmadataAnalysisGNNTranspositionAudit@1.0.0` with separate pinned
+  `analysisgnn-official-transposition-e115182-v1` evidence and fail-closed
+  `music-critic-v2-closed-transposition-v1`. Official behavior records 12
+  positive named intervals, modulo pitch wrap, OOV-to-final-class routing, and
+  view-level TRAIN/VALIDATION leakage without importing AnalysisGNN. Corrected
+  V2 uses the signed 12-PC orbit `(0,+1,+2,+3,+4,+5,+6,-5,-4,-3,-2,-1)`, a
+  deterministic uniform record/epoch draw over valid shifts, TRAIN-only
+  on-the-fly views, identity-only VALIDATION/TEST, and no octave folding.
+- All 20 heads have a serialized transformation row. Local/tonicized key,
+  root, and bass use semantic spelling-aware mappings; pitch-class sets are
+  cyclic; relative, structural, and boolean labels are invariant. Pinned
+  `NoteDegree49` plus AN/DLC contracts prove `note_degree` is relative.
+  Graph views may change only note pitch, pitch class, octave, and recomputed
+  track-relative pitch; topology, timing, ownership, identities, provenance,
+  repairs, and masks remain unchanged.
+- The semantic table has 6,408 rows: 5,956 valid and 452 fail-closed (416
+  `target_oov`, 36 `non_bijective_mapping`). Every valid row round-trips. All
+  26,784 promised closed pitch-class-set compositions pass; 8,976 absolute
+  spelling composition mismatches remain diagnostic because no global
+  enharmonic spelling group action is claimed.
+- The TRAIN audit emitted 15,540 eligibility rows. 1,231 records admit all 12
+  corrected shifts and 64 admit 2–11; none is identity-only. Corrected valid
+  variants total 15,389. Record/shift exclusions comprise 217 `target_oov` and
+  170 non-bijective reasons across the same 64 records. No corrected or
+  official raw collision with VALIDATION/TEST was found; variants never move
+  split or count as new source components.
+- Corrected expected coverage changes local key 30→48 classes (remaining
+  `bbb`, `cb`), tonicized key 43→48 (remaining `bbb`, `cb`), root 34→36
+  (remaining `E###`), and bass 34→37 (complete). Pitch-class-set remains 93/93
+  but improves entropy. Frozen B4 thresholds make no new head strictly
+  `trainable`; recommendations remain advisory: 1 primary, 7 auxiliary, 5
+  derived-metric, and 7 policy-decision candidates.
+- Exact analytical one-draw counts match frozen B4 for all 361 invariant class
+  rows. Quality-17 stays 16 observed with `augmented sixth` absent and distinct
+  `+7`/`+M7`; Roman-184 stays 178 observed/6 absent; note-degree stays 42/7.
+  No phrase/section negatives are created.
+- Production evidence at
+  `outputs/phase9eb5a/analysisgnn-transposition-a6a2796/` is `valid=true` with
+  semantic fingerprint
+  `b8aba86430fe2c87b250a5d1d1adc7557eed41ac54f24ae6cff32fd8bc815644`.
+  Attempt 1 formed no semantic result because it compared compact and expanded
+  descriptor fingerprint domains; the permitted technical repeat used frozen
+  contract counts and succeeded. A source-free reseal added explicit entity
+  totals without reopening corpus or target payloads.
+- Raw access was 1,295 TRAIN, 162 VALIDATION, and 162 TEST records. Targets were
+  opened only for TRAIN: VALIDATION and TEST target records/rows remain 0/0;
+  TEST counting, decisions, inference, and evaluation are false. Dataset,
+  exclusions, split, TEST assignment, vocabularies, masks, raw graph cache,
+  model, heads, losses, sampler, and training configs are unchanged.
+- The exact targeted B5A/B4/B3/repository gate passes `97 passed, 2 warnings
+  in 2.43s`. Source-free `--check`, compileall, the 498-line contract-claim
+  scan, and `git diff --check` pass. `rg` is unavailable, so the requested scan
+  uses recursive `grep` over the same `src/tests/scripts/docs` roots. The local
+  full suite is intentionally deferred to GitHub Required `full-suite`.
+
 ## Phase 9E-B4 AnalysisGNN class-balance audit — 2026-08-31
 
 - Added `DilemmadataAnalysisGNNClassBalanceAudit@1.0.0` over the unchanged B3
@@ -312,11 +369,12 @@
 ## Current phase
 
 - Date: 2026-08-31
-- Current task: Phase 9E-B4 TRAIN/VALIDATION-only AnalysisGNN class-balance
-  audit on stacked branch `phase/9eb4-analysisgnn-class-balance-audit`, based
-  on exact B3 head `88a80bfb5d74050430f3e3dda2b4f16f0485a8e0`.
-- B4 is evidence and planning only. Model/training implementation, final loss
-  weighting, sampler selection, validation inference, and TEST evaluation
+- Current task: Phase 9E-B5A TRAIN-only AnalysisGNN transposition audit on
+  stacked branch `phase/9eb5a-analysisgnn-transposition-policy`, based on exact
+  B4 head `a6a2796bcdaa2c8d6c0944522e480b0d772bfd49`.
+- B5A is evidence and planning only. Augmentation is not wired into a loader;
+  model/training implementation, final head roles, loss weighting, sampler
+  selection, validation inference, and TEST evaluation
   remain future separately authorized work. Historical Phase 9C execution
   context follows below.
 - The completed parent evidence is fixed by manifest fingerprint

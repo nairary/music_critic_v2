@@ -3360,6 +3360,35 @@ The production audit result is 1 trainable, 7 reweighting, 5 insufficient, and
 7 descriptive-only heads. Model architecture, training, inference, dataset,
 split, vocabulary, target/mask, graph, B2/B3, and TEST contracts are unchanged.
 
+### Phase 9E-B5A transposition contract and audit implemented
+
+- Pin official AnalysisGNN behavior as independent evidence: 12 positive named
+  intervals, materialized graph views, modulo pitch wrap, music21 semantic
+  transforms, OOV-to-final-class routing, and post-augmentation view-level
+  TRAIN/VALIDATION splitting. Do not import or repair it in that profile.
+- Define corrected V2 as a TRAIN-only, on-the-fly, supplied-seed-deterministic,
+  mask-preserving and fail-closed view. Use all 12 pitch-class shifts with a
+  minimal signed physical representation and fixed `+6` tritone. Reject an
+  entire record/shift on MIDI range, semantic closure, round-trip, or held-out
+  collision failure; never octave-fold notes or move a variant between splits.
+- Decode pitch-dependent targets before transposition. Preserve task/dialect
+  spelling and require vocabulary lookup for local key, tonicized key, root,
+  bass, and pitch-class set. Keep relative, structural, and boolean labels
+  invariant, including relative AN/DLC note degree.
+- Apply graph views without changing the raw cache. Only pitch, pitch class,
+  octave, and track-relative pitch may change; retain node/edge identity,
+  topology, exact timing, ownership, repair/provenance evidence, and masks.
+- Emit full-orbit and analytical uniform one-draw statistics while retaining
+  source component count separately from component/shift support and variant
+  count. Reuse frozen B4 thresholds; emit advisory official/corrected tables
+  without changing heads, losses, samplers, or training.
+
+Acceptance is 20 classified heads, a deterministic mapping with round-trip and
+scoped composition evidence, 15,540 eligibility rows with valid identity for
+all TRAIN records, zero corrected held-out collisions, exact B4 equality for
+all invariant expected distributions, TEST target access 0/0, source-free
+fixture verification, and focused B3/B4/B5A/repository tests.
+
 ### Phase 9B.2A production target sidecars implemented
 
 - separate target-only AN/DLC parsing over Phase 9A-evidenced fields;
