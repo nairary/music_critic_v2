@@ -247,7 +247,11 @@ VOCABULARIES = (
     VocabularySpec(
         "analysisgnn.quality-corrected-v1",
         _QUALITIES,
-        aliases=(("augmented seventh", "augmented seventh chord"),),
+        aliases=(
+            ("+7", "augmented seventh chord"),
+            ("+M7", "augmented major tetrachord"),
+            ("augmented seventh", "augmented seventh chord"),
+        ),
         notes=(
             "The pinned 16-entry literal contains missing=None while the head is 15; "
             "missing is masked, and two semantically distinct DLC +7/+M7 qualities "
@@ -313,7 +317,7 @@ PRODUCTION_TASKS = (
     _task("bass", "bass", "harmonic_event", _BOTH, ("a_bass",), "analysisgnn.tone-function-v1"),
     _task("primary_degree", "scale_degree", "harmonic_event", _BOTH, ("a_degree1",), "analysisgnn.degree-v1", joint="roman_numeral_joint"),
     _task("secondary_degree", "scale_degree", "harmonic_event", _BOTH, ("a_degree2",), "analysisgnn.degree-v1", joint="roman_numeral_joint"),
-    _task("quality", "quality", "harmonic_event", _BOTH, ("a_quality",), "analysisgnn.quality-corrected-v1", joint="roman_numeral_joint"),
+    _task("quality", "quality", "harmonic_event", _BOTH, ("a_quality", "chord_type"), "analysisgnn.quality-corrected-v1", joint="roman_numeral_joint"),
     _task("inversion", "inversion", "harmonic_event", _BOTH, ("a_inversion", "figbass"), "analysisgnn.inversion-v1", joint="roman_numeral_joint"),
     _task("roman_numeral", "roman_numeral", "harmonic_event", _BOTH, ("a_simpleNumeral",), "analysisgnn.roman-numeral-corrected-v1"),
     _task("pitch_class_set", "pitch_class_set", "harmonic_event", _BOTH, ("a_pcset", "chord_tones"), "analysisgnn.pitch-class-set-v1"),
@@ -1090,7 +1094,13 @@ def _pitch_names(value: str) -> frozenset[str]:
 
 def _field_and_value(task_id: str, row: Mapping[str, str], dialect: str) -> tuple[str, str]:
     task = get_task(task_id)
-    if task_id == "pitch_class_set":
+    if (
+        task_id == "quality"
+        and dialect == "dlc"
+        and row.get("chord_type", "").strip() in {"+7", "+M7"}
+    ):
+        field = "chord_type"
+    elif task_id == "pitch_class_set":
         field = "a_pcset" if "a_pcset" in row else "chord_tones"
     elif task_id == "cadence":
         field = "cadence_type"

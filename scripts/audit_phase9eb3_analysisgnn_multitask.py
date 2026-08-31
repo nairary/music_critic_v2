@@ -178,6 +178,24 @@ def _artifact_hashes(output: Path) -> dict[str, str]:
     }
 
 
+def _contract_fingerprints(output: Path) -> dict[str, str]:
+    names = (
+        "dataset_manifest.json",
+        "full_raw_manifest.json",
+        "metric_contract.json",
+        "paper_candidate_manifest.json",
+        "pinned_code_reference_registry.json",
+        "split_summary.json",
+        "task_registry.json",
+        "vocabularies.json",
+    )
+    values = {
+        name: json.loads((output / name).read_text(encoding="utf-8"))
+        for name in names
+    }
+    return {name: str(value["fingerprint"]) for name, value in values.items()}
+
+
 def _report(summary: Mapping[str, object]) -> str:
     universe = summary["universes"]
     split = summary["split"]
@@ -472,6 +490,7 @@ def build_audit(
             "artifact_sha256": b2_hashes,
             "semantic_fingerprint": b2_summary["semantic_fingerprint"],
         },
+        "contracts": _contract_fingerprints(output),
         "entity_contract": {
             "entity_counts": dict(entity_counts),
             "relation_counts": dict(relation_counts),
@@ -553,6 +572,28 @@ def build_audit(
     (output / "AUDIT_REPORT.md").write_text(_report(summary), encoding="utf-8", newline="\n")
     if not valid:
         raise RuntimeError("Phase 9E-B3 audit failed; inspect audit_summary.json")
+    return summary
+
+
+def reseal_audit_summary(output: Path) -> dict[str, object]:
+    """Bind current contract fingerprints after a completed full audit."""
+
+    summary_path = output / "audit_summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    if summary.get("valid") is not True or summary.get("ready") is not True:
+        raise RuntimeError("only a completed valid/ready audit may be resealed")
+    summary["contracts"] = _contract_fingerprints(output)
+    summary["semantic_fingerprint"] = fingerprint(
+        {
+            key: value
+            for key, value in summary.items()
+            if key not in {"artifacts", "semantic_fingerprint"}
+        }
+    )
+    _write_json(summary_path, summary)
+    (output / "AUDIT_REPORT.md").write_text(
+        _report(summary), encoding="utf-8", newline="\n"
+    )
     return summary
 
 

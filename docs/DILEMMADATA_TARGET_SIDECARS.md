@@ -335,5 +335,5 @@ phrase 1,265; section 1,205; all other full-coverage families 1,619.
 
 The audit materialized 1,452,122 harmonic events, 1,452,043 onsets, 2,747,530
 notes, and deterministic cross-level relations. Semantic fingerprint is
-`ca99e8ae77ae46ecc4f986951cbe18a7aa398d22f8b5c57d7ecdfd4847dd9004`.
+`62cd02feca3ef4fa0c18268e1b742f68a05007553dfc59c24197cca838bb3277`.
 TRAIN/VALIDATION joint support is 98,715/10,507; TEST was not evaluated.

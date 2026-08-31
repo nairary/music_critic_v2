@@ -114,6 +114,8 @@ def test_quality_vocabulary_repairs_missing_and_dlc_conflation() -> None:
     assert "None" not in vocabulary.labels
     assert "augmented seventh chord" in vocabulary.labels
     assert "augmented major tetrachord" in vocabulary.labels
+    assert vocabulary.normalize("+7") == "augmented seventh chord"
+    assert vocabulary.normalize("+M7") == "augmented major tetrachord"
     assert vocabulary.normalize("augmented seventh") == "augmented seventh chord"
 
 

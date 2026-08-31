@@ -814,7 +814,7 @@ The model and training phases remain pending.
   heads; 1,295/162/162 records with no component leakage.
 - Evidence: joint structural support 98,715 TRAIN / 10,507 VALIDATION; full B2
   availability reproduced; raw graph preservation failures zero; production
-  semantic fingerprint `ca99e8ae77ae46ecc4f986951cbe18a7aa398d22f8b5c57d7ecdfd4847dd9004`.
+  semantic fingerprint `62cd02feca3ef4fa0c18268e1b742f68a05007553dfc59c24197cca838bb3277`.
 - Non-goals: encoder, HybridGNN, GRU, heads, loss, training, inference, TEST
   metric, B1 mutation, external runtime dependency, or exact-reproduction claim.
 - Next gate: review/Required CI, then specify a separate model/training phase

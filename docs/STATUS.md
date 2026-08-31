@@ -30,11 +30,11 @@
   `outputs/phase9eb3/analysisgnn-multitask-contract-01290f5/` returned
   `valid=true`, `ready=true`, `model_implemented=false`, `training_run=false`,
   `test_evaluated=false`. Semantic fingerprint is
-  `ca99e8ae77ae46ecc4f986951cbe18a7aa398d22f8b5c57d7ecdfd4847dd9004`.
+  `62cd02feca3ef4fa0c18268e1b742f68a05007553dfc59c24197cca838bb3277`.
   All 1,633 B2 graph/canonical locks and the 2,158-file B1 tree are unchanged.
 - Source-free `--check` succeeds. The expanded targeted suite passes
-  `311 passed, 1 skipped, 4 warnings in 315.33s`; the full repository suite
-  passes `1757 passed, 59 skipped, 12 warnings in 938.53s`. Skips are explicit
+  `311 passed, 1 skipped, 4 warnings in 29.02s`; the full repository suite
+  passes `1757 passed, 59 skipped, 12 warnings in 863.08s`. Skips are explicit
   external-data/accelerator gates; warnings are unchanged Torch and
   multiprocessing deprecations. `compileall` and `git diff --check` pass.
 - No legacy file was inspected. No model/head/encoder/GRU, training,
