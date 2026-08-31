@@ -321,7 +321,14 @@ source components and are selection exclusions only. AN peers, repaired raw
 records, and graphs remain. The separate AnalysisGNN cadence corpus is absent;
 DLC-native cadence labels remain eligible.
 
-The corrected registry contains 20 heads. Harmonic heads share one event ID
+The corrected registry contains 20 heads. Production quality uses the
+source-faithful 17-class space, retaining `+7` as `augmented seventh chord` and
+`+M7` as `augmented major tetrachord`. A separate frozen quality-15 projection
+maps those two labels to `augmented triad` only for AnalysisGNN comparison; it
+does not rewrite source-native target states or sidecars. Corrected Roman-184
+masks `none` and repairs the malformed concatenated literal.
+
+Harmonic heads share one event ID
 derived from record, dialect, annotation identity, first source row, and exact
 onset. Note IDs remain canonical raw identities. Per-head masks are independent;
 repair ambiguity affects only dependent rows. Phrase/section absence follows
@@ -334,6 +341,8 @@ inversion 1,618; tonicized/secondary degree 1,567; cadence 916; pedal 1,266;
 phrase 1,265; section 1,205; all other full-coverage families 1,619.
 
 The audit materialized 1,452,122 harmonic events, 1,452,043 onsets, 2,747,530
-notes, and deterministic cross-level relations. Semantic fingerprint is
-`62cd02feca3ef4fa0c18268e1b742f68a05007553dfc59c24197cca838bb3277`.
-TRAIN/VALIDATION joint support is 98,715/10,507; TEST was not evaluated.
+notes, and deterministic cross-level relations. Remediated semantic fingerprint
+is `94a19ed6bbecbbd0497310233c8a8ff4e34311b414124593a7326c759ff07954`.
+Corrected V2 harmonic-event TRAIN/VALIDATION joint support is 98,715/10,507.
+The separate paper-text note-level quality-15 metric is schema-only and was not
+evaluated; TEST was not evaluated.

@@ -3725,3 +3725,33 @@ This log is append-only.
   the B1 zero-support cause is removed without changing B1. B2 availability is
   reproduced, raw preservation failures and component leakage are zero. This
   corrected derived contract is not an exact official reproduction.
+
+## 2026-08-31 — ADR-104: Separate corrected V2 and paper-text compatibility metrics
+
+- Status: Accepted as a Phase 9E-B3 scientific-contract remediation. It does
+  not authorize model construction, training, inference, or metric evaluation.
+- Context: ADR-103 correctly preserved source-native quality-17 and shared
+  harmonic entities but named its harmonic-event joint metric paper-compatible.
+  The paper instead describes predictions per note and official quality-15;
+  pinned code collapses DLC `+7`/`+M7` and has mutually inconsistent joint
+  evaluator branches, including an onset-test path without local key.
+- Decision: Retain `dilemmadata-corrected-quality-17-v1` as the production head
+  space. Add frozen `analysisgnn-quality-15-compat-e115182-v1` plus an explicit
+  total projection: `augmented seventh chord` and
+  `augmented major tetrachord` map to `augmented triad`; the other 15 classes
+  are identity mappings and missing remains masked.
+- Decision: Name the corrected metric
+  `v2_corrected_harmonic_event_joint_accuracy`, with
+  `paper_compatible=false`. Define a separate unevaluated
+  `analysisgnn_paper_text_note_joint_accuracy` contract on notes. Both use
+  local key, primary degree, secondary degree, quality, and inversion; the
+  note metric chooses the paper-text definition and quality-15 projection while
+  explicitly disclaiming exact official runtime reproduction.
+- Decision: Independently freeze the paper/code facts, 15 quality labels,
+  Roman literal repair, 21 pinned heads, excluded `staff`, source paths,
+  symbols, and file hashes in a source-free scientific fixture. Keep cadence
+  source-native and do not attest it as exact paper compatibility.
+- Consequences: Production remains 20 heads with quality-17 and Roman-184.
+  Universe, exclusions, split, TEST lock, entities, relations, sidecars, raw
+  graphs, and structural availability are unchanged. Only semantic contract
+  artifacts and their dependent fingerprints advance to version 2.

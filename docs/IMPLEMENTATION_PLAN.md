@@ -3299,8 +3299,10 @@ multi-head model, checkpoint, training output, validation run, or TEST result.
   of 1,295/162/162 records; use only component, dialect, and task availability.
 - Audit the paper's 20 tasks against 21 pinned-code heads, retaining immutable
   evidence separately from the corrected 20-head production registry.
-- Correct quality and Roman-numeral vocabularies, aliases, missing masks, and
-  class-ID/length invariants without inferring classes from TEST labels.
+- Keep source-faithful production quality-17 and corrected Roman-184, then bind
+  a separate frozen AnalysisGNN quality-15 compatibility projection. Preserve
+  aliases, missing masks, and class-ID/length invariants without inferring
+  classes from TEST labels.
 - Materialize source-native target descriptors with shared harmonic identity,
   canonical note identity, exact onset/beat/measure relations, independent
   masks, repair provenance, and deterministic fingerprints.
@@ -3308,10 +3310,18 @@ multi-head model, checkpoint, training output, validation run, or TEST result.
   evaluation. Preserve the B1 719-record, 577/71/71 negative pilot and every B2
   raw graph fingerprint.
 
+The corrected V2 joint contract is harmonic-event level and uses quality-17;
+it is not paper-compatible. A second, unevaluated paper-text contract is
+note-level, uses quality-15, and requires local key, both degree components,
+quality, and inversion. Independent pinned evidence records 20 paper tasks, 21
+code heads, excluded auxiliary `staff`, incompatible evaluator branches, and
+the quality/Roman literal defects without importing external runtime code.
+
 Acceptance is 1,633/1,619 universe counts, zero component leakage, nonzero
-joint support in TRAIN/VALIDATION, `valid=true`, `ready=true`, and a committed
-source-free fixture. Encoder/HybridGNN/GRU/heads, training, validation
-inference, and TEST metrics are intentionally absent.
+corrected event-level structural support in TRAIN/VALIDATION, `valid=true`,
+`ready=true`, and committed source-free/scientific fixtures.
+Encoder/HybridGNN/GRU/heads, training, validation inference, paper-text metric
+evaluation, and TEST metrics are intentionally absent.
 
 ### Phase 9B.2A production target sidecars implemented
 

@@ -812,9 +812,12 @@ The model and training phases remain pending.
 - Result: full 353/1,280/1,633 and paper-candidate 353/1,266/1,619 universes;
   14 exclusions; 1,507 components; 20 paper, 21 pinned-code, and 20 production
   heads; 1,295/162/162 records with no component leakage.
-- Evidence: joint structural support 98,715 TRAIN / 10,507 VALIDATION; full B2
-  availability reproduced; raw graph preservation failures zero; production
-  semantic fingerprint `62cd02feca3ef4fa0c18268e1b742f68a05007553dfc59c24197cca838bb3277`.
+- Evidence: corrected V2 quality-17 harmonic-event support 98,715 TRAIN /
+  10,507 VALIDATION; separate unevaluated paper-text note contract with frozen
+  quality-15 projection; corrected Roman-184 and 20 heads independently bound
+  to pinned evidence. Full B2 availability is reproduced, raw graph
+  preservation failures are zero, and the remediated semantic fingerprint is
+  `94a19ed6bbecbbd0497310233c8a8ff4e34311b414124593a7326c759ff07954`.
 - Non-goals: encoder, HybridGNN, GRU, heads, loss, training, inference, TEST
   metric, B1 mutation, external runtime dependency, or exact-reproduction claim.
 - Next gate: review/Required CI, then specify a separate model/training phase

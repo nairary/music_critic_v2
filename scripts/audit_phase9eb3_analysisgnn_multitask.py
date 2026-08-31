@@ -25,11 +25,14 @@ from music_critic.experiments.analysisgnn.multitask_contract import (
     ANALYSISGNN_COMMIT,
     ASSIGNMENT_ALGORITHM,
     ASSIGNMENT_NAMESPACE,
+    COMPATIBILITY_QUALITY_VOCABULARY_ID,
+    CORRECTED_QUALITY_VOCABULARY_ID,
     DATASET_MANIFEST_VERSION,
     EXPECTED_FULL_COUNTS,
     EXPECTED_PAPER_COUNTS,
     FULL_RAW_UNIVERSE_ID,
     PAPER_CANDIDATE_UNIVERSE_ID,
+    PAPER_DEFINED_JOINT_COMPONENTS,
     PRODUCTION_REGISTRY_ID,
     PRODUCTION_TASKS,
     TARGET_SIDECAR_VERSION,
@@ -68,6 +71,10 @@ DEFAULT_B2 = (
 DEFAULT_B1 = REPO_ROOT / "outputs/phase9eb1/common-data"
 DEFAULT_FIXTURE = (
     REPO_ROOT / "tests/fixtures/analysisgnn/phase9eb3_multitask_contract.json"
+)
+DEFAULT_SCIENTIFIC_FIXTURE = (
+    REPO_ROOT
+    / "tests/fixtures/analysisgnn/pinned_scientific_contract_e115182.json"
 )
 EXPECTED_SNAPSHOT_FINGERPRINT = (
     "8f1161ad7cdbd979845012ffc6150cd82c5e91ab1197ed97385fffce57a0f312"
@@ -196,17 +203,71 @@ def _contract_fingerprints(output: Path) -> dict[str, str]:
     return {name: str(value["fingerprint"]) for name, value in values.items()}
 
 
+def _scientific_sections(
+    *,
+    metric_payload: Mapping[str, object],
+    pinned_registry: Mapping[str, object],
+    task_registry: Mapping[str, object],
+) -> dict[str, object]:
+    corrected_metric = metric_payload["corrected_v2_metric_contract"]
+    compatibility_metric = metric_payload["analysisgnn_compatibility_metric_contract"]
+    return {
+        "analysisgnn_compatibility_contract": {
+            "compatibility_quality_class_count": 15,
+            "entity_type": "note",
+            "exact_official_reproduction": False,
+            "joint_component_count": len(PAPER_DEFINED_JOINT_COMPONENTS),
+            "joint_components": list(PAPER_DEFINED_JOINT_COMPONENTS),
+            "metric_contract": compatibility_metric,
+            "metric_evaluated": False,
+            "quality_space": COMPATIBILITY_QUALITY_VOCABULARY_ID,
+        },
+        "corrected_v2_contract": {
+            "corrected_quality_class_count": 17,
+            "corrected_roman_numeral_class_count": 184,
+            "entity_type": "harmonic_event",
+            "joint_component_count": len(PAPER_DEFINED_JOINT_COMPONENTS),
+            "joint_components": list(PAPER_DEFINED_JOINT_COMPONENTS),
+            "metric_contract": corrected_metric,
+            "paper_compatible": False,
+            "production_head_count": len(PRODUCTION_TASKS),
+            "quality_space": CORRECTED_QUALITY_VOCABULARY_ID,
+        },
+        "pinned_source_evidence": {
+            "code_only_excluded_heads": list(
+                task_registry["code_only_excluded_heads"]
+            ),
+            "external_commit": ANALYSISGNN_COMMIT,
+            "pinned_code_head_count": pinned_registry["head_count"],
+            "quality_head_class_count": 15,
+            "quality_literal_count_including_missing": 16,
+            "roman_numeral_head_class_count": 185,
+            "roman_numeral_literal_unique_count": 184,
+        },
+        "scientific_distinctions": {
+            "corrected_event_metric_is_paper_compatible": False,
+            "corrected_quality_preserves_source_native_extensions": True,
+            "official_evaluator_branches_consistent": False,
+            "paper_text_note_metric_is_exact_official_reproduction": False,
+            "quality_compatibility_projection_is_comparison_only": True,
+        },
+    }
+
+
 def _report(summary: Mapping[str, object]) -> str:
     universe = summary["universes"]
     split = summary["split"]
     tasks = summary["task_inventory"]
-    joint = summary["joint_metric"]
+    corrected = summary["corrected_v2_contract"]
+    compatibility = summary["analysisgnn_compatibility_contract"]
+    joint = corrected["joint_structural_support"]
     return f"""# Phase 9E-B3 AnalysisGNN multi-task contract audit
 
 - valid: `{str(summary['valid']).lower()}`
 - ready: `{str(summary['ready']).lower()}`
 - model implemented: `false`
 - training run: `false`
+- validation inference run: `false`
 - TEST evaluated: `false`
 - full raw universe: `{universe['full_raw']['total']}` (AN `{universe['full_raw']['an_joint']}`, DLC `{universe['full_raw']['dlc']}`)
 - paper-candidate universe: `{universe['paper_candidate']['total']}` (AN `{universe['paper_candidate']['an_joint']}`, DLC `{universe['paper_candidate']['dlc']}`)
@@ -214,13 +275,16 @@ def _report(summary: Mapping[str, object]) -> str:
 - paper / pinned-code / production task counts: `{tasks['paper']} / {tasks['pinned_code']} / {tasks['production']}`
 - split TRAIN / VALIDATION / TEST: `{split['record_counts']['train']} / {split['record_counts']['validation']} / {split['record_counts']['test']}`
 - component leakage failures: `{split['component_leakage_failure_count']}`
-- joint structural support TRAIN / VALIDATION: `{joint['train']} / {joint['validation']}`
+- corrected V2 metric: `{corrected['metric_contract']['metric_id']}` on `harmonic_event`, quality-17, paper-compatible `false`
+- corrected joint structural support TRAIN / VALIDATION: `{joint['train']} / {joint['validation']}`
+- paper-text compatibility metric: `{compatibility['metric_contract']['metric_id']}` on `note`, quality-15, evaluated `false`
 - TEST assignment frozen: `true`
 
-This is an AnalysisGNN-derived, paper-compatible corrected contract, not an
-exact official reproduction.  The pinned implementation has documented
-literal, alias, missing-mask, and task-inventory defects; the external cadence
-corpus is not available.  No model, training, inference, or TEST metric was run.
+This is a corrected AnalysisGNN-derived V2 contract with a separate paper-text
+note-level compatibility contract, not an exact official reproduction.  The
+pinned implementation has documented evaluator-branch, literal, alias,
+missing-mask, and task-inventory differences; the external cadence corpus is
+not available.  No model, training, inference, or TEST metric was run.
 """
 
 
@@ -451,6 +515,7 @@ def build_audit(
         "artifact_versions": {
             "dataset": DATASET_MANIFEST_VERSION,
             "full_universe": FULL_RAW_UNIVERSE_ID,
+            "metric_contract": metric_payload["version"],
             "paper_candidate": PAPER_CANDIDATE_UNIVERSE_ID,
             "production_registry": PRODUCTION_REGISTRY_ID,
         },
@@ -458,6 +523,7 @@ def build_audit(
         "cadence_external_corpus_included": False,
         "entity_registry_fingerprint": fingerprint(entity_registry_rows),
         "full_raw_manifest_fingerprint": full_manifest["fingerprint"],
+        "metric_contract_fingerprint": metric_payload["fingerprint"],
         "paper_candidate_manifest_fingerprint": candidate_manifest["fingerprint"],
         "raw_graph_fingerprints_unchanged": not raw_failures,
         "raw_graph_target_availability_included": False,
@@ -502,14 +568,6 @@ def build_audit(
             "quarantine": quarantine,
             "raw_graph": raw_failures,
         },
-        "joint_metric": {
-            "components": [
-                "local_key", "primary_degree", "secondary_degree", "quality", "inversion"
-            ],
-            "test": "not_evaluated",
-            "train": joint_support["train"],
-            "validation": joint_support["validation"],
-        },
         "model_implemented": False,
         "phase9eb1_preservation": {
             "after": b1_after,
@@ -552,7 +610,9 @@ def build_audit(
         },
         "test_evaluated": False,
         "test_lock": lock_payload,
+        "test_targets_used_for_evaluation": False,
         "training_run": False,
+        "validation_inference_run": False,
         "universes": {
             "full_raw": EXPECTED_FULL_COUNTS,
             "paper_candidate": EXPECTED_PAPER_COUNTS,
@@ -562,6 +622,18 @@ def build_audit(
             ),
         },
         "valid": valid,
+    }
+    summary.update(
+        _scientific_sections(
+            metric_payload=metric_payload,
+            pinned_registry=pinned_registry,
+            task_registry=task_registry,
+        )
+    )
+    summary["corrected_v2_contract"]["joint_structural_support"] = {
+        "test": "not_evaluated",
+        "train": joint_support["train"],
+        "validation": joint_support["validation"],
     }
     hashes = _artifact_hashes(output)
     summary["artifacts"] = hashes
@@ -597,9 +669,138 @@ def reseal_audit_summary(output: Path) -> dict[str, object]:
     return summary
 
 
-def check_fixture(path: Path) -> dict[str, object]:
+def remediate_contract_artifacts(output: Path) -> dict[str, object]:
+    """Rewrite only semantic registries/metrics around immutable B3 data artifacts."""
+
+    summary_path = output / "audit_summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    if summary.get("valid") is not True or summary.get("ready") is not True:
+        raise RuntimeError("only a completed valid/ready audit may be remediated")
+    immutable_names = {
+        "entity_registry.jsonl",
+        "full_raw_manifest.json",
+        "overlap_exclusions.jsonl",
+        "paper_candidate_manifest.json",
+        "paper_candidate_records.jsonl",
+        "source_components.jsonl",
+        "split_assignments.jsonl",
+        "split_summary.json",
+        "target_sidecars.jsonl",
+    }
+    immutable_before = {name: _hash_file(output / name) for name in immutable_names}
+    old_fingerprints = {
+        name: json.loads((output / name).read_text(encoding="utf-8"))["fingerprint"]
+        for name in (
+            "dataset_manifest.json",
+            "metric_contract.json",
+            "task_registry.json",
+            "vocabularies.json",
+        )
+    }
+    old_fingerprints["audit_summary.json"] = summary["semantic_fingerprint"]
+
+    pinned_registry = pinned_code_reference_registry()
+    task_registry = production_task_registry()
+    vocabulary_registry = vocabularies_payload()
+    validate_loaded_registry(task_registry, vocabulary_registry)
+    metric_payload = metric_contract()
+    _write_json(output / "task_registry.json", task_registry)
+    _write_json(output / "pinned_code_reference_registry.json", pinned_registry)
+    _write_json(output / "vocabularies.json", vocabulary_registry)
+    _write_json(output / "metric_contract.json", metric_payload)
+
+    dataset_path = output / "dataset_manifest.json"
+    dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
+    dataset.pop("fingerprint", None)
+    dataset["artifact_versions"]["dataset"] = DATASET_MANIFEST_VERSION
+    dataset["artifact_versions"]["metric_contract"] = metric_payload["version"]
+    dataset["metric_contract_fingerprint"] = metric_payload["fingerprint"]
+    dataset["task_registry_fingerprint"] = task_registry["fingerprint"]
+    dataset["vocabularies_fingerprint"] = vocabulary_registry["fingerprint"]
+    dataset["fingerprint"] = fingerprint(dataset)
+    _write_json(dataset_path, dataset)
+
+    old_joint = summary.pop("joint_metric", None)
+    if old_joint is None:
+        old_joint = summary.get("corrected_v2_contract", {}).get(
+            "joint_structural_support"
+        )
+    if not isinstance(old_joint, dict):
+        raise RuntimeError("completed audit lacks corrected joint support evidence")
+    summary.update(
+        _scientific_sections(
+            metric_payload=metric_payload,
+            pinned_registry=pinned_registry,
+            task_registry=task_registry,
+        )
+    )
+    summary["corrected_v2_contract"]["joint_structural_support"] = {
+        "test": old_joint["test"],
+        "train": old_joint["train"],
+        "validation": old_joint["validation"],
+    }
+    summary["model_implemented"] = False
+    summary["training_run"] = False
+    summary["validation_inference_run"] = False
+    summary["test_evaluated"] = False
+    summary["test_targets_used_for_evaluation"] = False
+    summary["contracts"] = _contract_fingerprints(output)
+    summary["artifacts"] = _artifact_hashes(output)
+    summary["semantic_fingerprint"] = fingerprint(
+        {
+            key: value
+            for key, value in summary.items()
+            if key not in {"artifacts", "semantic_fingerprint"}
+        }
+    )
+    _write_json(summary_path, summary)
+    (output / "AUDIT_REPORT.md").write_text(
+        _report(summary), encoding="utf-8", newline="\n"
+    )
+    immutable_after = {name: _hash_file(output / name) for name in immutable_names}
+    if immutable_after != immutable_before:
+        raise RuntimeError("contract remediation changed an immutable data artifact")
+    new_fingerprints = {
+        name: json.loads((output / name).read_text(encoding="utf-8"))["fingerprint"]
+        for name in (
+            "dataset_manifest.json",
+            "metric_contract.json",
+            "task_registry.json",
+            "vocabularies.json",
+        )
+    }
+    new_fingerprints["audit_summary.json"] = summary["semantic_fingerprint"]
+    return {
+        "immutable_artifacts_unchanged": True,
+        "new_fingerprints": new_fingerprints,
+        "old_fingerprints": old_fingerprints,
+        "ready": summary["ready"],
+        "valid": summary["valid"],
+    }
+
+
+def check_scientific_fixture(path: Path) -> dict[str, object]:
     value = json.loads(path.read_text(encoding="utf-8"))
-    if value.get("schema_version") != "phase9eb3-source-free-fixture-v1":
+    if value.get("schema_version") != "analysisgnn-pinned-scientific-contract-e115182-v1":
+        raise RuntimeError("unknown pinned AnalysisGNN scientific fixture")
+    expected = value.pop("fingerprint", None)
+    if fingerprint(value) != expected:
+        raise RuntimeError("pinned AnalysisGNN scientific fixture fingerprint mismatch")
+    value["fingerprint"] = expected
+    if value.get("external_commit") != ANALYSISGNN_COMMIT:
+        raise RuntimeError("pinned AnalysisGNN scientific commit changed")
+    if value.get("pinned_code", {}).get("head_count") != 21:
+        raise RuntimeError("pinned AnalysisGNN head count changed")
+    return value
+
+
+def check_fixture(
+    path: Path,
+    *,
+    scientific_fixture: Path = DEFAULT_SCIENTIFIC_FIXTURE,
+) -> dict[str, object]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if value.get("schema_version") != "phase9eb3-source-free-fixture-v2":
         raise RuntimeError("unknown Phase 9E-B3 source-free fixture")
     expected = value.pop("fingerprint", None)
     if fingerprint(value) != expected:
@@ -614,6 +815,28 @@ def check_fixture(path: Path) -> dict[str, object]:
         raise RuntimeError("Phase 9E-B3 source-free universe counts changed")
     if value.get("task_counts") != {"paper": 20, "pinned_code": 21, "production": 20}:
         raise RuntimeError("Phase 9E-B3 task inventory counts changed")
+    scientific = check_scientific_fixture(scientific_fixture)
+    if value.get("pinned_scientific_evidence_fingerprint") != scientific["fingerprint"]:
+        raise RuntimeError("Phase 9E-B3 scientific evidence binding changed")
+    corrected = value.get("corrected_v2_contract", {})
+    compatibility = value.get("analysisgnn_compatibility_contract", {})
+    if corrected.get("corrected_quality_class_count") != 17:
+        raise RuntimeError("corrected V2 quality count changed")
+    if compatibility.get("compatibility_quality_class_count") != 15:
+        raise RuntimeError("AnalysisGNN compatibility quality count changed")
+    if corrected.get("corrected_roman_numeral_class_count") != 184:
+        raise RuntimeError("corrected Roman numeral count changed")
+    if any(
+        value.get(field) is not False
+        for field in (
+            "model_implemented",
+            "training_run",
+            "validation_inference_run",
+            "test_evaluated",
+            "test_targets_used_for_evaluation",
+        )
+    ):
+        raise RuntimeError("Phase 9E-B3 no-model/no-evaluation lock changed")
     return value
 
 
@@ -624,15 +847,25 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--b2-root", type=Path, default=DEFAULT_B2)
     parser.add_argument("--b1-root", type=Path, default=DEFAULT_B1)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--remediate-contracts", action="store_true")
     parser.add_argument("--fixture", type=Path, default=DEFAULT_FIXTURE)
+    parser.add_argument(
+        "--scientific-fixture", type=Path, default=DEFAULT_SCIENTIFIC_FIXTURE
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     if args.check:
-        value = check_fixture(args.fixture)
+        value = check_fixture(
+            args.fixture, scientific_fixture=args.scientific_fixture
+        )
         print(canonical_json({"ready": value["ready"], "valid": value["valid"]}, indent=2))
+        return 0
+    if args.remediate_contracts:
+        result = remediate_contract_artifacts(args.output)
+        print(canonical_json(result, indent=2))
         return 0
     configured = args.root or os.environ.get("MUSIC_CRITIC_DILEMMADATA_ROOT")
     root = Path(configured) if configured else DEFAULT_ROOT

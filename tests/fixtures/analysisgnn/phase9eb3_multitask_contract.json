@@ -1,38 +1,66 @@
 {
   "artifact_sha256": {
-    "dataset_manifest.json": "ad56db5edaa7f03daeea23c05cebd0cdfeeac865b1593e8359b494f6a7a7348b",
+    "dataset_manifest.json": "740426bd17393047d1140917e9a1bb11b93c4f6f2d173573f141926c86a5d341",
     "entity_registry.jsonl": "07089ed2e275bbd52b95b138002a9b1010476c7c48fcc29460cdb1a10a6d7a44",
     "full_raw_manifest.json": "421cb23a4f1cdac444dc9df244f54fdf625d0a19ffb1368d973890435843b389",
-    "metric_contract.json": "d032a57414192e74da0fad94cc0cb8028b43ac8c1a9a9666d26b518d16f46e54",
+    "metric_contract.json": "10afd696feb86fe2521776eea4b1a95ea182c345108b678353280c4bc5c195ce",
     "overlap_exclusions.jsonl": "20a02da59821eb71f5f37e0cc05bee8d1993b0eb6ef8807ab144325e1b865496",
     "paper_candidate_manifest.json": "ae806363358bae8e82931581b11ade48f9d9fa9a4883fb18e15e4425f69e1dfb",
     "paper_candidate_records.jsonl": "42d688619c5699e404ec545076339547bb38d16976c6e4605437e8c539f972c1",
-    "pinned_code_reference_registry.json": "3f3418191271cff0d6987cb5e3bab6da716695f7e0591bcfcfef1c158b98d45b",
+    "pinned_code_reference_registry.json": "d748fabfa95d6375f3a0bfe1769ee88172dec3e94c169f0ae9d85c55fd8edea6",
     "source_components.jsonl": "909e84531cc1c70fab14dd24dfe1c9525c5634e5edd46a6f88faf13cfc755778",
     "split_assignments.jsonl": "056de0942918976981401db5017f6e567bc8949bae91ae395f0bd669adbfd51a",
     "split_summary.json": "55eac7d5c1b2f79360b91029261bfd34b746454a2e4c999af75742c625e12c42",
     "target_sidecars.jsonl": "bfce0785ccf77cba29024ef5b2a404131d773aaf0c588a147c62934f92f9b349",
-    "task_registry.json": "9072c18f47c91c3199a004193148640970069694aa4f6fe26bd1f09d0280cd96",
-    "vocabularies.json": "13b24cee2d0b4f8c99dc92d62246098834b926cbbc0589f164e81571113ecaf6"
+    "task_registry.json": "232e1b45542334755018f1b710741532924eee3facb77a14656fa3c1c8ce2b42",
+    "vocabularies.json": "3895c52d46fc980250484850afabc953d74108d9a766a409aa4e158926523deb"
   },
-  "entity_counts": {
-    "harmonic_event": 1452122,
-    "note": 2747530,
-    "onset": 1452043
-  },
-  "fingerprint": "17c82c011b536a0a9d8228be37d3e5fc5ae9a2afc20c0ac3b82f979a3a505fff",
-  "joint_metric": {
-    "components": [
+  "analysisgnn_compatibility_contract": {
+    "compatibility_quality_class_count": 15,
+    "entity_type": "note",
+    "exact_official_reproduction": false,
+    "joint_component_count": 5,
+    "joint_components": [
       "local_key",
       "primary_degree",
       "secondary_degree",
       "quality",
       "inversion"
     ],
-    "test": "not_evaluated",
-    "train": 98715,
-    "validation": 10507
+    "metric_evaluated": false,
+    "metric_id": "analysisgnn_paper_text_note_joint_accuracy",
+    "quality_space": "analysisgnn-quality-15-compat-e115182-v1"
   },
+  "corrected_v2_contract": {
+    "corrected_quality_class_count": 17,
+    "corrected_roman_numeral_class_count": 184,
+    "entity_type": "harmonic_event",
+    "joint_component_count": 5,
+    "joint_components": [
+      "local_key",
+      "primary_degree",
+      "secondary_degree",
+      "quality",
+      "inversion"
+    ],
+    "joint_structural_support": {
+      "test": "not_evaluated",
+      "train": 98715,
+      "validation": 10507
+    },
+    "metric_id": "v2_corrected_harmonic_event_joint_accuracy",
+    "paper_compatible": false,
+    "production_head_count": 20,
+    "quality_space": "dilemmadata-corrected-quality-17-v1"
+  },
+  "entity_counts": {
+    "harmonic_event": 1452122,
+    "note": 2747530,
+    "onset": 1452043
+  },
+  "fingerprint": "4e9a6f5aa040d2fc2a3369921a80aa7cd262f976ba7b8e3e33590c7de6bc4da2",
+  "model_implemented": false,
+  "pinned_scientific_evidence_fingerprint": "09e7b4b6a07c43d0b4c0eb0bcc6e4e7d2101c4cd89e2ec81f8824cad50da9da5",
   "ready": true,
   "relation_counts": {
     "beat_to_measure": 674591,
@@ -42,8 +70,8 @@
     "note_to_onset": 2747530,
     "onset_to_beat": 1452043
   },
-  "schema_version": "phase9eb3-source-free-fixture-v1",
-  "semantic_fingerprint": "62cd02feca3ef4fa0c18268e1b742f68a05007553dfc59c24197cca838bb3277",
+  "schema_version": "phase9eb3-source-free-fixture-v2",
+  "semantic_fingerprint": "94a19ed6bbecbbd0497310233c8a8ff4e34311b414124593a7326c759ff07954",
   "source_component_counts": {
     "full_raw": 1507,
     "paper_candidate": 1507
@@ -112,6 +140,7 @@
     "pinned_code": 21,
     "production": 20
   },
+  "test_evaluated": false,
   "test_lock": {
     "explicit_unlock_required": true,
     "fingerprint": "9e2e182cf00924fb502a9f85ee9104f82321918a26b2e8793f15dd8dee13ecb2",
@@ -120,6 +149,8 @@
     "test_metrics_computed": false,
     "test_targets_used_for_model_evaluation": false
   },
+  "test_targets_used_for_evaluation": false,
+  "training_run": false,
   "universes": {
     "full_raw": {
       "an_joint": 353,
@@ -132,5 +163,6 @@
       "total": 1619
     }
   },
-  "valid": true
+  "valid": true,
+  "validation_inference_run": false
 }

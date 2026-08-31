@@ -35,13 +35,33 @@ from music_critic.experiments.analysisgnn.contracts import (
 FULL_RAW_UNIVERSE_ID = "dilemmadata-full-raw-v1"
 PAPER_CANDIDATE_UNIVERSE_ID = "analysisgnn-paper-candidate-an-dlc-v1"
 PINNED_CODE_REGISTRY_ID = "analysisgnn-pinned-code-reference-v1"
+PINNED_CODE_REGISTRY_SCHEMA_VERSION = "2.0.0"
 PRODUCTION_REGISTRY_ID = "analysisgnn-corrected-multitask-v1"
+PRODUCTION_REGISTRY_SCHEMA_VERSION = "2.0.0"
 ENTITY_REGISTRY_VERSION = "analysisgnn-multitask-entities-v1"
 SPLIT_CONTRACT_VERSION = "analysisgnn-source-component-split-v1"
-METRIC_CONTRACT_VERSION = "analysisgnn-paper-compatible-metrics-v1"
-DATASET_MANIFEST_VERSION = "phase9eb3-analysisgnn-multitask-dataset-v1"
+METRIC_CONTRACT_VERSION = "analysisgnn-corrected-and-paper-text-metrics-v2"
+DATASET_MANIFEST_VERSION = "phase9eb3-analysisgnn-multitask-dataset-v2"
 TARGET_SIDECAR_VERSION = "analysisgnn-source-native-target-sidecar-v1"
 SOURCE_COMPONENT_VERSION = "dilemmadata-source-component-v1"
+CORRECTED_QUALITY_VOCABULARY_ID = "dilemmadata-corrected-quality-17-v1"
+COMPATIBILITY_QUALITY_VOCABULARY_ID = (
+    "analysisgnn-quality-15-compat-e115182-v1"
+)
+QUALITY_COMPATIBILITY_PROJECTION_ID = (
+    "dilemmadata-quality-17-to-analysisgnn-quality-15-e115182-v1"
+)
+CORRECTED_V2_METRIC_ID = "v2_corrected_harmonic_event_joint_accuracy"
+PAPER_TEXT_COMPATIBILITY_METRIC_ID = (
+    "analysisgnn_paper_text_note_joint_accuracy"
+)
+PAPER_DEFINED_JOINT_COMPONENTS = (
+    "local_key",
+    "primary_degree",
+    "secondary_degree",
+    "quality",
+    "inversion",
+)
 ASSIGNMENT_ALGORITHM = "sha256-canonical-greedy-record-quota-v1"
 ASSIGNMENT_NAMESPACE = "music-critic-v2.phase9eb3.analysisgnn"
 ASSIGNMENT_SEED = "e115182fb29b74bdcb6bf3547ed427d967580947"
@@ -82,6 +102,20 @@ class VocabularySpec:
         aliases = dict(self.aliases)
         canonical = aliases.get(value, value)
         return canonical if canonical in self.labels else None
+
+
+@dataclass(frozen=True, slots=True)
+class VocabularyProjectionSpec:
+    projection_id: str
+    source_vocabulary_id: str
+    target_vocabulary_id: str
+    class_mapping: tuple[tuple[str, str], ...]
+    source_token_routes: tuple[tuple[str, str, str], ...]
+    missing_policy: str
+    external_reference: str
+
+    def project(self, corrected_label: str) -> str | None:
+        return dict(self.class_mapping).get(corrected_label)
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,7 +218,7 @@ _TONE_FUNCTIONS = tuple(
 _DEGREES = tuple(
     "-1 -2 -3 -4 -5 -6 -7 1 2 3 4 5 6 7 #1 #2 #3 #4 #5 #6 #7".split()
 )
-_QUALITIES = (
+_ANALYSISGNN_COMPATIBILITY_QUALITIES = (
     "major triad",
     "minor triad",
     "diminished triad",
@@ -200,6 +234,9 @@ _QUALITIES = (
     "French augmented sixth chord",
     "Italian augmented sixth chord",
     "minor-augmented tetrachord",
+)
+_CORRECTED_QUALITIES = (
+    *_ANALYSISGNN_COMPATIBILITY_QUALITIES,
     "augmented seventh chord",
     "augmented major tetrachord",
 )
@@ -245,8 +282,8 @@ VOCABULARIES = (
     VocabularySpec("analysisgnn.tone-function-v1", _TONE_FUNCTIONS),
     VocabularySpec("analysisgnn.degree-v1", _DEGREES),
     VocabularySpec(
-        "analysisgnn.quality-corrected-v1",
-        _QUALITIES,
+        CORRECTED_QUALITY_VOCABULARY_ID,
+        _CORRECTED_QUALITIES,
         aliases=(
             ("+7", "augmented seventh chord"),
             ("+M7", "augmented major tetrachord"),
@@ -256,6 +293,14 @@ VOCABULARIES = (
             "The pinned 16-entry literal contains missing=None while the head is 15; "
             "missing is masked, and two semantically distinct DLC +7/+M7 qualities "
             "are restored instead of being collapsed into augmented triad."
+        ),
+    ),
+    VocabularySpec(
+        COMPATIBILITY_QUALITY_VOCABULARY_ID,
+        _ANALYSISGNN_COMPATIBILITY_QUALITIES,
+        notes=(
+            "Frozen AnalysisGNN comparison space only. Corrected V2 quality "
+            "targets remain in the separate 17-class source-faithful space."
         ),
     ),
     VocabularySpec("analysisgnn.inversion-v1", ("0", "1", "2", "3")),
@@ -277,6 +322,28 @@ VOCABULARIES = (
     VocabularySpec("analysisgnn.note-degree-v1", _NOTE_DEGREES),
 )
 VOCABULARY_BY_ID = {row.vocabulary_id: row for row in VOCABULARIES}
+
+
+QUALITY_COMPATIBILITY_PROJECTION = VocabularyProjectionSpec(
+    projection_id=QUALITY_COMPATIBILITY_PROJECTION_ID,
+    source_vocabulary_id=CORRECTED_QUALITY_VOCABULARY_ID,
+    target_vocabulary_id=COMPATIBILITY_QUALITY_VOCABULARY_ID,
+    class_mapping=tuple(
+        (label, "augmented triad")
+        if label in {"augmented seventh chord", "augmented major tetrachord"}
+        else (label, label)
+        for label in _CORRECTED_QUALITIES
+    ),
+    source_token_routes=(
+        ("+7", "augmented seventh chord", "augmented triad"),
+        ("+M7", "augmented major tetrachord", "augmented triad"),
+    ),
+    missing_policy="missing_is_masked_and_never_projected_to_a_class",
+    external_reference=(
+        f"{ANALYSISGNN_REPOSITORY}@{ANALYSISGNN_COMMIT}:"
+        "analysisgnn/utils/globals.py::DLC_CHORD_TYPE_MAPPING"
+    ),
+)
 
 
 def _task(
@@ -317,7 +384,7 @@ PRODUCTION_TASKS = (
     _task("bass", "bass", "harmonic_event", _BOTH, ("a_bass",), "analysisgnn.tone-function-v1"),
     _task("primary_degree", "scale_degree", "harmonic_event", _BOTH, ("a_degree1",), "analysisgnn.degree-v1", joint="roman_numeral_joint"),
     _task("secondary_degree", "scale_degree", "harmonic_event", _BOTH, ("a_degree2",), "analysisgnn.degree-v1", joint="roman_numeral_joint"),
-    _task("quality", "quality", "harmonic_event", _BOTH, ("a_quality", "chord_type"), "analysisgnn.quality-corrected-v1", joint="roman_numeral_joint"),
+    _task("quality", "quality", "harmonic_event", _BOTH, ("a_quality", "chord_type"), CORRECTED_QUALITY_VOCABULARY_ID, joint="roman_numeral_joint"),
     _task("inversion", "inversion", "harmonic_event", _BOTH, ("a_inversion", "figbass"), "analysisgnn.inversion-v1", joint="roman_numeral_joint"),
     _task("roman_numeral", "roman_numeral", "harmonic_event", _BOTH, ("a_simpleNumeral",), "analysisgnn.roman-numeral-corrected-v1"),
     _task("pitch_class_set", "pitch_class_set", "harmonic_event", _BOTH, ("a_pcset", "chord_tones"), "analysisgnn.pitch-class-set-v1"),
@@ -359,7 +426,7 @@ CODE_TO_CANONICAL = {
 
 def _task_status(code_name: str, official: int, literal: int) -> str:
     if code_name == "staff":
-        return "code_only"
+        return "code_only_excluded"
     if code_name in {"organ_point", "downbeat"}:
         return "alias_normalized"
     if official != literal:
@@ -403,24 +470,176 @@ def pinned_code_reference_registry() -> dict[str, object]:
         "paper_task_count": 20,
         "registry_id": PINNED_CODE_REGISTRY_ID,
         "rows": rows,
+        "schema_version": PINNED_CODE_REGISTRY_SCHEMA_VERSION,
     }
     payload["fingerprint"] = fingerprint(payload)
     return payload
 
 
+_SEMANTIC_STATUS_BY_TASK = {
+    "local_key": "paper_or_code_ambiguous",
+    "tonicized_key": "paper_or_code_ambiguous",
+    "root": "corrected_missing_mask",
+    "bass": "corrected_missing_mask",
+    "primary_degree": "corrected_missing_mask",
+    "secondary_degree": "corrected_missing_mask",
+    "quality": "corrected_source_native_extension",
+    "inversion": "paper_or_code_ambiguous",
+    "roman_numeral": "corrected_semantic_repair",
+    "pitch_class_set": "corrected_missing_mask",
+    "harmonic_rhythm": "corrected_missing_mask",
+    "cadence": "corrected_source_native_extension",
+    "phrase": "corrected_missing_mask",
+    "section": "corrected_missing_mask",
+    "pedal": "alias_normalized",
+    "metrical_strength": "alias_normalized",
+    "note_degree": "paper_or_code_ambiguous",
+    "chord_tone": "paper_or_code_ambiguous",
+    "is_root": "paper_or_code_ambiguous",
+    "is_bass": "paper_or_code_ambiguous",
+}
+_SEMANTIC_STATUSES = frozenset(
+    {
+        "exact_semantic_match",
+        "alias_normalized",
+        "corrected_missing_mask",
+        "corrected_source_native_extension",
+        "corrected_semantic_repair",
+        "paper_or_code_ambiguous",
+    }
+)
+_COMPATIBILITY_STATUSES = frozenset(
+    {
+        "direct_frozen_space",
+        "projected_quality_15",
+        "not_part_of_paper_text_joint_metric",
+    }
+)
+_CODE_NAME_BY_TASK = {
+    canonical: code_name
+    for code_name, canonical in CODE_TO_CANONICAL.items()
+    if canonical != "staff"
+}
+
+
+def _head_evidence_reference(task_id: str) -> str:
+    symbol = "TASK_DICT"
+    path = "analysisgnn/train/train_analysisgnn.py"
+    if task_id == "quality":
+        path = "analysisgnn/utils/globals.py"
+        symbol = "CHORD_QUALITIES,DLC_CHORD_TYPE_MAPPING"
+    elif task_id == "roman_numeral":
+        path = "analysisgnn/utils/globals.py"
+        symbol = "SIMPLE_NUMERAL_VOCABULARY"
+    elif task_id == "cadence":
+        path = "analysisgnn/utils/globals.py"
+        symbol = "CADENCES"
+    return f"{ANALYSISGNN_REPOSITORY}@{ANALYSISGNN_COMMIT}:{path}::{symbol}"
+
+
+def head_semantic_evidence() -> tuple[dict[str, object], ...]:
+    rows = []
+    for task in PRODUCTION_TASKS:
+        compatibility_status = "not_part_of_paper_text_joint_metric"
+        if task.task_id in PAPER_DEFINED_JOINT_COMPONENTS:
+            compatibility_status = (
+                "projected_quality_15"
+                if task.task_id == "quality"
+                else "direct_frozen_space"
+            )
+        rows.append(
+            {
+                "class_count": task.class_count,
+                "compatibility_status": compatibility_status,
+                "entity_type": task.entity_type,
+                "evidence_reference": _head_evidence_reference(task.task_id),
+                "missing_policy": task.missing_policy,
+                "pinned_source_name": _CODE_NAME_BY_TASK[task.task_id],
+                "production_task_id": task.task_id,
+                "semantic_status": _SEMANTIC_STATUS_BY_TASK[task.task_id],
+            }
+        )
+    return tuple(rows)
+
+
+def quality_compatibility_projection() -> dict[str, object]:
+    payload: dict[str, object] = {
+        **asdict(QUALITY_COMPATIBILITY_PROJECTION),
+        "class_mapping": [list(row) for row in QUALITY_COMPATIBILITY_PROJECTION.class_mapping],
+        "source_token_routes": [
+            {
+                "compatibility_label": compatibility,
+                "corrected_label": corrected,
+                "source_token": source,
+            }
+            for source, corrected, compatibility in (
+                QUALITY_COMPATIBILITY_PROJECTION.source_token_routes
+            )
+        ],
+    }
+    payload["fingerprint"] = fingerprint(payload)
+    return payload
+
+
+def _joint_metric_rows() -> tuple[dict[str, object], dict[str, object]]:
+    common = {
+        "components": list(PAPER_DEFINED_JOINT_COMPONENTS),
+        "exact_official_reproduction": False,
+        "undefined_payload": {
+            "accuracy": None,
+            "available": False,
+            "support": 0,
+            "undefined_reason": "no rows satisfy the joint component contract",
+        },
+    }
+    corrected = {
+        **common,
+        "contract_kind": "corrected_v2",
+        "entity_type": "harmonic_event",
+        "metric_id": CORRECTED_V2_METRIC_ID,
+        "paper_compatible": False,
+        "quality_space": CORRECTED_QUALITY_VOCABULARY_ID,
+        "row_policy": (
+            "include only one shared harmonic_event_id whose five targets are "
+            "available, unmasked, and valid in corrected production vocabularies"
+        ),
+    }
+    compatibility = {
+        **common,
+        "contract_kind": "analysisgnn_paper_text_compatibility",
+        "entity_type": "note",
+        "metric_evaluated": False,
+        "metric_id": PAPER_TEXT_COMPATIBILITY_METRIC_ID,
+        "paper_text_compatible": True,
+        "quality_projection_id": QUALITY_COMPATIBILITY_PROJECTION_ID,
+        "quality_space": COMPATIBILITY_QUALITY_VOCABULARY_ID,
+        "row_policy": (
+            "include only a note with one unambiguous note_to_harmonic_event "
+            "relation and five available, unmasked targets; project corrected "
+            "quality targets and future predictions into quality-15 before comparison"
+        ),
+    }
+    return corrected, compatibility
+
+
 def production_task_registry() -> dict[str, object]:
+    corrected_metric, compatibility_metric = _joint_metric_rows()
     payload: dict[str, object] = {
         "aliases": {
             "downbeat": "metrical_strength",
             "organ_point": "pedal",
             "pedal": "pedal",
         },
+        "analysisgnn_compatibility_metric_contract": compatibility_metric,
+        "code_only_excluded_heads": ["staff"],
+        "corrected_v2_metric_contract": corrected_metric,
         "exact_official_reproduction": False,
-        "paper_compatible_metric_subset": [
-            "local_key", "primary_degree", "secondary_degree", "quality", "inversion"
-        ],
+        "head_semantic_evidence": list(head_semantic_evidence()),
+        "joint_component_contract": list(PAPER_DEFINED_JOINT_COMPONENTS),
         "production_head_count": len(PRODUCTION_TASKS),
+        "quality_compatibility_projection": quality_compatibility_projection(),
         "registry_id": PRODUCTION_REGISTRY_ID,
+        "schema_version": PRODUCTION_REGISTRY_SCHEMA_VERSION,
         "tasks": [asdict(row) for row in PRODUCTION_TASKS],
     }
     payload["fingerprint"] = fingerprint(payload)
@@ -441,7 +660,11 @@ def vocabularies_payload() -> dict[str, object]:
         }
         for row in VOCABULARIES
     ]
-    payload: dict[str, object] = {"registry_id": PRODUCTION_REGISTRY_ID, "vocabularies": rows}
+    payload: dict[str, object] = {
+        "registry_id": PRODUCTION_REGISTRY_ID,
+        "schema_version": PRODUCTION_REGISTRY_SCHEMA_VERSION,
+        "vocabularies": rows,
+    }
     payload["fingerprint"] = fingerprint(payload)
     return payload
 
@@ -462,6 +685,15 @@ def get_task(task_id: str) -> TaskSpec:
         raise AnalysisGNNMultitaskContractError(f"unknown task ID: {task_id}") from exc
 
 
+def project_quality_for_analysisgnn(corrected_label: str) -> str:
+    projected = QUALITY_COMPATIBILITY_PROJECTION.project(corrected_label)
+    if projected is None:
+        raise AnalysisGNNMultitaskContractError(
+            "quality compatibility projection requires a corrected quality-17 label"
+        )
+    return projected
+
+
 def validate_static_contract() -> None:
     if len(PRODUCTION_TASKS) != 20 or len(TASK_BY_ID) != len(PRODUCTION_TASKS):
         raise AnalysisGNNMultitaskContractError("production task IDs are not unique")
@@ -472,8 +704,43 @@ def validate_static_contract() -> None:
             raise AnalysisGNNMultitaskContractError(
                 f"task/vocabulary class count mismatch: {task.task_id}"
             )
-    if len(_QUALITIES) != 17 or len(_ROMAN_NUMERALS) != 184:
+    if len(_CORRECTED_QUALITIES) != 17 or len(_ROMAN_NUMERALS) != 184:
         raise AnalysisGNNMultitaskContractError("corrected vocabulary lock changed")
+    if len(_ANALYSISGNN_COMPATIBILITY_QUALITIES) != 15:
+        raise AnalysisGNNMultitaskContractError(
+            "AnalysisGNN compatibility quality lock changed"
+        )
+    mapping = dict(QUALITY_COMPATIBILITY_PROJECTION.class_mapping)
+    if set(mapping) != set(_CORRECTED_QUALITIES):
+        raise AnalysisGNNMultitaskContractError(
+            "quality compatibility projection domain is not corrected quality-17"
+        )
+    if set(mapping.values()) != set(_ANALYSISGNN_COMPATIBILITY_QUALITIES):
+        raise AnalysisGNNMultitaskContractError(
+            "quality compatibility projection codomain is not quality-15"
+        )
+    non_identity = {
+        source: target for source, target in mapping.items() if source != target
+    }
+    if non_identity != {
+        "augmented seventh chord": "augmented triad",
+        "augmented major tetrachord": "augmented triad",
+    }:
+        raise AnalysisGNNMultitaskContractError(
+            "quality compatibility projection has unexpected semantic collapse"
+        )
+    if set(_SEMANTIC_STATUS_BY_TASK) != set(TASK_BY_ID):
+        raise AnalysisGNNMultitaskContractError("head semantic evidence is incomplete")
+    evidence = head_semantic_evidence()
+    if tuple(row["production_task_id"] for row in evidence) != tuple(TASK_BY_ID):
+        raise AnalysisGNNMultitaskContractError("head semantic evidence order changed")
+    if any(row["semantic_status"] not in _SEMANTIC_STATUSES for row in evidence):
+        raise AnalysisGNNMultitaskContractError("unknown head semantic status")
+    if any(
+        row["compatibility_status"] not in _COMPATIBILITY_STATUSES
+        for row in evidence
+    ):
+        raise AnalysisGNNMultitaskContractError("unknown head compatibility status")
 
 
 validate_static_contract()
@@ -848,27 +1115,24 @@ def require_test_evaluation_unlock(*, explicit_allow: bool = False) -> None:
 
 
 def metric_contract() -> dict[str, object]:
+    corrected_metric, compatibility_metric = _joint_metric_rows()
     payload: dict[str, object] = {
-        "joint_metrics": [
-            {
-                "components": [
-                    "local_key", "primary_degree", "secondary_degree", "quality", "inversion"
-                ],
-                "entity_type": "harmonic_event",
-                "metric_id": "roman_numeral_joint_accuracy",
-                "row_policy": (
-                    "include only a shared harmonic_event_id whose five component "
-                    "masks are available and whose values are vocabulary-valid"
-                ),
-                "undefined_payload": {
-                    "accuracy": None,
-                    "available": False,
-                    "support": 0,
-                    "undefined_reason": "no rows satisfy the joint component contract",
-                },
-            }
-        ],
-        "paper_compatible_not_exact_official": True,
+        "analysisgnn_compatibility_metric_contract": compatibility_metric,
+        "corrected_v2_metric_contract": corrected_metric,
+        "joint_component_contract": list(PAPER_DEFINED_JOINT_COMPONENTS),
+        "quality_compatibility_projection": quality_compatibility_projection(),
+        "scientific_resolution": {
+            "official_evaluator_branches_consistent": False,
+            "paper_text_definition_selected": True,
+            "paper_text_evidence": (
+                "AnalysisGNN paper section 4.3 and Table 2 define note predictions "
+                "and joint correctness from local key, degree, quality, and inversion"
+            ),
+            "pinned_code_evidence": (
+                "validation/NCT uses five fields including localkey while the onset "
+                "test branch omits localkey; this contract does not claim runtime identity"
+            ),
+        },
         "test_evaluation_locked": True,
         "version": METRIC_CONTRACT_VERSION,
     }
@@ -969,6 +1233,11 @@ def validate_loaded_registry(
 ) -> None:
     if task_registry.get("registry_id") != PRODUCTION_REGISTRY_ID:
         raise AnalysisGNNMultitaskContractError("unknown task registry")
+    if (
+        task_registry.get("schema_version") != PRODUCTION_REGISTRY_SCHEMA_VERSION
+        or vocabularies.get("schema_version") != PRODUCTION_REGISTRY_SCHEMA_VERSION
+    ):
+        raise AnalysisGNNMultitaskContractError("unknown task registry schema version")
     task_rows = task_registry.get("tasks")
     vocabulary_rows = vocabularies.get("vocabularies")
     if not isinstance(task_rows, list) or not isinstance(vocabulary_rows, list):
@@ -994,6 +1263,21 @@ def validate_loaded_registry(
             raise AnalysisGNNMultitaskContractError("duplicate/non-contiguous class ID")
         if task["class_count"] != len(classes):
             raise AnalysisGNNMultitaskContractError("vocabulary length mismatch")
+    evidence = task_registry.get("head_semantic_evidence")
+    if not isinstance(evidence, list) or len(evidence) != len(task_rows):
+        raise AnalysisGNNMultitaskContractError("head semantic evidence is incomplete")
+    if [row.get("production_task_id") for row in evidence] != task_ids:
+        raise AnalysisGNNMultitaskContractError("head semantic evidence order mismatch")
+    projection = task_registry.get("quality_compatibility_projection")
+    if not isinstance(projection, dict):
+        raise AnalysisGNNMultitaskContractError(
+            "quality compatibility projection is absent"
+        )
+    expected_projection = quality_compatibility_projection()
+    if projection != expected_projection:
+        raise AnalysisGNNMultitaskContractError(
+            "quality compatibility projection mismatch"
+        )
 
 
 _MISSING = frozenset({"", "<NA>", "NA", "NaN", "nan", "None", "null"})

@@ -14,15 +14,21 @@ from music_critic.experiments.analysisgnn.contracts import (
     EXPECTED_RECORD_COUNT,
     EXPECTED_SPLIT_COUNTS,
     EXPECTED_SPLIT_FINGERPRINT,
+    fingerprint,
 )
 from music_critic.experiments.analysisgnn.multitask_contract import (
     ANALYSISGNN_COMMIT,
     ASSIGNMENT_ALGORITHM,
     ASSIGNMENT_NAMESPACE,
+    COMPATIBILITY_QUALITY_VOCABULARY_ID,
+    CORRECTED_QUALITY_VOCABULARY_ID,
+    CORRECTED_V2_METRIC_ID,
     EXPECTED_FULL_COUNTS,
     EXPECTED_PAPER_COUNTS,
     OVERLAP_AN_PEERS,
     OVERLAP_EXCLUSION_NAMES,
+    PAPER_DEFINED_JOINT_COMPONENTS,
+    PAPER_TEXT_COMPATIBILITY_METRIC_ID,
     PINNED_CODE_HEADS,
     PRODUCTION_TASKS,
     VOCABULARIES,
@@ -34,6 +40,7 @@ from music_critic.experiments.analysisgnn.multitask_contract import (
     materialize_target_sidecar_descriptor,
     metric_contract,
     pinned_code_reference_registry,
+    project_quality_for_analysisgnn,
     production_task_registry,
     require_test_evaluation_unlock,
     load_split_assignments,
@@ -45,6 +52,42 @@ from music_critic.experiments.analysisgnn.multitask_contract import (
     vocabularies_payload,
 )
 from tests.adapters.test_dilemmadata import CORPUS, _accepted
+
+
+SCIENTIFIC_EVIDENCE = (
+    Path(__file__).resolve().parents[1]
+    / "fixtures/analysisgnn/pinned_scientific_contract_e115182.json"
+)
+FROZEN_PRODUCTION_HEADS = (
+    "local_key",
+    "tonicized_key",
+    "root",
+    "bass",
+    "primary_degree",
+    "secondary_degree",
+    "quality",
+    "inversion",
+    "roman_numeral",
+    "pitch_class_set",
+    "harmonic_rhythm",
+    "cadence",
+    "phrase",
+    "section",
+    "pedal",
+    "metrical_strength",
+    "note_degree",
+    "chord_tone",
+    "is_root",
+    "is_bass",
+)
+
+
+def _scientific_evidence() -> dict[str, object]:
+    value = json.loads(SCIENTIFIC_EVIDENCE.read_text(encoding="utf-8"))
+    observed = value.pop("fingerprint")
+    assert fingerprint(value) == observed
+    value["fingerprint"] = observed
+    return value
 
 
 def _synthetic_records() -> tuple[SimpleNamespace, ...]:
@@ -84,17 +127,42 @@ def test_universe_and_exclusion_locks_are_exact() -> None:
 
 
 def test_task_inventory_and_alias_evidence_are_explicit() -> None:
+    evidence = _scientific_evidence()
     assert len(PINNED_CODE_HEADS) == 21
     assert len(PRODUCTION_TASKS) == 20
     assert len({row.task_id for row in PRODUCTION_TASKS}) == 20
+    assert tuple(row.task_id for row in PRODUCTION_TASKS) == FROZEN_PRODUCTION_HEADS
+    assert evidence["pinned_code"]["head_count"] == 21
     reference = pinned_code_reference_registry()
     assert reference["head_count"] == 21
     by_code = {row["task_name_in_code"]: row for row in reference["rows"]}
     assert by_code["organ_point"]["canonical_task_id"] == "pedal"
     assert by_code["organ_point"]["status"] == "alias_normalized"
     assert by_code["downbeat"]["canonical_task_id"] == "metrical_strength"
-    assert by_code["staff"]["status"] == "code_only"
+    assert by_code["staff"]["status"] == "code_only_excluded"
+    assert "staff" not in FROZEN_PRODUCTION_HEADS
     assert reference["external_commit"] == ANALYSISGNN_COMMIT
+    registry = production_task_registry()
+    assert registry["aliases"]["organ_point"] == "pedal"
+    assert registry["aliases"]["downbeat"] == "metrical_strength"
+    assert registry["code_only_excluded_heads"] == ["staff"]
+    assert len(registry["head_semantic_evidence"]) == 20
+
+
+def test_head_semantic_evidence_distinguishes_repairs_and_compatibility() -> None:
+    registry = production_task_registry()
+    rows = {
+        row["production_task_id"]: row
+        for row in registry["head_semantic_evidence"]
+    }
+    assert tuple(rows) == FROZEN_PRODUCTION_HEADS
+    assert rows["quality"]["semantic_status"] == "corrected_source_native_extension"
+    assert rows["quality"]["compatibility_status"] == "projected_quality_15"
+    assert rows["roman_numeral"]["semantic_status"] == "corrected_semantic_repair"
+    assert rows["pedal"]["semantic_status"] == "alias_normalized"
+    assert rows["metrical_strength"]["semantic_status"] == "alias_normalized"
+    assert rows["cadence"]["semantic_status"] == "corrected_source_native_extension"
+    assert all(row["evidence_reference"] for row in rows.values())
 
 
 def test_vocabularies_are_unique_contiguous_and_match_tasks() -> None:
@@ -109,18 +177,36 @@ def test_vocabularies_are_unique_contiguous_and_match_tasks() -> None:
 
 
 def test_quality_vocabulary_repairs_missing_and_dlc_conflation() -> None:
-    vocabulary = get_vocabulary("analysisgnn.quality-corrected-v1")
-    assert len(vocabulary.labels) == 17
-    assert "None" not in vocabulary.labels
-    assert "augmented seventh chord" in vocabulary.labels
-    assert "augmented major tetrachord" in vocabulary.labels
-    assert vocabulary.normalize("+7") == "augmented seventh chord"
-    assert vocabulary.normalize("+M7") == "augmented major tetrachord"
-    assert vocabulary.normalize("augmented seventh") == "augmented seventh chord"
+    evidence = _scientific_evidence()
+    corrected = get_vocabulary(CORRECTED_QUALITY_VOCABULARY_ID)
+    compatibility = get_vocabulary(COMPATIBILITY_QUALITY_VOCABULARY_ID)
+    frozen_compatibility = tuple(
+        evidence["pinned_code"]["quality"]["semantic_labels"]
+    )
+    frozen_additions = set(evidence["corrected_v2"]["quality_additions"])
+    assert corrected.labels[:-2] == frozen_compatibility
+    assert compatibility.labels == frozen_compatibility
+    assert len(corrected.labels) == evidence["corrected_v2"]["quality_class_count"] == 17
+    assert len(compatibility.labels) == 15
+    assert set(corrected.labels) - set(compatibility.labels) == frozen_additions
+    assert "None" not in corrected.labels
+    assert "None" not in compatibility.labels
+    assert corrected.normalize("+7") == "augmented seventh chord"
+    assert corrected.normalize("+M7") == "augmented major tetrachord"
+    assert corrected.normalize("augmented seventh") == "augmented seventh chord"
+    assert project_quality_for_analysisgnn("augmented seventh chord") == "augmented triad"
+    assert project_quality_for_analysisgnn("augmented major tetrachord") == "augmented triad"
+    for label in compatibility.labels:
+        assert project_quality_for_analysisgnn(label) == label
+    with pytest.raises(AnalysisGNNMultitaskContractError, match="quality-17"):
+        project_quality_for_analysisgnn("None")
 
 
 def test_roman_numeral_vocabulary_repairs_concatenated_literal() -> None:
+    evidence = _scientific_evidence()["pinned_code"]["roman_numeral"]
     vocabulary = get_vocabulary("analysisgnn.roman-numeral-corrected-v1")
+    assert evidence["literal_unique_count"] == 184
+    assert evidence["model_head_class_count"] == 185
     assert len(vocabulary.labels) == 184
     assert "none" not in vocabulary.labels
     assert "#VII" in vocabulary.labels
@@ -270,12 +356,23 @@ def test_repair_evidence_is_target_only_not_an_entity_or_task() -> None:
 
 def test_joint_metric_contract_requires_one_shared_harmonic_entity() -> None:
     contract = metric_contract()
-    joint = contract["joint_metrics"][0]
-    assert joint["components"] == [
-        "local_key", "primary_degree", "secondary_degree", "quality", "inversion"
-    ]
-    assert joint["entity_type"] == "harmonic_event"
-    assert joint["undefined_payload"] == {
+    assert contract["joint_component_contract"] == list(PAPER_DEFINED_JOINT_COMPONENTS)
+    assert "roman_numeral" not in PAPER_DEFINED_JOINT_COMPONENTS
+    assert "tonicized_key" not in PAPER_DEFINED_JOINT_COMPONENTS
+    corrected = contract["corrected_v2_metric_contract"]
+    compatibility = contract["analysisgnn_compatibility_metric_contract"]
+    assert corrected["metric_id"] == CORRECTED_V2_METRIC_ID
+    assert corrected["entity_type"] == "harmonic_event"
+    assert corrected["quality_space"] == CORRECTED_QUALITY_VOCABULARY_ID
+    assert corrected["paper_compatible"] is False
+    assert compatibility["metric_id"] == PAPER_TEXT_COMPATIBILITY_METRIC_ID
+    assert compatibility["entity_type"] == "note"
+    assert compatibility["quality_space"] == COMPATIBILITY_QUALITY_VOCABULARY_ID
+    assert compatibility["metric_evaluated"] is False
+    assert corrected["components"] == compatibility["components"] == list(
+        PAPER_DEFINED_JOINT_COMPONENTS
+    )
+    assert corrected["undefined_payload"] == {
         "accuracy": None,
         "available": False,
         "support": 0,

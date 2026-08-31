@@ -1379,6 +1379,14 @@ and five note heads (`metrical_strength`, `note_degree`, `chord_tone`,
 `is_root`, `is_bass`). `organ_point` and `downbeat` are pinned-code aliases;
 code-only `staff` is not one of the paper's 20 analytical properties.
 
+Production `quality` uses the source-faithful 17-class
+`dilemmadata-corrected-quality-17-v1` space: DLC `+7` and `+M7` remain distinct.
+The separate frozen `analysisgnn-quality-15-compat-e115182-v1` space collapses
+only those two corrected labels to `augmented triad` for AnalysisGNN comparison.
+The projection is serialized and is not applied to source targets, sidecars,
+graphs, loss, or the future corrected V2 head. Roman-184 is likewise a corrected
+semantic vocabulary, not a byte-identical copy of the malformed pinned literal.
+
 One harmonic entity is keyed by record/dialect, source annotation identity,
 first source-row ordinal, and exact canonical onset. Every harmonic head uses
 that same ID. Notes retain canonical raw identity and repair lineage. Explicit
@@ -1388,7 +1396,13 @@ Sidecars never participate in raw graph construction or fingerprints.
 
 The frozen split is 1,295/162/162 records over 1,209/147/151 components for
 TRAIN/VALIDATION/TEST, with empty component intersections. TEST is available
-only for schema, mask, and fingerprint checks. The paper-compatible joint
-contract uses local key, both degree components, quality, and inversion on one
-harmonic ID and has support 98,715 TRAIN / 10,507 VALIDATION. No TEST metric
-was computed.
+only for schema, mask, and fingerprint checks. The corrected V2 event metric
+uses local key, both degree components, quality-17, and inversion on one
+harmonic ID and has structural support 98,715 TRAIN / 10,507 VALIDATION; it is
+explicitly not paper-compatible. A separate paper-text compatibility contract
+uses the same five semantic components at note level after quality-15
+projection. The paper describes note-level predictions and includes local key,
+while pinned evaluator branches disagree and the onset-test branch omits it.
+V2 selects the paper-text definition for scientific comparison but has not
+evaluated that metric. Neither contract is an exact official reproduction, and
+no TEST metric was computed.

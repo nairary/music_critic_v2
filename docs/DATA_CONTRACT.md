@@ -1843,11 +1843,20 @@ provenance, not model input.
 
 Every categorical vocabulary has unique contiguous IDs and
 `class_count == len(vocabulary)`. Missing values are null + masked and cannot
-be class 0. Unknown and missing remain distinct. Quality has 17 semantic
-classes: the pinned 16-entry literal's `None` is removed and the acknowledged
-DLC `+7`/`+M7` meanings are restored. Roman numeral splits malformed
-`#VIIbvio7` into `#VII` and `bvio7`, then masks `none`, yielding 184 semantic
-classes from 185 intended entries.
+be class 0. Unknown and missing remain distinct. Production quality has 17
+semantic classes under `dilemmadata-corrected-quality-17-v1`: the pinned
+16-entry literal's `None` is removed and the acknowledged DLC `+7`/`+M7`
+meanings are restored as `augmented seventh chord` and
+`augmented major tetrachord`. A distinct 15-class
+`analysisgnn-quality-15-compat-e115182-v1` vocabulary and total 17-to-15
+projection collapse those two additions to `augmented triad` only for paper
+comparison. Missing is outside both vocabularies and is never projected.
+
+Roman numeral splits malformed `#VIIbvio7` into `#VII` and `bvio7`, then masks
+`none`, yielding 184 corrected semantic classes. The pinned Python literal has
+184 unique entries including `none` and the malformed token, while the pinned
+model head declares 185; corrected Roman-184 is not claimed to be literal
+identity with either artifact.
 
 Every logical task/entity state contains `available`, `masked`,
 `missing_reason`, source/canonical value, source/canonical entity ID, and
@@ -1860,3 +1869,13 @@ manifest membership, unique records, and one split per component. Registry and
 universe JSON loads fail closed on version or fingerprint mismatch. APIs reject
 unknown tasks/vocabularies, invalid class IDs, duplicate entities, and TEST
 evaluation without separate explicit authorization.
+
+Metric schema `analysisgnn-corrected-and-paper-text-metrics-v2` contains two
+non-interchangeable contracts. `v2_corrected_harmonic_event_joint_accuracy`
+uses corrected quality-17 on `harmonic_event`; it is the production V2 metric
+and `paper_compatible=false`. `analysisgnn_paper_text_note_joint_accuracy`
+uses quality-15 on `note`, reached through one unambiguous
+`note_to_harmonic_event` relation. Both require exactly `local_key`,
+`primary_degree`, `secondary_degree`, `quality`, and `inversion`. The note-level
+contract resolves inconsistent official evaluator branches in favor of the
+paper text and has not been evaluated.

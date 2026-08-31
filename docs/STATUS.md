@@ -9,16 +9,22 @@
   use 1,507 source components. External cadence corpus availability/inclusion
   are both false.
 - Audited 20 paper tasks against 21 unique pinned-code heads and froze a
-  corrected 20-head production registry. `staff` is code-only;
+  corrected 20-head production registry. `staff` is code-only and excluded;
   `organ_point/pedal` and `downbeat/metrical_strength` are normalized aliases.
-  Quality has 17 semantic classes and Roman numeral has 184 after fixing the
-  documented literals; missing values are masks, never class 0.
+  Production quality remains source-faithful quality-17; a separate frozen
+  quality-15 compatibility projection collapses only `+7` and `+M7` to
+  `augmented triad`. Roman-184 is a corrected semantic vocabulary, not the
+  malformed official literal. Missing values are masks, never class 0.
 - Shared harmonic IDs now cover local/tonicized key, root/bass, both degree
   components, quality, inversion, Roman numeral, pitch-class set, harmonic
   rhythm, and pedal. Audit counts are 1,452,122 harmonic events, 1,452,043
   onsets, and 2,747,530 notes with deterministic note/onset/harmonic/beat/
   measure relations. The B1 `zero_joint_quality_inversion_support` cause is
-  removed: paper-compatible joint support is 98,715 TRAIN / 10,507 VALIDATION.
+  removed: corrected V2 harmonic-event joint support is 98,715 TRAIN / 10,507
+  VALIDATION. That quality-17 event metric is explicitly not paper-compatible.
+  A separate paper-text quality-15 note-level metric contract is defined but
+  was not evaluated; pinned validation/NCT and onset-test evaluator branches
+  disagree about inclusion of local key.
 - Frozen group split is 1,295/162/162 records over 1,209/147/151 components;
   all three component intersections are empty. TEST assignment fingerprint is
   `67a3082e...`; no TEST target values were aggregated, no metric or inference
@@ -29,14 +35,17 @@
 - Production audit at
   `outputs/phase9eb3/analysisgnn-multitask-contract-01290f5/` returned
   `valid=true`, `ready=true`, `model_implemented=false`, `training_run=false`,
-  `test_evaluated=false`. Semantic fingerprint is
-  `62cd02feca3ef4fa0c18268e1b742f68a05007553dfc59c24197cca838bb3277`.
+  `validation_inference_run=false`, `test_evaluated=false`. Remediated semantic
+  fingerprint is
+  `94a19ed6bbecbbd0497310233c8a8ff4e34311b414124593a7326c759ff07954`.
   All 1,633 B2 graph/canonical locks and the 2,158-file B1 tree are unchanged.
-- Source-free `--check` succeeds. The expanded targeted suite passes
-  `311 passed, 1 skipped, 4 warnings in 29.02s`; the full repository suite
-  passes `1757 passed, 59 skipped, 12 warnings in 863.08s`. Skips are explicit
-  external-data/accelerator gates; warnings are unchanged Torch and
-  multiprocessing deprecations. `compileall` and `git diff --check` pass.
+- Independent source evidence is frozen in
+  `tests/fixtures/analysisgnn/pinned_scientific_contract_e115182.json`, with
+  exact pinned source paths/symbols/file hashes and paper section references.
+  Targeted pytest passes `52 passed, 2 warnings in 2.76s`; source-free
+  `--check`, compileall, stale-claim review, and `git diff --check` pass. The
+  local full suite is not repeated by contract; the required GitHub suite is
+  authoritative for the pushed remediation.
 - No legacy file was inspected. No model/head/encoder/GRU, training,
   validation inference, TEST evaluation, B1 split/model/checkpoint/output, B2
   graph/repair policy, PR #32, or PR #33 was changed.

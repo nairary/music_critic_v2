@@ -575,3 +575,14 @@ assignment, and explicit TEST sealing. Rejected assumptions include filename-
 only grouping, task-specific chord IDs, missing-as-class-0, silent `+7`/`+M7`
 collapse, malformed Roman literals, label-valued split objectives, target-
 derived raw graphs, legacy runtime imports, and claims of exact reproduction.
+
+The B3 scientific-contract remediation likewise opens, searches, imports,
+copies, modifies, and reuses no legacy file or logic. Its read-only evidence is
+limited to the already pinned official AnalysisGNN commit and the published
+paper: quality-17 remains the corrected source-faithful V2 space, while a
+separate serialized quality-15 projection reproduces the pinned `+7`/`+M7`
+collapse only for comparison. The corrected harmonic-event metric is rejected
+as a paper-compatible claim. A distinct unevaluated note-level contract follows
+the paper's five semantic components while recording that pinned validation/NCT
+and onset-test evaluator branches disagree. No external or legacy code is a
+runtime dependency.
