@@ -2017,3 +2017,25 @@ The fixture states `training_run=false`, `validation_inference_run=false`,
 `ready_for_model_implementation=true` value means only that policy interfaces
 are frozen; all profiles remain non-runnable until their declared missing
 artifacts or model-owned decisions are resolved.
+
+## 18. Phase 9E-B5C model-run binding
+
+The B5C runner consumes the unchanged B3 1,619-record assignment and verifies
+the exact assignment-file hash before resolving a record. A split gate runs
+before source-inventory lookup, raw conversion, sidecar materialization, or
+cache access. Only `train` and `validation` are accepted; `test` fails closed.
+The frozen TEST assignment fingerprint may be compared without opening a TEST
+source or target.
+
+One runtime sample consists of a target-neutral canonical piece rebuilt into
+the production raw heterogeneous graph plus a separate expanded B3 sidecar.
+Harmonic-event targets route to raw beats through the explicit B3 relation;
+onset targets route by reduced exact rational time; note targets route by
+canonical note identity. Availability and masks remain independent per head.
+Unknown, unsupported, missing, or unaligned rows do not become class zero.
+
+The phase-owned cache stores canonical JSON, expanded sidecar JSON, their
+hashes, record ID, and authorized split under ignored `outputs/phase9eb5c`.
+It never stores a tensor graph, augmented graph, checkpoint, generated MIDI,
+audio, or TEST target. C1 creates a detached B5A graph view on the fly and
+transforms semantic target values only after raw-only prediction.

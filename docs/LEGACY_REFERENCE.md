@@ -644,3 +644,21 @@ training phrase/section from positive-only rows, weighting by broadcast note
 volume, counting augmented views as records, validation/TEST-informed weights,
 filename sampling, silent official-corpus substitution, and any performance
 claim without a paired `C0`/`C1` run.
+
+## Phase 9E-B5C corrected model and trainer
+
+No file in the read-only legacy repository was opened, searched, imported,
+copied, formatted, staged, or reused for B5C. The model is composed solely from
+current V2 production encoder, hierarchy, onset-BiGRU, graph, collator, B3
+sidecar, B5A transposition, and B5B policy APIs. The separately pinned public
+AnalysisGNN evidence remains documentation only and is not a runtime
+dependency.
+
+Accepted V2 concepts are raw-only prediction, exact rational/entity routing,
+independent task heads and masks, component-aware sampling, complete
+checkpoint state, and explicit corrected-versus-paper metric identities.
+Rejected legacy/official assumptions include logit fusion, target-derived
+graph structure, missing-as-class behavior, learned uncertainty weights,
+materialized augmented records, view-level split assignment, staff prediction,
+cadence-corpus substitution, TEST evaluation, and claims of exact AnalysisGNN
+reproduction.

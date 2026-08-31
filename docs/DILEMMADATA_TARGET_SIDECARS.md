@@ -368,3 +368,31 @@ B3 component and split. `C0` uses identity; `C1` applies a valid B5A shift only
 after record selection. VALIDATION remains identity-only, no TEST loader is
 constructed, and no sidecar target was read for B5B evaluation because B5B
 performs no inference or evaluation.
+
+## Phase 9E-B5C post-prediction supervision
+
+B5C is the first consumer of the expanded B3 sidecar. Consumption does not
+attach theory fields to a graph. The corrected model first produces all raw
+candidate logits, then the trainer performs exact entity joins and builds
+loss-row tensors. Changing a sidecar can change targets, masks, loss, and
+metrics but cannot change logits from the same raw graph.
+
+The fixed routes are:
+
+- harmonic-event heads -> the target-free raw `beat` identified by the B3
+  `harmonic_event_to_beat` relation;
+- `cadence` -> raw `onset:{numerator}_{denominator}` from exact reduced
+  `onset_qn`;
+- note-level heads -> the raw note with the same canonical note ID.
+
+No nearest-time, float-equality, label-aware, broadcast-to-any-type, or
+target-window fallback exists. Failed routing is a masked row plus a stable
+diagnostic. For C1, a semantic value is transformed through the frozen B5A
+mapping after logits exist; masks, source entity, canonical entity,
+provenance, record, component, and split remain unchanged.
+
+Class weights come from the committed B5B TRAIN canonical-row payload.
+Unsupported classes retain logits and `weight=null`; a row of such a class is
+excluded from training rather than relabeled. VALIDATION uses the same exact
+join with identity transposition. The runner has no TEST sidecar reader or
+metric path.

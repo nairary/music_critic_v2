@@ -977,3 +977,12 @@ The model and training phases remain pending.
 - Acceptance: every major claim has an ablation and uncertainty report; PLL is
   normalized and bias-audited rather than presented as complete aesthetic
   quality, and a blind raw-MIDI set verifies role-agnostic inference.
+
+## Phase 9E-B5C status — corrected AnalysisGNN-derived baseline
+
+The corrected 18-head model and deterministic TRAIN/VALIDATION runner are
+implemented. CPU fixture and real-TRAIN coverage gates pass; the TEST path is
+sealed. CUDA is unavailable in the implementation environment, so the
+batch-size memory gate, CUDA smoke, two seed-17 500-update pilots, and C0/C1
+comparison remain the next bounded Phase 9E step. Phase 10 does not depend on
+a scientific improvement claim from this single-seed pilot.

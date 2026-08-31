@@ -1492,3 +1492,39 @@ budget and graph/window batching await the model implementation. `O` is
 exact historical GraphMuse revision and cadence corpus are unavailable, and
 paper/pinned evaluator branches disagree. Corrected data must not substitute
 for those missing official artifacts.
+
+## Phase 9E-B5C corrected 18-head runtime
+
+`CorrectedAnalysisGNNModel@1.0.0` is the Music Critic V2 corrected
+AnalysisGNN-derived multi-task baseline, not an exact AnalysisGNN
+reproduction. It reuses the production `LocalHeterogeneousEncoder` and
+`HierarchicalContextEncoder` at hidden width 128 (three local relation layers,
+two four-head Transformer layers, FFN multiplier four, residual connections,
+dropout 0.1), followed by the existing one-layer bidirectional
+`OnsetBiGRUDecoder`. There is no logit fusion.
+
+Eighteen independent heads each implement
+`Linear(128,128) -> GELU -> Dropout(0.1) -> Linear(128,C)`. Eight primary and
+ten auxiliary heads are trainable. `phrase` and `section` remain registry-only
+deferred entries and create neither parameters nor logits; `staff` is absent.
+Encoder autocast is permitted by interface, but all head parameters, logits,
+cross entropy, group losses, and totals stay FP32.
+
+Prediction accepts only the validated production raw graph. Expanded B3
+sidecars are joined afterward: harmonic events use the exact
+`harmonic_event_to_beat` relation, onset rows use canonical rational
+`onset:{num}_{den}` identity, and notes use canonical note IDs. A failed exact
+join masks the row and emits a diagnostic. Targets never select neighborhoods,
+windows, embeddings, or logits.
+
+The deterministic trainer samples a TRAIN component, record, graph, and then
+the profile view. C0 is identity-only; C1 applies a B5A-safe TRAIN view.
+Model initialization, dropout, loader-worker, component-record, and
+transposition domains have separate serialized deterministic seed/namespace
+bindings.
+VALIDATION is complete and identity-only, while the TEST loader path fails
+closed. Full canonical records and expanded sidecars are cached lazily as
+JSON; tensor graphs are rebuilt through the production graph builder and
+collator rather than cached. Checkpoints contain model, optimizer, scheduler,
+disabled FP32 scaler, sampler, Python/NumPy/PyTorch CPU/CUDA RNG, applied
+update, selection, and history state.

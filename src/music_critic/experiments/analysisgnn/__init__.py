@@ -1,4 +1,25 @@
-"""AnalysisGNN evidence and isolated B1/B3/B4 experiment contracts."""
+"""AnalysisGNN evidence, contracts, and corrected V2 experiment runtime."""
+
+from music_critic.experiments.analysisgnn.corrected_model import (
+    CORRECTED_MODEL_ID,
+    CORRECTED_MODEL_SCHEMA,
+    CorrectedAnalysisGNNConfig,
+    CorrectedAnalysisGNNModel,
+    CorrectedAnalysisGNNModelError,
+    corrected_model_contract,
+    corrected_parameter_inventory,
+    corrected_routing_contract,
+)
+from music_critic.experiments.analysisgnn.corrected_training import (
+    CORRECTED_CHECKPOINT_SCHEMA,
+    CORRECTED_TRAINING_SCHEMA,
+    CorrectedComponentSampler,
+    CorrectedRuntimeConfig,
+    CorrectedTrainingError,
+    CorrectedValidationAccumulator,
+    align_target_sidecars_after_prediction,
+    corrected_supervised_loss,
+)
 
 from music_critic.experiments.analysisgnn.class_balance import (
     CLASS_BALANCE_SCHEMA,
@@ -105,6 +126,22 @@ from music_critic.experiments.analysisgnn.training_policy import (
 )
 
 __all__ = [
+    "CORRECTED_MODEL_ID",
+    "CORRECTED_MODEL_SCHEMA",
+    "CORRECTED_CHECKPOINT_SCHEMA",
+    "CORRECTED_TRAINING_SCHEMA",
+    "CorrectedAnalysisGNNConfig",
+    "CorrectedAnalysisGNNModel",
+    "CorrectedAnalysisGNNModelError",
+    "CorrectedComponentSampler",
+    "CorrectedRuntimeConfig",
+    "CorrectedTrainingError",
+    "CorrectedValidationAccumulator",
+    "align_target_sidecars_after_prediction",
+    "corrected_model_contract",
+    "corrected_parameter_inventory",
+    "corrected_routing_contract",
+    "corrected_supervised_loss",
     "CLASS_BALANCE_SCHEMA",
     "AnalysisGNNClassBalanceError",
     "AuditTaskSpec",

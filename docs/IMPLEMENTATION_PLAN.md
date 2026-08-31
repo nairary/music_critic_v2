@@ -4249,6 +4249,27 @@ Use these as conceptual references. Confirm licenses, dataset versions, and impl
 - MuseCoco  
   https://arxiv.org/abs/2306.00110
 
+## Phase 9E-B5C — corrected model, deterministic trainer, and paired pilots
+
+- Implemented model: fixed raw-only width-128 hierarchy, reused onset BiGRU,
+  18 independent FP32 heads, 8/10 active group split, and two metadata-only
+  deferred tasks. Parameter inventory is 3,661,936 trainable / 0 frozen.
+- Implemented supervision: exact post-forward B3 entity routing, frozen B5B
+  class weights and group loss, per-head and separate corrected/paper/direct
+  metrics, primary-only checkpoint selection, and alignment diagnostics.
+- Implemented execution: component-balanced schedule, paired C0/C1 streams,
+  full production graph batching, B5A detached TRAIN views, applied-update
+  semantics, full RNG/scaler/sampler checkpoints, deterministic resume, and a
+  fail-closed TEST boundary.
+- Accepted local gates: two source-free CPU updates for each profile plus a
+  real TRAIN coverage backward pass with 18/18 finite losses, 18/18 nonzero
+  head gradients, and shared-encoder gradient. Source-free audit is valid.
+- Pending gate: on RTX 3090, run deterministic CUDA batch-size 1/2 memory
+  preflight and two-update C0/C1 smoke. Only then run the two 500-applied-update
+  seed-17 pilots with validation at 0/100/200/300/400/500 and create the C1-C0
+  comparison. Do not run on CPU, TEST, profile O, full training, or extra
+  seeds.
+
 ---
 
 # Final instruction to Codex

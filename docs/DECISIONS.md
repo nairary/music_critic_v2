@@ -3869,3 +3869,34 @@ This log is append-only.
   overlap exclusions, split, TEST assignment, target sidecars, masks,
   quality-17, Roman-184, raw graphs, B1/B2/B3/B4/B5A evidence, and preceding
   draft PRs remain unchanged.
+
+## 2026-09-01 — ADR-108: Implement the corrected raw-only 18-head baseline
+
+- Status: Accepted for the bounded Phase 9E-B5C implementation and seed-17
+  C0/C1 pilot protocol. CUDA pilots remain pending their smoke gate.
+- Context: B5B froze head, loss, sampler, metric, and optimizer-envelope
+  semantics but left model parameters and graph batching unresolved. The
+  existing V2 hierarchy and onset BiGRU already satisfy the required raw-only
+  inference boundary and exact graph ownership contracts.
+- Decision: Reuse the production local/hierarchical encoders and one-layer
+  onset BiGRU at width 128. Add 18 independent FP32 MLP heads with exact B3
+  vocabulary widths. Keep `phrase`/`section` as deferred metadata, exclude
+  `staff`, and add no logit fusion or runtime AnalysisGNN dependency.
+- Decision: Join expanded sidecars only after prediction with exact B3
+  harmonic-event-to-beat, rational-onset, and note-ID routing. Mask and
+  diagnose alignment failures. Rebuild production graphs from lazy canonical
+  JSON and apply C1 only as a detached B5A TRAIN view. Never create a TEST
+  loader.
+- Decision: Consume the literal applicable B5B optimizer envelope: AdamW
+  `lr=0.005`, weight decay `0.0005`, 500 applied-update warmup, cosine decay,
+  gradient clip 1.0, and FP32 baseline with a disabled scaler. The prose's
+  illustrative `0.0003`/CUDA AMP expectation does not override the frozen
+  exact contract.
+- Decision: Compare C0/C1 with identical seed-17 initialization, record
+  schedule, batch size, update count, and validation schedule. Only TRAIN
+  transposition differs. A single seed permits directional evidence only, not
+  a statistical improvement claim.
+- Consequences: The implemented model has 3,661,936 trainable and zero frozen
+  parameters. Local CPU and real-TRAIN smoke are accepted; CUDA memory/smoke,
+  500-update pilots, comparison, full training, and multi-seed training remain
+  unperformed until an RTX environment passes the explicit gates.

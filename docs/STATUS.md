@@ -3893,3 +3893,42 @@ not clamped or mutated.
   training, optimizer update, CPU/CUDA smoke, model validation inference,
   locked-TEST evaluation, full suite, corpus replay, or output mutation ran
   locally.
+
+## Phase 9E-B5C corrected model and pilot preparation — 2026-09-01
+
+- Branch `phase/9eb5c-analysisgnn-model-pilot` implements
+  `CorrectedAnalysisGNNModel@1.0.0`: reused width-128 three-layer local GNN,
+  two-layer/four-head hierarchy, existing one-layer bidirectional onset BiGRU,
+  and 18 independent FP32 MLP heads. The exact parameter inventory is
+  3,661,936 trainable / 0 frozen; primary/auxiliary/deferred counts are
+  8/10/2, with no `staff`, deferred parameters, or logit fusion.
+- Expanded B3 targets join only after raw logits through exact event-to-beat,
+  reduced rational onset, or canonical note identity. Missing, unsupported,
+  or failed joins are excluded and diagnosed. Frozen B5B class weights and
+  `L_primary + 0.25 * L_auxiliary` are used literally.
+- The trainer binds the 1,209-component TRAIN sampler, separated record/shift
+  domains, identity VALIDATION, lazy canonical/sidecar cache, production graph
+  rebuild/collation, deterministic checkpoint/resume, primary-only selection,
+  separate corrected-event/paper-note/direct-Roman metrics, and fail-closed
+  TEST access. It uses the exact B5B AdamW/FP32 optimizer envelope.
+- Source-free CPU smoke completed two applied updates for C0 and C1. Both had
+  finite logits/loss/gradients, all 18 head gradients, shared-encoder
+  gradients, parameter changes, and checkpoint round trips from identical
+  initialization. Real TRAIN record `dlc:corelli:op03n04c` provided the
+  minimum-cardinality all-head coverage set: 18/18 finite losses, 18/18
+  nonzero head gradients, and a nonzero shared-encoder gradient.
+- The compact fixture fingerprint is
+  `1bdc1dab093e3e6000027d95bc4f207bfe95eeb3111886cdc32b15aedbed9089`;
+  source-free audit reports `valid=true`. TEST loader/target/metric counts are
+  all zero/false. No TEST evaluation, profile O run, full training, multi-seed
+  run, generated MIDI, rendered audio, or committed checkpoint occurred.
+- Local Torch is CPU-only (`2.13.0+cpu`), CUDA device count is zero, and
+  `nvidia-smi` is absent. Therefore CUDA smoke and both 500-update pilots were
+  not run; `ready_for_cuda_pilot=true` and
+  `pilot_not_run_reason=cuda_unavailable`. Exact RTX commands are stored in the
+  compact fixture and final handoff.
+- The prescribed B5C/B5B/B5A/repository targeted suite passes
+  `69 passed, 2 warnings in 13.75s`; both warnings are the unchanged upstream
+  `torch.jit.script` deprecation. The source-free B5C audit reports
+  `valid=true`; targeted compileall and `git diff --check` pass. Per protocol,
+  the local full suite was not run and Required CI remains the full-suite gate.
