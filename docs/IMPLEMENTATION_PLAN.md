@@ -3389,6 +3389,45 @@ all TRAIN records, zero corrected held-out collisions, exact B4 equality for
 all invariant expected distributions, TEST target access 0/0, source-free
 fixture verification, and focused B3/B4/B5A/repository tests.
 
+### Phase 9E-B5B frozen training policy implemented
+
+- Serialize independent future profiles `O`, `C0`, and `C1`. `O` preserves
+  pinned official source behavior and is `partial_contract_only`; corrected
+  `C0`/`C1` share the frozen B3 dataset/split/task/vocabulary contracts and
+  differ only by the B5A TRAIN transposition policy.
+- Freeze corrected head roles at eight primary, ten auxiliary, and two
+  deferred. Keep all 20 semantic vocabularies/logit identities, quality-17,
+  and Roman-184. Defer `phrase`/`section` because no negative supervision is
+  available, and keep code-only `staff` outside production.
+- Define masked weighted per-head cross entropy, per-head mean normalization,
+  equal within-group weighting, and
+  `L_total = L_primary + 0.25 * L_auxiliary`. Exclude and log a zero-valid head
+  rather than adding a zero to its denominator; never route deferred heads
+  into optimization.
+- Freeze full inverse-square-root class weights from TRAIN canonical source
+  rows only, before entity broadcasting and without augmented-view
+  multiplication. Normalize supported weights to mean one under a final
+  `[0.25, 4.0]` bound; retain zero-count classes with null weights.
+- Freeze component-balanced TRAIN sampling: uniform source component, uniform
+  record within component, graph/window view, then profile-owned shift. Use
+  1,295 draws per epoch, identity-only held-out views, and no TEST loader.
+- Freeze per-head coverage-aware metrics, the eight-head
+  `corrected_primary_macro_score`, separate quality-17 harmonic-event and
+  quality-15 paper-text note joint metrics, and separate direct Roman-184
+  versus derived harmonic evidence.
+- Reuse B1-compatible known optimizer-envelope values but leave parameter
+  budget and graph/window batching explicit and unresolved. Therefore corrected
+  profiles are ready for model implementation but not runnable.
+- Provide a source-free audit fixture with calculated head/loss/weight/sampler/
+  metric/profile/combined fingerprints and hard false execution flags.
+
+Acceptance is a byte-reproducible `valid=true` source-free audit, exact
+8/10/2 partition, a full TRAIN-only class-weight payload, proof that `C0/C1`
+have no non-transposition experimental delta, zero TEST access, and focused
+B5A/B5B/repository tests. This phase performs no training, validation
+inference, TEST evaluation, model/trainer implementation, data mutation, or
+accuracy-improvement claim.
+
 ### Phase 9B.2A production target sidecars implemented
 
 - separate target-only AN/DLC parsing over Phase 9A-evidenced fields;

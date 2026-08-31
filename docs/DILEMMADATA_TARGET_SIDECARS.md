@@ -346,3 +346,25 @@ is `94a19ed6bbecbbd0497310233c8a8ff4e34311b414124593a7326c759ff07954`.
 Corrected V2 harmonic-event TRAIN/VALIDATION joint support is 98,715/10,507.
 The separate paper-text note-level quality-15 metric is schema-only and was not
 evaluated; TEST was not evaluated.
+
+## Phase 9E-B5B training-policy use
+
+B5B does not rewrite or attach another target sidecar. It consumes only frozen
+B3/B4 evidence after split assignment and freezes how a future corrected
+trainer may route it. Eight primary and ten auxiliary heads remain independently
+masked; `phrase` and `section` are deferred because the positive boundary rows
+do not establish negative supervision. A missing sidecar value never becomes
+class zero or a negative boundary.
+
+Class weights count deduplicated canonical source-target rows in TRAIN before
+one source event is broadcast to notes or other entities. They do not count
+VALIDATION, TEST, or C1 transposition views. Every semantic vocabulary row is
+retained; unsupported classes have null weight. This preserves quality-17,
+Roman-184, source provenance, and independent task availability exactly.
+
+Component-balanced sampling chooses among the 1,209 TRAIN source components
+before selecting one of its records and any view. The selected record keeps its
+B3 component and split. `C0` uses identity; `C1` applies a valid B5A shift only
+after record selection. VALIDATION remains identity-only, no TEST loader is
+constructed, and no sidecar target was read for B5B evaluation because B5B
+performs no inference or evaluation.

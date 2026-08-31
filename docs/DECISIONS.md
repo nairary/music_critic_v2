@@ -3821,3 +3821,51 @@ This log is append-only.
   and pitch-class-set balance improves. Quality-17, Roman-184, note-degree,
   phrase, and section remain exactly invariant, so no new head becomes strictly
   trainable under B4. TEST targets remain unopened.
+
+## 2026-09-01 — ADR-107: Freeze separate official and paired corrected training policies
+
+- Status: Accepted for Phase 9E-B5B contract/model-planning work only. It does
+  not authorize model construction, optimizer updates, validation inference,
+  checkpoint creation, or TEST access.
+- Context: B3 freezes a corrected 20-head dataset and split; B4 shows severe
+  class/component imbalance; B5A proves safe TRAIN transposition coverage but
+  not model benefit. The official pinned code instead exposes 21 unique heads,
+  learned task weights, materialized-view splitting, an external cadence
+  corpus, and conflicting evaluation branches. Combining these semantics would
+  make neither reproduction nor a controlled augmentation ablation valid.
+- Decision: Define `analysisgnn-official-reproduction-e115182-v1` (`O`) as an
+  isolated pinned-code profile. Preserve its source-evidenced heads, smoothed
+  CE/learned uncertainty loss, no class weights, combined neighbor loaders,
+  official transposition, validation-loss checkpoint selection, and known
+  defects. Mark it `runnable=false` and `partial_contract_only`: the historical
+  run source commit differs from the pinned source, exact GraphMuse/cadence/
+  split/RNG artifacts are unavailable, and corrected data cannot substitute.
+- Decision: Define corrected `C0` and `C1` on the identical frozen B3
+  1,619-record, 1,295/162/162 contract. Their serialized experimental payloads
+  may differ only in transposition: `C0` is identity-only and `C1` uses
+  `music-critic-v2-closed-transposition-v1` for TRAIN. Both remain
+  non-runnable until model parameter budget and graph/window batching are
+  implemented and bound.
+- Decision: Partition the corrected registry into eight primary heads
+  (`local_key`, `tonicized_key`, `root`, `bass`, both degrees, `quality`,
+  `inversion`), ten auxiliary heads, and deferred `phrase`/`section`. Missing
+  targets are excluded. Mean valid rows within each head, mean available heads
+  within each group, and use
+  `L_total = L_primary + 0.25 * L_auxiliary`; a zero-valid head is logged and
+  excluded. Learned/dynamic task weights are not baseline behavior.
+- Decision: Calculate inverse-square-root class weights from TRAIN canonical
+  target rows before broadcasting, normalize supported values to mean one
+  under final `[0.25, 4.0]` bounds, and leave zero-count semantic classes as
+  null/unsupported logits. VALIDATION, TEST, and augmented-view multiplicity
+  cannot affect weights.
+- Decision: Sample a TRAIN component uniformly, then a record within that
+  component uniformly, for exactly 1,295 draws per epoch. Resolve the view and
+  transposition afterward without changing record/component identity. Do not
+  construct a TEST loader. Select checkpoints only by the eight-primary-head
+  observed-class macro-F1 mean; report full vocabulary coverage separately and
+  retain distinct corrected-event, paper-text-note, and direct Roman metrics.
+- Consequences: B5B is ready for model implementation but contains no
+  experiment result. It cannot support a transposition benefit claim. Dataset,
+  overlap exclusions, split, TEST assignment, target sidecars, masks,
+  quality-17, Roman-184, raw graphs, B1/B2/B3/B4/B5A evidence, and preceding
+  draft PRs remain unchanged.

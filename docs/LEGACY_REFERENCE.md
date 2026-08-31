@@ -621,3 +621,26 @@ per-note octave repair, arithmetic class-ID shifting, random enharmonic choice,
 OOV fallback in corrected V2, view-level split assignment, counting variants
 as independent components, and inferring quality/Roman/phrase support from
 pitch-only augmentation.
+
+## Phase 9E-B5B training-policy freeze
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or reused for B5B. Legacy loss weighting, dataset sampling,
+task routing, model inputs, trainer, checkpoint, and metric implementations do
+not define any B5B contract and remain unnecessary for source-free checks.
+
+Official profile evidence was inspected only in the separate read-only public
+AnalysisGNN commit `e115182...` and the existing B1 attestation. Preserved
+official concepts include its 21 unique code heads, smoothed cross entropy,
+learned uncertainty weighting, combined loader, materialized transpositions,
+validation loss selection, and divergent joint evaluator branches. They are
+isolated in `O` and are not imported at runtime or applied to corrected V2.
+
+Corrected B5B concepts derive from the current V2 B3/B4/B5A evidence: masks,
+canonical source-row counts, frozen components, safe transposition closure,
+fixed head groups, bounded TRAIN-only weights, and explicit TEST locking.
+Rejected assumptions include missing-as-zero, treating all 20 heads as equal,
+training phrase/section from positive-only rows, weighting by broadcast note
+volume, counting augmented views as records, validation/TEST-informed weights,
+filename sampling, silent official-corpus substitution, and any performance
+claim without a paired `C0`/`C1` run.

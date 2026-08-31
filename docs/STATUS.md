@@ -1,5 +1,60 @@
 # Music Critic V2 Status
 
+## Phase 9E-B5B AnalysisGNN frozen training policy — 2026-09-01
+
+- Added `AnalysisGNNTrainingPolicy@1.0.0` and three serialized future profiles.
+  `O=analysisgnn-official-reproduction-e115182-v1` preserves pinned-code
+  behavior and is `runnable=false`, `partial_contract_only`. Corrected
+  `C0=music-critic-v2-corrected-no-transposition-v1` and
+  `C1=music-critic-v2-corrected-safe-transposition-v1` bind the same B3/B4/B5A
+  evidence and differ substantively only in the B5A TRAIN transposition policy.
+- Frozen corrected roles are 8 primary, 10 auxiliary, and 2 deferred. Primary
+  heads are local/tonicized key, root, bass, both degree components, quality,
+  and inversion. `phrase`/`section` are deferred with
+  `missing_negative_supervision`; all other production heads are auxiliary.
+  Quality remains 17, Roman numeral remains 184, and `staff` remains excluded.
+- The corrected loss is masked weighted CE averaged first within each head and
+  then across available heads in its group:
+  `L_total=L_primary+0.25*L_auxiliary`. Zero-valid heads leave the denominator
+  and are logged. Deferred heads cannot enter the optimizer; learned/dynamic
+  task weighting is absent from the corrected baseline.
+- The full 20-head class-weight payload uses only B4 TRAIN canonical target
+  rows before entity broadcasting: inverse square root, supported mean-one,
+  final `[0.25,4.0]` bounded mean-one projection. Zero-count classes have null
+  weights and remain semantic logits. `augmented sixth` remains unsupported;
+  no VALIDATION, TEST, or augmented-view count enters the payload.
+- Component-balanced sampling chooses one of 1,209 TRAIN components uniformly,
+  then a record within that component uniformly. Component sizes are 1,123
+  singletons and 86 pairs. Each epoch has 1,295 draws. `C0/C1` share record
+  order; only `C1` chooses a valid B5A shift. VALIDATION is identity-only and
+  TEST draws/loaders are zero.
+- `corrected_primary_macro_score` selects future checkpoints from observed-
+  class macro-F1 over valid primary VALIDATION heads. Per-class/support/full-
+  vocabulary evidence is separate. Corrected quality-17 harmonic-event joint,
+  paper-text quality-15 note joint, and direct Roman-184 metrics remain
+  distinct.
+- Known B1-compatible optimizer settings are recorded, but corrected parameter
+  budget and graph/window batching are explicit unresolved decisions. The
+  public W&B run/pinned source commit mismatch, missing exact GraphMuse/cadence/
+  split/RNG artifacts, and evaluator disagreements keep `O` partial. No
+  corrected substitution is permitted.
+- Frozen fingerprints are: head roles `2025f558...`, loss `0b62496e...`, class
+  weights `87266d8a...`, sampler `db91c988...`, metrics `2b58125e...`, profiles
+  `O=59c95e85...`, `C0=b811b9b4...`, `C1=21933d56...`, combined policy
+  `e53107e8...`, audit semantics `6639f35d...`, and compact fixture
+  `1a36f372...`.
+- The final targeted B5B/B5A/repository gate passes `49 passed, 2 warnings in
+  2.71s`; the warnings are unchanged upstream `torch.jit.script` deprecations.
+  Source-free
+  `--check` returns `valid=true` and
+  `ready_for_model_implementation=true` with training, validation inference,
+  TEST evaluation, and TEST target use all false.
+- Dataset universes, 14 exclusions, 1,295/162/162 split, TEST assignment,
+  quality-17, Roman-184, target masks/sidecars, raw graphs, B1/B2/B3/B4/B5A
+  artifacts, and PR #33–#36 are unchanged. No model, trainer, optimizer update,
+  checkpoint, validation prediction, TEST metric, or accuracy-improvement claim
+  was produced.
+
 ## Phase 9E-B5A AnalysisGNN transposition audit — 2026-08-31
 
 - Added `DilemmadataAnalysisGNNTranspositionAudit@1.0.0` with separate pinned
@@ -368,15 +423,15 @@
 
 ## Current phase
 
-- Date: 2026-08-31
-- Current task: Phase 9E-B5A TRAIN-only AnalysisGNN transposition audit on
-  stacked branch `phase/9eb5a-analysisgnn-transposition-policy`, based on exact
-  B4 head `a6a2796bcdaa2c8d6c0944522e480b0d772bfd49`.
-- B5A is evidence and planning only. Augmentation is not wired into a loader;
-  model/training implementation, final head roles, loss weighting, sampler
-  selection, validation inference, and TEST evaluation
-  remain future separately authorized work. Historical Phase 9C execution
-  context follows below.
+- Date: 2026-09-01
+- Current task: Phase 9E-B5B frozen AnalysisGNN training policy on stacked
+  branch `phase/9eb5b-analysisgnn-training-policy`, based on exact B5A head
+  `2c304ac1570ac41af77ec4c0e9a1afd444e73068`.
+- B5B freezes three non-runnable profiles, corrected 8/10/2 head roles,
+  masked/group-normalized loss, TRAIN-only class weights, component-balanced
+  sampling, validation metrics, and stop gates. It implements/runs no model or
+  trainer, does no validation inference, and leaves TEST closed. Historical
+  Phase 9C execution context follows below.
 - The completed parent evidence is fixed by manifest fingerprint
   `6e64f33e64de9c3d864d75828a6916d95afa9fcbadc75c14359b884cab83ab10`
   and update-9,000 checkpoint hashes `1b3d6ac9…50072f` (scratch) and

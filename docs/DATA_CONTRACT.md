@@ -1971,3 +1971,49 @@ component count, and component/shift support remain separate units; variants
 are never independent works or components. TRAIN targets are the only targets
 opened. VALIDATION/TEST raw pieces may be read for collisions, but their target
 descriptor bytes are filtered before decoding and target access is 0/0.
+
+## 17. Phase 9E-B5B training-policy evidence contract
+
+`AnalysisGNNTrainingPolicy@1.0.0` and
+`AnalysisGNNTrainingProfile@1.0.0` are external experiment-planning contracts.
+They do not revise `CanonicalPiece`, raw graph, source target sidecar, B3 entity
+registry, split assignment, B4 class counts, or B5A mappings. Their source-free
+fixture binds the B3/B4/B5A semantic fingerprints and recalculates every
+dependent fingerprint through canonical JSON.
+
+Corrected profiles use only the 1,619 paper-candidate records and the frozen
+1,295/162/162 record assignment over 1,209/147/151 components. The TEST
+assignment may be fingerprinted, but no TEST target row is present in class
+weights, model selection, sampler draws, or metrics. `C0` and `C1` have the
+same dataset, split, registry, vocabulary, loss, weight, sampler, metric,
+optimizer-envelope, and seed payloads. Their only substantive difference is
+identity-only versus `music-critic-v2-closed-transposition-v1` TRAIN views.
+
+The corrected role registry partitions every production head exactly once:
+eight primary, ten auxiliary, and two deferred. `phrase` and `section` are
+deferred with `missing_negative_supervision`; their absent rows remain masked
+and cannot become negative class zero. Production quality remains 17 classes,
+Roman numeral remains 184 classes, and `staff` remains outside corrected
+production.
+
+The full class-weight payload has one row for every semantic class of all 20
+heads. Its only input statistic is B4
+`train.canonical_target_row_count`, measured before note/entity broadcasting.
+For a supported class the policy starts at `1/sqrt(count)`, normalizes the
+supported mean to one, bounds values to `[0.25, 4.0]`, and performs a
+deterministic bounded mean-one projection. A zero-count class has
+`weight=null`, `train_supported=false`, remains an output logit, and receives
+no fabricated target. The `augmented sixth` quality row is one such explicit
+unsupported class. Transposition multiplicity never multiplies a count.
+
+The component sampler has 1,209 equally likely TRAIN components. Conditional
+on a component, each member record is equally likely; the observed component
+sizes are 1,123 singletons and 86 pairs. One epoch is 1,295 draws with
+replacement. Views never change record/component/split identity, and neither
+VALIDATION nor TEST is oversampled.
+
+The fixture states `training_run=false`, `validation_inference_run=false`,
+`test_evaluated=false`, and `test_targets_used_for_evaluation=false`. Its
+`ready_for_model_implementation=true` value means only that policy interfaces
+are frozen; all profiles remain non-runnable until their declared missing
+artifacts or model-owned decisions are resolved.

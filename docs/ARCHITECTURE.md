@@ -1447,3 +1447,48 @@ new record/component identity and is excluded, rather than reassigned, if it
 matches held-out raw input. Full-orbit counts and analytical one-draw
 expectations are planning evidence; no Dataset, sampler, model, or evaluator
 currently consumes them.
+
+## Phase 9E-B5B frozen training-policy boundary
+
+Phase 9E-B5B adds a declarative layer after B3/B4/B5A. It defines three
+non-interchangeable future experiment profiles: `O` preserves pinned official
+AnalysisGNN code behavior, while corrected `C0` and `C1` share the frozen
+1,619-record, 1,295/162/162 component split and differ substantively only in
+the B5A transposition policy. The layer constructs no encoder, task head,
+optimizer, loader, checkpoint, prediction, or metric result.
+
+Corrected training retains all 20 logits but does not weight all tasks equally.
+Eight harmonic heads are primary, ten heads are auxiliary, and `phrase` plus
+`section` are deferred because their positive-unlabeled annotations provide no
+sound negative supervision. An active head first reduces masked weighted cross
+entropy over its own valid canonical targets. Available primary-head means are
+then averaged, as are available auxiliary-head means, and
+`L_total = L_primary + 0.25 * L_auxiliary`. A zero-valid head is excluded from
+its group denominator and logged; deferred logits cannot affect optimization.
+
+The committed class-weight payload is derived only from B4 TRAIN canonical
+source rows before entity broadcasting. Supported classes use inverse square
+root frequency, mean-one normalization, a bounded `[0.25, 4.0]` projection,
+and final supported mean one. Zero-count classes retain their semantic logits
+with null weights and explicit unsupported state. VALIDATION, TEST, and the
+number of transposed views contribute no counts.
+
+One corrected TRAIN draw chooses a source component uniformly, then a record
+uniformly within that component, then a graph/window view. `C0` uses identity;
+`C1` uses the B5A deterministic uniform valid-shift selection. The view retains
+the source record, component, and split. VALIDATION is a fixed identity view;
+the TEST loader is not created and TEST targets remain unread.
+
+Checkpoint selection is the mean observed-class macro-F1 across the eight
+primary heads with valid VALIDATION targets. Per-head full-vocabulary coverage
+is reported separately from observed-class macro-F1. The corrected
+harmonic-event quality-17 joint metric and paper-text note quality-15 metric
+remain separate, as do direct Roman-184 auxiliary metrics and derived
+five-component harmonic correctness.
+
+All three profiles are currently `runnable=false`. Corrected model parameter
+budget and graph/window batching await the model implementation. `O` is
+`partial_contract_only`: the public run and pinned source commits differ, the
+exact historical GraphMuse revision and cadence corpus are unavailable, and
+paper/pinned evaluator branches disagree. Corrected data must not substitute
+for those missing official artifacts.

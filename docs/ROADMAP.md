@@ -875,6 +875,36 @@ The model and training phases remain pending.
 - Next gate: focused review and Required CI, then a separate baseline-contract
   decision on loss-active, auxiliary, derived, and deferred heads.
 
+### Phase 9E-B5B — frozen training, loss, and sampling policy
+
+- Status: implemented as a deterministic policy/audit layer; no model,
+  trainer, optimizer update, validation inference, or TEST evaluation ran.
+- Profiles: `O` is an isolated pinned-code reproduction contract and remains
+  non-runnable/partial because official corpus/dependency/run identity is
+  incomplete. Corrected `C0` and `C1` bind the same 1,619 records,
+  1,295/162/162 split, 20-head registry, vocabularies, weights, sampler,
+  metrics, optimizer envelope, and seeds. Only `C1` enables the safe B5A
+  TRAIN view.
+- Heads: 8 primary harmonic tasks, 10 lower-weight auxiliary tasks, and
+  deferred `phrase`/`section`. Missing targets stay masked. Quality-17 and
+  Roman-184 stay intact; `staff` is official code evidence only.
+- Objective: mean each active head over its valid rows, mean available heads
+  per group, then use `L_primary + 0.25 * L_auxiliary`. Deferred heads have
+  zero weight and zero-valid heads leave the denominator.
+- Balance: full inverse-square-root weights are computed only from canonical
+  TRAIN target rows and bounded/normalized over supported classes. Zero-count
+  classes have null weights. Sampling is uniform by TRAIN component and then
+  by record, with 1,295 draws per epoch; views are not records/components.
+- Selection: `corrected_primary_macro_score` averages observed-class macro-F1
+  for supported primary VALIDATION heads. Corrected event-level quality-17,
+  paper-text note-level quality-15, and direct Roman-184 metrics remain
+  separate. TEST is not a selection or reporting source.
+- Non-goals: implementing/running model, heads or trainer; resolving official
+  missing artifacts by substitution; changing dataset/split/graphs/sidecars;
+  or claiming that B5A augmentation improves a model.
+- Next gate: review and Required CI. A later model phase must resolve the
+  parameter budget and graph/window batching contract before any smoke run.
+
 ## Phase 10 — PDMX adapter and large-scale SSL cache
 
 - Goal: support scalable role-agnostic public-domain score pretraining and
