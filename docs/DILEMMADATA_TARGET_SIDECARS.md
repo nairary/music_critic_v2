@@ -312,3 +312,28 @@ The committed compact manifest is
 it without corpus access. Locked-test targets were read only for the declared
 representation/coverage audit—no model inference, metric, selection, or test
 unlock occurred.
+
+## Phase 9E-B3 expanded multi-task sidecars
+
+B3 retains the 1,633-record raw inventory and adds a separate 1,619-record
+paper-candidate target inventory. Fourteen named DLC records duplicate AN
+source components and are selection exclusions only. AN peers, repaired raw
+records, and graphs remain. The separate AnalysisGNN cadence corpus is absent;
+DLC-native cadence labels remain eligible.
+
+The corrected registry contains 20 heads. Harmonic heads share one event ID
+derived from record, dialect, annotation identity, first source row, and exact
+onset. Note IDs remain canonical raw identities. Per-head masks are independent;
+repair ambiguity affects only dependent rows. Phrase/section absence follows
+positive-unlabeled semantics, tonicized supervision requires secondary-degree
+evidence, and DLC inversion requires source `figbass` evidence.
+
+Full availability reproduces B2: inversion 1,632; tonicized key 1,581; cadence
+920; pedal 1,280; phrase 1,279; section 1,218. Paper-candidate availability is
+inversion 1,618; tonicized/secondary degree 1,567; cadence 916; pedal 1,266;
+phrase 1,265; section 1,205; all other full-coverage families 1,619.
+
+The audit materialized 1,452,122 harmonic events, 1,452,043 onsets, 2,747,530
+notes, and deterministic cross-level relations. Semantic fingerprint is
+`ca99e8ae77ae46ecc4f986951cbe18a7aa398d22f8b5c57d7ecdfd4847dd9004`.
+TRAIN/VALIDATION joint support is 98,715/10,507; TEST was not evaluated.

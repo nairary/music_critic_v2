@@ -1,5 +1,46 @@
 # Music Critic V2 Status
 
+## Phase 9E-B3 expanded AnalysisGNN multi-task contract — 2026-08-31
+
+- Added `dilemmadata-full-raw-v1` (353 AN + 1,280 DLC = 1,633) and
+  `analysisgnn-paper-candidate-an-dlc-v1` (353 AN + 1,266 DLC = 1,619).
+  Exactly 14 DLC overlaps are excluded from the paper candidate; all AN peers
+  remain. The absent Monteverdi record is not an exclusion. Both inventories
+  use 1,507 source components. External cadence corpus availability/inclusion
+  are both false.
+- Audited 20 paper tasks against 21 unique pinned-code heads and froze a
+  corrected 20-head production registry. `staff` is code-only;
+  `organ_point/pedal` and `downbeat/metrical_strength` are normalized aliases.
+  Quality has 17 semantic classes and Roman numeral has 184 after fixing the
+  documented literals; missing values are masks, never class 0.
+- Shared harmonic IDs now cover local/tonicized key, root/bass, both degree
+  components, quality, inversion, Roman numeral, pitch-class set, harmonic
+  rhythm, and pedal. Audit counts are 1,452,122 harmonic events, 1,452,043
+  onsets, and 2,747,530 notes with deterministic note/onset/harmonic/beat/
+  measure relations. The B1 `zero_joint_quality_inversion_support` cause is
+  removed: paper-compatible joint support is 98,715 TRAIN / 10,507 VALIDATION.
+- Frozen group split is 1,295/162/162 records over 1,209/147/151 components;
+  all three component intersections are empty. TEST assignment fingerprint is
+  `67a3082e...`; no TEST target values were aggregated, no metric or inference
+  ran, and explicit unlock remains required.
+- Full B2 structural availability locks are reproduced. Paper-candidate counts
+  include inversion 1,618; tonicized key/secondary degree 1,567; cadence 916;
+  pedal 1,266; phrase 1,265; section 1,205; other full families 1,619.
+- Production audit at
+  `outputs/phase9eb3/analysisgnn-multitask-contract-01290f5/` returned
+  `valid=true`, `ready=true`, `model_implemented=false`, `training_run=false`,
+  `test_evaluated=false`. Semantic fingerprint is
+  `ca99e8ae77ae46ecc4f986951cbe18a7aa398d22f8b5c57d7ecdfd4847dd9004`.
+  All 1,633 B2 graph/canonical locks and the 2,158-file B1 tree are unchanged.
+- Source-free `--check` succeeds. The expanded targeted suite passes
+  `311 passed, 1 skipped, 4 warnings in 315.33s`; the full repository suite
+  passes `1757 passed, 59 skipped, 12 warnings in 938.53s`. Skips are explicit
+  external-data/accelerator gates; warnings are unchanged Torch and
+  multiprocessing deprecations. `compileall` and `git diff --check` pass.
+- No legacy file was inspected. No model/head/encoder/GRU, training,
+  validation inference, TEST evaluation, B1 split/model/checkpoint/output, B2
+  graph/repair policy, PR #32, or PR #33 was changed.
+
 ## Phase 9E-B2 Dilemmadata raw coverage remediation — 2026-08-31
 
 - The old `1633 -> 719` reduction was the Phase 9B.1 whole-record fail-closed

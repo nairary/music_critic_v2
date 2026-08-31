@@ -3699,3 +3699,29 @@ This log is append-only.
   experiment-selection policy, yielding a 1,619 paper-candidate ceiling. No
   exact AnalysisGNN reproduction is claimed, and no model, checkpoint,
   training output, validation result, or TEST result changes.
+
+## 2026-08-31 — ADR-103: Freeze a corrected AnalysisGNN-derived multi-task dataset contract
+
+- Status: Accepted for Phase 9E-B3 data preparation only. Model construction,
+  training, validation inference, and TEST evaluation remain unauthorized.
+- Context: B2 restored all 1,633 raw records, but the B1 two-head pilot used
+  task-specific quality/inversion IDs and had zero joint support. The paper
+  declares 20 properties while pinned code exposes 21 unique heads, including
+  code-only `staff`, plus literal, alias, and missing-as-class defects.
+- Decision: Freeze a 1,633 full inventory and 1,619 paper-candidate selection,
+  excluding exactly 14 DLC overlaps and retaining all AN peers. Reuse 1,507 B2
+  source components. The absent Monteverdi record is not an exclusion and the
+  unavailable external cadence corpus is not included.
+- Decision: Keep immutable 21-head pinned-code evidence separate from a
+  corrected 20-head production registry. Normalize `organ_point -> pedal` and
+  `downbeat -> metrical_strength`; defer `staff`. Mask missing labels. Correct
+  quality to 17 and Roman numeral to 184 semantic classes instead of forcing
+  defective literals into pinned dimensions.
+- Decision: Share one target-independent harmonic entity across chord heads.
+  Joint evaluation requires local key, both degree components, quality, and
+  inversion on that ID. Freeze a SHA-256 component split at 1,295/162/162 and
+  seal TEST behind a future explicit evaluation gate.
+- Consequences: Joint structural support is 98,715 TRAIN / 10,507 VALIDATION;
+  the B1 zero-support cause is removed without changing B1. B2 availability is
+  reproduced, raw preservation failures and component leakage are zero. This
+  corrected derived contract is not an exact official reproduction.

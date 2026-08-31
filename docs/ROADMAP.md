@@ -803,6 +803,23 @@ The model and training phases remain pending.
 - Next gate: design any expanded split and multi-head comparison as a separate
   phase after review of the raw-coverage evidence.
 
+### Phase 9E-B3 — expanded AnalysisGNN multi-task dataset contract
+
+- Status: implemented and production-audited; no model or training exists.
+- Goal: freeze corpus selection, components, corrected task/vocabulary schema,
+  shared entity identity, masks, metrics, group split, and TEST lock before a
+  multi-head architecture is specified.
+- Result: full 353/1,280/1,633 and paper-candidate 353/1,266/1,619 universes;
+  14 exclusions; 1,507 components; 20 paper, 21 pinned-code, and 20 production
+  heads; 1,295/162/162 records with no component leakage.
+- Evidence: joint structural support 98,715 TRAIN / 10,507 VALIDATION; full B2
+  availability reproduced; raw graph preservation failures zero; production
+  semantic fingerprint `ca99e8ae77ae46ecc4f986951cbe18a7aa398d22f8b5c57d7ecdfd4847dd9004`.
+- Non-goals: encoder, HybridGNN, GRU, heads, loss, training, inference, TEST
+  metric, B1 mutation, external runtime dependency, or exact-reproduction claim.
+- Next gate: review/Required CI, then specify a separate model/training phase
+  using this frozen contract without reopening TEST.
+
 ## Phase 10 — PDMX adapter and large-scale SSL cache
 
 - Goal: support scalable role-agnostic public-domain score pretraining and

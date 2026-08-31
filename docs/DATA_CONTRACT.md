@@ -1832,3 +1832,31 @@ and 12/8. Clicks derive from `CanonicalBeat`, not reinferred meter. Key/chord
 targets may be represented only as optional diagnostic marker text and do not
 become sounding notes. MIDI round trips compare semantic projections because
 MIDI cannot preserve canonical IDs, provenance, annotations, or target arrays.
+
+## 14. Phase 9E-B3 AnalysisGNN-derived dataset contract
+
+The B3 contract is external to `CanonicalPiece`: raw pieces and graphs remain
+target-free. The full universe is 1,633 records and the paper-candidate target
+inventory is 1,619. Selection removes exactly 14 declared DLC duplicates while
+preserving their AN peers. Repair evidence never excludes a record and remains
+provenance, not model input.
+
+Every categorical vocabulary has unique contiguous IDs and
+`class_count == len(vocabulary)`. Missing values are null + masked and cannot
+be class 0. Unknown and missing remain distinct. Quality has 17 semantic
+classes: the pinned 16-entry literal's `None` is removed and the acknowledged
+DLC `+7`/`+M7` meanings are restored. Roman numeral splits malformed
+`#VIIbvio7` into `#VII` and `bvio7`, then masks `none`, yielding 184 semantic
+classes from 185 intended entries.
+
+Every logical task/entity state contains `available`, `masked`,
+`missing_reason`, source/canonical value, source/canonical entity ID, and
+provenance. Corpus JSONL stores content-addressed per-record descriptors; the
+production materializer expands the complete rows and reproduces their hashes.
+Entity/relation IDs depend only on source/raw identity and exact rational time.
+
+Split JSONL requires the expected SHA-256, known algorithm/namespace, exact
+manifest membership, unique records, and one split per component. Registry and
+universe JSON loads fail closed on version or fingerprint mismatch. APIs reject
+unknown tasks/vocabularies, invalid class IDs, duplicate entities, and TEST
+evaluation without separate explicit authorization.

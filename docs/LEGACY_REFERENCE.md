@@ -553,3 +553,25 @@ exclusion for a local repair, mandatory gold segmentation, runtime legacy
 imports, and using the AnalysisGNN 14-record selection as a raw-adapter filter
 remain rejected. AnalysisGNN code, model, checkpoint, and labels were not used
 to make any repair decision, and this phase makes no exact-reproduction claim.
+
+## Phase 9E-B3 expanded multi-task contract
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or reused for B3. No legacy dataset selection, task mapping,
+vocabulary, entity identity, split, metric, model, or training logic was
+adapted. The legacy checkout is not required at runtime or for the source-free
+audit check.
+
+The only external scientific evidence inspected read-only was the official
+AnalysisGNN paper and pinned commit
+`e115182fb29b74bdcb6bf3547ed427d967580947`. It was used to document the
+20-property paper inventory, 21 unique code heads, joint Roman-numeral
+components, literal defects, aliases, and missing-as-class behavior. No
+external module is imported in production.
+
+Accepted V2 concepts are exact rational timing, B2 source components and raw
+lineage, target-independent shared entities, independent masks, stable SHA-256
+assignment, and explicit TEST sealing. Rejected assumptions include filename-
+only grouping, task-specific chord IDs, missing-as-class-0, silent `+7`/`+M7`
+collapse, malformed Roman literals, label-valued split objectives, target-
+derived raw graphs, legacy runtime imports, and claims of exact reproduction.

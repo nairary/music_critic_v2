@@ -3291,6 +3291,28 @@ quarantine, stable repair/audit fingerprints, unchanged historical graphs and
 1,619 after 14 policy exclusions. This phase does not create a new split,
 multi-head model, checkpoint, training output, validation run, or TEST result.
 
+### Phase 9E-B3 expanded multi-task dataset contract implemented
+
+- Freeze the full 1,633-record inventory and the 1,619-record paper-candidate
+  selection with 14 explicit DLC overlap exclusions and all AN peers retained.
+- Serialize the 1,507 deterministic source components and a SHA-256 group split
+  of 1,295/162/162 records; use only component, dialect, and task availability.
+- Audit the paper's 20 tasks against 21 pinned-code heads, retaining immutable
+  evidence separately from the corrected 20-head production registry.
+- Correct quality and Roman-numeral vocabularies, aliases, missing masks, and
+  class-ID/length invariants without inferring classes from TEST labels.
+- Materialize source-native target descriptors with shared harmonic identity,
+  canonical note identity, exact onset/beat/measure relations, independent
+  masks, repair provenance, and deterministic fingerprints.
+- Freeze TEST assignment and require explicit authorization for future TEST
+  evaluation. Preserve the B1 719-record, 577/71/71 negative pilot and every B2
+  raw graph fingerprint.
+
+Acceptance is 1,633/1,619 universe counts, zero component leakage, nonzero
+joint support in TRAIN/VALIDATION, `valid=true`, `ready=true`, and a committed
+source-free fixture. Encoder/HybridGNN/GRU/heads, training, validation
+inference, and TEST metrics are intentionally absent.
+
 ### Phase 9B.2A production target sidecars implemented
 
 - separate target-only AN/DLC parsing over Phase 9A-evidenced fields;

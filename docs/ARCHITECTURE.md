@@ -1361,3 +1361,34 @@ structural objectives remain roadmap
 increments. PDMX-scale effectiveness must be evaluated after the Phase 10
 raw-compatible corpus projection; PLL and critic/quality scoring remain
 separate future contracts.
+
+## Phase 9E-B3 expanded AnalysisGNN target boundary
+
+Phase 9E-B3 adds no model path. It freezes `dilemmadata-full-raw-v1`
+(353 AN + 1,280 DLC = 1,633) and the separate
+`analysisgnn-paper-candidate-an-dlc-v1` (353 AN + 1,266 DLC = 1,619) after 14
+declared DLC/AN overlap exclusions. Both use the unchanged 1,507 target-blind
+source components. The absent external 100-piece cadence corpus is recorded as
+unavailable and unincluded; DLC cadence annotations remain target supervision.
+
+The corrected production registry has 20 heads at three granularities: 12
+harmonic-event heads (`local_key`, `tonicized_key`, `root`, `bass`, two degree
+components, `quality`, `inversion`, `roman_numeral`, `pitch_class_set`,
+`harmonic_rhythm`, `pedal`), three onset heads (`cadence`, `phrase`, `section`),
+and five note heads (`metrical_strength`, `note_degree`, `chord_tone`,
+`is_root`, `is_bass`). `organ_point` and `downbeat` are pinned-code aliases;
+code-only `staff` is not one of the paper's 20 analytical properties.
+
+One harmonic entity is keyed by record/dialect, source annotation identity,
+first source-row ordinal, and exact canonical onset. Every harmonic head uses
+that same ID. Notes retain canonical raw identity and repair lineage. Explicit
+target-independent relations bind notes to onsets/applicable harmonic events,
+onsets to beats, beats to measures, and harmonic events to beats/measures.
+Sidecars never participate in raw graph construction or fingerprints.
+
+The frozen split is 1,295/162/162 records over 1,209/147/151 components for
+TRAIN/VALIDATION/TEST, with empty component intersections. TEST is available
+only for schema, mask, and fingerprint checks. The paper-compatible joint
+contract uses local key, both degree components, quality, and inversion on one
+harmonic ID and has support 98,715 TRAIN / 10,507 VALIDATION. No TEST metric
+was computed.
