@@ -1,4 +1,24 @@
-"""AnalysisGNN evidence, B1 pilot, and B3 target-only dataset contracts."""
+"""AnalysisGNN evidence and isolated B1/B3/B4 experiment contracts."""
+
+from music_critic.experiments.analysisgnn.class_balance import (
+    CLASS_BALANCE_SCHEMA,
+    AnalysisGNNClassBalanceError,
+    AuditTaskSpec,
+    ClassBalanceAccumulator,
+    EntityTargetObservation,
+    JointTupleAccumulator,
+    JointTupleObservation,
+    RecordTargetObservations,
+    candidate_class_weights,
+    class_balance_contract,
+    joint_observations_from_sidecar,
+    load_train_validation_only,
+    observations_from_sidecar,
+    project_quality_record,
+    recommend_head_trainability,
+    train_support_tier,
+    validation_support_tier,
+)
 
 from music_critic.experiments.analysisgnn.contracts import (
     ANALYSISGNN_COMMIT,
@@ -36,6 +56,14 @@ from music_critic.experiments.analysisgnn.multitask_contract import (
 )
 
 __all__ = [
+    "CLASS_BALANCE_SCHEMA",
+    "AnalysisGNNClassBalanceError",
+    "AuditTaskSpec",
+    "ClassBalanceAccumulator",
+    "EntityTargetObservation",
+    "JointTupleAccumulator",
+    "JointTupleObservation",
+    "RecordTargetObservations",
     "ANALYSISGNN_COMMIT",
     "COMMON_BENCHMARK_CONFIG",
     "GRAPHMUSE_COMMIT",
@@ -66,4 +94,13 @@ __all__ = [
     "require_test_evaluation_unlock",
     "stable_split_assignments",
     "validate_loaded_registry",
+    "candidate_class_weights",
+    "class_balance_contract",
+    "joint_observations_from_sidecar",
+    "load_train_validation_only",
+    "observations_from_sidecar",
+    "project_quality_record",
+    "recommend_head_trainability",
+    "train_support_tier",
+    "validation_support_tier",
 ]
