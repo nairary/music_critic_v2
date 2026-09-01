@@ -672,3 +672,11 @@ component sampling, safe transposition, identity validation, and TEST-lock
 concepts. It rejects epoch-count reinterpretation, early stopping, profile O
 substitution, new optimizer/model behavior, and single-seed statistical
 claims.
+
+## Phase 9E-B5E result seal
+
+No legacy repository file was opened, searched, imported, copied, or modified
+for B5E. The result seal uses only B5D GPU artifacts and current V2 contracts.
+It preserves the negative C1 outcome rather than importing a legacy
+augmentation expectation, and rejects treating one seed as proof that all
+transposition strategies are harmful or beneficial.

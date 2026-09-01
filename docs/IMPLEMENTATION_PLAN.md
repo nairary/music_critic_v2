@@ -4289,7 +4289,23 @@ Use these as conceptual references. Confirm licenses, dataset versions, and impl
   curves, and automatically emit final/best C1-C0 deltas after both runs.
 - Keep TEST, profile O, extra seeds, statistical improvement claims, model/loss
   changes, generated MIDI, rendered audio, and committed checkpoints outside
-  B5D. Full CUDA results remain pending the GPU-server execution.
+  B5D. The paired CUDA execution completed at the exact budget: C0 scored
+  `0.3548871111124754`, C1 scored `0.2715279571712017`, and C1-C0 was
+  `-0.08335915394127369` on the corrected primary macro score.
+
+## Phase 9E-B5E — full-training result seal and baseline selection
+
+- Commit the compact paired comparison, final joint/slice metrics, run/model/
+  schedule/environment fingerprints, and a human-readable result report.
+- Select C0 as the current corrected AnalysisGNN baseline using seed-17
+  VALIDATION only. Retain C1 as `experimental_deferred`; do not delete or
+  invalidate the audited transposition implementation.
+- Record corrected harmonic-event joint accuracy `0.11430474921480918` versus
+  `0.01408584753021795` and disclose zero unseen-tuple joint accuracy for both
+  profiles on 1,090 events across 187 unseen tuples.
+- Make no multi-seed, TEST, statistical, or general transposition claim. Do not
+  commit checkpoints, full training logs, result archives, datasets, caches,
+  generated MIDI, or rendered audio.
 
 ---
 
