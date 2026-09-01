@@ -781,6 +781,130 @@ The model and training phases remain pending.
   Only after acceptance may Phase 9E-B specify a fair AnalysisGNN reproduction
   and shared-task baseline on this exact split.
 
+### Phase 9E-B2 — Dilemmadata raw coverage remediation
+
+- Status: implemented and production-audited as a raw-only compatibility
+  extension; it creates no split, model, head, loss, or experiment result.
+- Goal: localize the six formerly fatal raw categories: leading partial
+  measures, missing/ambiguous tie predecessors, explicit off-grid source
+  anchors, ambiguous measure mapping, zero-duration tie continuations, and
+  deterministic repair provenance.
+- Result: the pinned raw ceiling is 1,633 accepted records (353 AN and 1,280
+  DLC) with zero quarantine. All previous 719 canonical pieces and graph
+  fingerprints remain byte-identical and their 577/71/71 split remains
+  unchanged.
+- Boundary: every repair uses exact raw timing and source identity only;
+  uncertainty is recorded and masked locally. Repair provenance is excluded
+  from model input. The AnalysisGNN 14-overlap exclusion is a separate
+  experiment policy, leaving a paper-candidate ceiling of 1,619.
+- Non-goals: new TRAIN/VALIDATION/TEST membership, multi-head construction,
+  training, validation or TEST inference, checkpoint changes, and any claim
+  of exact AnalysisGNN reproduction.
+- Next gate: design any expanded split and multi-head comparison as a separate
+  phase after review of the raw-coverage evidence.
+
+### Phase 9E-B3 — expanded AnalysisGNN multi-task dataset contract
+
+- Status: implemented and production-audited; no model or training exists.
+- Goal: freeze corpus selection, components, corrected task/vocabulary schema,
+  shared entity identity, masks, metrics, group split, and TEST lock before a
+  multi-head architecture is specified.
+- Result: full 353/1,280/1,633 and paper-candidate 353/1,266/1,619 universes;
+  14 exclusions; 1,507 components; 20 paper, 21 pinned-code, and 20 production
+  heads; 1,295/162/162 records with no component leakage.
+- Evidence: corrected V2 quality-17 harmonic-event support 98,715 TRAIN /
+  10,507 VALIDATION; separate unevaluated paper-text note contract with frozen
+  quality-15 projection; corrected Roman-184 and 20 heads independently bound
+  to pinned evidence. Full B2 availability is reproduced, raw graph
+  preservation failures are zero, and the remediated semantic fingerprint is
+  `94a19ed6bbecbbd0497310233c8a8ff4e34311b414124593a7326c759ff07954`.
+- Non-goals: encoder, HybridGNN, GRU, heads, loss, training, inference, TEST
+  metric, B1 mutation, external runtime dependency, or exact-reproduction claim.
+- Next gate: review/Required CI, then specify a separate model/training phase
+  using this frozen contract without reopening TEST.
+
+### Phase 9E-B4 — multi-head class-balance and trainability audit
+
+- Status: implemented and production-audited; no model, training, inference,
+  dataset mutation, or TEST target access exists in this phase.
+- Goal: distinguish raw entity volume from independent source-row, record, and
+  frozen-component support for every class of all 20 B3 production heads.
+- Result: deterministic TRAIN/VALIDATION rows include zero-support classes,
+  AN/DLC coverage, broadcast factors, concentration/effective support,
+  versioned support tiers, head-level imbalance, and future metric guidance.
+  Corrected quality-17, projected compatibility quality-15, Roman-184, and the
+  corrected event/compatibility note five-way tuples are audited separately.
+- Trainability result: 1 head is `trainable`, 7 are
+  `trainable_with_reweighting`, 5 have `insufficient_support`, and 7 are
+  `descriptive_only`. Diagnostic TRAIN-only weight vectors are emitted, but
+  final loss weighting and sampling policy remain explicitly unfrozen.
+- TEST lock: assignment count/component identity may be checked; filtering
+  occurs before target loader invocation. Production evidence records zero
+  TEST target records and rows opened and no target-based TEST decision.
+- Non-goals: class merging/deletion, split repair, augmentation, model/heads,
+  loss or sampler implementation, training, validation inference, TEST
+  inference/metrics, and any B1/B2/B3 artifact mutation.
+- Next gate: focused review and Required CI, followed by a separate design
+  decision on whether unsupported/descriptive heads are deferred, reported as
+  secondary-only, or receive a new data/split policy before baseline training.
+
+### Phase 9E-B5A — transposition policy and post-augmentation audit
+
+- Status: implemented and production-audited; augmentation is not connected to
+  training and no head role is frozen.
+- Goal: separate pinned AnalysisGNN behavior from a safe V2 candidate,
+  classify all raw graph features and 20 targets, prove invariants, close
+  semantic vocabularies, and measure TRAIN support after augmentation.
+- Result: corrected V2 uses deterministic TRAIN-only on-the-fly uniform draws
+  over each record's valid subset of the signed 12-PC orbit. Of 1,295 TRAIN
+  records, 1,231 have 12 valid shifts and 64 have 2–11; identity is always
+  valid. The 6,408-row mapping has 5,956 round-trip-valid rows. No held-out raw
+  collision exists, and variants retain their frozen source component.
+- Balance result: bass recovers 37/37 classes; root reaches 36/37; local and
+  tonicized key reach 48/50; pitch-class-set balance improves without changing
+  its 93-class coverage. Quality-17, Roman-184, note-degree, phrase, section,
+  and all other relative/structural/boolean distributions remain invariant.
+  No previously non-trainable B4 head becomes strictly `trainable` under the
+  frozen thresholds, so recommendations remain candidates only.
+- TEST lock: VALIDATION/TEST are identity-only. Their raw records may enter the
+  collision audit, but target descriptors/payloads are filtered before decode;
+  TEST target records/rows remain 0/0 and no evaluation occurs.
+- Non-goals: graph-cache mutation, dataset/split/vocabulary/mask changes,
+  model/heads/loss/sampler implementation, training, inference, or automatic
+  adoption of recommendation roles.
+- Next gate: focused review and Required CI, then a separate baseline-contract
+  decision on loss-active, auxiliary, derived, and deferred heads.
+
+### Phase 9E-B5B — frozen training, loss, and sampling policy
+
+- Status: implemented as a deterministic policy/audit layer; no model,
+  trainer, optimizer update, validation inference, or TEST evaluation ran.
+- Profiles: `O` is an isolated pinned-code reproduction contract and remains
+  non-runnable/partial because official corpus/dependency/run identity is
+  incomplete. Corrected `C0` and `C1` bind the same 1,619 records,
+  1,295/162/162 split, 20-head registry, vocabularies, weights, sampler,
+  metrics, optimizer envelope, and seeds. Only `C1` enables the safe B5A
+  TRAIN view.
+- Heads: 8 primary harmonic tasks, 10 lower-weight auxiliary tasks, and
+  deferred `phrase`/`section`. Missing targets stay masked. Quality-17 and
+  Roman-184 stay intact; `staff` is official code evidence only.
+- Objective: mean each active head over its valid rows, mean available heads
+  per group, then use `L_primary + 0.25 * L_auxiliary`. Deferred heads have
+  zero weight and zero-valid heads leave the denominator.
+- Balance: full inverse-square-root weights are computed only from canonical
+  TRAIN target rows and bounded/normalized over supported classes. Zero-count
+  classes have null weights. Sampling is uniform by TRAIN component and then
+  by record, with 1,295 draws per epoch; views are not records/components.
+- Selection: `corrected_primary_macro_score` averages observed-class macro-F1
+  for supported primary VALIDATION heads. Corrected event-level quality-17,
+  paper-text note-level quality-15, and direct Roman-184 metrics remain
+  separate. TEST is not a selection or reporting source.
+- Non-goals: implementing/running model, heads or trainer; resolving official
+  missing artifacts by substitution; changing dataset/split/graphs/sidecars;
+  or claiming that B5A augmentation improves a model.
+- Next gate: review and Required CI. A later model phase must resolve the
+  parameter budget and graph/window batching contract before any smoke run.
+
 ## Phase 10 — PDMX adapter and large-scale SSL cache
 
 - Goal: support scalable role-agnostic public-domain score pretraining and
@@ -853,3 +977,30 @@ The model and training phases remain pending.
 - Acceptance: every major claim has an ablation and uncertainty report; PLL is
   normalized and bias-audited rather than presented as complete aesthetic
   quality, and a blind raw-MIDI set verifies role-agnostic inference.
+
+## Phase 9E-B5C status — corrected AnalysisGNN-derived baseline
+
+The corrected 18-head model and deterministic TRAIN/VALIDATION runner are
+implemented. CPU and real-TRAIN coverage gates pass; RTX 3090 CUDA smoke
+selected batch size 2 and both seed-17 500-update pilots completed with TEST
+sealed. The final C1-C0 primary-score delta was negative
+(`-0.0020725847498397343`), so B5C supports only bounded directional evidence.
+
+## Phase 9E-B5D status — paired full-training screen
+
+The dedicated deterministic runner, fixed 10,000-update contract, source-free
+audit, resume ledger checks, and paired comparison are implemented and locally
+preflighted. Sequential C0 and C1 training completed on the RTX 3090 with
+exact pairing and TEST closed. C0 scored `0.3548871111124754`; C1 scored
+`0.2715279571712017`; the final C1-C0 delta was
+`-0.08335915394127369`. Extra seeds and statistical claims remain out of
+scope. Phase 10 does not depend on a positive result from this screen.
+
+## Phase 9E-B5E status — result seal and baseline choice
+
+The compact result fixture/report and source-free audit are implemented. C0 is
+the current corrected AnalysisGNN baseline selected on seed-17 VALIDATION. C1
+is retained as `experimental_deferred`, not deleted or presented as an
+improvement. Corrected joint accuracy was `0.11430474921480918` for C0 and
+`0.01408584753021795` for C1; unseen-tuple joint accuracy was zero for both.
+TEST, checkpoints, full logs, and the result archive remain outside Git.

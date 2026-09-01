@@ -1,0 +1,66 @@
+diff --git a/analysisgnn/models/analysis.py b/analysisgnn/models/analysis.py
+index 95cf331..87d4ad3 100644
+--- a/analysisgnn/models/analysis.py
++++ b/analysisgnn/models/analysis.py
+@@ -936 +936 @@ class ContinualAnalysisGNN(LightningModule):
+-        mask_dict = {k: torch.ones_like(v).bool() for k, v in labels_dict.items()}
++        mask_dict = {k: v.ge(0) for k, v in labels_dict.items()}
+@@ -953,4 +953,8 @@ class ContinualAnalysisGNN(LightningModule):
+-        # limit labels to the num_labels values of the self.task_dict and set the rest to 0
++        # Preserve missing labels as -1 so they cannot become negative examples.
+         labels_dict = {
+-            k: torch.where(labels_dict[k] < self.task_dict[k], labels_dict[k], torch.zeros_like(labels_dict[k])) for k
++            k: torch.where(
++                labels_dict[k].ge(0) & labels_dict[k].lt(self.task_dict[k]),
++                labels_dict[k],
++                -torch.ones_like(labels_dict[k]),
++            ) for k
+             in labels_dict.keys()}
+@@ -1107,9 +1111,13 @@ class ContinualAnalysisGNN(LightningModule):
+             labels_dict = {k: batch["note"][k][:batch_size] for k in self.task_dict.keys() if k in batch["note"].keys()}
+             pitch_spelling = batch["note"].pitch_spelling
+             key_signature = batch["note"].key_signature
+-            # limit labels to the num_labels values of the self.task_dict and set the rest to 0
++            # Preserve missing labels as -1 so they cannot become negative examples.
+             labels_dict = {
+-                k: torch.where(labels_dict[k] < self.task_dict[k], labels_dict[k], torch.zeros_like(labels_dict[k])) for
++                k: torch.where(
++                    labels_dict[k].ge(0) & labels_dict[k].lt(self.task_dict[k]),
++                    labels_dict[k],
++                    -torch.ones_like(labels_dict[k]),
++                ) for
+                 k in labels_dict.keys()}
+             edge_index_dict = batch.edge_index_dict
+             batch_dict = batch.batch_dict
+@@ -1191,9 +1199,13 @@ class ContinualAnalysisGNN(LightningModule):
+             labels_dict = {k: batch["note"][k] for k in self.task_dict.keys() if k in batch["note"].keys()}
+             pitch_spelling = batch["note"].pitch_spelling
+             key_signature = batch["note"].key_signature
+-            # limit labels to the num_labels values of the self.task_dict and set the rest to 0
++            # Preserve missing labels as -1 so they cannot become negative examples.
+             labels_dict = {
+-                k: torch.where(labels_dict[k] < self.task_dict[k], labels_dict[k], torch.zeros_like(labels_dict[k])) for
++                k: torch.where(
++                    labels_dict[k].ge(0) & labels_dict[k].lt(self.task_dict[k]),
++                    labels_dict[k],
++                    -torch.ones_like(labels_dict[k]),
++                ) for
+                 k in labels_dict.keys()}
+             edge_index_dict = batch.edge_index_dict
+             batch_dict = batch.batch_dict
+@@ -1342,9 +1354,13 @@ class ContinualAnalysisGNN(LightningModule):
+             labels_dict = {k: batch["note"][k] for k in self.task_dict.keys() if k in batch["note"].keys()}
+             pitch_spelling = batch["note"].pitch_spelling
+             key_signature = batch["note"].key_signature
+-            # limit labels to the num_labels values of the self.task_dict and set the rest to 0
++            # Preserve missing labels as -1 so they cannot become negative examples.
+             labels_dict = {
+-                k: torch.where(labels_dict[k] < self.task_dict[k], labels_dict[k], torch.zeros_like(labels_dict[k]))
++                k: torch.where(
++                    labels_dict[k].ge(0) & labels_dict[k].lt(self.task_dict[k]),
++                    labels_dict[k],
++                    -torch.ones_like(labels_dict[k]),
++                )
+                 for
+                 k in labels_dict.keys()}
+             edge_index_dict = batch.edge_index_dict

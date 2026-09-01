@@ -990,6 +990,37 @@ piece resample. Exact AP remains descriptive because bootstrap AP would require
 prediction-score rows. Diagnostics never select a checkpoint.
 See `PHASE8B2_COMPARISON_PROTOCOL.md`.
 
+## Phase 9E-B2 Dilemmadata raw-coverage remediation boundary
+
+The remediated path is a compatibility extension of the Phase 9B.1 raw
+boundary, not a new dataset or model path:
+
+```text
+pinned raw AN/DLC row stream
+  -> exact raw parse and source identities
+  -> deterministic local repair + RawRepairEvidence@1.0.0
+  -> CanonicalPiece@2.0.0 (targets=annotations=empty)
+  -> unchanged raw graph builder and validator
+  -> optional TargetBundle through shared alignment transform/local mask
+```
+
+The old adapter is tried first. All 719 formerly accepted records therefore
+retain their canonical bytes, graph serialization and fingerprints. Only a
+previously rejected raw record enters the `1.1.0` repair path. Structural
+leading padding, source-boundary partitioning, measure selection, tie recovery,
+and zero-duration removal are computed without target columns. Repair
+provenance is bound to conversion/audit identity but cannot enter tensors or
+topology.
+
+The full-corpus gate discovers each of the 1,633 pinned records once, converts
+and builds every raw graph twice, validates exact bar/beat context and acyclic
+temporal/tie relations, and compares every old record against its immutable
+Phase 9E-B1 artifact. Target-sidecar conversion is a separate representative
+smoke over the same raw-derived transform and local masks. The raw adapter
+universe is 1,633 records; the 14 AnalysisGNN overlap exclusions are an
+orthogonal experiment-selection policy producing a ceiling of 1,619, not a
+raw parsing rule.
+
 ## Phase 9B.1 Dilemmadata raw-corpus boundary
 
 Dilemmadata enters the runtime through a pinned, target-independent adapter:
@@ -1330,3 +1361,223 @@ structural objectives remain roadmap
 increments. PDMX-scale effectiveness must be evaluated after the Phase 10
 raw-compatible corpus projection; PLL and critic/quality scoring remain
 separate future contracts.
+
+## Phase 9E-B3 expanded AnalysisGNN target boundary
+
+Phase 9E-B3 adds no model path. It freezes `dilemmadata-full-raw-v1`
+(353 AN + 1,280 DLC = 1,633) and the separate
+`analysisgnn-paper-candidate-an-dlc-v1` (353 AN + 1,266 DLC = 1,619) after 14
+declared DLC/AN overlap exclusions. Both use the unchanged 1,507 target-blind
+source components. The absent external 100-piece cadence corpus is recorded as
+unavailable and unincluded; DLC cadence annotations remain target supervision.
+
+The corrected production registry has 20 heads at three granularities: 12
+harmonic-event heads (`local_key`, `tonicized_key`, `root`, `bass`, two degree
+components, `quality`, `inversion`, `roman_numeral`, `pitch_class_set`,
+`harmonic_rhythm`, `pedal`), three onset heads (`cadence`, `phrase`, `section`),
+and five note heads (`metrical_strength`, `note_degree`, `chord_tone`,
+`is_root`, `is_bass`). `organ_point` and `downbeat` are pinned-code aliases;
+code-only `staff` is not one of the paper's 20 analytical properties.
+
+Production `quality` uses the source-faithful 17-class
+`dilemmadata-corrected-quality-17-v1` space: DLC `+7` and `+M7` remain distinct.
+The separate frozen `analysisgnn-quality-15-compat-e115182-v1` space collapses
+only those two corrected labels to `augmented triad` for AnalysisGNN comparison.
+The projection is serialized and is not applied to source targets, sidecars,
+graphs, loss, or the future corrected V2 head. Roman-184 is likewise a corrected
+semantic vocabulary, not a byte-identical copy of the malformed pinned literal.
+
+One harmonic entity is keyed by record/dialect, source annotation identity,
+first source-row ordinal, and exact canonical onset. Every harmonic head uses
+that same ID. Notes retain canonical raw identity and repair lineage. Explicit
+target-independent relations bind notes to onsets/applicable harmonic events,
+onsets to beats, beats to measures, and harmonic events to beats/measures.
+Sidecars never participate in raw graph construction or fingerprints.
+
+The frozen split is 1,295/162/162 records over 1,209/147/151 components for
+TRAIN/VALIDATION/TEST, with empty component intersections. TEST is available
+only for schema, mask, and fingerprint checks. The corrected V2 event metric
+uses local key, both degree components, quality-17, and inversion on one
+harmonic ID and has structural support 98,715 TRAIN / 10,507 VALIDATION; it is
+explicitly not paper-compatible. A separate paper-text compatibility contract
+uses the same five semantic components at note level after quality-15
+projection. The paper describes note-level predictions and includes local key,
+while pinned evaluator branches disagree and the onset-test branch omits it.
+V2 selects the paper-text definition for scientific comparison but has not
+evaluated that metric. Neither contract is an exact official reproduction, and
+no TEST metric was computed.
+
+## Phase 9E-B4 class-balance evidence boundary
+
+Phase 9E-B4 adds a read-only planning layer after the B3 target-sidecar and
+split boundaries. Assignment lookup precedes every target-bearing load. The
+TEST branch terminates at target-free assignment evidence; only TRAIN and
+VALIDATION reach sidecar materialization and aggregation.
+
+The aggregator is streaming by record and retains only class-level counters,
+record/component identity sets, and tuple sufficient statistics. Production
+entity rows and canonical source-annotation rows remain separate. For the
+paper-text compatibility view, many notes may point to one harmonic target row;
+the note count cannot substitute for independent harmonic support.
+
+The output is not routed into the encoder, HybridGNN, GRU, task heads, losses,
+sampler, checkpoint, or evaluator. Candidate weights and component-balanced
+sampling statuses are diagnostic artifacts only. A later model/training phase
+must make a separate recorded decision before consuming either.
+
+## Phase 9E-B5A transposition evidence boundary
+
+The transposition layer has three separated planes. The immutable raw plane is
+the existing canonical piece/B2 graph fingerprint. A TRAIN-only view plane may
+copy a graph and change only non-percussion pitch, pitch class, octave, and the
+track-relative feature recomputed from those pitches. The target plane applies
+the same shift through task-aware semantic mappings while preserving masks and
+source provenance. No plane writes an augmented graph to the raw cache.
+
+Official evidence and corrected execution are different contracts. The former
+serializes pinned AnalysisGNN source locations and known modulo, OOV, sampling,
+and split behavior. The latter owns a closed 12-PC orbit, deterministic seeded
+record/epoch draw, record-level MIDI/spelling/collision eligibility, and
+identity-only held-out behavior. Neither profile imports the external project.
+
+Collision comparison may read target-free raw graph inputs from VALIDATION and
+TEST. Assignment filtering occurs before any target descriptor decoder, so
+only TRAIN reaches target materialization. A transposed TRAIN view never gets a
+new record/component identity and is excluded, rather than reassigned, if it
+matches held-out raw input. Full-orbit counts and analytical one-draw
+expectations are planning evidence; no Dataset, sampler, model, or evaluator
+currently consumes them.
+
+## Phase 9E-B5B frozen training-policy boundary
+
+Phase 9E-B5B adds a declarative layer after B3/B4/B5A. It defines three
+non-interchangeable future experiment profiles: `O` preserves pinned official
+AnalysisGNN code behavior, while corrected `C0` and `C1` share the frozen
+1,619-record, 1,295/162/162 component split and differ substantively only in
+the B5A transposition policy. The layer constructs no encoder, task head,
+optimizer, loader, checkpoint, prediction, or metric result.
+
+Corrected training retains all 20 logits but does not weight all tasks equally.
+Eight harmonic heads are primary, ten heads are auxiliary, and `phrase` plus
+`section` are deferred because their positive-unlabeled annotations provide no
+sound negative supervision. An active head first reduces masked weighted cross
+entropy over its own valid canonical targets. Available primary-head means are
+then averaged, as are available auxiliary-head means, and
+`L_total = L_primary + 0.25 * L_auxiliary`. A zero-valid head is excluded from
+its group denominator and logged; deferred logits cannot affect optimization.
+
+The committed class-weight payload is derived only from B4 TRAIN canonical
+source rows before entity broadcasting. Supported classes use inverse square
+root frequency, mean-one normalization, a bounded `[0.25, 4.0]` projection,
+and final supported mean one. Zero-count classes retain their semantic logits
+with null weights and explicit unsupported state. VALIDATION, TEST, and the
+number of transposed views contribute no counts.
+
+One corrected TRAIN draw chooses a source component uniformly, then a record
+uniformly within that component, then a graph/window view. `C0` uses identity;
+`C1` uses the B5A deterministic uniform valid-shift selection. The view retains
+the source record, component, and split. VALIDATION is a fixed identity view;
+the TEST loader is not created and TEST targets remain unread.
+
+Checkpoint selection is the mean observed-class macro-F1 across the eight
+primary heads with valid VALIDATION targets. Per-head full-vocabulary coverage
+is reported separately from observed-class macro-F1. The corrected
+harmonic-event quality-17 joint metric and paper-text note quality-15 metric
+remain separate, as do direct Roman-184 auxiliary metrics and derived
+five-component harmonic correctness.
+
+All three profiles are currently `runnable=false`. Corrected model parameter
+budget and graph/window batching await the model implementation. `O` is
+`partial_contract_only`: the public run and pinned source commits differ, the
+exact historical GraphMuse revision and cadence corpus are unavailable, and
+paper/pinned evaluator branches disagree. Corrected data must not substitute
+for those missing official artifacts.
+
+## Phase 9E-B5C corrected 18-head runtime
+
+`CorrectedAnalysisGNNModel@1.0.0` is the Music Critic V2 corrected
+AnalysisGNN-derived multi-task baseline, not an exact AnalysisGNN
+reproduction. It reuses the production `LocalHeterogeneousEncoder` and
+`HierarchicalContextEncoder` at hidden width 128 (three local relation layers,
+two four-head Transformer layers, FFN multiplier four, residual connections,
+dropout 0.1), followed by the existing one-layer bidirectional
+`OnsetBiGRUDecoder`. There is no logit fusion.
+
+Eighteen independent heads each implement
+`Linear(128,128) -> GELU -> Dropout(0.1) -> Linear(128,C)`. Eight primary and
+ten auxiliary heads are trainable. `phrase` and `section` remain registry-only
+deferred entries and create neither parameters nor logits; `staff` is absent.
+Encoder autocast is permitted by interface, but all head parameters, logits,
+cross entropy, group losses, and totals stay FP32.
+
+Prediction accepts only the validated production raw graph. Expanded B3
+sidecars are joined afterward: harmonic events use the exact
+`harmonic_event_to_beat` relation, onset rows use canonical rational
+`onset:{num}_{den}` identity, and notes use canonical note IDs. A failed exact
+join masks the row and emits a diagnostic. Targets never select neighborhoods,
+windows, embeddings, or logits.
+
+The deterministic trainer samples a TRAIN component, record, graph, and then
+the profile view. C0 is identity-only; C1 applies a B5A-safe TRAIN view.
+Model initialization, dropout, loader-worker, component-record, and
+transposition domains have separate serialized deterministic seed/namespace
+bindings.
+VALIDATION is complete and identity-only, while the TEST loader path fails
+closed. Full canonical records and expanded sidecars are cached lazily as
+JSON; tensor graphs are rebuilt through the production graph builder and
+collator rather than cached. Checkpoints contain model, optimizer, scheduler,
+disabled FP32 scaler, sampler, Python/NumPy/PyTorch CPU/CUDA RNG, applied
+update, selection, and history state.
+
+The production loader separates historical discovery identity from the
+runtime-local absolute locator. It verifies selected source bytes and parsed
+raw/grouping/resolution fingerprints, reconstructs the path-bound B2 seal with
+the B2-attested original corpus root, and emits a newly validated local record
+binding. This permits an unchanged corpus checkout under a GPU host's user
+directory without weakening the B2 provenance gate.
+
+When a repaired parser no longer emits a category sealed by the historical B2
+discovery record, the loader reconstructs that category only on the historical
+verification object from frozen `raw_parse` quarantine evidence. The local
+object passed to the current adapter retains current parser output and its own
+valid binding; old downstream conversion quarantines are never replayed.
+
+## Phase 9E-B5D paired full-training orchestration
+
+The B5D runner is a fixed-budget orchestration layer over the unchanged B5C
+model, loss, sampler, production loader, and checkpoint state. Each profile
+uses seed 17, CUDA batch size 2, 10,000 successful optimizer updates, and
+20,000 component-balanced TRAIN draws. C0 and C1 share model initialization
+and record order; only the B5A-safe C1 shift stream differs. Completed runs
+verify their actual record/shift histories against the frozen deterministic
+schedule before producing a valid summary.
+
+The complete 162-record identity-only VALIDATION split runs at update 0 and
+every 500 updates. JSON progress is flushed every 25 updates and while
+validation advances. `last.ckpt` is atomically replaced every 100 updates;
+`best-validation.ckpt` changes only on an improved corrected primary macro
+score. Resume restores model, optimizer, scheduler, disabled scaler, sampler,
+all RNG domains, histories, best-selection state, and elapsed time, then
+truncates metric ledgers to the atomic checkpoint boundary.
+
+After both profiles reach exactly 10,000 updates with all 21 validation rows,
+the runner verifies causal pairing and writes final-score and best-score
+C1-C0 deltas plus both curves. The comparison is single-seed directional
+evidence only. No TEST loader, TEST target, early stopping, profile O, or
+statistical improvement claim is part of this path.
+
+## Phase 9E-B5E result selection boundary
+
+The completed seed-17 paired screen selects C0, the identity-only TRAIN
+profile, as the current corrected AnalysisGNN baseline. The selection is a
+VALIDATION decision over the frozen corrected primary macro score: C0 reached
+`0.3548871111124754`, C1 reached `0.2715279571712017`, and both best
+checkpoints occurred at update 10,000. The selected C0 model-state fingerprint
+is `37e9dda262ae3db53c548d6d0b228fd4123e08e82b30eb8200b0b4c1327dbee4`;
+the checkpoint itself remains external.
+
+C1 remains implemented and auditable but has status `experimental_deferred`.
+This status rejects a benefit claim for the exact seed-17, 10,000-update
+screen; it does not declare the B5A transform semantically invalid or erase
+the negative result. Downstream baseline consumers use C0 unless a later
+recorded multi-seed decision supersedes B5E. TEST remains unopened.

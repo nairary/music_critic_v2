@@ -51,6 +51,7 @@ from music_critic.tasks.registry import DILEMMADATA_TARGET_REGISTRY_ID
 
 
 DILEMMADATA_TARGET_ADAPTER_VERSION = "1.1.0"
+DILEMMADATA_REMEDIATED_TARGET_ADAPTER_VERSION = "1.2.0"
 DILEMMADATA_TARGET_SIDECAR_VERSION = "1.0.0"
 DILEMMADATA_TARGET_AUDIT_REPORT_VERSION = "1.1.0"
 DILEMMADATA_TARGET_AUDIT_MANIFEST_VERSION = "1.1.0"
@@ -221,8 +222,9 @@ class _TargetRow:
     ordinal: int
     line: int
     onset_qn: RationalTime
-    canonical_note_id: str
+    canonical_note_id: str | None
     tie_continuation: bool
+    repair_mask_scope: Literal["none", "note", "all"]
     values: Mapping[str, str]
 
 
@@ -625,6 +627,7 @@ def _read_target_rows(
                         onset_qn=binding.onset_qn,
                         canonical_note_id=binding.canonical_note_id,
                         tie_continuation=binding.tie_continuation,
+                        repair_mask_scope=binding.repair_mask_scope,
                         values=values,
                     )
                 )
@@ -646,6 +649,11 @@ def _read_target_rows(
 
 
 def _family_row(spec: DilemmadataSourceFamilySpec, row: _TargetRow) -> _FamilyRow:
+    if row.repair_mask_scope == "all" or (
+        row.repair_mask_scope == "note"
+        and spec.coordinate == "canonical_note_identity"
+    ):
+        return _FamilyRow(row, "masked", None, None)
     if spec.primary_field not in row.values:
         return _FamilyRow(row, "unsupported", None, None)
     if spec.gate_field is not None:
@@ -697,6 +705,8 @@ def _emit_note_entries(
 ) -> tuple[tuple[_EmittedEntry, ...], int, int, int, int]:
     grouped: dict[str, list[_FamilyRow]] = defaultdict(list)
     for row in rows:
+        if row.row.canonical_note_id is None:
+            continue
         grouped[row.row.canonical_note_id].append(row)
     entries: list[_EmittedEntry] = []
     tie_agreement = 0
@@ -1180,23 +1190,37 @@ def convert_dilemmadata_target_sidecar(
             )
         ),
     )
+    conversion_details: tuple[tuple[str, object], ...] = (
+        ("duplicate_policy", config.duplicate_policy),
+        ("point_policy", config.point_policy),
+        ("span_policy", config.span_policy),
+        ("target_column_policy", config.target_column_policy),
+        ("tie_policy", config.tie_policy),
+    )
+    if alignment_evidence.raw_repair_evidence_fingerprint is not None:
+        conversion_details = (
+            *conversion_details,
+            (
+                "raw_repair_evidence_fingerprint",
+                alignment_evidence.raw_repair_evidence_fingerprint,
+            ),
+            ("raw_target_alignment_version", alignment_evidence.version),
+        )
     conversion_provenance = ProvenanceRecord(
         provenance_id="prov:dilemmadata-target-conversion",
         kind="conversion",
         source="music_critic.dilemmadata_target_adapter",
         record_id=None,
         uri=None,
-        version=DILEMMADATA_TARGET_ADAPTER_VERSION,
+        version=(
+            DILEMMADATA_TARGET_ADAPTER_VERSION
+            if alignment_evidence.raw_repair_evidence_fingerprint is None
+            else DILEMMADATA_REMEDIATED_TARGET_ADAPTER_VERSION
+        ),
         checksum_sha256=None,
         created_at=None,
         parents=("prov:dilemmadata-target-source",),
-        details=(
-            ("duplicate_policy", config.duplicate_policy),
-            ("point_policy", config.point_policy),
-            ("span_policy", config.span_policy),
-            ("target_column_policy", config.target_column_policy),
-            ("tie_policy", config.tie_policy),
-        ),
+        details=conversion_details,
     )
     annotation_provenance = ProvenanceRecord(
         provenance_id="prov:dilemmadata-target-annotation",
@@ -1338,6 +1362,7 @@ def iter_dilemmadata_target_sidecars(
 
 
 __all__ = [
+    "DILEMMADATA_REMEDIATED_TARGET_ADAPTER_VERSION",
     "DILEMMADATA_TARGET_ADAPTER_VERSION",
     "DILEMMADATA_TARGET_AUDIT_MANIFEST_VERSION",
     "DILEMMADATA_TARGET_AUDIT_REPORT_VERSION",

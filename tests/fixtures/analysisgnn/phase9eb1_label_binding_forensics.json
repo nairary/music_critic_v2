@@ -1,0 +1,1252 @@
+{
+  "acceptance": false,
+  "aggregate_counts": {
+    "effective_conflicting_note_occurrence_count": 1008,
+    "effective_group_occurrence_count": 150,
+    "equivalent_source_group_count": 36,
+    "preflight_corpus_effective_view_count": 7066,
+    "source_conflicting_note_count": 128,
+    "source_entry_count": 36,
+    "source_group_count": 18,
+    "source_record_count": 4,
+    "transposition_repetition_extra_group_count": 132,
+    "transposition_repetition_extra_note_count": 880
+  },
+  "classification_counts": {
+    "note_type:ordinary_note_at_point_boundary": {
+      "effective_group_occurrence_count": 150,
+      "effective_note_occurrence_count": 1008,
+      "source_group_count": 18,
+      "source_note_count": 128
+    },
+    "span_type:point_vs_interval_same_start": {
+      "effective_group_occurrence_count": 150,
+      "effective_note_occurrence_count": 1008,
+      "source_group_count": 18,
+      "source_note_count": 128
+    },
+    "timestamp_type:duplicate_timestamp_transition": {
+      "effective_group_occurrence_count": 150,
+      "effective_note_occurrence_count": 1008,
+      "source_group_count": 18,
+      "source_note_count": 128
+    }
+  },
+  "count_interpretation": {
+    "correction": "The preflight computed overlap rows once per accepted source record; 18 groups and 128 notes were already source-native counts, while 7066 described the whole corpus view schedule.",
+    "effective_occurrences": "Each TRAIN source conflict repeats over 12 pitch-only transpositions; validation and TEST use P1 only."
+  },
+  "deduplication_contract": {
+    "entry_order": "entity_id_lexicographic",
+    "identity_fields": [
+      "record_id",
+      "piece_id",
+      "dialect",
+      "task_id",
+      "source_entry_entity_ids",
+      "source_native_span_boundaries",
+      "source_native_source_values"
+    ],
+    "source_conflict_group_id": "label-binding-conflict:sha256(canonical_identity_json)",
+    "transpositions_are_not_source_identities": true
+  },
+  "full_artifact_semantic_fingerprint": "b425c470da9cd9754a4cbedb240a44835391ad2dac9dbcd11ba108aef66d40e9",
+  "input_bindings": {
+    "assignment_fingerprint": "a2b6bb29a26a87f74eb1921888d2651bd4fbe3bffec51e9cb88fbe9bb3084eec",
+    "common_registry_fingerprint": "bb50920808b6ad3a19fb32b8315a417a837b2ab008efd7bee71e71d120e2ee2e",
+    "dataset_manifest_fingerprint": "be0d36aea152e2542e6a8fdd5ce757e16bdb55c57a9b124f470237c8b4e4da02",
+    "dilemmadata_commit": "d60ee75b4a9495e932a4a7be39381578be17e222",
+    "preflight_fingerprint": "da1d02a0ab58ce9ad765a37822e59e96ddbdbce2fc20302ce46ebb5c82faa500",
+    "raw_index_fingerprint": "c0451976b6b6eab88cb90aa6c47d6afdba1b81ce9b588f0f84daa846154adb0e",
+    "records_fingerprint": "5924a6c39379952315207423333a6c825bcad9ac3e5710e55937aebf62fe8944",
+    "source_split_fingerprint": "58ac7720f65f7fd3102248fb39d89291a78d65c06fc2ab9a16d78a6ee1666a3e",
+    "split_counts": {
+      "test": 71,
+      "train": 577,
+      "validation": 71
+    }
+  },
+  "official_source_evidence": {
+    "analysisgnn": {
+      "commit": "e115182fb29b74bdcb6bf3547ed427d967580947",
+      "repository": "https://github.com/manoskary/analysisgnn",
+      "rows": [
+        {
+          "applicability": "DLC TSV rows are retained in file order; equal timestamps are neither sorted nor deduplicated here.",
+          "file": "analysisgnn/utils/dcl_tsv_utils.py",
+          "file_sha256": "26a9a3fd5628dc063dab9258eb1f6011d1901d32802791f0560e0e2d96ad8a2f",
+          "function": "load_labeled_pitch_array",
+          "lines": "78-94",
+          "semantics": "pandas.read_csv reads the TSV; optional processing only drops rows missing selected fields."
+        },
+        {
+          "applicability": "Every retained dataframe row becomes one note-array row; duration is derived row-wise and no same-onset conflict resolver runs.",
+          "file": "analysisgnn/utils/dcl_tsv_utils.py",
+          "file_sha256": "26a9a3fd5628dc063dab9258eb1f6011d1901d32802791f0560e0e2d96ad8a2f",
+          "function": "create_graph_from_df",
+          "lines": "127-160",
+          "semantics": "Uses dataframe onset/duration/pitch fields directly to construct the note array."
+        },
+        {
+          "applicability": "Quality and inversion labels remain aligned one-to-one with the retained source rows.",
+          "file": "analysisgnn/utils/dcl_tsv_utils.py",
+          "file_sha256": "26a9a3fd5628dc063dab9258eb1f6011d1901d32802791f0560e0e2d96ad8a2f",
+          "function": "create_graph_from_df",
+          "lines": "195-203",
+          "semantics": "Attaches every label array directly to graph note nodes without span expansion or forward fill."
+        },
+        {
+          "applicability": "Quality and inversion are encoded independently for each dataframe row; the function defines no precedence between chord rows.",
+          "file": "analysisgnn/utils/dcl_tsv_utils.py",
+          "file_sha256": "26a9a3fd5628dc063dab9258eb1f6011d1901d32802791f0560e0e2d96ad8a2f",
+          "function": "create_labels_dlc",
+          "lines": "374-388",
+          "semantics": "Encodes DLC quality and inversion columns row-wise."
+        },
+        {
+          "applicability": "Defines inversion class conversion only; it does not resolve temporal overlap.",
+          "file": "analysisgnn/utils/dcl_tsv_utils.py",
+          "file_sha256": "26a9a3fd5628dc063dab9258eb1f6011d1901d32802791f0560e0e2d96ad8a2f",
+          "function": "process_inversion_from_chord",
+          "lines": "279-290",
+          "semantics": "Maps figured-bass strings to root/first/second/third inversion indices."
+        },
+        {
+          "applicability": "This is prediction pooling after row-wise label construction, not a source-label conflict policy.",
+          "file": "analysisgnn/models/analysis.py",
+          "file_sha256": "c5efc9086ce101a0732fb883ef508d09040a7109abc6b73bdee4bc9ba396dc5a",
+          "function": "onsetwise_logit_aggregation",
+          "lines": "44-101",
+          "semantics": "Pools predicted logits across onset edges and does not choose among source chord labels."
+        },
+        {
+          "applicability": "Transposition multiplies graph views, not source-native annotation identities.",
+          "file": "analysisgnn/data/datasets/dlc.py",
+          "file_sha256": "3144af37692c708916f4d90924bc8b3dd63beceb2859013c6ef3b9db62853e36",
+          "function": "DLCGraphDataset._process_single",
+          "lines": "365-405",
+          "semantics": "Creates one graph per configured interval except its own test nicknames, which use P1."
+        },
+        {
+          "applicability": "No explicit grace/zero-duration label rule exists in the audited DLC loader or label encoder; downstream graph handling is unresolved for policy selection.",
+          "file": "analysisgnn/utils/dcl_tsv_utils.py",
+          "file_sha256": "26a9a3fd5628dc063dab9258eb1f6011d1901d32802791f0560e0e2d96ad8a2f",
+          "function": "create_graph_from_df/create_labels_dlc",
+          "lines": "97-203,374-444",
+          "semantics": "No grace-specific branch or zero-duration label precedence is defined."
+        }
+      ]
+    },
+    "conclusion": {
+      "official_rule": "row_aligned_source_label",
+      "span_precedence": "unresolved_and_not_implemented_by_official_source",
+      "v2_applicability": "Source-row ordinals retained by V2 note IDs can distinguish the duplicated same-onset rows in all detailed TRAIN/VALIDATION conflicts."
+    },
+    "dilemmadata_pitch_array_producer": {
+      "commit": "d60ee75b4a9495e932a4a7be39381578be17e222",
+      "rows": [
+        {
+          "applicability": "At one timestamp, multiple harmony rows can duplicate note rows; each resulting TSV row carries its own harmony identity/value.",
+          "file": "processing/utils.py",
+          "file_sha256": "6940742bd5b34d780b5db64083b6755234b0ed54d3bb016c6559dbddc96b9aad",
+          "function": "make_labeled_pitch_array",
+          "lines": "1109-1188",
+          "semantics": "Outer-merges notes and labels with sort=True, then forward-fills harmony fields within each unfolded harmony identity before dropping label-only rows."
+        }
+      ]
+    }
+  },
+  "policy_comparison": [
+    {
+      "affected_source_entry_count": 24,
+      "affected_source_note_count": 80,
+      "applies_equally_to_quality_and_inversion": true,
+      "arbitrary_selection_risk": "high",
+      "changes_persisted_source_targets": false,
+      "entry_level_evaluation": "technically_possible_but_interval_supervision_is_overridden",
+      "leakage_risk": "low_if_fixed_without_test_inspection",
+      "official_support": "contradicted_by_row_aligned_labels",
+      "policy": "point_span_precedence",
+      "policy_selection_scope": "train_and_validation_only",
+      "potential_sealed_test_entry_count": 12,
+      "potential_sealed_test_note_count": 48,
+      "subset_or_split_change": false,
+      "test_values_used_for_comparison": false
+    },
+    {
+      "affected_source_entry_count": 24,
+      "affected_source_note_count": 80,
+      "applies_equally_to_quality_and_inversion": true,
+      "arbitrary_selection_risk": "high",
+      "changes_persisted_source_targets": false,
+      "entry_level_evaluation": "technically_possible_but_point_supervision_is_overridden",
+      "leakage_risk": "low_if_fixed_without_test_inspection",
+      "official_support": "contradicted_by_row_aligned_labels",
+      "policy": "interval_span_precedence",
+      "policy_selection_scope": "train_and_validation_only",
+      "potential_sealed_test_entry_count": 12,
+      "potential_sealed_test_note_count": 48,
+      "subset_or_split_change": false,
+      "test_values_used_for_comparison": false
+    },
+    {
+      "affected_source_entry_count": 0,
+      "affected_source_note_count": 0,
+      "applies_equally_to_quality_and_inversion": true,
+      "arbitrary_selection_risk": "medium",
+      "changes_persisted_source_targets": false,
+      "entry_level_evaluation": "unresolved_conflicts_remain",
+      "leakage_risk": "low",
+      "official_support": "no_grace_specific_rule_found",
+      "policy": "point_span_only_for_grace_or_zero_duration_notes",
+      "policy_selection_scope": "train_and_validation_only",
+      "potential_sealed_test_entry_count": 12,
+      "potential_sealed_test_note_count": 48,
+      "subset_or_split_change": false,
+      "test_values_used_for_comparison": false,
+      "unresolved_source_note_count": 80
+    },
+    {
+      "affected_source_entry_count": 24,
+      "affected_source_note_count": 80,
+      "applies_equally_to_quality_and_inversion": true,
+      "arbitrary_selection_risk": "low_only_for_exact_source_row_identity_otherwise_high",
+      "changes_persisted_source_targets": false,
+      "entry_level_evaluation": "viable_if_each_source_row_retains_its_entry_membership",
+      "leakage_risk": "low_if_bound_only_to_source_row_provenance",
+      "official_support": "conditional_exact_support_for_source_row_identity_not_first_or_last_precedence",
+      "policy": "deterministic_same_onset_ordering",
+      "policy_selection_scope": "train_and_validation_only",
+      "potential_sealed_test_entry_count": 12,
+      "potential_sealed_test_note_count": 48,
+      "subset_or_split_change": false,
+      "test_values_used_for_comparison": false
+    },
+    {
+      "affected_source_entry_count": 24,
+      "affected_source_note_count": 80,
+      "applies_equally_to_quality_and_inversion": true,
+      "arbitrary_selection_risk": "low",
+      "changes_persisted_source_targets": false,
+      "entry_level_evaluation": "possible_but_conflicting_entries_lack_unambiguous_training_supervision",
+      "leakage_risk": "low_if_task_local_and_fixed_before_test_unlock",
+      "official_support": "not_equivalent_to_official_semantics_but_minimal_unresolved_fallback",
+      "policy": "mask_conflicting_task_note_targets",
+      "policy_selection_scope": "train_and_validation_only",
+      "potential_sealed_test_entry_count": 12,
+      "potential_sealed_test_note_count": 48,
+      "subset_or_split_change": false,
+      "test_values_used_for_comparison": false
+    },
+    {
+      "affected_source_entry_count": 24,
+      "affected_source_note_count": 80,
+      "applies_equally_to_quality_and_inversion": true,
+      "arbitrary_selection_risk": "low",
+      "changes_persisted_source_targets": false,
+      "entry_level_evaluation": "impossible_for_masked_source_entries",
+      "leakage_risk": "low_if_fixed_before_test_unlock",
+      "official_support": "not_equivalent_to_official_semantics_and_discards_source_targets",
+      "policy": "mask_conflicting_source_entries",
+      "policy_selection_scope": "train_and_validation_only",
+      "potential_sealed_test_entry_count": 12,
+      "potential_sealed_test_note_count": 48,
+      "subset_or_split_change": false,
+      "test_values_used_for_comparison": false
+    },
+    {
+      "affected_source_entry_count": 24,
+      "affected_source_note_count": 80,
+      "affected_source_record_count": 3,
+      "applies_equally_to_quality_and_inversion": false,
+      "arbitrary_selection_risk": "high_and_overbroad",
+      "changes_persisted_source_targets": false,
+      "entry_level_evaluation": "impossible_for_all_tasks_in_excluded_records",
+      "leakage_risk": "high_if_test_membership_influences_exclusion_policy",
+      "official_support": "unsupported",
+      "policy": "exclude_entire_record",
+      "policy_selection_scope": "train_and_validation_only",
+      "potential_sealed_test_entry_count": 12,
+      "potential_sealed_test_note_count": 48,
+      "subset_or_split_change": true,
+      "test_values_used_for_comparison": false
+    }
+  ],
+  "recommendation": {
+    "confidence": "high_for_observed_train_validation_groups",
+    "fallback_if_source_row_identity_cannot_be_contract_bound": "mask_conflicting_task_note_targets",
+    "policy": "preserve_exact_source_row_to_entry_membership",
+    "rationale": "Pinned AnalysisGNN consumes one label per TSV row. Every detailed conflict has exact one-entry source-row membership recoverable from the immutable source ordinal retained in its V2 note ID; point/interval precedence would erase valid row-aligned supervision.",
+    "scope": "next_separate_remediation_not_implemented_by_this_audit",
+    "test_targets_used": false
+  },
+  "schema": "phase9eb1-label-binding-conflict-forensics-compact",
+  "sealed_test": {
+    "details_sealed": true,
+    "effective_conflicting_note_occurrence_count": 48,
+    "effective_group_occurrence_count": 6,
+    "model_evaluation_performed": false,
+    "note_level_diagnostics_exposed": false,
+    "policy_selection_used_test_targets": false,
+    "source_conflicting_note_count": 48,
+    "source_entry_classes_exposed": false,
+    "source_entry_count": 12,
+    "source_group_count": 6,
+    "source_record_count": 1,
+    "source_values_exposed": false
+  },
+  "semantic_fingerprint": "4dc5db61525be807a49677893b6f5b338eb35b0f59854ed508cf0d38f5f012ba",
+  "split_counts": {
+    "test": {
+      "effective_group_occurrence_count": 6,
+      "effective_note_occurrence_count": 48,
+      "source_group_count": 6,
+      "source_note_count": 48
+    },
+    "train": {
+      "effective_group_occurrence_count": 144,
+      "effective_note_occurrence_count": 960,
+      "source_group_count": 12,
+      "source_note_count": 80
+    }
+  },
+  "task_counts": {
+    "inversion": {
+      "effective_group_occurrence_count": 2,
+      "effective_note_occurrence_count": 16,
+      "source_group_count": 2,
+      "source_note_count": 16
+    },
+    "quality": {
+      "effective_group_occurrence_count": 148,
+      "effective_note_occurrence_count": 992,
+      "source_group_count": 16,
+      "source_note_count": 112
+    }
+  },
+  "test_targets_used_for_model_evaluation": false,
+  "train_validation_conflicts": [
+    {
+      "classification": {
+        "note_type": "ordinary_note_at_point_boundary",
+        "official_source_row_membership": "complete",
+        "span_type": "point_vs_interval_same_start",
+        "timestamp_type": "duplicate_timestamp_transition"
+      },
+      "effective_conflicting_note_count": 72,
+      "effective_view_count": 12,
+      "entries": [
+        {
+          "common_class_index": 30,
+          "common_value": "major triad",
+          "entity_id": "span:dilemmadata-target-f50056fe9785581dedd2c207-917564b62cd5-00000110",
+          "entry_index": 110,
+          "mapping_state": "exact",
+          "point_span": true,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "M"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 176
+          },
+          "span_start": {
+            "den": 1,
+            "num": 176
+          }
+        },
+        {
+          "common_class_index": 36,
+          "common_value": "minor triad",
+          "entity_id": "span:dilemmadata-target-f50056fe9785581dedd2c207-917564b62cd5-00000111",
+          "entry_index": 111,
+          "mapping_state": "exact",
+          "point_span": false,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "m"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 177
+          },
+          "span_start": {
+            "den": 1,
+            "num": 176
+          }
+        }
+      ],
+      "piece_id": "piece:dilemmadata-dlc-f50056fe9785581dedd2c207",
+      "record_id": "dlc:corelli:op03n03b",
+      "source_conflict_group_id": "label-binding-conflict:14d15d4111cf0a94801c92f84be62723bae8da777a8ac9b4525927f661977e7b",
+      "source_conflicting_note_count": 6,
+      "split": "train",
+      "task": "quality",
+      "transpositions": [
+        "P1",
+        "m2",
+        "M2",
+        "m3",
+        "M3",
+        "P4",
+        "A4",
+        "P5",
+        "m6",
+        "M6",
+        "m7",
+        "M7"
+      ]
+    },
+    {
+      "classification": {
+        "note_type": "ordinary_note_at_point_boundary",
+        "official_source_row_membership": "complete",
+        "span_type": "point_vs_interval_same_start",
+        "timestamp_type": "duplicate_timestamp_transition"
+      },
+      "effective_conflicting_note_count": 96,
+      "effective_view_count": 12,
+      "entries": [
+        {
+          "common_class_index": 30,
+          "common_value": "major triad",
+          "entity_id": "span:dilemmadata-target-21ee99bce4f6d8da52a0a509-917564b62cd5-00000308",
+          "entry_index": 308,
+          "mapping_state": "exact",
+          "point_span": true,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "M"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 453
+          },
+          "span_start": {
+            "den": 1,
+            "num": 453
+          }
+        },
+        {
+          "common_class_index": 36,
+          "common_value": "minor triad",
+          "entity_id": "span:dilemmadata-target-21ee99bce4f6d8da52a0a509-917564b62cd5-00000309",
+          "entry_index": 309,
+          "mapping_state": "exact",
+          "point_span": false,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "m"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 456
+          },
+          "span_start": {
+            "den": 1,
+            "num": 453
+          }
+        }
+      ],
+      "piece_id": "piece:dilemmadata-dlc-21ee99bce4f6d8da52a0a509",
+      "record_id": "dlc:corelli:op03n03d",
+      "source_conflict_group_id": "label-binding-conflict:2b42e9ad651fbf4c13f2424a582a9f32d10c91ed30936dc676f61a8970fc6317",
+      "source_conflicting_note_count": 8,
+      "split": "train",
+      "task": "quality",
+      "transpositions": [
+        "P1",
+        "m2",
+        "M2",
+        "m3",
+        "M3",
+        "P4",
+        "A4",
+        "P5",
+        "m6",
+        "M6",
+        "m7",
+        "M7"
+      ]
+    },
+    {
+      "classification": {
+        "note_type": "ordinary_note_at_point_boundary",
+        "official_source_row_membership": "complete",
+        "span_type": "point_vs_interval_same_start",
+        "timestamp_type": "duplicate_timestamp_transition"
+      },
+      "effective_conflicting_note_count": 72,
+      "effective_view_count": 12,
+      "entries": [
+        {
+          "common_class_index": 36,
+          "common_value": "minor triad",
+          "entity_id": "span:dilemmadata-target-f50056fe9785581dedd2c207-917564b62cd5-00000042",
+          "entry_index": 42,
+          "mapping_state": "exact",
+          "point_span": true,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "m"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 74
+          },
+          "span_start": {
+            "den": 1,
+            "num": 74
+          }
+        },
+        {
+          "common_class_index": 30,
+          "common_value": "major triad",
+          "entity_id": "span:dilemmadata-target-f50056fe9785581dedd2c207-917564b62cd5-00000043",
+          "entry_index": 43,
+          "mapping_state": "exact",
+          "point_span": false,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "M"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 75
+          },
+          "span_start": {
+            "den": 1,
+            "num": 74
+          }
+        }
+      ],
+      "piece_id": "piece:dilemmadata-dlc-f50056fe9785581dedd2c207",
+      "record_id": "dlc:corelli:op03n03b",
+      "source_conflict_group_id": "label-binding-conflict:37a9bbf192cdd746fae182028c28dc57c25177f18276be4c3eeb928dbf1525dd",
+      "source_conflicting_note_count": 6,
+      "split": "train",
+      "task": "quality",
+      "transpositions": [
+        "P1",
+        "m2",
+        "M2",
+        "m3",
+        "M3",
+        "P4",
+        "A4",
+        "P5",
+        "m6",
+        "M6",
+        "m7",
+        "M7"
+      ]
+    },
+    {
+      "classification": {
+        "note_type": "ordinary_note_at_point_boundary",
+        "official_source_row_membership": "complete",
+        "span_type": "point_vs_interval_same_start",
+        "timestamp_type": "duplicate_timestamp_transition"
+      },
+      "effective_conflicting_note_count": 96,
+      "effective_view_count": 12,
+      "entries": [
+        {
+          "common_class_index": 30,
+          "common_value": "major triad",
+          "entity_id": "span:dilemmadata-target-21ee99bce4f6d8da52a0a509-917564b62cd5-00000069",
+          "entry_index": 69,
+          "mapping_state": "exact",
+          "point_span": true,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "M"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 93
+          },
+          "span_start": {
+            "den": 1,
+            "num": 93
+          }
+        },
+        {
+          "common_class_index": 36,
+          "common_value": "minor triad",
+          "entity_id": "span:dilemmadata-target-21ee99bce4f6d8da52a0a509-917564b62cd5-00000070",
+          "entry_index": 70,
+          "mapping_state": "exact",
+          "point_span": false,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "m"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 96
+          },
+          "span_start": {
+            "den": 1,
+            "num": 93
+          }
+        }
+      ],
+      "piece_id": "piece:dilemmadata-dlc-21ee99bce4f6d8da52a0a509",
+      "record_id": "dlc:corelli:op03n03d",
+      "source_conflict_group_id": "label-binding-conflict:4c9624462754c97a40cf0e5ad7c6b6ca892cecba4ebf1e2ad85288c3fe3092ec",
+      "source_conflicting_note_count": 8,
+      "split": "train",
+      "task": "quality",
+      "transpositions": [
+        "P1",
+        "m2",
+        "M2",
+        "m3",
+        "M3",
+        "P4",
+        "A4",
+        "P5",
+        "m6",
+        "M6",
+        "m7",
+        "M7"
+      ]
+    },
+    {
+      "classification": {
+        "note_type": "ordinary_note_at_point_boundary",
+        "official_source_row_membership": "complete",
+        "span_type": "point_vs_interval_same_start",
+        "timestamp_type": "duplicate_timestamp_transition"
+      },
+      "effective_conflicting_note_count": 72,
+      "effective_view_count": 12,
+      "entries": [
+        {
+          "common_class_index": 36,
+          "common_value": "minor triad",
+          "entity_id": "span:dilemmadata-target-f50056fe9785581dedd2c207-917564b62cd5-00000107",
+          "entry_index": 107,
+          "mapping_state": "exact",
+          "point_span": true,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "m"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 173
+          },
+          "span_start": {
+            "den": 1,
+            "num": 173
+          }
+        },
+        {
+          "common_class_index": 30,
+          "common_value": "major triad",
+          "entity_id": "span:dilemmadata-target-f50056fe9785581dedd2c207-917564b62cd5-00000108",
+          "entry_index": 108,
+          "mapping_state": "exact",
+          "point_span": false,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "M"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 174
+          },
+          "span_start": {
+            "den": 1,
+            "num": 173
+          }
+        }
+      ],
+      "piece_id": "piece:dilemmadata-dlc-f50056fe9785581dedd2c207",
+      "record_id": "dlc:corelli:op03n03b",
+      "source_conflict_group_id": "label-binding-conflict:6792e67cd194b093d9213688528eb7fb9c103cca78c2f053b10e879d853dc1db",
+      "source_conflicting_note_count": 6,
+      "split": "train",
+      "task": "quality",
+      "transpositions": [
+        "P1",
+        "m2",
+        "M2",
+        "m3",
+        "M3",
+        "P4",
+        "A4",
+        "P5",
+        "m6",
+        "M6",
+        "m7",
+        "M7"
+      ]
+    },
+    {
+      "classification": {
+        "note_type": "ordinary_note_at_point_boundary",
+        "official_source_row_membership": "complete",
+        "span_type": "point_vs_interval_same_start",
+        "timestamp_type": "duplicate_timestamp_transition"
+      },
+      "effective_conflicting_note_count": 72,
+      "effective_view_count": 12,
+      "entries": [
+        {
+          "common_class_index": 36,
+          "common_value": "minor triad",
+          "entity_id": "span:dilemmadata-target-f50056fe9785581dedd2c207-917564b62cd5-00000104",
+          "entry_index": 104,
+          "mapping_state": "exact",
+          "point_span": true,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "m"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 170
+          },
+          "span_start": {
+            "den": 1,
+            "num": 170
+          }
+        },
+        {
+          "common_class_index": 30,
+          "common_value": "major triad",
+          "entity_id": "span:dilemmadata-target-f50056fe9785581dedd2c207-917564b62cd5-00000105",
+          "entry_index": 105,
+          "mapping_state": "exact",
+          "point_span": false,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "M"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 171
+          },
+          "span_start": {
+            "den": 1,
+            "num": 170
+          }
+        }
+      ],
+      "piece_id": "piece:dilemmadata-dlc-f50056fe9785581dedd2c207",
+      "record_id": "dlc:corelli:op03n03b",
+      "source_conflict_group_id": "label-binding-conflict:68012a6bb5ca06d5c8b5a54a6b54b8c0decced8be2c162a5bfb5c3c7bfdbdf4d",
+      "source_conflicting_note_count": 6,
+      "split": "train",
+      "task": "quality",
+      "transpositions": [
+        "P1",
+        "m2",
+        "M2",
+        "m3",
+        "M3",
+        "P4",
+        "A4",
+        "P5",
+        "m6",
+        "M6",
+        "m7",
+        "M7"
+      ]
+    },
+    {
+      "classification": {
+        "note_type": "ordinary_note_at_point_boundary",
+        "official_source_row_membership": "complete",
+        "span_type": "point_vs_interval_same_start",
+        "timestamp_type": "duplicate_timestamp_transition"
+      },
+      "effective_conflicting_note_count": 72,
+      "effective_view_count": 12,
+      "entries": [
+        {
+          "common_class_index": 36,
+          "common_value": "minor triad",
+          "entity_id": "span:dilemmadata-target-f50056fe9785581dedd2c207-917564b62cd5-00000045",
+          "entry_index": 45,
+          "mapping_state": "exact",
+          "point_span": true,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "m"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 77
+          },
+          "span_start": {
+            "den": 1,
+            "num": 77
+          }
+        },
+        {
+          "common_class_index": 30,
+          "common_value": "major triad",
+          "entity_id": "span:dilemmadata-target-f50056fe9785581dedd2c207-917564b62cd5-00000046",
+          "entry_index": 46,
+          "mapping_state": "exact",
+          "point_span": false,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "M"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 78
+          },
+          "span_start": {
+            "den": 1,
+            "num": 77
+          }
+        }
+      ],
+      "piece_id": "piece:dilemmadata-dlc-f50056fe9785581dedd2c207",
+      "record_id": "dlc:corelli:op03n03b",
+      "source_conflict_group_id": "label-binding-conflict:899c27cf481e0c58cfdca51e9bc7fb4357384df936d23d029f5426823ad403b4",
+      "source_conflicting_note_count": 6,
+      "split": "train",
+      "task": "quality",
+      "transpositions": [
+        "P1",
+        "m2",
+        "M2",
+        "m3",
+        "M3",
+        "P4",
+        "A4",
+        "P5",
+        "m6",
+        "M6",
+        "m7",
+        "M7"
+      ]
+    },
+    {
+      "classification": {
+        "note_type": "ordinary_note_at_point_boundary",
+        "official_source_row_membership": "complete",
+        "span_type": "point_vs_interval_same_start",
+        "timestamp_type": "duplicate_timestamp_transition"
+      },
+      "effective_conflicting_note_count": 72,
+      "effective_view_count": 12,
+      "entries": [
+        {
+          "common_class_index": 30,
+          "common_value": "major triad",
+          "entity_id": "span:dilemmadata-target-f50056fe9785581dedd2c207-917564b62cd5-00000048",
+          "entry_index": 48,
+          "mapping_state": "exact",
+          "point_span": true,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "M"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 80
+          },
+          "span_start": {
+            "den": 1,
+            "num": 80
+          }
+        },
+        {
+          "common_class_index": 36,
+          "common_value": "minor triad",
+          "entity_id": "span:dilemmadata-target-f50056fe9785581dedd2c207-917564b62cd5-00000049",
+          "entry_index": 49,
+          "mapping_state": "exact",
+          "point_span": false,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "m"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 81
+          },
+          "span_start": {
+            "den": 1,
+            "num": 80
+          }
+        }
+      ],
+      "piece_id": "piece:dilemmadata-dlc-f50056fe9785581dedd2c207",
+      "record_id": "dlc:corelli:op03n03b",
+      "source_conflict_group_id": "label-binding-conflict:95d04d9ccee90c987baccbbb60f706a2accad4cc76f1e7d38a390eb6db234348",
+      "source_conflicting_note_count": 6,
+      "split": "train",
+      "task": "quality",
+      "transpositions": [
+        "P1",
+        "m2",
+        "M2",
+        "m3",
+        "M3",
+        "P4",
+        "A4",
+        "P5",
+        "m6",
+        "M6",
+        "m7",
+        "M7"
+      ]
+    },
+    {
+      "classification": {
+        "note_type": "ordinary_note_at_point_boundary",
+        "official_source_row_membership": "complete",
+        "span_type": "point_vs_interval_same_start",
+        "timestamp_type": "duplicate_timestamp_transition"
+      },
+      "effective_conflicting_note_count": 72,
+      "effective_view_count": 12,
+      "entries": [
+        {
+          "common_class_index": 18,
+          "common_value": "diminished triad",
+          "entity_id": "span:dilemmadata-target-21ee99bce4f6d8da52a0a509-917564b62cd5-00000242",
+          "entry_index": 242,
+          "mapping_state": "exact",
+          "point_span": true,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "o"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 368
+          },
+          "span_start": {
+            "den": 1,
+            "num": 368
+          }
+        },
+        {
+          "common_class_index": 30,
+          "common_value": "major triad",
+          "entity_id": "span:dilemmadata-target-21ee99bce4f6d8da52a0a509-917564b62cd5-00000243",
+          "entry_index": 243,
+          "mapping_state": "exact",
+          "point_span": false,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "M"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 369
+          },
+          "span_start": {
+            "den": 1,
+            "num": 368
+          }
+        }
+      ],
+      "piece_id": "piece:dilemmadata-dlc-21ee99bce4f6d8da52a0a509",
+      "record_id": "dlc:corelli:op03n03d",
+      "source_conflict_group_id": "label-binding-conflict:b5a0feca20bab87aebd8fe4f0c37c3396077216e52a014202683cd6a395ac1c9",
+      "source_conflicting_note_count": 6,
+      "split": "train",
+      "task": "quality",
+      "transpositions": [
+        "P1",
+        "m2",
+        "M2",
+        "m3",
+        "M3",
+        "P4",
+        "A4",
+        "P5",
+        "m6",
+        "M6",
+        "m7",
+        "M7"
+      ]
+    },
+    {
+      "classification": {
+        "note_type": "ordinary_note_at_point_boundary",
+        "official_source_row_membership": "complete",
+        "span_type": "point_vs_interval_same_start",
+        "timestamp_type": "duplicate_timestamp_transition"
+      },
+      "effective_conflicting_note_count": 72,
+      "effective_view_count": 12,
+      "entries": [
+        {
+          "common_class_index": 18,
+          "common_value": "diminished triad",
+          "entity_id": "span:dilemmadata-target-21ee99bce4f6d8da52a0a509-917564b62cd5-00000003",
+          "entry_index": 3,
+          "mapping_state": "exact",
+          "point_span": true,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "o"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 8
+          },
+          "span_start": {
+            "den": 1,
+            "num": 8
+          }
+        },
+        {
+          "common_class_index": 30,
+          "common_value": "major triad",
+          "entity_id": "span:dilemmadata-target-21ee99bce4f6d8da52a0a509-917564b62cd5-00000004",
+          "entry_index": 4,
+          "mapping_state": "exact",
+          "point_span": false,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "M"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 9
+          },
+          "span_start": {
+            "den": 1,
+            "num": 8
+          }
+        }
+      ],
+      "piece_id": "piece:dilemmadata-dlc-21ee99bce4f6d8da52a0a509",
+      "record_id": "dlc:corelli:op03n03d",
+      "source_conflict_group_id": "label-binding-conflict:ba2b711896d02950aa5b90fc68035e21d1b8b9b86470cf7cc277cb10dcff67f4",
+      "source_conflicting_note_count": 6,
+      "split": "train",
+      "task": "quality",
+      "transpositions": [
+        "P1",
+        "m2",
+        "M2",
+        "m3",
+        "M3",
+        "P4",
+        "A4",
+        "P5",
+        "m6",
+        "M6",
+        "m7",
+        "M7"
+      ]
+    },
+    {
+      "classification": {
+        "note_type": "ordinary_note_at_point_boundary",
+        "official_source_row_membership": "complete",
+        "span_type": "point_vs_interval_same_start",
+        "timestamp_type": "duplicate_timestamp_transition"
+      },
+      "effective_conflicting_note_count": 96,
+      "effective_view_count": 12,
+      "entries": [
+        {
+          "common_class_index": 36,
+          "common_value": "minor triad",
+          "entity_id": "span:dilemmadata-target-e37e23a1361d3ce3d02ff1f5-917564b62cd5-00000306",
+          "entry_index": 306,
+          "mapping_state": "exact",
+          "point_span": true,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "m"
+          ],
+          "span_end": {
+            "den": 2,
+            "num": 531
+          },
+          "span_start": {
+            "den": 2,
+            "num": 531
+          }
+        },
+        {
+          "common_class_index": 30,
+          "common_value": "major triad",
+          "entity_id": "span:dilemmadata-target-e37e23a1361d3ce3d02ff1f5-917564b62cd5-00000307",
+          "entry_index": 307,
+          "mapping_state": "exact",
+          "point_span": false,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "M"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 267
+          },
+          "span_start": {
+            "den": 2,
+            "num": 531
+          }
+        }
+      ],
+      "piece_id": "piece:dilemmadata-dlc-e37e23a1361d3ce3d02ff1f5",
+      "record_id": "dlc:corelli:op01n07c",
+      "source_conflict_group_id": "label-binding-conflict:cec15f360187283ca79efcb903dfed54a65a9e61aa3add7fe1c22129c5974216",
+      "source_conflicting_note_count": 8,
+      "split": "train",
+      "task": "quality",
+      "transpositions": [
+        "P1",
+        "m2",
+        "M2",
+        "m3",
+        "M3",
+        "P4",
+        "A4",
+        "P5",
+        "m6",
+        "M6",
+        "m7",
+        "M7"
+      ]
+    },
+    {
+      "classification": {
+        "note_type": "ordinary_note_at_point_boundary",
+        "official_source_row_membership": "complete",
+        "span_type": "point_vs_interval_same_start",
+        "timestamp_type": "duplicate_timestamp_transition"
+      },
+      "effective_conflicting_note_count": 96,
+      "effective_view_count": 12,
+      "entries": [
+        {
+          "common_class_index": 36,
+          "common_value": "minor triad",
+          "entity_id": "span:dilemmadata-target-e37e23a1361d3ce3d02ff1f5-917564b62cd5-00000128",
+          "entry_index": 128,
+          "mapping_state": "exact",
+          "point_span": true,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "m"
+          ],
+          "span_end": {
+            "den": 2,
+            "num": 225
+          },
+          "span_start": {
+            "den": 2,
+            "num": 225
+          }
+        },
+        {
+          "common_class_index": 30,
+          "common_value": "major triad",
+          "entity_id": "span:dilemmadata-target-e37e23a1361d3ce3d02ff1f5-917564b62cd5-00000129",
+          "entry_index": 129,
+          "mapping_state": "exact",
+          "point_span": false,
+          "source_task_ids": [
+            "dilemmadata.dlc.chord.quality"
+          ],
+          "source_values": [
+            "M"
+          ],
+          "span_end": {
+            "den": 1,
+            "num": 114
+          },
+          "span_start": {
+            "den": 2,
+            "num": 225
+          }
+        }
+      ],
+      "piece_id": "piece:dilemmadata-dlc-e37e23a1361d3ce3d02ff1f5",
+      "record_id": "dlc:corelli:op01n07c",
+      "source_conflict_group_id": "label-binding-conflict:fd205d039a29d6f49fb0aa2d24d0b4c3bf1d7b746128ef83c95a3a0dc8460e27",
+      "source_conflicting_note_count": 8,
+      "split": "train",
+      "task": "quality",
+      "transpositions": [
+        "P1",
+        "m2",
+        "M2",
+        "m3",
+        "M3",
+        "P4",
+        "A4",
+        "P5",
+        "m6",
+        "M6",
+        "m7",
+        "M7"
+      ]
+    }
+  ],
+  "train_validation_counts": {
+    "effective_conflicting_note_occurrence_count": 960,
+    "effective_group_occurrence_count": 144,
+    "source_conflicting_note_count": 80,
+    "source_entry_count": 24,
+    "source_group_count": 12,
+    "source_record_count": 3
+  },
+  "training_authorized": false,
+  "version": "1.0.0"
+}

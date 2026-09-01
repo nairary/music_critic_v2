@@ -481,3 +481,202 @@ the pinned official AnalysisGNN `process_inversion_from_chord` evidence:
 DLC `2` and `42` map to third inversion. AN ordinal `2` remains a distinct
 source-task value mapped to second inversion. A shared token-only inversion
 reference is rejected; no upstream module is vendored or imported at runtime.
+
+## Phase 9E-B1 AnalysisGNN reconstruction
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or reused for Phase 9E-B1. No legacy model, graph,
+preprocessing, split, training, evaluation, or checkpoint logic was adapted.
+The isolated comparator derives from the user-supplied scientific
+specification, current V2 exact raw/target contracts, unchanged Phase 9E-A
+projection, pinned Dilemmadata evidence, and the official public AnalysisGNN
+and GraphMuse histories.
+
+Legacy theory-bearing inputs, float timing equality, target-derived topology,
+missing-as-negative labels, semantic-segmentation inference requirements,
+runtime legacy imports, checkpoint-shape guessing, and transposition leakage
+remain rejected. No adapted legacy concept was accepted.
+
+The 2026-08-29 overlapping-supervision remediation likewise opened, searched,
+imported, copied, modified, formatted, staged, and reused no legacy repository
+file or logic. Sparse note-to-source-entry memberships, equivalent-class
+deduplication, conflict diagnostics, the all-719 structural preflight, and the
+deterministic CUDA environment gate derive only from the current V2
+AnalysisGNN experiment adapter and immutable Phase 9E-A sidecars. The rejected
+assumptions are one-entry-per-note supervision, arbitrary point/interval
+priority, deleting zero-duration entries, unavailable-row overwrite, and
+silently resolving different available common classes.
+
+The subsequent conflicting-label forensic audit also did not open, search,
+import, copy, modify, format, stage, or reuse the legacy repository or its
+logic. Exact external evidence came only from read-only Dilemmadata commit
+`d60ee75b4a9495e932a4a7be39381578be17e222`,
+`processing/utils.py::make_labeled_pitch_array`, and read-only official
+AnalysisGNN commit `e115182fb29b74bdcb6bf3547ed427d967580947`:
+`analysisgnn/utils/dcl_tsv_utils.py::{load_labeled_pitch_array,
+create_graph_from_df,create_labels_dlc,process_inversion_from_chord}`,
+`analysisgnn/data/datasets/dlc.py::DLCGraphDataset._process_single`, and
+`analysisgnn/models/analysis.py::onsetwise_logit_aggregation`. These sources
+were inspected as provenance only and remain absent from the V2 runtime.
+
+The adapted concept is the official row-aligned DLC target interpretation:
+one retained TSV row becomes one graph note with one quality/inversion label.
+The audit rejects inferring point/interval, first/last, or grace precedence,
+because the pinned code defines none. It also rejects training one V2 note row
+against two different classes. No policy was implemented; exact V2 source-row
+membership is only the evidence-backed recommendation for a later remediation,
+with task-note masking retained as the conservative fallback if source-row
+provenance cannot be contract-bound.
+
+The exact source-row remediation likewise did not open, search, import, copy,
+modify, format, stage, or reuse the legacy repository or its logic. It turns
+the already recorded pinned Dilemmadata/AnalysisGNN row-alignment evidence into
+an experiment-local checked contract. The implementation uses current V2
+canonical note IDs, exact rational timing, source-native target entities, and
+the unchanged common projection. Arbitrary precedence, legacy label logic,
+runtime external imports, and fallback masking remain rejected; no legacy or
+pinned external checkout is required for ordinary V2 inference.
+
+## Phase 9E-B2 Dilemmadata raw coverage remediation
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or reused. No legacy preprocessing, tie, meter, graph,
+target, split, model, training, or evaluation logic was adapted. The repair
+policies derive only from the pinned Dilemmadata raw evidence, current V2 exact
+timing/canonical/graph contracts, and the preceding read-only coverage audit.
+
+The accepted V2 concepts are exact rational timing, target-blind raw
+construction, stable source identity, local masks for missing or ambiguous
+labels, and deterministic provenance. Float/epsilon equality, random tie
+selection, target-derived topology, fabricated note duration, whole-record
+exclusion for a local repair, mandatory gold segmentation, runtime legacy
+imports, and using the AnalysisGNN 14-record selection as a raw-adapter filter
+remain rejected. AnalysisGNN code, model, checkpoint, and labels were not used
+to make any repair decision, and this phase makes no exact-reproduction claim.
+
+## Phase 9E-B3 expanded multi-task contract
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or reused for B3. No legacy dataset selection, task mapping,
+vocabulary, entity identity, split, metric, model, or training logic was
+adapted. The legacy checkout is not required at runtime or for the source-free
+audit check.
+
+The only external scientific evidence inspected read-only was the official
+AnalysisGNN paper and pinned commit
+`e115182fb29b74bdcb6bf3547ed427d967580947`. It was used to document the
+20-property paper inventory, 21 unique code heads, joint Roman-numeral
+components, literal defects, aliases, and missing-as-class behavior. No
+external module is imported in production.
+
+Accepted V2 concepts are exact rational timing, B2 source components and raw
+lineage, target-independent shared entities, independent masks, stable SHA-256
+assignment, and explicit TEST sealing. Rejected assumptions include filename-
+only grouping, task-specific chord IDs, missing-as-class-0, silent `+7`/`+M7`
+collapse, malformed Roman literals, label-valued split objectives, target-
+derived raw graphs, legacy runtime imports, and claims of exact reproduction.
+
+The B3 scientific-contract remediation likewise opens, searches, imports,
+copies, modifies, and reuses no legacy file or logic. Its read-only evidence is
+limited to the already pinned official AnalysisGNN commit and the published
+paper: quality-17 remains the corrected source-faithful V2 space, while a
+separate serialized quality-15 projection reproduces the pinned `+7`/`+M7`
+collapse only for comparison. The corrected harmonic-event metric is rejected
+as a paper-compatible claim. A distinct unevaluated note-level contract follows
+the paper's five semantic components while recording that pinned validation/NCT
+and onset-test evaluator branches disagree. No external or legacy code is a
+runtime dependency.
+
+## Phase 9E-B4 class-balance audit
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or reused for B4. No legacy class-frequency, balancing,
+sampling, metric, dataset, split, model, or training logic was adapted. The
+audit derives only from the current V2 B3 registry, vocabularies, masks,
+canonical source-row provenance, frozen components/split, and target-sidecar
+contract. V2 and source-free B4 verification remain independent of the legacy
+checkout.
+
+Accepted concepts are V2-only: missing/masked targets stay outside classes;
+entity repetition is separated from canonical annotation support; record and
+component independence are explicit; TRAIN determines candidate weights; and
+VALIDATION measures coverage without opening TEST. Rejected assumptions are
+raw entity count as independent sample size, filename grouping, missing as a
+negative class, validation-informed weighting, TEST distribution inspection,
+silent rare-class merging, and automatic sampler/loss changes based on one
+audit.
+
+## Phase 9E-B5A transposition audit
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or reused for B5A. The legacy project supplies no V2
+transposition contract. The official profile was reconstructed independently
+from the separately pinned public AnalysisGNN commit `e115182...`; its source
+files and hashes are evidence only and are not runtime dependencies.
+
+Accepted V2 concepts are global pitch/key-consistent transposition, explicit
+equivariant versus invariant targets, immutable source/component identity, and
+TRAIN-only augmentation. Rejected assumptions are modulo octave wrapping,
+per-note octave repair, arithmetic class-ID shifting, random enharmonic choice,
+OOV fallback in corrected V2, view-level split assignment, counting variants
+as independent components, and inferring quality/Roman/phrase support from
+pitch-only augmentation.
+
+## Phase 9E-B5B training-policy freeze
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or reused for B5B. Legacy loss weighting, dataset sampling,
+task routing, model inputs, trainer, checkpoint, and metric implementations do
+not define any B5B contract and remain unnecessary for source-free checks.
+
+Official profile evidence was inspected only in the separate read-only public
+AnalysisGNN commit `e115182...` and the existing B1 attestation. Preserved
+official concepts include its 21 unique code heads, smoothed cross entropy,
+learned uncertainty weighting, combined loader, materialized transpositions,
+validation loss selection, and divergent joint evaluator branches. They are
+isolated in `O` and are not imported at runtime or applied to corrected V2.
+
+Corrected B5B concepts derive from the current V2 B3/B4/B5A evidence: masks,
+canonical source-row counts, frozen components, safe transposition closure,
+fixed head groups, bounded TRAIN-only weights, and explicit TEST locking.
+Rejected assumptions include missing-as-zero, treating all 20 heads as equal,
+training phrase/section from positive-only rows, weighting by broadcast note
+volume, counting augmented views as records, validation/TEST-informed weights,
+filename sampling, silent official-corpus substitution, and any performance
+claim without a paired `C0`/`C1` run.
+
+## Phase 9E-B5C corrected model and trainer
+
+No file in the read-only legacy repository was opened, searched, imported,
+copied, formatted, staged, or reused for B5C. The model is composed solely from
+current V2 production encoder, hierarchy, onset-BiGRU, graph, collator, B3
+sidecar, B5A transposition, and B5B policy APIs. The separately pinned public
+AnalysisGNN evidence remains documentation only and is not a runtime
+dependency.
+
+Accepted V2 concepts are raw-only prediction, exact rational/entity routing,
+independent task heads and masks, component-aware sampling, complete
+checkpoint state, and explicit corrected-versus-paper metric identities.
+Rejected legacy/official assumptions include logit fusion, target-derived
+graph structure, missing-as-class behavior, learned uncertainty weights,
+materialized augmented records, view-level split assignment, staff prediction,
+cadence-corpus substitution, TEST evaluation, and claims of exact AnalysisGNN
+reproduction.
+
+## Phase 9E-B5D full-training screen
+
+No legacy file was opened, searched, imported, copied, or changed for B5D.
+The phase only schedules the already accepted V2 B5C runtime for a larger
+paired budget. It reuses current V2 deterministic checkpoint/resume,
+component sampling, safe transposition, identity validation, and TEST-lock
+concepts. It rejects epoch-count reinterpretation, early stopping, profile O
+substitution, new optimizer/model behavior, and single-seed statistical
+claims.
+
+## Phase 9E-B5E result seal
+
+No legacy repository file was opened, searched, imported, copied, or modified
+for B5E. The result seal uses only B5D GPU artifacts and current V2 contracts.
+It preserves the negative C1 outcome rather than importing a legacy
+augmentation expectation, and rejects treating one seed as proof that all
+transposition strategies are harmful or beneficial.

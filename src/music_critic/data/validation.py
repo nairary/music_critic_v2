@@ -1080,6 +1080,20 @@ def _nominal_bar_duration(meter: MeterEvent) -> RationalTime:
     return RationalTime(meter.numerator * 4, meter.denominator)
 
 
+def _allows_exact_irregular_measure(ctx: _Context, bar: CanonicalBar) -> bool:
+    """Return whether exact source-boundary repair provenance permits this bar."""
+
+    provenance = ctx.provenance_by_id.get(bar.provenance_id)
+    return bool(
+        provenance is not None
+        and provenance.source == "music_critic.dilemmadata_adapter"
+        and any(
+            key == "raw_repair_evidence_version" and isinstance(value, str)
+            for key, value in provenance.details
+        )
+    )
+
+
 def _validate_bars(ctx: _Context) -> None:
     bars = _records(ctx, "bars", CanonicalBar)
     zero = RationalTime(0)
@@ -1157,7 +1171,8 @@ def _validate_bars(ctx: _Context) -> None:
             nominal = _nominal_bar_duration(meter)
             unit = RationalTime(4, meter.denominator)
             offset_units = offset.to_fraction() / unit.to_fraction()
-            if offset_units.denominator != 1:
+            exact_irregular = _allows_exact_irregular_measure(ctx, bar)
+            if offset_units.denominator != 1 and not exact_irregular:
                 ctx.add(
                     "BAR_INVALID",
                     "metric_offset_qn must align to the denominator-unit beat grid",
@@ -1199,7 +1214,7 @@ def _validate_bars(ctx: _Context) -> None:
                         (ordinal != len(bars) - 1 and not meter_change_boundary)
                         or offset != zero
                         or duration >= nominal
-                    ):
+                    ) and not exact_irregular:
                         ctx.add(
                             "BAR_INVALID",
                             "a non-pickup incomplete bar must end at piece duration or "
@@ -1271,19 +1286,22 @@ def _expected_beats(
         return None
     unit = RationalTime(4, meter.denominator)
     quotient = bar.metric_offset_qn.to_fraction() / unit.to_fraction()
-    if quotient.denominator != 1:
-        return None
     position = bar.metric_offset_qn
     bar_metric_end = position + bar.duration_qn
     start = bar.start_qn
-    index = quotient.numerator
+    index = quotient.numerator // quotient.denominator
     expected: list[tuple[int, RationalTime, RationalTime, RationalTime, bool]] = []
     while position < bar_metric_end:
+        phase = position.to_fraction() % unit.to_fraction()
+        capacity = unit if phase == 0 else unit - RationalTime(
+            phase.numerator,
+            phase.denominator,
+        )
         remaining = bar_metric_end - position
-        duration = unit if unit <= remaining else remaining
+        duration = capacity if capacity <= remaining else remaining
         expected.append((index, start, duration, position, position == RationalTime(0)))
         start = start + duration
-        position = position + unit
+        position = position + duration
         index += 1
     return tuple(expected)
 

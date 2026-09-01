@@ -43,6 +43,28 @@ raw adapter/cache/graph version.
 | exact alignment rules | `1.0.0` |
 | target audit report / manifest | `1.1.0` / `1.1.0` |
 
+### Phase 9E-B2 remediated compatibility path
+
+The table above remains authoritative for every historical unmodified record.
+For a raw record recovered by Phase 9E-B2 only, the raw adapter is `1.1.0`, the
+raw-to-target alignment evidence is `1.2.0`, and the target adapter is `1.2.0`;
+the external sidecar and generic `TargetBundle` contracts stay `1.0.0`.
+
+Alignment `1.2.0` is bound to `DilemmadataRawRepairEvidence@1.0.0` and applies
+the same exact raw-derived onset transform before target alignment. Repair
+evidence itself is not target content. A `note` repair-mask scope affects only
+entries bound to the repaired canonical note; an `all` scope affects only the
+task entries whose structural coordinate cannot be proved. Missing one target
+family remains ordinary per-task unavailability and never rejects a raw
+record. The target adapter cannot guide tie, time, measure, bar, beat, note, or
+graph reconstruction.
+
+The production remediation smoke builds representative AN and DLC sidecars in
+memory only and verifies transform equality, repair-fingerprint binding,
+per-task availability, and local masking. It writes no historical sidecar.
+All source sidecars and common projections for the previous 719 records remain
+unchanged.
+
 The Dilemmadata registry is an explicit extension to, not a mutation of, the
 18-task HookTheory/POP909-CL core registry. Therefore the accepted Phase 9B.1
 cache/index and split fingerprints do not change. A sample with a Dilemmadata
@@ -290,3 +312,87 @@ The committed compact manifest is
 it without corpus access. Locked-test targets were read only for the declared
 representation/coverage audit—no model inference, metric, selection, or test
 unlock occurred.
+
+## Phase 9E-B3 expanded multi-task sidecars
+
+B3 retains the 1,633-record raw inventory and adds a separate 1,619-record
+paper-candidate target inventory. Fourteen named DLC records duplicate AN
+source components and are selection exclusions only. AN peers, repaired raw
+records, and graphs remain. The separate AnalysisGNN cadence corpus is absent;
+DLC-native cadence labels remain eligible.
+
+The corrected registry contains 20 heads. Production quality uses the
+source-faithful 17-class space, retaining `+7` as `augmented seventh chord` and
+`+M7` as `augmented major tetrachord`. A separate frozen quality-15 projection
+maps those two labels to `augmented triad` only for AnalysisGNN comparison; it
+does not rewrite source-native target states or sidecars. Corrected Roman-184
+masks `none` and repairs the malformed concatenated literal.
+
+Harmonic heads share one event ID
+derived from record, dialect, annotation identity, first source row, and exact
+onset. Note IDs remain canonical raw identities. Per-head masks are independent;
+repair ambiguity affects only dependent rows. Phrase/section absence follows
+positive-unlabeled semantics, tonicized supervision requires secondary-degree
+evidence, and DLC inversion requires source `figbass` evidence.
+
+Full availability reproduces B2: inversion 1,632; tonicized key 1,581; cadence
+920; pedal 1,280; phrase 1,279; section 1,218. Paper-candidate availability is
+inversion 1,618; tonicized/secondary degree 1,567; cadence 916; pedal 1,266;
+phrase 1,265; section 1,205; all other full-coverage families 1,619.
+
+The audit materialized 1,452,122 harmonic events, 1,452,043 onsets, 2,747,530
+notes, and deterministic cross-level relations. Remediated semantic fingerprint
+is `94a19ed6bbecbbd0497310233c8a8ff4e34311b414124593a7326c759ff07954`.
+Corrected V2 harmonic-event TRAIN/VALIDATION joint support is 98,715/10,507.
+The separate paper-text note-level quality-15 metric is schema-only and was not
+evaluated; TEST was not evaluated.
+
+## Phase 9E-B5B training-policy use
+
+B5B does not rewrite or attach another target sidecar. It consumes only frozen
+B3/B4 evidence after split assignment and freezes how a future corrected
+trainer may route it. Eight primary and ten auxiliary heads remain independently
+masked; `phrase` and `section` are deferred because the positive boundary rows
+do not establish negative supervision. A missing sidecar value never becomes
+class zero or a negative boundary.
+
+Class weights count deduplicated canonical source-target rows in TRAIN before
+one source event is broadcast to notes or other entities. They do not count
+VALIDATION, TEST, or C1 transposition views. Every semantic vocabulary row is
+retained; unsupported classes have null weight. This preserves quality-17,
+Roman-184, source provenance, and independent task availability exactly.
+
+Component-balanced sampling chooses among the 1,209 TRAIN source components
+before selecting one of its records and any view. The selected record keeps its
+B3 component and split. `C0` uses identity; `C1` applies a valid B5A shift only
+after record selection. VALIDATION remains identity-only, no TEST loader is
+constructed, and no sidecar target was read for B5B evaluation because B5B
+performs no inference or evaluation.
+
+## Phase 9E-B5C post-prediction supervision
+
+B5C is the first consumer of the expanded B3 sidecar. Consumption does not
+attach theory fields to a graph. The corrected model first produces all raw
+candidate logits, then the trainer performs exact entity joins and builds
+loss-row tensors. Changing a sidecar can change targets, masks, loss, and
+metrics but cannot change logits from the same raw graph.
+
+The fixed routes are:
+
+- harmonic-event heads -> the target-free raw `beat` identified by the B3
+  `harmonic_event_to_beat` relation;
+- `cadence` -> raw `onset:{numerator}_{denominator}` from exact reduced
+  `onset_qn`;
+- note-level heads -> the raw note with the same canonical note ID.
+
+No nearest-time, float-equality, label-aware, broadcast-to-any-type, or
+target-window fallback exists. Failed routing is a masked row plus a stable
+diagnostic. For C1, a semantic value is transformed through the frozen B5A
+mapping after logits exist; masks, source entity, canonical entity,
+provenance, record, component, and split remain unchanged.
+
+Class weights come from the committed B5B TRAIN canonical-row payload.
+Unsupported classes retain logits and `weight=null`; a row of such a class is
+excluded from training rather than relabeled. VALIDATION uses the same exact
+join with identity transposition. The runner has no TEST sidecar reader or
+metric path.

@@ -1,0 +1,6090 @@
+{
+  "artifact_sha256": {
+    "AUDIT_REPORT.md": "1d726fd5f641152d50072daa2c68cdd2006962516de6c43ae4db979a7bfb5214",
+    "audit_summary.json": "e29dacbdd2e06568b2ff37634f831d188496a6770406d627a65686b6141e12a2",
+    "candidate_class_weights.json": "84045bbfc0471f611aa5294705fd80548c2f7bf4599fa8409e301f57cfbf800a",
+    "class_counts.jsonl": "9cf2ee95df002faad91ebf98534ec200b052df5c38d58c1a2bcb8c75e1cf2a69",
+    "head_balance_summary.json": "cd96739fc5ebd57dcd86f689034750cfa0fe1ecadf128301437671981271283f",
+    "joint_tuple_counts.jsonl": "32cd9a4396bdb68c2077b68ca0efd0cd31d400e7c3385ca000d9b1206e38686b",
+    "trainability_recommendations.json": "375940d9cf83e677988cf81513803fff27ba9da284d8259b92286f83a505ecc3"
+  },
+  "candidate_class_weight_summary": {
+    "fingerprint": "fb8172c60e26ce08d22073db674b2a95b525e6eff7d45465d609647f47bb465c",
+    "head_policies": {
+      "bass": "head_not_ready",
+      "cadence": "class_weighting_candidate",
+      "chord_tone": "component_balanced_sampling_candidate",
+      "harmonic_rhythm": "component_balanced_sampling_candidate",
+      "inversion": "component_balanced_sampling_candidate",
+      "is_bass": "component_balanced_sampling_candidate",
+      "is_root": "component_balanced_sampling_candidate",
+      "local_key": "head_not_ready",
+      "metrical_strength": "head_not_ready",
+      "note_degree": "head_not_ready",
+      "pedal": "component_balanced_sampling_candidate",
+      "phrase": "head_not_ready",
+      "pitch_class_set": "head_not_ready",
+      "primary_degree": "component_balanced_sampling_candidate",
+      "quality": "head_not_ready",
+      "roman_numeral": "head_not_ready",
+      "root": "head_not_ready",
+      "secondary_degree": "head_not_ready",
+      "section": "head_not_ready",
+      "tonicized_key": "head_not_ready"
+    },
+    "methods": [
+      "inverse_frequency",
+      "inverse_sqrt_frequency",
+      "effective_number"
+    ],
+    "policy_counts": {
+      "class_weighting_candidate": 1,
+      "component_balanced_sampling_candidate": 7,
+      "head_not_ready": 12
+    },
+    "train_only": true,
+    "validation_counts_used": false,
+    "weighting_policy_frozen": false
+  },
+  "class_balance_contract": {
+    "effective_component_count_formula": "(sum_i n_i)^2/sum_i(n_i^2)",
+    "effective_number_beta": 0.9999,
+    "effective_number_weight_formula": "(1-beta)/(1-beta**n)",
+    "entropy_formula": "-sum(p_i*log(p_i))/log(vocabulary_size)",
+    "fingerprint": "9e8e18b014c7b878aefd2c9f9c7cd2d26901255c3d1be994b08c3471233361aa",
+    "future_joint_metrics": [
+      "exact_joint_accuracy",
+      "component_wise_accuracy",
+      "support_count",
+      "seen_tuple_accuracy",
+      "unseen_tuple_accuracy"
+    ],
+    "future_multiclass_metrics": [
+      "micro_accuracy",
+      "balanced_accuracy",
+      "macro_f1",
+      "per_class_precision_recall_f1",
+      "support_by_class",
+      "record_level_support",
+      "component_level_support"
+    ],
+    "head_thresholds": {
+      "descriptive_min_available_train_components": 20,
+      "descriptive_problem_class_fraction": 0.25,
+      "majority_share": 0.5,
+      "max_to_min_nonzero_ratio": 20.0,
+      "normalized_entropy": 0.7
+    },
+    "missing_policy": "missing_or_masked_is_never_a_class",
+    "sampling_diagnostic_thresholds": {
+      "broadcast_factor": 2.0,
+      "effective_component_fraction": 0.5,
+      "largest_component_share": 0.5
+    },
+    "schema": "DilemmadataAnalysisGNNClassBalanceAudit@1.0.0",
+    "split_order": [
+      "train",
+      "validation"
+    ],
+    "train_thresholds": {
+      "broad_min_canonical_rows": 1000,
+      "broad_min_components": 50,
+      "insufficient_min_canonical_rows": 20,
+      "insufficient_min_components": 3,
+      "usable_min_canonical_rows": 100,
+      "usable_min_components": 10
+    },
+    "validation_thresholds": {
+      "observable_min_canonical_rows": 10,
+      "observable_min_components": 2
+    },
+    "version": "analysisgnn-class-balance-contract-v1",
+    "weight_methods": [
+      "inverse_frequency",
+      "inverse_sqrt_frequency",
+      "effective_number"
+    ],
+    "weight_normalization": "mean_one_over_nonzero_train_classes"
+  },
+  "fixture_fingerprint": "716b6799a3d32751f3bba679aee4678ab238bbddf116a503258ff2ff52d7620a",
+  "fixture_schema": "phase9eb4-analysisgnn-class-balance-fixture-v1",
+  "head_count": 20,
+  "head_summaries": [
+    {
+      "majority_share": 0.142968595457,
+      "max_to_min_nonzero_ratio": 2864.185185185185,
+      "problem_classes": {
+        "absent_classes": [
+          "A#",
+          "Abb",
+          "B#",
+          "Bbb",
+          "C##",
+          "Dbb",
+          "E#",
+          "Ebb",
+          "F##",
+          "G##",
+          "ab",
+          "b#",
+          "bb",
+          "bbb",
+          "cb",
+          "db",
+          "e#",
+          "eb",
+          "f##",
+          "gb"
+        ],
+        "fragile_classes": [
+          "Cb",
+          "D#",
+          "d#"
+        ],
+        "insufficient_classes": [
+          "Fb",
+          "a#"
+        ],
+        "validation_fragile_classes": [
+          "Cb",
+          "D#",
+          "d#",
+          "g#"
+        ],
+        "validation_unobservable_classes": [
+          "A#",
+          "Abb",
+          "B#",
+          "Bbb",
+          "C##",
+          "Dbb",
+          "E#",
+          "Ebb",
+          "F##",
+          "Fb",
+          "G##",
+          "Gb",
+          "a#",
+          "ab",
+          "b#",
+          "bb",
+          "bbb",
+          "cb",
+          "db",
+          "e#",
+          "eb",
+          "f##",
+          "gb"
+        ]
+      },
+      "recommendation": "descriptive_only",
+      "support_tier_counts": {
+        "absent": 20,
+        "broad": 18,
+        "fragile": 3,
+        "insufficient": 2,
+        "usable": 7
+      },
+      "task_id": "local_key",
+      "train_observed_class_count": 30,
+      "validation_observed_class_count": 27,
+      "vocabulary_size": 50
+    },
+    {
+      "majority_share": 0.135057322048,
+      "max_to_min_nonzero_ratio": 23408.0,
+      "problem_classes": {
+        "absent_classes": [
+          "ab",
+          "bb",
+          "bbb",
+          "cb",
+          "db",
+          "eb",
+          "gb"
+        ],
+        "fragile_classes": [
+          "Abb",
+          "Bbb",
+          "E#",
+          "Fb",
+          "a#",
+          "d#",
+          "g#"
+        ],
+        "insufficient_classes": [
+          "B#",
+          "C##",
+          "Dbb",
+          "Ebb",
+          "F##",
+          "G##",
+          "b#",
+          "e#",
+          "f##"
+        ],
+        "validation_fragile_classes": [
+          "A#",
+          "Abb",
+          "Bbb",
+          "Cb",
+          "Ebb",
+          "Fb"
+        ],
+        "validation_unobservable_classes": [
+          "B#",
+          "C##",
+          "Dbb",
+          "E#",
+          "F##",
+          "G##",
+          "a#",
+          "ab",
+          "b#",
+          "bb",
+          "bbb",
+          "cb",
+          "d#",
+          "db",
+          "e#",
+          "eb",
+          "f##",
+          "gb"
+        ]
+      },
+      "recommendation": "descriptive_only",
+      "support_tier_counts": {
+        "absent": 7,
+        "broad": 19,
+        "fragile": 7,
+        "insufficient": 9,
+        "usable": 8
+      },
+      "task_id": "tonicized_key",
+      "train_observed_class_count": 43,
+      "validation_observed_class_count": 32,
+      "vocabulary_size": 50
+    },
+    {
+      "majority_share": 0.133801550365,
+      "max_to_min_nonzero_ratio": 145818.0,
+      "problem_classes": {
+        "absent_classes": [
+          "Bbbb",
+          "Cbb",
+          "E###"
+        ],
+        "fragile_classes": [
+          "A##",
+          "Bbb",
+          "D##",
+          "Ebb",
+          "G##"
+        ],
+        "insufficient_classes": [
+          "Abb",
+          "C###",
+          "Dbb",
+          "E##",
+          "Fbb",
+          "Gbb"
+        ],
+        "validation_fragile_classes": [
+          "Abb",
+          "Bbb",
+          "D##",
+          "Dbb",
+          "Ebb",
+          "G##"
+        ],
+        "validation_unobservable_classes": [
+          "A##",
+          "Bbbb",
+          "C###",
+          "Cbb",
+          "E##",
+          "E###",
+          "Fbb",
+          "Gbb"
+        ]
+      },
+      "recommendation": "insufficient_support",
+      "support_tier_counts": {
+        "absent": 3,
+        "broad": 19,
+        "fragile": 5,
+        "insufficient": 6,
+        "usable": 4
+      },
+      "task_id": "root",
+      "train_observed_class_count": 34,
+      "validation_observed_class_count": 29,
+      "vocabulary_size": 37
+    },
+    {
+      "majority_share": 0.127826489081,
+      "max_to_min_nonzero_ratio": 139037.0,
+      "problem_classes": {
+        "absent_classes": [
+          "Bbbb",
+          "C###",
+          "E##"
+        ],
+        "fragile_classes": [
+          "Abb",
+          "D##",
+          "Dbb",
+          "G##"
+        ],
+        "insufficient_classes": [
+          "A##",
+          "Cbb",
+          "E###",
+          "Fbb",
+          "Gbb"
+        ],
+        "validation_fragile_classes": [
+          "D##",
+          "Dbb",
+          "G##"
+        ],
+        "validation_unobservable_classes": [
+          "A##",
+          "Bbbb",
+          "C###",
+          "Cbb",
+          "E##",
+          "E###",
+          "Ebb",
+          "Fbb",
+          "Gbb"
+        ]
+      },
+      "recommendation": "insufficient_support",
+      "support_tier_counts": {
+        "absent": 3,
+        "broad": 20,
+        "fragile": 4,
+        "insufficient": 5,
+        "usable": 5
+      },
+      "task_id": "bass",
+      "train_observed_class_count": 34,
+      "validation_observed_class_count": 28,
+      "vocabulary_size": 37
+    },
+    {
+      "majority_share": 0.38335384575,
+      "max_to_min_nonzero_ratio": 3340.69465648855,
+      "problem_classes": {
+        "absent_classes": [],
+        "fragile_classes": [],
+        "insufficient_classes": [],
+        "validation_fragile_classes": [
+          "-1",
+          "-5",
+          "#2",
+          "#3"
+        ],
+        "validation_unobservable_classes": []
+      },
+      "recommendation": "trainable_with_reweighting",
+      "support_tier_counts": {
+        "absent": 0,
+        "broad": 14,
+        "fragile": 0,
+        "insufficient": 0,
+        "usable": 7
+      },
+      "task_id": "primary_degree",
+      "train_observed_class_count": 21,
+      "validation_observed_class_count": 21,
+      "vocabulary_size": 21
+    },
+    {
+      "majority_share": 0.344299627456,
+      "max_to_min_nonzero_ratio": 1946.5625,
+      "problem_classes": {
+        "absent_classes": [],
+        "fragile_classes": [
+          "#1"
+        ],
+        "insufficient_classes": [
+          "#2",
+          "#5"
+        ],
+        "validation_fragile_classes": [
+          "-1",
+          "-4",
+          "#1"
+        ],
+        "validation_unobservable_classes": [
+          "#2",
+          "#5"
+        ]
+      },
+      "recommendation": "insufficient_support",
+      "support_tier_counts": {
+        "absent": 0,
+        "broad": 10,
+        "fragile": 1,
+        "insufficient": 2,
+        "usable": 8
+      },
+      "task_id": "secondary_degree",
+      "train_observed_class_count": 21,
+      "validation_observed_class_count": 19,
+      "vocabulary_size": 21
+    },
+    {
+      "majority_share": 0.454997613164,
+      "max_to_min_nonzero_ratio": 3575.91724137931,
+      "problem_classes": {
+        "absent_classes": [
+          "augmented sixth"
+        ],
+        "fragile_classes": [],
+        "insufficient_classes": [],
+        "validation_fragile_classes": [
+          "augmented major tetrachord"
+        ],
+        "validation_unobservable_classes": [
+          "augmented sixth"
+        ]
+      },
+      "recommendation": "insufficient_support",
+      "support_tier_counts": {
+        "absent": 1,
+        "broad": 12,
+        "fragile": 0,
+        "insufficient": 0,
+        "usable": 4
+      },
+      "task_id": "quality",
+      "train_observed_class_count": 16,
+      "validation_observed_class_count": 16,
+      "vocabulary_size": 17
+    },
+    {
+      "majority_share": 0.460446091561,
+      "max_to_min_nonzero_ratio": 6.625736337188,
+      "problem_classes": {
+        "absent_classes": [],
+        "fragile_classes": [],
+        "insufficient_classes": [],
+        "validation_fragile_classes": [],
+        "validation_unobservable_classes": []
+      },
+      "recommendation": "trainable",
+      "support_tier_counts": {
+        "absent": 0,
+        "broad": 4,
+        "fragile": 0,
+        "insufficient": 0,
+        "usable": 0
+      },
+      "task_id": "inversion",
+      "train_observed_class_count": 4,
+      "validation_observed_class_count": 4,
+      "vocabulary_size": 4
+    },
+    {
+      "majority_share": 0.208140111387,
+      "max_to_min_nonzero_ratio": 237614.0,
+      "problem_classes": {
+        "absent_classes": [
+          "vii%9",
+          "N+7",
+          "ii+7",
+          "bV+7",
+          "#v7",
+          "bi+7"
+        ],
+        "fragile_classes": [
+          "#iio7",
+          "Ger",
+          "Fr",
+          "#ivo7",
+          "#io7",
+          "iiio7",
+          "#vio7",
+          "#vii%7",
+          "#vo7",
+          "ii%",
+          "#io",
+          "#ivo",
+          "#V",
+          "VI+",
+          "ivo7",
+          "#iio",
+          "vio7",
+          "#iv%7",
+          "bIV7",
+          "#iv",
+          "io",
+          "iv%7",
+          "#i",
+          "N+",
+          "bV7",
+          "#iv7",
+          "bVI+",
+          "bii7",
+          "bI",
+          "i%7",
+          "bvi%7",
+          "bI7",
+          "II+7",
+          "#IV7",
+          "#v",
+          "bvii%7",
+          "#IV",
+          "#viio",
+          "#viio7",
+          "bIII7",
+          "bIII+",
+          "#VI"
+        ],
+        "insufficient_classes": [
+          "V79",
+          "VI+7",
+          "vii%",
+          "ii9",
+          "#vi%7",
+          "#vio",
+          "biii",
+          "#vo",
+          "IV9",
+          "iii%7",
+          "iv9",
+          "vii+",
+          "ivo",
+          "#iiio7",
+          "vo7",
+          "I+7",
+          "#vi7",
+          "#vii",
+          "#vii7",
+          "bII",
+          "#iiio",
+          "#vi",
+          "#vii%",
+          "VII+",
+          "bi",
+          "bbVII",
+          "II+",
+          "I9",
+          "ii%9",
+          "#III",
+          "bbvii",
+          "iii9",
+          "bv",
+          "biv",
+          "bi7",
+          "biio",
+          "#VII",
+          "bvio7",
+          "#i%7",
+          "bV+",
+          "biv7",
+          "bvio",
+          "bI+",
+          "#VI%7",
+          "bv7",
+          "bii%7",
+          "io7",
+          "#I7",
+          "biii7",
+          "#iii7",
+          "#VII+",
+          "#VI7",
+          "biio7",
+          "#v%7",
+          "#ii",
+          "#i7",
+          "#II",
+          "#VI+",
+          "#ii7",
+          "bVII+",
+          "#V7",
+          "##vio",
+          "#III7",
+          "#V+",
+          "bIII+7",
+          "#ii%7",
+          "#VII7",
+          "IV+7"
+        ],
+        "validation_fragile_classes": [
+          "N7",
+          "III+7",
+          "vii7",
+          "bVII7",
+          "VII7",
+          "bV",
+          "#io7",
+          "#vio7",
+          "#vii%7",
+          "ii%",
+          "vo",
+          "VI+7",
+          "#ivo",
+          "ii9",
+          "VI+",
+          "#vi%7",
+          "#iii",
+          "biii",
+          "vio7",
+          "#vo",
+          "iii%7",
+          "#iv%7",
+          "#iv",
+          "vo7",
+          "#i",
+          "I+7",
+          "N+",
+          "#iiio",
+          "#vi",
+          "vii%9",
+          "#iv7",
+          "II+",
+          "N+7",
+          "bv",
+          "biv",
+          "bI",
+          "#VII",
+          "#i%7",
+          "io7",
+          "bV+7",
+          "bIV",
+          "biii7",
+          "#iii7",
+          "II+7",
+          "#IV7",
+          "#v",
+          "#v%7",
+          "#ii",
+          "#v7",
+          "#I",
+          "bvi7",
+          "#IV",
+          "bIII7",
+          "bIII+7",
+          "IV+7",
+          "#VI"
+        ],
+        "validation_unobservable_classes": [
+          "II7",
+          "#iio7",
+          "Ger",
+          "Fr",
+          "#ivo7",
+          "iiio7",
+          "#vo7",
+          "#io",
+          "vii%",
+          "#V",
+          "ivo7",
+          "#iio",
+          "#vio",
+          "IV9",
+          "bIV7",
+          "iv9",
+          "bvii7",
+          "vii+",
+          "ivo",
+          "#iiio7",
+          "iv%7",
+          "#vi7",
+          "#vii",
+          "#vii7",
+          "bII",
+          "bV7",
+          "#vii%",
+          "VII+",
+          "bi",
+          "bbVII",
+          "I9",
+          "ii%9",
+          "#III",
+          "bbvii",
+          "iii9",
+          "bi7",
+          "bii7",
+          "biio",
+          "bvio7",
+          "bV+",
+          "biv7",
+          "bvio",
+          "ii+7",
+          "i%7",
+          "bvi%7",
+          "bI+",
+          "#VI%7",
+          "bv7",
+          "bii%7",
+          "#I7",
+          "bI7",
+          "#VII+",
+          "#VI7",
+          "biio7",
+          "#i7",
+          "bvii%7",
+          "#II",
+          "#VI+",
+          "#ii7",
+          "bVII+",
+          "#viio",
+          "#V7",
+          "##vio",
+          "#viio7",
+          "#III7",
+          "bIII+",
+          "#V+",
+          "#ii%7",
+          "bi+7",
+          "#VII7",
+          "bii"
+        ]
+      },
+      "recommendation": "descriptive_only",
+      "support_tier_counts": {
+        "absent": 6,
+        "broad": 33,
+        "fragile": 42,
+        "insufficient": 68,
+        "usable": 35
+      },
+      "task_id": "roman_numeral",
+      "train_observed_class_count": 178,
+      "validation_observed_class_count": 113,
+      "vocabulary_size": 184
+    },
+    {
+      "majority_share": 0.080393262559,
+      "max_to_min_nonzero_ratio": 11476.5,
+      "problem_classes": {
+        "absent_classes": [],
+        "fragile_classes": [
+          "0,2,6,8",
+          "0,4,6,10",
+          "0,4,10",
+          "0,6,8",
+          "1,2,6,9",
+          "1,3,7",
+          "1,3,7,9",
+          "1,4,8,9",
+          "1,4,8,11",
+          "1,5,6,10",
+          "1,5,7,11",
+          "1,5,11",
+          "2,8,10",
+          "3,4,8,11",
+          "3,5,9",
+          "3,6,10,11",
+          "3,9,11",
+          "4,6,10",
+          "5,7,11"
+        ],
+        "insufficient_classes": [
+          "0,2,6",
+          "1,7,9",
+          "2,4,8",
+          "2,4,8,10",
+          "3,5,9,11"
+        ],
+        "validation_fragile_classes": [
+          "0,2,6,8",
+          "0,3,7,8",
+          "0,4,7,11",
+          "1,3,6,10",
+          "1,3,7",
+          "1,3,7,9",
+          "1,5,8,10",
+          "1,5,11",
+          "2,3,7,10",
+          "2,5,9,10",
+          "2,8,10",
+          "3,5,9,11",
+          "3,9,11"
+        ],
+        "validation_unobservable_classes": [
+          "0,1,5,8",
+          "0,2,6",
+          "0,4,5,9",
+          "0,4,10",
+          "1,4,8,9",
+          "1,5,6,10",
+          "1,5,7,11",
+          "1,7,9",
+          "2,4,8",
+          "2,4,8,10",
+          "3,4,8,11",
+          "3,5,9",
+          "3,6,10,11",
+          "4,6,10",
+          "5,7,11"
+        ]
+      },
+      "recommendation": "insufficient_support",
+      "support_tier_counts": {
+        "absent": 0,
+        "broad": 42,
+        "fragile": 19,
+        "insufficient": 5,
+        "usable": 27
+      },
+      "task_id": "pitch_class_set",
+      "train_observed_class_count": 93,
+      "validation_observed_class_count": 78,
+      "vocabulary_size": 93
+    },
+    {
+      "majority_share": 0.719704521525,
+      "max_to_min_nonzero_ratio": 2.567663686337,
+      "problem_classes": {
+        "absent_classes": [],
+        "fragile_classes": [],
+        "insufficient_classes": [],
+        "validation_fragile_classes": [],
+        "validation_unobservable_classes": []
+      },
+      "recommendation": "trainable_with_reweighting",
+      "support_tier_counts": {
+        "absent": 0,
+        "broad": 2,
+        "fragile": 0,
+        "insufficient": 0,
+        "usable": 0
+      },
+      "task_id": "harmonic_rhythm",
+      "train_observed_class_count": 2,
+      "validation_observed_class_count": 2,
+      "vocabulary_size": 2
+    },
+    {
+      "majority_share": 0.495960054471,
+      "max_to_min_nonzero_ratio": 71.881578947368,
+      "problem_classes": {
+        "absent_classes": [],
+        "fragile_classes": [
+          "PC"
+        ],
+        "insufficient_classes": [],
+        "validation_fragile_classes": [
+          "PC"
+        ],
+        "validation_unobservable_classes": []
+      },
+      "recommendation": "trainable_with_reweighting",
+      "support_tier_counts": {
+        "absent": 0,
+        "broad": 3,
+        "fragile": 1,
+        "insufficient": 0,
+        "usable": 2
+      },
+      "task_id": "cadence",
+      "train_observed_class_count": 6,
+      "validation_observed_class_count": 6,
+      "vocabulary_size": 6
+    },
+    {
+      "majority_share": 1.0,
+      "max_to_min_nonzero_ratio": 1.0,
+      "problem_classes": {
+        "absent_classes": [
+          "false"
+        ],
+        "fragile_classes": [],
+        "insufficient_classes": [],
+        "validation_fragile_classes": [],
+        "validation_unobservable_classes": [
+          "false"
+        ]
+      },
+      "recommendation": "descriptive_only",
+      "support_tier_counts": {
+        "absent": 1,
+        "broad": 1,
+        "fragile": 0,
+        "insufficient": 0,
+        "usable": 0
+      },
+      "task_id": "phrase",
+      "train_observed_class_count": 1,
+      "validation_observed_class_count": 1,
+      "vocabulary_size": 2
+    },
+    {
+      "majority_share": 1.0,
+      "max_to_min_nonzero_ratio": 1.0,
+      "problem_classes": {
+        "absent_classes": [
+          "false"
+        ],
+        "fragile_classes": [],
+        "insufficient_classes": [],
+        "validation_fragile_classes": [],
+        "validation_unobservable_classes": [
+          "false"
+        ]
+      },
+      "recommendation": "descriptive_only",
+      "support_tier_counts": {
+        "absent": 1,
+        "broad": 1,
+        "fragile": 0,
+        "insufficient": 0,
+        "usable": 0
+      },
+      "task_id": "section",
+      "train_observed_class_count": 1,
+      "validation_observed_class_count": 1,
+      "vocabulary_size": 2
+    },
+    {
+      "majority_share": 0.893695839351,
+      "max_to_min_nonzero_ratio": 8.406969528724,
+      "problem_classes": {
+        "absent_classes": [],
+        "fragile_classes": [],
+        "insufficient_classes": [],
+        "validation_fragile_classes": [],
+        "validation_unobservable_classes": []
+      },
+      "recommendation": "trainable_with_reweighting",
+      "support_tier_counts": {
+        "absent": 0,
+        "broad": 2,
+        "fragile": 0,
+        "insufficient": 0,
+        "usable": 0
+      },
+      "task_id": "pedal",
+      "train_observed_class_count": 2,
+      "validation_observed_class_count": 2,
+      "vocabulary_size": 2
+    },
+    {
+      "majority_share": 0.511208038392,
+      "max_to_min_nonzero_ratio": 160501.2857142857,
+      "problem_classes": {
+        "absent_classes": [
+          "26",
+          "28",
+          "30",
+          "32",
+          "34",
+          "36",
+          "37",
+          "38",
+          "39",
+          "40",
+          "41",
+          "42",
+          "43",
+          "44"
+        ],
+        "fragile_classes": [
+          "9",
+          "10",
+          "11",
+          "12",
+          "13",
+          "14",
+          "15",
+          "16",
+          "17",
+          "19"
+        ],
+        "insufficient_classes": [
+          "18",
+          "20",
+          "21",
+          "22",
+          "23",
+          "24",
+          "25",
+          "27",
+          "29",
+          "31",
+          "33",
+          "35"
+        ],
+        "validation_fragile_classes": [
+          "6",
+          "8"
+        ],
+        "validation_unobservable_classes": [
+          "9",
+          "10",
+          "11",
+          "12",
+          "13",
+          "14",
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20",
+          "21",
+          "22",
+          "23",
+          "24",
+          "25",
+          "26",
+          "27",
+          "28",
+          "29",
+          "30",
+          "31",
+          "32",
+          "33",
+          "34",
+          "35",
+          "36",
+          "37",
+          "38",
+          "39",
+          "40",
+          "41",
+          "42",
+          "43",
+          "44"
+        ]
+      },
+      "recommendation": "descriptive_only",
+      "support_tier_counts": {
+        "absent": 14,
+        "broad": 5,
+        "fragile": 10,
+        "insufficient": 12,
+        "usable": 4
+      },
+      "task_id": "metrical_strength",
+      "train_observed_class_count": 31,
+      "validation_observed_class_count": 9,
+      "vocabulary_size": 45
+    },
+    {
+      "majority_share": 0.194693842864,
+      "max_to_min_nonzero_ratio": 211915.0,
+      "problem_classes": {
+        "absent_classes": [
+          "bbb1",
+          "###2",
+          "bbb4",
+          "###4",
+          "bbb5",
+          "bbb6",
+          "###7"
+        ],
+        "fragile_classes": [
+          "bb1",
+          "##2",
+          "##5",
+          "bbb7",
+          "##7"
+        ],
+        "insufficient_classes": [
+          "###1",
+          "bbb2",
+          "bbb3",
+          "###3",
+          "bb4",
+          "###5",
+          "###6"
+        ],
+        "validation_fragile_classes": [
+          "bb1",
+          "##1",
+          "##3",
+          "bb4",
+          "bb5",
+          "###6",
+          "bb7",
+          "##7"
+        ],
+        "validation_unobservable_classes": [
+          "bbb1",
+          "###1",
+          "bbb2",
+          "##2",
+          "###2",
+          "bbb3",
+          "bb3",
+          "###3",
+          "bbb4",
+          "###4",
+          "bbb5",
+          "##5",
+          "###5",
+          "bbb6",
+          "bb6",
+          "bbb7",
+          "###7"
+        ]
+      },
+      "recommendation": "descriptive_only",
+      "support_tier_counts": {
+        "absent": 7,
+        "broad": 21,
+        "fragile": 5,
+        "insufficient": 7,
+        "usable": 9
+      },
+      "task_id": "note_degree",
+      "train_observed_class_count": 42,
+      "validation_observed_class_count": 32,
+      "vocabulary_size": 49
+    },
+    {
+      "majority_share": 0.787502899759,
+      "max_to_min_nonzero_ratio": 3.705946569935,
+      "problem_classes": {
+        "absent_classes": [],
+        "fragile_classes": [],
+        "insufficient_classes": [],
+        "validation_fragile_classes": [],
+        "validation_unobservable_classes": []
+      },
+      "recommendation": "trainable_with_reweighting",
+      "support_tier_counts": {
+        "absent": 0,
+        "broad": 2,
+        "fragile": 0,
+        "insufficient": 0,
+        "usable": 0
+      },
+      "task_id": "chord_tone",
+      "train_observed_class_count": 2,
+      "validation_observed_class_count": 2,
+      "vocabulary_size": 2
+    },
+    {
+      "majority_share": 0.703513015037,
+      "max_to_min_nonzero_ratio": 2.372829333895,
+      "problem_classes": {
+        "absent_classes": [],
+        "fragile_classes": [],
+        "insufficient_classes": [],
+        "validation_fragile_classes": [],
+        "validation_unobservable_classes": []
+      },
+      "recommendation": "trainable_with_reweighting",
+      "support_tier_counts": {
+        "absent": 0,
+        "broad": 2,
+        "fragile": 0,
+        "insufficient": 0,
+        "usable": 0
+      },
+      "task_id": "is_root",
+      "train_observed_class_count": 2,
+      "validation_observed_class_count": 2,
+      "vocabulary_size": 2
+    },
+    {
+      "majority_share": 0.691370087349,
+      "max_to_min_nonzero_ratio": 2.240126633902,
+      "problem_classes": {
+        "absent_classes": [],
+        "fragile_classes": [],
+        "insufficient_classes": [],
+        "validation_fragile_classes": [],
+        "validation_unobservable_classes": []
+      },
+      "recommendation": "trainable_with_reweighting",
+      "support_tier_counts": {
+        "absent": 0,
+        "broad": 2,
+        "fragile": 0,
+        "insufficient": 0,
+        "usable": 0
+      },
+      "task_id": "is_bass",
+      "train_observed_class_count": 2,
+      "validation_observed_class_count": 2,
+      "vocabulary_size": 2
+    }
+  ],
+  "input_fingerprints": {
+    "b3_artifact_sha256": {
+      "dataset_manifest.json": "740426bd17393047d1140917e9a1bb11b93c4f6f2d173573f141926c86a5d341",
+      "entity_registry.jsonl": "07089ed2e275bbd52b95b138002a9b1010476c7c48fcc29460cdb1a10a6d7a44",
+      "paper_candidate_manifest.json": "ae806363358bae8e82931581b11ade48f9d9fa9a4883fb18e15e4425f69e1dfb",
+      "paper_candidate_records.jsonl": "42d688619c5699e404ec545076339547bb38d16976c6e4605437e8c539f972c1",
+      "split_assignments.jsonl": "056de0942918976981401db5017f6e567bc8949bae91ae395f0bd669adbfd51a",
+      "split_summary.json": "55eac7d5c1b2f79360b91029261bfd34b746454a2e4c999af75742c625e12c42",
+      "target_sidecars.jsonl": "bfce0785ccf77cba29024ef5b2a404131d773aaf0c588a147c62934f92f9b349",
+      "task_registry.json": "232e1b45542334755018f1b710741532924eee3facb77a14656fa3c1c8ce2b42",
+      "vocabularies.json": "3895c52d46fc980250484850afabc953d74108d9a766a409aa4e158926523deb"
+    },
+    "b3_semantic_fingerprint": "94a19ed6bbecbbd0497310233c8a8ff4e34311b414124593a7326c759ff07954",
+    "corpus_content_fingerprint": "8f1161ad7cdbd979845012ffc6150cd82c5e91ab1197ed97385fffce57a0f312",
+    "split_fingerprint": "67a3082efd1a6bfd8c4eeb098ad833c7778dd141c0cca40f2d55f9e0e9546614"
+  },
+  "joint_tuples": {
+    "compatibility_note": {
+      "train": {
+        "canonical_harmonic_target_rows": 98438,
+        "component_count": 1091,
+        "frequency_distribution": {
+          "1": 264,
+          "10": 92,
+          "100": 1,
+          "101": 4,
+          "102": 4,
+          "103": 3,
+          "104": 2,
+          "106": 1,
+          "107": 2,
+          "108": 3,
+          "109": 1,
+          "11": 40,
+          "110": 4,
+          "1105": 1,
+          "111": 3,
+          "114": 5,
+          "115": 2,
+          "116": 2,
+          "117": 2,
+          "118": 6,
+          "119": 2,
+          "12": 143,
+          "121": 2,
+          "123": 3,
+          "124": 1,
+          "125": 2,
+          "126": 2,
+          "127": 3,
+          "128": 1,
+          "129": 1,
+          "13": 39,
+          "130": 2,
+          "133": 2,
+          "134": 1,
+          "135": 2,
+          "136": 3,
+          "138": 2,
+          "14": 62,
+          "140": 1,
+          "141": 3,
+          "142": 2,
+          "143": 5,
+          "144": 2,
+          "145": 1,
+          "146": 2,
+          "147": 1,
+          "148": 1,
+          "15": 24,
+          "150": 3,
+          "151": 2,
+          "153": 1,
+          "154": 1,
+          "155": 1,
+          "156": 3,
+          "157": 1,
+          "159": 1,
+          "16": 76,
+          "161": 4,
+          "162": 1,
+          "163": 2,
+          "164": 2,
+          "17": 27,
+          "170": 3,
+          "173": 1,
+          "174": 2,
+          "175": 1,
+          "176": 1,
+          "178": 2,
+          "179": 1,
+          "18": 63,
+          "180": 2,
+          "181": 1,
+          "187": 1,
+          "188": 2,
+          "189": 1,
+          "19": 22,
+          "190": 1,
+          "191": 2,
+          "194": 1,
+          "195": 1,
+          "198": 1,
+          "2": 347,
+          "20": 43,
+          "204": 2,
+          "205": 2,
+          "21": 21,
+          "210": 1,
+          "212": 2,
+          "213": 1,
+          "215": 1,
+          "216": 1,
+          "217": 1,
+          "218": 1,
+          "22": 28,
+          "220": 2,
+          "223": 3,
+          "226": 1,
+          "23": 22,
+          "232": 1,
+          "233": 1,
+          "239": 1,
+          "24": 58,
+          "240": 2,
+          "241": 1,
+          "245": 1,
+          "247": 1,
+          "248": 1,
+          "25": 14,
+          "250": 1,
+          "251": 3,
+          "257": 1,
+          "258": 1,
+          "259": 1,
+          "26": 29,
+          "269": 2,
+          "27": 12,
+          "271": 1,
+          "274": 1,
+          "28": 24,
+          "280": 1,
+          "281": 1,
+          "285": 1,
+          "287": 1,
+          "29": 9,
+          "291": 1,
+          "3": 200,
+          "30": 15,
+          "302": 2,
+          "304": 1,
+          "307": 1,
+          "31": 9,
+          "316": 1,
+          "32": 24,
+          "321": 2,
+          "322": 1,
+          "327": 1,
+          "33": 14,
+          "331": 2,
+          "338": 1,
+          "34": 16,
+          "348": 1,
+          "35": 18,
+          "351": 1,
+          "358": 1,
+          "36": 17,
+          "37": 17,
+          "38": 10,
+          "385": 1,
+          "388": 2,
+          "39": 15,
+          "393": 1,
+          "4": 347,
+          "40": 18,
+          "407": 1,
+          "408": 1,
+          "41": 7,
+          "410": 1,
+          "413": 1,
+          "416": 1,
+          "42": 12,
+          "43": 12,
+          "435": 1,
+          "437": 1,
+          "44": 14,
+          "445": 1,
+          "446": 1,
+          "447": 1,
+          "45": 6,
+          "46": 7,
+          "468": 1,
+          "469": 1,
+          "47": 3,
+          "470": 1,
+          "48": 12,
+          "49": 7,
+          "5": 79,
+          "50": 6,
+          "500": 1,
+          "51": 6,
+          "515": 1,
+          "517": 1,
+          "52": 5,
+          "523": 1,
+          "529": 1,
+          "53": 7,
+          "532": 1,
+          "539": 1,
+          "54": 7,
+          "55": 12,
+          "558": 1,
+          "56": 11,
+          "57": 3,
+          "576": 1,
+          "58": 7,
+          "59": 10,
+          "6": 207,
+          "60": 2,
+          "600": 1,
+          "61": 4,
+          "616": 1,
+          "62": 7,
+          "63": 5,
+          "632": 1,
+          "64": 3,
+          "65": 4,
+          "650": 1,
+          "66": 8,
+          "67": 7,
+          "68": 5,
+          "69": 7,
+          "7": 60,
+          "70": 1,
+          "715": 1,
+          "72": 6,
+          "724": 1,
+          "73": 3,
+          "74": 3,
+          "75": 4,
+          "76": 1,
+          "77": 2,
+          "78": 1,
+          "79": 2,
+          "8": 227,
+          "80": 7,
+          "81": 6,
+          "82": 5,
+          "83": 2,
+          "84": 2,
+          "840": 1,
+          "86": 1,
+          "87": 2,
+          "88": 5,
+          "89": 6,
+          "9": 56,
+          "90": 3,
+          "91": 2,
+          "92": 3,
+          "93": 1,
+          "94": 6,
+          "95": 3,
+          "96": 4,
+          "97": 3,
+          "98": 3,
+          "99": 3
+        },
+        "record_count": 1170,
+        "row_count": 187548,
+        "singleton_tuple_count": 264,
+        "top_20": [
+          {
+            "canonical_harmonic_target_row_count": 1105,
+            "row_count": 1968,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 840,
+            "row_count": 1401,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "G",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 724,
+            "row_count": 1318,
+            "tuple": {
+              "inversion": "0",
+              "local_key": "F",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 715,
+            "row_count": 1036,
+            "tuple": {
+              "inversion": "2",
+              "local_key": "c",
+              "primary_degree": "7",
+              "quality": "diminished seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 650,
+            "row_count": 1174,
+            "tuple": {
+              "inversion": "0",
+              "local_key": "c",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 632,
+            "row_count": 1147,
+            "tuple": {
+              "inversion": "3",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 616,
+            "row_count": 1256,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "A",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 600,
+            "row_count": 979,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 576,
+            "row_count": 1300,
+            "tuple": {
+              "inversion": "3",
+              "local_key": "A",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 558,
+            "row_count": 967,
+            "tuple": {
+              "inversion": "0",
+              "local_key": "F",
+              "primary_degree": "5",
+              "quality": "major triad",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 539,
+            "row_count": 998,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "G",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 532,
+            "row_count": 906,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "A",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 529,
+            "row_count": 781,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "G",
+              "primary_degree": "7",
+              "quality": "diminished triad",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 523,
+            "row_count": 962,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "F",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 517,
+            "row_count": 902,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "D",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 515,
+            "row_count": 1040,
+            "tuple": {
+              "inversion": "3",
+              "local_key": "D",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 500,
+            "row_count": 1108,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "E",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 470,
+            "row_count": 925,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "F",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 469,
+            "row_count": 962,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "D",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 468,
+            "row_count": 729,
+            "tuple": {
+              "inversion": "0",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "major triad",
+              "secondary_degree": "5"
+            }
+          }
+        ],
+        "top_coverage": {
+          "top_10": 0.071273288771,
+          "top_20": 0.122696519637,
+          "top_50": 0.234320079644
+        },
+        "unique_tuple_count": 3334
+      },
+      "validation": {
+        "canonical_harmonic_target_rows": 10477,
+        "component_count": 134,
+        "frequency_distribution": {
+          "1": 135,
+          "10": 22,
+          "11": 13,
+          "12": 28,
+          "126": 1,
+          "128": 1,
+          "13": 5,
+          "131": 1,
+          "132": 1,
+          "14": 18,
+          "15": 14,
+          "152": 1,
+          "16": 18,
+          "17": 8,
+          "18": 5,
+          "19": 1,
+          "2": 117,
+          "20": 10,
+          "205": 1,
+          "21": 2,
+          "22": 6,
+          "23": 7,
+          "24": 14,
+          "25": 4,
+          "26": 5,
+          "27": 2,
+          "28": 8,
+          "3": 56,
+          "30": 3,
+          "31": 4,
+          "32": 4,
+          "33": 1,
+          "34": 7,
+          "35": 2,
+          "36": 4,
+          "37": 2,
+          "38": 5,
+          "39": 2,
+          "4": 108,
+          "40": 1,
+          "41": 2,
+          "42": 2,
+          "43": 1,
+          "44": 1,
+          "45": 2,
+          "46": 2,
+          "47": 2,
+          "48": 3,
+          "49": 1,
+          "5": 35,
+          "51": 4,
+          "52": 1,
+          "54": 2,
+          "56": 2,
+          "57": 3,
+          "58": 2,
+          "6": 46,
+          "60": 1,
+          "61": 1,
+          "64": 1,
+          "65": 2,
+          "66": 1,
+          "67": 2,
+          "69": 1,
+          "7": 18,
+          "70": 1,
+          "71": 2,
+          "72": 1,
+          "76": 1,
+          "8": 67,
+          "80": 1,
+          "82": 1,
+          "86": 1,
+          "9": 13,
+          "94": 2,
+          "95": 1,
+          "97": 1
+        },
+        "record_count": 149,
+        "row_count": 20465,
+        "singleton_tuple_count": 135,
+        "top_20": [
+          {
+            "canonical_harmonic_target_row_count": 205,
+            "row_count": 406,
+            "tuple": {
+              "inversion": "3",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 152,
+            "row_count": 270,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "2"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 132,
+            "row_count": 260,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 131,
+            "row_count": 261,
+            "tuple": {
+              "inversion": "2",
+              "local_key": "D",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 128,
+            "row_count": 212,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 126,
+            "row_count": 200,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "G",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 97,
+            "row_count": 160,
+            "tuple": {
+              "inversion": "2",
+              "local_key": "C",
+              "primary_degree": "7",
+              "quality": "diminished seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 95,
+            "row_count": 197,
+            "tuple": {
+              "inversion": "3",
+              "local_key": "G",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 94,
+            "row_count": 191,
+            "tuple": {
+              "inversion": "0",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "2"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 94,
+            "row_count": 149,
+            "tuple": {
+              "inversion": "3",
+              "local_key": "D",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 86,
+            "row_count": 112,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "G",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "2"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 82,
+            "row_count": 175,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "C",
+              "primary_degree": "#7",
+              "quality": "diminished seventh chord",
+              "secondary_degree": "2"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 80,
+            "row_count": 144,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "A",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 76,
+            "row_count": 106,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "D",
+              "primary_degree": "7",
+              "quality": "Italian augmented sixth chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 72,
+            "row_count": 139,
+            "tuple": {
+              "inversion": "3",
+              "local_key": "G",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 71,
+            "row_count": 152,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "E",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 71,
+            "row_count": 96,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "G",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 70,
+            "row_count": 142,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "A",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 69,
+            "row_count": 100,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "D",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 67,
+            "row_count": 123,
+            "tuple": {
+              "inversion": "0",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          }
+        ],
+        "top_coverage": {
+          "top_10": 0.119690751169,
+          "top_20": 0.190703445643,
+          "top_50": 0.346759568579
+        },
+        "unique_tuple_count": 877
+      },
+      "validation_tuples_unseen_in_train": [
+        {
+          "inversion": "2",
+          "local_key": "A",
+          "primary_degree": "#7",
+          "quality": "diminished triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "A",
+          "primary_degree": "-2",
+          "quality": "major seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "A",
+          "primary_degree": "2",
+          "quality": "diminished triad",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "A",
+          "primary_degree": "2",
+          "quality": "diminished triad",
+          "secondary_degree": "-5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "A",
+          "primary_degree": "4",
+          "quality": "minor triad",
+          "secondary_degree": "-5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "A",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "2",
+          "local_key": "A",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "-6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Ab",
+          "primary_degree": "2",
+          "quality": "minor seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Ab",
+          "primary_degree": "2",
+          "quality": "minor seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Ab",
+          "primary_degree": "4",
+          "quality": "major triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Ab",
+          "primary_degree": "4",
+          "quality": "major triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "B",
+          "primary_degree": "2",
+          "quality": "minor triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "0",
+          "local_key": "B",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "0",
+          "local_key": "Bb",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Bb",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Bb",
+          "primary_degree": "2",
+          "quality": "minor triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Bb",
+          "primary_degree": "2",
+          "quality": "diminished triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Bb",
+          "primary_degree": "4",
+          "quality": "minor triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Bb",
+          "primary_degree": "4",
+          "quality": "minor triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "0",
+          "local_key": "Bb",
+          "primary_degree": "4",
+          "quality": "major triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "0",
+          "local_key": "Bb",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Bb",
+          "primary_degree": "7",
+          "quality": "German augmented sixth chord",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Bb",
+          "primary_degree": "7",
+          "quality": "Italian augmented sixth chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Bb",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "#6",
+          "quality": "diminished triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "#7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "0",
+          "local_key": "C",
+          "primary_degree": "#7",
+          "quality": "diminished triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "#7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "#7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "2",
+          "quality": "minor seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "2",
+          "quality": "diminished triad",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "3",
+          "quality": "major triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "3",
+          "quality": "major triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "4",
+          "quality": "major triad",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "4",
+          "quality": "minor seventh chord",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "4",
+          "quality": "minor triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "5",
+          "quality": "augmented triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "5",
+          "quality": "diminished triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "5",
+          "quality": "diminished triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "6",
+          "quality": "minor triad",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "3",
+          "local_key": "C",
+          "primary_degree": "6",
+          "quality": "major seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "6",
+          "quality": "major triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "#1"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "#6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "#7"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "0",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "minor triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "minor triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "German augmented sixth chord",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Cb",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "#6",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "3",
+          "local_key": "D",
+          "primary_degree": "#6",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "#6",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "#7",
+          "quality": "diminished triad",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "0",
+          "local_key": "D",
+          "primary_degree": "#7",
+          "quality": "diminished triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "D",
+          "primary_degree": "-3",
+          "quality": "major triad",
+          "secondary_degree": "-5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "-3",
+          "quality": "major triad",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "-3",
+          "quality": "minor triad",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "0",
+          "local_key": "D",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "-6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "1",
+          "quality": "major seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "0",
+          "local_key": "D",
+          "primary_degree": "1",
+          "quality": "minor triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "2",
+          "quality": "minor seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "3",
+          "quality": "major seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "0",
+          "local_key": "D",
+          "primary_degree": "3",
+          "quality": "minor triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "0",
+          "local_key": "D",
+          "primary_degree": "4",
+          "quality": "major triad",
+          "secondary_degree": "-6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "5",
+          "quality": "augmented triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "6",
+          "quality": "minor triad",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "3",
+          "local_key": "Db",
+          "primary_degree": "#7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Db",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "-5"
+        },
+        {
+          "inversion": "2",
+          "local_key": "E",
+          "primary_degree": "#7",
+          "quality": "diminished triad",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "0",
+          "local_key": "E",
+          "primary_degree": "#7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "2",
+          "local_key": "E",
+          "primary_degree": "#7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "0",
+          "local_key": "E",
+          "primary_degree": "#7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "-2",
+          "quality": "major triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "2",
+          "local_key": "E",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "-6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "1",
+          "quality": "minor triad",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "1",
+          "quality": "minor triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "1",
+          "quality": "minor triad",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "1",
+          "quality": "minor triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "2",
+          "quality": "diminished triad",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "2",
+          "quality": "minor seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "2",
+          "local_key": "E",
+          "primary_degree": "2",
+          "quality": "minor seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "4",
+          "quality": "major triad",
+          "secondary_degree": "-7"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "4",
+          "quality": "minor triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "-7"
+        },
+        {
+          "inversion": "0",
+          "local_key": "E",
+          "primary_degree": "5",
+          "quality": "augmented triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "7",
+          "quality": "German augmented sixth chord",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Eb",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "#6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Eb",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "#7"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Eb",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Eb",
+          "primary_degree": "2",
+          "quality": "minor triad",
+          "secondary_degree": "-3"
+        },
+        {
+          "inversion": "3",
+          "local_key": "Eb",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Eb",
+          "primary_degree": "3",
+          "quality": "major triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Eb",
+          "primary_degree": "4",
+          "quality": "major triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "-6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "5",
+          "quality": "French augmented sixth chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Eb",
+          "primary_degree": "5",
+          "quality": "minor triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "3",
+          "local_key": "Eb",
+          "primary_degree": "6",
+          "quality": "major seventh chord",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "#6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "#7"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "#7"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "-3"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "German augmented sixth chord",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "3",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "German augmented sixth chord",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "3",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "#6",
+          "quality": "diminished triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "#6",
+          "quality": "diminished triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "3",
+          "local_key": "F",
+          "primary_degree": "#7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "2",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "2",
+          "quality": "minor seventh chord",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "4",
+          "quality": "major triad",
+          "secondary_degree": "-6"
+        },
+        {
+          "inversion": "3",
+          "local_key": "F",
+          "primary_degree": "4",
+          "quality": "major seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "-3"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "-6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "F",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "-7"
+        },
+        {
+          "inversion": "2",
+          "local_key": "F",
+          "primary_degree": "5",
+          "quality": "French augmented sixth chord",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "2",
+          "local_key": "F",
+          "primary_degree": "5",
+          "quality": "augmented triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F#",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "F#",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F#",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "2",
+          "local_key": "F#",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F#",
+          "primary_degree": "2",
+          "quality": "minor triad",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "2",
+          "local_key": "F#",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "2",
+          "local_key": "F#",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "-7"
+        },
+        {
+          "inversion": "2",
+          "local_key": "F#",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "3",
+          "local_key": "F#",
+          "primary_degree": "7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F#",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F#",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "1",
+          "local_key": "G",
+          "primary_degree": "#4",
+          "quality": "German augmented sixth chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "G",
+          "primary_degree": "#7",
+          "quality": "minor triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "G",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "G",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "G",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "#3"
+        },
+        {
+          "inversion": "2",
+          "local_key": "G",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "#4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "G",
+          "primary_degree": "4",
+          "quality": "minor triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "1",
+          "local_key": "G",
+          "primary_degree": "5",
+          "quality": "major seventh chord",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "0",
+          "local_key": "G",
+          "primary_degree": "6",
+          "quality": "minor triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "G",
+          "primary_degree": "7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "0",
+          "local_key": "b",
+          "primary_degree": "#7",
+          "quality": "diminished triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "0",
+          "local_key": "b",
+          "primary_degree": "#7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "b",
+          "primary_degree": "2",
+          "quality": "minor seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "0",
+          "local_key": "b",
+          "primary_degree": "5",
+          "quality": "incomplete dominant-seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "b",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "3",
+          "local_key": "b",
+          "primary_degree": "5",
+          "quality": "minor seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "1",
+          "local_key": "b",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "c",
+          "primary_degree": "#4",
+          "quality": "Italian augmented sixth chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "c",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "c",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "1",
+          "local_key": "c",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "1",
+          "local_key": "c",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "3",
+          "local_key": "d",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "e",
+          "primary_degree": "#4",
+          "quality": "German augmented sixth chord",
+          "secondary_degree": "-5"
+        },
+        {
+          "inversion": "2",
+          "local_key": "e",
+          "primary_degree": "#7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "e",
+          "primary_degree": "3",
+          "quality": "augmented triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "0",
+          "local_key": "e",
+          "primary_degree": "4",
+          "quality": "minor seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "3",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "-1"
+        },
+        {
+          "inversion": "2",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "3",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "0",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "0",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "3",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "2",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "3",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "0",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "2",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "0",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "1",
+          "local_key": "f",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "0",
+          "local_key": "f#",
+          "primary_degree": "7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "1",
+          "local_key": "f#",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "3",
+          "local_key": "g",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "3",
+          "local_key": "g",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "0",
+          "local_key": "g#",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "5"
+        }
+      ]
+    },
+    "corrected_harmonic_event": {
+      "train": {
+        "canonical_harmonic_target_rows": 98715,
+        "component_count": 1091,
+        "frequency_distribution": {
+          "1": 261,
+          "10": 88,
+          "100": 1,
+          "101": 3,
+          "102": 4,
+          "103": 3,
+          "104": 2,
+          "105": 1,
+          "106": 1,
+          "107": 1,
+          "108": 3,
+          "109": 2,
+          "11": 41,
+          "110": 2,
+          "1108": 1,
+          "111": 5,
+          "114": 4,
+          "115": 3,
+          "116": 2,
+          "117": 2,
+          "118": 4,
+          "119": 4,
+          "12": 144,
+          "121": 2,
+          "123": 3,
+          "124": 1,
+          "125": 2,
+          "126": 1,
+          "127": 2,
+          "128": 3,
+          "129": 1,
+          "13": 38,
+          "130": 2,
+          "132": 1,
+          "133": 1,
+          "134": 2,
+          "135": 1,
+          "136": 3,
+          "138": 2,
+          "14": 66,
+          "141": 2,
+          "142": 1,
+          "143": 6,
+          "144": 2,
+          "146": 3,
+          "147": 3,
+          "148": 1,
+          "15": 24,
+          "150": 3,
+          "151": 2,
+          "154": 2,
+          "155": 1,
+          "156": 2,
+          "157": 1,
+          "159": 1,
+          "16": 74,
+          "160": 1,
+          "161": 2,
+          "162": 2,
+          "163": 2,
+          "164": 1,
+          "165": 2,
+          "17": 30,
+          "170": 3,
+          "174": 3,
+          "176": 1,
+          "178": 3,
+          "179": 1,
+          "18": 61,
+          "180": 1,
+          "181": 2,
+          "188": 1,
+          "189": 2,
+          "19": 22,
+          "190": 2,
+          "191": 1,
+          "194": 1,
+          "195": 2,
+          "198": 1,
+          "2": 349,
+          "20": 45,
+          "204": 2,
+          "205": 1,
+          "207": 1,
+          "21": 20,
+          "212": 3,
+          "214": 1,
+          "217": 1,
+          "218": 2,
+          "219": 1,
+          "22": 28,
+          "220": 1,
+          "222": 1,
+          "223": 2,
+          "225": 1,
+          "226": 1,
+          "23": 23,
+          "232": 1,
+          "233": 1,
+          "24": 57,
+          "240": 3,
+          "241": 1,
+          "245": 1,
+          "247": 1,
+          "249": 1,
+          "25": 14,
+          "250": 1,
+          "251": 3,
+          "257": 1,
+          "258": 1,
+          "259": 1,
+          "26": 30,
+          "269": 1,
+          "27": 12,
+          "271": 1,
+          "272": 1,
+          "274": 1,
+          "28": 23,
+          "281": 1,
+          "282": 1,
+          "287": 1,
+          "289": 1,
+          "29": 9,
+          "291": 1,
+          "3": 195,
+          "30": 16,
+          "303": 1,
+          "304": 1,
+          "31": 10,
+          "310": 1,
+          "315": 1,
+          "316": 1,
+          "32": 24,
+          "321": 1,
+          "322": 1,
+          "323": 1,
+          "327": 1,
+          "33": 14,
+          "331": 2,
+          "338": 1,
+          "34": 12,
+          "349": 1,
+          "35": 21,
+          "358": 1,
+          "36": 18,
+          "363": 1,
+          "37": 17,
+          "38": 9,
+          "385": 1,
+          "388": 2,
+          "39": 14,
+          "393": 1,
+          "4": 351,
+          "40": 15,
+          "407": 1,
+          "41": 10,
+          "410": 1,
+          "412": 1,
+          "413": 1,
+          "416": 1,
+          "42": 13,
+          "43": 12,
+          "435": 1,
+          "437": 1,
+          "44": 12,
+          "446": 2,
+          "45": 7,
+          "450": 1,
+          "46": 7,
+          "468": 1,
+          "47": 4,
+          "470": 1,
+          "473": 1,
+          "48": 12,
+          "49": 7,
+          "5": 79,
+          "50": 6,
+          "503": 1,
+          "51": 5,
+          "515": 1,
+          "517": 1,
+          "52": 5,
+          "523": 1,
+          "53": 8,
+          "530": 1,
+          "534": 1,
+          "539": 1,
+          "54": 6,
+          "55": 11,
+          "558": 1,
+          "56": 11,
+          "57": 4,
+          "576": 1,
+          "58": 7,
+          "59": 10,
+          "6": 209,
+          "60": 3,
+          "600": 1,
+          "61": 4,
+          "616": 1,
+          "62": 4,
+          "63": 8,
+          "633": 1,
+          "64": 3,
+          "65": 4,
+          "654": 1,
+          "66": 7,
+          "67": 7,
+          "68": 6,
+          "69": 7,
+          "7": 62,
+          "70": 1,
+          "715": 1,
+          "72": 6,
+          "725": 1,
+          "73": 2,
+          "74": 3,
+          "75": 4,
+          "76": 1,
+          "77": 3,
+          "79": 3,
+          "8": 226,
+          "80": 5,
+          "81": 7,
+          "82": 4,
+          "83": 3,
+          "84": 2,
+          "846": 1,
+          "86": 2,
+          "87": 1,
+          "88": 5,
+          "89": 6,
+          "9": 58,
+          "90": 4,
+          "91": 2,
+          "92": 1,
+          "93": 3,
+          "94": 6,
+          "95": 3,
+          "96": 4,
+          "97": 2,
+          "98": 4,
+          "99": 3
+        },
+        "record_count": 1170,
+        "row_count": 98715,
+        "singleton_tuple_count": 261,
+        "top_20": [
+          {
+            "canonical_harmonic_target_row_count": 1108,
+            "row_count": 1108,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 846,
+            "row_count": 846,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "G",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 725,
+            "row_count": 725,
+            "tuple": {
+              "inversion": "0",
+              "local_key": "F",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 715,
+            "row_count": 715,
+            "tuple": {
+              "inversion": "2",
+              "local_key": "c",
+              "primary_degree": "7",
+              "quality": "diminished seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 654,
+            "row_count": 654,
+            "tuple": {
+              "inversion": "0",
+              "local_key": "c",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 633,
+            "row_count": 633,
+            "tuple": {
+              "inversion": "3",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 616,
+            "row_count": 616,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "A",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 600,
+            "row_count": 600,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 576,
+            "row_count": 576,
+            "tuple": {
+              "inversion": "3",
+              "local_key": "A",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 558,
+            "row_count": 558,
+            "tuple": {
+              "inversion": "0",
+              "local_key": "F",
+              "primary_degree": "5",
+              "quality": "major triad",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 539,
+            "row_count": 539,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "G",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 534,
+            "row_count": 534,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "A",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 530,
+            "row_count": 530,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "G",
+              "primary_degree": "7",
+              "quality": "diminished triad",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 523,
+            "row_count": 523,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "F",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 517,
+            "row_count": 517,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "D",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 515,
+            "row_count": 515,
+            "tuple": {
+              "inversion": "3",
+              "local_key": "D",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 503,
+            "row_count": 503,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "E",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 473,
+            "row_count": 473,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "F",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 470,
+            "row_count": 470,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "D",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 468,
+            "row_count": 468,
+            "tuple": {
+              "inversion": "0",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "major triad",
+              "secondary_degree": "5"
+            }
+          }
+        ],
+        "top_coverage": {
+          "top_10": 0.07122524439,
+          "top_20": 0.122605480423,
+          "top_50": 0.234321025173
+        },
+        "unique_tuple_count": 3339
+      },
+      "validation": {
+        "canonical_harmonic_target_rows": 10507,
+        "component_count": 134,
+        "frequency_distribution": {
+          "1": 133,
+          "10": 21,
+          "11": 11,
+          "12": 31,
+          "126": 1,
+          "128": 1,
+          "13": 5,
+          "131": 1,
+          "132": 1,
+          "14": 18,
+          "15": 14,
+          "152": 1,
+          "16": 18,
+          "17": 7,
+          "18": 3,
+          "19": 3,
+          "2": 121,
+          "20": 11,
+          "207": 1,
+          "21": 2,
+          "22": 5,
+          "23": 7,
+          "24": 15,
+          "25": 4,
+          "26": 5,
+          "27": 2,
+          "28": 7,
+          "3": 55,
+          "30": 4,
+          "31": 3,
+          "32": 5,
+          "33": 1,
+          "34": 6,
+          "35": 3,
+          "36": 4,
+          "37": 2,
+          "38": 5,
+          "39": 1,
+          "4": 106,
+          "40": 2,
+          "41": 2,
+          "42": 2,
+          "43": 1,
+          "44": 1,
+          "45": 2,
+          "46": 1,
+          "47": 2,
+          "48": 3,
+          "49": 2,
+          "5": 36,
+          "51": 4,
+          "52": 1,
+          "54": 2,
+          "56": 2,
+          "57": 3,
+          "58": 2,
+          "6": 50,
+          "60": 1,
+          "61": 1,
+          "65": 3,
+          "66": 1,
+          "67": 2,
+          "69": 1,
+          "7": 18,
+          "70": 1,
+          "71": 2,
+          "72": 1,
+          "76": 1,
+          "8": 65,
+          "80": 1,
+          "82": 1,
+          "86": 1,
+          "9": 13,
+          "94": 2,
+          "95": 1,
+          "97": 1
+        },
+        "record_count": 149,
+        "row_count": 10507,
+        "singleton_tuple_count": 133,
+        "top_20": [
+          {
+            "canonical_harmonic_target_row_count": 207,
+            "row_count": 207,
+            "tuple": {
+              "inversion": "3",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 152,
+            "row_count": 152,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "2"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 132,
+            "row_count": 132,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 131,
+            "row_count": 131,
+            "tuple": {
+              "inversion": "2",
+              "local_key": "D",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 128,
+            "row_count": 128,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 126,
+            "row_count": 126,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "G",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 97,
+            "row_count": 97,
+            "tuple": {
+              "inversion": "2",
+              "local_key": "C",
+              "primary_degree": "7",
+              "quality": "diminished seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 95,
+            "row_count": 95,
+            "tuple": {
+              "inversion": "3",
+              "local_key": "G",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 94,
+            "row_count": 94,
+            "tuple": {
+              "inversion": "0",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "2"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 94,
+            "row_count": 94,
+            "tuple": {
+              "inversion": "3",
+              "local_key": "D",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 86,
+            "row_count": 86,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "G",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "2"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 82,
+            "row_count": 82,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "C",
+              "primary_degree": "#7",
+              "quality": "diminished seventh chord",
+              "secondary_degree": "2"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 80,
+            "row_count": 80,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "A",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 76,
+            "row_count": 76,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "D",
+              "primary_degree": "7",
+              "quality": "Italian augmented sixth chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 72,
+            "row_count": 72,
+            "tuple": {
+              "inversion": "3",
+              "local_key": "G",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 71,
+            "row_count": 71,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "E",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 71,
+            "row_count": 71,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "G",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 70,
+            "row_count": 70,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "A",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 69,
+            "row_count": 69,
+            "tuple": {
+              "inversion": "1",
+              "local_key": "D",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "5"
+            }
+          },
+          {
+            "canonical_harmonic_target_row_count": 67,
+            "row_count": 67,
+            "tuple": {
+              "inversion": "0",
+              "local_key": "C",
+              "primary_degree": "5",
+              "quality": "dominant seventh chord",
+              "secondary_degree": "4"
+            }
+          }
+        ],
+        "top_coverage": {
+          "top_10": 0.119539354716,
+          "top_20": 0.190349290949,
+          "top_50": 0.346340534882
+        },
+        "unique_tuple_count": 879
+      },
+      "validation_tuples_unseen_in_train": [
+        {
+          "inversion": "2",
+          "local_key": "A",
+          "primary_degree": "#7",
+          "quality": "diminished triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "A",
+          "primary_degree": "-2",
+          "quality": "major seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "A",
+          "primary_degree": "2",
+          "quality": "diminished triad",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "A",
+          "primary_degree": "2",
+          "quality": "diminished triad",
+          "secondary_degree": "-5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "A",
+          "primary_degree": "4",
+          "quality": "minor triad",
+          "secondary_degree": "-5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "A",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "2",
+          "local_key": "A",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "-6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Ab",
+          "primary_degree": "2",
+          "quality": "minor seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Ab",
+          "primary_degree": "2",
+          "quality": "minor seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Ab",
+          "primary_degree": "4",
+          "quality": "major triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Ab",
+          "primary_degree": "4",
+          "quality": "major triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "B",
+          "primary_degree": "2",
+          "quality": "minor triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "0",
+          "local_key": "B",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "0",
+          "local_key": "Bb",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Bb",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Bb",
+          "primary_degree": "2",
+          "quality": "minor triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Bb",
+          "primary_degree": "2",
+          "quality": "diminished triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Bb",
+          "primary_degree": "4",
+          "quality": "minor triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Bb",
+          "primary_degree": "4",
+          "quality": "minor triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "0",
+          "local_key": "Bb",
+          "primary_degree": "4",
+          "quality": "major triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "0",
+          "local_key": "Bb",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Bb",
+          "primary_degree": "7",
+          "quality": "German augmented sixth chord",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Bb",
+          "primary_degree": "7",
+          "quality": "Italian augmented sixth chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Bb",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "#6",
+          "quality": "diminished triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "#7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "0",
+          "local_key": "C",
+          "primary_degree": "#7",
+          "quality": "diminished triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "#7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "#7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "2",
+          "quality": "minor seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "2",
+          "quality": "diminished triad",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "3",
+          "quality": "major triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "3",
+          "quality": "major triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "4",
+          "quality": "major triad",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "4",
+          "quality": "minor seventh chord",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "4",
+          "quality": "minor triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "5",
+          "quality": "augmented seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "5",
+          "quality": "augmented seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "5",
+          "quality": "diminished triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "5",
+          "quality": "diminished triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "6",
+          "quality": "minor triad",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "3",
+          "local_key": "C",
+          "primary_degree": "6",
+          "quality": "major seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "6",
+          "quality": "major triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "#1"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "#6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "#7"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "0",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "minor triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "minor triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "German augmented sixth chord",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "2",
+          "local_key": "C",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Cb",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "#6",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "3",
+          "local_key": "D",
+          "primary_degree": "#6",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "#6",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "#7",
+          "quality": "diminished triad",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "0",
+          "local_key": "D",
+          "primary_degree": "#7",
+          "quality": "diminished triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "D",
+          "primary_degree": "-3",
+          "quality": "major triad",
+          "secondary_degree": "-5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "-3",
+          "quality": "major triad",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "-3",
+          "quality": "minor triad",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "0",
+          "local_key": "D",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "-6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "1",
+          "quality": "major seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "0",
+          "local_key": "D",
+          "primary_degree": "1",
+          "quality": "minor triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "2",
+          "quality": "minor seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "3",
+          "quality": "major seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "0",
+          "local_key": "D",
+          "primary_degree": "3",
+          "quality": "minor triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "0",
+          "local_key": "D",
+          "primary_degree": "4",
+          "quality": "major triad",
+          "secondary_degree": "-6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "5",
+          "quality": "augmented triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "D",
+          "primary_degree": "6",
+          "quality": "minor triad",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "3",
+          "local_key": "Db",
+          "primary_degree": "#7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Db",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "-5"
+        },
+        {
+          "inversion": "2",
+          "local_key": "E",
+          "primary_degree": "#7",
+          "quality": "diminished triad",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "0",
+          "local_key": "E",
+          "primary_degree": "#7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "2",
+          "local_key": "E",
+          "primary_degree": "#7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "0",
+          "local_key": "E",
+          "primary_degree": "#7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "-2",
+          "quality": "major triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "2",
+          "local_key": "E",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "-6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "1",
+          "quality": "minor triad",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "1",
+          "quality": "minor triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "1",
+          "quality": "minor triad",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "1",
+          "quality": "minor triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "2",
+          "quality": "diminished triad",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "2",
+          "quality": "minor seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "2",
+          "local_key": "E",
+          "primary_degree": "2",
+          "quality": "minor seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "4",
+          "quality": "major triad",
+          "secondary_degree": "-7"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "4",
+          "quality": "minor triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "-7"
+        },
+        {
+          "inversion": "0",
+          "local_key": "E",
+          "primary_degree": "5",
+          "quality": "augmented triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "1",
+          "local_key": "E",
+          "primary_degree": "7",
+          "quality": "German augmented sixth chord",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Eb",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "#6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Eb",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "#7"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Eb",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Eb",
+          "primary_degree": "2",
+          "quality": "minor triad",
+          "secondary_degree": "-3"
+        },
+        {
+          "inversion": "3",
+          "local_key": "Eb",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Eb",
+          "primary_degree": "3",
+          "quality": "major triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Eb",
+          "primary_degree": "4",
+          "quality": "major triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "-6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "5",
+          "quality": "French augmented sixth chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Eb",
+          "primary_degree": "5",
+          "quality": "minor triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "3",
+          "local_key": "Eb",
+          "primary_degree": "6",
+          "quality": "major seventh chord",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "#6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "#7"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "#7"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "-3"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "German augmented sixth chord",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "3",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "German augmented sixth chord",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "2",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "3",
+          "local_key": "Eb",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "#6",
+          "quality": "diminished triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "#6",
+          "quality": "diminished triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "3",
+          "local_key": "F",
+          "primary_degree": "#7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "2",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "2",
+          "quality": "minor seventh chord",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "4",
+          "quality": "major triad",
+          "secondary_degree": "-6"
+        },
+        {
+          "inversion": "3",
+          "local_key": "F",
+          "primary_degree": "4",
+          "quality": "major seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "-3"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "-6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "F",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "-7"
+        },
+        {
+          "inversion": "2",
+          "local_key": "F",
+          "primary_degree": "5",
+          "quality": "French augmented sixth chord",
+          "secondary_degree": "1"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "5",
+          "quality": "augmented seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "F",
+          "primary_degree": "5",
+          "quality": "augmented seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F",
+          "primary_degree": "7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F#",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "F#",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F#",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "2",
+          "local_key": "F#",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F#",
+          "primary_degree": "2",
+          "quality": "minor triad",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "2",
+          "local_key": "F#",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "2",
+          "local_key": "F#",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "-7"
+        },
+        {
+          "inversion": "2",
+          "local_key": "F#",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "3",
+          "local_key": "F#",
+          "primary_degree": "7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F#",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "F#",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "1",
+          "local_key": "G",
+          "primary_degree": "#4",
+          "quality": "German augmented sixth chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "G",
+          "primary_degree": "#7",
+          "quality": "minor triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "G",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "G",
+          "primary_degree": "1",
+          "quality": "major triad",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "2",
+          "local_key": "G",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "#3"
+        },
+        {
+          "inversion": "2",
+          "local_key": "G",
+          "primary_degree": "2",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "#4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "G",
+          "primary_degree": "4",
+          "quality": "minor triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "1",
+          "local_key": "G",
+          "primary_degree": "5",
+          "quality": "major seventh chord",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "0",
+          "local_key": "G",
+          "primary_degree": "6",
+          "quality": "minor triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "G",
+          "primary_degree": "7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "0",
+          "local_key": "b",
+          "primary_degree": "#7",
+          "quality": "diminished triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "0",
+          "local_key": "b",
+          "primary_degree": "#7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "b",
+          "primary_degree": "2",
+          "quality": "minor seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "0",
+          "local_key": "b",
+          "primary_degree": "5",
+          "quality": "incomplete dominant-seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "2",
+          "local_key": "b",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "3",
+          "local_key": "b",
+          "primary_degree": "5",
+          "quality": "minor seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "1",
+          "local_key": "b",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "c",
+          "primary_degree": "#4",
+          "quality": "Italian augmented sixth chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "c",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "2"
+        },
+        {
+          "inversion": "1",
+          "local_key": "c",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "1",
+          "local_key": "c",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "1",
+          "local_key": "c",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "3",
+          "local_key": "d",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "e",
+          "primary_degree": "#4",
+          "quality": "German augmented sixth chord",
+          "secondary_degree": "-5"
+        },
+        {
+          "inversion": "2",
+          "local_key": "e",
+          "primary_degree": "#7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "e",
+          "primary_degree": "3",
+          "quality": "augmented major tetrachord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "0",
+          "local_key": "e",
+          "primary_degree": "4",
+          "quality": "minor seventh chord",
+          "secondary_degree": "4"
+        },
+        {
+          "inversion": "3",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "-1"
+        },
+        {
+          "inversion": "2",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "3",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "0",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "-2"
+        },
+        {
+          "inversion": "0",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "3",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "2",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "3",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "0",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "1",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "2",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "0",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "1",
+          "local_key": "e",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "1",
+          "local_key": "f",
+          "primary_degree": "5",
+          "quality": "major triad",
+          "secondary_degree": "7"
+        },
+        {
+          "inversion": "0",
+          "local_key": "f#",
+          "primary_degree": "7",
+          "quality": "half-diminished seventh chord",
+          "secondary_degree": "3"
+        },
+        {
+          "inversion": "1",
+          "local_key": "f#",
+          "primary_degree": "7",
+          "quality": "diminished triad",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "3",
+          "local_key": "g",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "5"
+        },
+        {
+          "inversion": "3",
+          "local_key": "g",
+          "primary_degree": "5",
+          "quality": "dominant seventh chord",
+          "secondary_degree": "6"
+        },
+        {
+          "inversion": "0",
+          "local_key": "g#",
+          "primary_degree": "7",
+          "quality": "diminished seventh chord",
+          "secondary_degree": "5"
+        }
+      ]
+    }
+  },
+  "quality": {
+    "compatibility_quality_15": {
+      "augmented_triad": {
+        "train": {
+          "an_component_count": 70,
+          "an_entity_count": 754,
+          "an_record_count": 73,
+          "an_target_row_count": 754,
+          "broadcast_factor": 1.0,
+          "canonical_target_row_count": 2793,
+          "class_id": 3,
+          "class_value": "augmented triad",
+          "component_count": 246,
+          "dialect_support": "shared_an_dlc",
+          "dlc_component_count": 198,
+          "dlc_entity_count": 2039,
+          "dlc_record_count": 198,
+          "dlc_target_row_count": 2039,
+          "effective_component_count": 87.580121476126,
+          "entity_count": 2793,
+          "largest_component_share": 0.042606516291,
+          "largest_record_share": 0.029717150018,
+          "record_count": 271,
+          "split": "train",
+          "support_tier": "broad",
+          "task_id": "quality_compatibility",
+          "top_5_components_share": 0.147153598281,
+          "validation_tier": null,
+          "vocabulary_id": "analysisgnn-quality-15-compat-e115182-v1"
+        },
+        "validation": {
+          "an_component_count": 15,
+          "an_entity_count": 121,
+          "an_record_count": 15,
+          "an_target_row_count": 121,
+          "broadcast_factor": 1.0,
+          "canonical_target_row_count": 431,
+          "class_id": 3,
+          "class_value": "augmented triad",
+          "component_count": 33,
+          "dialect_support": "shared_an_dlc",
+          "dlc_component_count": 21,
+          "dlc_entity_count": 310,
+          "dlc_record_count": 21,
+          "dlc_target_row_count": 310,
+          "effective_component_count": 16.27341217696,
+          "entity_count": 431,
+          "largest_component_share": 0.141531322506,
+          "largest_record_share": 0.141531322506,
+          "record_count": 36,
+          "split": "validation",
+          "support_tier": null,
+          "task_id": "quality_compatibility",
+          "top_5_components_share": 0.452436194896,
+          "validation_tier": "observable",
+          "vocabulary_id": "analysisgnn-quality-15-compat-e115182-v1"
+        }
+      },
+      "balance": {
+        "majority_share": 0.454997613164,
+        "max_to_min_nonzero_ratio": 3200.666666666667,
+        "normalized_entropy": 0.557048917368,
+        "train_absent_classes": [
+          "augmented sixth"
+        ],
+        "train_observed_class_count": 14,
+        "validation_observed_class_count": 14,
+        "vocabulary_size": 15
+      },
+      "vocabulary_id": "analysisgnn-quality-15-compat-e115182-v1"
+    },
+    "corrected_quality_17": {
+      "balance": {
+        "majority_share": 0.454997613164,
+        "max_to_min_nonzero_ratio": 3575.91724137931,
+        "normalized_entropy": 0.532869567161,
+        "train_absent_classes": [
+          "augmented sixth"
+        ],
+        "train_observed_class_count": 16,
+        "validation_observed_class_count": 16,
+        "vocabulary_size": 17
+      },
+      "focus_classes": {
+        "augmented major tetrachord": {
+          "train": {
+            "an_component_count": 10,
+            "an_entity_count": 61,
+            "an_record_count": 10,
+            "an_target_row_count": 61,
+            "broadcast_factor": 1.0,
+            "canonical_target_row_count": 145,
+            "class_id": 16,
+            "class_value": "augmented major tetrachord",
+            "component_count": 24,
+            "dialect_support": "shared_an_dlc",
+            "dlc_component_count": 14,
+            "dlc_entity_count": 84,
+            "dlc_record_count": 14,
+            "dlc_target_row_count": 84,
+            "effective_component_count": 16.594317284925,
+            "entity_count": 145,
+            "largest_component_share": 0.110344827586,
+            "largest_record_share": 0.110344827586,
+            "record_count": 24,
+            "split": "train",
+            "support_tier": "usable",
+            "task_id": "quality",
+            "top_5_components_share": 0.441379310345,
+            "validation_tier": null,
+            "vocabulary_id": "dilemmadata-corrected-quality-17-v1"
+          },
+          "validation": {
+            "an_component_count": 3,
+            "an_entity_count": 7,
+            "an_record_count": 3,
+            "an_target_row_count": 7,
+            "broadcast_factor": 1.0,
+            "canonical_target_row_count": 9,
+            "class_id": 16,
+            "class_value": "augmented major tetrachord",
+            "component_count": 4,
+            "dialect_support": "shared_an_dlc",
+            "dlc_component_count": 1,
+            "dlc_entity_count": 2,
+            "dlc_record_count": 1,
+            "dlc_target_row_count": 2,
+            "effective_component_count": 3.857142857143,
+            "entity_count": 9,
+            "largest_component_share": 0.333333333333,
+            "largest_record_share": 0.333333333333,
+            "record_count": 4,
+            "split": "validation",
+            "support_tier": null,
+            "task_id": "quality",
+            "top_5_components_share": 1.0,
+            "validation_tier": "fragile_validation",
+            "vocabulary_id": "dilemmadata-corrected-quality-17-v1"
+          }
+        },
+        "augmented seventh chord": {
+          "train": {
+            "an_component_count": 6,
+            "an_entity_count": 52,
+            "an_record_count": 6,
+            "an_target_row_count": 52,
+            "broadcast_factor": 1.0,
+            "canonical_target_row_count": 245,
+            "class_id": 15,
+            "class_value": "augmented seventh chord",
+            "component_count": 38,
+            "dialect_support": "shared_an_dlc",
+            "dlc_component_count": 34,
+            "dlc_entity_count": 193,
+            "dlc_record_count": 34,
+            "dlc_target_row_count": 193,
+            "effective_component_count": 16.837307152875,
+            "entity_count": 245,
+            "largest_component_share": 0.14693877551,
+            "largest_record_share": 0.14693877551,
+            "record_count": 40,
+            "split": "train",
+            "support_tier": "usable",
+            "task_id": "quality",
+            "top_5_components_share": 0.45306122449,
+            "validation_tier": null,
+            "vocabulary_id": "dilemmadata-corrected-quality-17-v1"
+          },
+          "validation": {
+            "an_component_count": 1,
+            "an_entity_count": 4,
+            "an_record_count": 1,
+            "an_target_row_count": 4,
+            "broadcast_factor": 1.0,
+            "canonical_target_row_count": 77,
+            "class_id": 15,
+            "class_value": "augmented seventh chord",
+            "component_count": 6,
+            "dialect_support": "shared_an_dlc",
+            "dlc_component_count": 5,
+            "dlc_entity_count": 73,
+            "dlc_record_count": 5,
+            "dlc_target_row_count": 73,
+            "effective_component_count": 3.029637199796,
+            "entity_count": 77,
+            "largest_component_share": 0.467532467532,
+            "largest_record_share": 0.467532467532,
+            "record_count": 6,
+            "split": "validation",
+            "support_tier": null,
+            "task_id": "quality",
+            "top_5_components_share": 0.974025974026,
+            "validation_tier": "observable",
+            "vocabulary_id": "dilemmadata-corrected-quality-17-v1"
+          }
+        },
+        "augmented triad": {
+          "train": {
+            "an_component_count": 64,
+            "an_entity_count": 641,
+            "an_record_count": 67,
+            "an_target_row_count": 641,
+            "broadcast_factor": 1.0,
+            "canonical_target_row_count": 2403,
+            "class_id": 3,
+            "class_value": "augmented triad",
+            "component_count": 213,
+            "dialect_support": "shared_an_dlc",
+            "dlc_component_count": 171,
+            "dlc_entity_count": 1762,
+            "dlc_record_count": 171,
+            "dlc_target_row_count": 1762,
+            "effective_component_count": 76.960309738641,
+            "entity_count": 2403,
+            "largest_component_share": 0.046192259675,
+            "largest_record_share": 0.034540158136,
+            "record_count": 238,
+            "split": "train",
+            "support_tier": "broad",
+            "task_id": "quality",
+            "top_5_components_share": 0.15771951727,
+            "validation_tier": null,
+            "vocabulary_id": "dilemmadata-corrected-quality-17-v1"
+          },
+          "validation": {
+            "an_component_count": 13,
+            "an_entity_count": 110,
+            "an_record_count": 13,
+            "an_target_row_count": 110,
+            "broadcast_factor": 1.0,
+            "canonical_target_row_count": 345,
+            "class_id": 3,
+            "class_value": "augmented triad",
+            "component_count": 29,
+            "dialect_support": "shared_an_dlc",
+            "dlc_component_count": 19,
+            "dlc_entity_count": 235,
+            "dlc_record_count": 19,
+            "dlc_target_row_count": 235,
+            "effective_component_count": 16.104045460695,
+            "entity_count": 345,
+            "largest_component_share": 0.144927536232,
+            "largest_record_share": 0.144927536232,
+            "record_count": 32,
+            "split": "validation",
+            "support_tier": null,
+            "task_id": "quality",
+            "top_5_components_share": 0.43768115942,
+            "validation_tier": "observable",
+            "vocabulary_id": "dilemmadata-corrected-quality-17-v1"
+          }
+        }
+      },
+      "vocabulary_id": "dilemmadata-corrected-quality-17-v1"
+    },
+    "projection": {
+      "augmented major tetrachord": "augmented triad",
+      "augmented seventh chord": "augmented triad",
+      "missing": "mask",
+      "other_classes": "identity"
+    }
+  },
+  "recommendation_groups": {
+    "descriptive_only": [
+      "local_key",
+      "tonicized_key",
+      "roman_numeral",
+      "phrase",
+      "section",
+      "metrical_strength",
+      "note_degree"
+    ],
+    "insufficient_support": [
+      "root",
+      "bass",
+      "secondary_degree",
+      "quality",
+      "pitch_class_set"
+    ],
+    "trainable": [
+      "inversion"
+    ],
+    "trainable_with_reweighting": [
+      "primary_degree",
+      "harmonic_rhythm",
+      "cadence",
+      "pedal",
+      "chord_tone",
+      "is_root",
+      "is_bass"
+    ]
+  },
+  "roman_numeral_184": {
+    "bottom_20_nonzero": [
+      {
+        "canonical_target_row_count": 1,
+        "class_id": 104,
+        "class_value": "#vii",
+        "component_count": 1
+      },
+      {
+        "canonical_target_row_count": 1,
+        "class_id": 123,
+        "class_value": "iii9",
+        "component_count": 1
+      },
+      {
+        "canonical_target_row_count": 1,
+        "class_id": 154,
+        "class_value": "#VI7",
+        "component_count": 1
+      },
+      {
+        "canonical_target_row_count": 1,
+        "class_id": 174,
+        "class_value": "#III7",
+        "component_count": 1
+      },
+      {
+        "canonical_target_row_count": 2,
+        "class_id": 128,
+        "class_value": "biio",
+        "component_count": 1
+      },
+      {
+        "canonical_target_row_count": 2,
+        "class_id": 158,
+        "class_value": "#ii",
+        "component_count": 1
+      },
+      {
+        "canonical_target_row_count": 3,
+        "class_id": 105,
+        "class_value": "#vii7",
+        "component_count": 2
+      },
+      {
+        "canonical_target_row_count": 3,
+        "class_id": 109,
+        "class_value": "#vi",
+        "component_count": 2
+      },
+      {
+        "canonical_target_row_count": 3,
+        "class_id": 133,
+        "class_value": "#i%7",
+        "component_count": 2
+      },
+      {
+        "canonical_target_row_count": 3,
+        "class_id": 136,
+        "class_value": "bvio",
+        "component_count": 2
+      },
+      {
+        "canonical_target_row_count": 3,
+        "class_id": 142,
+        "class_value": "bv7",
+        "component_count": 1
+      },
+      {
+        "canonical_target_row_count": 3,
+        "class_id": 157,
+        "class_value": "#v%7",
+        "component_count": 1
+      },
+      {
+        "canonical_target_row_count": 3,
+        "class_id": 171,
+        "class_value": "##vio",
+        "component_count": 1
+      },
+      {
+        "canonical_target_row_count": 4,
+        "class_id": 103,
+        "class_value": "#vi7",
+        "component_count": 2
+      },
+      {
+        "canonical_target_row_count": 4,
+        "class_id": 119,
+        "class_value": "ii%9",
+        "component_count": 1
+      },
+      {
+        "canonical_target_row_count": 4,
+        "class_id": 122,
+        "class_value": "bbvii",
+        "component_count": 1
+      },
+      {
+        "canonical_target_row_count": 4,
+        "class_id": 132,
+        "class_value": "bvio7",
+        "component_count": 1
+      },
+      {
+        "canonical_target_row_count": 4,
+        "class_id": 152,
+        "class_value": "#VII+",
+        "component_count": 1
+      },
+      {
+        "canonical_target_row_count": 4,
+        "class_id": 178,
+        "class_value": "#ii%7",
+        "component_count": 1
+      },
+      {
+        "canonical_target_row_count": 4,
+        "class_id": 180,
+        "class_value": "#VII7",
+        "component_count": 1
+      }
+    ],
+    "class_count": 184,
+    "component_threshold_counts": {
+      "lt_10": 107,
+      "lt_20": 125,
+      "lt_3": 56
+    },
+    "dialect_only_classes": [
+      "V9",
+      "Ger",
+      "Fr",
+      "ii%",
+      "V79",
+      "vii%",
+      "ii9",
+      "#vi%7",
+      "biii",
+      "IV9",
+      "iv9",
+      "vii+",
+      "#vi7",
+      "#vii",
+      "#vii7",
+      "bII",
+      "#vi",
+      "#vii%",
+      "#iv7",
+      "I9",
+      "ii%9",
+      "bbvii",
+      "iii9",
+      "bv",
+      "bI",
+      "bvio7",
+      "#i%7",
+      "bV+",
+      "biv7",
+      "bvio",
+      "i%7",
+      "bvi%7",
+      "bI+",
+      "#VI%7",
+      "bv7",
+      "bii%7",
+      "io7",
+      "#I7",
+      "bIV",
+      "biii7",
+      "bI7",
+      "#iii7",
+      "II+7",
+      "#VII+",
+      "#IV7",
+      "#VI7",
+      "biio7",
+      "#v",
+      "#v%7",
+      "#ii",
+      "#i7",
+      "bvii%7",
+      "#II",
+      "#VI+",
+      "#I",
+      "#ii7",
+      "bVII+",
+      "bvi7",
+      "#IV",
+      "#viio",
+      "#V7",
+      "##vio",
+      "#viio7",
+      "bIII7",
+      "#III7",
+      "bIII+",
+      "#V+",
+      "bIII+7",
+      "#ii%7",
+      "#VII7",
+      "IV+7",
+      "#VI",
+      "bii"
+    ],
+    "required_vocabulary_evidence": {
+      "#VII": true,
+      "#VIIbvio7": false,
+      "bvio7": true,
+      "none": false
+    },
+    "target_row_threshold_counts": {
+      "lt_100": 113,
+      "lt_1000": 151,
+      "lt_20": 65
+    },
+    "top_20": [
+      {
+        "canonical_target_row_count": 237614,
+        "class_id": 0,
+        "class_value": "I",
+        "component_count": 1146
+      },
+      {
+        "canonical_target_row_count": 235758,
+        "class_id": 1,
+        "class_value": "V7",
+        "component_count": 1166
+      },
+      {
+        "canonical_target_row_count": 154186,
+        "class_id": 2,
+        "class_value": "V",
+        "component_count": 1188
+      },
+      {
+        "canonical_target_row_count": 113902,
+        "class_id": 3,
+        "class_value": "i",
+        "component_count": 1060
+      },
+      {
+        "canonical_target_row_count": 54603,
+        "class_id": 5,
+        "class_value": "IV",
+        "component_count": 1047
+      },
+      {
+        "canonical_target_row_count": 47411,
+        "class_id": 4,
+        "class_value": "viio7",
+        "component_count": 749
+      },
+      {
+        "canonical_target_row_count": 42025,
+        "class_id": 6,
+        "class_value": "ii",
+        "component_count": 925
+      },
+      {
+        "canonical_target_row_count": 35813,
+        "class_id": 7,
+        "class_value": "viio",
+        "component_count": 905
+      },
+      {
+        "canonical_target_row_count": 34585,
+        "class_id": 13,
+        "class_value": "Cad",
+        "component_count": 884
+      },
+      {
+        "canonical_target_row_count": 32385,
+        "class_id": 9,
+        "class_value": "iv",
+        "component_count": 915
+      },
+      {
+        "canonical_target_row_count": 21497,
+        "class_id": 8,
+        "class_value": "vi",
+        "component_count": 801
+      },
+      {
+        "canonical_target_row_count": 13386,
+        "class_id": 10,
+        "class_value": "VI",
+        "component_count": 704
+      },
+      {
+        "canonical_target_row_count": 11381,
+        "class_id": 11,
+        "class_value": "ii7",
+        "component_count": 679
+      },
+      {
+        "canonical_target_row_count": 11056,
+        "class_id": 20,
+        "class_value": "iio",
+        "component_count": 616
+      },
+      {
+        "canonical_target_row_count": 10529,
+        "class_id": 12,
+        "class_value": "ii%7",
+        "component_count": 603
+      },
+      {
+        "canonical_target_row_count": 9319,
+        "class_id": 19,
+        "class_value": "III",
+        "component_count": 481
+      },
+      {
+        "canonical_target_row_count": 9124,
+        "class_id": 14,
+        "class_value": "v",
+        "component_count": 537
+      },
+      {
+        "canonical_target_row_count": 6629,
+        "class_id": 18,
+        "class_value": "iii",
+        "component_count": 468
+      },
+      {
+        "canonical_target_row_count": 5924,
+        "class_id": 21,
+        "class_value": "vii%7",
+        "component_count": 397
+      },
+      {
+        "canonical_target_row_count": 5598,
+        "class_id": 15,
+        "class_value": "N",
+        "component_count": 258
+      }
+    ],
+    "top_coverage": {
+      "top_10": 0.86569446902,
+      "top_20": 0.957182250268,
+      "top_50": 0.994836221954
+    },
+    "train_absent_class_count": 6,
+    "validation_absent_class_count": 71,
+    "validation_classes_absent_in_train": [
+      "vii%9",
+      "N+7",
+      "bV+7",
+      "#v7"
+    ]
+  },
+  "schema": "DilemmadataAnalysisGNNClassBalanceAudit@1.0.0",
+  "semantic_fingerprint": "4b1edf9f47815bafa5e197be87b9331a19789142c0625ef4aceda1f87649df4d",
+  "split_counts": {
+    "test": 162,
+    "train": 1295,
+    "validation": 162
+  },
+  "test_lock": {
+    "test_assignment_record_count": 162,
+    "test_assignments_seen": true,
+    "test_evaluated": false,
+    "test_target_records_opened": 0,
+    "test_target_rows_loaded": 0,
+    "test_targets_counted": false,
+    "test_targets_used_for_decisions": false
+  },
+  "valid": true
+}

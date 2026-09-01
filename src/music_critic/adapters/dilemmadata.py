@@ -40,11 +40,15 @@ from music_critic.data import (
 
 
 DILEMMADATA_ADAPTER_VERSION = "1.0.1"
+DILEMMADATA_REMEDIATED_ADAPTER_VERSION = "1.1.0"
 DILEMMADATA_CORPUS_IDENTITY_VERSION = "1.0.0"
 DILEMMADATA_RAW_PROJECTION_VERSION = "1.0.0"
+DILEMMADATA_RAW_REPAIR_EVIDENCE_VERSION = "1.0.0"
 DILEMMADATA_GROUPING_VERSION = "1.0.0"
 DILEMMADATA_RECORD_BINDING_VERSION = "1.0.0"
 DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION = "1.1.0"
+DILEMMADATA_REMEDIATED_ALIGNMENT_EVIDENCE_VERSION = "1.2.0"
+DILEMMADATA_COVERAGE_REMEDIATION_REPORT_VERSION = "1.0.0"
 DILEMMADATA_ACCEPTANCE_REPORT_VERSION = "1.1.0"
 DILEMMADATA_PRODUCTION_MANIFEST_VERSION = "1.1.0"
 DILEMMADATA_DATASET_NAME = "dilemmadata"
@@ -296,14 +300,50 @@ class DilemmadataConversionStatistics:
 
 
 @dataclass(frozen=True, slots=True)
+class DilemmadataTimeTransform:
+    """One exact affine source-to-canonical time transform for a record."""
+
+    scale_numerator: int
+    scale_denominator: int
+    offset_qn: RationalTime
+
+
+@dataclass(frozen=True, slots=True)
+class DilemmadataRawRepairRecord:
+    """Stable target-independent evidence for one local raw repair."""
+
+    record_id: str
+    source_entity_id: str
+    repair_type: str
+    source_evidence: tuple[tuple[str, str], ...]
+    candidate_count: int
+    chosen_candidate_id: str | None
+    time_transform: DilemmadataTimeTransform
+    affected_canonical_entity_ids: tuple[str, ...]
+    target_mask_scope: Literal["none", "note", "all"]
+
+
+@dataclass(frozen=True, slots=True)
+class DilemmadataRawRepairEvidence:
+    """Serialized and self-fingerprinted evidence outside model input."""
+
+    version: str
+    record_id: str
+    time_transform: DilemmadataTimeTransform
+    repairs: tuple[DilemmadataRawRepairRecord, ...]
+    fingerprint: str
+
+
+@dataclass(frozen=True, slots=True)
 class DilemmadataSourceRowBinding:
     """Target-neutral exact binding from one TSV row to a canonical note."""
 
     ordinal: int
     line: int
     onset_qn: RationalTime
-    canonical_note_id: str
+    canonical_note_id: str | None
     tie_continuation: bool
+    repair_mask_scope: Literal["none", "note", "all"] = "none"
 
 
 @dataclass(frozen=True, slots=True)
@@ -319,6 +359,7 @@ class DilemmadataRawTargetAlignmentEvidence:
     raw_source_fields: tuple[str, ...]
     rows: tuple[DilemmadataSourceRowBinding, ...]
     fingerprint: str
+    raw_repair_evidence_fingerprint: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -329,6 +370,7 @@ class DilemmadataAccepted:
     validation_report: ValidationReport
     statistics: DilemmadataConversionStatistics
     alignment_evidence: DilemmadataRawTargetAlignmentEvidence
+    repair_evidence: DilemmadataRawRepairEvidence | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -355,6 +397,7 @@ class _RawObservation:
     staff: int | None
     voice: int | None
     source_voice_key: tuple[str, ...]
+    source_note_id: str | None
     meter: tuple[int, int]
     key_fifths: int | None
     measure_key: str | None
@@ -374,6 +417,17 @@ class _RawParse:
     tie_continuation_row_count: int
     zero_duration_row_count: int
     raw_source_fields: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _RepairDraft:
+    source_entity_id: str
+    repair_type: str
+    source_evidence: tuple[tuple[str, str], ...]
+    candidate_count: int = 0
+    chosen_candidate_id: str | None = None
+    affected_canonical_entity_ids: tuple[str, ...] = ()
+    target_mask_scope: Literal["none", "note", "all"] = "none"
 
 
 class _UnionFind:
@@ -433,10 +487,90 @@ def _fingerprint(value: object) -> str:
     return sha256(_canonical_bytes(value)).hexdigest()
 
 
+def _rational_payload(value: RationalTime) -> dict[str, int]:
+    return {"den": value.den, "num": value.num}
+
+
+def dilemmadata_raw_repair_evidence_payload(
+    evidence: DilemmadataRawRepairEvidence,
+) -> dict[str, object]:
+    """Return the stable public serialization of raw repair evidence."""
+
+    def transform(value: DilemmadataTimeTransform) -> dict[str, object]:
+        return {
+            "offset_qn": _rational_payload(value.offset_qn),
+            "scale_denominator": value.scale_denominator,
+            "scale_numerator": value.scale_numerator,
+        }
+
+    return {
+        "record_id": evidence.record_id,
+        "repairs": [
+            {
+                "affected_canonical_entity_ids": list(
+                    repair.affected_canonical_entity_ids
+                ),
+                "candidate_count": repair.candidate_count,
+                "chosen_candidate_id": repair.chosen_candidate_id,
+                "record_id": repair.record_id,
+                "repair_type": repair.repair_type,
+                "source_entity_id": repair.source_entity_id,
+                "source_evidence": [list(item) for item in repair.source_evidence],
+                "target_mask_scope": repair.target_mask_scope,
+                "time_transform": transform(repair.time_transform),
+            }
+            for repair in evidence.repairs
+        ],
+        "time_transform": transform(evidence.time_transform),
+        "version": evidence.version,
+    }
+
+
+def validate_dilemmadata_raw_repair_evidence(
+    evidence: DilemmadataRawRepairEvidence,
+) -> bool:
+    """Validate deterministic ordering, shape, and self-fingerprint."""
+
+    try:
+        if evidence.version != DILEMMADATA_RAW_REPAIR_EVIDENCE_VERSION:
+            return False
+        if not evidence.record_id or not evidence.repairs:
+            return False
+        transform = evidence.time_transform
+        if (
+            transform.scale_numerator != 1
+            or transform.scale_denominator != 1
+            or transform.offset_qn < RationalTime(0)
+        ):
+            return False
+        keys = tuple(
+            (repair.source_entity_id, repair.repair_type, repair.chosen_candidate_id or "")
+            for repair in evidence.repairs
+        )
+        if keys != tuple(sorted(keys)):
+            return False
+        if any(
+            repair.record_id != evidence.record_id
+            or repair.time_transform != transform
+            or repair.candidate_count < 0
+            or repair.target_mask_scope not in ("none", "note", "all")
+            or repair.source_evidence != tuple(sorted(repair.source_evidence))
+            or repair.affected_canonical_entity_ids
+            != tuple(sorted(set(repair.affected_canonical_entity_ids)))
+            for repair in evidence.repairs
+        ):
+            return False
+        return evidence.fingerprint == _fingerprint(
+            dilemmadata_raw_repair_evidence_payload(evidence)
+        )
+    except (AttributeError, TypeError, ValueError):
+        return False
+
+
 def _alignment_evidence_payload(
     evidence: DilemmadataRawTargetAlignmentEvidence,
 ) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "canonical_piece_sha256": evidence.canonical_piece_sha256,
         "piece_id": evidence.piece_id,
         "raw_source_fields": list(evidence.raw_source_fields),
@@ -444,20 +578,22 @@ def _alignment_evidence_payload(
         "record_binding_sha256": evidence.record_binding_sha256,
         "record_id": evidence.record_id,
         "rows": [
-            {
+            ({
                 "canonical_note_id": row.canonical_note_id,
                 "line": row.line,
-                "onset_qn": {
-                    "den": row.onset_qn.den,
-                    "num": row.onset_qn.num,
-                },
+                "onset_qn": _rational_payload(row.onset_qn),
                 "ordinal": row.ordinal,
                 "tie_continuation": row.tie_continuation,
-            }
+            } | ({"repair_mask_scope": row.repair_mask_scope} if evidence.version == DILEMMADATA_REMEDIATED_ALIGNMENT_EVIDENCE_VERSION else {}))
             for row in evidence.rows
         ],
         "version": evidence.version,
     }
+    if evidence.version == DILEMMADATA_REMEDIATED_ALIGNMENT_EVIDENCE_VERSION:
+        payload["raw_repair_evidence_fingerprint"] = (
+            evidence.raw_repair_evidence_fingerprint
+        )
+    return payload
 
 
 def _alignment_evidence_fingerprint(
@@ -471,9 +607,14 @@ def _make_alignment_evidence(
     piece: CanonicalPiece,
     rows: tuple[DilemmadataSourceRowBinding, ...],
     raw_source_fields: tuple[str, ...],
+    repair_evidence: DilemmadataRawRepairEvidence | None = None,
 ) -> DilemmadataRawTargetAlignmentEvidence:
     evidence = DilemmadataRawTargetAlignmentEvidence(
-        version=DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION,
+        version=(
+            DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION
+            if repair_evidence is None
+            else DILEMMADATA_REMEDIATED_ALIGNMENT_EVIDENCE_VERSION
+        ),
         record_id=record.record_id,
         piece_id=piece.piece_id,
         record_binding_sha256=record.record_binding_sha256,
@@ -482,6 +623,9 @@ def _make_alignment_evidence(
         raw_source_fields=raw_source_fields,
         rows=rows,
         fingerprint="",
+        raw_repair_evidence_fingerprint=(
+            None if repair_evidence is None else repair_evidence.fingerprint
+        ),
     )
     return replace(evidence, fingerprint=_alignment_evidence_fingerprint(evidence))
 
@@ -494,7 +638,15 @@ def validate_dilemmadata_alignment_evidence(
     """Verify self-integrity and independent raw-source/canonical provenance."""
 
     try:
-        if evidence.version != DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION:
+        if evidence.version not in (
+            DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION,
+            DILEMMADATA_REMEDIATED_ALIGNMENT_EVIDENCE_VERSION,
+        ):
+            return False
+        remediated = (
+            evidence.version == DILEMMADATA_REMEDIATED_ALIGNMENT_EVIDENCE_VERSION
+        )
+        if remediated != (evidence.raw_repair_evidence_fingerprint is not None):
             return False
         if (
             evidence.record_id != record.record_id
@@ -522,8 +674,14 @@ def validate_dilemmadata_alignment_evidence(
         note_ids = {note.note_id for note in piece.notes}
         if any(
             row.line != row.ordinal + 2
-            or row.canonical_note_id not in note_ids
+            or (
+                row.canonical_note_id is not None
+                and row.canonical_note_id not in note_ids
+            )
+            or (row.canonical_note_id is None and row.repair_mask_scope != "note")
             or not isinstance(row.tie_continuation, bool)
+            or row.repair_mask_scope not in ("none", "note", "all")
+            or (not remediated and row.repair_mask_scope != "none")
             for row in evidence.rows
         ):
             return False
@@ -873,10 +1031,13 @@ def _parse_raw_file(
                     f"expected {len(header)} columns, observed {len(values)}",
                 )
                 continue
-            row = {
-                name: values[indices[name]]
-                for name in accessed_source_fields
-            }
+            row = {name: values[indices[name]] for name in accessed_source_fields}
+            # ``s_note`` is score-derived raw identity used only when the legacy
+            # tie policy fails.  Keeping it outside the v1 raw projection and
+            # legacy alignment field tuple preserves all accepted Phase 9B.1
+            # identities byte-for-byte.
+            if dialect == "an_joint" and "s_note" in indices:
+                row["s_note"] = values[indices["s_note"]]
             try:
                 if dialect == "an_joint":
                     onset = _fraction(row["s_offset_frac"])
@@ -891,6 +1052,7 @@ def _parse_raw_file(
                         part_raw or "<unknown-part>",
                         voice_raw or "<unknown-voice>",
                     )
+                    source_note_id = (row.get("s_note") or "").strip() or None
                     staff = None
                     voice = _optional_int(voice_raw)
                     step_raw = (row.get("s_step") or "").strip()
@@ -922,6 +1084,7 @@ def _parse_raw_file(
                         staff_raw or "<unknown-staff>",
                         voice_raw or "<unknown-voice>",
                     )
+                    source_note_id = None
                     staff = _optional_int(staff_raw)
                     voice = _optional_int(voice_raw)
                     step_raw = (row.get("step") or "").strip()
@@ -959,12 +1122,6 @@ def _parse_raw_file(
                 continue
             if duration == 0:
                 grace_count += 1
-                if not tie:
-                    issue(
-                        "dilemmadata.grace_conflict",
-                        line,
-                        "zero-duration tie continuation is contradictory",
-                    )
             if not tie:
                 tie_count += 1
             if previous_onset is not None and onset < previous_onset:
@@ -1039,6 +1196,7 @@ def _parse_raw_file(
                 staff=staff,
                 voice=voice,
                 source_voice_key=source_voice_key,
+                source_note_id=source_note_id,
                 meter=(numerator, denominator),
                 key_fifths=key_fifths,
                 measure_key=measure_key,
@@ -1386,6 +1544,121 @@ def _rt(value: Fraction) -> RationalTime:
     return RationalTime(value.numerator, value.denominator)
 
 
+def _fraction_text(value: Fraction) -> str:
+    return f"{value.numerator}/{value.denominator}"
+
+
+def _repair_time_transform(
+    observations: Sequence[_RawObservation],
+) -> tuple[
+    tuple[_RawObservation, ...],
+    DilemmadataTimeTransform,
+    tuple[_RepairDraft, ...],
+]:
+    """Apply one exact leading-padding transform when source measure zero is partial."""
+
+    zero_transform = DilemmadataTimeTransform(1, 1, RationalTime(0))
+    anchors_by_measure: dict[str, set[Fraction]] = defaultdict(set)
+    for row in observations:
+        if row.measure_key is not None and row.measure_anchor is not None:
+            anchors_by_measure[row.measure_key].add(row.measure_anchor)
+    unique = sorted(
+        next(iter(values))
+        for values in anchors_by_measure.values()
+        if len(values) == 1
+    )
+    if not unique or unique[0] == 0 or not observations:
+        return tuple(observations), zero_transform, ()
+    first_anchor = unique[0]
+    numerator, denominator = observations[0].meter
+    nominal = Fraction(numerator * 4, denominator)
+    remainder = first_anchor % nominal
+    offset = Fraction(0) if remainder == 0 else nominal - remainder
+    transform = DilemmadataTimeTransform(1, 1, _rt(offset))
+    shifted = tuple(
+        replace(
+            row,
+            onset=row.onset + offset,
+            measure_anchor=(
+                None
+                if row.measure_anchor is None
+                else row.measure_anchor + offset
+            ),
+        )
+        for row in observations
+    )
+    draft = _RepairDraft(
+        source_entity_id=f"source-measure:{observations[0].measure_key or '<unknown>'}",
+        repair_type="leading_partial_measure_structural_padding",
+        source_evidence=tuple(
+            sorted(
+                (
+                    ("first_explicit_anchor_qn", _fraction_text(first_anchor)),
+                    ("first_meter", f"{numerator}/{denominator}"),
+                    ("nominal_bar_qn", _fraction_text(nominal)),
+                    ("structural_padding_qn", _fraction_text(offset)),
+                )
+            )
+        ),
+        candidate_count=1,
+        chosen_candidate_id=f"canonical-offset:{_fraction_text(offset)}",
+    )
+    return shifted, transform, (draft,)
+
+
+def _make_repair_evidence(
+    record_id: str,
+    transform: DilemmadataTimeTransform,
+    drafts: Iterable[_RepairDraft],
+) -> DilemmadataRawRepairEvidence | None:
+    ordered = tuple(
+        sorted(
+            drafts,
+            key=lambda draft: (
+                draft.source_entity_id,
+                draft.repair_type,
+                draft.chosen_candidate_id or "",
+            ),
+        )
+    )
+    if not ordered:
+        return None
+    repairs = tuple(
+        DilemmadataRawRepairRecord(
+            record_id=record_id,
+            source_entity_id=draft.source_entity_id,
+            repair_type=draft.repair_type,
+            source_evidence=tuple(sorted(draft.source_evidence)),
+            candidate_count=draft.candidate_count,
+            chosen_candidate_id=draft.chosen_candidate_id,
+            time_transform=transform,
+            affected_canonical_entity_ids=tuple(
+                sorted(set(draft.affected_canonical_entity_ids))
+            ),
+            target_mask_scope=draft.target_mask_scope,
+        )
+        for draft in ordered
+    )
+    evidence = DilemmadataRawRepairEvidence(
+        version=DILEMMADATA_RAW_REPAIR_EVIDENCE_VERSION,
+        record_id=record_id,
+        time_transform=transform,
+        repairs=repairs,
+        fingerprint="",
+    )
+    evidence = replace(
+        evidence,
+        fingerprint=_fingerprint(dilemmadata_raw_repair_evidence_payload(evidence)),
+    )
+    if not validate_dilemmadata_raw_repair_evidence(evidence):
+        raise DilemmadataConversionError(
+            "constructed raw repair evidence is invalid",
+            category="dilemmadata.repair_evidence_invalid",
+            record_id=record_id,
+        )
+    return evidence
+
+
 def _active_meter(
     events: Sequence[tuple[Fraction, tuple[int, int]]], time: Fraction
 ) -> tuple[Fraction, tuple[int, int]]:
@@ -1559,6 +1832,324 @@ def _metric_grid(
     return meter_events, tuple(bars), tuple(beats), ()
 
 
+def _metric_structure_with_repairs(
+    observations: Sequence[_RawObservation],
+    duration: Fraction,
+    token: str,
+) -> tuple[
+    tuple[MeterEvent, ...],
+    tuple[CanonicalBar, ...],
+    tuple[CanonicalBeat, ...],
+    tuple[str, ...],
+    tuple[_RepairDraft, ...],
+    frozenset[str],
+]:
+    """Use the byte-compatible legacy grid first, then exact source boundaries."""
+
+    meter_evidence, anchors, pickup_end, meter_categories = (
+        _meter_events_and_anchors(observations)
+    )
+    if not meter_categories:
+        meters, bars, beats, bar_categories = _metric_grid(
+            duration,
+            meter_evidence,
+            anchors,
+            pickup_end,
+            token,
+        )
+        if not bar_categories:
+            return meters, bars, beats, (), (), frozenset()
+
+    drafts: list[_RepairDraft] = []
+    ambiguous_ordinals: set[int] = set()
+    meter_values_by_onset: dict[Fraction, Counter[tuple[int, int]]] = defaultdict(
+        Counter
+    )
+    for row in observations:
+        meter_values_by_onset[row.onset][row.meter] += 1
+    resolved_by_onset: list[tuple[Fraction, tuple[int, int]]] = []
+    for onset, counts in sorted(meter_values_by_onset.items()):
+        ordered = sorted(counts, key=lambda value: (-counts[value], value))
+        chosen = ordered[0]
+        resolved_by_onset.append((onset, chosen))
+        if len(ordered) > 1:
+            affected_rows = [row for row in observations if row.onset == onset]
+            drafts.append(
+                _RepairDraft(
+                    source_entity_id=f"source-onset:{_fraction_text(onset)}",
+                    repair_type="simultaneous_meter_evidence_selected",
+                    source_evidence=tuple(
+                        sorted(
+                            (
+                                ("candidate_meters", ",".join(f"{a}/{b}" for a, b in ordered)),
+                                ("onset_qn", _fraction_text(onset)),
+                            )
+                        )
+                    ),
+                    candidate_count=len(ordered),
+                    chosen_candidate_id=f"meter:{chosen[0]}/{chosen[1]}",
+                    target_mask_scope="all",
+                )
+            )
+            ambiguous_ordinals.update(row.ordinal for row in affected_rows)
+
+    if not resolved_by_onset:
+        return (), (), (), ("dilemmadata.meter_conflict",), (), frozenset()
+
+    measure_rows: dict[str, list[_RawObservation]] = {}
+    measure_order: list[str] = []
+    for row in observations:
+        if row.measure_key is None:
+            continue
+        if row.measure_key not in measure_rows:
+            measure_rows[row.measure_key] = []
+            measure_order.append(row.measure_key)
+        measure_rows[row.measure_key].append(row)
+
+    chosen_anchor_by_measure: dict[str, Fraction] = {}
+    previous_anchor: Fraction | None = None
+    previous_nominal: Fraction | None = None
+    for measure_key in measure_order:
+        rows = measure_rows[measure_key]
+        counts = Counter(
+            row.measure_anchor
+            for row in rows
+            if row.measure_anchor is not None
+        )
+        meter_counts = Counter(row.meter for row in rows)
+        meter = min(meter_counts, key=lambda value: (-meter_counts[value], value))
+        nominal = Fraction(meter[0] * 4, meter[1])
+        expected = (
+            Fraction(0)
+            if previous_anchor is None
+            else previous_anchor + (previous_nominal or nominal)
+        )
+        candidates = sorted(counts)
+        if candidates:
+            scored: list[tuple[int, int, Fraction, Fraction]] = []
+            for candidate in candidates:
+                inside = sum(
+                    candidate <= row.onset < candidate + nominal for row in rows
+                )
+                crossings = sum(row.onset < candidate for row in rows)
+                scored.append((-inside, crossings, abs(candidate - expected), candidate))
+            scored.sort()
+            chosen = scored[0][3]
+            ambiguous = len(scored) > 1 and scored[0][:-1] == scored[1][:-1]
+            if len(candidates) > 1:
+                if ambiguous:
+                    ambiguous_ordinals.update(row.ordinal for row in rows)
+                drafts.append(
+                    _RepairDraft(
+                        source_entity_id=f"source-measure:{measure_key}",
+                        repair_type="ambiguous_measure_mapping_selected",
+                        source_evidence=tuple(
+                            sorted(
+                                (
+                                    (
+                                        "candidate_anchors_qn",
+                                        ",".join(_fraction_text(value) for value in candidates),
+                                    ),
+                                    ("event_count", str(len(rows))),
+                                    ("expected_anchor_qn", _fraction_text(expected)),
+                                    ("nominal_bar_qn", _fraction_text(nominal)),
+                                )
+                            )
+                        ),
+                        candidate_count=len(candidates),
+                        chosen_candidate_id=f"source-anchor:{_fraction_text(chosen)}",
+                        target_mask_scope="all" if ambiguous else "none",
+                    )
+                )
+        else:
+            chosen = expected
+        if previous_anchor is not None and chosen <= previous_anchor:
+            later = [candidate for candidate in candidates if candidate > previous_anchor]
+            if later:
+                chosen = min(later, key=lambda candidate: (abs(candidate - expected), candidate))
+            else:
+                chosen = expected
+                ambiguous_ordinals.update(row.ordinal for row in rows)
+                drafts.append(
+                    _RepairDraft(
+                        source_entity_id=f"source-measure:{measure_key}",
+                        repair_type="nonmonotonic_measure_mapping_rederived",
+                        source_evidence=(
+                            ("expected_anchor_qn", _fraction_text(expected)),
+                            ("source_candidate_count", str(len(candidates))),
+                        ),
+                        candidate_count=len(candidates),
+                        chosen_candidate_id=f"derived-anchor:{_fraction_text(chosen)}",
+                        target_mask_scope="all",
+                    )
+                )
+        chosen_anchor_by_measure[measure_key] = chosen
+        previous_anchor = chosen
+        previous_nominal = nominal
+
+    first_meter = resolved_by_onset[0][1]
+    event_rows: list[tuple[Fraction, tuple[int, int]]] = [(Fraction(0), first_meter)]
+    current_meter = first_meter
+    for onset, meter in resolved_by_onset:
+        if meter == current_meter:
+            continue
+        matching = next(
+            (
+                row
+                for row in observations
+                if row.onset == onset and row.meter == meter
+            ),
+            None,
+        )
+        event_onset = (
+            chosen_anchor_by_measure.get(matching.measure_key, onset)
+            if matching is not None and matching.measure_key is not None
+            else onset
+        )
+        if event_onset < event_rows[-1][0]:
+            event_onset = onset
+        if event_onset == event_rows[-1][0]:
+            event_rows[-1] = (event_onset, meter)
+        else:
+            event_rows.append((event_onset, meter))
+        current_meter = meter
+    event_rows = sorted(set(event_rows))
+    if not event_rows or event_rows[0][0] != 0:
+        return (), (), (), ("dilemmadata.meter_conflict",), (), frozenset()
+
+    authoritative = {
+        Fraction(0),
+        duration,
+        *(value for value in chosen_anchor_by_measure.values() if 0 <= value <= duration),
+        *(onset for onset, _meter in event_rows if 0 <= onset <= duration),
+    }
+    authoritative_ordered = sorted(authoritative)
+    boundaries: list[Fraction] = [Fraction(0)]
+    for endpoint in authoritative_ordered[1:]:
+        cursor = boundaries[-1]
+        while cursor < endpoint:
+            _active_onset, active_meter = _active_meter(event_rows, cursor)
+            nominal = Fraction(active_meter[0] * 4, active_meter[1])
+            proposed = cursor + nominal
+            boundary = proposed if proposed < endpoint else endpoint
+            if boundary <= cursor:
+                return (
+                    (),
+                    (),
+                    (),
+                    ("dilemmadata.bar_reconstruction_failed",),
+                    (),
+                    frozenset(),
+                )
+            boundaries.append(boundary)
+            cursor = boundary
+
+    meter_events = tuple(
+        MeterEvent(
+            meter_event_id=f"meter:dilemmadata-{token}-{index:04d}",
+            onset_qn=_rt(onset),
+            numerator=meter[0],
+            denominator=meter[1],
+            provenance_id="prov:dilemmadata-conversion",
+        )
+        for index, (onset, meter) in enumerate(event_rows)
+    )
+    meter_id_by_onset = {
+        onset: meter_events[index].meter_event_id
+        for index, (onset, _meter) in enumerate(event_rows)
+    }
+    bars: list[CanonicalBar] = []
+    beats: list[CanonicalBeat] = []
+    for index, (start, end) in enumerate(zip(boundaries, boundaries[1:])):
+        meter_onset, meter = _active_meter(event_rows, start)
+        nominal = Fraction(meter[0] * 4, meter[1])
+        beat_unit = Fraction(4, meter[1])
+        actual = end - start
+        is_pickup = index == 0 and actual < nominal
+        metric_offset = nominal - actual if is_pickup else Fraction(0)
+        bar_id = f"bar:dilemmadata-{token}-{index:06d}"
+        bars.append(
+            CanonicalBar(
+                bar_id=bar_id,
+                index=index,
+                start_qn=_rt(start),
+                duration_qn=_rt(actual),
+                meter_event_id=meter_id_by_onset[meter_onset],
+                metric_offset_qn=_rt(metric_offset),
+                is_pickup=is_pickup,
+                is_incomplete=actual < nominal,
+                display_number=str(index + (0 if is_pickup else 1)),
+                provenance_id="prov:dilemmadata-conversion",
+            )
+        )
+        position = metric_offset
+        elapsed = Fraction(0)
+        beat_index = position // beat_unit
+        while elapsed < actual:
+            phase = position % beat_unit
+            capacity = beat_unit - phase if phase else beat_unit
+            beat_duration = min(capacity, actual - elapsed)
+            beats.append(
+                CanonicalBeat(
+                    beat_id=f"beat:dilemmadata-{token}-{len(beats):08d}",
+                    bar_id=bar_id,
+                    meter_event_id=meter_id_by_onset[meter_onset],
+                    index_in_bar=int(beat_index),
+                    start_qn=_rt(start + elapsed),
+                    duration_qn=_rt(beat_duration),
+                    position_in_bar_qn=_rt(position),
+                    is_downbeat=position == 0,
+                    strength=1.0 if position == 0 else 0.5,
+                    provenance_id="prov:dilemmadata-conversion",
+                )
+            )
+            elapsed += beat_duration
+            position += beat_duration
+            beat_index += 1
+            if len(bars) + len(beats) > _MAX_METRIC_RECORDS:
+                return (
+                    (),
+                    (),
+                    (),
+                    ("dilemmadata.bar_reconstruction_failed",),
+                    (),
+                    frozenset(),
+                )
+
+    if not drafts:
+        source_key = measure_order[0] if measure_order else "<unknown>"
+        drafts.append(
+            _RepairDraft(
+                source_entity_id=f"source-measure:{source_key}",
+                repair_type="exact_source_measure_boundaries_authoritative",
+                source_evidence=(
+                    ("authoritative_boundary_count", str(len(authoritative))),
+                    ("canonical_boundary_count", str(len(boundaries))),
+                ),
+                candidate_count=len(authoritative),
+                chosen_candidate_id="exact-source-boundary-partition",
+            )
+        )
+    bar_ids = tuple(bar.bar_id for bar in bars)
+    drafts = [
+        replace(
+            draft,
+            affected_canonical_entity_ids=(
+                draft.affected_canonical_entity_ids or bar_ids
+            ),
+        )
+        for draft in drafts
+    ]
+    return (
+        meter_events,
+        tuple(bars),
+        tuple(beats),
+        (),
+        tuple(drafts),
+        frozenset(ambiguous_ordinals),
+    )
+
+
 def _merge_notes(
     observations: Sequence[_RawObservation], token: str, track_id: str
 ) -> tuple[
@@ -1663,6 +2254,293 @@ def _merge_notes(
     return notes, merge_count, (), row_bindings
 
 
+def _merge_notes_with_repairs(
+    observations: Sequence[_RawObservation],
+    token: str,
+    track_id: str,
+) -> tuple[
+    tuple[CanonicalNote, ...],
+    int,
+    tuple[str, ...],
+    tuple[DilemmadataSourceRowBinding, ...],
+    tuple[_RepairDraft, ...],
+]:
+    """Preserve the legacy result, repairing only records it rejects."""
+
+    legacy_notes, legacy_merges, legacy_categories, legacy_bindings = _merge_notes(
+        observations,
+        token,
+        track_id,
+    )
+    has_zero_tie_segment = any(
+        row.duration == 0 and not row.tie_onset for row in observations
+    )
+    if not legacy_categories and not has_zero_tie_segment:
+        return (
+            legacy_notes,
+            legacy_merges,
+            (),
+            legacy_bindings,
+            (),
+        )
+
+    builders: list[dict[str, object]] = []
+    removed_rows: list[_RawObservation] = []
+    drafts: list[_RepairDraft] = []
+    merge_count = 0
+
+    def note_id(builder: Mapping[str, object]) -> str:
+        return f"note:dilemmadata-{token}-{int(builder['first_ordinal']):08d}"
+
+    def candidate_id(builder: Mapping[str, object]) -> str:
+        raw = builder.get("source_note_id")
+        suffix = str(raw) if raw else f"ordinal-{int(builder['first_ordinal']):08d}"
+        return f"source-note:{suffix}"
+
+    def new_builder(row: _RawObservation, *, kind: str) -> dict[str, object]:
+        return {
+            "first_ordinal": row.ordinal,
+            "onset": row.onset,
+            "duration": row.duration,
+            "pitch": row.pitch,
+            "spelling_step": row.spelling_step,
+            "spelling_alter": row.spelling_alter,
+            "staff": row.staff,
+            "voice": row.voice,
+            "source_voice_key": row.source_voice_key,
+            "source_note_id": row.source_note_id,
+            "source_rows": [row],
+            "kind": kind,
+            "can_continue": kind != "grace",
+            "mask_note_target": False,
+        }
+
+    for row in observations:
+        if row.tie_onset:
+            builders.append(
+                new_builder(row, kind="grace" if row.duration == 0 else "attack")
+            )
+            continue
+
+        candidates = [
+            builder
+            for builder in builders
+            if builder["can_continue"]
+            and builder["pitch"] == row.pitch
+            and builder["onset"] + builder["duration"] == row.onset
+        ]
+        if not candidates:
+            kind = "zero_orphan" if row.duration == 0 else "orphan_attack"
+            builder = new_builder(row, kind=kind)
+            builders.append(builder)
+            drafts.append(
+                _RepairDraft(
+                    source_entity_id=f"source-note-row:{row.ordinal:08d}",
+                    repair_type=(
+                        "zero_duration_tie_segment_staged_for_successor"
+                        if row.duration == 0
+                        else "orphan_tie_continuation_promoted_to_attack"
+                    ),
+                    source_evidence=tuple(
+                        sorted(
+                            (
+                                ("line", str(row.line)),
+                                ("onset_qn", _fraction_text(row.onset)),
+                                ("pitch", str(row.pitch)),
+                                ("source_voice", "/".join(row.source_voice_key)),
+                            )
+                        )
+                    ),
+                    chosen_candidate_id=candidate_id(builder),
+                    affected_canonical_entity_ids=(note_id(builder),),
+                )
+            )
+            continue
+
+        pool = list(candidates)
+        if row.source_note_id is not None:
+            same_identity = [
+                builder
+                for builder in pool
+                if builder.get("source_note_id") == row.source_note_id
+            ]
+            if same_identity:
+                pool = same_identity
+        same_voice = [
+            builder
+            for builder in pool
+            if builder["source_voice_key"] == row.source_voice_key
+        ]
+        if same_voice:
+            pool = same_voice
+        same_spelling = [
+            builder
+            for builder in pool
+            if builder["spelling_step"] == row.spelling_step
+            and builder["spelling_alter"] == row.spelling_alter
+        ]
+        if same_spelling:
+            pool = same_spelling
+        pool.sort(
+            key=lambda builder: (
+                str(builder.get("source_note_id") or ""),
+                tuple(builder["source_voice_key"]),
+                builder["onset"],
+                int(builder["first_ordinal"]),
+            )
+        )
+        chosen = pool[0]
+        remaining_ambiguity = len(pool) > 1
+        if remaining_ambiguity:
+            for builder in candidates:
+                builder["mask_note_target"] = True
+        chosen["duration"] = chosen["duration"] + row.duration
+        chosen["source_rows"].append(row)
+        merge_count += 1
+
+        repair_type = None
+        target_mask_scope: Literal["none", "note", "all"] = "none"
+        if row.duration == 0:
+            repair_type = "zero_duration_tie_segment_removed_and_reconnected"
+        elif len(candidates) > 1:
+            repair_type = "tie_candidate_hierarchy_selected"
+            target_mask_scope = "note" if remaining_ambiguity else "none"
+        elif chosen["source_voice_key"] != row.source_voice_key:
+            repair_type = "tie_cross_voice_predecessor_reconstructed"
+        if repair_type is not None:
+            drafts.append(
+                _RepairDraft(
+                    source_entity_id=f"source-note-row:{row.ordinal:08d}",
+                    repair_type=repair_type,
+                    source_evidence=tuple(
+                        sorted(
+                            (
+                                (
+                                    "candidate_ids",
+                                    ",".join(
+                                        sorted(candidate_id(item) for item in candidates)
+                                    ),
+                                ),
+                                ("line", str(row.line)),
+                                ("onset_qn", _fraction_text(row.onset)),
+                                ("pitch", str(row.pitch)),
+                                ("source_voice", "/".join(row.source_voice_key)),
+                            )
+                        )
+                    ),
+                    candidate_count=len(candidates),
+                    chosen_candidate_id=candidate_id(chosen),
+                    affected_canonical_entity_ids=tuple(
+                        sorted(note_id(item) for item in candidates)
+                    ),
+                    target_mask_scope=target_mask_scope,
+                )
+            )
+
+    retained_builders: list[dict[str, object]] = []
+    retained_note_ids: set[str] = set()
+    for builder in builders:
+        if builder["kind"] == "zero_orphan" and builder["duration"] == 0:
+            removed_rows.extend(builder["source_rows"])
+            drafts.append(
+                _RepairDraft(
+                    source_entity_id=(
+                        f"source-note-row:{int(builder['first_ordinal']):08d}"
+                    ),
+                    repair_type="zero_duration_tie_segment_removed_isolated",
+                    source_evidence=(
+                        ("duration_qn", "0/1"),
+                        ("onset_qn", _fraction_text(builder["onset"])),
+                        ("pitch", str(builder["pitch"])),
+                    ),
+                    chosen_candidate_id=None,
+                    target_mask_scope="note",
+                )
+            )
+            continue
+        retained_builders.append(builder)
+        retained_note_ids.add(note_id(builder))
+
+    ordered = sorted(
+        retained_builders,
+        key=lambda builder: (
+            builder["onset"],
+            builder["pitch"],
+            builder["duration"],
+            builder["first_ordinal"],
+        ),
+    )
+    notes = tuple(
+        CanonicalNote(
+            note_id=note_id(builder),
+            track_id=track_id,
+            pitch=int(builder["pitch"]),
+            onset_qn=_rt(builder["onset"]),
+            duration_qn=_rt(builder["duration"]),
+            velocity=None,
+            channel=None,
+            program=None,
+            is_percussion=False,
+            is_grace=builder["duration"] == 0,
+            spelling_step=builder["spelling_step"],
+            spelling_alter=builder["spelling_alter"],
+            staff=builder["staff"],
+            voice=builder["voice"],
+            articulations=None,
+            dynamic=None,
+            source_onset_ticks=None,
+            source_duration_ticks=None,
+            source_onset_seconds=None,
+            source_duration_seconds=None,
+            provenance_id="prov:dilemmadata-conversion",
+        )
+        for builder in ordered
+    )
+    row_bindings = [
+        DilemmadataSourceRowBinding(
+            ordinal=source_row.ordinal,
+            line=source_row.line,
+            onset_qn=_rt(source_row.onset),
+            canonical_note_id=note_id(builder),
+            tie_continuation=not source_row.tie_onset,
+            repair_mask_scope=(
+                "note" if builder["mask_note_target"] else "none"
+            ),
+        )
+        for builder in ordered
+        for source_row in builder["source_rows"]
+    ]
+    row_bindings.extend(
+        DilemmadataSourceRowBinding(
+            ordinal=row.ordinal,
+            line=row.line,
+            onset_qn=_rt(row.onset),
+            canonical_note_id=None,
+            tie_continuation=True,
+            repair_mask_scope="note",
+        )
+        for row in removed_rows
+    )
+    normalized_drafts = tuple(
+        replace(
+            draft,
+            affected_canonical_entity_ids=tuple(
+                entity_id
+                for entity_id in draft.affected_canonical_entity_ids
+                if entity_id in retained_note_ids
+            ),
+        )
+        for draft in drafts
+    )
+    return (
+        notes,
+        merge_count,
+        (),
+        tuple(sorted(row_bindings, key=lambda binding: binding.ordinal)),
+        normalized_drafts,
+    )
+
+
 def _key_events(
     observations: Sequence[_RawObservation], token: str
 ) -> tuple[tuple[KeySignatureEvent, ...], tuple[str, ...]]:
@@ -1750,12 +2628,17 @@ def convert_dilemmadata_record(
             ("dilemmadata.resolution_mismatch",),
             ("source resolution changed after discovery",),
         )
+    transformed_observations, time_transform, transform_drafts = (
+        _repair_time_transform(parse.observations)
+    )
     token = _piece_token(record.record_id)
     track_id = f"track:dilemmadata-{token}-raw"
-    notes, tie_merges, note_categories, row_bindings = _merge_notes(
-        parse.observations,
-        token,
-        track_id,
+    notes, tie_merges, note_categories, row_bindings, tie_drafts = (
+        _merge_notes_with_repairs(
+            transformed_observations,
+            token,
+            track_id,
+        )
     )
     if note_categories:
         return _quarantine(record, note_categories)
@@ -1763,17 +2646,33 @@ def convert_dilemmadata_record(
         (note.onset_qn.to_fraction() + note.duration_qn.to_fraction() for note in notes),
         default=Fraction(0),
     )
-    meter_evidence, anchors, pickup_end, meter_categories = _meter_events_and_anchors(
-        parse.observations
-    )
-    if meter_categories:
-        return _quarantine(record, meter_categories)
-    meters, bars, beats, bar_categories = _metric_grid(
-        duration, meter_evidence, anchors, pickup_end, token
+    meters, bars, beats, bar_categories, metric_drafts, ambiguous_ordinals = (
+        _metric_structure_with_repairs(
+            transformed_observations,
+            duration,
+            token,
+        )
     )
     if bar_categories:
         return _quarantine(record, bar_categories)
-    key_events, key_categories = _key_events(parse.observations, token)
+    if ambiguous_ordinals:
+        row_bindings = tuple(
+            replace(binding, repair_mask_scope="all")
+            if binding.ordinal in ambiguous_ordinals
+            else binding
+            for binding in row_bindings
+        )
+    if transform_drafts and bars:
+        transform_drafts = tuple(
+            replace(draft, affected_canonical_entity_ids=(bars[0].bar_id,))
+            for draft in transform_drafts
+        )
+    repair_evidence = _make_repair_evidence(
+        record.record_id,
+        time_transform,
+        (*transform_drafts, *tie_drafts, *metric_drafts),
+    )
+    key_events, key_categories = _key_events(transformed_observations, token)
     if key_categories:
         return _quarantine(record, key_categories)
 
@@ -1794,23 +2693,43 @@ def convert_dilemmadata_record(
             ("source_group_id", record.source_group_id),
         ),
     )
+    if repair_evidence is None:
+        conversion_details: tuple[tuple[str, object], ...] = (
+            ("grace_policy", config.grace_policy),
+            ("meter_policy", config.meter_policy),
+            ("raw_projection_version", DILEMMADATA_RAW_PROJECTION_VERSION),
+            ("tie_policy", config.tie_policy),
+            ("track_policy", config.track_policy),
+        )
+    else:
+        conversion_details = (
+            ("grace_policy", config.grace_policy),
+            ("meter_policy", config.meter_policy),
+            ("raw_projection_version", DILEMMADATA_RAW_PROJECTION_VERSION),
+            ("raw_repair_evidence_fingerprint", repair_evidence.fingerprint),
+            ("raw_repair_evidence_version", repair_evidence.version),
+            (
+                "source_to_canonical_offset_qn",
+                f"{time_transform.offset_qn.num}/{time_transform.offset_qn.den}",
+            ),
+            ("tie_policy", config.tie_policy),
+            ("track_policy", config.track_policy),
+        )
     conversion_provenance = ProvenanceRecord(
         provenance_id="prov:dilemmadata-conversion",
         kind="conversion",
         source="music_critic.dilemmadata_adapter",
         record_id=None,
         uri=None,
-        version=DILEMMADATA_ADAPTER_VERSION,
+        version=(
+            DILEMMADATA_ADAPTER_VERSION
+            if repair_evidence is None
+            else DILEMMADATA_REMEDIATED_ADAPTER_VERSION
+        ),
         checksum_sha256=parse.raw_projection_sha256,
         created_at=None,
         parents=("prov:dilemmadata-source",),
-        details=(
-            ("grace_policy", config.grace_policy),
-            ("meter_policy", config.meter_policy),
-            ("raw_projection_version", DILEMMADATA_RAW_PROJECTION_VERSION),
-            ("tie_policy", config.tie_policy),
-            ("track_policy", config.track_policy),
-        ),
+        details=conversion_details,
     )
     tempo_provenance = ProvenanceRecord(
         provenance_id="prov:dilemmadata-default-tempo",
@@ -1878,6 +2797,25 @@ def convert_dilemmadata_record(
                 code="dilemmadata.zero_duration_grace_retained",
                 severity="info",
                 message=f"Retained {grace_count} source-zero-duration grace observations.",
+                entity_ids=(record.piece_id,),
+                provenance_id="prov:dilemmadata-conversion",
+            )
+        )
+    if repair_evidence is not None:
+        repair_counts = Counter(
+            repair.repair_type for repair in repair_evidence.repairs
+        )
+        flags.append(
+            QualityFlag(
+                code="dilemmadata.raw_repairs_applied",
+                severity="warning",
+                message=(
+                    "Applied target-independent deterministic raw repairs: "
+                    + ", ".join(
+                        f"{name}={count}"
+                        for name, count in sorted(repair_counts.items())
+                    )
+                ),
                 entity_ids=(record.piece_id,),
                 provenance_id="prov:dilemmadata-conversion",
             )
@@ -1975,7 +2913,9 @@ def convert_dilemmadata_record(
             piece,
             row_bindings,
             parse.raw_source_fields,
+            repair_evidence,
         ),
+        repair_evidence=repair_evidence,
     )
 
 
@@ -2015,6 +2955,7 @@ __all__ = [
     "DILEMMADATA_ACCEPTANCE_REPORT_VERSION",
     "DILEMMADATA_AN_RECORD_COUNT",
     "DILEMMADATA_ADAPTER_VERSION",
+    "DILEMMADATA_COVERAGE_REMEDIATION_REPORT_VERSION",
     "DILEMMADATA_CONTENT_FINGERPRINT",
     "DILEMMADATA_CORPUS_IDENTITY_VERSION",
     "DILEMMADATA_DATASET_NAME",
@@ -2023,8 +2964,11 @@ __all__ = [
     "DILEMMADATA_INSTALLATION_FILE_COUNT",
     "DILEMMADATA_PRIMARY_RECORD_COUNT",
     "DILEMMADATA_PRODUCTION_MANIFEST_VERSION",
+    "DILEMMADATA_RAW_REPAIR_EVIDENCE_VERSION",
     "DILEMMADATA_RAW_PROJECTION_VERSION",
     "DILEMMADATA_RAW_TARGET_ALIGNMENT_EVIDENCE_VERSION",
+    "DILEMMADATA_REMEDIATED_ADAPTER_VERSION",
+    "DILEMMADATA_REMEDIATED_ALIGNMENT_EVIDENCE_VERSION",
     "DILEMMADATA_RECORD_BINDING_VERSION",
     "DILEMMADATA_RELEASE_COMMIT",
     "DILEMMADATA_RELEASE_VERSION",
@@ -2040,13 +2984,18 @@ __all__ = [
     "DilemmadataCorpusIssue",
     "DilemmadataCorpusRecord",
     "DilemmadataQuarantine",
+    "DilemmadataRawRepairEvidence",
+    "DilemmadataRawRepairRecord",
     "DilemmadataRawTargetAlignmentEvidence",
     "DilemmadataSourceRowBinding",
+    "DilemmadataTimeTransform",
     "convert_dilemmadata_record",
+    "dilemmadata_raw_repair_evidence_payload",
     "dilemmadata_raw_source_value_fields",
     "discover_dilemmadata_corpus",
     "iter_dilemmadata_corpus",
     "reconstruct_dilemmadata_alignment_evidence",
     "validate_dilemmadata_alignment_evidence",
+    "validate_dilemmadata_raw_repair_evidence",
     "validate_dilemmadata_record_binding",
 ]

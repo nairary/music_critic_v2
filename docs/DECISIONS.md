@@ -3464,3 +3464,517 @@ This log is append-only.
   reuse that exact success, while source, tests, scripts, configuration,
   workflow, and unknown paths remain fail-open. Models, data, scientific
   fingerprints, Phase 9E-A projection, and Phase 9E-B1 do not change.
+
+## 2026-08-28 — ADR-097: AnalysisGNN is reconstructed as an isolated two-task comparator
+
+- Status: Accepted for Phase 9E-B1; full CUDA execution remains pending.
+- Context: The public `rhsjiz03` checkpoint verifies an AnalysisGNN architecture
+  and historical metrics, but its recorded source revision is unpublished,
+  GraphMuse is absent from its lock, current preprocessing is broken, and its
+  transposed-view split is unsuitable for the frozen V2 common subset.
+- Decision: Keep public bytes as historical attestation only. Reconstruct from
+  official AnalysisGNN commit `e115182...` plus explicitly substituted
+  GraphMuse `c36eedb...` and three minimal patches. Record all deviations and
+  prohibit “official”, “exact”, or “independent reproduction” claims.
+- Decision: Add an experiment-only adapter from accepted raw `CanonicalPiece`
+  plus identity-bound target sidecars to the native 13-relation
+  note/beat/measure surface. Topology and hierarchy use exact rational timing;
+  targets never construct input features or edges. Split source groups first,
+  then expose all 12 transpositions only to training.
+- Decision: Train exactly the checkpoint-attested HybridGNN/JK/two-layer BiGRU
+  representation with output 128 from scratch, but expose only common
+  quality-50 and inversion-4 MLP heads with cross-task logit fusion. Use 10,000
+  applied updates for each seed 17/23/42 and validate every 500; this integer
+  budget is frozen because the scientific specification requires equality but
+  provides no number.
+- Decision: One full source/transposition graph is one candidate update. Seeded
+  shuffled ordering, source grouping, graph hashes, and applied/skipped
+  outcomes are materialized. This is declared separately from the public
+  run's sampled-subgraph batch 240 / size 500 behavior.
+- Decision: Aggregate mean note log probabilities once per source entry. Report
+  NLL, normalized mean NLL, macro-F1 over supported classes, balanced accuracy,
+  accuracy, majority baseline, joint accuracy, confusion/support, grouped
+  bootstrap, every seed, and mean ± sample standard deviation. `train` cannot
+  open test. Only after all three
+  validation-selected checkpoint hashes are frozen may an explicitly named
+  operator create the dataset/config/checkpoint-bound unlock; CUDA evaluation
+  then opens test once per seed.
+- Consequences: Phase 9E-B1 does not modify Music Critic architecture, decoder,
+  SSL, BiGRU/Transformer, canonical/raw inference, or Phase 9E-A evidence.
+  Generated data/checkpoints/results remain uncommitted. Missing CUDA or build
+  prerequisites is recorded as pending execution, never synthetic evidence.
+
+## 2026-08-29 — ADR-098: AnalysisGNN source-entry supervision is many-to-many and preflight-gated
+
+- Status: Accepted for Phase 9E-B1 remediation; fresh CUDA training is blocked
+  until the frozen corpus has zero conflicting available-class overlaps.
+- Context: Seed 17 stopped after 31 applied updates on TRAIN record
+  `dlc:corelli:op03n04a`, piece
+  `piece:dilemmadata-dlc-a88f753949b33e7705b36448`, transposition `m6`.
+  Quality entries 137 `[86,86]` and 138 `[86,87]` are both exact major
+  triads, and six notes at onset 86 legitimately belong to both. The original
+  graph adapter stored only one entry index per note and treated this
+  equivalent overlap as an error.
+- Decision: A task graph stores one note-level class target plus a
+  lexicographically sorted sparse `[note_index, entry_index]` membership
+  tensor. Multiple available exact/coarsened memberships with one common class
+  yield that single training target and retain every source entry for
+  independent mean-note-log-probability aggregation. Unavailable/masked rows
+  create no memberships and cannot replace available supervision. Different
+  available common classes on one note remain a fail-closed error with
+  record/piece/task/note/entry/entity/class diagnostics; zero-duration entries
+  are neither deleted nor arbitrarily preferred.
+- Decision: `LabelBindingPreflight@1.0.0` scans all 719 manifest-bound records
+  before any run directory, model, or optimizer is created. Pitch-only
+  transpositions reuse the same exact onset/span membership, covering the
+  unchanged 7,066-view contract. The deterministic, manifest/schema-bound JSON
+  reports equivalent and conflicting overlap groups/notes and is accepted only
+  when conflicting available-class note count is zero. It may inspect locked
+  sidecars for structural binding only and cannot construct model predictions,
+  metrics, selection, or test claims.
+- Decision: Version the experiment contract and graph schema to `1.0.1`.
+  CUDA execution requires `CUBLAS_WORKSPACE_CONFIG=:4096:8` before CUDA
+  initialization and uses fail-closed deterministic algorithms. Add
+  `music21==9.3.0`, required by the pinned external AnalysisGNN import, without
+  changing torch 2.2.2, PyG 2.6.1, or GraphMuse `c36eedb...`.
+- Consequences: The safe local preflight found 224 equivalent note overlaps in
+  36 source-entry groups and 128 conflicting note overlaps in 18 groups. The
+  requested Corelli 137/138 case accounts for six equivalent quality notes,
+  but four other records contain conflicting exact point/interval pairs.
+  Therefore the gate correctly prevents CPU/CUDA smoke progression and seed-17
+  restart until a separately authorized semantic/data-policy remediation makes
+  the conflicting count zero. The 719 subset, 577/71/71 assignment, common
+  projections, dataset/manifest fingerprints, model, optimizer budget, and
+  locked-test policy are unchanged.
+
+## 2026-08-29 — ADR-099: Conflicting AnalysisGNN labels require source-row evidence before policy
+
+- Status: Forensic evidence accepted for Phase 9E-B1; semantic remediation is
+  deliberately not accepted by this decision and training remains blocked.
+- Context: `LabelBindingPreflight@1.0.0` reports 18 different-class groups and
+  128 conflicting notes. Its implementation scans each of the 719 accepted
+  records once and only reports 7,066 as the corpus view schedule. Therefore
+  those overlap counts are already source-native; pitch transposition must not
+  be treated as independent annotation evidence.
+- Decision: Define a conflict identity from record, piece, dialect, common
+  task, sorted source entity IDs, exact source span boundaries, and source
+  values. Transpositions are repetitions of that identity. Persist full
+  TRAIN/VALIDATION note/entry evidence only in ignored output, commit a compact
+  deterministic projection, and expose TEST solely as sealed aggregate counts.
+  TEST values, classes, record IDs, and note diagnostics cannot participate in
+  policy selection or model evaluation.
+- Decision: Bind the temporal interpretation to read-only Dilemmadata commit
+  `d60ee75...` and public AnalysisGNN commit `e115182...`. Dilemmadata's outer
+  note/harmony merge can emit multiple note rows at one timestamp and carries
+  one harmony identity/value on each row. AnalysisGNN keeps those TSV rows and
+  attaches quality/inversion labels row-wise; it defines neither point-span nor
+  interval-span precedence and no grace-specific precedence.
+- Decision: Record exact source TSV ordinals for detailed conflicts. All 12
+  TRAIN/VALIDATION groups are same-start point/interval transitions on
+  ordinary notes, and each conflicting V2 note row maps by its immutable note
+  ID ordinal to exactly one of the two source entries. This supports an exact
+  source-row membership policy for a future separate remediation, but does not
+  implement or authorize it here. If that provenance cannot be made a checked
+  contract, mask only ambiguous task-note supervision as the minimal fallback.
+- Consequences: Arbitrary first/last, point, or interval precedence is rejected;
+  source-entry masking would invalidate those entry metrics, and excluding
+  whole records would alter the frozen 719 subset. `acceptance=false` and
+  `training_authorized=false` remain mandatory. Graph semantics/schema,
+  source-native targets, cache, common projection, 719 subset, 577/71/71 split,
+  model, optimizer, and all existing scientific fingerprints remain unchanged.
+
+## 2026-08-29 — ADR-100: Proven Dilemmadata duplicate rows override boundary spans
+
+- Status: Accepted for Phase 9E-B1; RTX smoke is authorized, while training
+  remains behind the registered CPU/CUDA artifact-review STOP gate.
+- Context: Pinned Dilemmadata outer-merge rows preserve independent harmony
+  identities at a shared timestamp, and pinned AnalysisGNN labels each retained
+  TSV/note row. The V2 common cache preserves the raw ordinal only in the
+  deterministic canonical note ID; the raw adapter's structured lineage and
+  target emitter's source-row tuple were not serialized. Generic `[t,t]` and
+  `[t,next)` spans therefore erased the exact boundary relationship.
+- Decision: Define `DilemmadataSourceRowBinding@1.0.0`. Only because no
+  structured field survives in the frozen cache, parse the note ID ordinal and
+  validate it against pinned TSV onset/pitch/staff/voice. Bind its
+  `unfolded_harmony_index` to stable typed point/interval entity order,
+  independently per quality/inversion task. Source identity, membership, and
+  serialization are class-independent, transposition-invariant, uniquely
+  sorted, and contain no absolute paths or runtime timestamps.
+- Decision: At a proved DLC duplicate-row boundary, exact provenance replaces
+  generic memberships for those entries. It does not replace ordinary span
+  binding after the boundary, does not change equivalent non-row sparse
+  multi-membership, and does not apply to AN. Unavailable entries retain
+  metadata but create no training/evaluation membership. Missing, malformed,
+  incomplete, duplicated, or ambiguous evidence is a fail-closed graph error;
+  first/last/point/interval precedence and fallback masking are rejected.
+- Decision: `LabelBindingPreflight@2.0.0` reads the existing cache plus pinned
+  raw identity fields before a run/model/optimizer. TRAIN/VALIDATION may retain
+  exact binding details; TEST emits sealed structural aggregates only. Training
+  and real graph smoke require the manifest/schema/hash-bound artifact with
+  zero unresolved, ambiguous, or conflicting groups. Locked-test evaluation,
+  after the existing explicit unlock, reconstructs the same frozen TEST rule
+  in memory from pinned source and does not serialize preflight details.
+- Consequences: The all-719 preflight resolved 68/68 groups and 452 rows, with
+  zero remaining conflicts; 7,066-view effective counts are 640/4,016. TEST
+  contributes only 16/128 sealed structural counts and no model use. The
+  graph/experiment version advances to `1.1.0`; all dataset, split, sidecar,
+  common-projection, model, metric, optimizer-budget, and test-unlock contracts
+  remain unchanged.
+
+## 2026-08-29 — ADR-101: Zero-support Phase 9E-B1 metrics are explicitly unavailable
+
+- Status: Accepted for Phase 9E-B1 validation remediation; CUDA rerun remains
+  behind the registered preflight and CPU/CUDA smoke gates.
+- Context: The remediated seed-17 run completed 500 finite applied updates and
+  failed while canonicalizing its first validation row. The exact value was
+  `$.metrics.joint_quality_inversion.accuracy = NaN`. The frozen 71-record
+  VALIDATION partition contains 13,475 available quality entries and 7,064
+  available inversion entries but zero shared `(record_id, entity_id)` pairs:
+  source entity identities are intentionally task-specific. Thus the registered
+  joint accuracy has mathematical support zero; quality/inversion NLL and the
+  model update history are not implicated.
+- Decision: Keep the registered joint alignment
+  `same_record_shared_source_entity_id`; do not invent cross-task matches from
+  ordering, spans, labels, or source-row membership in this remediation. A
+  zero-support joint metric is represented as `accuracy=null`,
+  `available=false`, `support=0`, and a stable `undefined_reason`. Bootstrap
+  and seed summaries carry null plus defined/requested counts when their joint
+  statistic is unavailable. Undefined never means zero.
+- Decision: Canonical JSON continues to reject all non-finite floats and now
+  reports their deterministic nested field path. Validation selection requires
+  finite quality and inversion NLL and fails closed with the required field
+  path before checkpoint selection. Serialize an append row before opening its
+  destination so a rejected row cannot create a new empty artifact.
+- Decision: Advance only the Phase experiment/reporting contract to `1.1.1`
+  and bind the joint alignment plus undefined-reporting policy into the config
+  fingerprint. Keep graph schema `1.1.0` and every data, split, augmentation,
+  model, optimizer, source-row, and test-lock contract unchanged.
+- Consequences: Preserve the failed 500-update run and its empty validation
+  artifact as evidence, and restart seed 17 from applied update 0 in a new
+  output root. The config fingerprint advances from `f006dcdc...` to
+  `3c93b1c5d733ade2048104ad164a04fddaee33a54e650de4d9f513251209a469`;
+  graph and dataset fingerprints do not change. No TEST target or metric was
+  opened to make this decision.
+
+## 2026-08-31 — ADR-102: Recover local Dilemmadata raw irregularities without target evidence
+
+- Status: Accepted for Phase 9E-B2 raw coverage remediation; expanded split,
+  multi-head training, validation inference, and TEST evaluation are not
+  authorized by this decision.
+- Context: The Phase 9B.1 fail-closed adapter accepted 719 of the 1,633 pinned
+  Dilemmadata records and quarantined 914. The preceding read-only audit traced
+  those record failures to local raw irregularities: leading partial measures,
+  missing or multiple tie predecessors, explicit source anchors outside a
+  nominal grid, ambiguous measure mappings, and zero-duration tie segments.
+  Excluding a whole work loses valid raw structure and available independent
+  target families, but resolving from harmonic labels would leak supervision
+  into model input.
+- Decision: Keep `DilemmadataAdapter@1.0.1` byte-exact and first in the
+  conversion path. Only a record rejected there may use
+  `DilemmadataAdapter@1.1.0`. Every repair must be selected from exact raw
+  timing, source tie/note identity, part/staff/voice, pitch, source measure
+  boundaries, meter, and stable source ordinal. Values in theory, validity,
+  alternative-analysis, and analyst/reviewer columns cannot be read or used
+  for reconstruction.
+- Decision: Represent a proved leading partial measure with one exact affine
+  time transform and structural empty beats. Treat monotonic explicit source
+  boundaries as authoritative. When multiple measure or tie candidates remain,
+  rank by the registered raw evidence hierarchy and stable identity. Promote
+  an orphan tie continuation to an attack; retain an explicit grace onset;
+  remove a zero-duration sounding tie segment and reconnect only a unique
+  chain. Never invent a positive duration, snap with epsilon, choose randomly,
+  or alter source pitch/duration.
+- Decision: Define `DilemmadataRawRepairEvidence@1.0.0`, alignment evidence
+  `1.2.0`, and coverage report `1.0.0`. Persist record/source identity, repair
+  type and raw evidence, candidate count/selection, exact transform, affected
+  entities, and local mask scope in canonical stable order. This evidence is
+  bound into audit/target alignment provenance but is neither target nor model
+  input. Uncertainty masks only the affected note or structurally dependent
+  target entries; a missing target family is normal unavailability.
+- Consequences: The pinned raw ceiling is 1,633 accepted records (353 AN,
+  1,280 DLC) with zero remaining quarantine. The previous 719 canonical and
+  graph serializations remain byte-identical; raw index `c0451976...`, common
+  manifest `be0d36ae...`, and split `58ac7720...` with 577/71/71 membership
+  remain unchanged. The AnalysisGNN 14-overlap exclusion remains a separate
+  experiment-selection policy, yielding a 1,619 paper-candidate ceiling. No
+  exact AnalysisGNN reproduction is claimed, and no model, checkpoint,
+  training output, validation result, or TEST result changes.
+
+## 2026-08-31 — ADR-103: Freeze a corrected AnalysisGNN-derived multi-task dataset contract
+
+- Status: Accepted for Phase 9E-B3 data preparation only. Model construction,
+  training, validation inference, and TEST evaluation remain unauthorized.
+- Context: B2 restored all 1,633 raw records, but the B1 two-head pilot used
+  task-specific quality/inversion IDs and had zero joint support. The paper
+  declares 20 properties while pinned code exposes 21 unique heads, including
+  code-only `staff`, plus literal, alias, and missing-as-class defects.
+- Decision: Freeze a 1,633 full inventory and 1,619 paper-candidate selection,
+  excluding exactly 14 DLC overlaps and retaining all AN peers. Reuse 1,507 B2
+  source components. The absent Monteverdi record is not an exclusion and the
+  unavailable external cadence corpus is not included.
+- Decision: Keep immutable 21-head pinned-code evidence separate from a
+  corrected 20-head production registry. Normalize `organ_point -> pedal` and
+  `downbeat -> metrical_strength`; defer `staff`. Mask missing labels. Correct
+  quality to 17 and Roman numeral to 184 semantic classes instead of forcing
+  defective literals into pinned dimensions.
+- Decision: Share one target-independent harmonic entity across chord heads.
+  Joint evaluation requires local key, both degree components, quality, and
+  inversion on that ID. Freeze a SHA-256 component split at 1,295/162/162 and
+  seal TEST behind a future explicit evaluation gate.
+- Consequences: Joint structural support is 98,715 TRAIN / 10,507 VALIDATION;
+  the B1 zero-support cause is removed without changing B1. B2 availability is
+  reproduced, raw preservation failures and component leakage are zero. This
+  corrected derived contract is not an exact official reproduction.
+
+## 2026-08-31 — ADR-104: Separate corrected V2 and paper-text compatibility metrics
+
+- Status: Accepted as a Phase 9E-B3 scientific-contract remediation. It does
+  not authorize model construction, training, inference, or metric evaluation.
+- Context: ADR-103 correctly preserved source-native quality-17 and shared
+  harmonic entities but named its harmonic-event joint metric paper-compatible.
+  The paper instead describes predictions per note and official quality-15;
+  pinned code collapses DLC `+7`/`+M7` and has mutually inconsistent joint
+  evaluator branches, including an onset-test path without local key.
+- Decision: Retain `dilemmadata-corrected-quality-17-v1` as the production head
+  space. Add frozen `analysisgnn-quality-15-compat-e115182-v1` plus an explicit
+  total projection: `augmented seventh chord` and
+  `augmented major tetrachord` map to `augmented triad`; the other 15 classes
+  are identity mappings and missing remains masked.
+- Decision: Name the corrected metric
+  `v2_corrected_harmonic_event_joint_accuracy`, with
+  `paper_compatible=false`. Define a separate unevaluated
+  `analysisgnn_paper_text_note_joint_accuracy` contract on notes. Both use
+  local key, primary degree, secondary degree, quality, and inversion; the
+  note metric chooses the paper-text definition and quality-15 projection while
+  explicitly disclaiming exact official runtime reproduction.
+- Decision: Independently freeze the paper/code facts, 15 quality labels,
+  Roman literal repair, 21 pinned heads, excluded `staff`, source paths,
+  symbols, and file hashes in a source-free scientific fixture. Keep cadence
+  source-native and do not attest it as exact paper compatibility.
+- Consequences: Production remains 20 heads with quality-17 and Roman-184.
+  Universe, exclusions, split, TEST lock, entities, relations, sidecars, raw
+  graphs, and structural availability are unchanged. Only semantic contract
+  artifacts and their dependent fingerprints advance to version 2.
+
+## 2026-08-31 — ADR-105: Baseline trainability requires independent component support
+
+- Status: Accepted for Phase 9E-B4 planning evidence only. It does not
+  authorize model construction, loss weighting, sampling, training, inference,
+  validation metrics, or TEST access.
+- Context: B3 proves large target volume and a 20-head schema, but an entity
+  count may repeat one source annotation across notes, one work, or one source
+  component. A rare class can therefore look numerically large without
+  supporting independent training or evaluation. Roman-184 and the two
+  corrected augmented quality classes make this distinction material.
+- Decision: Define `DilemmadataAnalysisGNNClassBalanceAudit@1.0.0`. For every
+  class, count available entities, canonical source-target rows, records,
+  frozen source components, AN/DLC support, broadcast, concentration, and
+  effective component count separately. Missing/masked targets never become a
+  class and every zero class remains explicit. Freeze the operational tier and
+  recommendation thresholds in the semantic fingerprint.
+- Decision: Use TRAIN for support, concentration, decisions, joint tuple
+  reference, and candidate weights. Use VALIDATION only for coverage and
+  TRAIN-unseen tuples. Filter the frozen assignment before resolving a
+  target-bearing record or sidecar. TEST may contribute only its target-free
+  162-record/151-component assignment evidence; TEST target records/rows,
+  distributions, inference, metrics, and decisions remain zero/false.
+- Decision: Keep source-faithful quality-17, projected compatibility
+  quality-15, and Roman-184 unchanged. Corrected tuples use harmonic events;
+  compatibility tuples use notes but preserve canonical harmonic-row support.
+  Candidate inverse, inverse-square-root, and effective-number weights are
+  TRAIN-only diagnostics with null unsupported classes. Final weighting and
+  component-sampling policy are not selected.
+- Consequences: Only inversion meets the strict `trainable` baseline contract;
+  7 heads require reweighting diagnostics, 5 have insufficient support, and 7
+  are descriptive-only. This is evidence about annotations, not a prediction
+  of model performance. Dataset, exclusions, split, vocabularies, target
+  values/masks, source sidecars, graphs, model, losses, samplers, and training
+  configs remain unchanged.
+
+## 2026-08-31 — ADR-106: Separate pinned and corrected transposition profiles
+
+- Status: Accepted for Phase 9E-B5A planning evidence only. It does not enable
+  augmentation in a Dataset or freeze a baseline head/loss/sampling policy.
+- Context: Pinned AnalysisGNN materializes 12 named-interval views with modulo
+  pitch behavior, final-class OOV fallback, and a view-level TRAIN/VALIDATION
+  split. Reusing that path as safe V2 augmentation would combine reproduction
+  evidence with corrections, permit leakage, and obscure enharmonic vocabulary
+  failures. B4 measures only raw TRAIN support.
+- Decision: Keep `analysisgnn-official-transposition-e115182-v1` as immutable
+  external evidence and define `music-critic-v2-closed-transposition-v1` as a
+  separate candidate. Corrected V2 is TRAIN-only, on-the-fly, deterministic
+  under a supplied seed, uniform over each record's valid shift-PC subset, and
+  identity-only in VALIDATION/TEST. Its physical orbit is
+  `(0,+1,+2,+3,+4,+5,+6,-5,-4,-3,-2,-1)` with tritone `+6`.
+- Decision: Absolute pitch labels are decoded and mapped by source-aware
+  spelling with vocabulary and inverse closure; PC sets are cyclic; relative,
+  structural, and boolean targets are invariant. Missing values and masks are
+  preserved. A range, closure, non-bijection, or held-out collision failure
+  excludes the whole record/shift without octave folding or split repair.
+- Decision: Treat a variant as a view of its frozen record/component. Report
+  full-orbit and exact one-draw expectations separately from independent source
+  support. Use B4 thresholds only for advisory official/corrected tables; do
+  not mutate head roles, weights, sampler, model, or training configuration.
+- Consequences: 1,231/1,295 TRAIN records admit all shifts and 64 have partial
+  orbits; no identity-only record or held-out collision exists. Bass reaches
+  full vocabulary coverage, root/local/tonicized key remain partly unsupported,
+  and pitch-class-set balance improves. Quality-17, Roman-184, note-degree,
+  phrase, and section remain exactly invariant, so no new head becomes strictly
+  trainable under B4. TEST targets remain unopened.
+
+## 2026-09-01 — ADR-107: Freeze separate official and paired corrected training policies
+
+- Status: Accepted for Phase 9E-B5B contract/model-planning work only. It does
+  not authorize model construction, optimizer updates, validation inference,
+  checkpoint creation, or TEST access.
+- Context: B3 freezes a corrected 20-head dataset and split; B4 shows severe
+  class/component imbalance; B5A proves safe TRAIN transposition coverage but
+  not model benefit. The official pinned code instead exposes 21 unique heads,
+  learned task weights, materialized-view splitting, an external cadence
+  corpus, and conflicting evaluation branches. Combining these semantics would
+  make neither reproduction nor a controlled augmentation ablation valid.
+- Decision: Define `analysisgnn-official-reproduction-e115182-v1` (`O`) as an
+  isolated pinned-code profile. Preserve its source-evidenced heads, smoothed
+  CE/learned uncertainty loss, no class weights, combined neighbor loaders,
+  official transposition, validation-loss checkpoint selection, and known
+  defects. Mark it `runnable=false` and `partial_contract_only`: the historical
+  run source commit differs from the pinned source, exact GraphMuse/cadence/
+  split/RNG artifacts are unavailable, and corrected data cannot substitute.
+- Decision: Define corrected `C0` and `C1` on the identical frozen B3
+  1,619-record, 1,295/162/162 contract. Their serialized experimental payloads
+  may differ only in transposition: `C0` is identity-only and `C1` uses
+  `music-critic-v2-closed-transposition-v1` for TRAIN. Both remain
+  non-runnable until model parameter budget and graph/window batching are
+  implemented and bound.
+- Decision: Partition the corrected registry into eight primary heads
+  (`local_key`, `tonicized_key`, `root`, `bass`, both degrees, `quality`,
+  `inversion`), ten auxiliary heads, and deferred `phrase`/`section`. Missing
+  targets are excluded. Mean valid rows within each head, mean available heads
+  within each group, and use
+  `L_total = L_primary + 0.25 * L_auxiliary`; a zero-valid head is logged and
+  excluded. Learned/dynamic task weights are not baseline behavior.
+- Decision: Calculate inverse-square-root class weights from TRAIN canonical
+  target rows before broadcasting, normalize supported values to mean one
+  under final `[0.25, 4.0]` bounds, and leave zero-count semantic classes as
+  null/unsupported logits. VALIDATION, TEST, and augmented-view multiplicity
+  cannot affect weights.
+- Decision: Sample a TRAIN component uniformly, then a record within that
+  component uniformly, for exactly 1,295 draws per epoch. Resolve the view and
+  transposition afterward without changing record/component identity. Do not
+  construct a TEST loader. Select checkpoints only by the eight-primary-head
+  observed-class macro-F1 mean; report full vocabulary coverage separately and
+  retain distinct corrected-event, paper-text-note, and direct Roman metrics.
+- Consequences: B5B is ready for model implementation but contains no
+  experiment result. It cannot support a transposition benefit claim. Dataset,
+  overlap exclusions, split, TEST assignment, target sidecars, masks,
+  quality-17, Roman-184, raw graphs, B1/B2/B3/B4/B5A evidence, and preceding
+  draft PRs remain unchanged.
+
+## 2026-09-01 — ADR-108: Implement the corrected raw-only 18-head baseline
+
+- Status: Accepted for the bounded Phase 9E-B5C implementation and seed-17
+  C0/C1 pilot protocol. CUDA pilots remain pending their smoke gate.
+- Context: B5B froze head, loss, sampler, metric, and optimizer-envelope
+  semantics but left model parameters and graph batching unresolved. The
+  existing V2 hierarchy and onset BiGRU already satisfy the required raw-only
+  inference boundary and exact graph ownership contracts.
+- Decision: Reuse the production local/hierarchical encoders and one-layer
+  onset BiGRU at width 128. Add 18 independent FP32 MLP heads with exact B3
+  vocabulary widths. Keep `phrase`/`section` as deferred metadata, exclude
+  `staff`, and add no logit fusion or runtime AnalysisGNN dependency.
+- Decision: Join expanded sidecars only after prediction with exact B3
+  harmonic-event-to-beat, rational-onset, and note-ID routing. Mask and
+  diagnose alignment failures. Rebuild production graphs from lazy canonical
+  JSON and apply C1 only as a detached B5A TRAIN view. Never create a TEST
+  loader.
+- Decision: Consume the literal applicable B5B optimizer envelope: AdamW
+  `lr=0.005`, weight decay `0.0005`, 500 applied-update warmup, cosine decay,
+  gradient clip 1.0, and FP32 baseline with a disabled scaler. The prose's
+  illustrative `0.0003`/CUDA AMP expectation does not override the frozen
+  exact contract.
+- Decision: Compare C0/C1 with identical seed-17 initialization, record
+  schedule, batch size, update count, and validation schedule. Only TRAIN
+  transposition differs. A single seed permits directional evidence only, not
+  a statistical improvement claim.
+- Consequences: The implemented model has 3,661,936 trainable and zero frozen
+  parameters. Local CPU and real-TRAIN smoke are accepted; CUDA memory/smoke,
+  500-update pilots, comparison, full training, and multi-seed training remain
+  unperformed until an RTX environment passes the explicit gates.
+
+## 2026-09-01 — ADR-109: B5C production reconstruction preserves historical and local bindings
+
+- Status: Accepted as a portability correction discovered by the first GPU
+  handoff; model, data membership, targets, and training policy are unchanged.
+- Context: `DilemmadataDiscoveryRecordBinding@1.0.0` deliberately seals an
+  absolute source locator. Comparing a record rebuilt below
+  `/home/humtech/...` directly with B2 evidence created below `/home/str/...`
+  therefore rejected the byte-identical Corelli source as
+  `analysisgnn.corrected.b2_record_binding_mismatch`.
+- Decision: Before conversion, verify the selected source's physical SHA-256,
+  raw-projection SHA-256, grouping SHA-256, source resolution, and optional
+  score SHA-256. Validate the local discovery binding independently. If its
+  locator differs, reconstruct the historical binding only with the original
+  corpus root, content fingerprint, and file count recorded by the B2 audit
+  snapshot; require exact equality with the frozen B2 binding. Return the
+  local valid binding rather than the historical path-bound object.
+- Decision: Historical B2 raw-parser categories are another seal input, not
+  current runtime state. Recover `native_categories` only for the eleven
+  `pipeline_stage=raw_parse` rows in frozen B2 quarantine evidence when
+  reconstructing the historical object. Keep current repaired-parser
+  categories on the independently sealed local object passed to conversion.
+  Downstream `tie_reconstruction` and `bar_grid` quarantine categories were
+  never discovery-record fields and are not replayed.
+- Consequences: Byte-identical pinned corpus installations can run B5C from a
+  different absolute repository root. Source drift, parse drift, metadata
+  split drift, score drift, an altered B2 seal, or an invalid audit snapshot
+  remains a structured hard failure. TEST gating is unchanged.
+
+## 2026-09-01 — ADR-110: Use a fixed paired 10,000-update screen before multi-seed escalation
+
+- Status: Accepted for Phase 9E-B5D GPU execution; full C0/C1 results are
+  pending.
+- Context: The corrected RTX 3090 smoke and both 500-update pilots completed
+  safely, but the final C1-C0 primary-score delta was
+  `-0.0020725847498397343`. Five hundred updates cover fewer than one sampler
+  epoch and cannot establish whether either curve has converged.
+- Decision: Run C0 and C1 sequentially at seed 17 for exactly 10,000
+  successful updates each with batch size 2 (20,000 draws, approximately
+  15.44 sampler epochs). Preserve the B5B AdamW/FP32 envelope, 500-update
+  warmup and cosine decay, identity-only full VALIDATION, and no early
+  stopping. Validate at 0 and every 500 updates and save resumable state every
+  100 updates.
+- Decision: Preserve paired initialization and record order and require the
+  C0/C1 transposition schedules to differ. Compare both final and best
+  corrected-primary scores only after exact schedule completion. Keep TEST
+  closed and call the outcome a single-seed directional screen, not a
+  statistical improvement claim.
+- Consequences: B5D can determine whether longer optimization changes the
+  practical direction seen in B5C while remaining causally paired and
+  restartable. It does not authorize TEST, profile O, architecture/loss
+  changes, extra seeds, or model-selection conclusions beyond VALIDATION.
+
+## 2026-09-02 — ADR-111: Select C0 and defer C1 after the paired full screen
+
+- Status: Accepted for the current corrected AnalysisGNN baseline.
+- Context: Both B5D profiles completed seed-17 training for 10,000 successful
+  updates and 20,000 draws from identical initialization and record schedules.
+  C0/C1 corrected primary scores were `0.3548871111124754` and
+  `0.2715279571712017`; C1-C0 was `-0.08335915394127369`. Corrected joint
+  accuracy was `0.11430474921480918` versus `0.01408584753021795`. Both had
+  zero unseen-tuple joint accuracy on the same 1,090-event/187-tuple slice.
+- Decision: Select C0 (`music-critic-v2-corrected-no-transposition-v1`) as the
+  current baseline using VALIDATION only. Identify its external checkpoint by
+  model-state fingerprint
+  `37e9dda262ae3db53c548d6d0b228fd4123e08e82b30eb8200b0b4c1327dbee4`.
+  Do not commit the checkpoint.
+- Decision: Retain C1 and its audited transformation implementation with
+  status `experimental_deferred`. Reject a transposition-benefit claim for
+  this exact experiment, but do not generalize one seed into a universal
+  transposition-harm claim. Any retry requires a new declared experiment.
+- Decision: Commit only compact summaries, curves, final metrics, comparison,
+  and fingerprints. Keep checkpoints, full training logs, source archive,
+  datasets, caches, generated MIDI, and rendered audio outside Git. TEST stays
+  closed and no multi-seed/statistical claim is made.
+- Consequences: Downstream corrected AnalysisGNN work defaults to C0. The
+  negative C1 result remains reproducible evidence and all B1-B5D data,
+  transposition, policy, model, and runner work remains scientifically useful.

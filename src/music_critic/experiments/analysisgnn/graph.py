@@ -1,0 +1,687 @@
+"""Exact-timing adapter to the AnalysisGNN/GraphMuse graph surface.
+
+Only this experiment-local module depends on GraphMuse.  It does not alter the
+Music Critic graph builder and never reads target columns while constructing
+topology or input features.
+"""
+
+from __future__ import annotations
+
+from bisect import bisect_left, bisect_right
+from dataclasses import dataclass
+from hashlib import sha256
+import math
+from typing import TYPE_CHECKING, Any, Iterable
+
+import numpy as np
+import torch
+
+from music_critic.data import CanonicalBar, CanonicalPiece, RationalTime
+from music_critic.experiments.analysisgnn.contracts import (
+    BASE_FEATURE_NAMES,
+    EDGE_TYPES,
+    INVERSION_VOCABULARY,
+    SEMITONES_BY_TRANSPOSITION,
+    TRANSPOSITIONS,
+    canonical_json,
+    graph_schema_fingerprint,
+)
+from music_critic.experiments.analysisgnn.source_row_binding import (
+    DilemmadataSourceRowBinding,
+    detect_row_transition_entries,
+)
+from music_critic.tasks.dilemmadata_common import (
+    COMMON_INVERSION_TASK,
+    COMMON_QUALITY_TASK,
+    DILEMMADATA_COMMON_FAMILY_BY_TASK,
+    DilemmadataCommonHarmonicProjection,
+)
+from music_critic.tasks.multisource import TargetBundle
+
+if TYPE_CHECKING:
+    from torch_geometric.data import HeteroData
+
+
+_STEPS = ("C", "D", "E", "F", "G", "A", "B")
+_NATURAL_PC = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
+_INTERVAL_NUMBER = {
+    "P1": 1,
+    "m2": 2,
+    "M2": 2,
+    "m3": 3,
+    "M3": 3,
+    "P4": 4,
+    "A4": 4,
+    "P5": 5,
+    "m6": 6,
+    "M6": 6,
+    "m7": 7,
+    "M7": 7,
+}
+_KEY_FIFTH_DELTA = {
+    "P1": 0,
+    "m2": 7,
+    "M2": 2,
+    "m3": -3,
+    "M3": 4,
+    "P4": -1,
+    "A4": 8,
+    "P5": 1,
+    "m6": -4,
+    "M6": 3,
+    "m7": -2,
+    "M7": 5,
+}
+_PITCH_CLASSES = tuple(
+    sorted(
+        pitch
+        for pitches in (
+            ("C", "B#", "D--"),
+            ("C#", "B##", "D-"),
+            ("D", "C##", "E--"),
+            ("D#", "E-", "F--"),
+            ("E", "D##", "F-"),
+            ("F", "E#", "G--"),
+            ("F#", "E##", "G-"),
+            ("G", "F##", "A--"),
+            ("G#", "A-"),
+            ("A", "G##", "B--"),
+            ("A#", "B-", "C--"),
+            ("B", "A##", "C-"),
+        )
+        for pitch in pitches
+    )
+)
+_PITCH_TO_INDEX = {name: index for index, name in enumerate(_PITCH_CLASSES)}
+_QUALITY_VOCABULARY = DILEMMADATA_COMMON_FAMILY_BY_TASK[
+    COMMON_QUALITY_TASK
+].vocabulary
+if _QUALITY_VOCABULARY is None or len(_QUALITY_VOCABULARY) != 50:
+    raise RuntimeError("Phase 9E-A quality vocabulary is not the frozen 50-class set")
+_QUALITY_TO_INDEX = {value: index for index, value in enumerate(_QUALITY_VOCABULARY)}
+_INVERSION_TO_INDEX = {value: index for index, value in enumerate(INVERSION_VOCABULARY)}
+
+
+class AnalysisGNNGraphError(ValueError):
+    """Raised when a source cannot satisfy the pinned graph contract."""
+
+
+@dataclass(frozen=True, slots=True)
+class GraphEntry:
+    task: str
+    entry_index: int
+    entity_id: str
+    label: int
+    mask: bool
+
+
+@dataclass(frozen=True, slots=True)
+class LabelOverlap:
+    """One note covered by multiple available source-entry spans."""
+
+    record_id: str
+    piece_id: str
+    task: str
+    note_index: int
+    note_id: str
+    entry_indices: tuple[int, ...]
+    entity_ids: tuple[str, ...]
+    class_ids: tuple[int, ...]
+    common_classes: tuple[str, ...]
+    comparison: str
+
+
+def _as_float(value: RationalTime) -> float:
+    return value.num / value.den
+
+
+def _contains(start: RationalTime, end: RationalTime, onset: RationalTime) -> bool:
+    return onset == start if start == end else start <= onset < end
+
+
+def _bar_for_onset(piece: CanonicalPiece, onset: RationalTime) -> CanonicalBar:
+    candidates = tuple(
+        bar
+        for bar in piece.bars
+        if _contains(bar.start_qn, bar.start_qn + bar.duration_qn, onset)
+    )
+    if len(candidates) != 1:
+        raise AnalysisGNNGraphError(
+            f"note onset {onset!r} has {len(candidates)} exact bar memberships"
+        )
+    return candidates[0]
+
+
+def _active_key_fifths(piece: CanonicalPiece, onset: RationalTime) -> int:
+    active = [event for event in piece.key_signature_events if event.onset_qn <= onset]
+    return active[-1].fifths if active else 0
+
+
+def _render_spelling(step: str, alter: int) -> str:
+    if alter < -2 or alter > 2:
+        raise AnalysisGNNGraphError("AnalysisGNN spelling vocabulary supports alterations -2..2")
+    return step + ("#" * alter if alter > 0 else "-" * -alter)
+
+
+def _canonical_spelling(pitch: int) -> tuple[str, int]:
+    names = (("C", 0), ("C", 1), ("D", 0), ("E", -1), ("E", 0), ("F", 0),
+             ("F", 1), ("G", 0), ("A", -1), ("A", 0), ("B", -1), ("B", 0))
+    return names[pitch % 12]
+
+
+def _transpose_spelling(
+    step: str | None,
+    alter: int | None,
+    pitch: int,
+    transposition: str,
+) -> tuple[str, int, int]:
+    if step not in _STEPS or alter is None or not -2 <= alter <= 2:
+        step, alter = _canonical_spelling(pitch)
+    # Preserve the public AnalysisGNN pitch augmentation boundary exactly.
+    shifted_pitch = (pitch + SEMITONES_BY_TRANSPOSITION[transposition]) % 128
+    shifted_pitch_class = (pitch + SEMITONES_BY_TRANSPOSITION[transposition]) % 12
+    step_index = (_STEPS.index(step) + _INTERVAL_NUMBER[transposition] - 1) % 7
+    shifted_step = _STEPS[step_index]
+    # Spelling transposition is independent of the public MIDI-128 wrap.
+    shifted_alter = (shifted_pitch_class - _NATURAL_PC[shifted_step]) % 12
+    if shifted_alter > 6:
+        shifted_alter -= 12
+    # Rare double-accidental boundary cases are enharmonically normalized to
+    # the same 35-token public vocabulary; this is a declared substitution.
+    if shifted_alter < -2 or shifted_alter > 2:
+        shifted_step, shifted_alter = _canonical_spelling(shifted_pitch_class)
+    return shifted_step, shifted_alter, shifted_pitch
+
+
+def _transpose_fifths(fifths: int, transposition: str) -> int:
+    value = fifths + _KEY_FIFTH_DELTA[transposition]
+    while value > 7:
+        value -= 12
+    while value < -7:
+        value += 12
+    return value
+
+
+def _note_features(piece: CanonicalPiece, note: Any, pitch: int) -> np.ndarray:
+    bar = _bar_for_onset(piece, note.onset_qn)
+    offset = note.onset_qn - bar.start_qn
+    duration_ratio = _as_float(note.duration_qn) / _as_float(bar.duration_qn)
+    onset_ratio = _as_float(offset) / _as_float(bar.duration_qn)
+    # Preserve the public descriptor exactly: despite its historical name,
+    # `is_down_beat` marks every integer metric beat, not only bar starts.
+    is_downbeat = float(any(beat.start_qn == note.onset_qn for beat in piece.beats))
+    pc = np.zeros(12, dtype=np.float32)
+    pc[pitch % 12] = 1.0
+    octave = np.zeros(10, dtype=np.float32)
+    octave_index = min(max(pitch // 12, 0), 9)
+    octave[octave_index] = 1.0
+    out = np.concatenate(
+        (
+            np.asarray([1.0 - math.tanh(duration_ratio), onset_ratio, is_downbeat], dtype=np.float32),
+            pc,
+            octave,
+        )
+    )
+    if out.shape != (len(BASE_FEATURE_NAMES),):
+        raise AssertionError("base feature width differs from the pinned 25")
+    return out
+
+
+def _integer_resolution(values: Iterable[RationalTime]) -> int:
+    resolution = 1
+    for value in values:
+        resolution = math.lcm(resolution, value.den)
+    return resolution
+
+
+def _ticks(value: RationalTime, resolution: int) -> int:
+    return value.num * (resolution // value.den)
+
+
+def ordered_analysis_notes(piece: CanonicalPiece) -> tuple[Any, ...]:
+    """Return the single deterministic note order used by graphs and preflight."""
+
+    return tuple(
+        sorted(piece.notes, key=lambda note: (note.onset_qn, note.pitch, note.note_id))
+    )
+
+
+def bind_entry_supervision(
+    notes: tuple[Any, ...],
+    source: TargetBundle,
+    projection: DilemmadataCommonHarmonicProjection,
+    *,
+    record_id: str,
+    piece_id: str,
+    dialect: str | None = None,
+    source_row_binding: DilemmadataSourceRowBinding | None = None,
+    allow_historical_span_forensics: bool = False,
+    fail_on_conflict: bool = True,
+) -> tuple[
+    dict[str, torch.Tensor],
+    tuple[GraphEntry, ...],
+    tuple[LabelOverlap, ...],
+]:
+    """Bind note targets with exact DLC row provenance before generic spans."""
+
+    span_by_id = {span.annotation_id: span for span in source.alignment_spans}
+    task_specs = (
+        (COMMON_QUALITY_TASK, "quality", _QUALITY_TO_INDEX),
+        (COMMON_INVERSION_TASK, "inversion", _INVERSION_TO_INDEX),
+    )
+    tensors: dict[str, torch.Tensor] = {}
+    rows: list[GraphEntry] = []
+    overlaps: list[LabelOverlap] = []
+    note_onsets = tuple(note.onset_qn for note in notes)
+    if note_onsets != tuple(sorted(note_onsets)):
+        raise AnalysisGNNGraphError("label binding requires onset-sorted notes")
+    resolved_dialect = dialect or ("dlc" if record_id.startswith("dlc:") else "an_joint")
+    transitions = detect_row_transition_entries(source, projection)
+    if source_row_binding is not None and (
+        source_row_binding.record_id != record_id
+        or source_row_binding.piece_id != piece_id
+        or source_row_binding.dialect != resolved_dialect
+    ):
+        raise AnalysisGNNGraphError(
+            "source-row binding identity mismatch: "
+            + canonical_json(
+                {
+                    "binding_piece_id": source_row_binding.piece_id,
+                    "binding_record_id": source_row_binding.record_id,
+                    "dialect": resolved_dialect,
+                    "piece_id": piece_id,
+                    "record_id": record_id,
+                }
+            )
+        )
+    binding_groups = {
+        (
+            group.task,
+            group.start_qn,
+            tuple(entry.entry_index for entry in group.entries),
+        ): group
+        for group in (() if source_row_binding is None else source_row_binding.groups)
+    }
+    if resolved_dialect == "dlc" and source_row_binding is not None:
+        expected_binding_keys = {
+            (task, start_qn, tuple(row[0] for row in entries))
+            for task, start_qn, entries in transitions
+        }
+        if set(binding_groups) != expected_binding_keys:
+            raise AnalysisGNNGraphError(
+                "source-row binding group set differs from detected transitions: "
+                + canonical_json(
+                    {
+                        "binding_groups": [
+                            {
+                                "entry_indices": list(entry_indices),
+                                "start_qn": {"den": start.den, "num": start.num},
+                                "task": task,
+                            }
+                            for task, start, entry_indices in sorted(binding_groups)
+                        ],
+                        "detected_groups": [
+                            {
+                                "entry_indices": list(entry_indices),
+                                "start_qn": {"den": start.den, "num": start.num},
+                                "task": task,
+                            }
+                            for task, start, entry_indices in sorted(
+                                expected_binding_keys
+                            )
+                        ],
+                        "piece_id": piece_id,
+                        "record_id": record_id,
+                    }
+                )
+            )
+    for common_task, name, vocabulary in task_specs:
+        target = next(row for row in projection.targets if row.task_id == common_task)
+        labels = torch.full((len(notes),), -1, dtype=torch.long)
+        candidates: list[list[tuple[int, str, int, str]]] = [
+            [] for _note in notes
+        ]
+        candidate_by_entry: dict[int, tuple[int, str, int, str]] = {}
+        for entry_index, entry in enumerate(target.entries):
+            available = entry.state in {"exact", "coarsened"}
+            label = vocabulary[str(entry.common_value)] if available else -1
+            rows.append(GraphEntry(name, entry_index, entry.entity_id, label, available))
+            span = span_by_id.get(entry.entity_id)
+            if span is None:
+                if available:
+                    raise AnalysisGNNGraphError(
+                        "available supervision entry has no alignment span: "
+                        + canonical_json(
+                            {
+                                "class_id": label,
+                                "common_class": str(entry.common_value),
+                                "entry_index": entry_index,
+                                "entity_id": entry.entity_id,
+                                "piece_id": piece_id,
+                                "record_id": record_id,
+                                "task": name,
+                            }
+                        )
+                    )
+                continue
+            if not available:
+                # An unavailable row remains auditable as a source entry, but
+                # it can neither supervise a note nor replace available rows.
+                continue
+            candidate_by_entry[entry_index] = (
+                entry_index,
+                entry.entity_id,
+                label,
+                str(entry.common_value),
+            )
+            first = bisect_left(note_onsets, span.start_qn)
+            last = (
+                bisect_right(note_onsets, span.end_qn)
+                if span.start_qn == span.end_qn
+                else bisect_left(note_onsets, span.end_qn)
+            )
+            for note_index in range(first, last):
+                candidates[note_index].append(
+                    candidate_by_entry[entry_index]
+                )
+        task_transitions = tuple(
+            transition for transition in transitions if transition[0] == name
+        )
+        if resolved_dialect == "dlc" and not allow_historical_span_forensics:
+            for _task, start_qn, transition_entries in task_transitions:
+                entry_indices = tuple(row[0] for row in transition_entries)
+                diagnostic = {
+                    "ambiguity_reason": "exact_source_row_provenance_required",
+                    "candidate_entries": [
+                        {
+                            "end_qn": {
+                                "den": end_qn.den,
+                                "num": end_qn.num,
+                            },
+                            "entity_id": entity_id,
+                            "entry_index": entry_index,
+                        }
+                        for entry_index, entity_id, end_qn in transition_entries
+                    ],
+                    "piece_id": piece_id,
+                    "record_id": record_id,
+                    "selected_binding_basis": "source_row_provenance",
+                    "start_qn": {"den": start_qn.den, "num": start_qn.num},
+                    "task": name,
+                }
+                if len(transition_entries) != 2:
+                    raise AnalysisGNNGraphError(
+                        "ambiguous DLC duplicate-timestamp transition: "
+                        + canonical_json(diagnostic)
+                    )
+                group = binding_groups.get((name, start_qn, entry_indices))
+                if group is None or tuple(
+                    (entry.entry_index, entry.entity_id)
+                    for entry in group.entries
+                ) != tuple((row[0], row[1]) for row in transition_entries):
+                    raise AnalysisGNNGraphError(
+                        "missing or mismatched DLC source-row provenance: "
+                        + canonical_json(diagnostic)
+                    )
+                assignment_by_note = {
+                    row.note_index: row for row in group.assignments
+                }
+                boundary_indices = tuple(
+                    index for index, onset in enumerate(note_onsets) if onset == start_qn
+                )
+                if tuple(sorted(assignment_by_note)) != boundary_indices:
+                    raise AnalysisGNNGraphError(
+                        "incomplete DLC source-row provenance: "
+                        + canonical_json(
+                            {
+                                **diagnostic,
+                                "expected_note_indices": list(boundary_indices),
+                                "provenance_note_indices": sorted(assignment_by_note),
+                            }
+                        )
+                    )
+                transition_set = set(entry_indices)
+                for note_index in boundary_indices:
+                    assignment = assignment_by_note[note_index]
+                    if (
+                        assignment.note_id != str(notes[note_index].note_id)
+                        or assignment.entry_index not in transition_set
+                    ):
+                        raise AnalysisGNNGraphError(
+                            "malformed DLC source-row provenance: "
+                            + canonical_json(
+                                {
+                                    **diagnostic,
+                                    "note_id": str(notes[note_index].note_id),
+                                    "note_index": note_index,
+                                    "source_row_identity": assignment.source_identity,
+                                    "source_row_ordinal": assignment.source_row_ordinal,
+                                }
+                            )
+                        )
+                    candidates[note_index] = [
+                        candidate
+                        for candidate in candidates[note_index]
+                        if candidate[0] not in transition_set
+                    ]
+                    selected = candidate_by_entry.get(assignment.entry_index)
+                    if selected is not None:
+                        candidates[note_index].append(selected)
+        memberships: list[tuple[int, int]] = []
+        for note_index, note_candidates in enumerate(candidates):
+            if not note_candidates:
+                continue
+            ordered_candidates = tuple(sorted(note_candidates))
+            class_ids = tuple(candidate[2] for candidate in ordered_candidates)
+            unique_classes = tuple(sorted(set(class_ids)))
+            if len(ordered_candidates) > 1:
+                overlap = LabelOverlap(
+                    record_id=record_id,
+                    piece_id=piece_id,
+                    task=name,
+                    note_index=note_index,
+                    note_id=str(notes[note_index].note_id),
+                    entry_indices=tuple(candidate[0] for candidate in ordered_candidates),
+                    entity_ids=tuple(candidate[1] for candidate in ordered_candidates),
+                    class_ids=class_ids,
+                    common_classes=tuple(
+                        candidate[3] for candidate in ordered_candidates
+                    ),
+                    comparison=(
+                        "equivalent_available_class"
+                        if len(unique_classes) == 1
+                        else "conflicting_available_class"
+                    ),
+                )
+                overlaps.append(overlap)
+                if len(unique_classes) != 1 and fail_on_conflict:
+                    raise AnalysisGNNGraphError(
+                        "conflicting available supervision overlap: "
+                        + canonical_json(
+                            {
+                                "classes": [
+                                    {
+                                        "class_id": candidate[2],
+                                        "common_class": candidate[3],
+                                        "entry_index": candidate[0],
+                                        "entity_id": candidate[1],
+                                    }
+                                    for candidate in ordered_candidates
+                                ],
+                                "note_id": overlap.note_id,
+                                "note_index": note_index,
+                                "piece_id": piece_id,
+                                "record_id": record_id,
+                                "selected_binding_basis": "generic_span_after_exact_row_binding",
+                                "task": name,
+                            }
+                        )
+                    )
+            if len(unique_classes) == 1:
+                labels[note_index] = unique_classes[0]
+            memberships.extend(
+                (note_index, candidate[0]) for candidate in ordered_candidates
+            )
+        membership_index = (
+            torch.tensor(memberships, dtype=torch.long).t().contiguous()
+            if memberships
+            else torch.empty((2, 0), dtype=torch.long)
+        )
+        tensors[name] = labels
+        tensors[f"{name}_membership_index"] = membership_index
+        tensors[f"{name}_mask"] = labels.ne(-1)
+    return tensors, tuple(rows), tuple(overlaps)
+
+
+def build_analysisgnn_graph(
+    piece: CanonicalPiece,
+    source_targets: TargetBundle,
+    projection: DilemmadataCommonHarmonicProjection,
+    *,
+    transposition: str = "P1",
+    record_id: str | None = None,
+    dialect: str | None = None,
+    source_row_binding: DilemmadataSourceRowBinding | None = None,
+) -> tuple["HeteroData", tuple[GraphEntry, ...]]:
+    """Build one native note/beat/measure graph without target leakage."""
+
+    if transposition not in TRANSPOSITIONS:
+        raise AnalysisGNNGraphError(f"unsupported transposition {transposition!r}")
+    if (
+        piece.piece_id != source_targets.piece_id
+        or piece.piece_id != projection.piece_id
+        or piece.targets
+        or piece.annotations
+    ):
+        raise AnalysisGNNGraphError("raw piece and target sidecars are not identity-aligned")
+    if not piece.notes or not piece.bars or not piece.beats:
+        raise AnalysisGNNGraphError("AnalysisGNN requires non-empty notes, bars, and beats")
+
+    try:
+        from graphmuse.utils.graph import create_score_graph
+    except ImportError as exc:  # pragma: no cover - exercised by environment smoke
+        raise RuntimeError(
+            "pinned GraphMuse is required; run scripts/prepare_phase9eb1_environment.sh"
+        ) from exc
+
+    ordered = ordered_analysis_notes(piece)
+    resolved_record_id = record_id or source_targets.analysis_view_id
+    timing = [piece.duration_qn]
+    for note in ordered:
+        timing.extend((note.onset_qn, note.duration_qn))
+    resolution = _integer_resolution(timing)
+    dtype = np.dtype([("onset_div", "i8"), ("duration_div", "i8"), ("pitch", "i8")])
+    note_array = np.empty(len(ordered), dtype=dtype)
+    features: list[np.ndarray] = []
+    pitch_spelling: list[int] = []
+    key_signature: list[int] = []
+    for index, note in enumerate(ordered):
+        step, alter, pitch = _transpose_spelling(
+            note.spelling_step, note.spelling_alter, note.pitch, transposition
+        )
+        if not 0 <= pitch <= 127:
+            raise AnalysisGNNGraphError("transposition moves a note outside MIDI [0, 127]")
+        note_array[index] = (
+            _ticks(note.onset_qn, resolution),
+            _ticks(note.duration_qn, resolution),
+            pitch,
+        )
+        features.append(_note_features(piece, note, pitch))
+        pitch_spelling.append(_PITCH_TO_INDEX[_render_spelling(step, alter)])
+        key_signature.append(
+            _transpose_fifths(_active_key_fifths(piece, note.onset_qn), transposition) + 7
+        )
+
+    if (
+        note_array["onset_div"].max(initial=0) > np.iinfo(np.int32).max
+        or note_array["duration_div"].max(initial=0) > np.iinfo(np.int32).max
+    ):
+        raise AnalysisGNNGraphError("exact integer timing exceeds GraphMuse int32 topology")
+
+    graph = create_score_graph(np.stack(features), note_array, sort=False, add_reverse=True)
+    graph["note"].pitch_spelling = torch.tensor(pitch_spelling, dtype=torch.long)
+    graph["note"].key_signature = torch.tensor(key_signature, dtype=torch.long)
+
+    def add_hierarchy(kind: str, spans: tuple[Any, ...]) -> None:
+        membership: list[int] = []
+        for note in ordered:
+            matches = [
+                index
+                for index, span in enumerate(spans)
+                if _contains(span.start_qn, span.start_qn + span.duration_qn, note.onset_qn)
+            ]
+            if len(matches) != 1:
+                raise AnalysisGNNGraphError(
+                    f"note {note.note_id!r} has {len(matches)} exact {kind} memberships"
+                )
+            membership.append(matches[0])
+        cluster = torch.tensor(membership, dtype=torch.long)
+        note_index = torch.arange(len(ordered), dtype=torch.long)
+        hierarchy_index = torch.arange(len(spans), dtype=torch.long)
+        graph["note"][f"{kind}_cluster"] = cluster
+        graph["note", "connects", kind].edge_index = torch.stack((note_index, cluster))
+        graph[kind, "connects", "note"].edge_index = torch.stack((cluster, note_index))
+        graph[kind, "next", kind].edge_index = torch.stack(
+            (hierarchy_index[:-1], hierarchy_index[1:])
+        )
+        graph[kind].index = hierarchy_index
+        graph[kind].x = torch.zeros((len(spans), len(BASE_FEATURE_NAMES)), dtype=torch.float32)
+        graph[kind].x.index_add_(0, cluster, graph["note"].x)
+
+    add_hierarchy("measure", piece.bars)
+    add_hierarchy("beat", piece.beats)
+    labels, entries, _overlaps = bind_entry_supervision(
+        ordered,
+        source_targets,
+        projection,
+        record_id=resolved_record_id,
+        piece_id=piece.piece_id,
+        dialect=dialect,
+        source_row_binding=source_row_binding,
+    )
+    for name, value in labels.items():
+        graph["note"][name] = value
+    graph.phase9eb1_schema_fingerprint = graph_schema_fingerprint()
+    graph.record_id = resolved_record_id
+    graph.transposition = transposition
+    if set(graph.edge_types) != set(EDGE_TYPES):
+        raise AnalysisGNNGraphError("constructed graph edge schema differs from pinned contract")
+    return graph, entries
+
+
+def graph_fingerprint(graph: "HeteroData") -> str:
+    """Fingerprint graph tensors, schema, source identity, and view."""
+
+    digest = sha256()
+    header = {
+        "edge_types": sorted("|".join(edge) for edge in graph.edge_types),
+        "node_types": sorted(graph.node_types),
+        "record_id": graph.record_id,
+        "schema_fingerprint": graph.phase9eb1_schema_fingerprint,
+        "transposition": graph.transposition,
+    }
+    digest.update(canonical_json(header).encode("utf-8"))
+    for node_type in sorted(graph.node_types):
+        store = graph[node_type]
+        for key in sorted(store.keys()):
+            value = store[key]
+            if isinstance(value, torch.Tensor):
+                tensor = value.detach().cpu().contiguous()
+                digest.update(f"{node_type}\0{key}\0{tensor.dtype}\0{tuple(tensor.shape)}\0".encode())
+                digest.update(tensor.numpy().tobytes())
+    for edge_type in sorted(graph.edge_types):
+        tensor = graph[edge_type].edge_index.detach().cpu().contiguous()
+        digest.update(("|".join(edge_type) + "\0").encode())
+        digest.update(tensor.numpy().tobytes())
+    return digest.hexdigest()
+
+
+__all__ = [
+    "AnalysisGNNGraphError",
+    "GraphEntry",
+    "LabelOverlap",
+    "bind_entry_supervision",
+    "build_analysisgnn_graph",
+    "graph_fingerprint",
+    "ordered_analysis_notes",
+]

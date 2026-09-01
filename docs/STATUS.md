@@ -1,5 +1,288 @@
 # Music Critic V2 Status
 
+## Phase 9E-B5B AnalysisGNN frozen training policy — 2026-09-01
+
+- Added `AnalysisGNNTrainingPolicy@1.0.0` and three serialized future profiles.
+  `O=analysisgnn-official-reproduction-e115182-v1` preserves pinned-code
+  behavior and is `runnable=false`, `partial_contract_only`. Corrected
+  `C0=music-critic-v2-corrected-no-transposition-v1` and
+  `C1=music-critic-v2-corrected-safe-transposition-v1` bind the same B3/B4/B5A
+  evidence and differ substantively only in the B5A TRAIN transposition policy.
+- Frozen corrected roles are 8 primary, 10 auxiliary, and 2 deferred. Primary
+  heads are local/tonicized key, root, bass, both degree components, quality,
+  and inversion. `phrase`/`section` are deferred with
+  `missing_negative_supervision`; all other production heads are auxiliary.
+  Quality remains 17, Roman numeral remains 184, and `staff` remains excluded.
+- The corrected loss is masked weighted CE averaged first within each head and
+  then across available heads in its group:
+  `L_total=L_primary+0.25*L_auxiliary`. Zero-valid heads leave the denominator
+  and are logged. Deferred heads cannot enter the optimizer; learned/dynamic
+  task weighting is absent from the corrected baseline.
+- The full 20-head class-weight payload uses only B4 TRAIN canonical target
+  rows before entity broadcasting: inverse square root, supported mean-one,
+  final `[0.25,4.0]` bounded mean-one projection. Zero-count classes have null
+  weights and remain semantic logits. `augmented sixth` remains unsupported;
+  no VALIDATION, TEST, or augmented-view count enters the payload.
+- Component-balanced sampling chooses one of 1,209 TRAIN components uniformly,
+  then a record within that component uniformly. Component sizes are 1,123
+  singletons and 86 pairs. Each epoch has 1,295 draws. `C0/C1` share record
+  order; only `C1` chooses a valid B5A shift. VALIDATION is identity-only and
+  TEST draws/loaders are zero.
+- `corrected_primary_macro_score` selects future checkpoints from observed-
+  class macro-F1 over valid primary VALIDATION heads. Per-class/support/full-
+  vocabulary evidence is separate. Corrected quality-17 harmonic-event joint,
+  paper-text quality-15 note joint, and direct Roman-184 metrics remain
+  distinct.
+- Known B1-compatible optimizer settings are recorded, but corrected parameter
+  budget and graph/window batching are explicit unresolved decisions. The
+  public W&B run/pinned source commit mismatch, missing exact GraphMuse/cadence/
+  split/RNG artifacts, and evaluator disagreements keep `O` partial. No
+  corrected substitution is permitted.
+- Frozen fingerprints are: head roles `2025f558...`, loss `0b62496e...`, class
+  weights `87266d8a...`, sampler `db91c988...`, metrics `2b58125e...`, profiles
+  `O=59c95e85...`, `C0=b811b9b4...`, `C1=21933d56...`, combined policy
+  `e53107e8...`, audit semantics `6639f35d...`, and compact fixture
+  `1a36f372...`.
+- The final targeted B5B/B5A/repository gate passes `49 passed, 2 warnings in
+  2.71s`; the warnings are unchanged upstream `torch.jit.script` deprecations.
+  Source-free
+  `--check` returns `valid=true` and
+  `ready_for_model_implementation=true` with training, validation inference,
+  TEST evaluation, and TEST target use all false.
+- Dataset universes, 14 exclusions, 1,295/162/162 split, TEST assignment,
+  quality-17, Roman-184, target masks/sidecars, raw graphs, B1/B2/B3/B4/B5A
+  artifacts, and PR #33–#36 are unchanged. No model, trainer, optimizer update,
+  checkpoint, validation prediction, TEST metric, or accuracy-improvement claim
+  was produced.
+
+## Phase 9E-B5A AnalysisGNN transposition audit — 2026-08-31
+
+- Added `DilemmadataAnalysisGNNTranspositionAudit@1.0.0` with separate pinned
+  `analysisgnn-official-transposition-e115182-v1` evidence and fail-closed
+  `music-critic-v2-closed-transposition-v1`. Official behavior records 12
+  positive named intervals, modulo pitch wrap, OOV-to-final-class routing, and
+  view-level TRAIN/VALIDATION leakage without importing AnalysisGNN. Corrected
+  V2 uses the signed 12-PC orbit `(0,+1,+2,+3,+4,+5,+6,-5,-4,-3,-2,-1)`, a
+  deterministic uniform record/epoch draw over valid shifts, TRAIN-only
+  on-the-fly views, identity-only VALIDATION/TEST, and no octave folding.
+- All 20 heads have a serialized transformation row. Local/tonicized key,
+  root, and bass use semantic spelling-aware mappings; pitch-class sets are
+  cyclic; relative, structural, and boolean labels are invariant. Pinned
+  `NoteDegree49` plus AN/DLC contracts prove `note_degree` is relative.
+  Graph views may change only note pitch, pitch class, octave, and recomputed
+  track-relative pitch; topology, timing, ownership, identities, provenance,
+  repairs, and masks remain unchanged.
+- The semantic table has 6,408 rows: 5,956 valid and 452 fail-closed (416
+  `target_oov`, 36 `non_bijective_mapping`). Every valid row round-trips. All
+  26,784 promised closed pitch-class-set compositions pass; 8,976 absolute
+  spelling composition mismatches remain diagnostic because no global
+  enharmonic spelling group action is claimed.
+- The TRAIN audit emitted 15,540 eligibility rows. 1,231 records admit all 12
+  corrected shifts and 64 admit 2–11; none is identity-only. Corrected valid
+  variants total 15,389. Record/shift exclusions comprise 217 `target_oov` and
+  170 non-bijective reasons across the same 64 records. No corrected or
+  official raw collision with VALIDATION/TEST was found; variants never move
+  split or count as new source components.
+- Corrected expected coverage changes local key 30→48 classes (remaining
+  `bbb`, `cb`), tonicized key 43→48 (remaining `bbb`, `cb`), root 34→36
+  (remaining `E###`), and bass 34→37 (complete). Pitch-class-set remains 93/93
+  but improves entropy. Frozen B4 thresholds make no new head strictly
+  `trainable`; recommendations remain advisory: 1 primary, 7 auxiliary, 5
+  derived-metric, and 7 policy-decision candidates.
+- Exact analytical one-draw counts match frozen B4 for all 361 invariant class
+  rows. Quality-17 stays 16 observed with `augmented sixth` absent and distinct
+  `+7`/`+M7`; Roman-184 stays 178 observed/6 absent; note-degree stays 42/7.
+  No phrase/section negatives are created.
+- Production evidence at
+  `outputs/phase9eb5a/analysisgnn-transposition-a6a2796/` is `valid=true` with
+  semantic fingerprint
+  `b8aba86430fe2c87b250a5d1d1adc7557eed41ac54f24ae6cff32fd8bc815644`.
+  Attempt 1 formed no semantic result because it compared compact and expanded
+  descriptor fingerprint domains; the permitted technical repeat used frozen
+  contract counts and succeeded. A source-free reseal added explicit entity
+  totals without reopening corpus or target payloads.
+- Raw access was 1,295 TRAIN, 162 VALIDATION, and 162 TEST records. Targets were
+  opened only for TRAIN: VALIDATION and TEST target records/rows remain 0/0;
+  TEST counting, decisions, inference, and evaluation are false. Dataset,
+  exclusions, split, TEST assignment, vocabularies, masks, raw graph cache,
+  model, heads, losses, sampler, and training configs are unchanged.
+- The exact targeted B5A/B4/B3/repository gate passes `97 passed, 2 warnings
+  in 2.43s`. Source-free `--check`, compileall, the 498-line contract-claim
+  scan, and `git diff --check` pass. `rg` is unavailable, so the requested scan
+  uses recursive `grep` over the same `src/tests/scripts/docs` roots. The local
+  full suite is intentionally deferred to GitHub Required `full-suite`.
+
+## Phase 9E-B4 AnalysisGNN class-balance audit — 2026-08-31
+
+- Added `DilemmadataAnalysisGNNClassBalanceAudit@1.0.0` over the unchanged B3
+  paper-candidate universe and frozen split. The target-aware loader filters
+  assignment rows before record-path resolution or target-sidecar
+  materialization: 1,295 TRAIN and 162 VALIDATION records were opened; the 162
+  TEST assignments were seen only as target-free identities. TEST target
+  records/rows opened are exactly 0/0; targets counted, decision use,
+  inference, metrics, and evaluation are all false.
+- All 20 production heads now have deterministic class rows for TRAIN and
+  VALIDATION, including zero-support classes. Entity, canonical source-target
+  row, record, frozen component, AN/DLC, broadcast, largest-record/component,
+  top-five-component, and effective-component support are separate. Missing
+  and masked observations remain outside every vocabulary.
+- Trainability partition is: `trainable={inversion}`;
+  `trainable_with_reweighting={primary_degree, harmonic_rhythm, cadence,
+  pedal, chord_tone, is_root, is_bass}`; `insufficient_support={root, bass,
+  secondary_degree, quality, pitch_class_set}`; and
+  `descriptive_only={local_key, tonicized_key, roman_numeral, phrase, section,
+  metrical_strength, note_degree}`. These planning labels describe annotation
+  sufficiency for a baseline, not expected model quality.
+- Corrected quality-17 has 16 observed TRAIN and VALIDATION classes;
+  `augmented seventh chord` has 245 TRAIN rows/38 components and 77 VALIDATION
+  rows/6 components, while `augmented major tetrachord` has 145/24 and 9/4.
+  Corrected `augmented triad` has 2,403 TRAIN rows; the separate quality-15
+  projection raises it to 2,793 by collapsing only those two classes.
+- Roman-184 has 6 TRAIN-absent and 71 VALIDATION-absent classes; 56/107/125
+  classes occur in fewer than 3/10/20 TRAIN components, and 65/113/151 have
+  fewer than 20/100/1,000 TRAIN canonical rows. Top 10/20/50 classes cover
+  86.57%/95.72%/99.48%. `#VII` and `bvio7` remain present;
+  `none` and `#VIIbvio7` remain absent. Four VALIDATION classes are unseen in
+  TRAIN: `vii%9`, `N+7`, `bV+7`, and `#v7`.
+- Corrected harmonic-event tuples reproduce 98,715 TRAIN and 10,507 VALIDATION
+  complete rows, with 3,339/879 unique tuples and 187 VALIDATION tuples unseen
+  in TRAIN. Compatibility note tuples contain 187,548/20,465 note rows but
+  only 98,438/10,477 canonical harmonic rows, 3,334/877 unique tuples, and 185
+  unseen VALIDATION tuples, making broadcast explicit.
+- TRAIN-only inverse-frequency, inverse-square-root, and effective-number
+  candidate vectors are normalized to mean 1 over supported classes; missing
+  classes retain null/unsupported weights. No production loss/sampler policy
+  was frozen: 12 heads are not ready, 7 receive a component-balanced sampling
+  candidate, and 1 receives a class-weighting candidate under the diagnostic
+  policy.
+- The one production target-access run at
+  `outputs/phase9eb4/analysisgnn-class-balance-671097b/` completed `valid=true`.
+  A source-free derived-artifact reseal corrected recommendation/reporting
+  logic without reopening any source record. Final semantic fingerprint is
+  `4b1edf9f47815bafa5e197be87b9331a19789142c0625ef4aceda1f87649df4d`;
+  source-free `--check` returns `valid=true`.
+- The exact targeted B4/B3/repository gate passes `64 passed, 2 warnings in
+  2.46s`. Source-free `--check`, compileall, the 217-line contract-claim
+  search, and `git diff --check` pass. `rg` is unavailable in the environment,
+  so the requested scan used recursive `grep` over the same `src/tests/scripts/docs`
+  roots. The local full suite is intentionally not run; GitHub `full-suite` is
+  authoritative after push.
+- Dataset inventories, exclusions, split, TEST assignment, vocabularies,
+  target values/masks, source-native sidecars, raw graphs, B2/B3 evidence,
+  model, heads, losses, samplers, and training configs are unchanged. No
+  legacy file was opened or reused; no model, training, inference, validation
+  metric, or TEST evaluation ran.
+
+## Phase 9E-B3 expanded AnalysisGNN multi-task contract — 2026-08-31
+
+- Added `dilemmadata-full-raw-v1` (353 AN + 1,280 DLC = 1,633) and
+  `analysisgnn-paper-candidate-an-dlc-v1` (353 AN + 1,266 DLC = 1,619).
+  Exactly 14 DLC overlaps are excluded from the paper candidate; all AN peers
+  remain. The absent Monteverdi record is not an exclusion. Both inventories
+  use 1,507 source components. External cadence corpus availability/inclusion
+  are both false.
+- Audited 20 paper tasks against 21 unique pinned-code heads and froze a
+  corrected 20-head production registry. `staff` is code-only and excluded;
+  `organ_point/pedal` and `downbeat/metrical_strength` are normalized aliases.
+  Production quality remains source-faithful quality-17; a separate frozen
+  quality-15 compatibility projection collapses only `+7` and `+M7` to
+  `augmented triad`. Roman-184 is a corrected semantic vocabulary, not the
+  malformed official literal. Missing values are masks, never class 0.
+- Shared harmonic IDs now cover local/tonicized key, root/bass, both degree
+  components, quality, inversion, Roman numeral, pitch-class set, harmonic
+  rhythm, and pedal. Audit counts are 1,452,122 harmonic events, 1,452,043
+  onsets, and 2,747,530 notes with deterministic note/onset/harmonic/beat/
+  measure relations. The B1 `zero_joint_quality_inversion_support` cause is
+  removed: corrected V2 harmonic-event joint support is 98,715 TRAIN / 10,507
+  VALIDATION. That quality-17 event metric is explicitly not paper-compatible.
+  A separate paper-text quality-15 note-level metric contract is defined but
+  was not evaluated; pinned validation/NCT and onset-test evaluator branches
+  disagree about inclusion of local key.
+- Frozen group split is 1,295/162/162 records over 1,209/147/151 components;
+  all three component intersections are empty. TEST assignment fingerprint is
+  `67a3082e...`; no TEST target values were aggregated, no metric or inference
+  ran, and explicit unlock remains required.
+- Full B2 structural availability locks are reproduced. Paper-candidate counts
+  include inversion 1,618; tonicized key/secondary degree 1,567; cadence 916;
+  pedal 1,266; phrase 1,265; section 1,205; other full families 1,619.
+- Production audit at
+  `outputs/phase9eb3/analysisgnn-multitask-contract-01290f5/` returned
+  `valid=true`, `ready=true`, `model_implemented=false`, `training_run=false`,
+  `validation_inference_run=false`, `test_evaluated=false`. Remediated semantic
+  fingerprint is
+  `94a19ed6bbecbbd0497310233c8a8ff4e34311b414124593a7326c759ff07954`.
+  All 1,633 B2 graph/canonical locks and the 2,158-file B1 tree are unchanged.
+- Independent source evidence is frozen in
+  `tests/fixtures/analysisgnn/pinned_scientific_contract_e115182.json`, with
+  exact pinned source paths/symbols/file hashes and paper section references.
+  Targeted pytest passes `52 passed, 2 warnings in 2.76s`; source-free
+  `--check`, compileall, stale-claim review, and `git diff --check` pass. The
+  local full suite is not repeated by contract; the required GitHub suite is
+  authoritative for the pushed remediation.
+- No legacy file was inspected. No model/head/encoder/GRU, training,
+  validation inference, TEST evaluation, B1 split/model/checkpoint/output, B2
+  graph/repair policy, PR #32, or PR #33 was changed.
+
+## Phase 9E-B2 Dilemmadata raw coverage remediation — 2026-08-31
+
+- The old `1633 -> 719` reduction was the Phase 9B.1 whole-record fail-closed
+  response to six local raw categories whose primary counts exactly cover the
+  914 quarantines: leading partial measure 327, missing tie predecessor 383,
+  multiple exact tie predecessors 104, source measure anchor off nominal grid
+  51, ambiguous measure mapping 38, and contradictory zero-duration tie
+  continuation 11.
+- `DilemmadataAdapter@1.1.0` now applies deterministic raw-only repair after
+  the byte-compatible `1.0.1` path rejects a record. It uses one exact pickup
+  transform with empty structural beats, raw-identity tie ranking/stable
+  tie-break, orphan continuation attacks, authoritative source boundaries,
+  overlap/stable-identity measure selection, explicit grace retention, and
+  zero-duration tie removal/reconnection. It does not read target labels,
+  choose randomly, invent duration, or make repair provenance a model input.
+- `DilemmadataRawRepairEvidence@1.0.0` stores stable source evidence,
+  candidates/selection, transform, affected entities, and local mask scope.
+  Remediated raw/target alignment and target adapter versions are `1.2.0`;
+  missing target families remain unavailable rather than excluding a work.
+- The immutable production audit at
+  `outputs/phase9eb2/dilemmadata-coverage-remediation-877c168/` is
+  `ready=true`: 1,633/1,633 accepted, zero quarantined, AN 353 and DLC 1,280.
+  All two-pass canonical/graph outputs are identical; every graph validates,
+  every repair has valid evidence, and duration, leakage, cycle, exact
+  bar/beat-context, old-tree, and representative 11-record target-sidecar
+  gates pass.
+- Repair applications are records/events: ambiguous measure selection
+  82/1,361; authoritative exact source boundaries 510/510; leading structural
+  padding 454/454; nonmonotonic mapping rederivation 15/1,037; orphan tie
+  promotion 143/547; tie hierarchy selection 257/1,293; cross-voice tie
+  reconstruction 366/2,263; zero-duration removal/reconnection 7/12; isolated
+  removal 6/43; staged successor reconnection 6/43. Remaining quarantine
+  reasons are empty.
+- Structural record availability after remediation is 353 AN / 1,280 DLC /
+  1,633 total for bass, chord quality, chord-tone/non-chord-tone, harmonic
+  rhythm, is-bass, is-root, local key, metrical downbeat, note degree,
+  pitch-class set, Roman numeral, root, and scale degree. The other totals are
+  inversion 353/1,279/1,632; tonicized key 341/1,240/1,581; cadence
+  0/920/920; pedal/organ point 0/1,280/1,280; phrase 0/1,279/1,279; and section
+  0/1,218/1,218.
+- Record-by-record comparison reports zero failures for all previous 719
+  canonical/graph serializations. Common manifest `be0d36ae...`, raw index
+  `c0451976...`, and split `58ac7720...` with 577/71/71 remain unchanged; the
+  unchanged 2,158-file Phase 9E-B1 output tree is `92a49df...`. The raw
+  universe is 1,633 and the separate 14-overlap AnalysisGNN selection ceiling
+  is 1,619.
+- Audit semantic fingerprint is
+  `831890a6f1b1d6a33c2c213201ca38ff290326160bb32a84d0c6d019cf481218`;
+  report SHA-256 is `315771023e6b28a293e815bd3c90620bbe5e54c73d57cfe130e4b42cca2b13d6`,
+  summary SHA-256 is `e0551a3e996199a509b7e3de1c7d1e7c21d83bc885469893eb813bfd7358c6dc`,
+  record-results SHA-256 is `86196888...`, repair-evidence SHA-256 is
+  `82c3fecd...`, and target-smoke SHA-256 is `36099819...`.
+- All Dilemmadata tests plus the repository contract pass `267 passed, 6
+  skipped, 4 warnings in 206.41s`; the skips are existing opt-in/external
+  integration tests. The full repository suite passes `1,734 passed, 59
+  skipped, 12 warnings in 1,446.63s`. Compileall and `git diff --check` pass.
+  Training, validation inference, locked-TEST evaluation, a new split,
+  multi-head construction, checkpoint/output replacement, and exact
+  AnalysisGNN reproduction were not performed.
+
 ## Required CI event/tree policy remediation — 2026-08-28
 
 - Restricted workflow `push` runs to protected default branch `main` while
@@ -140,14 +423,15 @@
 
 ## Current phase
 
-- Date: 2026-08-28
-- Current task: Phase 9E-A dialect-specific AnalysisGNN inversion parity
-  remediation on stacked branch
-  `phase/9ea-an-dlc-common-harmonic-projection`, based on exact accepted
-  research head `6490e231716cb191d4e476c0f4854adc03c57eb4`.
-- Phase 9E-A is representation/audit only. Phase 9E-B, model training, shared
-  heads/losses, and test evaluation remain unauthorized pending focused review
-  and Required CI. Historical Phase 9C execution context follows below.
+- Date: 2026-09-01
+- Current task: Phase 9E-B5B frozen AnalysisGNN training policy on stacked
+  branch `phase/9eb5b-analysisgnn-training-policy`, based on exact B5A head
+  `2c304ac1570ac41af77ec4c0e9a1afd444e73068`.
+- B5B freezes three non-runnable profiles, corrected 8/10/2 head roles,
+  masked/group-normalized loss, TRAIN-only class weights, component-balanced
+  sampling, validation metrics, and stop gates. It implements/runs no model or
+  trainer, does no validation inference, and leaves TEST closed. Historical
+  Phase 9C execution context follows below.
 - The completed parent evidence is fixed by manifest fingerprint
   `6e64f33e64de9c3d864d75828a6916d95afa9fcbadc75c14359b884cab83ab10`
   and update-9,000 checkpoint hashes `1b3d6ac9…50072f` (scratch) and
@@ -3338,3 +3622,435 @@ not clamped or mutated.
   update, and locked test split remain mandatory. Local CPU results cannot
   establish hardware success; draft PR #19 stays draft and Phase 9 remains
   unstarted pending a new independent exact-head RTX 3090 run.
+
+## Phase 9E-B1 AnalysisGNN reconstruction — 2026-08-28
+
+- Historical public evidence is attested at official AnalysisGNN commit
+  `e115182fb29b74bdcb6bf3547ed427d967580947`, run `rhsjiz03`, and artifact
+  `model-rhsjiz03:v0`. The 289,662,455-byte checkpoint SHA-256 is exactly
+  `a557d0046e2c03c19514e1351a3cd0f2b49c31b991c370307345a7f1c6a65f31`;
+  config, requirements, summary, and output-log bytes also have pinned hashes.
+  This is historical attestation, not independent reproduction.
+- A Python 3.12.8 / torch 2.2.2+cu118 / PyG 2.6.1 / Lightning 2.5.0.post0
+  reconstruction lock and environment builder pin GraphMuse to the nearest
+  pre-run API/state-compatible public commit. Three minimal, cleanly applicable
+  patches restore GraphMuse preprocessing, the public 25-wide simple feature
+  path, and missing-label masks. Every known difference is declared; no exact
+  official reproduction claim is made.
+- The experiment-local common arm fixes 719 accepted records (108 AN, 611 DLC),
+  the unchanged source-group 577/71/71 split, train-only 12 transpositions,
+  quality-50 and inversion-4, native note/beat/measure relations, the
+  checkpoint-attested 3×256 HybridGNN with JK and two-layer bidirectional GRU,
+  output 128, two MLP heads, and cross-task fusion. Root, bass, local key,
+  pitch-class set, and auxiliary heads are absent.
+- Optimization is frozen to smoothed CE 0.1 with `ignore_index=-1`, no class
+  weights, learned two-task uncertainty, AdamW 0.005/0.0005, 500 applied-update
+  warmup, cosine decay, and exactly 10,000 applied updates per seed 17/23/42.
+  Evaluation aggregates mean note log probabilities per source entry and emits
+  per-task NLL, normalized mean NLL, macro-F1, balanced accuracy, accuracy,
+  majority baseline, joint accuracy, confusion/support, grouped bootstrap,
+  checkpoint/file hashes, and mean ± sample standard deviation. One complete
+  source/transposition graph is one candidate update; the seeded schedule and
+  applied/skipped counts are explicit artifacts.
+- Focused Phase 9E-B1 plus impacted common-projection/repository tests pass
+  `40 passed`
+  with two upstream `torch.jit.script` deprecation warnings. Source and
+  script compileall, JSON parsing, upstream `git apply --check`, patched-tree
+  `git diff --check`, historical byte attestation, cache-contract checks, and
+  shell syntax pass. The single preliminary model-only CPU forward/backward
+  observed finite loss/gradients and `[8,50]`/`[8,4]` logits, but a subsequent
+  static inventory removed an extra shape-preserving hierarchy projection to
+  match the checkpoint. It was not rerun under the one-smoke local cap and is
+  not acceptance evidence; the final two-linear hierarchy layout has a unit
+  contract.
+- The permitted local production replay completed: 719 records, 108/611
+  dialect counts and 577/71/71 splits. Assignment fingerprint is
+  `a2b6bb29...`, record fingerprint `5924a6c3...`, and preprocessing-manifest
+  fingerprint `be0d36ae...`; the 2,066,520,375-byte ignored cache contains
+  2,158 files. Graph fingerprints remain an RTX/pinned-GraphMuse artifact.
+- The current runtime policy permits only tests/static validation, one bounded
+  CPU forward/backward without a training loop, and corpus/cache replay. The
+  current host is CPU-only and lacks a compiler plus the pinned
+  reconstruction dependencies. Its model-only smoke uses a recorded import
+  stub that is forbidden for results. Final pinned-GraphMuse CPU graph smoke,
+  GPU smoke,
+  historical training/evaluation reconstruction, all training/checkpoint
+  selection, and locked-test evaluation are therefore `NOT RUN locally` and
+  pending external Python-3.12/CUDA execution. No result, checkpoint, dataset,
+  graph, or Phase 9E-A artifact is committed.
+
+## Phase 9E-B1 pre-RTX remediation — 2026-08-28
+
+- Corrected common-model onset pooling to the dependency-free exact semantics
+  of official `torch_scatter.scatter_mean(..., out=encoded.clone())`: the
+  accumulator starts with each note's encoded embedding, adds non-self onset
+  neighbors, divides by clamped official neighbor count, and preserves notes
+  with no onset neighbors. A dedicated regression covers an isolated note plus
+  two-note and three-note onset groups against an independent reference loop.
+- Added `real-graph-smoke`, which deterministically chooses the largest TRAIN
+  record, loads its canonical/target/common sidecars, constructs the real P1
+  GraphMuse graph, and performs one finite forward/backward without an
+  optimizer. Its artifact records split/identity, graph hash, node/edge counts,
+  logit shapes, gradients and full environment; validation/test selection is
+  rejected.
+- The RTX runbook now orders environment → prepare-data → real TRAIN graph CPU
+  smoke → the same graph CUDA smoke → artifact comparison and STOP. Synthetic
+  smoke is explicitly model-only diagnostic evidence and cannot satisfy graph
+  acceptance.
+- Only the two targeted Phase 9E-B1 files ran: `18 passed, 2 warnings in
+  0.99s`; targeted compileall and `git diff --check` pass. Corpus replay, full
+  suite, local real-graph smoke, training, checkpoint selection, validation/test
+  evaluation and CUDA remain `NOT RUN` in this remediation.
+
+## Phase 9E-B1 overlapping-supervision remediation — 2026-08-29
+
+- Root cause is the experiment-local label adapter's one-entry-per-note
+  assumption. The failed seed-17 TRAIN view was
+  `dlc:corelli:op03n04a` /
+  `piece:dilemmadata-dlc-a88f753949b33e7705b36448` at transposition `m6`:
+  exact major-triad entries 137 `[86,86]` and 138 `[86,87]` both contain the
+  same six onset-86 notes. This is equivalent supervision, not a semantic
+  conflict.
+- Graph schema `1.0.1` now stores one note training target and a deterministic
+  sparse `[note_index, entry_index]` tensor per task. Equivalent available
+  classes deduplicate only the target; every membership remains available for
+  independent source-entry aggregation. Masked/unavailable rows cannot create
+  or overwrite memberships. Different available classes fail closed with
+  record/piece/task/note/entry/entity/class diagnostics. The real-ID regression
+  verifies six major-triad targets and predictions for both entries 137/138;
+  its different-class variant verifies the exception.
+- `LabelBindingPreflight@1.0.0` scans all 719 manifest-bound records before a
+  run directory/model/optimizer and emits a deterministic ignored JSON
+  artifact. It checks one exact membership contract reused by all pitch-only
+  views (7,066 total) and performs no model inference, metric, selection, or
+  locked-test evaluation. Training requires a current manifest/schema-bound,
+  hash-valid artifact with zero conflicting available-class notes.
+- The safe final preflight artifact fingerprint is
+  `da1d02a0ab58ce9ad765a37822e59e96ddbdbce2fc20302ce46ebb5c82faa500`.
+  It reports 224 equivalent note overlaps in 36 groups across six records and
+  128 conflicting note overlaps in 18 groups across four records; the requested
+  Corelli entries 137/138 account for exactly six equivalent quality notes.
+  `acceptance=false` therefore blocks CPU/CUDA progression and a fresh seed-17
+  start. Resolving the other exact point/interval class conflicts requires a
+  separately authorized semantic/data-policy decision; this remediation does
+  not prioritize an entry, delete point spans, or alter the dataset.
+- CUDA paths fail before initialization unless
+  `CUBLAS_WORKSPACE_CONFIG=:4096:8`; deterministic algorithms are fail-closed.
+  The reconstruction lock/environment adds only `music21==9.3.0` and leaves
+  torch 2.2.2, PyG 2.6.1, and GraphMuse `c36eedb...` unchanged.
+- Contract/config fingerprint changed from `235ee350...` to `de91db31...` and
+  graph schema fingerprint from `77bc67ee...` to `393067f9...`. Dependency-lock
+  SHA-256 changed from `9aa9c794...` to `674dfe2e...`. Dataset assignment
+  `a2b6bb29...`, records `5924a6c3...`, manifest `be0d36ae...`, registry
+  `bb509208...`, raw index `c0451976...`, and split `58ac7720...` remain
+  unchanged, as do the 719 subset and 577/71/71 split.
+- Approved targeted tests pass `24 passed, 2 warnings in 1.02s`; warnings are
+  the upstream `torch.jit.script` deprecation. Targeted compileall and
+  `git diff --check` pass. No training, optimizer update, CPU/CUDA graph smoke,
+  validation, locked-test evaluation, full suite, or corpus reconstruction was
+  run; only the explicitly allowed structural preflight read the existing
+  cache. The test lock remains closed and unchanged.
+
+## Phase 9E-B1 conflicting label-binding forensics — 2026-08-29
+
+- Added an evidence-only deterministic forensic surface over the exact failed
+  preflight and existing 719-record cache. It creates no graph, model,
+  optimizer, prediction, metric, selector, checkpoint, or training directory.
+  Full evidence remains ignored; compact committed evidence is
+  `tests/fixtures/analysisgnn/phase9eb1_label_binding_forensics.json`.
+- Corrected the audit premise: preflight overlap rows were already computed
+  once per accepted source record, so 18 groups / 128 notes are source-native,
+  not counts over 7,066 transposition views. The unchanged schedule produces
+  150 effective group occurrences and 1,008 note occurrences: TRAIN has 12
+  groups / 80 source notes / 3 records and 144 / 960 effective occurrences;
+  VALIDATION has zero; sealed TEST has 6 groups / 48 source notes / 1 record
+  and exposes no record IDs, values, classes, or note diagnostics.
+- Every source conflict is `point_vs_interval_same_start` plus
+  `duplicate_timestamp_transition`; all affected notes are ordinary,
+  non-grace, non-zero-duration rows. Quality accounts for 16 source groups /
+  112 source notes and inversion for 2 / 16. Equivalent Corelli entries
+  137/138 remain excluded from the conflicting report.
+- Read-only source evidence at Dilemmadata commit `d60ee75...` shows an outer
+  note/harmony merge and identity-scoped forward fill. Pinned AnalysisGNN
+  `e115182...` reads the resulting TSV without a same-onset deduplication or
+  precedence pass, constructs one graph-note row per TSV row, and encodes
+  quality/inversion row-wise. It defines no point/interval or grace precedence.
+  The V2 note ID retains the originating TSV ordinal, and all 12 detailed
+  TRAIN groups have exactly one source entry for each conflicting note row.
+- No semantic policy changed. The evidence-based next remediation is exact
+  source-row-to-entry membership, not first/last, point, or interval
+  precedence. If row provenance cannot be contract-bound, the conservative
+  fallback is masking only conflicting task-note targets. Source-entry masking
+  prevents entry metrics and record exclusion changes the frozen subset, so
+  neither is preferred.
+- Full artifact semantic fingerprint is
+  `b425c470da9cd9754a4cbedb240a44835391ad2dac9dbcd11ba108aef66d40e9`;
+  compact evidence fingerprint is
+  `4dc5db61525be807a49677893b6f5b338eb35b0f59854ed508cf0d38f5f012ba`.
+  All corpus, assignment, split, target, common-projection, graph-schema,
+  config, and dependency-lock fingerprints are unchanged.
+- `acceptance=false`, `training_authorized=false`, and
+  `test_targets_used_for_model_evaluation=false`. CPU/CUDA graph smoke,
+  historical reconstruction, training/optimizer updates, validation inference,
+  checkpoint selection, locked-test evaluation, full suite, corpus
+  reconstruction, and new raw audit remain not run. The RTX checkout is
+  `/home/humtech/Paper/critic`, but no RTX smoke or training command is
+  authorized until a separate policy remediation makes the all-719 preflight
+  conflict-free.
+- Targeted forensic, overlapping-supervision, and pre-RTX contracts pass
+  `19 passed, 2 warnings in 1.02s`; warnings are the upstream
+  `torch.jit.script` deprecation. Targeted compileall and `git diff --check`
+  pass. No full suite was run.
+
+## Phase 9E-B1 exact source-row binding remediation — 2026-08-29
+
+- Root cause is fixed at the experiment boundary: generic temporal spans
+  discarded Dilemmadata outer-merge row identity, so same-start point and
+  interval entries were both assigned to every boundary note. Pinned
+  AnalysisGNN instead retains and labels each TSV/note row independently.
+- `DilemmadataSourceRowBinding@1.0.0` validates the canonical note ID ordinal
+  against pinned raw onset, pitch, staff, voice, and
+  `unfolded_harmony_index`, then binds the two source identities to stable
+  typed point/interval entry order separately for quality and inversion.
+  Values/classes never select membership, and pitch-only transposition cannot
+  change it. Exact provenance replaces generic span membership only at proved
+  DLC duplicate-row boundaries; ordinary spans and AN behavior are unchanged.
+- Real Corelli `op03n04a` entries 137/138 split 3+3 over six source rows
+  (ordinals 530–535), retain independent entry predictions, and produce one
+  major-triad target per note. Previous TRAIN conflict cases split 4+4
+  (`op01n07c` 128/129), 3+3 (`op03n03b` 42/43), and 3+3 (`op03n03d` 3/4),
+  with no residual conflict. Missing, unknown, duplicate, incomplete, or
+  ambiguous provenance fails closed; masked rows cannot replace available
+  supervision.
+- The single permitted all-719 read-only preflight resolved 68/68
+  source-native groups and 452 rows. It reports zero unresolved/ambiguous
+  groups, zero equivalent non-row overlaps, and zero remaining conflicts.
+  Effective counts are 640 groups / 4,016 row occurrences over the unchanged
+  7,066 views. Fingerprint is
+  `810221595f5bb11882d59e9fe4ee91f6d965bff148386cfcd0bbbd45b676b9de`;
+  `acceptance=true` and `training_authorized=true`.
+- TEST remains sealed: 16 groups / 128 rows are structural aggregates only,
+  with no record IDs, values, classes, note diagnostics, predictions, or
+  metrics; `test_targets_used_for_model_evaluation=false`. Historical
+  forensic artifacts remain unchanged and are referenced as superseded
+  blocker evidence. New compact remediation evidence fingerprint is
+  `13054693d85ec859026dc92452bf8c853d6bedb705e2256964544db2b01078e2`.
+- Phase contract/config changed `1.0.1 -> 1.1.0`, config fingerprint
+  `de91db31... -> f006dcdc...`, and graph schema fingerprint
+  `393067f9... -> 3a54b535...`. Dataset assignment `a2b6bb29...`, records
+  `5924a6c3...`, manifest `be0d36ae...`, registry `bb509208...`, raw index
+  `c0451976...`, and split `58ac7720...` remain unchanged, as do the 719
+  subset, 577/71/71 split, cache, target sidecars, common projection, and test
+  lock.
+- RTX CPU/CUDA real-graph smoke is authorized next, with
+  `CUBLAS_WORKSPACE_CONFIG=:4096:8` mandatory; training remains behind the
+  explicit smoke-artifact STOP/review gate. No graph smoke, model construction,
+  optimizer update, training, validation/test inference, locked-test metrics,
+  corpus reconstruction, or full suite ran locally.
+- Targeted source-row, graph/binding, metrics, preflight, forensic, runbook,
+  and repository contracts pass `48 passed, 2 warnings in 1.99s`; warnings are
+  the unchanged upstream `torch.jit.script` deprecation. Targeted compileall,
+  JSON validation, preflight artifact revalidation, and `git diff --check`
+  pass.
+
+## Phase 9E-B1 validation zero-support remediation — 2026-08-29
+
+- The seed-17 remediation run reached 500 finite applied updates and failed
+  while serializing its first validation row. The exact rejected field is
+  `$.metrics.joint_quality_inversion.accuracy = NaN`; `validation.jsonl`
+  remains empty. The failed run is retained unchanged as evidence and is not a
+  resume source.
+- Root cause is metric identity support, not model divergence or source-row
+  supervision. A read-only scan of all 71 unchanged VALIDATION records found
+  13,475 available quality entries and 7,064 available inversion entries, but
+  zero common `(record_id, source entity_id)` identities. Quality and inversion
+  entity IDs are task-specific, so `joint_accuracy` deliberately has support
+  zero under its registered identity contract. No TEST target was opened.
+- A known zero-support joint metric now reports `accuracy=null`,
+  `available=false`, `support=0`, and
+  `undefined_reason=zero_joint_quality_inversion_support`. Bootstrap and
+  three-seed summaries propagate null plus defined/requested counts and never
+  coerce undefined to zero. Supported joint metrics remain finite numerics.
+- Canonical JSON continues to prohibit `NaN` and infinity, but now fails with
+  the first deterministic nested field path. Append payloads are canonicalized
+  before opening their artifact. Validation checkpoint selection separately
+  requires finite `$.quality.nll` and `$.inversion.nll` and fails closed before
+  selection if either is absent, nonnumeric, or non-finite.
+- The Phase reporting/config contract advances `1.1.0 -> 1.1.1`; config
+  fingerprint changes `f006dcdc... ->
+  3c93b1c5d733ade2048104ad164a04fddaee33a54e650de4d9f513251209a469`.
+  Graph schema/fingerprint remains `1.1.0` /
+  `3a54b5358b10c5ff1c6765cab8601010bfcde769d9ae118c69d2e6baffd785b5`.
+  Dataset assignment `a2b6bb29...`, records `5924a6c3...`, manifest
+  `be0d36ae...`, registry `bb509208...`, raw index `c0451976...`, split
+  `58ac7720...`, and source-row preflight `81022159...` remain unchanged, as
+  do subset 719, split 577/71/71, augmentation, model, optimizer, source-row
+  binding, and test lock.
+- Targeted Phase 9E-B1 and repository-contract tests pass
+  `52 passed, 2 warnings in 1.98s`; warnings are the unchanged upstream
+  `torch.jit.script` deprecation. Targeted compileall, config/graph/dataset
+  contract validation, and `git diff --check` pass. No
+  training, optimizer update, CPU/CUDA smoke, model validation inference,
+  locked-TEST evaluation, full suite, corpus replay, or output mutation ran
+  locally.
+
+## Phase 9E-B5C corrected model and pilot preparation — 2026-09-01
+
+- Branch `phase/9eb5c-analysisgnn-model-pilot` implements
+  `CorrectedAnalysisGNNModel@1.0.0`: reused width-128 three-layer local GNN,
+  two-layer/four-head hierarchy, existing one-layer bidirectional onset BiGRU,
+  and 18 independent FP32 MLP heads. The exact parameter inventory is
+  3,661,936 trainable / 0 frozen; primary/auxiliary/deferred counts are
+  8/10/2, with no `staff`, deferred parameters, or logit fusion.
+- Expanded B3 targets join only after raw logits through exact event-to-beat,
+  reduced rational onset, or canonical note identity. Missing, unsupported,
+  or failed joins are excluded and diagnosed. Frozen B5B class weights and
+  `L_primary + 0.25 * L_auxiliary` are used literally.
+- The trainer binds the 1,209-component TRAIN sampler, separated record/shift
+  domains, identity VALIDATION, lazy canonical/sidecar cache, production graph
+  rebuild/collation, deterministic checkpoint/resume, primary-only selection,
+  separate corrected-event/paper-note/direct-Roman metrics, and fail-closed
+  TEST access. It uses the exact B5B AdamW/FP32 optimizer envelope.
+- Source-free CPU smoke completed two applied updates for C0 and C1. Both had
+  finite logits/loss/gradients, all 18 head gradients, shared-encoder
+  gradients, parameter changes, and checkpoint round trips from identical
+  initialization. Real TRAIN record `dlc:corelli:op03n04c` provided the
+  minimum-cardinality all-head coverage set: 18/18 finite losses, 18/18
+  nonzero head gradients, and a nonzero shared-encoder gradient.
+- The compact fixture fingerprint is
+  `1bdc1dab093e3e6000027d95bc4f207bfe95eeb3111886cdc32b15aedbed9089`;
+  source-free audit reports `valid=true`. TEST loader/target/metric counts are
+  all zero/false. No TEST evaluation, profile O run, full training, multi-seed
+  run, generated MIDI, rendered audio, or committed checkpoint occurred.
+- Local Torch is CPU-only (`2.13.0+cpu`), CUDA device count is zero, and
+  `nvidia-smi` is absent. Therefore CUDA smoke and both 500-update pilots were
+  not run; `ready_for_cuda_pilot=true` and
+  `pilot_not_run_reason=cuda_unavailable`. Exact RTX commands are stored in the
+  compact fixture and final handoff.
+- The prescribed B5C/B5B/B5A/repository targeted suite passes
+  `69 passed, 2 warnings in 13.75s`; both warnings are the unchanged upstream
+  `torch.jit.script` deprecation. The source-free B5C audit reports
+  `valid=true`; targeted compileall and `git diff --check` pass. Per protocol,
+  the local full suite was not run and Required CI remains the full-suite gate.
+
+## Phase 9E-B5C GPU-root portability correction — 2026-09-01
+
+- The first GPU handoff placed the pinned corpus below
+  `/home/humtech/music_critic_v2` and correctly stopped before any CUDA update
+  with `analysisgnn.corrected.b2_record_binding_mismatch` for
+  `dlc:corelli:op03n04c`. The B2 discovery seal had included its historical
+  absolute `/home/str/music-critic-v2` locator, so direct equality was not a
+  cross-host content test.
+- Production reconstruction now verifies the selected annotation's physical,
+  raw-projection, grouping, and resolution fingerprints plus an optional score
+  fingerprint. It validates the historical seal only against the original
+  corpus root/content/file-count snapshot recorded by B2, then returns an
+  independently valid binding for the runtime-local path. Source, parse,
+  metadata, score, snapshot, or historical-seal drift still fails closed.
+- A production regression rebuilt `dlc:corelli:op03n04c` successfully from a
+  temporary alternate corpus root and produced the expected raw node types.
+  Source-free positive/negative tests cover portable rebinding and rejection
+  of a nonmatching historical seal.
+- The prescribed B5C/B5B/B5A/repository targeted suite now passes
+  `71 passed, 2 warnings in 14.03s`; the source-free audit remains
+  `valid=true`, and compileall plus `git diff --check` pass. CUDA memory/smoke
+  and both 500-update pilots remain pending a rerun of the corrected commit.
+
+## Phase 9E-B5C historical parser-seal correction — 2026-09-01
+
+- The corrected GPU smoke passed completely with all 18 head gradients,
+  shared-encoder gradient, real TRAIN coverage, equal C0/C1 record schedules,
+  selected batch size 2, `cuda_smoke_passed=true`, and TEST closed. The first
+  C0 attempt then stopped before validation update 0 on
+  `dlc:mozart_piano_sonatas:K284-3` because its historical B2 binding included
+  the old parser category `dilemmadata.grace_conflict`, while the current
+  repaired parser correctly reports no issue.
+- Frozen B2 quarantine evidence contains exactly eleven
+  `pipeline_stage=raw_parse` rows. Their historical `native_categories` are
+  now replayed only to verify the old binding hash; the local record retains
+  current parser categories and is independently bound before conversion.
+  Historical downstream tie/bar quarantine categories are not record-binding
+  inputs and are not replayed.
+- `K284-3` now converts and builds its production raw graph. A complete
+  non-TEST preflight materialized all 162/162 VALIDATION records and verified
+  historical/local bindings for all 1,295/1,295 TRAIN records. No model update,
+  metric, or TEST source/target access occurred in those preflights.
+- The prescribed B5C/B5B/B5A/repository targeted suite passes
+  `72 passed, 2 warnings in 14.06s`; the warnings remain the upstream
+  `torch.jit.script` deprecation. CUDA C0/C1 pilots remain pending rerun from
+  the next corrected commit; the already accepted CUDA smoke need not be
+  interpreted as pilot evidence.
+
+## Phase 9E-B5D paired full-training preparation — 2026-09-01
+
+- The corrected RTX 3090 B5C run completed after the portability/parser-seal
+  corrections. CUDA smoke selected batch size 2, covered 18/18 finite losses
+  and nonzero head gradients plus the shared encoder, and kept TEST closed.
+  Both 500-update pilots completed without NaN, overflow, or skipped updates.
+- C0 best corrected primary score was `0.036663969804067165` at update 100
+  and final score was `0.03632012795424089`. C1 best was
+  `0.03548936046536255` at update 300 and final was
+  `0.034247543204401154`. Initial-state and record schedules were paired; the
+  final C1-C0 delta was `-0.0020725847498397343`. This is negative bounded
+  directional evidence only.
+- Branch `phase/9eb5d-analysisgnn-full-training` adds a dedicated CUDA runner
+  for sequential C0/C1 full screens. The exact contract is seed 17, batch 2,
+  10,000 successful updates and 20,000 draws per profile (approximately 15.44
+  sampler epochs), 500-update warmup then cosine, validation at
+  `0,500,...,10000`, and atomic checkpoints every 100 updates.
+- The runner emits flushed JSON progress every 25 updates and during complete
+  162-record validation, supports deterministic resume with ledger
+  reconciliation, validates actual completed schedules, and automatically
+  writes final/best C1-C0 comparisons after both exact runs. Fresh output
+  reuse, incomplete ledgers, pairing drift, TEST access, profile O, and
+  fabricated full results fail closed.
+- Local non-CUDA preflight is valid. The contract fingerprint is
+  `24361dd84aabca021cef1d2be279d9c5688753a018828ebd4907aac85999143d`;
+  the 20,000-draw record schedule fingerprint is
+  `67f4401806f2d5419bb849449aef811fd54dfbca62588c5a1543dbbe6c1b63f8`.
+  C0/C1 record schedules are equal and transposition schedule fingerprints
+  `af937f0c...` / `745aef3b...` differ. No optimizer update or TEST source,
+  target, loader, or metric ran locally.
+- The B5A/B5B/B5C/B5D/repository targeted suite passes
+  `96 passed, 2 warnings in 24.41s`. The complete repository suite passes
+  `1882 passed, 59 skipped, 12 warnings in 915.02s`; warnings are unchanged
+  upstream Torch JIT and multiprocessing-fork deprecations. Source-free B5D
+  audit reports `valid=true`; direct runner help, compileall, and
+  `git diff --check` pass. Full C0/C1 CUDA training and its comparison remain
+  pending the GPU-server execution.
+
+## Phase 9E-B5E completed full-training result seal — 2026-09-02
+
+- The external B5D result archive
+  `phase9eb5d-seed17-analysis.tar.gz` was read with SHA-256
+  `a9901c3ab9dd6914415a8ca7205f4247596c4aa261be9abe084d6a9523c7374a`.
+  Both actual profiles were C0 and C1. Each completed 10,000 successful
+  updates, 20,000 draws, and 15.444 sampler epochs on an RTX 3090 with seed 17,
+  batch size 2, identical initial state/record schedule, and distinct shift
+  schedules. Neither run had NaN, overflow, skipped updates, or TEST access.
+- C0/C1 final and best corrected primary scores were
+  `0.3548871111124754` / `0.2715279571712017`, both at update 10,000; C1-C0
+  was `-0.08335915394127369`. Corrected harmonic-event joint accuracy was
+  `0.11430474921480918` / `0.01408584753021795`. Every primary-head macro-F1
+  favored C0.
+- Seen-tuple joint accuracy was `0.1275353084846554` / `0.015716257831581183`.
+  Unseen-tuple joint accuracy was `0.0` for both on the identical support of
+  1,090 events and 187 tuples absent from TRAIN. This limitation is explicit
+  and is not converted into a missing or negative target.
+- ADR-111 selects C0 as the current corrected AnalysisGNN baseline using
+  seed-17 VALIDATION. Its external selected model-state fingerprint is
+  `37e9dda262ae3db53c548d6d0b228fd4123e08e82b30eb8200b0b4c1327dbee4`.
+  C1 is retained as `experimental_deferred`; its implementation is not deleted
+  or declared semantically invalid, but no transposition-benefit claim remains.
+- The committed evidence is limited to the compact report/JSON and source,
+  run, schedule, environment, comparison, and model-state fingerprints.
+  Checkpoints, full training logs, the result archive, datasets, caches,
+  generated MIDI, and rendered audio remain uncommitted. TEST was not opened,
+  and the single seed supports no statistical improvement/generalization
+  claim.
+- The B5D/B5E/repository targeted suite passes
+  `21 passed, 2 warnings in 6.65s`. The complete repository suite passes
+  `1883 passed, 59 skipped, 12 warnings in 726.02s`; warnings remain the
+  upstream Torch JIT and multiprocessing-fork deprecations. The source-free
+  B5E audit reconstructs comparison fingerprint `03971d65...` and reports
+  `valid=true`; compileall and `git diff --check` pass.
