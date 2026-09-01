@@ -2039,3 +2039,12 @@ hashes, record ID, and authorized split under ignored `outputs/phase9eb5c`.
 It never stores a tensor graph, augmented graph, checkpoint, generated MIDI,
 audio, or TEST target. C1 creates a detached B5A graph view on the fly and
 transforms semantic target values only after raw-only prediction.
+
+Production reconstruction is portable across repository roots. The B2
+discovery seal remains historical and path-bound: on a different host the
+runner first verifies the selected annotation's physical, raw-projection,
+grouping, and resolution fingerprints (plus the score fingerprint when one
+exists), reproduces the frozen B2 seal against the corpus root attested in the
+B2 audit snapshot, and only then returns a separately valid binding for the
+local absolute path. A different source, parse, metadata split, historical
+seal, or unattested snapshot still fails closed.

@@ -3932,3 +3932,26 @@ not clamped or mutated.
   `torch.jit.script` deprecation. The source-free B5C audit reports
   `valid=true`; targeted compileall and `git diff --check` pass. Per protocol,
   the local full suite was not run and Required CI remains the full-suite gate.
+
+## Phase 9E-B5C GPU-root portability correction — 2026-09-01
+
+- The first GPU handoff placed the pinned corpus below
+  `/home/humtech/music_critic_v2` and correctly stopped before any CUDA update
+  with `analysisgnn.corrected.b2_record_binding_mismatch` for
+  `dlc:corelli:op03n04c`. The B2 discovery seal had included its historical
+  absolute `/home/str/music-critic-v2` locator, so direct equality was not a
+  cross-host content test.
+- Production reconstruction now verifies the selected annotation's physical,
+  raw-projection, grouping, and resolution fingerprints plus an optional score
+  fingerprint. It validates the historical seal only against the original
+  corpus root/content/file-count snapshot recorded by B2, then returns an
+  independently valid binding for the runtime-local path. Source, parse,
+  metadata, score, snapshot, or historical-seal drift still fails closed.
+- A production regression rebuilt `dlc:corelli:op03n04c` successfully from a
+  temporary alternate corpus root and produced the expected raw node types.
+  Source-free positive/negative tests cover portable rebinding and rejection
+  of a nonmatching historical seal.
+- The prescribed B5C/B5B/B5A/repository targeted suite now passes
+  `71 passed, 2 warnings in 14.03s`; the source-free audit remains
+  `valid=true`, and compileall plus `git diff --check` pass. CUDA memory/smoke
+  and both 500-update pilots remain pending a rerun of the corrected commit.

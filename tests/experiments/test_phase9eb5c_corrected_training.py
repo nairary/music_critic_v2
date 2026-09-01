@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import copy
+from dataclasses import replace
+import json
 from pathlib import Path
 
 import pytest
 import torch
 
+from music_critic.adapters import dilemmadata as dilemmadata_adapter
+from music_critic.adapters import validate_dilemmadata_record_binding
+from music_critic.experiments.analysisgnn import corrected_training
 from music_critic.experiments.analysisgnn.corrected_model import (
     CorrectedAnalysisGNNModel,
     model_state_fingerprint,
@@ -16,6 +21,7 @@ from music_critic.experiments.analysisgnn.corrected_training import (
     CorrectedRuntimeConfig,
     CorrectedTrainingError,
     CorrectedValidationAccumulator,
+    ProductionArtifactPaths,
     align_target_sidecars_after_prediction,
     build_optimizer_scheduler,
     build_source_free_fixture,
@@ -45,7 +51,7 @@ from music_critic.experiments.analysisgnn.training_policy import (
     aggregate_corrected_losses,
 )
 from music_critic.tasks import collate_multisource_samples
-from tests.adapters.test_dilemmadata import CORPUS
+from tests.adapters.test_dilemmadata import CORPUS, _record
 from tests.adapters.test_dilemmadata_targets import _sample, _target
 
 
@@ -453,3 +459,88 @@ def test_source_free_fixture_reproduces_and_test_record_cannot_reach_loader() ->
     with pytest.raises(CorrectedTrainingError) as caught:
         load_production_record("an:test:abc-op127-2", split="test")
     assert caught.value.category == "analysisgnn.corrected.test_lock"
+
+
+def test_production_binding_accepts_an_attested_portable_corpus_root(
+    tmp_path: Path,
+) -> None:
+    historical = _record(CORPUS, "dlc:demo:same")
+    portable_root = tmp_path / "portable-corpus"
+    portable = replace(
+        historical,
+        path=portable_root / historical.relative_path,
+        record_binding_sha256="",
+    )
+    portable = dilemmadata_adapter._bind_record(portable)
+    assert portable.record_binding_sha256 != historical.record_binding_sha256
+
+    audit_root = tmp_path / "b2-audit"
+    audit_root.mkdir()
+    inventory = audit_root / "source_inventory.jsonl"
+    inventory.write_text("", encoding="utf-8")
+    (audit_root / "audit_summary.json").write_text(
+        json.dumps(
+            {
+                "snapshot": {
+                    "actual_path": str(CORPUS),
+                    "content_fingerprint": historical.corpus_identity.content_fingerprint,
+                    "file_count": historical.corpus_identity.installation_file_count,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    paths = replace(
+        ProductionArtifactPaths(),
+        b2_source_inventory=inventory,
+        corpus_root=portable_root,
+    )
+    rebound = corrected_training._bind_portable_production_record(
+        portable,
+        expected_binding_sha256=historical.record_binding_sha256,
+        paths=paths,
+        adapter=dilemmadata_adapter,
+    )
+    assert rebound.path == portable_root / historical.relative_path
+    assert validate_dilemmadata_record_binding(rebound)
+
+
+def test_production_binding_rejects_nonmatching_historical_seal(
+    tmp_path: Path,
+) -> None:
+    historical = _record(CORPUS, "dlc:demo:same")
+    portable_root = tmp_path / "portable-corpus"
+    portable = replace(
+        historical,
+        path=portable_root / historical.relative_path,
+        record_binding_sha256="",
+    )
+    audit_root = tmp_path / "b2-audit"
+    audit_root.mkdir()
+    inventory = audit_root / "source_inventory.jsonl"
+    inventory.write_text("", encoding="utf-8")
+    (audit_root / "audit_summary.json").write_text(
+        json.dumps(
+            {
+                "snapshot": {
+                    "actual_path": str(tmp_path / "wrong-historical-root"),
+                    "content_fingerprint": historical.corpus_identity.content_fingerprint,
+                    "file_count": historical.corpus_identity.installation_file_count,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    paths = replace(
+        ProductionArtifactPaths(),
+        b2_source_inventory=inventory,
+        corpus_root=portable_root,
+    )
+    with pytest.raises(CorrectedTrainingError) as caught:
+        corrected_training._bind_portable_production_record(
+            portable,
+            expected_binding_sha256=historical.record_binding_sha256,
+            paths=paths,
+            adapter=dilemmadata_adapter,
+        )
+    assert caught.value.category == "analysisgnn.corrected.b2_record_binding_mismatch"

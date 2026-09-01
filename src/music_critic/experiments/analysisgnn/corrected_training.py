@@ -1541,6 +1541,29 @@ def _resolve_selected_corpus_record(
     source_path = paths.corpus_root / str(inventory["annotation_path"])
     dialect = str(inventory["dialect"])
     parsed = adapter._parse_raw_file(source_path, dialect)
+    source_fingerprints = inventory["source_fingerprints"]
+    try:
+        physical_annotation_sha256 = _sha256_file(source_path)
+    except OSError as exc:
+        raise CorrectedTrainingError(
+            "analysisgnn.corrected.b2_source_fingerprint_mismatch", record_id
+        ) from exc
+    source_checks = {
+        "physical_annotation_sha256": physical_annotation_sha256,
+        "raw_projection_sha256": parsed.raw_projection_sha256,
+        "grouping_sha256": parsed.grouping_fingerprint,
+    }
+    expected_source_checks = {
+        key: str(source_fingerprints[key]) for key in source_checks
+    }
+    if source_checks != expected_source_checks:
+        raise CorrectedTrainingError(
+            "analysisgnn.corrected.b2_source_fingerprint_mismatch", record_id
+        )
+    if parsed.source_resolution != int(inventory["source_resolution"]):
+        raise CorrectedTrainingError(
+            "analysisgnn.corrected.b2_source_resolution_mismatch", record_id
+        )
     suggested_split: str | None
     if dialect == "an_joint":
         suggested_split = Path(str(inventory["annotation_path"])).parent.name
@@ -1555,10 +1578,24 @@ def _resolve_selected_corpus_record(
         suggested_split = metadata[
             (str(inventory["collection"]), str(inventory["source_piece_id"]))
         ]
-    source_fingerprints = inventory["source_fingerprints"]
     component = str(inventory["source_group_id"])
     score_relative = inventory.get("score_path")
     score_path = None if score_relative is None else paths.corpus_root / str(score_relative)
+    if score_path is not None:
+        try:
+            score_sha256 = _sha256_file(score_path)
+        except OSError as exc:
+            raise CorrectedTrainingError(
+                "analysisgnn.corrected.b2_score_fingerprint_mismatch", record_id
+            ) from exc
+        if score_sha256 != source_fingerprints["score_sha256"]:
+            raise CorrectedTrainingError(
+                "analysisgnn.corrected.b2_score_fingerprint_mismatch", record_id
+            )
+    elif source_fingerprints["score_sha256"] is not None:
+        raise CorrectedTrainingError(
+            "analysisgnn.corrected.b2_score_fingerprint_mismatch", record_id
+        )
     record = DilemmadataCorpusRecord(
         record_id=record_id,
         piece_id=str(paper["piece_id"]),
@@ -1586,10 +1623,64 @@ def _resolve_selected_corpus_record(
         record_binding_version=adapter.DILEMMADATA_RECORD_BINDING_VERSION,
         record_binding_sha256="",
     )
+    return _bind_portable_production_record(
+        record,
+        expected_binding_sha256=str(source_fingerprints["record_binding_sha256"]),
+        paths=paths,
+        adapter=adapter,
+    )
+
+
+def _bind_portable_production_record(
+    record: object,
+    *,
+    expected_binding_sha256: str,
+    paths: ProductionArtifactPaths,
+    adapter: object,
+) -> object:
+    """Validate the historical B2 seal while returning a valid local binding."""
+
     bound = adapter._bind_record(record)
-    if bound.record_binding_sha256 != source_fingerprints["record_binding_sha256"]:
+    if not adapter.validate_dilemmadata_record_binding(bound):
         raise CorrectedTrainingError(
-            "analysisgnn.corrected.b2_record_binding_mismatch", record_id
+            "analysisgnn.corrected.local_record_binding_invalid", bound.record_id
+        )
+    if bound.record_binding_sha256 == expected_binding_sha256:
+        return bound
+
+    summary_path = paths.b2_source_inventory.parent / "audit_summary.json"
+    try:
+        snapshot = json.loads(summary_path.read_text(encoding="utf-8"))["snapshot"]
+        historical_root = Path(str(snapshot["actual_path"]))
+        identity = bound.corpus_identity
+        snapshot_valid = (
+            historical_root.is_absolute()
+            and snapshot["content_fingerprint"] == identity.content_fingerprint
+            and int(snapshot["file_count"]) == identity.installation_file_count
+        )
+    except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise CorrectedTrainingError(
+            "analysisgnn.corrected.b2_audit_snapshot_invalid", str(summary_path)
+        ) from exc
+    if not snapshot_valid:
+        raise CorrectedTrainingError(
+            "analysisgnn.corrected.b2_audit_snapshot_invalid", str(summary_path)
+        )
+
+    historical = replace(
+        bound,
+        path=historical_root / bound.relative_path,
+        score_path=(
+            None
+            if bound.score_relative_path is None
+            else historical_root / bound.score_relative_path
+        ),
+        record_binding_sha256="",
+    )
+    historical = adapter._bind_record(historical)
+    if historical.record_binding_sha256 != expected_binding_sha256:
+        raise CorrectedTrainingError(
+            "analysisgnn.corrected.b2_record_binding_mismatch", bound.record_id
         )
     return bound
 

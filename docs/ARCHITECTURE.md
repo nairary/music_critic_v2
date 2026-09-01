@@ -1528,3 +1528,10 @@ JSON; tensor graphs are rebuilt through the production graph builder and
 collator rather than cached. Checkpoints contain model, optimizer, scheduler,
 disabled FP32 scaler, sampler, Python/NumPy/PyTorch CPU/CUDA RNG, applied
 update, selection, and history state.
+
+The production loader separates historical discovery identity from the
+runtime-local absolute locator. It verifies selected source bytes and parsed
+raw/grouping/resolution fingerprints, reconstructs the path-bound B2 seal with
+the B2-attested original corpus root, and emits a newly validated local record
+binding. This permits an unchanged corpus checkout under a GPU host's user
+directory without weakening the B2 provenance gate.

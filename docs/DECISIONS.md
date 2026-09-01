@@ -3900,3 +3900,24 @@ This log is append-only.
   parameters. Local CPU and real-TRAIN smoke are accepted; CUDA memory/smoke,
   500-update pilots, comparison, full training, and multi-seed training remain
   unperformed until an RTX environment passes the explicit gates.
+
+## 2026-09-01 — ADR-109: B5C production reconstruction preserves historical and local bindings
+
+- Status: Accepted as a portability correction discovered by the first GPU
+  handoff; model, data membership, targets, and training policy are unchanged.
+- Context: `DilemmadataDiscoveryRecordBinding@1.0.0` deliberately seals an
+  absolute source locator. Comparing a record rebuilt below
+  `/home/humtech/...` directly with B2 evidence created below `/home/str/...`
+  therefore rejected the byte-identical Corelli source as
+  `analysisgnn.corrected.b2_record_binding_mismatch`.
+- Decision: Before conversion, verify the selected source's physical SHA-256,
+  raw-projection SHA-256, grouping SHA-256, source resolution, and optional
+  score SHA-256. Validate the local discovery binding independently. If its
+  locator differs, reconstruct the historical binding only with the original
+  corpus root, content fingerprint, and file count recorded by the B2 audit
+  snapshot; require exact equality with the frozen B2 binding. Return the
+  local valid binding rather than the historical path-bound object.
+- Consequences: Byte-identical pinned corpus installations can run B5C from a
+  different absolute repository root. Source drift, parse drift, metadata
+  split drift, score drift, an altered B2 seal, or an invalid audit snapshot
+  remains a structured hard failure. TEST gating is unchanged.
