@@ -1541,3 +1541,43 @@ discovery record, the loader reconstructs that category only on the historical
 verification object from frozen `raw_parse` quarantine evidence. The local
 object passed to the current adapter retains current parser output and its own
 valid binding; old downstream conversion quarantines are never replayed.
+
+## Phase 9E-B5D paired full-training orchestration
+
+The B5D runner is a fixed-budget orchestration layer over the unchanged B5C
+model, loss, sampler, production loader, and checkpoint state. Each profile
+uses seed 17, CUDA batch size 2, 10,000 successful optimizer updates, and
+20,000 component-balanced TRAIN draws. C0 and C1 share model initialization
+and record order; only the B5A-safe C1 shift stream differs. Completed runs
+verify their actual record/shift histories against the frozen deterministic
+schedule before producing a valid summary.
+
+The complete 162-record identity-only VALIDATION split runs at update 0 and
+every 500 updates. JSON progress is flushed every 25 updates and while
+validation advances. `last.ckpt` is atomically replaced every 100 updates;
+`best-validation.ckpt` changes only on an improved corrected primary macro
+score. Resume restores model, optimizer, scheduler, disabled scaler, sampler,
+all RNG domains, histories, best-selection state, and elapsed time, then
+truncates metric ledgers to the atomic checkpoint boundary.
+
+After both profiles reach exactly 10,000 updates with all 21 validation rows,
+the runner verifies causal pairing and writes final-score and best-score
+C1-C0 deltas plus both curves. The comparison is single-seed directional
+evidence only. No TEST loader, TEST target, early stopping, profile O, or
+statistical improvement claim is part of this path.
+
+## Phase 9E-B5E result selection boundary
+
+The completed seed-17 paired screen selects C0, the identity-only TRAIN
+profile, as the current corrected AnalysisGNN baseline. The selection is a
+VALIDATION decision over the frozen corrected primary macro score: C0 reached
+`0.3548871111124754`, C1 reached `0.2715279571712017`, and both best
+checkpoints occurred at update 10,000. The selected C0 model-state fingerprint
+is `37e9dda262ae3db53c548d6d0b228fd4123e08e82b30eb8200b0b4c1327dbee4`;
+the checkpoint itself remains external.
+
+C1 remains implemented and auditable but has status `experimental_deferred`.
+This status rejects a benefit claim for the exact seed-17, 10,000-update
+screen; it does not declare the B5A transform semantically invalid or erase
+the negative result. Downstream baseline consumers use C0 unless a later
+recorded multi-seed decision supersedes B5E. TEST remains unopened.

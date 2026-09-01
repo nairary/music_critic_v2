@@ -2056,3 +2056,52 @@ reproducing the historical seal. The current repaired parser's categories
 remain on the local runtime binding and control current conversion; historical
 quarantine state is never copied into the runtime record or treated as a
 current negative label.
+
+## 19. Phase 9E-B5D full-training artifacts
+
+The ignored root `outputs/phase9eb5d` owns one preflight record, separate
+`c0-seed17-full-u10000` and `c1-seed17-full-u10000` run roots, and a final
+`c0-vs-c1-seed17-full-u10000` comparison root. No file below this output root
+is a source dataset or a repository artifact.
+
+Each run root contains immutable resolved config, full-training contract, and
+environment JSON; append-only training and validation JSONL ledgers; atomic
+`last.ckpt` and `best-validation.ckpt`; and final summary/report files. A
+training row is keyed by a successful `applied_update` and records both source
+records/components/shifts, FP32 losses, gradient norm, learning rate, and
+throughput. Validation rows must have the exact update sequence
+`0,500,...,10000` and contain the complete corrected B5C validation payload.
+
+A B5D checkpoint extends the B5C deterministic checkpoint with phase,
+full-contract fingerprint, and elapsed wall time. Resume accepts only the
+same resolved profile/config and a 100-update checkpoint boundary. Rows after
+that boundary are discarded; missing or non-contiguous earlier rows are a
+hard error. A non-resume launch refuses an existing protected run root.
+
+A valid comparison requires both summaries to report exactly 10,000 applied
+updates, identical initial-state and record-schedule fingerprints, distinct
+transposition-schedule fingerprints, and complete validation schedules. It
+stores final and best corrected-primary deltas and both curves. All summaries,
+checkpoints, preflight, and comparison artifacts explicitly state that TEST
+was not evaluated and no multi-seed claim was made.
+
+## 20. Phase 9E-B5E compact result evidence
+
+`phase9eb5e_full_training_results.json` is the repository-owned compact seal
+of the external B5D result archive. It contains the exact two run summaries,
+the complete 21-point primary validation curves, comparison and source
+fingerprints, final corrected/paper/seen/unseen/direct metrics, eight primary
+head scores, the C0 selection decision, and explicit artifact exclusions.
+
+The result audit reconstructs the B5D comparison from the sealed summaries
+and curves and requires exact equality with comparison fingerprint
+`03971d6568f29131c4cc909fd183f9bf9f6bbb9866a385a12255a3dab54835e9`.
+It also requires identical initial/record schedules, distinct shift schedules,
+exact C0/C1 profile identities, zero TEST/multi-seed claims, and matching
+supports for joint slices.
+
+The compact evidence is not a checkpoint registry. Model tensors, optimizer
+state, full per-update training logs, the 11 MB result archive, caches, and
+datasets remain external and ignored. The selected external C0 checkpoint is
+identified only by its model-state fingerprint; its filesystem locator is not
+a portable data contract.

@@ -3928,3 +3928,53 @@ This log is append-only.
   different absolute repository root. Source drift, parse drift, metadata
   split drift, score drift, an altered B2 seal, or an invalid audit snapshot
   remains a structured hard failure. TEST gating is unchanged.
+
+## 2026-09-01 — ADR-110: Use a fixed paired 10,000-update screen before multi-seed escalation
+
+- Status: Accepted for Phase 9E-B5D GPU execution; full C0/C1 results are
+  pending.
+- Context: The corrected RTX 3090 smoke and both 500-update pilots completed
+  safely, but the final C1-C0 primary-score delta was
+  `-0.0020725847498397343`. Five hundred updates cover fewer than one sampler
+  epoch and cannot establish whether either curve has converged.
+- Decision: Run C0 and C1 sequentially at seed 17 for exactly 10,000
+  successful updates each with batch size 2 (20,000 draws, approximately
+  15.44 sampler epochs). Preserve the B5B AdamW/FP32 envelope, 500-update
+  warmup and cosine decay, identity-only full VALIDATION, and no early
+  stopping. Validate at 0 and every 500 updates and save resumable state every
+  100 updates.
+- Decision: Preserve paired initialization and record order and require the
+  C0/C1 transposition schedules to differ. Compare both final and best
+  corrected-primary scores only after exact schedule completion. Keep TEST
+  closed and call the outcome a single-seed directional screen, not a
+  statistical improvement claim.
+- Consequences: B5D can determine whether longer optimization changes the
+  practical direction seen in B5C while remaining causally paired and
+  restartable. It does not authorize TEST, profile O, architecture/loss
+  changes, extra seeds, or model-selection conclusions beyond VALIDATION.
+
+## 2026-09-02 — ADR-111: Select C0 and defer C1 after the paired full screen
+
+- Status: Accepted for the current corrected AnalysisGNN baseline.
+- Context: Both B5D profiles completed seed-17 training for 10,000 successful
+  updates and 20,000 draws from identical initialization and record schedules.
+  C0/C1 corrected primary scores were `0.3548871111124754` and
+  `0.2715279571712017`; C1-C0 was `-0.08335915394127369`. Corrected joint
+  accuracy was `0.11430474921480918` versus `0.01408584753021795`. Both had
+  zero unseen-tuple joint accuracy on the same 1,090-event/187-tuple slice.
+- Decision: Select C0 (`music-critic-v2-corrected-no-transposition-v1`) as the
+  current baseline using VALIDATION only. Identify its external checkpoint by
+  model-state fingerprint
+  `37e9dda262ae3db53c548d6d0b228fd4123e08e82b30eb8200b0b4c1327dbee4`.
+  Do not commit the checkpoint.
+- Decision: Retain C1 and its audited transformation implementation with
+  status `experimental_deferred`. Reject a transposition-benefit claim for
+  this exact experiment, but do not generalize one seed into a universal
+  transposition-harm claim. Any retry requires a new declared experiment.
+- Decision: Commit only compact summaries, curves, final metrics, comparison,
+  and fingerprints. Keep checkpoints, full training logs, source archive,
+  datasets, caches, generated MIDI, and rendered audio outside Git. TEST stays
+  closed and no multi-seed/statistical claim is made.
+- Consequences: Downstream corrected AnalysisGNN work defaults to C0. The
+  negative C1 result remains reproducible evidence and all B1-B5D data,
+  transposition, policy, model, and runner work remains scientifically useful.

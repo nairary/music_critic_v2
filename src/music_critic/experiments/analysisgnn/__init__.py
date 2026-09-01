@@ -19,6 +19,17 @@ from music_critic.experiments.analysisgnn.corrected_training import (
     CorrectedValidationAccumulator,
     align_target_sidecars_after_prediction,
     corrected_supervised_loss,
+    run_corrected_validation,
+)
+from music_critic.experiments.analysisgnn.full_training import (
+    FULL_COMPARISON_SCHEMA,
+    FULL_RUN_SUMMARY_SCHEMA,
+    FULL_TRAINING_SCHEMA,
+    FullTrainingContract,
+    build_full_comparison,
+    full_runtime_config,
+    full_training_contract,
+    full_validation_updates,
 )
 
 from music_critic.experiments.analysisgnn.class_balance import (
@@ -142,6 +153,15 @@ __all__ = [
     "corrected_parameter_inventory",
     "corrected_routing_contract",
     "corrected_supervised_loss",
+    "run_corrected_validation",
+    "FULL_COMPARISON_SCHEMA",
+    "FULL_RUN_SUMMARY_SCHEMA",
+    "FULL_TRAINING_SCHEMA",
+    "FullTrainingContract",
+    "build_full_comparison",
+    "full_runtime_config",
+    "full_training_contract",
+    "full_validation_updates",
     "CLASS_BALANCE_SCHEMA",
     "AnalysisGNNClassBalanceError",
     "AuditTaskSpec",

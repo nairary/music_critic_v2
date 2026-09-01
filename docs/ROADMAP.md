@@ -981,8 +981,26 @@ The model and training phases remain pending.
 ## Phase 9E-B5C status — corrected AnalysisGNN-derived baseline
 
 The corrected 18-head model and deterministic TRAIN/VALIDATION runner are
-implemented. CPU fixture and real-TRAIN coverage gates pass; the TEST path is
-sealed. CUDA is unavailable in the implementation environment, so the
-batch-size memory gate, CUDA smoke, two seed-17 500-update pilots, and C0/C1
-comparison remain the next bounded Phase 9E step. Phase 10 does not depend on
-a scientific improvement claim from this single-seed pilot.
+implemented. CPU and real-TRAIN coverage gates pass; RTX 3090 CUDA smoke
+selected batch size 2 and both seed-17 500-update pilots completed with TEST
+sealed. The final C1-C0 primary-score delta was negative
+(`-0.0020725847498397343`), so B5C supports only bounded directional evidence.
+
+## Phase 9E-B5D status — paired full-training screen
+
+The dedicated deterministic runner, fixed 10,000-update contract, source-free
+audit, resume ledger checks, and paired comparison are implemented and locally
+preflighted. Sequential C0 and C1 training completed on the RTX 3090 with
+exact pairing and TEST closed. C0 scored `0.3548871111124754`; C1 scored
+`0.2715279571712017`; the final C1-C0 delta was
+`-0.08335915394127369`. Extra seeds and statistical claims remain out of
+scope. Phase 10 does not depend on a positive result from this screen.
+
+## Phase 9E-B5E status — result seal and baseline choice
+
+The compact result fixture/report and source-free audit are implemented. C0 is
+the current corrected AnalysisGNN baseline selected on seed-17 VALIDATION. C1
+is retained as `experimental_deferred`, not deleted or presented as an
+improvement. Corrected joint accuracy was `0.11430474921480918` for C0 and
+`0.01408584753021795` for C1; unseen-tuple joint accuracy was zero for both.
+TEST, checkpoints, full logs, and the result archive remain outside Git.

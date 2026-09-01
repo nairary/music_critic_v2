@@ -8,7 +8,7 @@ VALIDATION execution paths.
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from functools import lru_cache
 from hashlib import sha256
@@ -1496,6 +1496,52 @@ def train_seen_joint_tuples(
     return values
 
 
+def run_corrected_validation(
+    model: CorrectedAnalysisGNNModel,
+    *,
+    device: str,
+    paths: ProductionArtifactPaths = ProductionArtifactPaths(),
+    progress: Callable[[int, int, str], None] | None = None,
+) -> dict[str, object]:
+    """Evaluate the complete frozen VALIDATION split with TEST inaccessible."""
+
+    records = tuple(
+        sorted(
+            record_id
+            for record_id, row in frozen_split_assignments(paths).items()
+            if row["split"] == "validation"
+        )
+    )
+    if len(records) != 162:
+        raise CorrectedTrainingError(
+            "analysisgnn.corrected.validation_record_count_mismatch",
+            str(len(records)),
+        )
+    accumulator = CorrectedValidationAccumulator(
+        load_frozen_class_weights(),
+        train_seen_tuples=train_seen_joint_tuples(paths),
+    )
+    was_training = model.training
+    model.eval()
+    try:
+        with torch.no_grad():
+            for index, record_id in enumerate(records, 1):
+                batch, sidecar = load_production_record(
+                    record_id, split="validation", paths=paths
+                )
+                raw = move_raw_graph_batch(batch.raw_graph_batch, device)
+                output = model(raw)
+                alignment = align_target_sidecars_after_prediction(
+                    output, raw, (sidecar,), shifts=(0,)
+                )
+                accumulator.update(output, alignment, sidecars=(sidecar,))
+                if progress is not None:
+                    progress(index, len(records), record_id)
+    finally:
+        model.train(was_training)
+    return accumulator.finalize()
+
+
 def minimal_real_train_coverage_records(
     paths: ProductionArtifactPaths = ProductionArtifactPaths(),
 ) -> tuple[str, ...]:
@@ -1823,6 +1869,7 @@ __all__ = [
     "production_component_records",
     "production_valid_shifts",
     "record_schedule_fingerprint",
+    "run_corrected_validation",
     "require_non_test_split",
     "resolved_optimizer_contract",
     "restore_rng_state",
