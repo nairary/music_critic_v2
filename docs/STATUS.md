@@ -4018,3 +4018,39 @@ not clamped or mutated.
   audit reports `valid=true`; direct runner help, compileall, and
   `git diff --check` pass. Full C0/C1 CUDA training and its comparison remain
   pending the GPU-server execution.
+
+## Phase 9E-B5E completed full-training result seal — 2026-09-02
+
+- The external B5D result archive
+  `phase9eb5d-seed17-analysis.tar.gz` was read with SHA-256
+  `a9901c3ab9dd6914415a8ca7205f4247596c4aa261be9abe084d6a9523c7374a`.
+  Both actual profiles were C0 and C1. Each completed 10,000 successful
+  updates, 20,000 draws, and 15.444 sampler epochs on an RTX 3090 with seed 17,
+  batch size 2, identical initial state/record schedule, and distinct shift
+  schedules. Neither run had NaN, overflow, skipped updates, or TEST access.
+- C0/C1 final and best corrected primary scores were
+  `0.3548871111124754` / `0.2715279571712017`, both at update 10,000; C1-C0
+  was `-0.08335915394127369`. Corrected harmonic-event joint accuracy was
+  `0.11430474921480918` / `0.01408584753021795`. Every primary-head macro-F1
+  favored C0.
+- Seen-tuple joint accuracy was `0.1275353084846554` / `0.015716257831581183`.
+  Unseen-tuple joint accuracy was `0.0` for both on the identical support of
+  1,090 events and 187 tuples absent from TRAIN. This limitation is explicit
+  and is not converted into a missing or negative target.
+- ADR-111 selects C0 as the current corrected AnalysisGNN baseline using
+  seed-17 VALIDATION. Its external selected model-state fingerprint is
+  `37e9dda262ae3db53c548d6d0b228fd4123e08e82b30eb8200b0b4c1327dbee4`.
+  C1 is retained as `experimental_deferred`; its implementation is not deleted
+  or declared semantically invalid, but no transposition-benefit claim remains.
+- The committed evidence is limited to the compact report/JSON and source,
+  run, schedule, environment, comparison, and model-state fingerprints.
+  Checkpoints, full training logs, the result archive, datasets, caches,
+  generated MIDI, and rendered audio remain uncommitted. TEST was not opened,
+  and the single seed supports no statistical improvement/generalization
+  claim.
+- The B5D/B5E/repository targeted suite passes
+  `21 passed, 2 warnings in 6.65s`. The complete repository suite passes
+  `1883 passed, 59 skipped, 12 warnings in 726.02s`; warnings remain the
+  upstream Torch JIT and multiprocessing-fork deprecations. The source-free
+  B5E audit reconstructs comparison fingerprint `03971d65...` and reports
+  `valid=true`; compileall and `git diff --check` pass.

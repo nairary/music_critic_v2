@@ -990,7 +990,17 @@ sealed. The final C1-C0 primary-score delta was negative
 
 The dedicated deterministic runner, fixed 10,000-update contract, source-free
 audit, resume ledger checks, and paired comparison are implemented and locally
-preflighted. The next execution step is sequential C0 then C1 training on the
-RTX 3090. Results, TEST evaluation, extra seeds, and any statistical claim
-remain pending/out of scope. Phase 10 does not depend on a positive result
-from this single-seed screen.
+preflighted. Sequential C0 and C1 training completed on the RTX 3090 with
+exact pairing and TEST closed. C0 scored `0.3548871111124754`; C1 scored
+`0.2715279571712017`; the final C1-C0 delta was
+`-0.08335915394127369`. Extra seeds and statistical claims remain out of
+scope. Phase 10 does not depend on a positive result from this screen.
+
+## Phase 9E-B5E status — result seal and baseline choice
+
+The compact result fixture/report and source-free audit are implemented. C0 is
+the current corrected AnalysisGNN baseline selected on seed-17 VALIDATION. C1
+is retained as `experimental_deferred`, not deleted or presented as an
+improvement. Corrected joint accuracy was `0.11430474921480918` for C0 and
+`0.01408584753021795` for C1; unseen-tuple joint accuracy was zero for both.
+TEST, checkpoints, full logs, and the result archive remain outside Git.

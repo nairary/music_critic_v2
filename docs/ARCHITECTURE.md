@@ -1565,3 +1565,19 @@ the runner verifies causal pairing and writes final-score and best-score
 C1-C0 deltas plus both curves. The comparison is single-seed directional
 evidence only. No TEST loader, TEST target, early stopping, profile O, or
 statistical improvement claim is part of this path.
+
+## Phase 9E-B5E result selection boundary
+
+The completed seed-17 paired screen selects C0, the identity-only TRAIN
+profile, as the current corrected AnalysisGNN baseline. The selection is a
+VALIDATION decision over the frozen corrected primary macro score: C0 reached
+`0.3548871111124754`, C1 reached `0.2715279571712017`, and both best
+checkpoints occurred at update 10,000. The selected C0 model-state fingerprint
+is `37e9dda262ae3db53c548d6d0b228fd4123e08e82b30eb8200b0b4c1327dbee4`;
+the checkpoint itself remains external.
+
+C1 remains implemented and auditable but has status `experimental_deferred`.
+This status rejects a benefit claim for the exact seed-17, 10,000-update
+screen; it does not declare the B5A transform semantically invalid or erase
+the negative result. Downstream baseline consumers use C0 unless a later
+recorded multi-seed decision supersedes B5E. TEST remains unopened.

@@ -2084,3 +2084,24 @@ transposition-schedule fingerprints, and complete validation schedules. It
 stores final and best corrected-primary deltas and both curves. All summaries,
 checkpoints, preflight, and comparison artifacts explicitly state that TEST
 was not evaluated and no multi-seed claim was made.
+
+## 20. Phase 9E-B5E compact result evidence
+
+`phase9eb5e_full_training_results.json` is the repository-owned compact seal
+of the external B5D result archive. It contains the exact two run summaries,
+the complete 21-point primary validation curves, comparison and source
+fingerprints, final corrected/paper/seen/unseen/direct metrics, eight primary
+head scores, the C0 selection decision, and explicit artifact exclusions.
+
+The result audit reconstructs the B5D comparison from the sealed summaries
+and curves and requires exact equality with comparison fingerprint
+`03971d6568f29131c4cc909fd183f9bf9f6bbb9866a385a12255a3dab54835e9`.
+It also requires identical initial/record schedules, distinct shift schedules,
+exact C0/C1 profile identities, zero TEST/multi-seed claims, and matching
+supports for joint slices.
+
+The compact evidence is not a checkpoint registry. Model tensors, optimizer
+state, full per-update training logs, the 11 MB result archive, caches, and
+datasets remain external and ignored. The selected external C0 checkpoint is
+identified only by its model-state fingerprint; its filesystem locator is not
+a portable data contract.

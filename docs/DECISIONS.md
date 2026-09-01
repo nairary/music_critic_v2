@@ -3952,3 +3952,29 @@ This log is append-only.
   practical direction seen in B5C while remaining causally paired and
   restartable. It does not authorize TEST, profile O, architecture/loss
   changes, extra seeds, or model-selection conclusions beyond VALIDATION.
+
+## 2026-09-02 — ADR-111: Select C0 and defer C1 after the paired full screen
+
+- Status: Accepted for the current corrected AnalysisGNN baseline.
+- Context: Both B5D profiles completed seed-17 training for 10,000 successful
+  updates and 20,000 draws from identical initialization and record schedules.
+  C0/C1 corrected primary scores were `0.3548871111124754` and
+  `0.2715279571712017`; C1-C0 was `-0.08335915394127369`. Corrected joint
+  accuracy was `0.11430474921480918` versus `0.01408584753021795`. Both had
+  zero unseen-tuple joint accuracy on the same 1,090-event/187-tuple slice.
+- Decision: Select C0 (`music-critic-v2-corrected-no-transposition-v1`) as the
+  current baseline using VALIDATION only. Identify its external checkpoint by
+  model-state fingerprint
+  `37e9dda262ae3db53c548d6d0b228fd4123e08e82b30eb8200b0b4c1327dbee4`.
+  Do not commit the checkpoint.
+- Decision: Retain C1 and its audited transformation implementation with
+  status `experimental_deferred`. Reject a transposition-benefit claim for
+  this exact experiment, but do not generalize one seed into a universal
+  transposition-harm claim. Any retry requires a new declared experiment.
+- Decision: Commit only compact summaries, curves, final metrics, comparison,
+  and fingerprints. Keep checkpoints, full training logs, source archive,
+  datasets, caches, generated MIDI, and rendered audio outside Git. TEST stays
+  closed and no multi-seed/statistical claim is made.
+- Consequences: Downstream corrected AnalysisGNN work defaults to C0. The
+  negative C1 result remains reproducible evidence and all B1-B5D data,
+  transposition, policy, model, and runner work remains scientifically useful.
