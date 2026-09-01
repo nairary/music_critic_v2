@@ -1535,3 +1535,9 @@ raw/grouping/resolution fingerprints, reconstructs the path-bound B2 seal with
 the B2-attested original corpus root, and emits a newly validated local record
 binding. This permits an unchanged corpus checkout under a GPU host's user
 directory without weakening the B2 provenance gate.
+
+When a repaired parser no longer emits a category sealed by the historical B2
+discovery record, the loader reconstructs that category only on the historical
+verification object from frozen `raw_parse` quarantine evidence. The local
+object passed to the current adapter retains current parser output and its own
+valid binding; old downstream conversion quarantines are never replayed.

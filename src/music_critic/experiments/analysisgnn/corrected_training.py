@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
+from functools import lru_cache
 from hashlib import sha256
 from importlib.metadata import PackageNotFoundError, version as package_version
 import json
@@ -1400,6 +1401,26 @@ def _jsonl(path: Path) -> tuple[dict[str, object], ...]:
         return tuple(json.loads(line) for line in handle if line.strip())
 
 
+@lru_cache(maxsize=4)
+def _b2_historical_raw_issue_categories(
+    quarantine_path: Path,
+) -> dict[str, tuple[str, ...]]:
+    """Recover parser categories that were part of the historical B2 seal."""
+
+    categories: dict[str, tuple[str, ...]] = {}
+    for row in _jsonl(quarantine_path):
+        if row.get("pipeline_stage") != "raw_parse":
+            continue
+        record_id = str(row["record_id"])
+        native = row.get("evidence", {}).get("native_categories", ())
+        if record_id in categories or not isinstance(native, list) or not native:
+            raise CorrectedTrainingError(
+                "analysisgnn.corrected.b2_quarantine_evidence_invalid", record_id
+            )
+        categories[record_id] = tuple(str(value) for value in native)
+    return categories
+
+
 def frozen_split_assignments(
     paths: ProductionArtifactPaths = ProductionArtifactPaths(),
 ) -> dict[str, dict[str, object]]:
@@ -1626,6 +1647,9 @@ def _resolve_selected_corpus_record(
     return _bind_portable_production_record(
         record,
         expected_binding_sha256=str(source_fingerprints["record_binding_sha256"]),
+        historical_raw_issue_categories=_b2_historical_raw_issue_categories(
+            paths.b2_source_inventory.parent / "quarantine_records.jsonl"
+        ).get(record_id, parsed.categories),
         paths=paths,
         adapter=adapter,
     )
@@ -1635,6 +1659,7 @@ def _bind_portable_production_record(
     record: object,
     *,
     expected_binding_sha256: str,
+    historical_raw_issue_categories: Sequence[str] | None = None,
     paths: ProductionArtifactPaths,
     adapter: object,
 ) -> object:
@@ -1674,6 +1699,11 @@ def _bind_portable_production_record(
             None
             if bound.score_relative_path is None
             else historical_root / bound.score_relative_path
+        ),
+        raw_issue_categories=(
+            bound.raw_issue_categories
+            if historical_raw_issue_categories is None
+            else tuple(historical_raw_issue_categories)
         ),
         record_binding_sha256="",
     )

@@ -544,3 +544,70 @@ def test_production_binding_rejects_nonmatching_historical_seal(
             adapter=dilemmadata_adapter,
         )
     assert caught.value.category == "analysisgnn.corrected.b2_record_binding_mismatch"
+
+
+def test_production_binding_replays_historical_parser_categories_only_for_seal(
+    tmp_path: Path,
+) -> None:
+    discovered = _record(CORPUS, "dlc:demo:same")
+    historical = replace(
+        discovered,
+        raw_issue_categories=("dilemmadata.grace_conflict",),
+        record_binding_sha256="",
+    )
+    historical = dilemmadata_adapter._bind_record(historical)
+    portable_root = tmp_path / "portable-corpus"
+    portable = replace(
+        discovered,
+        path=portable_root / discovered.relative_path,
+        raw_issue_categories=(),
+        record_binding_sha256="",
+    )
+
+    audit_root = tmp_path / "b2-audit"
+    audit_root.mkdir()
+    inventory = audit_root / "source_inventory.jsonl"
+    inventory.write_text("", encoding="utf-8")
+    quarantine = audit_root / "quarantine_records.jsonl"
+    quarantine.write_text(
+        json.dumps(
+            {
+                "record_id": discovered.record_id,
+                "pipeline_stage": "raw_parse",
+                "evidence": {
+                    "native_categories": ["dilemmadata.grace_conflict"]
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (audit_root / "audit_summary.json").write_text(
+        json.dumps(
+            {
+                "snapshot": {
+                    "actual_path": str(CORPUS),
+                    "content_fingerprint": discovered.corpus_identity.content_fingerprint,
+                    "file_count": discovered.corpus_identity.installation_file_count,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    paths = replace(
+        ProductionArtifactPaths(),
+        b2_source_inventory=inventory,
+        corpus_root=portable_root,
+    )
+    corrected_training._b2_historical_raw_issue_categories.cache_clear()
+    categories = corrected_training._b2_historical_raw_issue_categories(quarantine)
+    rebound = corrected_training._bind_portable_production_record(
+        portable,
+        expected_binding_sha256=historical.record_binding_sha256,
+        historical_raw_issue_categories=categories[discovered.record_id],
+        paths=paths,
+        adapter=dilemmadata_adapter,
+    )
+    assert rebound.raw_issue_categories == ()
+    assert rebound.path == portable_root / discovered.relative_path
+    assert validate_dilemmadata_record_binding(rebound)

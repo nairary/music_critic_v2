@@ -2048,3 +2048,11 @@ exists), reproduces the frozen B2 seal against the corpus root attested in the
 B2 audit snapshot, and only then returns a separately valid binding for the
 local absolute path. A different source, parse, metadata split, historical
 seal, or unattested snapshot still fails closed.
+
+The historical seal also retains the raw-parser issue categories observed by
+the older B2 discovery pass. For the eleven records whose pinned B2 evidence
+ended at `raw_parse`, the runner recovers those categories only while
+reproducing the historical seal. The current repaired parser's categories
+remain on the local runtime binding and control current conversion; historical
+quarantine state is never copied into the runtime record or treated as a
+current negative label.

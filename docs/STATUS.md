@@ -3955,3 +3955,28 @@ not clamped or mutated.
   `71 passed, 2 warnings in 14.03s`; the source-free audit remains
   `valid=true`, and compileall plus `git diff --check` pass. CUDA memory/smoke
   and both 500-update pilots remain pending a rerun of the corrected commit.
+
+## Phase 9E-B5C historical parser-seal correction — 2026-09-01
+
+- The corrected GPU smoke passed completely with all 18 head gradients,
+  shared-encoder gradient, real TRAIN coverage, equal C0/C1 record schedules,
+  selected batch size 2, `cuda_smoke_passed=true`, and TEST closed. The first
+  C0 attempt then stopped before validation update 0 on
+  `dlc:mozart_piano_sonatas:K284-3` because its historical B2 binding included
+  the old parser category `dilemmadata.grace_conflict`, while the current
+  repaired parser correctly reports no issue.
+- Frozen B2 quarantine evidence contains exactly eleven
+  `pipeline_stage=raw_parse` rows. Their historical `native_categories` are
+  now replayed only to verify the old binding hash; the local record retains
+  current parser categories and is independently bound before conversion.
+  Historical downstream tie/bar quarantine categories are not record-binding
+  inputs and are not replayed.
+- `K284-3` now converts and builds its production raw graph. A complete
+  non-TEST preflight materialized all 162/162 VALIDATION records and verified
+  historical/local bindings for all 1,295/1,295 TRAIN records. No model update,
+  metric, or TEST source/target access occurred in those preflights.
+- The prescribed B5C/B5B/B5A/repository targeted suite passes
+  `72 passed, 2 warnings in 14.06s`; the warnings remain the upstream
+  `torch.jit.script` deprecation. CUDA C0/C1 pilots remain pending rerun from
+  the next corrected commit; the already accepted CUDA smoke need not be
+  interpreted as pilot evidence.

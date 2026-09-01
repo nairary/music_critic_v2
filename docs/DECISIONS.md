@@ -3917,6 +3917,13 @@ This log is append-only.
   corpus root, content fingerprint, and file count recorded by the B2 audit
   snapshot; require exact equality with the frozen B2 binding. Return the
   local valid binding rather than the historical path-bound object.
+- Decision: Historical B2 raw-parser categories are another seal input, not
+  current runtime state. Recover `native_categories` only for the eleven
+  `pipeline_stage=raw_parse` rows in frozen B2 quarantine evidence when
+  reconstructing the historical object. Keep current repaired-parser
+  categories on the independently sealed local object passed to conversion.
+  Downstream `tie_reconstruction` and `bar_grid` quarantine categories were
+  never discovery-record fields and are not replayed.
 - Consequences: Byte-identical pinned corpus installations can run B5C from a
   different absolute repository root. Source drift, parse drift, metadata
   split drift, score drift, an altered B2 seal, or an invalid audit snapshot
