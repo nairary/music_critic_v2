@@ -981,8 +981,16 @@ The model and training phases remain pending.
 ## Phase 9E-B5C status — corrected AnalysisGNN-derived baseline
 
 The corrected 18-head model and deterministic TRAIN/VALIDATION runner are
-implemented. CPU fixture and real-TRAIN coverage gates pass; the TEST path is
-sealed. CUDA is unavailable in the implementation environment, so the
-batch-size memory gate, CUDA smoke, two seed-17 500-update pilots, and C0/C1
-comparison remain the next bounded Phase 9E step. Phase 10 does not depend on
-a scientific improvement claim from this single-seed pilot.
+implemented. CPU and real-TRAIN coverage gates pass; RTX 3090 CUDA smoke
+selected batch size 2 and both seed-17 500-update pilots completed with TEST
+sealed. The final C1-C0 primary-score delta was negative
+(`-0.0020725847498397343`), so B5C supports only bounded directional evidence.
+
+## Phase 9E-B5D status — paired full-training screen
+
+The dedicated deterministic runner, fixed 10,000-update contract, source-free
+audit, resume ledger checks, and paired comparison are implemented and locally
+preflighted. The next execution step is sequential C0 then C1 training on the
+RTX 3090. Results, TEST evaluation, extra seeds, and any statistical claim
+remain pending/out of scope. Phase 10 does not depend on a positive result
+from this single-seed screen.

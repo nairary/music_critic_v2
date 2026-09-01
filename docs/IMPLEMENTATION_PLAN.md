@@ -4264,11 +4264,32 @@ Use these as conceptual references. Confirm licenses, dataset versions, and impl
 - Accepted local gates: two source-free CPU updates for each profile plus a
   real TRAIN coverage backward pass with 18/18 finite losses, 18/18 nonzero
   head gradients, and shared-encoder gradient. Source-free audit is valid.
-- Pending gate: on RTX 3090, run deterministic CUDA batch-size 1/2 memory
-  preflight and two-update C0/C1 smoke. Only then run the two 500-applied-update
-  seed-17 pilots with validation at 0/100/200/300/400/500 and create the C1-C0
-  comparison. Do not run on CPU, TEST, profile O, full training, or extra
-  seeds.
+- Completed GPU gate: RTX 3090 selected batch size 2; CUDA smoke covered all
+  18 heads and the shared encoder. Both 500-applied-update seed-17 pilots
+  completed without NaN, overflow, skipped updates, or TEST access. C0 best
+  primary score was `0.036663969804067165`; C1 best was
+  `0.03548936046536255`. The final C1-C0 delta was
+  `-0.0020725847498397343`, which is bounded negative directional evidence,
+  not a statistical result.
+
+## Phase 9E-B5D — paired 10,000-update full-training screen
+
+- Freeze seed 17, CUDA, batch size 2, 10,000 successful optimizer updates per
+  profile, 20,000 TRAIN draws, and the existing 1,295-draw sampler epoch. This
+  is approximately 15.44 sampler epochs for C0 and independently for C1.
+- Keep the B5B optimizer envelope unchanged: AdamW `lr=0.005`, weight decay
+  `0.0005`, gradient clip 1.0, FP32, 500-update linear warmup, then cosine
+  decay. Early stopping is disabled.
+- Evaluate the complete identity-only VALIDATION split at update 0 and every
+  500 successful updates through 10,000. Save crash-safe last checkpoints
+  every 100 updates and select the best checkpoint only by corrected primary
+  macro score.
+- Run C0 and then C1 from the same initialization and record schedule. Require
+  distinct transposition schedule fingerprints, exact complete validation
+  curves, and automatically emit final/best C1-C0 deltas after both runs.
+- Keep TEST, profile O, extra seeds, statistical improvement claims, model/loss
+  changes, generated MIDI, rendered audio, and committed checkpoints outside
+  B5D. Full CUDA results remain pending the GPU-server execution.
 
 ---
 

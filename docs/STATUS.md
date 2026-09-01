@@ -3980,3 +3980,41 @@ not clamped or mutated.
   `torch.jit.script` deprecation. CUDA C0/C1 pilots remain pending rerun from
   the next corrected commit; the already accepted CUDA smoke need not be
   interpreted as pilot evidence.
+
+## Phase 9E-B5D paired full-training preparation — 2026-09-01
+
+- The corrected RTX 3090 B5C run completed after the portability/parser-seal
+  corrections. CUDA smoke selected batch size 2, covered 18/18 finite losses
+  and nonzero head gradients plus the shared encoder, and kept TEST closed.
+  Both 500-update pilots completed without NaN, overflow, or skipped updates.
+- C0 best corrected primary score was `0.036663969804067165` at update 100
+  and final score was `0.03632012795424089`. C1 best was
+  `0.03548936046536255` at update 300 and final was
+  `0.034247543204401154`. Initial-state and record schedules were paired; the
+  final C1-C0 delta was `-0.0020725847498397343`. This is negative bounded
+  directional evidence only.
+- Branch `phase/9eb5d-analysisgnn-full-training` adds a dedicated CUDA runner
+  for sequential C0/C1 full screens. The exact contract is seed 17, batch 2,
+  10,000 successful updates and 20,000 draws per profile (approximately 15.44
+  sampler epochs), 500-update warmup then cosine, validation at
+  `0,500,...,10000`, and atomic checkpoints every 100 updates.
+- The runner emits flushed JSON progress every 25 updates and during complete
+  162-record validation, supports deterministic resume with ledger
+  reconciliation, validates actual completed schedules, and automatically
+  writes final/best C1-C0 comparisons after both exact runs. Fresh output
+  reuse, incomplete ledgers, pairing drift, TEST access, profile O, and
+  fabricated full results fail closed.
+- Local non-CUDA preflight is valid. The contract fingerprint is
+  `24361dd84aabca021cef1d2be279d9c5688753a018828ebd4907aac85999143d`;
+  the 20,000-draw record schedule fingerprint is
+  `67f4401806f2d5419bb849449aef811fd54dfbca62588c5a1543dbbe6c1b63f8`.
+  C0/C1 record schedules are equal and transposition schedule fingerprints
+  `af937f0c...` / `745aef3b...` differ. No optimizer update or TEST source,
+  target, loader, or metric ran locally.
+- The B5A/B5B/B5C/B5D/repository targeted suite passes
+  `96 passed, 2 warnings in 24.41s`. The complete repository suite passes
+  `1882 passed, 59 skipped, 12 warnings in 915.02s`; warnings are unchanged
+  upstream Torch JIT and multiprocessing-fork deprecations. Source-free B5D
+  audit reports `valid=true`; direct runner help, compileall, and
+  `git diff --check` pass. Full C0/C1 CUDA training and its comparison remain
+  pending the GPU-server execution.

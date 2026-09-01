@@ -662,3 +662,13 @@ graph structure, missing-as-class behavior, learned uncertainty weights,
 materialized augmented records, view-level split assignment, staff prediction,
 cadence-corpus substitution, TEST evaluation, and claims of exact AnalysisGNN
 reproduction.
+
+## Phase 9E-B5D full-training screen
+
+No legacy file was opened, searched, imported, copied, or changed for B5D.
+The phase only schedules the already accepted V2 B5C runtime for a larger
+paired budget. It reuses current V2 deterministic checkpoint/resume,
+component sampling, safe transposition, identity validation, and TEST-lock
+concepts. It rejects epoch-count reinterpretation, early stopping, profile O
+substitution, new optimizer/model behavior, and single-seed statistical
+claims.
