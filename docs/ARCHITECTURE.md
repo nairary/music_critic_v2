@@ -1604,3 +1604,30 @@ shift-PC 6 calls `+6` again, so raw pitch/octave features return at `+12` rather
 than identity. Semantic tritone mappings remain involutive and forward runtime
 routing agrees with B5A. This is recorded as an implementation/contract defect
 without changing production code in B5F.
+
+## Phase 9E-B5G directed transform boundary
+
+Physical direction is now part of transform identity. A
+`DirectedTransposition` contains `shift_pc` for semantic group action and
+`signed_semitones` for raw MIDI arithmetic, with a required modulo-12 match.
+The old forward API resolves the unchanged canonical signed representative
+and delegates; only explicit inverse diagnostics call `inverse()`. This keeps
+B5D/C1 forward tensors and schedules stable while making tritone reversal
+unambiguous. Detached copies, exact topology/entity/rational identities,
+allowlisted feature edits and fail-closed MIDI range checks remain mandatory.
+
+## Phase 9E-B5H full-orbit training boundary
+
+C2 is a dataset-view enumeration layer, not a model change. Its immutable
+15,389-row table stores only record/component identity and shift PC. At draw
+time the runtime loads the canonical raw-only graph, creates the canonical
+directed forward view, transforms sidecar targets after prediction through
+shift PC, and verifies the existing binding. Each orbit epoch is a separate
+deterministic no-replacement permutation; source graphs are never duplicated
+on disk.
+
+The C2 trainer retains the B5C model, losses, class weights and exact target
+routing. Identity-only validation selects checkpoints. A separate all-shift
+diagnostic reports per-shift loss/score/joint values, macro and worst-shift
+gap without replacing the primary metric. Checkpoints serialize orbit
+position and RNG/table identity. TEST has no loader or metric path.

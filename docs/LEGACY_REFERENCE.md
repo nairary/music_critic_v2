@@ -688,3 +688,12 @@ formatted, staged, or reused for B5F. The phase uses only current V2 B5A
 primitives, B5C/B5D runtime paths, B5E evidence, independent arithmetic
 oracles, and frozen Dilemmadata artifacts. The detected tritone round-trip
 defect is not compared with or repaired from legacy behavior.
+
+## Phase 9E-B5G/H directed inverse and full orbit
+
+No legacy file was opened, searched, imported, copied, modified, formatted,
+staged, or reused for B5G/H. Directed physical identity, corpus evidence, C2
+orbit enumeration, scheduler and runner use only current V2 B5A-B5F
+contracts. The work rejects legacy materialized-view splitting, modulo pitch
+wrap, OOV fallback, augmented-view-as-independent-work counting and any TEST
+or performance claim before the declared C2 run.

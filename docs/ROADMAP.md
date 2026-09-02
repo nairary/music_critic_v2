@@ -1017,3 +1017,22 @@ baseline, C1 remains `experimental_deferred`, and soft augmentation/new
 training is blocked pending a separate remediation phase. CUDA checkpoint
 per-shift diagnostics remain unexecuted because the sealed B5D checkpoints
 are not available locally. TEST remains closed.
+
+## Phase 9E-B5G/H status — directed inverse and C2 full orbit
+
+B5G adds a directed identity to the existing transform without changing
+canonical forward behavior. The physical tritone is `(6,+6)` forward and
+`(6,-6)` inverse; semantic transforms use pitch class 6 in both directions.
+The full 17,484-pair TRAIN/VALIDATION audit requires zero raw/target
+round-trip failures, forward mismatches, and executable cross-head failures.
+Historical C1 schedules and all 20,000 forward draws remain unchanged, so the
+B5D result remains valid for fixed-compute stochastic augmentation.
+
+B5H defines C2,
+`music-critic-v2-corrected-full-orbit-transposition-v1`, as all 15,389
+eligible TRAIN pairs after the unchanged split. Orbit epochs are deterministic
+no-replacement permutations; shift zero appears exactly 1,295 times. The
+sealed from-scratch run is batch 2, at most 120,000 updates/240,000 draws,
+6,000 warmup updates, peak LR 0.005, FP32 and cosine decay. Identity
+VALIDATION remains primary; all-shift VALIDATION is diagnostic. Repository
+status may become ready, but training and TEST remain unexecuted.
