@@ -3978,3 +3978,30 @@ This log is append-only.
 - Consequences: Downstream corrected AnalysisGNN work defaults to C0. The
   negative C1 result remains reproducible evidence and all B1-B5D data,
   transposition, policy, model, and runner work remains scientifically useful.
+
+## 2026-09-02 — ADR-112: Fail closed on the B5A tritone round-trip defect
+
+- Status: Accepted as Phase 9E-B5F diagnostic evidence. Remediation is not
+  authorized in this phase.
+- Context: B5E showed a large negative C1 result, but checkpoints alone could
+  not distinguish an overly aggressive augmentation policy from an executable
+  transform defect. B5F independently audits forward and inverse graph/target
+  behavior and the actual B5C runtime path before any new training proposal.
+- Decision: Classify shift-PC 6 raw round trip as a production contract defect.
+  The frozen mapping `SIGNED_BY_SHIFT_PC[6] == +6` is valid for the forward
+  representative, but the prescribed inverse `(-6) mod 12 == 6` selects `+6`
+  again. Non-drum raw pitch therefore returns at `+12`, while the semantic
+  within-vocabulary tritone pairing is involutive. Do not alter B5A/B5C/B5D in
+  B5F and do not reinterpret the C1 score as a clean augmentation-policy test.
+- Decision: Keep C0 as the current baseline and C1 as
+  `experimental_deferred`. Set `transposition_correctness_passed=false` and
+  `ready_for_soft_augmentation=false`. Require a separate remediation proposal
+  and new declared experiment before any soft augmentation or additional seed.
+- Decision: Keep checkpoint per-shift metrics unavailable rather than
+  simulated because local CUDA and the sealed B5D checkpoints are absent.
+  The runner must validate every available B5D/B5E identity and reproduce
+  shift-zero metrics before accepting any later external diagnostic artifact.
+- Consequences: B5F can complete its defect diagnosis without training or TEST
+  access, but cannot complete the optional checkpoint performance diagnosis.
+  Pair-level outputs and checkpoints remain external; only compact evidence is
+  committed.

@@ -2105,3 +2105,28 @@ state, full per-update training logs, the 11 MB result archive, caches, and
 datasets remain external and ignored. The selected external C0 checkpoint is
 identified only by its model-state fingerprint; its filesystem locator is not
 a portable data contract.
+
+## 21. Phase 9E-B5F transposition correctness evidence
+
+`Phase9EB5FRecordShiftDiagnostic@1.0.0` is an external, streamed diagnostic
+row keyed by `(record_id, shift_pc)` for the frozen 1,295 TRAIN and 162
+VALIDATION records. It records dialect/component identity, signed semitones,
+range and vocabulary closure, spelling and round-trip state, graph field
+changes, masks, entity/routing preservation, invalid reasons, and a canonical
+fingerprint. Invalid shifts fail closed as whole-record views. TEST rows do not
+exist in this artifact.
+
+`Phase9EB5FTranspositionCorrectness@1.0.0` is the compact checkpoint-free
+repository seal. It binds the unchanged B5A contract/semantic mapping, the
+20-head executable matrix, source-free runtime regression, B5D seed-17
+schedule summary, audit status, and TEST lock. `not_checkable` relation checks
+remain explicit. A valid evidence seal may report a failed scientific gate;
+for the current seal `audit_execution_valid=true` while
+`transposition_correctness_passed=false`.
+
+`Phase9EB5FCheckpointShiftDiagnostics@1.0.0` is optional external CUDA
+evidence. It admits only sealed update-10,000 C0/C1 checkpoints whose runtime,
+record-schedule, full-training, architecture, and model-state fingerprints
+match B5D/B5E. Metrics are recorded separately by checkpoint, shift, and head.
+Shifted views are not independent examples, checkpoint data is never
+committed, and shift-zero mismatch invalidates the complete metric artifact.

@@ -1004,3 +1004,16 @@ is retained as `experimental_deferred`, not deleted or presented as an
 improvement. Corrected joint accuracy was `0.11430474921480918` for C0 and
 `0.01408584753021795` for C1; unseen-tuple joint accuracy was zero for both.
 TEST, checkpoints, full logs, and the result archive remain outside Git.
+
+## Phase 9E-B5F status — transposition correctness defect
+
+The independent forward oracles, 20-head registry check, runtime batch/target
+routing regression, and exact seed-17 schedule reproduction are implemented.
+The audit identifies an executable raw round-trip defect for `shift_pc=6`:
+the frozen physical representative `+6` is applied in both directions and
+returns at `+12`. Production B5A/B5C code is deliberately unchanged in this
+phase. The outcome is `implementation_or_contract_defect`; C0 remains the
+baseline, C1 remains `experimental_deferred`, and soft augmentation/new
+training is blocked pending a separate remediation phase. CUDA checkpoint
+per-shift diagnostics remain unexecuted because the sealed B5D checkpoints
+are not available locally. TEST remains closed.

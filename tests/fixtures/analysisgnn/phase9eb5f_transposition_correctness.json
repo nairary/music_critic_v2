@@ -1,0 +1,328 @@
+{
+  "checkpoint_diagnostics": {
+    "per_shift_metrics": null,
+    "run": false,
+    "shift0_reproduction": false
+  },
+  "corpus_contract": {
+    "full_pair_audit_run": true,
+    "invalid_reason_counts": {
+      "eligible_round_trip_failure": 1439,
+      "graph_round_trip_mismatch": 1457,
+      "non_bijective_mapping": 151,
+      "non_bijective_mapping:bass": 5,
+      "non_bijective_mapping:root": 4,
+      "non_bijective_mapping:tonicized_key": 10,
+      "target_oov:bass": 77,
+      "target_oov:local_key": 11,
+      "target_oov:root": 57,
+      "target_oov:tonicized_key": 72,
+      "target_transform:bass:AnalysisGNNTranspositionError": 92,
+      "target_transform:local_key:AnalysisGNNTranspositionError": 12,
+      "target_transform:root:AnalysisGNNTranspositionError": 70,
+      "target_transform:tonicized_key:AnalysisGNNTranspositionError": 88
+    },
+    "per_shift": {
+      "0": {
+        "cross_head_failures": 0,
+        "eligible": 1457,
+        "invalid": 0,
+        "round_trip_checked": 1457,
+        "round_trip_failures": 0,
+        "runtime_mismatches": 0
+      },
+      "1": {
+        "cross_head_failures": 0,
+        "eligible": 1430,
+        "invalid": 27,
+        "round_trip_checked": 1430,
+        "round_trip_failures": 0,
+        "runtime_mismatches": 0
+      },
+      "10": {
+        "cross_head_failures": 0,
+        "eligible": 1448,
+        "invalid": 9,
+        "round_trip_checked": 1448,
+        "round_trip_failures": 0,
+        "runtime_mismatches": 0
+      },
+      "11": {
+        "cross_head_failures": 0,
+        "eligible": 1411,
+        "invalid": 46,
+        "round_trip_checked": 1411,
+        "round_trip_failures": 0,
+        "runtime_mismatches": 0
+      },
+      "2": {
+        "cross_head_failures": 0,
+        "eligible": 1452,
+        "invalid": 5,
+        "round_trip_checked": 1452,
+        "round_trip_failures": 0,
+        "runtime_mismatches": 0
+      },
+      "3": {
+        "cross_head_failures": 0,
+        "eligible": 1446,
+        "invalid": 11,
+        "round_trip_checked": 1446,
+        "round_trip_failures": 0,
+        "runtime_mismatches": 0
+      },
+      "4": {
+        "cross_head_failures": 0,
+        "eligible": 1438,
+        "invalid": 19,
+        "round_trip_checked": 1438,
+        "round_trip_failures": 0,
+        "runtime_mismatches": 0
+      },
+      "5": {
+        "cross_head_failures": 0,
+        "eligible": 1455,
+        "invalid": 2,
+        "round_trip_checked": 1455,
+        "round_trip_failures": 0,
+        "runtime_mismatches": 0
+      },
+      "6": {
+        "cross_head_failures": 0,
+        "eligible": 1439,
+        "invalid": 18,
+        "round_trip_checked": 1439,
+        "round_trip_failures": 1439,
+        "runtime_mismatches": 0
+      },
+      "7": {
+        "cross_head_failures": 0,
+        "eligible": 1453,
+        "invalid": 4,
+        "round_trip_checked": 1453,
+        "round_trip_failures": 0,
+        "runtime_mismatches": 0
+      },
+      "8": {
+        "cross_head_failures": 0,
+        "eligible": 1442,
+        "invalid": 15,
+        "round_trip_checked": 1442,
+        "round_trip_failures": 0,
+        "runtime_mismatches": 0
+      },
+      "9": {
+        "cross_head_failures": 0,
+        "eligible": 1445,
+        "invalid": 12,
+        "round_trip_checked": 1445,
+        "round_trip_failures": 0,
+        "runtime_mismatches": 0
+      }
+    },
+    "real_train_runtime_regression": {
+      "active_head_count": 18,
+      "evaluated_record_shifts": [
+        {
+          "record_id": "dlc:corelli:op03n04c",
+          "shift_pc": 0
+        },
+        {
+          "record_id": "dlc:corelli:op03n04c",
+          "shift_pc": 1
+        }
+      ],
+      "fingerprint": "b517f197278161623cf8b87c74edd81e6ecafccc85e92f8ff8601ff783114b49",
+      "graph_transformed_before_forward": true,
+      "mismatch_count": 0,
+      "mismatches": [],
+      "passed": true,
+      "records": [
+        "dlc:corelli:op03n04c"
+      ],
+      "routed_rows": {
+        "bass": 424,
+        "cadence": 424,
+        "chord_tone": 988,
+        "harmonic_rhythm": 424,
+        "inversion": 424,
+        "is_bass": 988,
+        "is_root": 988,
+        "local_key": 424,
+        "metrical_strength": 988,
+        "note_degree": 988,
+        "pedal": 424,
+        "pitch_class_set": 424,
+        "primary_degree": 424,
+        "quality": 424,
+        "roman_numeral": 424,
+        "root": 424,
+        "secondary_degree": 424,
+        "tonicized_key": 424
+      },
+      "targets_aligned_after_logits": true,
+      "test_loader_created": false,
+      "test_metrics_computed": false,
+      "test_targets_read": false,
+      "uncovered_active_heads": [],
+      "valid_rows": {
+        "bass": 406,
+        "cadence": 16,
+        "chord_tone": 956,
+        "harmonic_rhythm": 406,
+        "inversion": 150,
+        "is_bass": 956,
+        "is_root": 956,
+        "local_key": 406,
+        "metrical_strength": 988,
+        "note_degree": 956,
+        "pedal": 424,
+        "pitch_class_set": 2,
+        "primary_degree": 406,
+        "quality": 406,
+        "roman_numeral": 406,
+        "root": 406,
+        "secondary_degree": 56,
+        "tonicized_key": 56
+      }
+    },
+    "record_shift_pairs": 17484,
+    "summary_fingerprint": "3a724ab26fd9d1a149d67eda9795e261d600173d556e6a9591fbb39b0dd5cfb6",
+    "test_enumerated": false,
+    "train_records": 1295,
+    "validation_records": 162
+  },
+  "dataset_changed": false,
+  "evidence_fingerprint": "3b6656dbde15f5f826a8d4e874a890e0e3a6b6144aa51df02e811a976006d3fc",
+  "final_status": "implementation_or_contract_defect",
+  "fixture_fingerprint": "406e2f2c6dfc05c747f2b90c7fa4a1ba163b01fe8a6e7e9d62cad81899a71aa7",
+  "independent_mapping_oracle_failure_count": 0,
+  "independent_mapping_oracle_failures": [],
+  "model_changed": false,
+  "phase": "9E-B5F",
+  "reason": "shift_pc=6 raw graph round trip applies +6 twice and returns +12 semitones",
+  "runtime_regression": {
+    "active_routed_heads": [
+      "local_key",
+      "tonicized_key",
+      "root",
+      "bass",
+      "primary_degree",
+      "secondary_degree",
+      "quality",
+      "inversion",
+      "roman_numeral",
+      "pitch_class_set",
+      "harmonic_rhythm",
+      "cadence",
+      "pedal",
+      "metrical_strength",
+      "note_degree",
+      "chord_tone",
+      "is_root",
+      "is_bass"
+    ],
+    "deferred_metadata_heads": [
+      "phrase",
+      "section"
+    ],
+    "fingerprint": "a1cf93b042b2004412e557129448b554b68e8639d6a13da9a4081cad60aa5c90",
+    "fixture_record_id": "dlc:source-free:fixture",
+    "graph_oracles_passed": false,
+    "identity_exact": true,
+    "round_trip_passed": false,
+    "routing_mismatch_count": 0,
+    "routing_mismatches": [],
+    "runtime_path_matches_contract": true,
+    "shift_count": 12,
+    "target_record_observation_round_trip_passed": true
+  },
+  "sampler_changed": false,
+  "schedule": {
+    "C0_transposition_schedule_fingerprint": "af937f0ece2ffc459a093b5d8a19be815c4159653b545059eee723c3bc71bb2b",
+    "C1_transposition_schedule_fingerprint": "745aef3bf213228635bbd4926a5f9d61f4dc26a425434b3757535eeccae4ef4a",
+    "applied_updates": 10000,
+    "batch_size": 2,
+    "fingerprint": "eebfbded6b3a0f0d0fe9d6f1186b9e268e2245eef118d65e2089c200e95c0afe",
+    "identity_draw_count": 1539,
+    "identity_draw_fraction": 0.07695,
+    "invalid_reason_counts": {
+      "non_bijective_mapping": 170,
+      "target_oov": 217
+    },
+    "limited_record_count": 64,
+    "limited_records_fingerprint": "8984c14bb1bbbb13b01cc5aade3c41674e0891c4ee1a4a42455e646d534ca9d7",
+    "max_absolute_draw_deviation": 150.25187590146015,
+    "max_fractional_draw_deviation": 0.007512593795073008,
+    "normalized_shift_entropy": 0.9997385632110344,
+    "record_draws": 20000,
+    "record_schedule_fingerprint": "67f4401806f2d5419bb849449aef811fd54dfbca62588c5a1543dbbe6c1b63f8",
+    "record_schedules_equal": true,
+    "seed": 17,
+    "shift_draw_counts": {
+      "0": 1539,
+      "1": 1624,
+      "10": 1781,
+      "11": 1674,
+      "2": 1630,
+      "3": 1682,
+      "4": 1690,
+      "5": 1650,
+      "6": 1706,
+      "7": 1747,
+      "8": 1636,
+      "9": 1641
+    },
+    "shift_entropy": 2.4842570037726004,
+    "test_loader_created": false,
+    "test_metrics_computed": false,
+    "test_targets_read": false,
+    "unique_records_per_shift": {
+      "0": 696,
+      "1": 717,
+      "10": 756,
+      "11": 708,
+      "2": 718,
+      "3": 728,
+      "4": 739,
+      "5": 740,
+      "6": 747,
+      "7": 744,
+      "8": 692,
+      "9": 722
+    },
+    "valid_shift_set_size_distribution": {
+      "10": 8,
+      "11": 31,
+      "12": 1231,
+      "2": 1,
+      "6": 1,
+      "7": 8,
+      "8": 3,
+      "9": 12
+    }
+  },
+  "schema": "Phase9EB5FTranspositionCorrectness@1.0.0",
+  "semantic_mapping_fingerprint": "c05c01045250d3943197a79624ba282f83b3cb03d97637a0d9e97cfb0d00e54e",
+  "source_head": "003982a9327d42ca52c9102c06e1be77b6355abb",
+  "split_changed": false,
+  "status": {
+    "all_20_heads_classified": true,
+    "audit_execution_valid": true,
+    "checkpoint_diagnostics_run": false,
+    "cross_head_consistency_passed": false,
+    "identity_exact": true,
+    "ready_for_soft_augmentation": false,
+    "round_trip_passed": false,
+    "runtime_path_matches_contract": true,
+    "schedule_reproduced": true,
+    "shift0_metrics_reproduced": false,
+    "test_loader_created": false,
+    "test_metrics_computed": false,
+    "test_targets_read": false,
+    "transposition_correctness_passed": false
+  },
+  "training_run": false,
+  "transformation_matrix_fingerprint": "6474baa9634a985636bdac37b65c102ef6bc11e4c842629dec17692a120c2549",
+  "transposition_contract_fingerprint": "2cb7c2e5d0bd1798421754ac67498a519c0d99380fd9641e0f5e5c12cfd9b1eb"
+}

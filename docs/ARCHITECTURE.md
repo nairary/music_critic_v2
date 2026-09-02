@@ -1581,3 +1581,26 @@ This status rejects a benefit claim for the exact seed-17, 10,000-update
 screen; it does not declare the B5A transform semantically invalid or erase
 the negative result. Downstream baseline consumers use C0 unless a later
 recorded multi-seed decision supersedes B5E. TEST remains unopened.
+
+## Phase 9E-B5F diagnostic boundary
+
+B5F adds a read-only diagnostic plane around B5A and the B5C/B5D runtime. It
+does not define a second transform. Independent arithmetic oracles inspect the
+detached graph view, semantic mappings, masks, entity identities, relations,
+and round trip; the executable runtime comparison still calls the frozen B5A
+transform through `transpose_raw_graph_batch` before model forward and joins
+targets only after logits.
+
+Pair-level TRAIN/VALIDATION evidence is streamed to ignored outputs. The
+committed fixture contains only contract, schedule, status, and summary
+fingerprints and can be verified without corpus or checkpoints. TEST has no
+loader, target read, inference, or metric path. Twelve shifted VALIDATION
+views in the optional checkpoint runner remain diagnostics of the same 162
+records and never enlarge independent support.
+
+The audit exposes a physical-versus-PC inverse mismatch at the tritone. B5A's
+signed representative for shift-PC 6 is `+6`; applying the prescribed inverse
+shift-PC 6 calls `+6` again, so raw pitch/octave features return at `+12` rather
+than identity. Semantic tritone mappings remain involutive and forward runtime
+routing agrees with B5A. This is recorded as an implementation/contract defect
+without changing production code in B5F.
