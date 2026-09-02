@@ -2130,3 +2130,34 @@ record-schedule, full-training, architecture, and model-state fingerprints
 match B5D/B5E. Metrics are recorded separately by checkpoint, shift, and head.
 Shifted views are not independent examples, checkpoint data is never
 committed, and shift-zero mismatch invalidates the complete metric artifact.
+
+## 22. Phase 9E-B5G directed transform evidence
+
+`AnalysisGNNDirectedTransposition@1.0.0` identifies one transform with both a
+pitch-class element and signed raw-pitch displacement. The latter modulo 12
+must equal the former. Canonical forward retains the B5A representatives;
+directed inverse negates the signed displacement. Raw MIDI and semantic target
+planes therefore share an identity without conflating physical direction.
+
+`Phase9EB5GRecordShiftDiagnostic@1.0.0` is keyed by TRAIN/VALIDATION record and
+shift. It records old/new forward status and equality, directed raw and target
+round trips, masks, class/entity/routing/provenance/rational identities,
+cross-head status and structured failures. The compact B5G fixture seals
+17,484 pairs plus the 20,000-draw historical C1 binding. The B5F fixture is
+immutable historical evidence and is not migrated.
+
+## 23. Phase 9E-B5H full-orbit profile evidence
+
+`CorrectedAnalysisGNNFullOrbitTable@1.0.0` is the canonical sorted TRAIN-only
+set of eligible `(record_id, shift_pc, component_id)` tuples. It has 15,389
+rows from 1,295 records, including 1,295 identity rows; 151 of the nominal
+15,540 pairs are excluded by frozen fail-closed eligibility. Exclusion
+evidence retains structured reasons and source/eligibility fingerprints.
+
+The table is not a graph cache and does not redefine independent musical
+support. `FullOrbitSampler` permutes it deterministically once per epoch under
+a separate B5H RNG domain and serializes its absolute position. The sealed
+240,000-draw budget consists of 15 full epochs and a 9,165-row partial epoch.
+Primary VALIDATION remains the 162 identity records; all-shift views are a
+separate diagnostic artifact. No TEST row, loader, target or metric belongs to
+either contract.

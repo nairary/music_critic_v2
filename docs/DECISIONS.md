@@ -3992,7 +3992,10 @@ This log is append-only.
   representative, but the prescribed inverse `(-6) mod 12 == 6` selects `+6`
   again. Non-drum raw pitch therefore returns at `+12`, while the semantic
   within-vocabulary tritone pairing is involutive. Do not alter B5A/B5C/B5D in
-  B5F and do not reinterpret the C1 score as a clean augmentation-policy test.
+  B5F. Subsequent B5G evidence established that this defect is inverse-only:
+  B5D/C1 training used the correct canonical forward `+6` view and never
+  called inverse. The completed C1 score therefore remains valid evidence for
+  its fixed-compute stochastic forward-augmentation profile.
 - Decision: Keep C0 as the current baseline and C1 as
   `experimental_deferred`. Set `transposition_correctness_passed=false` and
   `ready_for_soft_augmentation=false`. Require a separate remediation proposal
@@ -4005,3 +4008,43 @@ This log is append-only.
   access, but cannot complete the optional checkpoint performance diagnosis.
   Pair-level outputs and checkpoints remain external; only compact evidence is
   committed.
+
+## 2026-09-02 — ADR-113: Separate physical direction from pitch-class identity
+
+- Status: Accepted for Phase 9E-B5G.
+- Context: Pitch-class inversion alone cannot distinguish `+6` from `-6`.
+  Canonical B5A forward behavior must remain immutable because B5D/C1 already
+  used it.
+- Decision: Add `AnalysisGNNDirectedTransposition@1.0.0` with integer
+  `shift_pc` and `signed_semitones` and require
+  `signed_semitones % 12 == shift_pc`. Raw graph arithmetic consumes the
+  signed value; semantic targets consume the pitch-class value. Canonical
+  forward resolves through the unchanged `SIGNED_BY_SHIFT_PC`, and the old
+  public forward API delegates to it. Directed inverse negates the signed
+  value and uses `(-shift_pc) % 12`.
+- Consequences: `(6,+6)` has the unambiguous inverse `(6,-6)`. Range failures
+  remain whole-view fail-closed errors. B5A/B5D schedules, semantic mappings,
+  model, split, cache, sidecars, and historical results do not change. The
+  old B5F fixture remains historical defect evidence; B5G owns a new seal.
+
+## 2026-09-02 — ADR-114: Add C2 as full eligible TRAIN-orbit expansion
+
+- Status: Accepted as an untrained Phase 9E-B5H experiment contract.
+- Context: C1 tested a fixed-compute stochastic one-shift draw, not complete
+  augmented-dataset expansion. Its negative seed-17 result does not answer
+  whether exposing every eligible view at a comparable orbit count helps.
+- Decision: Add immutable profile
+  `music-critic-v2-corrected-full-orbit-transposition-v1`. After the frozen
+  piece-disjoint split, its canonical table contains every eligible TRAIN
+  `(record_id, shift_pc)` exactly once: 15,389 rows, 1,295 identities and 151
+  exclusions. Each epoch is a deterministic no-replacement permutation in
+  RNG domain `sha256_B5H_full_orbit_epoch_permutation_v1`.
+- Decision: Seal batch 2, 120,000 maximum successful updates, 240,000 draws,
+  6,000-update linear warmup, cosine decay, peak LR 0.005, FP32, no early
+  stopping, identity-only primary validation, separate all-shift diagnostics,
+  and TEST disabled. C2 starts from seed-17 initialization and never resumes
+  the exhausted C1 scheduler.
+- Consequences: C2 spans 15 complete orbit epochs plus a deterministic 9,165-
+  draw partial epoch (15.595555 total). Views are not independent works and
+  are generated detached on demand; raw cache and split remain unchanged.
+  Repository readiness does not claim that the 120k CUDA run occurred.

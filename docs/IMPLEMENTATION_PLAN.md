@@ -4328,6 +4328,34 @@ Use these as conceptual references. Confirm licenses, dataset versions, and impl
   Status is `implementation_or_contract_defect`; C0 remains baseline, C1 stays
   `experimental_deferred`, and soft augmentation is not authorized.
 
+## Phase 9E-B5G — directed inverse remediation
+
+- Represent a transform with both `shift_pc` and `signed_semitones`; validate
+  their modulo-12 identity and fail closed on malformed or out-of-range input.
+- Keep canonical B5A forward representatives byte/tensor identical and make
+  the old public forward call delegate to the directed primitive. Inverse
+  negates physical semitones instead of reconstructing their sign from pitch
+  class.
+- Re-audit all 1,457 TRAIN/VALIDATION records over 12 shifts, retaining
+  missing-context cross-head checks as `not_checkable`. Bind every historical
+  C1 draw to a verified unchanged forward pair and preserve the B5D schedule
+  fingerprints. Do not rewrite the B5F fixture or train a model.
+
+## Phase 9E-B5H — full-orbit C2 expansion profile
+
+- Build a stable TRAIN-only table sorted by `(record_id, shift_pc)` from the
+  frozen B5A eligibility evidence: 15,389 eligible and 151 excluded pairs.
+  Preserve exclusion reason plus source/eligibility fingerprints.
+- Enumerate each full table once per deterministic orbit epoch using a new
+  versioned RNG domain. No replacement, omission, identity reweighting, graph
+  materialization, split change, or C1 sampling semantics are permitted.
+- Seal a from-scratch seed-17 CUDA run at batch 2, 120,000 updates, 240,000
+  draws, 6,000 warmup updates, peak LR 0.005, FP32 and cosine decay. Keep
+  identity-only VALIDATION for checkpoint selection and report separate
+  per-shift/macro/worst-shift diagnostic validation.
+- Implement preflight, smoke, checkpoint/resume and full runner paths, but do
+  not execute the 120k run in this PR. TEST stays inaccessible.
+
 ---
 
 # Final instruction to Codex

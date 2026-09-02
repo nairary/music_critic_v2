@@ -66,8 +66,10 @@ from music_critic.experiments.analysisgnn.training_policy import (
     validate_class_weight_payload,
 )
 from music_critic.experiments.analysisgnn.transposition import (
+    DirectedTransposition,
+    canonical_directed_transposition,
     select_record_shift,
-    transpose_raw_graph_view,
+    transpose_raw_graph_view_directed,
     transform_semantic_value,
 )
 from music_critic.models.heads import TaskPrediction
@@ -550,25 +552,36 @@ def gradient_norm(model: nn.Module) -> float:
     return math.sqrt(squared)
 
 
-def transpose_raw_graph_batch(raw_graph_batch: object, shifts: Sequence[int]) -> object:
-    """Create detached B5A views from a production-collated raw batch."""
+def transpose_raw_graph_batch_directed(
+    raw_graph_batch: object, transforms: Sequence[DirectedTransposition]
+) -> object:
+    """Create detached directed views from a production-collated raw batch."""
 
     from torch_geometric.data import Batch
     from music_critic.graph import validate_raw_graph_batch
 
     graphs = raw_graph_batch.to_data_list()  # type: ignore[attr-defined]
-    if len(graphs) != len(shifts):
+    if len(graphs) != len(transforms):
         raise CorrectedTrainingError(
             "analysisgnn.corrected.graph_shift_batch_mismatch",
-            f"graphs={len(graphs)} shifts={len(shifts)}",
+            f"graphs={len(graphs)} transforms={len(transforms)}",
         )
     views = [
-        transpose_raw_graph_view(graph, shift_pc=int(shift))
-        for graph, shift in zip(graphs, shifts, strict=True)
+        transpose_raw_graph_view_directed(graph, transform=transform)
+        for graph, transform in zip(graphs, transforms, strict=True)
     ]
     batch = Batch.from_data_list(views)
     validate_raw_graph_batch(batch, sample_count=len(views))
     return batch
+
+
+def transpose_raw_graph_batch(raw_graph_batch: object, shifts: Sequence[int]) -> object:
+    """Create frozen B5A canonical forward views from a raw batch."""
+
+    return transpose_raw_graph_batch_directed(
+        raw_graph_batch,
+        tuple(canonical_directed_transposition(int(shift)) for shift in shifts),
+    )
 
 
 def combine_single_record_raw_batches(batches: Sequence[object]) -> object:

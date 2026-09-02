@@ -39,6 +39,8 @@ from music_critic.experiments.analysisgnn.multitask_contract import (
 
 TRANSPOSITION_AUDIT_SCHEMA = "DilemmadataAnalysisGNNTranspositionAudit@1.0.0"
 TRANSPOSITION_CONTRACT_VERSION = "analysisgnn-transposition-contract-v1"
+DIRECTED_TRANSPOSITION_SCHEMA = "AnalysisGNNDirectedTransposition@1.0.0"
+DIRECTED_TRANSPOSITION_CONTRACT_VERSION = "analysisgnn-directed-transposition-v1"
 OFFICIAL_PROFILE_ID = "analysisgnn-official-transposition-e115182-v1"
 CORRECTED_PROFILE_ID = "music-critic-v2-closed-transposition-v1"
 SHIFT_PCS = tuple(range(12))
@@ -188,6 +190,111 @@ _OFFICIAL_KEY_FIFTH_DELTAS = {0: 0, 1: 7, 2: 2, 3: -3, 4: 4, 5: -1,
 
 class AnalysisGNNTranspositionError(ValueError):
     """Raised when a transposition would violate the frozen policy."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        prefix, separator, detail = message.partition(": ")
+        self.category = (
+            prefix
+            if separator and prefix.startswith("analysisgnn.transposition.")
+            else "analysisgnn.transposition.contract_error"
+        )
+        self.message = detail if self.category == prefix else message
+
+
+@dataclass(frozen=True, slots=True)
+class DirectedTransposition:
+    """A semantic pitch-class shift with an explicit raw-MIDI direction.
+
+    ``shift_pc`` is the group element used by semantic target transforms.
+    ``signed_semitones`` is the directed displacement applied to raw pitches.
+    They deliberately are not reduced to one canonical representative: the
+    inverse of the canonical ``(+6)`` transform is ``(6, -6)``.
+    """
+
+    shift_pc: int
+    signed_semitones: int
+    schema: str = DIRECTED_TRANSPOSITION_SCHEMA
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.shift_pc, bool)
+            or not isinstance(self.shift_pc, int)
+            or self.shift_pc not in SHIFT_PCS
+        ):
+            raise AnalysisGNNTranspositionError(
+                "analysisgnn.transposition.directed_shift_pc_out_of_range: "
+                f"{self.shift_pc!r}"
+            )
+        if isinstance(self.signed_semitones, bool) or not isinstance(
+            self.signed_semitones, int
+        ):
+            raise AnalysisGNNTranspositionError(
+                "analysisgnn.transposition.directed_signed_semitones_invalid: "
+                f"{self.signed_semitones!r}"
+            )
+        if self.signed_semitones % 12 != self.shift_pc:
+            raise AnalysisGNNTranspositionError(
+                "analysisgnn.transposition.directed_identity_mismatch: "
+                f"shift_pc={self.shift_pc} signed_semitones={self.signed_semitones}"
+            )
+        if self.schema != DIRECTED_TRANSPOSITION_SCHEMA:
+            raise AnalysisGNNTranspositionError(
+                "analysisgnn.transposition.directed_schema_mismatch: "
+                f"{self.schema!r}"
+            )
+
+    @property
+    def fingerprint(self) -> str:
+        return fingerprint(asdict(self))
+
+    def inverse(self) -> DirectedTransposition:
+        return DirectedTransposition(
+            shift_pc=(-self.shift_pc) % 12,
+            signed_semitones=-self.signed_semitones,
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        body = asdict(self)
+        body["fingerprint"] = self.fingerprint
+        return body
+
+
+def canonical_directed_transposition(shift_pc: int) -> DirectedTransposition:
+    """Resolve the frozen B5A forward representative for a pitch-class shift."""
+
+    if (
+        isinstance(shift_pc, bool)
+        or not isinstance(shift_pc, int)
+        or shift_pc not in SHIFT_PCS
+    ):
+        raise AnalysisGNNTranspositionError(
+            "analysisgnn.transposition.directed_shift_pc_out_of_range: "
+            f"{shift_pc!r}"
+        )
+    return DirectedTransposition(shift_pc, SIGNED_BY_SHIFT_PC[shift_pc])
+
+
+def directed_transposition_contract() -> dict[str, object]:
+    """Return the additive directed contract without changing the B5A contract."""
+
+    canonical = [canonical_directed_transposition(shift).to_dict() for shift in SHIFT_PCS]
+    tritone = canonical_directed_transposition(6)
+    body: dict[str, object] = {
+        "schema": DIRECTED_TRANSPOSITION_SCHEMA,
+        "version": DIRECTED_TRANSPOSITION_CONTRACT_VERSION,
+        "semantic_field": "shift_pc",
+        "raw_graph_field": "signed_semitones",
+        "identity_invariant": "signed_semitones % 12 == shift_pc",
+        "canonical_forward": canonical,
+        "canonical_forward_tritone_signed_semitones": tritone.signed_semitones,
+        "directed_inverse_tritone": tritone.inverse().to_dict(),
+        "old_public_forward_delegates_to_canonical_directed_forward": True,
+        "b5a_contract_changed": False,
+        "b5d_c1_forward_training_changed": False,
+    }
+    body["fingerprint"] = fingerprint(body)
+    return body
 
 
 @dataclass(frozen=True, slots=True)
@@ -680,9 +787,25 @@ def transpose_record_observations(
     )
 
 
+def valid_directed_transposition_for_midi(
+    pitches: Iterable[int], transform: DirectedTransposition
+) -> bool:
+    """Return whether the directed raw-pitch displacement stays in MIDI range."""
+
+    if not isinstance(transform, DirectedTransposition):
+        raise AnalysisGNNTranspositionError(
+            "analysisgnn.transposition.directed_transform_required: "
+            f"{type(transform).__name__}"
+        )
+    return all(
+        0 <= int(pitch) + transform.signed_semitones <= 127 for pitch in pitches
+    )
+
+
 def valid_shift_for_midi(pitches: Iterable[int], shift_pc: int) -> bool:
-    signed = SIGNED_BY_SHIFT_PC[shift_pc]
-    return all(0 <= int(pitch) + signed <= 127 for pitch in pitches)
+    return valid_directed_transposition_for_midi(
+        pitches, canonical_directed_transposition(shift_pc)
+    )
 
 
 def select_record_shift(
@@ -713,13 +836,18 @@ def _feature_index(names: Sequence[str], name: str) -> int | None:
         return None
 
 
-def transpose_raw_graph_view(graph: Any, *, shift_pc: int) -> Any:
-    """Return a detached on-the-fly graph view with allowlisted feature edits."""
+def transpose_raw_graph_view_directed(
+    graph: Any, *, transform: DirectedTransposition
+) -> Any:
+    """Apply an explicit directed displacement to a detached raw graph view."""
 
-    if shift_pc not in SHIFT_PCS:
-        raise AnalysisGNNTranspositionError("shift_pc must be in 0..11")
+    if not isinstance(transform, DirectedTransposition):
+        raise AnalysisGNNTranspositionError(
+            "analysisgnn.transposition.directed_transform_required: "
+            f"{type(transform).__name__}"
+        )
     view = copy.deepcopy(graph)
-    if shift_pc == 0:
+    if transform.signed_semitones == 0:
         return view
     note = view["note"]
     pitch_i = _feature_index(note.cat_feature_names, "pitch")
@@ -733,7 +861,7 @@ def transpose_raw_graph_view(graph: Any, *, shift_pc: int) -> Any:
     )
     non_drum = note.x_cat[:, percussion_i].eq(0)
     shifted = note.x_cat[:, pitch_i].clone()
-    shifted[non_drum] += SIGNED_BY_SHIFT_PC[shift_pc]
+    shifted[non_drum] += transform.signed_semitones
     if shifted[non_drum].numel() and (
         shifted[non_drum].min().item() < 0 or shifted[non_drum].max().item() > 127
     ):
@@ -762,6 +890,18 @@ def transpose_raw_graph_view(graph: Any, *, shift_pc: int) -> Any:
                 )
                 note.x_cont_available[indices, relative_i] = True
     return view
+
+
+def transpose_raw_graph_view(graph: Any, *, shift_pc: int) -> Any:
+    """Return the frozen B5A canonical forward view.
+
+    This compatibility API delegates to the directed contract and therefore
+    remains byte/tensor identical to its pre-B5G behavior.
+    """
+
+    return transpose_raw_graph_view_directed(
+        graph, transform=canonical_directed_transposition(shift_pc)
+    )
 
 
 def graph_changed_fields(before: Any, after: Any) -> tuple[str, ...]:
@@ -1257,6 +1397,9 @@ __all__ = [
     "ABSOLUTE_TASKS",
     "AugmentedGraphIdentity",
     "CORRECTED_PROFILE_ID",
+    "DIRECTED_TRANSPOSITION_CONTRACT_VERSION",
+    "DIRECTED_TRANSPOSITION_SCHEMA",
+    "DirectedTransposition",
     "INVARIANT_GRAPH_FIELDS",
     "MAPPING_INVALID_REASONS",
     "OFFICIAL_INTERVALS",
@@ -1274,7 +1417,9 @@ __all__ = [
     "TRANSPOSITION_CONTRACT_VERSION",
     "TransformationSpec",
     "AnalysisGNNTranspositionError",
+    "canonical_directed_transposition",
     "corrected_transposition_profile",
+    "directed_transposition_contract",
     "graph_changed_fields",
     "mapping_composition_summary",
     "mapping_summary",
@@ -1287,9 +1432,11 @@ __all__ = [
     "transformation_registry",
     "transform_semantic_value",
     "transpose_raw_graph_view",
+    "transpose_raw_graph_view_directed",
     "transpose_record_observations",
     "transposition_contract",
     "valid_shift_for_midi",
+    "valid_directed_transposition_for_midi",
 ]
 
 

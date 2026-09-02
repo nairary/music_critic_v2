@@ -4109,3 +4109,42 @@ not clamped or mutated.
   unchanged upstream Torch JIT and multiprocessing-fork deprecations. Audit
   `--check`, source-free checkpoint-runner smoke, compileall, and
   `git diff --check` pass. Required GitHub `full-suite` remains the PR gate.
+
+## Phase 9E-B5G/H directed inverse and full-orbit profile — 2026-09-02
+
+- B5G introduces `AnalysisGNNDirectedTransposition@1.0.0`. The canonical
+  shift-6 forward remains `(6,+6)` and its explicit inverse is `(6,-6)`.
+  Raw graph arithmetic uses signed semitones while the unchanged 20-head
+  semantic mapping uses pitch class. Malformed identity and MIDI range errors
+  fail closed without wrap, clipping, folding or target repair.
+- The old public forward path delegates to the new directed primitive. The
+  B5D record/C0/C1 schedule fingerprints remain `67f44018...`, `af937f0c...`
+  and `745aef3b...`; all 20,000 historical C1 draws bind to unchanged forward
+  views. Inverse was never called by B5D training, so B5D/C1 results remain
+  valid for the fixed-compute stochastic profile. The B5F fixture remains
+  unchanged historical evidence.
+- C2 is `music-critic-v2-corrected-full-orbit-transposition-v1`. Its stable
+  TRAIN table has 15,389 eligible pairs and 151 exclusions from 1,295 records;
+  identity occurs 1,295 times. Shift-set sizes are 12:1231, 11:31, 10:8,
+  9:12, 8:3, 7:8, 6:1 and 2:1. Each epoch is a deterministic no-replacement
+  permutation under a separate B5H RNG domain.
+- The unexecuted sealed C2 run is seed 17, batch 2, 120,000 maximum updates,
+  240,000 draws, 6,000 warmup updates, peak LR 0.005, FP32, cosine decay and
+  no early stopping. It comprises 15 complete orbits plus a 9,165-draw
+  partial orbit. Identity VALIDATION remains primary and all-shift validation
+  is separate diagnostics.
+- Repository status is `inverse_contract_valid=true`,
+  `full_orbit_profile_valid=true`, `ready_for_full_orbit_training=true`, and
+  `full_orbit_training_run=false`. Model, split, sidecars, cache, class
+  weights, B5D artifacts and TEST remain unchanged. No legacy source was used.
+- Full B5G summary/evidence/fixture fingerprints are `4b2ac10b19cdfe2c...`,
+  `44354c01cb7784ad...`, and `8fd448a6cb112a3e...`. C2 profile/table/partial-
+  epoch/fixture fingerprints are `2de42ac93cfb6eb6...`,
+  `133983af065f28fa...`, `2bec321d1b80a674...`, and
+  `20797004bbbc59af...`.
+- The prescribed B5F/B5G/B5H/repository selection passes
+  `46 passed, 2 warnings in 19.93s`; the additional B5A-B5E regression set
+  passes `91 passed, 2 warnings in 17.44s`. Both audit `--check` commands,
+  CPU runner smoke, compileall and `git diff --check` pass. The complete local
+  suite was intentionally not run; one Required GitHub `full-suite` is the PR
+  gate.
