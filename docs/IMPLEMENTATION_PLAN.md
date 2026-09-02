@@ -4307,6 +4307,27 @@ Use these as conceptual references. Confirm licenses, dataset versions, and impl
   commit checkpoints, full training logs, result archives, datasets, caches,
   generated MIDI, or rendered audio.
 
+## Phase 9E-B5F — transposition correctness and per-shift diagnostics
+
+- Audit the executable B5A transform with independent MIDI, pitch-class,
+  spelling, vocabulary, mask, identity, topology, and relation oracles. Stream
+  every TRAIN/VALIDATION record over all 12 shift-PC values; keep pair-level
+  evidence outside Git and commit only a compact seal.
+- Exercise the actual B5C batch transform and post-logit sidecar alignment.
+  Preserve the 20-head B5A registry as the sole transformation contract and
+  treat absent relation context as `not_checkable`, never as success.
+- Reproduce the exact seed-17 B5D 20,000-draw record/shift schedule and bind it
+  to the B5E fingerprints. Do not train, change the sampler, or open TEST.
+- Provide a fail-closed C0/C1 checkpoint runner for 12 diagnostic VALIDATION
+  views. Check profile, seed, update, record schedule, training contract,
+  architecture, and final model-state identities before inference; shift zero
+  must reproduce B5E within an explicit `1e-7` absolute tolerance.
+- Record the discovered tritone defect without remediation: corrected B5A
+  fixes shift-PC 6 to physical `+6`, while its inverse shift-PC is also 6 and
+  therefore applies `+6` again. Raw graph round-trip ends one octave higher.
+  Status is `implementation_or_contract_defect`; C0 remains baseline, C1 stays
+  `experimental_deferred`, and soft augmentation is not authorized.
+
 ---
 
 # Final instruction to Codex

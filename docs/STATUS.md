@@ -4054,3 +4054,58 @@ not clamped or mutated.
   upstream Torch JIT and multiprocessing-fork deprecations. The source-free
   B5E audit reconstructs comparison fingerprint `03971d65...` and reports
   `valid=true`; compileall and `git diff --check` pass.
+
+## Phase 9E-B5F transposition correctness audit — 2026-09-02
+
+- Required post-merge `full-suite` succeeded for source HEAD
+  `003982a9327d42ca52c9102c06e1be77b6355abb` before the B5F branch was
+  created. B5F reuses the B5A contract and changes no production transform,
+  data, split, model, head, loss, weight, sampler, or checkpoint.
+- Independent raw/semantic oracles and the B5C runtime regression cover all 20
+  classified heads and 12 shifts. Forward graph arithmetic, semantic target
+  closure, masks, entity IDs, topology, and post-logit routing agree. Identity
+  is exact and valid semantic mappings pass their independent PC/mode/PCS and
+  semantic round trips.
+- Raw graph round-trip fails at shift-PC 6. The forward view uses the frozen
+  signed representative `+6`; `(-6) mod 12` is again shift-PC 6, whose signed
+  representative is also `+6`. Applying forward then inverse therefore
+  changes non-drum pitch by `+12` and may change octave. This is status
+  `implementation_or_contract_defect`, not evidence that C1 merely needed
+  more updates. B5F intentionally does not repair it.
+- Eligible/invalid/round-trip-failure counts for shifts 0 through 11 are
+  respectively `(1457/0/0), (1430/27/0), (1452/5/0), (1446/11/0),
+  (1438/19/0), (1455/2/0), (1439/18/1439), (1453/4/0), (1442/15/0),
+  (1445/12/0), (1448/9/0), (1411/46/0)`. Runtime mismatches and independent
+  semantic-mapping oracle failures are zero for every shift. All 1,457 raw
+  shift-6 graph views show the physical `+12` mismatch; 18 are already
+  target-ineligible.
+- The exact seed-17, 10,000-update, batch-2 schedule is reproduced: 20,000
+  draws, equal C0/C1 record order fingerprint `67f44018...`, C0 shift
+  fingerprint `af937f0c...`, and C1 `745aef3b...`. C1 shift counts are
+  `1539,1624,1630,1682,1690,1650,1706,1747,1636,1641,1781,1674` for
+  shift-PC 0 through 11; 64 TRAIN records have a partial valid orbit.
+- Local Torch is CPU-only and the sealed C0/C1 B5D checkpoints are absent.
+  Therefore checkpoint per-shift diagnostics and shift-zero B5E reproduction
+  are not claimed. `checkpoint_diagnostics_run=false`,
+  `ready_for_soft_augmentation=false`, and the PR remains draft. TEST loader,
+  target reads, inference, and metrics are all false/zero.
+- Full-audit summary fingerprint is `3a724ab26fd9d1a...`; the real TRAIN
+  runtime regression fingerprint is `b517f197278161...`; compact evidence and
+  fixture fingerprints are `3b6656dbde15f5f...` and
+  `406e2f2c6dfc05c...`. The runtime regression uses
+  `dlc:corelli:op03n04c` at shifts 0 and 1 and covers all 18 active routed
+  heads with no mismatch.
+- Executed cross-head relation checks have zero failures. Explicit
+  `not_checkable` counts are 12 absolute-head, 912 degree/Roman-with-key/root,
+  84 inversion-with-root/bass, 228 note-degree-with-pitch/key, 13,453
+  pitch-class-set, and 168 target-vocabulary-closure record-shift cases; their
+  presence prevents an automatic cross-head success claim.
+- The separate `PHASE9EB5G_TRITONE_ROUND_TRIP_REMEDIATION_TZ.md` records the
+  required versioned directed-inverse follow-up. No remediation code or new
+  experiment is included in B5F.
+- The prescribed targeted suite passes
+  `74 passed, 2 warnings in 21.84s`. The complete local repository suite
+  passes `1901 passed, 59 skipped, 12 warnings in 678.76s`; warnings are the
+  unchanged upstream Torch JIT and multiprocessing-fork deprecations. Audit
+  `--check`, source-free checkpoint-runner smoke, compileall, and
+  `git diff --check` pass. Required GitHub `full-suite` remains the PR gate.

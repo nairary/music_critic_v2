@@ -680,3 +680,11 @@ for B5E. The result seal uses only B5D GPU artifacts and current V2 contracts.
 It preserves the negative C1 outcome rather than importing a legacy
 augmentation expectation, and rejects treating one seed as proof that all
 transposition strategies are harmful or beneficial.
+
+## Phase 9E-B5F transposition correctness
+
+No legacy repository file was opened, searched, imported, copied, modified,
+formatted, staged, or reused for B5F. The phase uses only current V2 B5A
+primitives, B5C/B5D runtime paths, B5E evidence, independent arithmetic
+oracles, and frozen Dilemmadata artifacts. The detected tritone round-trip
+defect is not compared with or repaired from legacy behavior.
