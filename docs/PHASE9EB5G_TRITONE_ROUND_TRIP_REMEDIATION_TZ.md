@@ -9,6 +9,8 @@ Phase 9E-B5F установила статус `implementation_or_contract_defec
 tritone mapping является involutive.
 
 Это ТЗ не реализуется в B5F. Оно задаёт границы отдельного remediation PR.
+Phase 9E-B5G реализует его отдельным additive contract
+`AnalysisGNNDirectedTransposition@1.0.0`.
 
 ## Цель
 
@@ -21,10 +23,21 @@ tritone mapping является involutive.
   TRAIN/VALIDATION round-trip;
 - checkpoint и C1 training result не переписывались задним числом.
 
-## Обязательное решение до кода
+## Принятое решение
 
-Новая ADR должна выбрать один versioned API, не меняя значение старого B5A
-контракта молча. Допустимые направления для рассмотрения:
+ADR-113 выбирает immutable token с двумя полями:
+
+```text
+DirectedTransposition(shift_pc, signed_semitones)
+signed_semitones % 12 == shift_pc
+```
+
+Canonical forward продолжает использовать B5A `SIGNED_BY_SHIFT_PC`, включая
+`(6,+6)`. Метод `inverse()` сохраняет физическое направление и возвращает для
+него `(6,-6)`. Raw graph использует `signed_semitones`, а semantic targets —
+`shift_pc`. Несовместимые значения отклоняются структурированной ошибкой.
+
+Рассматривались следующие варианты:
 
 1. отдельный `signed_semitones`/`direction` аргумент для физического inverse;
 2. versioned directed-transform token, содержащий shift PC и signed delta;
@@ -64,10 +77,18 @@ augmentation/curriculum, не меняет heads/loss/weights/sampler/dataset/sp
 не открывает TEST. После исправления сначала требуется повторный correctness
 audit. Любой новый training screen оформляется отдельным последующим ТЗ.
 
-## Acceptance
+## Acceptance и результат
 
 Remediation принимается только если все допустимые directed forward/inverse
 пары возвращают raw graph и targets в исходное состояние, runtime совпадает с
 versioned contract, старое B5D evidence остаётся помечено историческим broken
 contract fingerprint, и `ready_for_soft_augmentation` всё ещё не выставляется
 до отдельного checkpoint/per-shift или нового экспериментального решения.
+
+B5G подтверждает ноль directed round-trip failures на всех 17 484
+TRAIN/VALIDATION парах, включая 1 439 eligible shift-6 пар, и неизменность
+всех 20 000 исторических C1 forward draws. Формулировка «broken B5D/C1
+augmentation» отклонена: broken был только способ восстановить физический
+inverse из одного pitch class. B5H отдельно разрешает новый C2 full-orbit
+эксперимент; `ready_for_full_orbit_training=true`, но сам CUDA run не входит в
+repository PR.

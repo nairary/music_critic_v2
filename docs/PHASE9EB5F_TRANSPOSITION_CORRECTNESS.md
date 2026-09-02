@@ -16,6 +16,12 @@ B5F records the defect and does not repair production code. C0 remains the
 current baseline, C1 remains `experimental_deferred`, and
 `ready_for_soft_augmentation=false`.
 
+The defect is confined to the B5F inverse diagnostic: historical B5D/C1
+training called only the canonical forward transform. Its `shift_pc=6` view
+was the intended `+6` view, so the completed C1 result and its negative
+directional comparison remain valid. B5G adds the missing directed inverse;
+it does not rewrite this historical B5F evidence fixture.
+
 ## Executable matrix
 
 The only transformation contract is B5A
