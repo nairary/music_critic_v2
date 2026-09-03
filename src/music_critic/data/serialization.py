@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from hashlib import sha256
 from math import gcd
 import json
 from os import PathLike
@@ -45,6 +46,39 @@ __all__ = [
     "dump_piece",
     "load_piece",
 ]
+
+
+def dumps_canonical_json(value: object, *, indent: int | None = None) -> str:
+    """Return deterministic finite UTF-8-compatible JSON without a newline.
+
+    This is the source-neutral byte convention already used by canonical
+    pieces: Unicode is retained, mappings are key-sorted, compact output has
+    no insignificant whitespace, and non-finite floating-point values fail
+    closed.  Domain serializers remain responsible for ordering sequences
+    whose order is not semantic.
+    """
+
+    rendered = json.dumps(
+        value,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        indent=indent,
+        separators=None if indent is not None else (",", ":"),
+    )
+    try:
+        rendered.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise ValueError(
+            "canonical JSON strings and keys must be valid UTF-8 scalar text"
+        ) from exc
+    return rendered
+
+
+def canonical_json_sha256(value: object) -> str:
+    """Return SHA-256 over the compact canonical JSON UTF-8 bytes."""
+
+    return sha256(dumps_canonical_json(value).encode("utf-8")).hexdigest()
 
 
 def _encode_rational(value: RationalTime) -> JsonObject:
@@ -1306,14 +1340,7 @@ def piece_from_dict(data: Mapping[str, Any]) -> CanonicalPiece:
 def dumps_piece(piece: CanonicalPiece, *, indent: int | None = None) -> str:
     """Return deterministic canonical JSON without a terminal newline."""
 
-    return json.dumps(
-        piece_to_dict(piece),
-        ensure_ascii=False,
-        allow_nan=False,
-        sort_keys=True,
-        indent=indent,
-        separators=None if indent is not None else (",", ":"),
-    )
+    return dumps_canonical_json(piece_to_dict(piece), indent=indent)
 
 
 def loads_piece(payload: str | bytes | bytearray) -> CanonicalPiece:

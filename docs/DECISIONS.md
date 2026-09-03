@@ -4048,3 +4048,179 @@ This log is append-only.
   draw partial epoch (15.595555 total). Views are not independent works and
   are generated detached on demand; raw cache and split remain unchanged.
   Repository readiness does not claim that the 120k CUDA run occurred.
+
+## 2026-09-03 — ADR-115: Multi-source EDA separates raw structure from source-native supervision
+
+- Status: Accepted as the foundational contract for four later source-specific
+  EDA increments. This decision creates no production corpus evidence and does
+  not begin Phase 10.
+- Context: Dilemmadata, POP909-CL, HookTheory, and future PDMX ingestion need
+  comparable structural evidence without treating unlike observation units as
+  one population. Only the first three have current source-native supervision.
+  Existing audits have valuable source-specific facts, but no shared envelope,
+  capability gate, or extension boundary. Phase 9E-B4 already establishes the
+  required assignment-before-target-loader TEST boundary.
+- Decision: Define independent `RawCorpusEDA@1.0.0` and
+  `SupervisionEDA@1.0.0` schemas under
+  `MultiSourceEDAEnvelope@1.0.0`. Freeze a capability registry in which all
+  four corpora support the raw schema, Dilemmadata/POP909-CL/HookTheory support
+  supervision, and PDMX does not. Capability means contract support, never a
+  claim that a production audit ran.
+- Decision: Every count binds its observation unit, denominator unit/value,
+  split, evidence scope, and provenance. Metric coverage additionally binds
+  observed and unknown counts. `available`, `masked`, `missing`, and
+  `unsupported` are the exhaustive native target partition;
+  `unknown`, `not_computed`, `not_applicable`, and `locked` are separate
+  computation/access states and cannot be serialized as observed zero.
+  Work support requires a versioned work identity and is otherwise explicitly
+  not applicable; a filename cannot supply that identity. Common raw count-
+  summary and categorical-row count names equal their enclosing `metric_id`,
+  while class-support names are exactly `occurrence_count`,
+  `unique_record_count`, and `unique_work_count`.
+- Decision: A fully known-empty common count, with denominator, observed, and
+  unknown counts all zero, has an explicit typed zero; known-empty numeric/
+  categorical metrics have no summary. Zero observed rows with a positive
+  unknown remainder have no summary of any kind. Multi-occurrence
+  categorical rows may be empty and `reason_codes` is multi-valued. Observed
+  inventory rows use identical coverage and enforce discovered equals both the
+  observed population and accepted plus quarantined. Numeric summaries obey R7
+  endpoints, singleton and finite-sample feasibility, and their physical/
+  discrete domains. Graph node/edge/size rows use identical coverage/status;
+  aggregate node-plus-edge occurrences determine the exact graph-size mean and
+  must be compatible with its extrema.
+- Decision: Source-native task/value identity binds corpus, task, dialect, and
+  the complete source value. Class support consumes available rows only and
+  keeps an available empty multilabel set separate from missing/masked and from
+  label occurrences. Optional common projection evidence must match an exact
+  already approved registry identity and fingerprint. The only registry
+  admitted in this version is the existing Dilemmadata common harmonic
+  registry; deferred/incompatible HookTheory/POP909-CL crosswalks and PDMX
+  metadata are not projections. The same corpus/task/dialect repeated across
+  TRAIN and VALIDATION keeps one annotation/vocabulary/granularity/value-type/
+  observation-unit/work schema identity and one class-support work unit.
+- Decision: Represent multilabel class support per vocabulary label, not per
+  label set. Every row has one scalar, non-empty stripped string source-value
+  identity; empty available sets exist only in the typed empty count, and a
+  label occurrence count cannot exceed available non-empty rows. Standalone
+  `MULTI_LABEL` set identities accept only unique non-empty stripped strings
+  and remain distinct from class-support identities.
+- Decision: Supervision EDA has no TEST unlock. The complete target-free split
+  assignment is validated before any descriptor/path resolver or target loader
+  callback. TEST stops at its split token. Reports require zero TEST descriptor,
+  loader, record, and row counts plus false target-read/EDA/evaluation,
+  distribution, coverage, and co-occurrence flags. All five TEST audit counters
+  are `UnitCount` values produced by `TestTargetLockEvidence.from_guard(...)`:
+  assignment observes `split_assignment`, descriptor/loader calls observe
+  `target_access_attempt`, opened target records observe `record`, and loaded
+  rows observe `target_row`. They bind TEST, one `split_assignment` denominator
+  equal to the TEST assignment-row count, evidence scope, and provenance. TEST
+  row IDs are never read. Raw TEST evidence is valid only through explicitly
+  target-free manifest and graph contracts. Any supervision extension row with
+  observed coverage is evidence for this gate, even when all tasks are
+  non-observed, and therefore requires an observed lock attestation; an
+  explicit non-observed empty metric row is not observed evidence.
+- Decision: Reuse the canonical piece JSON byte convention through a neutral
+  `dumps_canonical_json`/`canonical_json_sha256` helper. The EDA semantic hash
+  includes schema, repository commit, corpus/source/producer, manifests,
+  warnings/reasons, payload, and any approved-registry bindings actually
+  emitted by that report; it does not hash the entire global registry table
+  when no projection is emitted. It excludes only the hash field itself and
+  the designated operational metadata mapping. Unordered common rows are
+  normalized, mappings are key-sorted, UTF-8 is preserved, non-finite values
+  fail, and numeric distributions bind fixed float and R7 quantile policies.
+  Recursively freeze validated arbitrary semantic JSON, including nested
+  extension payloads and projected values, and thaw it only into fresh
+  canonical JSON containers during public serialization so post-validation
+  caller mutation cannot stale the stored fingerprint. Require valid UTF-8
+  scalar text in every string and mapping key; lone surrogates fail closed.
+  Structural identifiers/provenance and mapping keys reject Unicode control/
+  format characters, while opaque source-domain/prose values may retain
+  meaningful interior whitespace and emoji. Report/extension fingerprints and
+  source-value identities are constructor-computed; external
+  `VersionedIdentity` fingerprints are supplied and verified artifact bindings
+  that remain inside the semantic domain.
+  Keep the canonical helpers in `music_critic.data.serialization` rather than
+  introducing package-root exports.
+- Decision: Source implementations register through a stdlib-only adapter
+  interface and may add only corpus-prefixed, versioned extensions. Extensions
+  cannot shadow common fields, smuggle raw target fields, or encode bare
+  population counts; source-specific counts use the same typed count contract.
+  Each extension row is exactly one source-native metric with mandatory
+  coverage bound to its extension; observed count components bind that same
+  population/scope/provenance and a non-observed row is empty. Exact ratios,
+  physical measurements, and source probability/confidence summaries remain
+  domain payload but cannot disguise counts. Changing a
+  common meaning requires a later ADR and schema version, not a child-branch
+  edit. Collision and bare-count checks recurse: wrapper/envelope fields, fixed
+  common metric IDs, and common task structures are reserved, while generic
+  source-local fields such as `name`, `status`, `category`, `mean`,
+  `provenance`, `payload`, and `value` remain valid inside a namespaced payload.
+  Registry registration snapshots corpus, adapter identity, and declared
+  namespaces so later adapter mutation cannot rewrite the declaration.
+- Decision: A supervision report binds exactly one target-free
+  `split_assignment` manifest to the same SHA-256 recorded by its TEST-lock
+  attestation and binds at least one separate target-bearing manifest. The
+  guard requires a nonempty TRAIN/VALIDATION population under one assignment
+  fingerprint and rejects duplicate retained `(corpus, record_id)` rows,
+  including cross-TRAIN/VALIDATION assignments,
+  before callbacks. The lock is evidence about the exercised adapter path, not
+  a cryptographic prohibition on unrelated code, so every source implementation
+  must use the guard and retain resolver/loader-spy coverage. Fixture scope and
+  guard provenance are convenience defaults; production children explicitly
+  pass their report evidence scope and provenance.
+- Decision: Permit a manifest-free envelope only for `unknown` or `unavailable`
+  evidence. Manifest-free supervision uses
+  `TestTargetLockEvidence.not_executed(...)`, a null assignment fingerprint,
+  and null, reason-bearing, `locked` counters; it cannot present unexecuted
+  access as observed zero. Any observed task still requires the guard and the
+  normal split-assignment and target-bearing manifest bindings.
+- Decision: Preserve two availability planes. Native target rows use
+  `AvailabilityCounts`; every represented approved common task separately uses
+  `ProjectionAvailabilityCounts` with an exhaustive exact/coarsened/ambiguous/
+  unsupported/invalid/missing/masked partition. Each aggregate binds the native
+  task's total target-row denominator and scopes, while its seven state counts
+  remain independent of native state/class totals; projection missing/masked
+  need not equal native missing/masked. An aggregate may stand alone; optional
+  class rows require a matching aggregate and may reference available native
+  class support only. Static quality/inversion/root/bass rows
+  match exact registry mappings; dynamic local-key/pitch-class-set validation
+  proves routing, state, and output shape, not source-local derivation context.
+  The available-empty-multilabel population is a typed `UnitCount`, never an
+  unscoped integer.
+- Decision: Observed raw graph evidence must equal the frozen
+  `APPROVED_RAW_GRAPH_CONTRACT`, including tracked file hashes; self-declared
+  versioned identities are insufficient. Extensions bind split/evidence/
+  provenance and an optional work identity, with known work counts or payload
+  work-ID aliases requiring that identity. Raw extension identity, row
+  coverage, and count metadata are target-free validated. Extension uniqueness
+  is per `(namespace, split_scope)`, allowing separate TRAIN and VALIDATION
+  evidence without merging them while retaining one schema/work/target-free
+  identity across splits. A stable row ID retains its coverage unit and its
+  observed typed-count component name/unit schema.
+- Decision: Apply semantic hygiene recursively. Exact operational keys,
+  operational aliases, and absolute filesystem/file-URI paths are forbidden in
+  semantic mapping keys and string values and belong in
+  `operational_metadata`; relative semantic paths and genuine source-domain
+  timestamps remain allowed and hashed. Alias normalization covers `hostName`,
+  `time_stamp`, and `wallclock` variants, and embedded absolute paths after
+  common delimiters remain forbidden; URLs and harmonic values such as `V/ii`
+  remain allowed. Raw target-token validation includes
+  envelope invariant/warning/unavailable detail and provenance, common metric
+  coverage/category/count names/reasons/provenance, graph reasons, and the
+  existing source/manifest/extension/work/row channels. Supervision TEST-token
+  validation includes envelope invariant/warning/unavailable fields, task
+  identity/dialect/annotation/vocabulary/label-granularity/work/reason and
+  nested provenance, class-support work reasons, and the existing
+  source/manifest/extension channels. The canonical
+  `eda.target_free_unproven` and `eda.test_targets_locked` unavailable-reason
+  codes have only narrow code-position exceptions; detail/provenance remains
+  checked. Truthful non-TEST `scope` or `partition` metadata such as TRAIN and
+  VALIDATION remains allowed. Production evidence rejects non-production
+  markers in typed attestation channels, while opaque source-domain fields and
+  the complete namespaced extension payload remain truthful domain evidence;
+  typed extension provenance remains outside that payload.
+- Consequences: Four source branches can start from one immutable SHA and add
+  extractors without changing shared schema or common documentation. No raw
+  data/cache/graph, target sidecar, split/grouping, vocabulary, projection,
+  model, SSL, sampler, training config, checkpoint, C0/C1/C2 artifact, or
+  production manifest changes under this decision.

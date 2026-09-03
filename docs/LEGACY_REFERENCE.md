@@ -697,3 +697,30 @@ orbit enumeration, scheduler and runner use only current V2 B5A-B5F
 contracts. The work rejects legacy materialized-view splitting, modulo pitch
 wrap, OOV fallback, augmented-view-as-independent-work counting and any TEST
 or performance claim before the declared C2 run.
+
+## Multi-source EDA foundational contract
+
+The configured local legacy checkout was absent, so legacy discovery used a
+temporary read-only/no-runtime fallback at pinned commit
+`2d8281f31cc9ad9c8fecaf332da0c61e0e949415`. It inspected only the historical
+HookTheory timeline audit, preprocessing/dataset/evaluation helpers, field and
+vocabulary specs, observer schemas, and their small tests. No legacy module was
+copied, imported by V2, or modified, and V2 does not depend on that temporary
+checkout.
+
+Only generic audit ideas were retained: bounded structured reason/example
+buckets, deterministic detail-row order, explicit source grouping, preserved
+raw values, machine-readable field/vocabulary references, and tiny malformed
+fixtures. The common envelope, capability registry, typed count denominators,
+availability partition, source-native composite identities, extension
+validation, semantic SHA-256, approved-projection gate, and pre-loader TEST
+guard are current V2 contracts rather than adapted legacy code.
+
+Rejected legacy behavior includes HookTheory-only aggregate schemas; mixed or
+implicit record/note/chord/section denominators; eager TEST theory reads and
+TEST coverage; zero-on-empty metrics; null/unknown/empty conflation;
+unversioned token IDs; filename-derived grouping; same-token cross-dialect
+merging; random corruption balancing as class balance; float timing;
+target/theory-bearing graph fields; noncanonical/unfingerprinted JSON; PDMX
+metadata as targets; and any audit-driven change to sampling, loss, model, or
+training policy.

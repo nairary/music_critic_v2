@@ -77,6 +77,12 @@ def test_data_package_exports_serialization_api() -> None:
         assert getattr(data_api, name) is getattr(serialization, name)
 
 
+@pytest.mark.parametrize("value", ({"bad": "\ud800"}, {"\ud800": "bad"}))
+def test_canonical_json_rejects_lone_unicode_surrogates(value) -> None:
+    with pytest.raises(ValueError, match="UTF-8"):
+        serialization.dumps_canonical_json(value)
+
+
 def test_later_phase_apis_remain_absent() -> None:
     for name in ("MidiAdapter", "build_graph", "CanonicalDataset", "CriticModel"):
         assert not hasattr(data_api, name)
