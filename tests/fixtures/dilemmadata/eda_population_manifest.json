@@ -1,0 +1,54 @@
+{
+  "evidence_bindings": {
+    "corrected_multitask_semantic_fingerprint": "94a19ed6bbecbbd0497310233c8a8ff4e34311b414124593a7326c759ff07954",
+    "common_projection_manifest_fingerprint": "4ce7b657d2003d2ce3aadcfe9de9e39c7f9a49b69e985a745a399ef02e056294",
+    "source_inventory_semantic_fingerprint": "ce7e13b04c0299c48e5f33db36ab98948d11ea2df0d81cf438042633746112ed"
+  },
+  "fingerprint_policy": "canonical_projection_without_bound_fingerprint_v1",
+  "full_raw": {
+    "an_joint_record_count": 353,
+    "canonical_component_count": 1507,
+    "dlc_record_count": 1280,
+    "record_count": 1633
+  },
+  "common_projection_subset": {
+    "an_joint_record_count": 108,
+    "canonical_component_count": 707,
+    "dlc_record_count": 611,
+    "record_count": 719,
+    "split_component_counts": {
+      "test": 71,
+      "train": 565,
+      "validation": 71
+    },
+    "split_record_counts": {
+      "test": 71,
+      "train": 577,
+      "validation": 71
+    }
+  },
+  "paper_candidate": {
+    "an_joint_record_count": 353,
+    "canonical_component_count": 1507,
+    "dlc_record_count": 1266,
+    "selection_exclusion_count": 14,
+    "record_count": 1619,
+    "split_component_counts": {
+      "test": 151,
+      "train": 1209,
+      "validation": 147
+    },
+    "split_record_counts": {
+      "test": 162,
+      "train": 1295,
+      "validation": 162
+    }
+  },
+  "schema": "DilemmadataEDAPopulationManifest@1.0.0",
+  "semantic_fingerprint": "45f03a1d0efc7dc68967502a69a11f7b640d177c494b97b59a8655ae21a4189a",
+  "source_identity": {
+    "content_fingerprint": "8f1161ad7cdbd979845012ffc6150cd82c5e91ab1197ed97385fffce57a0f312",
+    "release_commit": "d60ee75b4a9495e932a4a7be39381578be17e222"
+  },
+  "target_free": true
+}
