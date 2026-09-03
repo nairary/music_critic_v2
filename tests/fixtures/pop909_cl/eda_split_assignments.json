@@ -1,0 +1,44 @@
+{
+  "schema": "Pop909ClEDASplitAssignments@1.0.0",
+  "corpus": "pop909_cl",
+  "assignments": [
+    {
+      "record_id": "fixture-pop-train-a",
+      "split": "train"
+    },
+    {
+      "record_id": "fixture-pop-train-b",
+      "split": "train"
+    },
+    {
+      "record_id": "fixture-pop-validation-a",
+      "split": "validation"
+    },
+    {
+      "split": "test"
+    }
+  ],
+  "identity_rows": [
+    {
+      "record_id": "fixture-pop-train-a",
+      "split": "train",
+      "source_group_id": "pop909-cl-score:fixture-shared-train",
+      "lineage_id": "pop909-lineage:fixture-train-a",
+      "canonical_work_id": null
+    },
+    {
+      "record_id": "fixture-pop-train-b",
+      "split": "train",
+      "source_group_id": "pop909-cl-score:fixture-shared-train",
+      "lineage_id": "pop909-lineage:fixture-train-b",
+      "canonical_work_id": null
+    },
+    {
+      "record_id": "fixture-pop-validation-a",
+      "split": "validation",
+      "source_group_id": "pop909-cl-score:fixture-validation-a",
+      "lineage_id": "pop909-lineage:fixture-validation-a",
+      "canonical_work_id": null
+    }
+  ]
+}
