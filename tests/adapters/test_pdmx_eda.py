@@ -31,6 +31,7 @@ from music_critic.eda import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = REPO_ROOT / "tests/fixtures/pdmx/eda_raw_manifest.json"
+EVIDENCE_CAPSULE = REPO_ROOT / "tests/fixtures/pdmx/phase2a1_midi_evidence.json"
 
 
 def _report(*, repository_commit: str = EDA_CONTRACT_SHA):
@@ -308,23 +309,98 @@ def test_manifest_duplicate_key_fails_before_report_construction(tmp_path: Path)
         )
 
 
-def test_tracked_evidence_input_hashes_match_the_foundation() -> None:
+def test_manifest_uses_compact_capsule_as_sole_live_evidence_input() -> None:
     payload = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    for row in payload["evidence_inputs"]:
-        path = REPO_ROOT / row["repository_path"]
-        assert sha256(path.read_bytes()).hexdigest() == row["sha256"]
+    assert payload["evidence_inputs"] == [
+        {
+            "repository_path": "tests/fixtures/pdmx/phase2a1_midi_evidence.json",
+            "sha256": sha256(EVIDENCE_CAPSULE.read_bytes()).hexdigest(),
+        }
+    ]
+
+
+def test_compact_capsule_pins_historical_phase2a1_evidence_exactly() -> None:
+    capsule = json.loads(EVIDENCE_CAPSULE.read_text(encoding="utf-8"))
+    assert capsule["schema"] == "PDMXPhase2A1MIDIEvidence@1.0.0"
+    assert capsule["evidence_id"] == "pdmx.phase2a1_local_midi_snapshot_evidence"
+    assert capsule["historical_commits"] == {
+        "implementation": "32d68e8cb446d9b5dd57bfea1d28b94ccce46274",
+        "closure": "7508f96f3a09ddfd15a29c915a8a78beb25eb881",
+    }
+    assert capsule["status_excerpt"] == {
+        "repository_path": "docs/STATUS.md",
+        "commit": "7508f96f3a09ddfd15a29c915a8a78beb25eb881",
+        "start_marker_inclusive": (
+            "- PDMX root: `/home/str/music-critic-v2/data/pdmx/mid`."
+        ),
+        "end_marker_exclusive": "## Phase 2A.1 scope confirmation",
+        "line_count": 32,
+        "byte_count": 1_374,
+        "sha256": (
+            "91c744a8e176611875e1c55dcc56d6d39e13b8d7d9f72d2c8ae112e0bd431d58"
+        ),
+    }
+    assert capsule["historical_files"] == {
+        "runner": {
+            "repository_path": "scripts/smoke_midi_adapter.py",
+            "commit": "32d68e8cb446d9b5dd57bfea1d28b94ccce46274",
+            "sha256": (
+                "61d5cfb778f3ba8d26ee8edddfcae7bdf02011e436455538e90c45ca401ddd6b"
+            ),
+        },
+        "strict_integration_test": {
+            "repository_path": "tests/integration/test_real_midi_adapter.py",
+            "commit": "32d68e8cb446d9b5dd57bfea1d28b94ccce46274",
+            "sha256": (
+                "109e75dce52bea2a750e09e2bf85626855a359740d8374b2aa2bafac5b15ff1a"
+            ),
+        },
+    }
+    assert capsule["evidence_gaps"] == {
+        "primary_raw_run_artifact": "not_tracked",
+        "external_availability": "unknown",
+        "exact_invocation": "untracked",
+        "execution_log": "untracked",
+    }
+
+
+def test_capsule_claims_are_the_exact_manifest_projection() -> None:
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    capsule = json.loads(EVIDENCE_CAPSULE.read_text(encoding="utf-8"))
+    assert capsule["claims"] == {
+        "discovery": manifest["discovery"],
+        "bounded_midi_diagnostic": manifest["bounded_midi_diagnostic"],
+    }
+
+
+def test_adapter_does_not_hash_mutable_historical_head_files(monkeypatch) -> None:
+    observed_paths: list[Path] = []
+    file_sha256 = pdmx_eda_module._file_sha256
+
+    def record_hash_input(path: Path) -> str:
+        observed_paths.append(path.resolve())
+        return file_sha256(path)
+
+    monkeypatch.setattr(pdmx_eda_module, "_file_sha256", record_hash_input)
+    _report()
+    assert EVIDENCE_CAPSULE.resolve() in observed_paths
+    assert not {
+        (REPO_ROOT / "docs/STATUS.md").resolve(),
+        (REPO_ROOT / "scripts/smoke_midi_adapter.py").resolve(),
+        (REPO_ROOT / "tests/integration/test_real_midi_adapter.py").resolve(),
+    }.intersection(observed_paths)
 
 
 def test_tracked_evidence_input_drift_fails_closed(monkeypatch) -> None:
     adapter = PDMXEDAAdapter()
     file_sha256 = pdmx_eda_module._file_sha256
 
-    def drift_status_hash(path: Path) -> str:
-        if path == REPO_ROOT / "docs/STATUS.md":
+    def drift_capsule_hash(path: Path) -> str:
+        if path == EVIDENCE_CAPSULE:
             return "0" * 64
         return file_sha256(path)
 
-    monkeypatch.setattr(pdmx_eda_module, "_file_sha256", drift_status_hash)
+    monkeypatch.setattr(pdmx_eda_module, "_file_sha256", drift_capsule_hash)
     with pytest.raises(EDAContractError, match="evidence_input_drift"):
         adapter.build_raw_eda(
             PDMXRawEDARequest(MANIFEST, repository_commit=EDA_CONTRACT_SHA)

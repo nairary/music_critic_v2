@@ -2,22 +2,13 @@
   "schema": "PDMXRawEDAManifest@1.0.0",
   "corpus": "pdmx",
   "evidence_basis": [
-    "phase_2a1_repository_status",
-    "phase_2a1_midi_smoke_contract",
+    "phase_2a1_compact_evidence_capsule",
     "phase_10_not_started"
   ],
   "evidence_inputs": [
     {
-      "repository_path": "docs/STATUS.md",
-      "sha256": "4837aedb4b574767447564fcbf8464b3a315de09290f9767ee25f973a9d2432c"
-    },
-    {
-      "repository_path": "scripts/smoke_midi_adapter.py",
-      "sha256": "61d5cfb778f3ba8d26ee8edddfcae7bdf02011e436455538e90c45ca401ddd6b"
-    },
-    {
-      "repository_path": "tests/integration/test_real_midi_adapter.py",
-      "sha256": "a569c8060d4bb9bd697db3a4a16fbf7c73e60ac9d9ab02a89ef090f5d49d884f"
+      "repository_path": "tests/fixtures/pdmx/phase2a1_midi_evidence.json",
+      "sha256": "20355716c5c19eb2cf118453e59c7e53da716bd571c93a499f0efb3cb6dd900d"
     }
   ],
   "source_state": {

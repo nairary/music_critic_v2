@@ -82,9 +82,9 @@ def test_registration_and_externally_bound_identities() -> None:
     assert DILEMMADATA_EDA_ADAPTER_IDENTITY.identity == (
         "music_critic.adapters.dilemmadata_eda"
     )
-    assert DILEMMADATA_EDA_ADAPTER_IDENTITY.version == "1.0.0"
+    assert DILEMMADATA_EDA_ADAPTER_IDENTITY.version == "1.0.1"
     assert DILEMMADATA_EDA_ADAPTER_IDENTITY.fingerprint == (
-        "868a80f141ef116df345e96c9f35645e8bde9b582000cfff5d2225972b05e293"
+        "efc89198d4a2e644e746ea7fe173ce60ae7ab7b9b646cca75396a76c78ec96c4"
     )
     assert DILEMMADATA_SOURCE_IDENTITY.fingerprint == (
         "8f1161ad7cdbd979845012ffc6150cd82c5e91ab1197ed97385fffce57a0f312"
@@ -604,7 +604,7 @@ def test_head_roles_concentration_and_train_validation_shift_are_advisory(
     )
 
 
-def test_safe_shift_orbit_and_profile_exposure_are_configuration_explicit(
+def test_safe_shift_orbit_and_profile_exposure_separates_historical_c2_snapshot(
     registry: EDAAdapterRegistry, eda_request: DilemmadataEDARequest
 ) -> None:
     report = registry.build_supervision(CorpusId.DILEMMADATA, eda_request)
@@ -658,14 +658,37 @@ def test_safe_shift_orbit_and_profile_exposure_are_configuration_explicit(
         report, SplitScope.TRAIN, "profile_c2_update_exposure"
     )
     assert _count_values(c2_presentations) == {
-        "configured_presentations": 240000,
-        "observed_presentations": 0,
+        "configured_presentations_at_b5h_snapshot": 240000,
+        "observed_presentations_at_b5h_snapshot": 0,
     }
     assert _count_values(c2_updates) == {
-        "configured_updates": 120000,
-        "observed_updates": 0,
+        "configured_updates_at_b5h_snapshot": 120000,
+        "observed_updates_at_b5h_snapshot": 0,
     }
-    assert c2_presentations.payload["execution_state"] == "configured_untrained"
+    expected_snapshot_state = {
+        "current_run_state_included": False,
+        "current_run_state_source": "docs/EXPERIMENT_LEDGER.md",
+        "execution_state_at_snapshot": "configured_untrained",
+        "run_state_scope": "historical_b5h_planning_snapshot",
+        "snapshot_evidence_fingerprint": (
+            "28a77c929c9e5b006ce6b37d226428814cf503bcc06e15626aa52d4756c25df6"
+        ),
+        "snapshot_phase": "9E-B5H",
+    }
+    for row in (c2_presentations, c2_updates):
+        assert "execution_state" not in row.payload
+        assert {
+            key: row.payload[key] for key in expected_snapshot_state
+        } == expected_snapshot_state
+
+    manifest_roles = {row.role for row in report.envelope.input_manifests}
+    assert "historical_full_orbit_planning_snapshot" in manifest_roles
+    assert "full_orbit_profile" not in manifest_roles
+    warnings = {row.code: row.message for row in report.envelope.warnings}
+    assert "dilemmadata.b5h_historical_planning_snapshot" in warnings
+    assert "docs/EXPERIMENT_LEDGER.md" in warnings[
+        "dilemmadata.b5h_historical_planning_snapshot"
+    ]
     validation = _extension_row(
         report, SplitScope.VALIDATION, "identity_only_validation_policy"
     )

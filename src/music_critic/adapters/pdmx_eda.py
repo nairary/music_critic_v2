@@ -50,6 +50,7 @@ PDMX_EDA_ADAPTER_VERSION = "1.0.0"
 PDMX_RAW_EDA_MANIFEST_SCHEMA = "PDMXRawEDAManifest@1.0.0"
 PDMX_RAW_EXTENSION_NAMESPACE = "pdmx.raw_manifest"
 PDMX_RAW_EXTENSION_SCHEMA = "PDMXRawManifestExtension"
+_PDMX_PHASE2A1_EVIDENCE_SCHEMA = "PDMXPhase2A1MIDIEvidence@1.0.0"
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _PROVENANCE = ("pdmx.phase2a1.midi_diagnostic_replay",)
@@ -57,11 +58,14 @@ _DISCOVERED_SOURCE_FILES = 254_035
 _SAMPLE_RECORDS = 100
 _CONVERTED_SAMPLE_RECORDS = 99
 
+_EVIDENCE_CAPSULE_PATH = "tests/fixtures/pdmx/phase2a1_midi_evidence.json"
 _EVIDENCE_INPUT_HASHES = {
-    "docs/STATUS.md": "4837aedb4b574767447564fcbf8464b3a315de09290f9767ee25f973a9d2432c",
-    "scripts/smoke_midi_adapter.py": "61d5cfb778f3ba8d26ee8edddfcae7bdf02011e436455538e90c45ca401ddd6b",
-    "tests/integration/test_real_midi_adapter.py": "a569c8060d4bb9bd697db3a4a16fbf7c73e60ac9d9ab02a89ef090f5d49d884f",
+    _EVIDENCE_CAPSULE_PATH: (
+        "20355716c5c19eb2cf118453e59c7e53da716bd571c93a499f0efb3cb6dd900d"
+    ),
 }
+_PHASE2A1_IMPLEMENTATION_SHA = "32d68e8cb446d9b5dd57bfea1d28b94ccce46274"
+_PHASE2A1_CLOSURE_SHA = "7508f96f3a09ddfd15a29c915a8a78beb25eb881"
 
 
 def _file_sha256(path: Path) -> str:
@@ -87,7 +91,12 @@ def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]
     return decoded
 
 
-def _load_json(path: Path) -> tuple[dict[str, object], str]:
+def _load_json(
+    path: Path,
+    *,
+    artifact_name: str = "PDMX EDA manifest",
+    error_code: str = "pdmx.eda.manifest_invalid",
+) -> tuple[dict[str, object], str]:
     try:
         raw = path.read_bytes()
         decoded = json.loads(
@@ -99,12 +108,12 @@ def _load_json(path: Path) -> tuple[dict[str, object], str]:
         )
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
         raise EDAContractError(
-            "pdmx.eda.manifest_invalid",
-            f"cannot load PDMX EDA manifest {path.name!r}: {exc}",
+            error_code,
+            f"cannot load {artifact_name} {path.name!r}: {exc}",
         ) from exc
     if not isinstance(decoded, dict):
         raise EDAContractError(
-            "pdmx.eda.manifest_invalid", "PDMX EDA manifest root must be an object"
+            error_code, f"{artifact_name} root must be an object"
         )
     return decoded, sha256(raw).hexdigest()
 
@@ -232,6 +241,93 @@ def _not_computed_coverage(
     )
 
 
+def _validate_evidence_capsule(capsule: Mapping[str, object]) -> None:
+    _require_keys(
+        capsule,
+        {
+            "claims",
+            "evidence_gaps",
+            "evidence_id",
+            "historical_commits",
+            "historical_files",
+            "schema",
+            "status_excerpt",
+        },
+        "evidence capsule",
+    )
+    _expect(
+        capsule.get("schema"),
+        _PDMX_PHASE2A1_EVIDENCE_SCHEMA,
+        "evidence capsule schema",
+    )
+    _expect(
+        capsule.get("evidence_id"),
+        "pdmx.phase2a1_local_midi_snapshot_evidence",
+        "evidence capsule identity",
+    )
+    _expect(
+        capsule.get("historical_commits"),
+        {
+            "implementation": _PHASE2A1_IMPLEMENTATION_SHA,
+            "closure": _PHASE2A1_CLOSURE_SHA,
+        },
+        "evidence capsule historical commits",
+    )
+    _expect(
+        capsule.get("status_excerpt"),
+        {
+            "repository_path": "docs/STATUS.md",
+            "commit": _PHASE2A1_CLOSURE_SHA,
+            "start_marker_inclusive": (
+                "- PDMX root: `/home/str/music-critic-v2/data/pdmx/mid`."
+            ),
+            "end_marker_exclusive": "## Phase 2A.1 scope confirmation",
+            "line_count": 32,
+            "byte_count": 1_374,
+            "sha256": (
+                "91c744a8e176611875e1c55dcc56d6d39e13b8d7d9f72d2c8ae112e0bd431d58"
+            ),
+        },
+        "evidence capsule status excerpt",
+    )
+    _expect(
+        capsule.get("historical_files"),
+        {
+            "runner": {
+                "repository_path": "scripts/smoke_midi_adapter.py",
+                "commit": _PHASE2A1_IMPLEMENTATION_SHA,
+                "sha256": (
+                    "61d5cfb778f3ba8d26ee8edddfcae7bdf02011e436455538e90c45ca401ddd6b"
+                ),
+            },
+            "strict_integration_test": {
+                "repository_path": "tests/integration/test_real_midi_adapter.py",
+                "commit": _PHASE2A1_IMPLEMENTATION_SHA,
+                "sha256": (
+                    "109e75dce52bea2a750e09e2bf85626855a359740d8374b2aa2bafac5b15ff1a"
+                ),
+            },
+        },
+        "evidence capsule historical files",
+    )
+    _expect(
+        capsule.get("evidence_gaps"),
+        {
+            "primary_raw_run_artifact": "not_tracked",
+            "external_availability": "unknown",
+            "exact_invocation": "untracked",
+            "execution_log": "untracked",
+        },
+        "evidence capsule gaps",
+    )
+    claims = _mapping(capsule.get("claims"), "evidence capsule claims")
+    _require_keys(
+        claims,
+        {"bounded_midi_diagnostic", "discovery"},
+        "evidence capsule claims",
+    )
+
+
 def _validate_manifest(manifest: Mapping[str, object]) -> None:
     _require_keys(
         manifest,
@@ -256,8 +352,7 @@ def _validate_manifest(manifest: Mapping[str, object]) -> None:
     _expect(
         manifest.get("evidence_basis"),
         [
-            "phase_2a1_repository_status",
-            "phase_2a1_midi_smoke_contract",
+            "phase_2a1_compact_evidence_capsule",
             "phase_10_not_started",
         ],
         "evidence_basis",
@@ -294,6 +389,26 @@ def _validate_manifest(manifest: Mapping[str, object]) -> None:
                 "pdmx.eda.evidence_input_drift",
                 f"tracked evidence input {repository_path!r} changed",
             )
+
+    evidence_capsule, _ = _load_json(
+        _REPO_ROOT / _EVIDENCE_CAPSULE_PATH,
+        artifact_name="PDMX Phase 2A.1 evidence capsule",
+        error_code="pdmx.eda.evidence_capsule_invalid",
+    )
+    _validate_evidence_capsule(evidence_capsule)
+    capsule_claims = _mapping(
+        evidence_capsule.get("claims"), "evidence capsule claims"
+    )
+    _expect(
+        manifest.get("discovery"),
+        capsule_claims.get("discovery"),
+        "discovery evidence projection",
+    )
+    _expect(
+        manifest.get("bounded_midi_diagnostic"),
+        capsule_claims.get("bounded_midi_diagnostic"),
+        "bounded MIDI diagnostic evidence projection",
+    )
 
     source_state = _mapping(manifest.get("source_state"), "source_state")
     _expect(

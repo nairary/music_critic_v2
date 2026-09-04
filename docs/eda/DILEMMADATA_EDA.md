@@ -26,8 +26,8 @@ they are not presented as a corpus distribution.
 The source is `johentsch.dilemmadata.release@1.0.0`, fingerprint
 `8f1161ad7cdbd979845012ffc6150cd82c5e91ab1197ed97385fffce57a0f312`,
 at upstream release commit `d60ee75b4a9495e932a4a7be39381578be17e222`.
-The adapter is `music_critic.adapters.dilemmadata_eda@1.0.0`, fingerprint
-`868a80f141ef116df345e96c9f35645e8bde9b582000cfff5d2225972b05e293`.
+The adapter is `music_critic.adapters.dilemmadata_eda@1.0.1`, fingerprint
+`efc89198d4a2e644e746ea7fe173ce60ae7ab7b9b646cca75396a76c78ec96c4`.
 
 Raw replay verifies exact SHA-256 bindings for:
 
@@ -53,12 +53,16 @@ and verifies these exact file hashes only after the common pre-open TEST gate:
 | B5A safe transposition | `3d6625381f170d1419bb0cacf1f6bb6f8c21bb641a11c8d0adc299f1803d734d` |
 | B5B training policy | `12b8b812e138af45e0ca2f7926bf2de3a53872368f165b3ead24b6aa9140dd34` |
 | B5E observed runs | `1d573a158666a9b258641a80a44b803b68bcffa514ccc5abbf38d84553097470` |
-| B5H full-orbit profile | `69fddbf6aab4c1e49940343463cdeada05eefd2fee3aef0b5e487cda7cdaf74d` |
+| B5H historical full-orbit planning snapshot | `69fddbf6aab4c1e49940343463cdeada05eefd2fee3aef0b5e487cda7cdaf74d` |
 
 The native and common manifests are used only to validate the frozen family
 and approved-registry bindings. Their historical aggregate TEST target facts
 are not emitted. B3/B4/B5 evidence is accepted only with its explicit
 zero-TEST-access locks and consistent semantic-fingerprint lineage.
+The B5H input role is `historical_full_orbit_planning_snapshot`, bound to
+snapshot evidence fingerprint
+`28a77c929c9e5b006ce6b37d226428814cf503bcc06e15626aa52d4756c25df6`.
+It does not supply the current C2 run-state.
 
 ## Three populations remain separate
 
@@ -162,13 +166,24 @@ They preserve source component/work identity and cannot inflate split or
 class-support work counts. VALIDATION remains identity-only.
 
 Configured and observed exposure is explicit for both presentations and
-optimizer updates:
+optimizer updates. C0/C1 are observed B5E results. C2 is deliberately labeled
+as the historical Phase 9E-B5H planning snapshot rather than current execution
+evidence:
 
-| Profile | Presentations configured/observed | Updates configured/observed | State |
+| Profile | Presentations at cited snapshot | Updates at cited snapshot | Evidence scope |
 | --- | ---: | ---: | --- |
-| C0 | 20,000 / 20,000 | 10,000 / 10,000 | selected corrected baseline |
-| C1 | 20,000 / 20,000 | 10,000 / 10,000 | completed, experimentally deferred |
-| C2 | 240,000 / 0 | 120,000 / 0 | configured, never trained |
+| C0 | 20,000 configured / 20,000 observed | 10,000 configured / 10,000 observed | completed B5E seed-17 screen; selected corrected baseline |
+| C1 | 20,000 configured / 20,000 observed | 10,000 configured / 10,000 observed | completed B5E seed-17 screen; experimentally deferred |
+| C2 | 240,000 configured / 0 observed | 120,000 configured / 0 observed | historical B5H planning snapshot; `configured_untrained` at that snapshot |
+
+Both C2 rows carry `snapshot_phase=9E-B5H`,
+`run_state_scope=historical_b5h_planning_snapshot`,
+`current_run_state_included=false`, and the pinned snapshot evidence
+fingerprint. Their zero-valued components end in `_at_b5h_snapshot`; they are
+not current counters. The structured warning
+`dilemmadata.b5h_historical_planning_snapshot` points to
+`docs/EXPERIMENT_LEDGER.md`, which is the sole source of current experiment
+run-state.
 
 The official O profile remains only a partial, non-runnable reproduction
 contract; it is not substituted with corrected V2 data.

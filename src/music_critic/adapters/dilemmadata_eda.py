@@ -71,7 +71,7 @@ from music_critic.tasks.dilemmadata_registry import (
 )
 
 
-DILEMMADATA_EDA_ADAPTER_VERSION = "1.0.0"
+DILEMMADATA_EDA_ADAPTER_VERSION = "1.0.1"
 DILEMMADATA_EDA_CONTRACT_BASE = "65eb32fb948efde0fa117d7d27d19d8f16fa25b4"
 DILEMMADATA_RAW_EXTENSION_NAMESPACE = "dilemmadata.raw_inventory"
 DILEMMADATA_SUPERVISION_EXTENSION_NAMESPACE = (
@@ -2186,15 +2186,24 @@ def _diagnostic_extension(
             unit=ObservationUnit.SAMPLER_PRESENTATION,
             values=(
                 (
-                    "configured_presentations",
+                    "configured_presentations_at_b5h_snapshot",
                     c2_presentations,
                     ObservationUnit.SAMPLER_PRESENTATION,
                 ),
-                ("observed_presentations", 0, ObservationUnit.SAMPLER_PRESENTATION),
+                (
+                    "observed_presentations_at_b5h_snapshot",
+                    0,
+                    ObservationUnit.SAMPLER_PRESENTATION,
+                ),
             ),
             payload={
                 "profile_id": c2_profile.get("profile_id"),
-                "execution_state": "configured_untrained",
+                "snapshot_phase": "9E-B5H",
+                "run_state_scope": "historical_b5h_planning_snapshot",
+                "execution_state_at_snapshot": "configured_untrained",
+                "current_run_state_included": False,
+                "current_run_state_source": "docs/EXPERIMENT_LEDGER.md",
+                "snapshot_evidence_fingerprint": _B5H_EVIDENCE_FINGERPRINT,
                 "dataset_semantics": c2_profile.get("dataset_semantics"),
             },
         )
@@ -2205,15 +2214,24 @@ def _diagnostic_extension(
             unit=ObservationUnit.OPTIMIZER_UPDATE,
             values=(
                 (
-                    "configured_updates",
+                    "configured_updates_at_b5h_snapshot",
                     c2_updates,
                     ObservationUnit.OPTIMIZER_UPDATE,
                 ),
-                ("observed_updates", 0, ObservationUnit.OPTIMIZER_UPDATE),
+                (
+                    "observed_updates_at_b5h_snapshot",
+                    0,
+                    ObservationUnit.OPTIMIZER_UPDATE,
+                ),
             ),
             payload={
                 "profile_id": c2_profile.get("profile_id"),
-                "execution_state": "configured_untrained",
+                "snapshot_phase": "9E-B5H",
+                "run_state_scope": "historical_b5h_planning_snapshot",
+                "execution_state_at_snapshot": "configured_untrained",
+                "current_run_state_included": False,
+                "current_run_state_source": "docs/EXPERIMENT_LEDGER.md",
+                "snapshot_evidence_fingerprint": _B5H_EVIDENCE_FINGERPRINT,
             },
         )
         rows.append(
@@ -2661,7 +2679,7 @@ class DilemmadataEDAAdapter:
                         path=_B5E_MANIFEST_PATH,
                     ),
                     _manifest_ref(
-                        role="full_orbit_profile",
+                        role="historical_full_orbit_planning_snapshot",
                         identity="dilemmadata.phase9eb5h_full_orbit_profile",
                         version="1.0.0",
                         fingerprint=_B5H_MANIFEST_SHA256,
@@ -2706,6 +2724,15 @@ class DilemmadataEDAAdapter:
                         message=(
                             "DLC surface spelling 42 normalizes to native DLC value 2 and then "
                             "maps exactly to third inversion; AN value 2 remains second."
+                        ),
+                        provenance=_SUPERVISION_PROVENANCE,
+                    ),
+                    StructuredWarning(
+                        code="dilemmadata.b5h_historical_planning_snapshot",
+                        message=(
+                            "The B5H C2 exposure rows replay a historical planning "
+                            "snapshot only. docs/EXPERIMENT_LEDGER.md is authoritative "
+                            "for current experiment run-state."
                         ),
                         provenance=_SUPERVISION_PROVENANCE,
                     ),

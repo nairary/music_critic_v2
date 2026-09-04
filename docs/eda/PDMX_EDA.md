@@ -5,8 +5,9 @@
 `music_critic.adapters.pdmx_eda` implements the raw-only PDMX capability from
 foundation commit `65eb32fb948efde0fa117d7d27d19d8f16fa25b4`.  It is a
 `manifest_replay`, not the Phase 10 PDMX adapter and not a new bounded or
-production scan.  It opens only the tracked compact manifest and three
-repository evidence files whose SHA-256 values the manifest pins.
+production scan.  It opens only the tracked compact manifest and the dedicated
+`tests/fixtures/pdmx/phase2a1_midi_evidence.json` evidence capsule whose
+SHA-256 the manifest pins.
 
 PDMX remains a raw/SSL corpus.  The adapter intentionally has no
 `build_supervision_eda()` method; `EDAAdapterRegistry` rejects that operation
@@ -15,12 +16,36 @@ notated key signatures are not converted into supervised classes.
 
 ## Evidence boundary
 
-The replay binds `tests/fixtures/pdmx/eda_raw_manifest.json` and the historical
-Phase 2A.1 evidence recorded in:
+The replay binds `tests/fixtures/pdmx/eda_raw_manifest.json` to one immutable,
+compact projection of the historical Phase 2A.1 evidence.  The adapter hashes
+and reads that capsule at runtime; it does not hash mutable HEAD copies of
+`docs/STATUS.md`, `scripts/smoke_midi_adapter.py`, or
+`tests/integration/test_real_midi_adapter.py`.
 
-- `docs/STATUS.md`;
-- `scripts/smoke_midi_adapter.py`;
-- `tests/integration/test_real_midi_adapter.py`.
+The capsule pins the implementation commit
+`32d68e8cb446d9b5dd57bfea1d28b94ccce46274` and its direct closure commit
+`7508f96f3a09ddfd15a29c915a8a78beb25eb881`.  It binds the closure commit's
+exact 32-line, 1,374-byte STATUS excerpt.  Extraction starts at the exact
+inclusive marker
+
+```text
+- PDMX root: `/home/str/music-critic-v2/data/pdmx/mid`.
+```
+
+and stops immediately before the exact exclusive marker
+`## Phase 2A.1 scope confirmation`.  The excerpt SHA-256 is
+`91c744a8e176611875e1c55dcc56d6d39e13b8d7d9f72d2c8ae112e0bd431d58`.
+The historical runner SHA-256 is
+`61d5cfb778f3ba8d26ee8edddfcae7bdf02011e436455538e90c45ca401ddd6b`, and
+the strict integration-test SHA-256 is
+`109e75dce52bea2a750e09e2bf85626855a359740d8374b2aa2bafac5b15ff1a`.
+Those digests name blobs at the pinned implementation commit; they are not
+live dependencies on their current working-tree versions.
+
+The capsule also keeps the evidence gaps explicit: the primary raw-run
+artifact is not tracked, its external availability is unknown, and the exact
+invocation and execution log are untracked.  The counts below therefore remain
+a historical repository claim, not a reconstruction of primary run evidence.
 
 The report source identity is explicitly
 `pdmx.phase2a1_local_midi_snapshot_evidence@1.0.0`.  Its fingerprint is the

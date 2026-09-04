@@ -4288,3 +4288,34 @@ This log is append-only.
   loss. Older Phase 9C prose from the transfer ledger is retained inside that
   archive only and is not promoted to verified records without its primary
   evidence.
+
+## 2026-09-04 — ADR-117: Frozen EDA replay separates historical snapshots from current experiment state
+
+- Status: Accepted as an integration closure for the source-specific EDA
+  adapters. Common EDA schemas, corpus data, splits, targets, models, training,
+  and TEST policy do not change.
+- Context: The PDMX replay hashed the complete mutable `docs/STATUS.md` plus
+  current copies of historical smoke files, so an unrelated status update
+  invalidated the adapter. Dilemmadata emitted the B5H planning fixture's
+  `configured_untrained` state and zero C2 counters without marking their
+  historical scope, while the experiment ledger now contains later execution
+  evidence.
+- Decision: PDMX binds one compact Phase 2A.1 evidence capsule as its sole
+  live-hashed historical input. The capsule records immutable implementation
+  and closure commits, the exact historical STATUS excerpt identity, original
+  runner/test hashes, and explicit gaps for the absent primary run artifact,
+  invocation, and log. Mutable HEAD copies of STATUS, the runner, and the test
+  are not replay dependencies.
+- Decision: Dilemmadata keeps the immutable B5H fixture unchanged and labels
+  both C2 exposure rows as a `historical_b5h_planning_snapshot`. Their count
+  names carry an `_at_b5h_snapshot` suffix, the old execution state is scoped
+  to that snapshot, and the payload explicitly excludes current run state.
+- Decision: `docs/EXPERIMENT_LEDGER.md`, derived from immutable experiment
+  records, is authoritative for current run state. EDA reports may point to it
+  but do not read or duplicate its mutable current values during frozen replay.
+  Consequently C2 completion belongs to the ledger, and
+  `EXP-9EB5K-C0-120K-001` remains `running` with unknown observed access until
+  primary RTX evidence arrives.
+- Consequences: Routine STATUS edits no longer break PDMX replay, historical
+  zero values cannot be mistaken for current counters, and each evidence layer
+  retains its own time scope. No legacy source or runtime dependency is used.

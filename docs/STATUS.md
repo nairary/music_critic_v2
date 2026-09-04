@@ -424,20 +424,21 @@
 ## Current phase
 
 - Date: 2026-09-04
-- Current task: Phase 9E-B5K C0-120k compute-matched control. The user reports
-  that training is now in progress, and the live attempt is registered as
+- Current task: integrate the multi-source EDA foundation, four source adapters,
+  and experiment evidence registry on
+  `codex/integrate-multisource-eda-registry`, rooted at exact Phase 9E-B5I SHA
+  `97d7c0b8a7be5313d993076fae96fea3d39539fd`, then close cross-branch evidence
+  semantics without changing data, models, training, or TEST access.
+- The separate Phase 9E-B5K control remains in progress and is registered as
   `EXP-9EB5K-C0-120K-001`. Exact training checkout, command, output root,
-  environment, start time, and live progress remain pending run evidence.
-- B5G/H implementation is complete. Verified imported primary evidence records
-  completed C0/C1 10,000-update runs and a completed C2 120,000-update run.
-  C0 remains the selected baseline until the running compute-matched C0-120k
-  control finishes and is reviewed. Existing results use only seed 17. TEST is
-  declared closed for the running control and must be verified from its final
-  evidence.
+  environment, start time, access observations, and progress remain pending
+  primary RTX evidence. C0 stays selected; C2 completion alone is not a
+  compute-matched augmentation result. TEST is only declared closed until the
+  final run evidence verifies access.
 - Substantial future runs now require a pre-run tracked record, immutable full
   evidence outside Git, post-run finalization including failures, and a
-  deterministic ledger update under `docs/EXPERIMENT_LOGGING.md`. Historical
-  Phase 9C execution context follows below.
+  deterministic ledger update under `docs/EXPERIMENT_LOGGING.md`.
+- Historical Phase 9C execution context follows below.
 - The completed parent evidence is fixed by manifest fingerprint
   `6e64f33e64de9c3d864d75828a6916d95afa9fcbadc75c14359b884cab83ab10`
   and update-9,000 checkpoint hashes `1b3d6ac9…50072f` (scratch) and
@@ -4151,7 +4152,7 @@ not clamped or mutated.
   fixture remains immutable with `full_orbit_training_run=false`; it describes
   repository readiness before the external run, not the later execution
   result. Model, split, sidecars, cache, class weights, B5D artifacts and TEST
-  remain unchanged. C0 remains the selected baseline until the planned
+  remain unchanged. C0 remains the selected baseline until the running
   compute-matched C0-120k control is complete. No legacy source was used.
 - Full B5G summary/evidence/fixture fingerprints are `4b2ac10b19cdfe2c...`,
   `44354c01cb7784ad...`, and `8fd448a6cb112a3e...`. C2 profile/table/partial-
@@ -4330,9 +4331,52 @@ not clamped or mutated.
   and compileall plus `git diff --check` pass. The
   complete local suite immediately before the final registry-only hardening
   reached `1940 passed, 59 skipped, 10 failed, 1 warning in 421.20s`; the
-  hardening is covered by the final 36-test selection. The ten full-suite
+  hardening is covered by the final 58-test selection. The ten full-suite
   failures are outside the new registry surface: four DataLoader tests are
   blocked by sandbox denial of PyTorch shared-memory worker management, one
   worker-profiler test reports that same restriction, four model/audit checks
   see pre-existing local PyTorch state-fingerprint mismatches, and one runner
   expects an unavailable `python` executable instead of `python3`.
+
+## Multi-source EDA and registry integration closure — 2026-09-04
+
+- The integration branch starts exactly at
+  `97d7c0b8a7be5313d993076fae96fea3d39539fd`. Six explicit `--no-ff` merge
+  commits preserve, in order, the common contract (`42fd364b...`), HookTheory
+  (`cbc7b591...`), POP909-CL (`7831e452...`), Dilemmadata (`9c375b61...`),
+  PDMX (`7ba48285...`), and registry (`a7255833...`) histories. Their second
+  parents are the exact reviewed branch tips; no squash or rebase was used.
+- ADR-115 remains the multi-source EDA contract. The registry is ADR-116 and
+  keeps declared access policy separate from tri-state evidence-backed access
+  observations. `EXP-9EB5K-C0-120K-001` remains `running`; all of its observed
+  VALIDATION/TEST flags are `null` pending primary RTX evidence.
+- PDMX no longer hashes mutable HEAD copies of all `docs/STATUS.md`, the smoke
+  runner, or its historical integration test. Its only replay evidence input is
+  compact capsule `tests/fixtures/pdmx/phase2a1_midi_evidence.json`, SHA-256
+  `20355716c5c19eb2cf118453e59c7e53da716bd571c93a499f0efb3cb6dd900d`.
+  The capsule binds exact historical commits, a 32-line/1,374-byte STATUS
+  excerpt, original file hashes, and explicit missing-primary-evidence gaps.
+- Dilemmadata adapter `1.0.1` keeps the immutable B5H fixture at SHA-256
+  `69fddbf6aab4c1e49940343463cdeada05eefd2fee3aef0b5e487cda7cdaf74d`.
+  Both C2 exposure rows now identify the historical B5H planning snapshot,
+  use `_at_b5h_snapshot` count names, exclude current run state, and point to
+  the experiment ledger as the authority for current execution state.
+- Disjoint integration tests pass `759 passed, 1 warning in 62.69s`; the final
+  combined Dilemmadata/PDMX/registry selection passes
+  `127 passed, 2 warnings in 12.04s`.
+  Registry validation passes all five records with fingerprint
+  `f51f4f947a5da57a502352d951a7c2a06684889f151b09ace6f7e7ac59664e15`;
+  ledger render-check passes with SHA-256
+  `1d457ffe8523ff86477494c09c4eb781702c5e832e6a4c5e4248596e67370fcd`.
+- The mandatory local full suite reached
+  `2755 passed, 59 skipped, 4 failed, 2 warnings in 536.12s`. The four failures
+  are unchanged historical model-state fingerprint checks whose deterministic
+  initial bytes differ on macOS arm64 under both Torch 2.14.0 and 2.13.0. No
+  historical evidence hash was rewritten for the local platform; Required
+  Linux `full-suite` CI remains the acceptance gate. Compileall and
+  `git diff --check` pass.
+- No corpus scan, dataset/cache/graph/sidecar mutation, model training,
+  checkpoint use, validation/TEST inference, TEST target access, GPU run,
+  imported-code execution, or legacy repository inspection occurred. The next
+  scientific action remains finalizing the running C0 record from primary RTX
+  evidence; the next repository action is the integration PR and Required CI.

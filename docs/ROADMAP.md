@@ -1034,8 +1034,14 @@ eligible TRAIN pairs after the unchanged split. Orbit epochs are deterministic
 no-replacement permutations; shift zero appears exactly 1,295 times. The
 sealed from-scratch run is batch 2, at most 120,000 updates/240,000 draws,
 6,000 warmup updates, peak LR 0.005, FP32 and cosine decay. Identity
-VALIDATION remains primary; all-shift VALIDATION is diagnostic. Repository
-status may become ready, but training and TEST remain unexecuted.
+VALIDATION remains primary; all-shift VALIDATION is diagnostic. Imported
+seed-17 evidence records a completed 120,000-update run with best identity
+score `0.49666884914040565` at 115,000, final identity score
+`0.496239360421896`, and all-shift macro `0.441465709048`; TEST remained
+closed. This is not compute-matched against the completed C0-10k screen and
+does not replace C0 as the baseline. The next scientific gate is the linked
+running C0-120k control `EXP-9EB5K-C0-120K-001`; multi-seed and augmentation-
+benefit claims remain unavailable until its primary evidence is registered.
 
 ## Multi-source EDA foundation status
 
@@ -1046,11 +1052,10 @@ Dilemmadata, POP909-CL, HookTheory, and PDMX; supervision=true only for the
 first three. This matrix does not claim any production EDA was executed.
 
 Four source-specific raw implementations and three supervision implementations
-remain separate follow-up tasks. They register source adapters and use
-corpus-prefixed extensions without editing the shared schema or common docs.
-Each worktree must branch from the exact foundation SHA, not the moving branch
-name. PDMX production ingestion remains Phase 10 work and its metadata is not
-automatically theory supervision.
+are integrated as separate merge increments rooted at the exact foundation
+SHA. They register source adapters and use corpus-prefixed extensions without
+changing the shared schemas. PDMX production ingestion remains Phase 10 work
+and its metadata is not automatically theory supervision.
 
 Validated arbitrary semantic JSON is recursively frozen in memory, including
 nested extension payloads and projected values. Public serializers return
@@ -1108,13 +1113,3 @@ Across splits, stable task/extension identities retain their task work units,
 extension row coverage units, and observed typed-count schemas.
 Adapter registration immutably snapshots corpus, adapter identity, and declared
 namespaces, so later mutation cannot rewrite the registered declaration.
-
-VALIDATION remains primary; all-shift VALIDATION is diagnostic. Imported
-seed-17 evidence records a completed 120,000-update run with best identity
-score `0.49666884914040565` at 115,000, final identity score
-`0.496239360421896`, and all-shift macro `0.441465709048`; TEST remained
-closed. This is not compute-matched against the completed C0-10k screen and
-does not replace C0 as the baseline. The next scientific gate is a separately
-registered C0-120k control, `PLAN-9EB5K-C0-120K`, with the same budget and
-validation protocol;
-multi-seed or augmentation-benefit claims remain unavailable.
