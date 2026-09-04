@@ -30,3 +30,17 @@ Categories absent from the audited corpus are listed in the manifest rather
 than fabricated. In particular, root 8 to bVII and the MIDI-72 pitch anchor are
 explicit Music Critic V1 compatibility behaviors, not corpus observations or
 upstream Sheet Sage invariants. There is no real root-8 fixture.
+
+## Source-specific EDA fixtures
+
+`eda_raw_bounded_manifest.json` is a target-free aggregate over all 19 cases:
+18 convertible excerpts and one quarantined missing-payload case. It is not a
+production distribution. `eda_split_assignments.json` retains 17 convertible
+TRAIN case IDs and one split-only TEST assignment. The TEST row deliberately
+has no case ID or target descriptor.
+
+`eda_supervision_manifest.json` binds only those 17 TRAIN cases and their exact
+fixture hashes. The source-specific adapter passes the complete split inventory
+through the shared TEST preflight before lazily opening this supervision
+manifest or any case. The held-out `root_zero_rest.json` case is raw-only EDA
+evidence and is never opened by supervision EDA.
