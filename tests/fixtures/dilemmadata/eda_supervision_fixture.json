@@ -1,0 +1,135 @@
+{
+  "evidence_scope": "manifest_replay",
+  "records": [
+    {
+      "canonical_work_id": "fixture-work:shared-alpha",
+      "dialect": "an_joint",
+      "lineage_ids": ["fixture-lineage:shared-alpha"],
+      "record_id": "an:train:alpha",
+      "source_group_id": "fixture-group:shared-alpha",
+      "split": "train",
+      "tasks": {
+        "dilemmadata.an.chord.inversion": {"source_value": "2", "state": "available"},
+        "dilemmadata.an.chord.quality": {"source_value": "major triad", "state": "available"}
+      }
+    },
+    {
+      "canonical_work_id": "fixture-work:an-beta",
+      "dialect": "an_joint",
+      "lineage_ids": ["fixture-lineage:an-beta"],
+      "record_id": "an:train:beta",
+      "source_group_id": "fixture-group:an-beta",
+      "split": "train",
+      "tasks": {
+        "dilemmadata.an.chord.inversion": {"source_value": null, "state": "masked"},
+        "dilemmadata.an.chord.quality": {"source_value": "major triad", "state": "available"}
+      }
+    },
+    {
+      "canonical_work_id": "fixture-work:an-gamma",
+      "dialect": "an_joint",
+      "lineage_ids": ["fixture-lineage:an-gamma"],
+      "record_id": "an:train:gamma",
+      "source_group_id": "fixture-group:an-gamma",
+      "split": "train",
+      "tasks": {
+        "dilemmadata.an.chord.inversion": {"source_value": "2", "state": "available"},
+        "dilemmadata.an.chord.quality": {"source_value": "minor triad", "state": "available"}
+      }
+    },
+    {
+      "canonical_work_id": "fixture-work:shared-alpha",
+      "dialect": "dlc",
+      "lineage_ids": ["fixture-lineage:shared-alpha"],
+      "record_id": "dlc:train:alpha",
+      "source_group_id": "fixture-group:shared-alpha",
+      "split": "train",
+      "tasks": {
+        "dilemmadata.dlc.chord.inversion": {"source_value": "2", "state": "available"},
+        "dilemmadata.dlc.chord.quality": {"source_value": "M", "state": "available"}
+      }
+    },
+    {
+      "canonical_work_id": "fixture-work:dlc-delta",
+      "dialect": "dlc",
+      "lineage_ids": ["fixture-lineage:dlc-delta"],
+      "record_id": "dlc:train:delta",
+      "source_group_id": "fixture-group:dlc-delta",
+      "split": "train",
+      "tasks": {
+        "dilemmadata.dlc.chord.inversion": {
+          "source_surface_value": "42",
+          "source_value": "2",
+          "state": "available"
+        },
+        "dilemmadata.dlc.chord.quality": {"source_value": "+7", "state": "available"}
+      }
+    },
+    {
+      "canonical_work_id": "fixture-work:dlc-epsilon",
+      "dialect": "dlc",
+      "lineage_ids": ["fixture-lineage:dlc-epsilon"],
+      "record_id": "dlc:train:epsilon",
+      "source_group_id": "fixture-group:dlc-epsilon",
+      "split": "train",
+      "tasks": {
+        "dilemmadata.dlc.chord.inversion": {"source_value": "43", "state": "available"},
+        "dilemmadata.dlc.chord.quality": {"source_value": "M", "state": "available"}
+      }
+    },
+    {
+      "canonical_work_id": "fixture-work:an-zeta",
+      "dialect": "an_joint",
+      "lineage_ids": ["fixture-lineage:an-zeta"],
+      "record_id": "an:validation:zeta",
+      "source_group_id": "fixture-group:an-zeta",
+      "split": "validation",
+      "tasks": {
+        "dilemmadata.an.chord.inversion": {"source_value": "2", "state": "available"},
+        "dilemmadata.an.chord.quality": {"source_value": "minor triad", "state": "available"}
+      }
+    },
+    {
+      "canonical_work_id": "fixture-work:dlc-eta",
+      "dialect": "dlc",
+      "lineage_ids": ["fixture-lineage:dlc-eta"],
+      "record_id": "dlc:validation:eta",
+      "source_group_id": "fixture-group:dlc-eta",
+      "split": "validation",
+      "tasks": {
+        "dilemmadata.dlc.chord.inversion": {"source_value": "2", "state": "available"},
+        "dilemmadata.dlc.chord.quality": {"source_value": "m", "state": "available"}
+      }
+    },
+    {
+      "canonical_work_id": "fixture-work:dlc-theta",
+      "dialect": "dlc",
+      "lineage_ids": ["fixture-lineage:dlc-theta"],
+      "record_id": "dlc:validation:theta",
+      "source_group_id": "fixture-group:dlc-theta",
+      "split": "validation",
+      "tasks": {
+        "dilemmadata.dlc.chord.inversion": {"source_value": null, "state": "masked"},
+        "dilemmadata.dlc.chord.quality": {"source_value": null, "state": "missing"}
+      }
+    }
+  ],
+  "schema": "DilemmadataEDASupervisionFixture@1.0.0",
+  "source_rows": [
+    "tests/fixtures/dilemmadata/corpus/pitch_arrays/AN/training/same_joint.tsv",
+    "tests/fixtures/dilemmadata/corpus/pitch_arrays/AN/validation/same-alt_joint.tsv",
+    "tests/fixtures/dilemmadata/corpus/pitch_arrays/DLC/demo/same.tsv"
+  ],
+  "surface_identity_cases": [
+    {"dialect": "an_joint", "source_task_id": "dilemmadata.an.chord.inversion", "source_value": "2"},
+    {"dialect": "dlc", "source_task_id": "dilemmadata.dlc.chord.inversion", "source_value": "2"},
+    {"dialect": "dlc", "source_task_id": "dilemmadata.dlc.chord.inversion", "source_value": "42"}
+  ],
+  "work_identity_contract": {
+    "canonical_field": "canonical_work_id",
+    "identity": "dilemmadata.fixture.canonical_work_identity",
+    "lineage_field": "lineage_ids",
+    "source_group_field": "source_group_id",
+    "version": "1.0.0"
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "schema": "MultiSourceEDASyntheticInput@1.0.0",
+  "repository_commit": "659bde251fee6c836564a45aea854b6abcac9fe0",
+  "corpora": [
+    {
+      "corpus": "dilemmadata",
+      "release": "synthetic-dilemmadata",
+      "records": [
+        {"record_id": "dilemma-1", "duration_qn": 8, "note_count": 6}
+      ],
+      "task": {
+        "source_task_id": "dilemmadata.an.chord.quality",
+        "dialect": "an_joint",
+        "annotation_namespace": "dilemmadata.an",
+        "vocabulary": ["major triad", "minor triad"],
+        "states": ["available", "available", "masked", "missing"],
+        "available_values": ["major triad", "minor triad"],
+        "work_identity_proven": true
+      }
+    },
+    {
+      "corpus": "hooktheory",
+      "release": "synthetic-hooktheory",
+      "records": [
+        {"record_id": "hook-1", "duration_qn": 4, "note_count": 3}
+      ],
+      "task": {
+        "source_task_id": "theory.chord.inversion",
+        "dialect": "hooktheory-v2b1",
+        "annotation_namespace": "hooktheory.theory",
+        "vocabulary": ["0", "1"],
+        "states": ["available", "unsupported"],
+        "available_values": ["0"],
+        "work_identity_proven": false
+      }
+    },
+    {
+      "corpus": "pdmx",
+      "release": "synthetic-pdmx",
+      "records": [
+        {"record_id": "pdmx-1", "duration_qn": 12, "note_count": 8}
+      ],
+      "task": null
+    },
+    {
+      "corpus": "pop909_cl",
+      "release": "synthetic-pop909-cl",
+      "records": [
+        {"record_id": "pop-1", "duration_qn": 16, "note_count": 10}
+      ],
+      "task": {
+        "source_task_id": "pop909_cl.chord.quality",
+        "dialect": "pop909-cl-v2",
+        "annotation_namespace": "pop909_cl.chord",
+        "vocabulary": ["maj", "min"],
+        "states": ["available", "available", "unsupported"],
+        "available_values": ["maj", "min"],
+        "work_identity_proven": true
+      }
+    }
+  ]
+}

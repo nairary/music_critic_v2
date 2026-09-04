@@ -1,0 +1,87 @@
+{
+  "claim": "pinned_reconstruction_with_declared_substitutions_not_exact_official_reproduction",
+  "patches": [
+    {
+      "path": "analysisgnn_patches/0001-restore-graphmuse-score-graph.patch",
+      "sha256": "30823e6d8015892dd1d798cb8f3f11e3080e39689f25b24ee7fe7bc4e57dc04a",
+      "purpose": "replace the broken tuple-valued local graph fallback with the public GraphMuse HeteroData builder"
+    },
+    {
+      "path": "analysisgnn_patches/0002-route-simple-features-to-public-25d-path.patch",
+      "sha256": "a862cda5c44904a5c8b6630634104a88133c115905aea158514bd19d31685b33",
+      "purpose": "route checkpoint-configured simple features to the public 25-dimensional implementation for NumPy note arrays"
+    },
+    {
+      "path": "analysisgnn_patches/0003-mask-invalid-labels-instead-of-class-zero.patch",
+      "sha256": "07d3a0f5f4b19e3eb18c04af4657642b6ae689594e74d1ceb7290f819141c3d9",
+      "purpose": "preserve missing or out-of-range labels as masked -1 rather than class zero"
+    }
+  ],
+  "substitutions": [
+    {
+      "id": "python-package-metadata",
+      "official_or_paper": "public run records Python 3.12.8 while official setup.py declares Python <3.12",
+      "reconstruction": "install the pinned source with --ignore-requires-python in the attested public Python 3.12.8 environment"
+    },
+    {
+      "id": "v2-package-dependency-range",
+      "official_or_paper": "Music Critic V2 declares torch >=2.8 and PyG >=2.7 for its production model",
+      "reconstruction": "install this experiment branch with --no-deps inside the isolated AnalysisGNN torch 2.2.2 / PyG 2.6.1 environment; no Music Critic model path is executed"
+    },
+    {
+      "id": "source-revision",
+      "official_or_paper": "public run records unpublished source commit 7738a282abe5090d44627759786dfa31b71e1a43",
+      "reconstruction": "official public AnalysisGNN commit e115182fb29b74bdcb6bf3547ed427d967580947"
+    },
+    {
+      "id": "graphmuse-revision",
+      "official_or_paper": "no GraphMuse revision appears in the public requirements or paper metadata",
+      "reconstruction": "closest pre-run public API/state-compatible commit c36eedba811a24c0addf96bdd3d1df449cf753c1"
+    },
+    {
+      "id": "weight-decay",
+      "official_or_paper": "public checkpoint config uses 0.005; paper/common protocol specifies 0.0005",
+      "reconstruction": "historical reconstruction retains 0.005; common arm uses preregistered 0.0005"
+    },
+    {
+      "id": "task-surface",
+      "official_or_paper": "public checkpoint contains 21 heads and quality has 15 classes",
+      "reconstruction": "common arm is scratch-only with quality 50 and inversion 4; all other heads are absent"
+    },
+    {
+      "id": "bigru-depth",
+      "official_or_paper": "paper prose suggests encoder depth parity",
+      "reconstruction": "checkpoint state and compatible public HybridGNN fix the branch at two bidirectional GRU layers"
+    },
+    {
+      "id": "augmentation-split",
+      "official_or_paper": "public dataset code splits after exposing transposed views",
+      "reconstruction": "common arm freezes source groups into 577/71/71 before creating 12 training views"
+    },
+    {
+      "id": "swa",
+      "official_or_paper": "public historical run uses SWA",
+      "reconstruction": "common scratch arm uses only AdamW and validation-selected checkpoints"
+    },
+    {
+      "id": "spelling-boundaries",
+      "official_or_paper": "public encoders reject transpositions outside their 35 spelling and -7..7 key vocabularies",
+      "reconstruction": "rare boundary spellings and keys are enharmonically normalized inside those same vocabularies"
+    },
+    {
+      "id": "entry-evaluation",
+      "official_or_paper": "paper/public evaluation is primarily note/onset based",
+      "reconstruction": "common benchmark aggregates mean note log probabilities once per source entry"
+    },
+    {
+      "id": "applied-update-budget",
+      "official_or_paper": "scientific specification requires a fixed equal budget but gives no integer",
+      "reconstruction": "10000 applied optimizer updates for every seed, validation every 500"
+    },
+    {
+      "id": "common-batch-unit",
+      "official_or_paper": "public run uses sampled subgraphs with batch 240 and subgraph size 500; the common protocol fixes update accounting but not a batch size",
+      "reconstruction": "one complete source/transposition graph per candidate update, with a seeded shuffled schedule and explicit applied/skipped accounting"
+    }
+  ]
+}

@@ -3,6 +3,8 @@ name: Required test suite
 on:
   pull_request:
   push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -19,17 +21,153 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Detect CI-relevant changes
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BASE_SHA: ${{ github.event.before }}
+          PUSH_HEAD_SHA: ${{ github.sha }}
+        run: |
+          changed_files="$RUNNER_TEMP/ci-changed-files.txt"
+          case "$EVENT_NAME" in
+            pull_request)
+              base_sha="$PR_BASE_SHA"
+              head_sha="$PR_HEAD_SHA"
+              ;;
+            push)
+              base_sha="$PUSH_BASE_SHA"
+              head_sha="$PUSH_HEAD_SHA"
+              ;;
+            *)
+              base_sha=""
+              head_sha=""
+              ;;
+          esac
+          if classification=$(
+            bash .github/scripts/classify-ci-change.sh \
+              "$base_sha" \
+              "$head_sha" \
+              "$changed_files"
+          ); then
+            printf '%s\n' "$classification" >> "$GITHUB_OUTPUT"
+          else
+            : > "$changed_files"
+            printf '%s\n' \
+              "ci_relevant=true" \
+              "change_detection_succeeded=false" \
+              "changed_count=0" \
+              "reason=The change classifier failed; running fail-open." \
+              >> "$GITHUB_OUTPUT"
+          fi
+          echo "changed_files=$changed_files" >> "$GITHUB_OUTPUT"
+      - name: Compute CI-relevant tree fingerprint
+        id: tree
+        run: |
+          if fingerprint=$(bash .github/scripts/ci-tree-fingerprint.sh); then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+            echo "fingerprint=$fingerprint" >> "$GITHUB_OUTPUT"
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            echo "fingerprint=unavailable" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Find successful full-suite marker
+        id: success-cache
+        if: >-
+          steps.changes.outputs.ci_relevant == 'true' &&
+          steps.tree.outputs.valid == 'true'
+        continue-on-error: true
+        uses: actions/cache/restore@v5
+        with:
+          path: .ci-cache/full-suite-success
+          key: full-suite-success-v1-${{ runner.os }}-${{ steps.tree.outputs.fingerprint }}
+          lookup-only: true
       - name: Set up Python
+        if: >-
+          steps.changes.outputs.ci_relevant == 'true' &&
+          steps.success-cache.outputs.cache-hit != 'true'
         uses: actions/setup-python@v6
         with:
           python-version: "3.13"
           cache: pip
       - name: Install CPU dependencies
+        if: >-
+          steps.changes.outputs.ci_relevant == 'true' &&
+          steps.success-cache.outputs.cache-hit != 'true'
         run: |
           python -m pip install --upgrade pip
           python -m pip install "torch>=2.8,<3" --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -e ".[dev,training]"
       - name: Run full test suite
+        if: >-
+          steps.changes.outputs.ci_relevant == 'true' &&
+          steps.success-cache.outputs.cache-hit != 'true'
         run: python -m pytest -q
       - name: Compile Python sources
+        if: >-
+          steps.changes.outputs.ci_relevant == 'true' &&
+          steps.success-cache.outputs.cache-hit != 'true'
         run: python -m compileall -q src scripts tests
+      - name: Create successful full-suite marker
+        if: >-
+          success() &&
+          steps.changes.outputs.ci_relevant == 'true' &&
+          steps.tree.outputs.valid == 'true' &&
+          steps.success-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p .ci-cache/full-suite-success
+          printf '%s\n' "${{ steps.tree.outputs.fingerprint }}" \
+            > .ci-cache/full-suite-success/fingerprint
+      - name: Save successful full-suite marker
+        if: >-
+          success() &&
+          steps.changes.outputs.ci_relevant == 'true' &&
+          steps.tree.outputs.valid == 'true' &&
+          steps.success-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v5
+        with:
+          path: .ci-cache/full-suite-success
+          key: full-suite-success-v1-${{ runner.os }}-${{ steps.tree.outputs.fingerprint }}
+      - name: Summarize full-suite decision
+        if: always()
+        env:
+          CACHE_HIT: ${{ steps.success-cache.outputs.cache-hit }}
+          CHANGED_FILES: ${{ steps.changes.outputs.changed_files }}
+          CHANGE_DETECTION_SUCCEEDED: >-
+            ${{ steps.changes.outputs.change_detection_succeeded }}
+          CI_RELEVANT: ${{ steps.changes.outputs.ci_relevant }}
+          FINGERPRINT: ${{ steps.tree.outputs.fingerprint }}
+          FINGERPRINT_VALID: ${{ steps.tree.outputs.valid }}
+          REASON: ${{ steps.changes.outputs.reason }}
+        run: |
+          if [[ "$CI_RELEVANT" != true ]]; then
+            decision="Skipped Python setup, dependency installation, pytest, and compileall."
+          elif [[ "$CACHE_HIT" == true ]]; then
+            decision="Reused a successful full-suite result for the identical CI-relevant tree."
+          elif [[ "$FINGERPRINT_VALID" != true ]]; then
+            decision="Ran full-suite without cache because tree fingerprinting failed."
+          else
+            decision="Ran full-suite because no successful exact-fingerprint marker was found."
+          fi
+          {
+            echo "## full-suite decision"
+            echo
+            echo "- CI-relevant: $CI_RELEVANT"
+            echo "- Change detection succeeded: $CHANGE_DETECTION_SUCCEEDED"
+            echo "- Decision: $decision"
+            echo "- Reason: $REASON"
+            echo "- CI-relevant tree fingerprint: $FINGERPRINT"
+            echo
+            echo "### Changed files"
+            if [[ -n "$CHANGED_FILES" && -s "$CHANGED_FILES" ]]; then
+              while IFS= read -r path || [[ -n "$path" ]]; do
+                printf '    %s\n' "$path"
+              done < "$CHANGED_FILES"
+            else
+              echo "    <unavailable>"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

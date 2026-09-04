@@ -30,6 +30,7 @@ from music_critic.evaluation.dilemmadata import (
     evaluate_dilemmadata_model,
     make_dilemmadata_test_unlock,
     paired_component_bootstrap,
+    validate_dilemmadata_train_priors,
 )
 from music_critic.evaluation.metrics import (
     CategoricalMetricAccumulator,
@@ -73,4 +74,5 @@ __all__ = [
     "run_evaluation",
     "run_profiler",
     "validate_train_priors",
+    "validate_dilemmadata_train_priors",
 ]

@@ -1,0 +1,101 @@
+{
+  "schema": "HookTheoryRawBoundedManifest@1.0.0",
+  "corpus": "hooktheory",
+  "contract_base": "65eb32fb948efde0fa117d7d27d19d8f16fa25b4",
+  "source_release": {
+    "identity": "map.hooktheory.raw_release",
+    "version": "1.0.0",
+    "fingerprint": "8ab601050d0b8c8752c3b6bf190d63edefa5fce07735ce823bca6a3922dff833"
+  },
+  "evidence_basis": [
+    "phase_2b_golden_cases",
+    "phase_2b_adapter_conversion"
+  ],
+  "selection": {
+    "case_count": 19,
+    "converted_excerpt_count": 18,
+    "production_scan_run": false
+  },
+  "split_counts": {
+    "train": 18,
+    "test": 1
+  },
+  "inventory": {
+    "discovered_records": 19,
+    "accepted_records": 18,
+    "quarantined_records": 1,
+    "parse_outcomes": {
+      "parsed": 19
+    },
+    "conversion_outcomes": {
+      "accepted": 18,
+      "quarantined": 1
+    },
+    "reason_codes": {
+      "hooktheory.missing_json_payload": 1
+    },
+    "invalid_records": 1,
+    "empty_records": 9,
+    "oversize_records": 0
+  },
+  "structural_values": {
+    "duration": ["5/1", "14/1", "37/1", "53/1", "53/1", "4/1", "113/1", "2/1", "64/1", "33/2", "12/1", "4/1", "3/1", "4/1", "257/2", "6/1", "4/1", "155/4"],
+    "notes": [1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+    "onsets": [1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+    "bars": [2, 4, 10, 14, 18, 1, 29, 1, 16, 3, 3, 1, 1, 1, 33, 2, 1, 10],
+    "beats": [5, 14, 37, 53, 53, 4, 113, 2, 64, 17, 12, 4, 6, 4, 129, 6, 4, 39],
+    "tracks": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    "parts": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    "density": ["1/5", "1/14", "1/37", "1/53", "1/53", "1/4", "0/113", "1/2", "0/64", "0/33", "1/12", "1/4", "0/3", "0/4", "0/257", "0/6", "0/4", "0/155"],
+    "polyphony": [1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+    "meter_changes": [0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "tempo_changes": [0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  },
+  "categorical_values": {
+    "meter": {
+      "12/8": 1,
+      "3/4": 2,
+      "4/4": 15,
+      "6/4": 1,
+      "8/4": 1
+    },
+    "instruments": {
+      "melody": 18
+    },
+    "programs": {},
+    "percussion_presence": {
+      "false": 18
+    }
+  },
+  "uncomputed_metrics": [
+    "cross_split_raw_identity_collisions",
+    "duplicate_candidates",
+    "graph_edge_counts",
+    "graph_node_counts",
+    "graph_size_distribution",
+    "pitch_range",
+    "tempo",
+    "version_candidates"
+  ],
+  "source_record_fingerprints": {
+    "alternate_underscore": "5a3a36dd37904417923e2a3853699652448afd65f547ff188251b09a740c8011",
+    "borrowed_mode": "4103c50755e02ebcb99816efabda7e0dccd0f80d5df9176541553eca3ccacc4a",
+    "borrowed_pcset": "d2b4fd74bffe9b15148f04e27788344dc65c9ad0fc42678806161a911cf0c7f1",
+    "borrowed_unknown": "787b7a61f536c858faadc984ee05f79d9cd0bbc22e71afd69325621f836083c2",
+    "compound_meter_beat_unit_3": "f1b69b9a64cc08825318acad7226cb26f1fe4be3fc01bcf1bce081eedb519cd6",
+    "double_flat_bb1": "896fd9c63fd39477f7607c90956b8f31a0a305b3ae79e55f0f9726981455393e",
+    "minor_inversion_suspension": "0cd328ebb9e39a4645f181add5b3aaa443a53d777c7df95bfb91d064f2a2fbed",
+    "missing_payload": "5964209ea9ae9fd8436eca3ec8fb3521fcd078723bc495ecb789233e491256ba",
+    "multiple_keys_decorations": "962b1492d28272eef385b1d478b5502879b6d162beee1b1e8b1557a1182d118b",
+    "multiple_meters": "c250937151ab2d3083202304ee1be2a43ca5e5dd22d2d5de79ad22f14ad3b7cb",
+    "multiple_tempos_extended": "a4f180216260701be050d86dbd8ec4c7f5babc4fbadbff7a6ce2be1cd11ca3e6",
+    "negative_root_rest": "22eb7774e39089c5c73b26f0556c2521f38cbab2bd55dafab0cd2477e32f61aa",
+    "null_note_fields": "f2f129898c5b9751b96b924ccae20bf413915b8aed34f0e8225f008a72af6ca4",
+    "num_beats_8": "55d8660788c7d8006d074430f7f1af029d7861db9e0105d69f6bbef510b2ca43",
+    "ordinary_major_fractional": "d1048ab66d4caac0be22e7f2983c3c09f6192eb59e72afa91786bb44204bf472",
+    "root_zero_non_rest": "239bdc4a594d4881711927bba1b1796523cf6d34403111f368a1fff88e3b3156",
+    "root_zero_rest": "ed23f29cfb7cad73882cd39ca8bc9291462670b87df0892584a9010a13919a9e",
+    "shared_group_applied": "1b1d2639660a7cd883e70458d968d2abd68426cdbd10c7398391a468f65f91c5",
+    "shared_group_peer": "6cefcc2c64747e6927fb215f3e6419a801b400a257ec1283745b51800f78ecdd"
+  }
+}

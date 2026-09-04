@@ -1,0 +1,120 @@
+{
+  "schema": "Pop909ClRawEDAManifest@1.0.0",
+  "corpus": "pop909_cl",
+  "source_release": {
+    "identity": "pop909_cl.release",
+    "version": "2.0.0",
+    "fingerprint": "b34f07d9a2678abdb6f0dcf5db1c3aec3f35caca813f1fac80c0717cfc8e0c65"
+  },
+  "evidence_basis": [
+    "phase_4a_raw_audit",
+    "phase_4b_raw_acceptance",
+    "phase_6c_split_audit"
+  ],
+  "inventory": {
+    "discovered_records": 909,
+    "accepted_records": 908,
+    "quarantined_records": 1,
+    "conversion_outcomes": {
+      "accepted": 908,
+      "quarantined": 1
+    },
+    "unique_channel_0_score_instruments": 909,
+    "quarantine_song_ids": [
+      "172"
+    ],
+    "quarantine_reason": "midi_adapter.meter_change_inside_bar"
+  },
+  "identity_evidence": {
+    "accepted_assignment_count": 908,
+    "assignment_manifest_fingerprint": "b0546316acb225bb95439dab78fab95232b0a7a758316b69b85dc87f733c384d",
+    "assignment_manifest_file_sha256": "a5b49cd7f48f87c66ed6656a223e576629373158b9f64b783c47d65e512e5385",
+    "record_piece_id_count": 908,
+    "raw_input_equivalence_group_count": 907,
+    "raw_input_duplicate_record_count": 2,
+    "raw_input_duplicate_cluster_count": 1,
+    "cross_split_raw_identity_collision_count": 0,
+    "cross_split_source_group_collision_count": 0,
+    "cross_split_lineage_collision_count": 0,
+    "split_assignment_counts": {
+      "train": 701,
+      "validation": 101,
+      "test": 106
+    },
+    "canonical_work_identity_status": "not_computed",
+    "raw_equivalence_cluster": {
+      "member_record_ids": [
+        "piece:pop909-cl-543",
+        "piece:pop909-cl-553"
+      ],
+      "source_group_id": "pop909-cl-score:4585134e3f7a70c105a3bb678a04ab2bc4522c04e11183f6fd6c59046be25286",
+      "member_splits": [
+        "train",
+        "train"
+      ]
+    }
+  },
+  "raw_outliers": {
+    "score_warning_occurrences": 126163,
+    "same_pitch_overlap_warning_occurrences": 123439,
+    "score_warning_observed_records": 908,
+    "score_warning_occurrences_by_code": {
+      "EMPTY_TRACK": 908,
+      "INCOMPLETE_FINAL_BAR": 908,
+      "OVERLAPPING_SAME_PITCH_NOTES": 123439,
+      "PIECE_TRAILING_SILENCE": 908
+    },
+    "score_warning_affected_records_by_code": {
+      "EMPTY_TRACK": 908,
+      "INCOMPLETE_FINAL_BAR": 908,
+      "OVERLAPPING_SAME_PITCH_NOTES": 907,
+      "PIECE_TRAILING_SILENCE": 908
+    },
+    "score_warning_distribution_per_converted_record": {
+      "observed_records": 908,
+      "unknown_records": 1,
+      "minimum": 3,
+      "median": 123,
+      "p95": 282,
+      "maximum": 966,
+      "mean_status": "not_computed"
+    },
+    "installation_source_files": 1819,
+    "appledouble_noise_files": 910,
+    "meter_change_offsets": {
+      "song_id": "172",
+      "unit": "tick",
+      "values": [
+        600,
+        480
+      ]
+    }
+  },
+  "raw_structure": {
+    "midi_type_1_records": 909,
+    "ppqn_480_records": 909,
+    "empty_conductor_tracks": 909,
+    "tempo_events": 909,
+    "meter_events": 911,
+    "key_signature_events": 1065,
+    "score_note_distribution": {
+      "observed_records": 908,
+      "unknown_records": 1,
+      "minimum": 175,
+      "median": 1655,
+      "p95": 2403,
+      "maximum": 4233,
+      "mean_status": "not_computed"
+    }
+  },
+  "graph_evidence": {
+    "status": "not_computed",
+    "reason": "eda.target_free_unproven"
+  },
+  "scan_policy": {
+    "production_scan_run": false,
+    "corpus_files_opened": false,
+    "midi_conversion_run": false,
+    "graph_build_run": false
+  }
+}

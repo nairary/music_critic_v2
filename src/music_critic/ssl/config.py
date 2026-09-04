@@ -69,6 +69,14 @@ class Phase8B2ScheduleConfig:
 
 
 @dataclass
+class Phase9CSSLDataConfig(DataConfig):
+    """Phase 9C-only raw eligibility binding over the mixed corpus view."""
+
+    name: str = "phase9c_mixed"
+    ssl_eligibility_manifest: str = ""
+
+
+@dataclass
 class SSLObjectiveConfig:
     mask_rate: float = 0.30
     decoder_views: int = 3
@@ -123,6 +131,11 @@ def register_ssl_configs() -> None:
         return
     store = ConfigStore.instance()
     store.store(name="ssl_training", node=SSLTrainingConfig)
+    store.store(
+        group="data",
+        name="phase9c_mixed",
+        node=Phase9CSSLDataConfig(),
+    )
     store.store(
         group="experiment",
         name="pretrain",

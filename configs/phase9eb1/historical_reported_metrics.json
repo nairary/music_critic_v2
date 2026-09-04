@@ -1,0 +1,20 @@
+{
+  "claim": "reported_public_run_metrics_not_independent_reproduction",
+  "run_path": "melkisedeath/AnalysisGNN/rhsjiz03",
+  "summary_sha256": "53f24c85da6c75103996bb5b0d12047ebbd286dfce9607f29d510a46af1a946e",
+  "available_summary_key_count": 178,
+  "metrics_scope": "audit_relevant_reported_public_metrics; complete raw summary is hash-attested and remains an uncommitted output",
+  "metrics": {
+    "test/RN(Onset)_all_accuracy": 0.5158933997154236,
+    "test/RN(Onset)_rna_accuracy": 0.5297262668609619,
+    "test/cadence_all_f1": 0.5333232879638672,
+    "test/cadence_cadence_f1": 0.4707256257534027,
+    "test/inversion_all_acc": 0.7973431944847107,
+    "test/inversion_all_f1": 0.5789803266525269,
+    "test/phrase_all_f1": 0.7422001361846924,
+    "test/quality_all_acc": 0.7928699851036072,
+    "test/quality_all_f1": 0.5206760168075562,
+    "test/total_loss": 1.044084072113037,
+    "trainer/global_step": 9090
+  }
+}

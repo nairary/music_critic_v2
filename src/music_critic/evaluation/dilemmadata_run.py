@@ -14,8 +14,8 @@ from torch.utils.data import DataLoader
 
 from music_critic.evaluation.dilemmadata import evaluate_dilemmadata_model
 from music_critic.models import (
-    DilemmadataHierarchicalConfig,
     DilemmadataHierarchicalModel,
+    dilemmadata_config_from_model_contract,
 )
 from music_critic.tasks import (
     CorpusCacheConfig,
@@ -74,12 +74,10 @@ def _write(path: Path, value: object) -> None:
 def _model(path: Path, device: torch.device) -> DilemmadataHierarchicalModel:
     payload = torch.load(path, map_location="cpu", weights_only=True)
     contract = payload["metadata"]["model_contract"]
-    config = dict(contract["config"])
-    config["task_weights"] = tuple(
-        tuple(row) for row in config["task_weights"]
-    )
     model = DilemmadataHierarchicalModel(
-        DilemmadataHierarchicalConfig(**config)
+        dilemmadata_config_from_model_contract(
+            contract, payload["model_state"]
+        )
     )
     model.load_state_dict(payload["model_state"], strict=True)
     return model.to(device)

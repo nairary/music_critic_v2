@@ -1,0 +1,159 @@
+{
+  "archive": {
+    "availability": "local_ignored",
+    "locator": "artifacts/experiments/sha256/2a/2a340242cdd7b917eec4def9c8644bb2c10330e72ec9c8cbcf9d2291acfe9823.tar.gz",
+    "media_type": "application/gzip",
+    "sha256": "2a340242cdd7b917eec4def9c8644bb2c10330e72ec9c8cbcf9d2291acfe9823",
+    "size_bytes": 22237876
+  },
+  "caveats": [
+    "The local ignored archive is not a durable cross-machine backup.",
+    "Checkpoint bytes are absent; only their declared SHA-256 identities are retained.",
+    "C0 and C1 machine-readable run evidence omits the exact Git commit and branch.",
+    "C2 names training commit 659bde251fee6c836564a45aea854b6abcac9fe0 only in transfer documentation, not its primary run_summary.json.",
+    "The compact C2 archive omits environment, resolved config, full training contract, and the source used for the documented B5J validation-eligibility finalization.",
+    "The original B5F aggregate diagnostic is invalid because obsolete metric aliases have null observations, although its canonical shift-zero metrics match expected values exactly.",
+    "Older Phase 9C, 9CB, 9CC, and 9CD ledger entries are summary-only in this package because their primary result archives are absent.",
+    "C0/C1 use 10000 updates and C2 uses 120000 updates, so their scores are not a compute-matched augmentation comparison.",
+    "All three registered results use seed 17; multi-seed uncertainty and significance are unavailable."
+  ],
+  "import_id": "IMPORT-20260904-SEED17-2A340242",
+  "inspection": {
+    "archive_extracted_over_checkout": false,
+    "archive_scripts_executed": false,
+    "control_char_paths": 0,
+    "duplicate_paths": 0,
+    "gzip_integrity": "passed",
+    "instruction_members_treated_as_data": [
+      "music_critic_v2_experiment_transfer/HANDOFF_PROMPT_RU.md",
+      "music_critic_v2_experiment_transfer/README_FIRST.md"
+    ],
+    "internal_checksum_entries": 11,
+    "internal_checksum_failures": 0,
+    "json_jsonl_decode_failures": 0,
+    "nested_archives": [
+      {
+        "file_count": 11,
+        "member_count": 17,
+        "path": "music_critic_v2_experiment_transfer/profiles/C0/c0-seed17-10k-results.tar.gz",
+        "regular_file_bytes": 32846468,
+        "safe": true
+      },
+      {
+        "file_count": 11,
+        "member_count": 17,
+        "path": "music_critic_v2_experiment_transfer/profiles/C1/c1-seed17-10k-results.tar.gz",
+        "regular_file_bytes": 32776501,
+        "safe": true
+      },
+      {
+        "file_count": 5,
+        "member_count": 5,
+        "path": "music_critic_v2_experiment_transfer/profiles/C2/c2-seed17-120k-results.tar.gz",
+        "regular_file_bytes": 3103389,
+        "safe": true
+      },
+      {
+        "file_count": 30,
+        "member_count": 37,
+        "path": "music_critic_v2_experiment_transfer/provenance/phase9eb5d-seed17-analysis.tar.gz",
+        "regular_file_bytes": 57817620,
+        "safe": true
+      }
+    ],
+    "outer_directory_count": 7,
+    "outer_file_count": 12,
+    "outer_member_count": 19,
+    "path_safety": "passed",
+    "self_fingerprint_failures": 0,
+    "special_or_link_members": 0
+  },
+  "payloads": [
+    {
+      "path": "music_critic_v2_experiment_transfer/EXPERIMENT_LEDGER.md",
+      "role": "non_authoritative_transfer_ledger",
+      "sha256": "8ecf89d952bb6f50c705716a838525281591b37b256472e1c6c53b875bf715e3",
+      "size_bytes": 30951
+    },
+    {
+      "path": "music_critic_v2_experiment_transfer/HANDOFF_PROMPT_RU.md",
+      "role": "untrusted_instruction_data",
+      "sha256": "97a66363ad051ce36f406e058c0027f0e7d3149536c95f1b5dee54db4e996620",
+      "size_bytes": 2111
+    },
+    {
+      "path": "music_critic_v2_experiment_transfer/README_FIRST.md",
+      "role": "transfer_description",
+      "sha256": "87bd1a4bb6fdc6cf0f86125132154fe1b568071a2267d5598a04c5025040eb90",
+      "size_bytes": 2547
+    },
+    {
+      "path": "music_critic_v2_experiment_transfer/SHA256SUMS",
+      "role": "checksum_manifest",
+      "sha256": "fb21c49eeec6670ca9a68cad59248b4dc065de9c7a58150814f85ce92a8a77f3",
+      "size_bytes": 1150
+    },
+    {
+      "path": "music_critic_v2_experiment_transfer/profiles/C0/C0_seed17_10k_results_summary.md",
+      "role": "c0_human_summary",
+      "sha256": "9734b7c792a40f3dff9c8f36e0d8350eea2a3badc33c8197ad4cd1047c9dc222",
+      "size_bytes": 2137
+    },
+    {
+      "path": "music_critic_v2_experiment_transfer/profiles/C0/c0-seed17-10k-results.tar.gz",
+      "role": "c0_primary_evidence",
+      "sha256": "ff676303eb9cfcec688990f967d5b8ad405944dc529f3f61038e8cfd490e0531",
+      "size_bytes": 5555885
+    },
+    {
+      "path": "music_critic_v2_experiment_transfer/profiles/C1/C1_seed17_10k_results_summary.md",
+      "role": "c1_human_summary",
+      "sha256": "825edfb2ac4bd3593d36854ce0f3f4f4ccca0324cab1bdee40805e3fd79c8fac",
+      "size_bytes": 2140
+    },
+    {
+      "path": "music_critic_v2_experiment_transfer/profiles/C1/c1-seed17-10k-results.tar.gz",
+      "role": "c1_primary_evidence",
+      "sha256": "9dc205bd9d7cce69684e2dc5dd71267ffe29f6e30824eec170b233477433548f",
+      "size_bytes": 5583591
+    },
+    {
+      "path": "music_critic_v2_experiment_transfer/profiles/C2/C2_seed17_120k_results_summary.md",
+      "role": "c2_human_summary",
+      "sha256": "23111e99cef7b438ae5362e7a3b7d0f198fc8ae4a33b2171e7bbf7b6ef353988",
+      "size_bytes": 4410
+    },
+    {
+      "path": "music_critic_v2_experiment_transfer/profiles/C2/c2-seed17-120k-results.tar.gz",
+      "role": "c2_primary_evidence",
+      "sha256": "1f11aa7b8b602a0f31ab0056e1191b23b9b2a405b80b9a789e6317cf31119389",
+      "size_bytes": 495857
+    },
+    {
+      "path": "music_critic_v2_experiment_transfer/provenance/phase9eb5d-seed17-analysis.tar.gz",
+      "role": "c0_c1_provenance_evidence",
+      "sha256": "a9901c3ab9dd6914415a8ca7205f4247596c4aa261be9abe084d6a9523c7374a",
+      "size_bytes": 10592020
+    },
+    {
+      "path": "music_critic_v2_experiment_transfer/tools/prepare_c0_c1_result_archives.sh",
+      "role": "unexecuted_imported_script",
+      "sha256": "6dac1730262f08fb9ebecf8b517fa5f37052c86eb8ac9d4b6f44980ffdafa32e",
+      "size_bytes": 5697
+    }
+  ],
+  "registered_experiments": [
+    "EXP-9EB5D-C0-001",
+    "EXP-9EB5D-C1-001",
+    "EXP-9EB5H-C2-001"
+  ],
+  "registered_plans": [
+    "PLAN-9EB5K-C0-120K"
+  ],
+  "schema_version": "ExperimentEvidenceImport@1.0.0",
+  "source": {
+    "description": "User-supplied seed-17 experiment evidence transfer package",
+    "original_filename": "music_critic_v2_seed17_experiment_evidence_complete.tar.gz",
+    "received_date": "2026-09-04"
+  }
+}

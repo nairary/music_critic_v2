@@ -1,0 +1,23 @@
+{
+  "schema": "HookTheoryEDASupervisionManifest@1.0.0",
+  "corpus": "hooktheory",
+  "records": {
+    "alternate_underscore": {"path": "tests/fixtures/hooktheory/cases/alternate_underscore.json", "sha256": "b2738707977b60014d260137cc13bf906689fdcd9a55de98e293a60f708526c2", "split": "train"},
+    "borrowed_mode": {"path": "tests/fixtures/hooktheory/cases/borrowed_mode.json", "sha256": "827c9f4715f86eb97313219d84354141411ddf448d2aace08e93df486a595a68", "split": "train"},
+    "borrowed_pcset": {"path": "tests/fixtures/hooktheory/cases/borrowed_pcset.json", "sha256": "0338aa189f6851aada4b97a347afd464abb0ed2ad89bf18fbde29c0c19020258", "split": "train"},
+    "borrowed_unknown": {"path": "tests/fixtures/hooktheory/cases/borrowed_unknown.json", "sha256": "61489feb385dd28b120d37bd6d0779381e5380dd7ae640ae5d201fc4deb61e04", "split": "train"},
+    "compound_meter_beat_unit_3": {"path": "tests/fixtures/hooktheory/cases/compound_meter_beat_unit_3.json", "sha256": "6e3a81cc4f40e649df92690b82fd1d7b8480b7c7a775fb604f828055ea8c8703", "split": "train"},
+    "double_flat_bb1": {"path": "tests/fixtures/hooktheory/cases/double_flat_bb1.json", "sha256": "98c5226c2fed948f765e5cd0497c9e31b61fffa977cb1377caec5a4ae80920e5", "split": "train"},
+    "minor_inversion_suspension": {"path": "tests/fixtures/hooktheory/cases/minor_inversion_suspension.json", "sha256": "817eb18a54cb1db39f05e55d5e04a08269e36874e6571f92d34eaf8ca1d744f2", "split": "train"},
+    "multiple_keys_decorations": {"path": "tests/fixtures/hooktheory/cases/multiple_keys_decorations.json", "sha256": "6abbae54974916fafc82f63a0dd95bf886bccdcdc0b4d2448c94e412576579b8", "split": "train"},
+    "multiple_meters": {"path": "tests/fixtures/hooktheory/cases/multiple_meters.json", "sha256": "7e15ddeca3c30c7ae1c1059e98702146632d10657e3f27b016ee70343f26034b", "split": "train"},
+    "multiple_tempos_extended": {"path": "tests/fixtures/hooktheory/cases/multiple_tempos_extended.json", "sha256": "5e72b56e1b40239bce6995447a007ec4c5d25702c18b472825747690bf565ee0", "split": "train"},
+    "negative_root_rest": {"path": "tests/fixtures/hooktheory/cases/negative_root_rest.json", "sha256": "a906feacab5a50027a95ee84b69965ceddfaa7a8820fd7318db915a587573f55", "split": "train"},
+    "null_note_fields": {"path": "tests/fixtures/hooktheory/cases/null_note_fields.json", "sha256": "015e3e838edb6da0057dc790e674a306890d24c513df5360899879fc04e44d7f", "split": "train"},
+    "num_beats_8": {"path": "tests/fixtures/hooktheory/cases/num_beats_8.json", "sha256": "2f68032507cc6a10111768dee4ac7c26da2e560dd17a0a85e5f80d901dc040de", "split": "train"},
+    "ordinary_major_fractional": {"path": "tests/fixtures/hooktheory/cases/ordinary_major_fractional.json", "sha256": "dc4dfed47919a8becd0dd3745a95d23ebd6e0f6b056784c1288ac1b4a9ff458a", "split": "train"},
+    "root_zero_non_rest": {"path": "tests/fixtures/hooktheory/cases/root_zero_non_rest.json", "sha256": "275a80fb493fee437894ad3fb9ec9c7d9d2ab84335b1d7336d549df9659b1989", "split": "train"},
+    "shared_group_applied": {"path": "tests/fixtures/hooktheory/cases/shared_group_applied.json", "sha256": "48ed880fcac8cab41c83ae59c01a26949604123dd8800fc53521edc583104b14", "split": "train"},
+    "shared_group_peer": {"path": "tests/fixtures/hooktheory/cases/shared_group_peer.json", "sha256": "b0b80f667bd1e7515918b2073d24b1089f991bf9e6f0036a9abb9165720790f5", "split": "train"}
+  }
+}

@@ -159,6 +159,7 @@ def test_fixed_experiment_presets_resolve_before_execution(
         "harmonic_weight": harmonic_weight,
         "reconstruction_weight": reconstruction_weight,
         "task_weights": {},
+        "class_weight_artifact_path": "",
     }
 
 

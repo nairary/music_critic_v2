@@ -1,0 +1,33 @@
+{
+  "claim": "safe_state_dict_shape_attestation_not_weight_reuse_or_reproduction",
+  "checkpoint_sha256": "a557d0046e2c03c19514e1351a3cd0f2b49c31b991c370307345a7f1c6a65f31",
+  "epoch": 98,
+  "global_step": 8910,
+  "lightning_version": "2.5.0.post0",
+  "state_tensor_count": 987,
+  "encoder": {
+    "base_input_channels": 25,
+    "beat_measure_input_channels": 25,
+    "hidden_channels": 256,
+    "jumping_knowledge": true,
+    "key_embedding": [15, 64],
+    "note_projected_input_channels": 153,
+    "num_gnn_layers": 3,
+    "output_channels": 128,
+    "pitch_spelling_embedding": [35, 64]
+  },
+  "hybrid_bigru": {
+    "bidirectional": true,
+    "hidden_channels_per_direction": 128,
+    "input_channels": 256,
+    "num_layers": 2,
+    "output_channels": 256,
+    "post_concat_projection": [256, 512]
+  },
+  "attested_heads": {
+    "inversion": [128, 64, 4],
+    "quality": [128, 64, 15]
+  },
+  "common_arm_checkpoint_reuse": false,
+  "common_arm_training": "from_scratch"
+}

@@ -35,7 +35,9 @@ from music_critic.models import (
     ACTIVE_TASK_IDS,
     DILEMMADATA_ACTIVE_TASK_IDS,
     DilemmadataHierarchicalModel,
+    class_weight_tensors,
     load_dilemmadata_encoder_state,
+    dilemmadata_fresh_supervised_fingerprint,
 )
 from music_critic.tasks import MultiSourceBatch
 from music_critic.training.checkpoint import (
@@ -47,6 +49,9 @@ from music_critic.training.checkpoint import (
     training_checkpoint_metadata,
 )
 from music_critic.training.data import DataRuntime, build_data_runtime
+from music_critic.experiments.phase8b2.schedule import (
+    raw_downstream_sample_schedule_fingerprint,
+)
 from music_critic.training.device import move_multisource_batch
 from music_critic.training.metrics import EpochMetricAccumulator
 from music_critic.training.models import (
@@ -125,6 +130,25 @@ def _resolve_presets(config: dict[str, Any]) -> None:
 
 def _is_dilemmadata(config: dict[str, Any]) -> bool:
     return config["data"]["name"] == "dilemmadata"
+
+
+def _resolve_dilemmadata_class_weights(
+    config: dict[str, Any], *, device: torch.device
+) -> dict[str, torch.Tensor] | None:
+    path = config["objective"].get("class_weight_artifact_path", "")
+    if not path:
+        return None
+    if not _is_dilemmadata(config):
+        raise TrainingContractError("training.config.class_weights_non_dilemmadata")
+    try:
+        artifact = json.loads(Path(path).read_text(encoding="utf-8"))
+        weights, evidence = class_weight_tensors(artifact, device=device)
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        raise TrainingContractError(
+            "training.config.class_weight_artifact_invalid"
+        ) from exc
+    config["objective"]["class_weight_evidence"] = evidence
+    return weights
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -431,6 +455,13 @@ def _validate_config(config: dict[str, Any]) -> None:
             "training.config.objective_weights_invalid"
         )
     task_weights = config["objective"]["task_weights"]
+    class_weight_artifact_path = config["objective"].get(
+        "class_weight_artifact_path", ""
+    )
+    if not isinstance(class_weight_artifact_path, str):
+        raise TrainingContractError(
+            "training.config.class_weight_artifact_path_invalid"
+        )
     accepted_task_ids = (
         DILEMMADATA_ACTIVE_TASK_IDS
         if _is_dilemmadata(config)
@@ -470,6 +501,26 @@ def _validate_config(config: dict[str, Any]) -> None:
     ):
         raise TrainingContractError(
             "training.config.dilemmadata_hierarchical_ce_only_required"
+        )
+    decoder = config["model"].get("decoder", {"kind": "mlp"})
+    if (
+        not isinstance(decoder, dict)
+        or decoder.get("kind", "mlp") not in {"mlp", "onset_bigru"}
+        or (
+            decoder.get("kind") == "onset_bigru"
+            and config["model"]["hidden_dim"] % 2
+        )
+    ):
+        raise TrainingContractError(
+            "training.config.dilemmadata_decoder_invalid"
+        )
+    if not _is_dilemmadata(config) and decoder.get("kind", "mlp") != "mlp":
+        raise TrainingContractError(
+            "training.config.decoder_non_dilemmadata"
+        )
+    if not _is_dilemmadata(config) and class_weight_artifact_path:
+        raise TrainingContractError(
+            "training.config.class_weights_non_dilemmadata"
         )
     if explicit_requested_tasks and task_weights and {
         task_id for task_id, weight in task_weights.items() if weight > 0
@@ -817,6 +868,8 @@ def _optimize_batch(
     device: torch.device,
     *,
     collect_gradient_evidence: bool,
+    collect_update_metric: bool = False,
+    categorical_class_weights: dict[str, torch.Tensor] | None = None,
 ) -> tuple[Any, dict[str, object] | None, bool]:
     optimizer.zero_grad(set_to_none=True)
     with torch.amp.autocast(
@@ -824,12 +877,14 @@ def _optimize_batch(
         enabled=bool(config["device"]["amp"]),
         dtype=_amp_dtype(config),
     ):
-        output = model(
-            batch,
-            include_reconstruction=(
+        kwargs: dict[str, object] = {
+            "include_reconstruction": (
                 config["objective"]["reconstruction_weight"] > 0
-            ),
-        )
+            )
+        }
+        if isinstance(model, DilemmadataHierarchicalModel):
+            kwargs["class_weights"] = categorical_class_weights
+        output = model(batch, **kwargs)
         harmonic, reconstruction, total = _losses(output, config)
     if total is None:
         return output, None, True
@@ -839,7 +894,9 @@ def _optimize_batch(
     clipped_norm = torch.nn.utils.clip_grad_norm_(
         model.parameters(),
         float(config["optimizer"]["gradient_clip_norm"]),
-        error_if_nonfinite=collect_gradient_evidence,
+        error_if_nonfinite=(
+            collect_gradient_evidence or collect_update_metric
+        ),
     )
     gradient = (
         _gradient_evidence(model)
@@ -850,20 +907,22 @@ def _optimize_batch(
     scaler.update()
     scale_after = float(scaler.get_scale())
     skipped = scaler.is_enabled() and scale_after < scale_before
-    if not collect_gradient_evidence:
+    if not collect_gradient_evidence and not collect_update_metric:
         return output, None, skipped
-    return output, {
+    metric = {
         "harmonic_loss": _scalar(harmonic),
         "reconstruction_loss": _scalar(reconstruction),
         "total_loss": _scalar(total),
         "gradient_norm_before_clip": float(clipped_norm),
-        "gradient_coverage": gradient,
         "task_losses": _task_losses(output),
         "availability_counts": _availability_counts(output),
         "amp_scale_before": scale_before,
         "amp_scale_after": scale_after,
         "optimizer_step_applied": not skipped,
-    }, skipped
+    }
+    if collect_gradient_evidence:
+        metric["gradient_coverage"] = gradient
+    return output, metric, skipped
 
 
 def _validation_epoch(
@@ -970,6 +1029,7 @@ def _prepare(
     Any,
     torch.amp.GradScaler,
     CudaMemoryStatisticsLifecycleEvidence | None,
+    dict[str, torch.Tensor] | None,
 ]:
     _validate_config(config)
     device = _resolve_device(config)
@@ -1023,6 +1083,11 @@ def _prepare(
         task_weights=config["objective"]["task_weights"],
         dilemmadata=_is_dilemmadata(config),
     ).to(device)
+    fresh_supervised_before_transfer = (
+        dilemmadata_fresh_supervised_fingerprint(model)
+        if isinstance(model, DilemmadataHierarchicalModel)
+        else None
+    )
     encoder_export = None
     if transfer["mode"] != "supervised_scratch":
         export_path = Path(transfer["encoder_export_path"]).resolve()
@@ -1084,6 +1149,18 @@ def _prepare(
             )
         except Phase8B2ContractError as exc:
             raise TrainingContractError(str(exc)) from exc
+    if isinstance(model, DilemmadataHierarchicalModel):
+        fresh_supervised_after_transfer = (
+            dilemmadata_fresh_supervised_fingerprint(model)
+        )
+        if fresh_supervised_after_transfer != fresh_supervised_before_transfer:
+            raise TrainingContractError(
+                "training.transfer.fresh_supervised_state_changed"
+            )
+        transfer_evidence["fresh_supervised_initialization_fingerprint"] = (
+            fresh_supervised_before_transfer
+        )
+        transfer_evidence["fresh_supervised_preserved_after_transfer"] = True
     transfer_evidence["comparison_protocol_fingerprint"] = transfer[
         "comparison_protocol_fingerprint"
     ] or None
@@ -1103,10 +1180,31 @@ def _prepare(
             "dilemmadata_one_batch",
         },
     )
-    scaler = torch.amp.GradScaler(
-        device.type,
-        enabled=bool(config["device"]["amp"]),
-    )
+    class_weights = _resolve_dilemmadata_class_weights(config, device=device)
+    if class_weights is None:
+        scaler = torch.amp.GradScaler(
+            device.type,
+            enabled=bool(config["device"]["amp"]),
+        )
+    else:
+        # The CE weights deliberately amplify rare-class gradients.  Scaling
+        # that loss again can overflow the FP16 encoder gradient before the
+        # scaler has a chance to record a skipped step.  Unit scale preserves
+        # the exact weighted objective while keeping the fixed-update cell
+        # fail-closed; it is frozen for this diagnostic rather than growing.
+        diagnostic_scale = 1.0
+        diagnostic_growth_interval = 2**31 - 1
+        scaler = torch.amp.GradScaler(
+            device.type,
+            enabled=bool(config["device"]["amp"]),
+            init_scale=diagnostic_scale,
+            growth_interval=diagnostic_growth_interval,
+        )
+        config["objective"]["class_weight_evidence"]["amp_loss_scaling"] = {
+            "initial_scale": diagnostic_scale,
+            "growth_interval": diagnostic_growth_interval,
+            "reason": "rare_class_gradient_overflow_prevention",
+        }
     output = Path(config["output_dir"]).resolve()
     return (
         output,
@@ -1117,6 +1215,7 @@ def _prepare(
         scheduler,
         scaler,
         cuda_memory_lifecycle,
+        class_weights,
     )
 
 
@@ -1257,6 +1356,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
         scheduler,
         scaler,
         cuda_memory_lifecycle,
+        class_weights,
     ) = _prepare(config)
     _initialize_fresh_output(
         output_dir,
@@ -1272,12 +1372,14 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
     )
     model.eval()
     with torch.no_grad():
-        initial_output = model(
-            batch,
-            include_reconstruction=(
+        initial_kwargs: dict[str, object] = {
+            "include_reconstruction": (
                 config["objective"]["reconstruction_weight"] > 0
-            ),
-        )
+            )
+        }
+        if isinstance(model, DilemmadataHierarchicalModel):
+            initial_kwargs["class_weights"] = class_weights
+        initial_output = model(batch, **initial_kwargs)
         initial_harmonic, initial_reconstruction, _ = _losses(
             initial_output, config
         )
@@ -1298,6 +1400,7 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
             config,
             device,
             collect_gradient_evidence=True,
+            categorical_class_weights=class_weights,
         )
         if skipped or metric is None:
             raise TrainingContractError(
@@ -1315,12 +1418,14 @@ def _run_one_batch(config: dict[str, Any]) -> dict[str, object]:
     final_logits = _eval_logits(model, batch)
     model.eval()
     with torch.no_grad():
-        final_output = model(
-            batch,
-            include_reconstruction=(
+        final_kwargs: dict[str, object] = {
+            "include_reconstruction": (
                 config["objective"]["reconstruction_weight"] > 0
-            ),
-        )
+            )
+        }
+        if isinstance(model, DilemmadataHierarchicalModel):
+            final_kwargs["class_weights"] = class_weights
+        final_output = model(batch, **final_kwargs)
         final_harmonic, final_reconstruction, final_total = _losses(
             final_output, config
         )
@@ -1750,6 +1855,7 @@ def _run_epochs(
             scheduler,
             scaler,
             cuda_memory_lifecycle,
+            class_weights,
         ) = _prepare(config)
     except Exception:
         if entry_rng is not None:
@@ -1872,6 +1978,7 @@ def _run_epochs(
                         "collect_gradient_evidence"
                     ]
                 ),
+                categorical_class_weights=class_weights,
             )
             train_accumulator.gradient_evidence_scan_count += int(
                 gradient_metric is not None
@@ -2037,19 +2144,10 @@ def _run_epochs(
             "phase8b2_downstream_sample_identities", []
         )
     ]
-    from music_critic.experiments.phase8b2.contracts import (
-        fingerprint as phase8b2_fingerprint,
-    )
-    from music_critic.experiments.phase8b2.schedule import (
-        SCHEDULE_CONTRACT_VERSION,
-    )
-
-    observed_schedule_fingerprint = phase8b2_fingerprint(
-        {
-            "contract_version": SCHEDULE_CONTRACT_VERSION,
-            "kind": "raw_downstream_sample_schedule",
-            "identities": observed_downstream_identities,
-        }
+    observed_schedule_fingerprint = (
+        raw_downstream_sample_schedule_fingerprint(
+            observed_downstream_identities
+        )
     )
     expected_schedule_fingerprint = config["transfer"].get(
         "sample_schedule_fingerprint"

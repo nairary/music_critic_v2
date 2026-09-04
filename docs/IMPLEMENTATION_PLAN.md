@@ -8,6 +8,9 @@
 >   amendments are recorded in `docs/DECISIONS.md`, including the cross-dataset
 >   contract in `docs/HARMONIC_SUPERVISION.md`.
 
+Phase 9C-D continuation is specified in
+[`PHASE9CD_BIGRU_CONTINUATION.md`](PHASE9CD_BIGRU_CONTINUATION.md).
+
 # Codex Implementation Specification: Music Critic V2
 
 **Repository:** `nairary/Fine-tune-text2midi-llm-with-gnn-theory-critic`  
@@ -3260,6 +3263,171 @@ canonical target/annotation collection empty.
 - one official Phase 8B optimizer step consumes two real AN and two real DLC
   pieces without accessing target sidecars.
 
+### Phase 9E-B2 raw coverage remediation implemented
+
+- Preserve the `DilemmadataAdapter@1.0.1` path exactly for all previously
+  accepted records and use `1.1.0` only when deterministic raw repair is
+  necessary.
+- Represent a proved leading partial measure by one exact affine time offset
+  and structural empty beat slots, without artificial notes or pickup
+  downbeats.
+- Rank tie predecessors by raw source identity, part/staff/voice, pitch, exact
+  end time, and stable ordinal; select ambiguities deterministically, promote
+  orphans to attacks, and localize note-target masks.
+- Treat explicit monotonic source measure boundaries as authoritative and
+  resolve multiple valid measure mappings by raw interval overlap followed by
+  stable identity. Preserve note pitch/onset/duration.
+- Retain explicit grace notes, remove zero-duration sounding tie segments, and
+  reconnect only unique chains without inventing duration.
+- Serialize `DilemmadataRawRepairEvidence@1.0.0`, bind it to alignment
+  evidence `1.2.0`, and keep it outside model inputs and targets.
+- Audit all 1,633 pinned records through two independent conversions/graphs,
+  record-by-record preservation of the historical 719, representative
+  target-sidecar compatibility, and immutable Phase 9E-B1 tree hashes.
+
+Acceptance is 1,633/1,633 raw records (353 AN, 1,280 DLC), zero remaining
+quarantine, stable repair/audit fingerprints, unchanged historical graphs and
+577/71/71 split, and a separate AnalysisGNN-compatible candidate ceiling of
+1,619 after 14 policy exclusions. This phase does not create a new split,
+multi-head model, checkpoint, training output, validation run, or TEST result.
+
+### Phase 9E-B3 expanded multi-task dataset contract implemented
+
+- Freeze the full 1,633-record inventory and the 1,619-record paper-candidate
+  selection with 14 explicit DLC overlap exclusions and all AN peers retained.
+- Serialize the 1,507 deterministic source components and a SHA-256 group split
+  of 1,295/162/162 records; use only component, dialect, and task availability.
+- Audit the paper's 20 tasks against 21 pinned-code heads, retaining immutable
+  evidence separately from the corrected 20-head production registry.
+- Keep source-faithful production quality-17 and corrected Roman-184, then bind
+  a separate frozen AnalysisGNN quality-15 compatibility projection. Preserve
+  aliases, missing masks, and class-ID/length invariants without inferring
+  classes from TEST labels.
+- Materialize source-native target descriptors with shared harmonic identity,
+  canonical note identity, exact onset/beat/measure relations, independent
+  masks, repair provenance, and deterministic fingerprints.
+- Freeze TEST assignment and require explicit authorization for future TEST
+  evaluation. Preserve the B1 719-record, 577/71/71 negative pilot and every B2
+  raw graph fingerprint.
+
+The corrected V2 joint contract is harmonic-event level and uses quality-17;
+it is not paper-compatible. A second, unevaluated paper-text contract is
+note-level, uses quality-15, and requires local key, both degree components,
+quality, and inversion. Independent pinned evidence records 20 paper tasks, 21
+code heads, excluded auxiliary `staff`, incompatible evaluator branches, and
+the quality/Roman literal defects without importing external runtime code.
+
+Acceptance is 1,633/1,619 universe counts, zero component leakage, nonzero
+corrected event-level structural support in TRAIN/VALIDATION, `valid=true`,
+`ready=true`, and committed source-free/scientific fixtures.
+Encoder/HybridGNN/GRU/heads, training, validation inference, paper-text metric
+evaluation, and TEST metrics are intentionally absent.
+
+### Phase 9E-B4 class-balance and trainability audit implemented
+
+- Define `DilemmadataAnalysisGNNClassBalanceAudit@1.0.0` as a deterministic,
+  serializable, source-free-checkable planning contract outside model inputs,
+  target sidecars, and AnalysisGNN runtime.
+- Filter the frozen 1,295/162/162 assignment before any target-bearing record
+  loader. Aggregate only TRAIN class/weight/joint evidence and use VALIDATION
+  only for class/tuple coverage. TEST assignments are counted target-free;
+  target records/rows opened and all target-based TEST actions remain zero.
+- For every vocabulary class of all 20 production heads, preserve separate
+  entity and deduplicated canonical source-row counts plus record, frozen
+  component, AN/DLC, broadcast, concentration, and effective-component
+  support. Missing/masked observations do not enter a class; zero-support rows
+  remain explicit.
+- Freeze operational TRAIN/VALIDATION support thresholds and ordered
+  head-level decisions in the contract fingerprint. Emit raw counts beside
+  every tier and state that trainability is only baseline annotation
+  sufficiency, not a model-performance claim.
+- Audit source-faithful quality-17 and the quality-15 compatibility projection
+  separately, retaining explicit `+7`/`+M7` evidence. Preserve corrected
+  Roman-184 and report its complete long tail in JSONL plus compact summaries.
+- Audit corrected five-way tuples on harmonic events and compatibility tuples
+  on notes while separately counting note rows and canonical harmonic rows.
+  Validation-unseen tuples are defined only relative to TRAIN.
+- Compute diagnostic TRAIN-only inverse-frequency, inverse-square-root, and
+  effective-number vectors normalized to mean one over supported classes;
+  unsupported weights are null. Recommend unweighted, class-weighting,
+  component-balanced, or not-ready planning statuses without changing any
+  loss, sampler, or training config.
+
+Acceptance is 20 complete head summaries, explicit zero classes, TEST loader
+non-invocation regression, deterministic artifacts/fingerprints, a committed
+compact fixture, source-free `--check`, and targeted B3/B4/repository tests.
+The production audit result is 1 trainable, 7 reweighting, 5 insufficient, and
+7 descriptive-only heads. Model architecture, training, inference, dataset,
+split, vocabulary, target/mask, graph, B2/B3, and TEST contracts are unchanged.
+
+### Phase 9E-B5A transposition contract and audit implemented
+
+- Pin official AnalysisGNN behavior as independent evidence: 12 positive named
+  intervals, materialized graph views, modulo pitch wrap, music21 semantic
+  transforms, OOV-to-final-class routing, and post-augmentation view-level
+  TRAIN/VALIDATION splitting. Do not import or repair it in that profile.
+- Define corrected V2 as a TRAIN-only, on-the-fly, supplied-seed-deterministic,
+  mask-preserving and fail-closed view. Use all 12 pitch-class shifts with a
+  minimal signed physical representation and fixed `+6` tritone. Reject an
+  entire record/shift on MIDI range, semantic closure, round-trip, or held-out
+  collision failure; never octave-fold notes or move a variant between splits.
+- Decode pitch-dependent targets before transposition. Preserve task/dialect
+  spelling and require vocabulary lookup for local key, tonicized key, root,
+  bass, and pitch-class set. Keep relative, structural, and boolean labels
+  invariant, including relative AN/DLC note degree.
+- Apply graph views without changing the raw cache. Only pitch, pitch class,
+  octave, and track-relative pitch may change; retain node/edge identity,
+  topology, exact timing, ownership, repair/provenance evidence, and masks.
+- Emit full-orbit and analytical uniform one-draw statistics while retaining
+  source component count separately from component/shift support and variant
+  count. Reuse frozen B4 thresholds; emit advisory official/corrected tables
+  without changing heads, losses, samplers, or training.
+
+Acceptance is 20 classified heads, a deterministic mapping with round-trip and
+scoped composition evidence, 15,540 eligibility rows with valid identity for
+all TRAIN records, zero corrected held-out collisions, exact B4 equality for
+all invariant expected distributions, TEST target access 0/0, source-free
+fixture verification, and focused B3/B4/B5A/repository tests.
+
+### Phase 9E-B5B frozen training policy implemented
+
+- Serialize independent future profiles `O`, `C0`, and `C1`. `O` preserves
+  pinned official source behavior and is `partial_contract_only`; corrected
+  `C0`/`C1` share the frozen B3 dataset/split/task/vocabulary contracts and
+  differ only by the B5A TRAIN transposition policy.
+- Freeze corrected head roles at eight primary, ten auxiliary, and two
+  deferred. Keep all 20 semantic vocabularies/logit identities, quality-17,
+  and Roman-184. Defer `phrase`/`section` because no negative supervision is
+  available, and keep code-only `staff` outside production.
+- Define masked weighted per-head cross entropy, per-head mean normalization,
+  equal within-group weighting, and
+  `L_total = L_primary + 0.25 * L_auxiliary`. Exclude and log a zero-valid head
+  rather than adding a zero to its denominator; never route deferred heads
+  into optimization.
+- Freeze full inverse-square-root class weights from TRAIN canonical source
+  rows only, before entity broadcasting and without augmented-view
+  multiplication. Normalize supported weights to mean one under a final
+  `[0.25, 4.0]` bound; retain zero-count classes with null weights.
+- Freeze component-balanced TRAIN sampling: uniform source component, uniform
+  record within component, graph/window view, then profile-owned shift. Use
+  1,295 draws per epoch, identity-only held-out views, and no TEST loader.
+- Freeze per-head coverage-aware metrics, the eight-head
+  `corrected_primary_macro_score`, separate quality-17 harmonic-event and
+  quality-15 paper-text note joint metrics, and separate direct Roman-184
+  versus derived harmonic evidence.
+- Reuse B1-compatible known optimizer-envelope values but leave parameter
+  budget and graph/window batching explicit and unresolved. Therefore corrected
+  profiles are ready for model implementation but not runnable.
+- Provide a source-free audit fixture with calculated head/loss/weight/sampler/
+  metric/profile/combined fingerprints and hard false execution flags.
+
+Acceptance is a byte-reproducible `valid=true` source-free audit, exact
+8/10/2 partition, a full TRAIN-only class-weight payload, proof that `C0/C1`
+have no non-transposition experimental delta, zero TEST access, and focused
+B5A/B5B/repository tests. This phase performs no training, validation
+inference, TEST evaluation, model/trainer implementation, data mutation, or
+accuracy-improvement claim.
+
 ### Phase 9B.2A production target sidecars implemented
 
 - separate target-only AN/DLC parsing over Phase 9A-evidenced fields;
@@ -3343,6 +3511,128 @@ standalone release boundary.
 Independent RTX execution
 is still required before the draft PR may become ready. This is mechanics
 evidence only and starts neither long training nor Phase 9C/PDMX/Phase 10.
+
+### Phase 9C-A executable one-seed SSL → Dilemmadata pilot
+
+Phase 9C-A composes the accepted Phase 8B.2 compute-matched SSL path with the
+Phase 9B.2 Dilemmadata trainer and evaluator. Its official CLI supports
+`plan`, `profile`, `run`, `resume`, `aggregate`, `select`, and `verify`.
+The primary seed-17 matrix is scratch, Phase 7A control, Phase 8A mask-only,
+and Phase 8B multilevel-equal, each with separate frozen-probe and full-
+fine-tune results. Onset/beat/bar/track latent variants are explicit optional
+ablations only.
+
+SSL uses target-blind train graphs from HookTheory, POP909-CL, and
+Dilemmadata with equal default source weights, deterministic shuffled cycles,
+and one variant-independent schedule. The common SSL split manifest is composed
+deterministically from the existing HookTheory+POP909-CL and Dilemmadata
+manifests without changing any assignment, then validated against all three
+indices with Dilemmadata validation/test excluded from SSL train. The primary
+compute unit is the observed
+encoder forward, fixed at 12 per logical update. Downstream uses all 577 train
+records and the fixed complete 71-record validation split; the 71-record test
+split stays locked and has no batch, inference, target, metric, unlock, or full
+identity serialization in this phase.
+
+Every downstream configuration is compared at `last.pt` after the same number
+of applied optimizer updates. Validation compares these final checkpoints; it
+does not perform normalized-NLL selection between epochs. The comparison score
+is the unweighted mean of each task's source-entry NLL divided by
+`log(class_count)`. Component bootstrap
+measures validation-sample uncertainty only and production presets use at
+least 1,000 replicates.
+
+Production batch size and budgets are intentionally unresolved until a
+failure-atomic, per-candidate RTX profile. The committed bounded synthetic DAG
+exercises the complete control plane without long training. Exact commands,
+artifacts, isolation rules, and claim boundaries are in
+[`PHASE9C_ONE_SEED_SSL_DILEMMADATA_PILOT.md`](PHASE9C_ONE_SEED_SSL_DILEMMADATA_PILOT.md).
+No production pilot, test evaluation, PDMX, Phase 10, critic/quality work, or
+multi-seed claim is part of this implementation change.
+
+### Phase 9C-C one-seed MLP convergence diagnostic
+
+Phase 9C-C follows the completed descriptive Phase 9C-B matrix without
+changing it. It executes only paired `scratch_mlp` and `ssl_mlp` cells at seed
+17. Both reuse the same production Dilemmadata view, target sidecars, split,
+class weights, optimizer, learning rate, initialization/data-order domains,
+batch size two and MLP decoder. SSL loads only the existing hash-bound
+multilevel-equal encoder export; supervised heads are fresh and identically
+initialized.
+
+Each cell is one continuous epoch of exactly 9,000 applied optimizer updates.
+Update telemetry is committed every 100 applied updates and atomic mid-epoch
+resume checkpoints every 1,000. AMP scale-decrease skips are attempts, not
+applied updates; the same schedule batch is retried and persistent overflow
+fails closed. Resume binds the full model/optimizer/scaler/RNG state and exact
+position in the one declared deterministic schedule.
+
+Validation runs from fixed checkpoint milestones 0, 1,000, 3,000, 6,000 and
+9,000 after continuous training, in evaluator processes that cannot modify the
+training trajectory. It always uses one immutable validation membership and
+never reads test, selects a checkpoint, stops training, or changes the future
+schedule. `convergence_report.json` records milestone facts, interval deltas,
+SSL-minus-scratch gaps, descriptive best/final differences and train moving
+averages without a plateau verdict or scientific claim.
+
+The exact artifact and runner contract is documented in
+[`PHASE9CC_MLP_CONVERGENCE.md`](PHASE9CC_MLP_CONVERGENCE.md). Production GPU
+execution is explicitly outside the implementation change and begins only via
+the independently reviewed fresh-root RTX command.
+
+### Phase 9C-C exact continuation to 15,000 applied updates
+
+The verified 9,000-update bundle is an immutable parent, not a resumable output
+whose budget may be edited. A separate continuation plan binds its exact Git
+SHA and branch, manifest and payload, original config projection, both final
+checkpoint hashes, validation membership, data/cache/split/class-weight/SSL
+artifacts and schedule fingerprint. Any mismatch stops before CUDA training.
+
+The runtime builds one epoch-zero schedule through update 15,000 with the same
+target-configured view, quota sampler, batch size and data-order seed. Its
+complete first 9,000 updates must equal the rebuilt parent schedule. Each cell
+strictly restores model, optimizer, scaler, scheduler-null state and RNG from
+the parent checkpoint; it advances the epoch-zero loader to update 9,000 before
+restoring RNG and does not execute encoder transfer again.
+
+Both parent checkpoints must first reproduce their update-9,000 validation
+membership, model state, candidate identities, logits and metrics under the
+existing deterministic CUDA comparator. Only then may either cell continue.
+Telemetry is global at updates 9,100…15,000, checkpoints are global at
+10,000…15,000, and validation is limited to 9,000, 12,000 and 15,000. The
+combined report retains milestones 0/1,000/3,000/6,000/9,000/12,000/15,000,
+requested deltas, SSL gaps, best/final facts and train-loss slope without an
+automatic plateau threshold or scientific claim. The exact invocation and
+artifact inventory are documented in
+[`PHASE9CC_CONTINUATION.md`](PHASE9CC_CONTINUATION.md).
+
+### Phase 9E-A common harmonic projection implemented
+
+Phase 9E-A adds a target-only, immutable and SHA-bound projection from the
+accepted Dilemmadata AN and DLC `TargetBundle` sidecars into six explicitly
+shared harmonic families: quality, inversion, root pitch class, bass pitch
+class, factorized local key and a deliberately narrow pitch-class set. Every
+available source label resolves to exactly one of `exact`, `coarsened`,
+`ambiguous`, `unsupported` or `invalid`; unavailable entries remain explicitly
+`missing`/`masked`. The projection never changes canonical pieces, raw graphs,
+cache/index identities, grouping, splits or source-native target bundles.
+
+The source mapping registry, pinned AnalysisGNN comparison, deterministic JSON
+contracts, full-corpus audit, source-free compact manifest and exact accepted
+corpus evidence are documented in
+[`DILEMMADATA_TARGET_SIDECARS.md`](DILEMMADATA_TARGET_SIDECARS.md). This phase
+does not add or train a common head, change losses, evaluate models on test
+targets, unlock test data, ingest PDMX or begin critic/quality work.
+
+The remediated `AnalysisGNNReferenceMapping@1.0.1` keys inversion evidence by
+source task and source value. AN ordinal `2` therefore remains `second`, while
+DLC figured bass `2` is the `4/2` shorthand and maps to `third`, matching the
+pinned AnalysisGNN `process_inversion_from_chord` implementation. All ten
+inversion rows agree with the reference. The combined quality-plus-inversion
+table has 36 agreements, 2 divergences and 51 not-applicable rows; the only
+divergences are DLC quality `+7` and `+M7`. Common target semantics, projection
+and registry contract versions, the 719 accepted views, and split 577/71/71 do
+not change.
 
 ## Phase 10. PDMX adapter and scalable cache
 
@@ -3958,6 +4248,213 @@ Use these as conceptual references. Confirm licenses, dataset versions, and impl
   https://arxiv.org/abs/2505.12669
 - MuseCoco  
   https://arxiv.org/abs/2306.00110
+
+## Phase 9E-B5C — corrected model, deterministic trainer, and paired pilots
+
+- Implemented model: fixed raw-only width-128 hierarchy, reused onset BiGRU,
+  18 independent FP32 heads, 8/10 active group split, and two metadata-only
+  deferred tasks. Parameter inventory is 3,661,936 trainable / 0 frozen.
+- Implemented supervision: exact post-forward B3 entity routing, frozen B5B
+  class weights and group loss, per-head and separate corrected/paper/direct
+  metrics, primary-only checkpoint selection, and alignment diagnostics.
+- Implemented execution: component-balanced schedule, paired C0/C1 streams,
+  full production graph batching, B5A detached TRAIN views, applied-update
+  semantics, full RNG/scaler/sampler checkpoints, deterministic resume, and a
+  fail-closed TEST boundary.
+- Accepted local gates: two source-free CPU updates for each profile plus a
+  real TRAIN coverage backward pass with 18/18 finite losses, 18/18 nonzero
+  head gradients, and shared-encoder gradient. Source-free audit is valid.
+- Completed GPU gate: RTX 3090 selected batch size 2; CUDA smoke covered all
+  18 heads and the shared encoder. Both 500-applied-update seed-17 pilots
+  completed without NaN, overflow, skipped updates, or TEST access. C0 best
+  primary score was `0.036663969804067165`; C1 best was
+  `0.03548936046536255`. The final C1-C0 delta was
+  `-0.0020725847498397343`, which is bounded negative directional evidence,
+  not a statistical result.
+
+## Phase 9E-B5D — paired 10,000-update full-training screen
+
+- Freeze seed 17, CUDA, batch size 2, 10,000 successful optimizer updates per
+  profile, 20,000 TRAIN draws, and the existing 1,295-draw sampler epoch. This
+  is approximately 15.44 sampler epochs for C0 and independently for C1.
+- Keep the B5B optimizer envelope unchanged: AdamW `lr=0.005`, weight decay
+  `0.0005`, gradient clip 1.0, FP32, 500-update linear warmup, then cosine
+  decay. Early stopping is disabled.
+- Evaluate the complete identity-only VALIDATION split at update 0 and every
+  500 successful updates through 10,000. Save crash-safe last checkpoints
+  every 100 updates and select the best checkpoint only by corrected primary
+  macro score.
+- Run C0 and then C1 from the same initialization and record schedule. Require
+  distinct transposition schedule fingerprints, exact complete validation
+  curves, and automatically emit final/best C1-C0 deltas after both runs.
+- Keep TEST, profile O, extra seeds, statistical improvement claims, model/loss
+  changes, generated MIDI, rendered audio, and committed checkpoints outside
+  B5D. The paired CUDA execution completed at the exact budget: C0 scored
+  `0.3548871111124754`, C1 scored `0.2715279571712017`, and C1-C0 was
+  `-0.08335915394127369` on the corrected primary macro score.
+
+## Phase 9E-B5E — full-training result seal and baseline selection
+
+- Commit the compact paired comparison, final joint/slice metrics, run/model/
+  schedule/environment fingerprints, and a human-readable result report.
+- Select C0 as the current corrected AnalysisGNN baseline using seed-17
+  VALIDATION only. Retain C1 as `experimental_deferred`; do not delete or
+  invalidate the audited transposition implementation.
+- Record corrected harmonic-event joint accuracy `0.11430474921480918` versus
+  `0.01408584753021795` and disclose zero unseen-tuple joint accuracy for both
+  profiles on 1,090 events across 187 unseen tuples.
+- Make no multi-seed, TEST, statistical, or general transposition claim. Do not
+  commit checkpoints, full training logs, result archives, datasets, caches,
+  generated MIDI, or rendered audio.
+
+## Phase 9E-B5F — transposition correctness and per-shift diagnostics
+
+- Audit the executable B5A transform with independent MIDI, pitch-class,
+  spelling, vocabulary, mask, identity, topology, and relation oracles. Stream
+  every TRAIN/VALIDATION record over all 12 shift-PC values; keep pair-level
+  evidence outside Git and commit only a compact seal.
+- Exercise the actual B5C batch transform and post-logit sidecar alignment.
+  Preserve the 20-head B5A registry as the sole transformation contract and
+  treat absent relation context as `not_checkable`, never as success.
+- Reproduce the exact seed-17 B5D 20,000-draw record/shift schedule and bind it
+  to the B5E fingerprints. Do not train, change the sampler, or open TEST.
+- Provide a fail-closed C0/C1 checkpoint runner for 12 diagnostic VALIDATION
+  views. Check profile, seed, update, record schedule, training contract,
+  architecture, and final model-state identities before inference; shift zero
+  must reproduce B5E within an explicit `1e-7` absolute tolerance.
+- Record the discovered tritone defect without remediation: corrected B5A
+  fixes shift-PC 6 to physical `+6`, while its inverse shift-PC is also 6 and
+  therefore applies `+6` again. Raw graph round-trip ends one octave higher.
+  Status is `implementation_or_contract_defect`; C0 remains baseline, C1 stays
+  `experimental_deferred`, and soft augmentation is not authorized.
+
+## Phase 9E-B5G — directed inverse remediation
+
+- Represent a transform with both `shift_pc` and `signed_semitones`; validate
+  their modulo-12 identity and fail closed on malformed or out-of-range input.
+- Keep canonical B5A forward representatives byte/tensor identical and make
+  the old public forward call delegate to the directed primitive. Inverse
+  negates physical semitones instead of reconstructing their sign from pitch
+  class.
+- Re-audit all 1,457 TRAIN/VALIDATION records over 12 shifts, retaining
+  missing-context cross-head checks as `not_checkable`. Bind every historical
+  C1 draw to a verified unchanged forward pair and preserve the B5D schedule
+  fingerprints. Do not rewrite the B5F fixture or train a model.
+
+## Phase 9E-B5H — full-orbit C2 expansion profile
+
+- Build a stable TRAIN-only table sorted by `(record_id, shift_pc)` from the
+  frozen B5A eligibility evidence: 15,389 eligible and 151 excluded pairs.
+  Preserve exclusion reason plus source/eligibility fingerprints.
+- Enumerate each full table once per deterministic orbit epoch using a new
+  versioned RNG domain. No replacement, omission, identity reweighting, graph
+  materialization, split change, or C1 sampling semantics are permitted.
+- Seal a from-scratch seed-17 CUDA run at batch 2, 120,000 updates, 240,000
+  draws, 6,000 warmup updates, peak LR 0.005, FP32 and cosine decay. Keep
+  identity-only VALIDATION for checkpoint selection and report separate
+  per-shift/macro/worst-shift diagnostic validation.
+- Implement preflight, smoke, checkpoint/resume and full runner paths, but do
+  not execute the 120k run in this PR. TEST stays inaccessible.
+
+## Foundational multi-source EDA contract (TZ 1/5)
+
+- Freeze `RawCorpusEDA@1.0.0`, `SupervisionEDA@1.0.0`, their common envelope,
+  capability matrix, typed counts/availability, canonical fingerprints,
+  source-extension boundary, and pre-loader TEST guard before any of four
+  source-specific implementations diverge.
+- Support raw contract implementations for Dilemmadata, POP909-CL, HookTheory,
+  and PDMX. Support supervision implementations only for the first three;
+  PDMX remains raw/SSL-only and its Phase 10 adapter remains pending.
+- Reuse existing V2 canonical serialization, target-free graph, source-native
+  registry, approved Dilemmadata projection, split-manifest, and Phase 9E-B4
+  TEST-lock concepts. Do not create a new common ontology or reinterpret
+  deferred/incompatible crosswalks.
+- Recursively freeze validated arbitrary semantic JSON, including nested
+  extension payloads and projected values; public serialization emits fresh
+  canonical JSON containers so external mutation cannot stale a report
+  fingerprint. Reject lone surrogates in every string/key, and keep the reused
+  canonical helpers in `music_critic.data.serialization` without package-root
+  re-exports.
+- Keep TEST-lock accounting unit-safe: assignment rows use
+  `split_assignment`, descriptor/loader calls use `target_access_attempt`,
+  opened records use `record`, and loaded target rows use `target_row`, all over
+  the common `split_assignment` denominator.
+- Allow manifest-free `unknown`/`unavailable` reports without inventing
+  evidence. Supervision uses `TestTargetLockEvidence.not_executed(...)` with a
+  null assignment fingerprint and null, reason-bearing `locked` counters;
+  observed tasks continue to require the guard and manifest bindings.
+- Treat every supervision extension row with observed coverage as evidence for
+  the TEST gate, even when all tasks are non-observed; require an observed lock
+  attestation in that case. Permit explicit non-observed empty metric rows with
+  an unexecuted lock.
+- Reject operational aliases and absolute paths recursively from free-form
+  semantic mapping keys and values. Validate raw target tokens through envelope
+  invariant/warning/unavailable fields and common metric coverage/category/
+  count metadata, as well as source, manifest, extension, work, row/count, and
+  provenance identities. Validate supervision TEST tokens through envelope
+  rows, task identity/dialect/annotation/vocabulary/label-granularity/work/
+  reason/nested provenance, and class-support work reasons as well as the
+  existing channels. Keep only the narrow canonical reason-code exceptions; allow honest
+  non-TEST scope/partition metadata and relative semantic paths. Normalize
+  `hostName`, `time_stamp`, and `wallclock` aliases and reject absolute paths
+  embedded after common delimiters, without rejecting URLs, `V/ii`, or genuine
+  source-domain timestamps.
+- Recursively reserve common wrapper/envelope fields, fixed raw metric IDs, and
+  common task structures from extension payloads, while allowing generic
+  namespaced source fields such as `name`, `status`, `category`, `mean`,
+  `provenance`, `payload`, and `value`. Make every extension row one
+  source-native metric with mandatory coverage; bind its observed typed-count
+  summary components to that population/scope/provenance and require a
+  non-observed row to be empty. Population count aliases use `UnitCount`, while
+  exact ratios, physical measurements, and source probability/confidence
+  summaries remain domain payload and cannot disguise counts. Snapshot corpus,
+  adapter identity, and declared namespaces at registration so later adapter
+  mutation cannot alter them.
+- Bind every raw count-summary or categorical-row `UnitCount.name` to its
+  `metric_id`, and every class-support name to its typed field. Model
+  multilabel class support as one scalar non-empty string identity per
+  vocabulary label; reserve
+  `empty_multilabel_available_count` for empty sets, cap each label's occurrence
+  count by available non-empty rows, and require string-only standalone
+  `MULTI_LABEL` set identities.
+- Enforce common raw zero-summary arity, multi-occurrence category semantics,
+  exact inventory conservation, numeric endpoint/singleton/sample feasibility,
+  and graph coverage/aggregate consistency. Keep repeated task and extension
+  schema identities, task class-support work units, and extension row/count
+  units stable across TRAIN and VALIDATION, and reject duplicate
+  retained `(corpus, record_id)` assignments across either split before target
+  callbacks.
+- Prove the foundation only with tracked code/docs and synthetic fixtures.
+  Production report generation and real corpus distributions belong to four
+  later child tasks rooted at the exact foundation commit.
+- Non-goals are corpus scans/checksums, MIDI conversion, graph construction,
+  checkpoint reads, GPU/training, duplicate/domain-gap scans, and any change to
+  raw data/cache/graphs, membership/splits, targets/projections, models/SSL,
+  samplers, training configs, checkpoints, or C0/C1/C2 evidence.
+
+### Phase 9E-B5H external execution evidence — 2026-09-04 import
+
+- After the implementation PR, C2 completed independently from training
+  checkout head `659bde251fee6c836564a45aea854b6abcac9fe0`: seed 17,
+  batch 2, 120,000 successful updates, 240,000 draws, and zero skipped,
+  overflow, or NaN updates. The primary run-summary self-fingerprint is
+  `0f8936e60933b9b65b2e76b37a03307a0ed553e90a012f62fd421494e825b3d4`.
+- Best identity VALIDATION primary score is `0.49666884914040565` at update
+  115,000; final is `0.496239360421896` at 120,000. All-shift macro is
+  `0.441465709048`, with shift 11 worst at `0.388149842620`. The all-shift
+  self-fingerprint is
+  `a0d55ff980b33ef8c604bb8bea400f296095496faefc2745139ae29aa2bd3f9a`.
+- The imported transfer package is identified by SHA-256
+  `2a340242cdd7b917eec4def9c8644bb2c10330e72ec9c8cbcf9d2291acfe9823`.
+  Its compact C2 archive omits checkpoint bytes, environment, resolved config,
+  full training contract, and the repository source for the documented B5J
+  validation-eligibility finalization; those remain explicit reproducibility
+  gaps even though the supplied JSON/log integrity checks pass.
+- C2-120k cannot be used as a causal augmentation comparison with C0/C1-10k.
+  Keep C0 as the current selected baseline. The next declared scientific run
+  is `PLAN-9EB5K-C0-120K`, a fresh C0-120k control matched to C2's seed,
+  initialization, optimizer, scheduler, budget, batch size, and validation
+  protocol. TEST stays locked.
 
 ---
 

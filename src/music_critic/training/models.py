@@ -10,6 +10,7 @@ from torch import nn
 
 from music_critic.models import (
     DILEMMADATA_ACTIVE_TASK_IDS,
+    DilemmadataDecoderConfig,
     DilemmadataHierarchicalConfig,
     DilemmadataHierarchicalModel,
     HierarchicalBaselineConfig,
@@ -48,6 +49,16 @@ def build_baseline_model(
             (task_id, float((task_weights or {}).get(task_id, 1.0)))
             for task_id in DILEMMADATA_ACTIVE_TASK_IDS
         )
+        decoder_node = getattr(config, "decoder", None)
+        decoder_kind = (
+            "mlp"
+            if decoder_node is None
+            else (
+                decoder_node.get("kind", "mlp")
+                if hasattr(decoder_node, "get")
+                else getattr(decoder_node, "kind", "mlp")
+            )
+        )
         return DilemmadataHierarchicalModel(
             DilemmadataHierarchicalConfig(
                 hidden_dim=config.hidden_dim,
@@ -57,6 +68,7 @@ def build_baseline_model(
                 ffn_multiplier=config.ffn_multiplier,
                 dropout=config.dropout,
                 residual=config.residual,
+                decoder=DilemmadataDecoderConfig(kind=decoder_kind),
                 task_weights=fixed_weights,
             )
         )

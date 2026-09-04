@@ -1,0 +1,18 @@
+diff --git a/analysisgnn/utils/dcl_tsv_utils.py b/analysisgnn/utils/dcl_tsv_utils.py
+index 68a4b95..2960afc 100644
+--- a/analysisgnn/utils/dcl_tsv_utils.py
++++ b/analysisgnn/utils/dcl_tsv_utils.py
+@@ -172 +172 @@ def create_graph_from_df(
+-    # graph = gm.create_score_graph(features, note_array, measures=measures, add_beats=True)  # Commented out due to missing graphmuse
++    graph = gm.create_score_graph(features, note_array, measures=measures, add_beats=True)
+@@ -174,7 +174,0 @@ def create_graph_from_df(
+-    # Temporary replacement: try to use our local hetero_graph_from_note_array
+-    try:
+-        from analysisgnn.utils.hgraph import hetero_graph_from_note_array
+-        graph = hetero_graph_from_note_array(note_array)
+-    except Exception:
+-        # If that fails, return None - this will need to be properly implemented later
+-        return None
+@@ -182,2 +175,0 @@ def create_graph_from_df(
+-    if graph is None:
+-        return None

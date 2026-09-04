@@ -125,6 +125,57 @@ def export_pretrained_encoder_state(model: nn.Module) -> dict[str, object]:
     }
 
 
+def validate_pretrained_encoder_export_structure(
+    export: object,
+) -> Mapping[str, Tensor]:
+    """Validate that an artifact is an encoder-only export envelope.
+
+    The metadata-free envelope is retained for the Phase 9C initial-scratch
+    export.  Versioned SSL exports must carry the complete Phase 7A manifest.
+    A training checkpoint is never accepted by filtering its ``model_state``.
+    """
+
+    if not isinstance(export, Mapping) or set(export) not in (
+        {"encoder_state"},
+        {"metadata", "encoder_state"},
+    ):
+        raise EncoderTransferError("ssl.transfer.export_fields_invalid")
+    state = export["encoder_state"]
+    if (
+        not isinstance(state, Mapping)
+        or not state
+        or any(
+            not isinstance(name, str)
+            or not name.startswith(_TRANSFERRED_PREFIXES)
+            or not isinstance(value, Tensor)
+            for name, value in state.items()
+        )
+    ):
+        raise EncoderTransferError("ssl.transfer.encoder_state_invalid")
+    metadata = export.get("metadata")
+    if metadata is None:
+        return state
+    if not isinstance(metadata, Mapping) or set(metadata) != {
+        "encoder_export_contract_version",
+        "hierarchical_encoder_contract",
+        "parameter_names",
+    }:
+        raise EncoderTransferError("ssl.transfer.metadata_fields_invalid")
+    if (
+        metadata["encoder_export_contract_version"]
+        != ENCODER_EXPORT_CONTRACT_VERSION
+    ):
+        raise EncoderTransferError("ssl.transfer.export_version_incompatible")
+    if not isinstance(metadata["hierarchical_encoder_contract"], Mapping):
+        raise EncoderTransferError("ssl.transfer.encoder_contract_invalid")
+    expected_names = tuple(sorted(state))
+    if metadata["parameter_names"] != list(expected_names):
+        raise EncoderTransferError(
+            "ssl.transfer.parameter_manifest_incompatible"
+        )
+    return state
+
+
 def _validate_export(
     export: object,
     model: HierarchicalHeterogeneousBaseline,
@@ -278,4 +329,5 @@ __all__ = [
     "export_pretrained_encoder_state",
     "load_pretrained_encoder_state",
     "save_pretrained_encoder_export",
+    "validate_pretrained_encoder_export_structure",
 ]

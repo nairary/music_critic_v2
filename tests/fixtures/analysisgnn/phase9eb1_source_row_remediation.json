@@ -1,0 +1,72 @@
+{
+  "acceptance": true,
+  "cases": [
+    {
+      "common_classes": ["minor triad", "major triad"],
+      "entry_note_counts": [[128, 4], [129, 4]],
+      "entry_source_identities": [[128, "126"], [129, "127"]],
+      "membership_pairs": [[594, 128], [595, 129], [596, 128], [597, 129], [598, 128], [599, 129], [600, 128], [601, 129]],
+      "piece_id": "piece:dilemmadata-dlc-e37e23a1361d3ce3d02ff1f5",
+      "record_id": "dlc:corelli:op01n07c",
+      "source_row_ordinals": [594, 595, 596, 597, 598, 599, 600, 601],
+      "spans": [[{"den": 2, "num": 225}, {"den": 2, "num": 225}], [{"den": 2, "num": 225}, {"den": 1, "num": 114}]],
+      "task": "quality"
+    },
+    {
+      "common_classes": ["minor triad", "major triad"],
+      "entry_note_counts": [[42, 3], [43, 3]],
+      "entry_source_identities": [[42, "42"], [43, "43"]],
+      "membership_pairs": [[251, 42], [252, 43], [253, 42], [254, 43], [255, 42], [256, 43]],
+      "piece_id": "piece:dilemmadata-dlc-f50056fe9785581dedd2c207",
+      "record_id": "dlc:corelli:op03n03b",
+      "source_row_ordinals": [254, 255, 256, 257, 258, 259],
+      "spans": [[{"den": 1, "num": 74}, {"den": 1, "num": 74}], [{"den": 1, "num": 74}, {"den": 1, "num": 75}]],
+      "task": "quality"
+    },
+    {
+      "common_classes": ["diminished triad", "major triad"],
+      "entry_note_counts": [[3, 3], [4, 3]],
+      "entry_source_identities": [[3, "3"], [4, "4"]],
+      "membership_pairs": [[14, 3], [15, 4], [16, 3], [17, 4], [18, 3], [19, 4]],
+      "piece_id": "piece:dilemmadata-dlc-21ee99bce4f6d8da52a0a509",
+      "record_id": "dlc:corelli:op03n03d",
+      "source_row_ordinals": [14, 15, 16, 17, 18, 19],
+      "spans": [[{"den": 1, "num": 8}, {"den": 1, "num": 8}], [{"den": 1, "num": 8}, {"den": 1, "num": 9}]],
+      "task": "quality"
+    },
+    {
+      "common_classes": ["major triad", "major triad"],
+      "entry_note_counts": [[137, 3], [138, 3]],
+      "entry_source_identities": [[137, "133"], [138, "134"]],
+      "membership_pairs": [[523, 137], [524, 138], [525, 137], [526, 138], [527, 137], [528, 138]],
+      "piece_id": "piece:dilemmadata-dlc-a88f753949b33e7705b36448",
+      "record_id": "dlc:corelli:op03n04a",
+      "source_row_ordinals": [530, 531, 532, 533, 534, 535],
+      "spans": [[{"den": 1, "num": 86}, {"den": 1, "num": 86}], [{"den": 1, "num": 86}, {"den": 1, "num": 87}]],
+      "task": "quality",
+      "triggering_transposition": "m6"
+    }
+  ],
+  "contract_version": "phase9eb1-source-row-remediation-evidence-v1",
+  "preflight_counts": {
+    "ambiguous_row_groups": 0,
+    "remaining_conflicting_groups": 0,
+    "remaining_conflicting_notes": 0,
+    "row_aligned_groups_detected": 68,
+    "row_aligned_groups_resolved": 68,
+    "row_aligned_notes_resolved": 452,
+    "unresolved_row_groups": 0
+  },
+  "preflight_fingerprint": "810221595f5bb11882d59e9fe4ee91f6d965bff148386cfcd0bbbd45b676b9de",
+  "sealed_test": {
+    "details_sealed": true,
+    "row_aligned_groups_detected": 16,
+    "row_aligned_groups_resolved": 16,
+    "row_aligned_notes_resolved": 128,
+    "test_targets_used_for_model_evaluation": false
+  },
+  "semantic_fingerprint": "13054693d85ec859026dc92452bf8c853d6bedb705e2256964544db2b01078e2",
+  "source_row_binding_version": "1.0.0",
+  "superseded_forensic_fingerprint": "b425c470da9cd9754a4cbedb240a44835391ad2dac9dbcd11ba108aef66d40e9",
+  "training_authorized": true
+}

@@ -24,10 +24,13 @@ REQUIRED_DOCS = {
     "POP909_ORIGINAL_FIELD_AUDIT.md",
     "DILEMMADATA_ADAPTER_CONTRACT.md",
     "DILEMMADATA_FIELD_AUDIT.md",
+    "DILEMMADATA_TARGET_SIDECARS.md",
     "MULTISOURCE_TARGET_CONTRACT.md",
     "PHASE6A_BASELINE.md",
     "PHASE7A_SSL_BASELINE.md",
     "PHASE8B2_COMPARISON_PROTOCOL.md",
+    "MULTISOURCE_EDA_CONTRACT.md",
+    "MULTISOURCE_EDA_HANDOFF.md",
     "legacy_snapshot.json",
 }
 
@@ -43,6 +46,7 @@ REQUIRED_PACKAGES = {
     "adapters",
     "exporters",
     "experiments",
+    "eda",
 }
 
 
@@ -62,6 +66,18 @@ def test_required_package_structure_exists() -> None:
     assert (PACKAGE_ROOT / "__init__.py").is_file()
     for name in REQUIRED_PACKAGES:
         assert (PACKAGE_ROOT / name / "__init__.py").is_file()
+
+
+def test_phase9ea_common_projection_contract_files_exist() -> None:
+    assert (PACKAGE_ROOT / "tasks" / "dilemmadata_common.py").is_file()
+    assert (REPO_ROOT / "scripts" / "audit_dilemmadata_common_projection.py").is_file()
+    assert (
+        REPO_ROOT
+        / "tests"
+        / "fixtures"
+        / "dilemmadata"
+        / "common_harmonic_manifest.json"
+    ).is_file()
 
 
 def test_package_has_no_legacy_or_heavy_imports() -> None:

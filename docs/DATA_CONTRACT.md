@@ -2,6 +2,95 @@
 
 Status: **ACCEPTED FOR PHASE 1 IMPLEMENTATION**.
 
+## Phase 9E-B2 Dilemmadata raw-coverage remediation
+
+Phase 9E-B2 adds `DilemmadataAdapter@1.1.0`,
+`DilemmadataRawRepairEvidence@1.0.0`,
+`DilemmadataRawTargetAlignmentEvidence@1.2.0`, and
+`DilemmadataCoverageRemediationReport@1.0.0`. The historical accepted path
+remains `DilemmadataAdapter@1.0.1` with alignment evidence `1.1.0`; a record
+which needs no repair must take that path byte-for-byte. `CanonicalPiece`
+schema `2.0.0`, raw graph schema, model-input schema, cache, grouping, and split
+contracts do not change.
+
+Every repair is a deterministic function of raw score evidence. The evidence
+object stores `record_id`, source entity ID and type, repair type, ordered
+source evidence, candidate count, selected candidate ID, the single exact
+affine time transform, affected entity IDs, and target-mask scope. It is
+canonically ordered, finite, self-fingerprinted, and bound into remediated
+alignment evidence. It is provenance, never a target or model input. Harmony,
+theory values, validity gates, alternative labels, and analyst/reviewer fields
+are unavailable to raw reconstruction.
+
+An explicitly short first source measure may add exact structural leading
+padding. This creates empty beat/bar context but no artificial note and applies
+one offset to every timed raw entity. Explicit monotonic source-measure
+boundaries override a nominal grid; ambiguous monotonic mappings maximize raw
+event/interval overlap and use stable source identity for the last tie-break.
+Neither policy changes source pitch or duration. A locally unresolved measure
+identity masks only measure-dependent target entries.
+
+Tie predecessors are ranked by raw tie/note identity, part, staff, voice,
+pitch, exact predecessor end, and stable source ordinal. Multiple equivalent
+candidates are selected stably and locally masked when their target binding is
+not unique. An orphan stop/continuation becomes a new attack and may start the
+remaining chain. An explicit grace note remains zero-duration; a zero-duration
+intermediate tie segment is removed and its unique neighbours are reconnected,
+while an isolated segment alone is removed. No epsilon, random choice, target
+label, artificial positive duration, negative duration, or whole-record
+failure is permitted for these recoverable cases.
+
+## Phase 9E-A derived common-harmony extension
+
+Phase 9E-A does not change `CanonicalPiece@2.0.0` or
+`TargetBundle@1.0.0`. It adds the external frozen contracts
+`DilemmadataCommonHarmonicProjection@1.0.0`,
+`DilemmadataCommonHarmonicRegistry@1.0.0`,
+`DilemmadataCommonMappingEvidence@1.0.0`,
+`DilemmadataCommonHarmonicAuditReport@1.0.0`,
+`DilemmadataCommonHarmonicAuditManifest@1.0.0`, and
+`AnalysisGNNReferenceMapping@1.0.1`.
+
+AnalysisGNN inversion reference rows contain
+`(source_task_id, source_value, reference_value)`, while row identity is the
+pair `(source_task_id, source_value)`, not a token-only lookup.
+Consequently the two source values spelled `2` remain distinct: AN ordinal `2`
+references `second`, whereas DLC figured bass `2` references `third` as the
+upstream `4/2` shorthand. Both common mappings agree. The reference schema
+patch and its derived fingerprints do not revise the common projection or
+registry contract versions because no common value or mask changes.
+
+A projection is identified by dataset, piece, and the unchanged
+`analysis_view_id`, and binds the source TargetBundle contract/fingerprint plus
+the common registry fingerprint. Its targets and entries are uniquely sorted.
+Each entry contains source task/value pairs, exact source provenance IDs,
+supplemental target-only spelling/mode fields when present, one mapping state,
+common value, per-field availability, named information loss, stable
+diagnostic, mapping-evidence IDs, and dependency entity IDs. Canonical JSON
+uses UTF-8, sorted keys, no NaN, compact separators for fingerprints, and a
+trailing newline only for indented human-readable files.
+
+Mapping states are `exact`, `coarsened`, `ambiguous`, `unsupported`, and
+`invalid`; projected entries additionally distinguish `missing` and `masked`.
+Only `exact` and registry-preregistered `coarsened` entries may contain a
+common value or an available field. A coarsened entry must name its loss.
+Ambiguous, unsupported, and invalid entries require a stable diagnostic and
+must expose no value. Missing or masked fields remain unavailable and never
+become a negative class.
+
+Pitch-class values are integers `0..11`. Factorized local key contains tonic
+pitch class and `major/minor/unknown/other` mode with independent masks.
+Pitch-class sets are sorted unique integer tuples derived only from a mapped
+root and a registry-bound quality template. The projection retains source
+spelling while declaring enharmonic reduction as information loss. Inversion
+is one of `root/first/second/third` and is masked when figured-bass/ordinal
+evidence conflicts with a proven chord cardinality.
+
+The compact audit manifest contains no corpus payload or absolute path and is
+self-fingerprinted. Its `--check` path requires no Dilemmadata or AnalysisGNN
+checkout. None of these contracts is serialized into canonical raw data, raw
+graphs, model inputs, cache keys, grouping, or split identity.
+
 ## Phase 9B.2C evidence-only extension
 
 `DilemmadataSupervisedSmoke@1.4.0` and its sealed bundle `1.4.0` bind the
@@ -1743,3 +1832,629 @@ and 12/8. Clicks derive from `CanonicalBeat`, not reinferred meter. Key/chord
 targets may be represented only as optional diagnostic marker text and do not
 become sounding notes. MIDI round trips compare semantic projections because
 MIDI cannot preserve canonical IDs, provenance, annotations, or target arrays.
+
+## 14. Phase 9E-B3 AnalysisGNN-derived dataset contract
+
+The B3 contract is external to `CanonicalPiece`: raw pieces and graphs remain
+target-free. The full universe is 1,633 records and the paper-candidate target
+inventory is 1,619. Selection removes exactly 14 declared DLC duplicates while
+preserving their AN peers. Repair evidence never excludes a record and remains
+provenance, not model input.
+
+Every categorical vocabulary has unique contiguous IDs and
+`class_count == len(vocabulary)`. Missing values are null + masked and cannot
+be class 0. Unknown and missing remain distinct. Production quality has 17
+semantic classes under `dilemmadata-corrected-quality-17-v1`: the pinned
+16-entry literal's `None` is removed and the acknowledged DLC `+7`/`+M7`
+meanings are restored as `augmented seventh chord` and
+`augmented major tetrachord`. A distinct 15-class
+`analysisgnn-quality-15-compat-e115182-v1` vocabulary and total 17-to-15
+projection collapse those two additions to `augmented triad` only for paper
+comparison. Missing is outside both vocabularies and is never projected.
+
+Roman numeral splits malformed `#VIIbvio7` into `#VII` and `bvio7`, then masks
+`none`, yielding 184 corrected semantic classes. The pinned Python literal has
+184 unique entries including `none` and the malformed token, while the pinned
+model head declares 185; corrected Roman-184 is not claimed to be literal
+identity with either artifact.
+
+Every logical task/entity state contains `available`, `masked`,
+`missing_reason`, source/canonical value, source/canonical entity ID, and
+provenance. Corpus JSONL stores content-addressed per-record descriptors; the
+production materializer expands the complete rows and reproduces their hashes.
+Entity/relation IDs depend only on source/raw identity and exact rational time.
+
+Split JSONL requires the expected SHA-256, known algorithm/namespace, exact
+manifest membership, unique records, and one split per component. Registry and
+universe JSON loads fail closed on version or fingerprint mismatch. APIs reject
+unknown tasks/vocabularies, invalid class IDs, duplicate entities, and TEST
+evaluation without separate explicit authorization.
+
+Metric schema `analysisgnn-corrected-and-paper-text-metrics-v2` contains two
+non-interchangeable contracts. `v2_corrected_harmonic_event_joint_accuracy`
+uses corrected quality-17 on `harmonic_event`; it is the production V2 metric
+and `paper_compatible=false`. `analysisgnn_paper_text_note_joint_accuracy`
+uses quality-15 on `note`, reached through one unambiguous
+`note_to_harmonic_event` relation. Both require exactly `local_key`,
+`primary_degree`, `secondary_degree`, `quality`, and `inversion`. The note-level
+contract resolves inconsistent official evaluator branches in favor of the
+paper text and has not been evaluated.
+
+## 15. Phase 9E-B4 class-balance audit contract
+
+`DilemmadataAnalysisGNNClassBalanceAudit@1.0.0` is derived evidence, not a
+canonical record, raw graph, model input, target sidecar, loss, sampler, or
+evaluation result. Its input identity binds the frozen B3 paper-candidate
+manifest, task/vocabulary registry, target-sidecar descriptors, and component
+split. The audit may deserialize target-bearing rows only after a record's
+assignment is known to be TRAIN or VALIDATION. TEST assignment identities may
+be counted, but TEST paths and target loaders cannot be resolved or invoked.
+
+For a production task, `entity_count` counts available unmasked entities of
+the registry-declared entity type. `canonical_target_row_count` deduplicates
+by record, task/source field, stable source-row ordinal, and class. Record and
+component support count distinct frozen identities, never inferred grouping.
+AN/DLC counts use the source dialect. Concentration uses canonical row counts;
+effective component count is `(sum_i n_i)^2 / sum_i(n_i^2)`. Broadcast factor
+is entity count divided by canonical row count and is null for zero support.
+Every vocabulary class has one TRAIN and one VALIDATION row, including zeros.
+Missing/masked states are reported separately and are never class IDs.
+
+TRAIN tiers are `absent` at zero rows, `insufficient` below 20 rows or 3
+components, `usable` from 100 rows and 10 components, and `broad` from 1,000
+rows and 50 components; remaining supported classes are `fragile`.
+VALIDATION is `unobservable` at zero, `fragile_validation` below 10 rows or 2
+components, and otherwise `observable`. These are versioned planning
+thresholds, not universal learning laws.
+
+Head decisions apply in order. More than 25% absent/insufficient TRAIN classes
+or fewer than 20 available TRAIN components is `descriptive_only`. Remaining
+TRAIN absent/insufficient classes or a TRAIN-supported class absent from
+VALIDATION is `insufficient_support`. With all TRAIN classes at least fragile
+and nonzero VALIDATION coverage, majority share above 0.50, nonzero max/min
+ratio above 20, normalized entropy below 0.70, or a fragile TRAIN class yields
+`trainable_with_reweighting`. `trainable` requires all TRAIN classes usable or
+broad, all VALIDATION classes observable, and no imbalance flag. A status only
+states whether annotations support a baseline; it does not predict quality.
+
+Candidate inverse-frequency, inverse-square-root, and effective-number weights
+use only TRAIN canonical rows. Effective-number beta is 0.9999. Each nonzero
+vector is normalized to mean one; absent TRAIN classes are null and
+`unsupported`. These vectors are diagnostic and do not freeze production
+weights or sampling.
+
+Corrected joint rows use the five B3 components on harmonic events and
+quality-17. Compatibility rows broadcast the same canonical harmonic identity
+to notes and project quality to 15 classes. Artifacts preserve note/entity row,
+canonical harmonic row, record, and component units independently. TEST tuples
+are unavailable by construction.
+
+## 16. Phase 9E-B5A transposition audit contract
+
+`DilemmadataAnalysisGNNTranspositionAudit@1.0.0` is derived planning evidence,
+not a canonical piece, cached graph, target sidecar, loader augmentation,
+sampler, model, loss, or evaluation result. It binds the unchanged B3 universe,
+component split, task/vocabulary registry, B4 thresholds, B2 raw graph
+fingerprints, and two distinct profile identities.
+
+`analysisgnn-official-transposition-e115182-v1` records pinned public behavior
+without making it a V2 dependency: named intervals `P1` through `M7`, positive
+semitones, modulo pitch paths, music21 label transforms, transposition-invariant
+representations, final-class OOV routing, and materialized-view splitting.
+`music-critic-v2-closed-transposition-v1` instead uses shift-PC identities
+0–11 with signed semitones `0,1,2,3,4,5,6,-5,-4,-3,-2,-1`. A future epoch draw
+is uniform over one record's valid shifts, including identity, and keyed by
+profile, supplied seed, epoch, and source record. VALIDATION and TEST have only
+identity views.
+
+For absolute targets, a class ID is never arithmetically shifted. The contract
+decodes a task/dialect semantic value, applies deterministic source-spelling
+semantics, requires target-vocabulary membership and inverse closure, then
+looks up a target class ID. Pitch-class sets use sorted cyclic PC shifts.
+Relative, structural, and boolean values remain unchanged while masks and
+source-row provenance are preserved. An invalid corrected mapping records a
+reason and excludes only that variant; missing/masked values never become
+negative or OOV labels.
+
+An augmented identity contains source record, immutable source graph
+fingerprint, profile, shift PC, and signed semitones. Variants retain source
+split and component. The on-the-fly graph view changes only non-percussion note
+pitch/pitch-class/octave and recomputed track-relative pitch. A MIDI range
+failure rejects the whole shift. Node/edge counts and identities, topology,
+timing, meter/tempo, ownership, ties/graces, repairs, provenance, and target
+masks are invariant.
+
+Full-orbit totals count every valid shift once and are diagnostic.
+Expected-epoch totals assign probability `1 / valid_shift_count` per shift.
+`variant_entity_count`, `variant_canonical_row_count`, variant count, source
+component count, and component/shift support remain separate units; variants
+are never independent works or components. TRAIN targets are the only targets
+opened. VALIDATION/TEST raw pieces may be read for collisions, but their target
+descriptor bytes are filtered before decoding and target access is 0/0.
+
+## 17. Phase 9E-B5B training-policy evidence contract
+
+`AnalysisGNNTrainingPolicy@1.0.0` and
+`AnalysisGNNTrainingProfile@1.0.0` are external experiment-planning contracts.
+They do not revise `CanonicalPiece`, raw graph, source target sidecar, B3 entity
+registry, split assignment, B4 class counts, or B5A mappings. Their source-free
+fixture binds the B3/B4/B5A semantic fingerprints and recalculates every
+dependent fingerprint through canonical JSON.
+
+Corrected profiles use only the 1,619 paper-candidate records and the frozen
+1,295/162/162 record assignment over 1,209/147/151 components. The TEST
+assignment may be fingerprinted, but no TEST target row is present in class
+weights, model selection, sampler draws, or metrics. `C0` and `C1` have the
+same dataset, split, registry, vocabulary, loss, weight, sampler, metric,
+optimizer-envelope, and seed payloads. Their only substantive difference is
+identity-only versus `music-critic-v2-closed-transposition-v1` TRAIN views.
+
+The corrected role registry partitions every production head exactly once:
+eight primary, ten auxiliary, and two deferred. `phrase` and `section` are
+deferred with `missing_negative_supervision`; their absent rows remain masked
+and cannot become negative class zero. Production quality remains 17 classes,
+Roman numeral remains 184 classes, and `staff` remains outside corrected
+production.
+
+The full class-weight payload has one row for every semantic class of all 20
+heads. Its only input statistic is B4
+`train.canonical_target_row_count`, measured before note/entity broadcasting.
+For a supported class the policy starts at `1/sqrt(count)`, normalizes the
+supported mean to one, bounds values to `[0.25, 4.0]`, and performs a
+deterministic bounded mean-one projection. A zero-count class has
+`weight=null`, `train_supported=false`, remains an output logit, and receives
+no fabricated target. The `augmented sixth` quality row is one such explicit
+unsupported class. Transposition multiplicity never multiplies a count.
+
+The component sampler has 1,209 equally likely TRAIN components. Conditional
+on a component, each member record is equally likely; the observed component
+sizes are 1,123 singletons and 86 pairs. One epoch is 1,295 draws with
+replacement. Views never change record/component/split identity, and neither
+VALIDATION nor TEST is oversampled.
+
+The fixture states `training_run=false`, `validation_inference_run=false`,
+`test_evaluated=false`, and `test_targets_used_for_evaluation=false`. Its
+`ready_for_model_implementation=true` value means only that policy interfaces
+are frozen; all profiles remain non-runnable until their declared missing
+artifacts or model-owned decisions are resolved.
+
+## 18. Phase 9E-B5C model-run binding
+
+The B5C runner consumes the unchanged B3 1,619-record assignment and verifies
+the exact assignment-file hash before resolving a record. A split gate runs
+before source-inventory lookup, raw conversion, sidecar materialization, or
+cache access. Only `train` and `validation` are accepted; `test` fails closed.
+The frozen TEST assignment fingerprint may be compared without opening a TEST
+source or target.
+
+One runtime sample consists of a target-neutral canonical piece rebuilt into
+the production raw heterogeneous graph plus a separate expanded B3 sidecar.
+Harmonic-event targets route to raw beats through the explicit B3 relation;
+onset targets route by reduced exact rational time; note targets route by
+canonical note identity. Availability and masks remain independent per head.
+Unknown, unsupported, missing, or unaligned rows do not become class zero.
+
+The phase-owned cache stores canonical JSON, expanded sidecar JSON, their
+hashes, record ID, and authorized split under ignored `outputs/phase9eb5c`.
+It never stores a tensor graph, augmented graph, checkpoint, generated MIDI,
+audio, or TEST target. C1 creates a detached B5A graph view on the fly and
+transforms semantic target values only after raw-only prediction.
+
+Production reconstruction is portable across repository roots. The B2
+discovery seal remains historical and path-bound: on a different host the
+runner first verifies the selected annotation's physical, raw-projection,
+grouping, and resolution fingerprints (plus the score fingerprint when one
+exists), reproduces the frozen B2 seal against the corpus root attested in the
+B2 audit snapshot, and only then returns a separately valid binding for the
+local absolute path. A different source, parse, metadata split, historical
+seal, or unattested snapshot still fails closed.
+
+The historical seal also retains the raw-parser issue categories observed by
+the older B2 discovery pass. For the eleven records whose pinned B2 evidence
+ended at `raw_parse`, the runner recovers those categories only while
+reproducing the historical seal. The current repaired parser's categories
+remain on the local runtime binding and control current conversion; historical
+quarantine state is never copied into the runtime record or treated as a
+current negative label.
+
+## 19. Phase 9E-B5D full-training artifacts
+
+The ignored root `outputs/phase9eb5d` owns one preflight record, separate
+`c0-seed17-full-u10000` and `c1-seed17-full-u10000` run roots, and a final
+`c0-vs-c1-seed17-full-u10000` comparison root. No file below this output root
+is a source dataset or a repository artifact.
+
+Each run root contains immutable resolved config, full-training contract, and
+environment JSON; append-only training and validation JSONL ledgers; atomic
+`last.ckpt` and `best-validation.ckpt`; and final summary/report files. A
+training row is keyed by a successful `applied_update` and records both source
+records/components/shifts, FP32 losses, gradient norm, learning rate, and
+throughput. Validation rows must have the exact update sequence
+`0,500,...,10000` and contain the complete corrected B5C validation payload.
+
+A B5D checkpoint extends the B5C deterministic checkpoint with phase,
+full-contract fingerprint, and elapsed wall time. Resume accepts only the
+same resolved profile/config and a 100-update checkpoint boundary. Rows after
+that boundary are discarded; missing or non-contiguous earlier rows are a
+hard error. A non-resume launch refuses an existing protected run root.
+
+A valid comparison requires both summaries to report exactly 10,000 applied
+updates, identical initial-state and record-schedule fingerprints, distinct
+transposition-schedule fingerprints, and complete validation schedules. It
+stores final and best corrected-primary deltas and both curves. All summaries,
+checkpoints, preflight, and comparison artifacts explicitly state that TEST
+was not evaluated and no multi-seed claim was made.
+
+## 20. Phase 9E-B5E compact result evidence
+
+`phase9eb5e_full_training_results.json` is the repository-owned compact seal
+of the external B5D result archive. It contains the exact two run summaries,
+the complete 21-point primary validation curves, comparison and source
+fingerprints, final corrected/paper/seen/unseen/direct metrics, eight primary
+head scores, the C0 selection decision, and explicit artifact exclusions.
+
+The result audit reconstructs the B5D comparison from the sealed summaries
+and curves and requires exact equality with comparison fingerprint
+`03971d6568f29131c4cc909fd183f9bf9f6bbb9866a385a12255a3dab54835e9`.
+It also requires identical initial/record schedules, distinct shift schedules,
+exact C0/C1 profile identities, zero TEST/multi-seed claims, and matching
+supports for joint slices.
+
+The compact evidence is not a checkpoint registry. Model tensors, optimizer
+state, full per-update training logs, the 11 MB result archive, caches, and
+datasets remain external and ignored. The selected external C0 checkpoint is
+identified only by its model-state fingerprint; its filesystem locator is not
+a portable data contract.
+
+## 21. Phase 9E-B5F transposition correctness evidence
+
+`Phase9EB5FRecordShiftDiagnostic@1.0.0` is an external, streamed diagnostic
+row keyed by `(record_id, shift_pc)` for the frozen 1,295 TRAIN and 162
+VALIDATION records. It records dialect/component identity, signed semitones,
+range and vocabulary closure, spelling and round-trip state, graph field
+changes, masks, entity/routing preservation, invalid reasons, and a canonical
+fingerprint. Invalid shifts fail closed as whole-record views. TEST rows do not
+exist in this artifact.
+
+`Phase9EB5FTranspositionCorrectness@1.0.0` is the compact checkpoint-free
+repository seal. It binds the unchanged B5A contract/semantic mapping, the
+20-head executable matrix, source-free runtime regression, B5D seed-17
+schedule summary, audit status, and TEST lock. `not_checkable` relation checks
+remain explicit. A valid evidence seal may report a failed scientific gate;
+for the current seal `audit_execution_valid=true` while
+`transposition_correctness_passed=false`.
+
+`Phase9EB5FCheckpointShiftDiagnostics@1.0.0` is optional external CUDA
+evidence. It admits only sealed update-10,000 C0/C1 checkpoints whose runtime,
+record-schedule, full-training, architecture, and model-state fingerprints
+match B5D/B5E. Metrics are recorded separately by checkpoint, shift, and head.
+Shifted views are not independent examples, checkpoint data is never
+committed, and shift-zero mismatch invalidates the complete metric artifact.
+
+## 22. Phase 9E-B5G directed transform evidence
+
+`AnalysisGNNDirectedTransposition@1.0.0` identifies one transform with both a
+pitch-class element and signed raw-pitch displacement. The latter modulo 12
+must equal the former. Canonical forward retains the B5A representatives;
+directed inverse negates the signed displacement. Raw MIDI and semantic target
+planes therefore share an identity without conflating physical direction.
+
+`Phase9EB5GRecordShiftDiagnostic@1.0.0` is keyed by TRAIN/VALIDATION record and
+shift. It records old/new forward status and equality, directed raw and target
+round trips, masks, class/entity/routing/provenance/rational identities,
+cross-head status and structured failures. The compact B5G fixture seals
+17,484 pairs plus the 20,000-draw historical C1 binding. The B5F fixture is
+immutable historical evidence and is not migrated.
+
+## 23. Phase 9E-B5H full-orbit profile evidence
+
+`CorrectedAnalysisGNNFullOrbitTable@1.0.0` is the canonical sorted TRAIN-only
+set of eligible `(record_id, shift_pc, component_id)` tuples. It has 15,389
+rows from 1,295 records, including 1,295 identity rows; 151 of the nominal
+15,540 pairs are excluded by frozen fail-closed eligibility. Exclusion
+evidence retains structured reasons and source/eligibility fingerprints.
+
+The table is not a graph cache and does not redefine independent musical
+support. `FullOrbitSampler` permutes it deterministically once per epoch under
+a separate B5H RNG domain and serializes its absolute position. The sealed
+240,000-draw budget consists of 15 full epochs and a 9,165-row partial epoch.
+Primary VALIDATION remains the 162 identity records; all-shift views are a
+separate diagnostic artifact. No TEST row, loader, target or metric belongs to
+either contract.
+
+## 24. Multi-source EDA reports
+
+The cross-corpus evidence boundary contains two independent schemas:
+`RawCorpusEDA@1.0.0` for Dilemmadata, POP909-CL, HookTheory, and PDMX, and
+`SupervisionEDA@1.0.0` only for the first three. Both use
+`MultiSourceEDAEnvelope@1.0.0`. PDMX supervision is invalid; an empty
+placeholder report is not a valid substitute for absent capability.
+
+The envelope binds schema/kind, corpus, source/release and producer identities,
+repository commit, evidence and execution scope, completeness, split scope,
+used observation units, input manifest identities/fingerprints, invariants,
+warnings, unavailable reasons, and a semantic payload. Absolute paths,
+hostname, PID, timestamps, and wall-clock duration belong only to
+`operational_metadata`. They are serialized for diagnostics but excluded from
+the semantic fingerprint.
+
+Every `UnitCount` contains `observation_unit`, `value`, `denominator`,
+`denominator_unit`, split, evidence scope, provenance, and computation status.
+Counts can be aggregated only when all units and scopes agree. Split-assignment
+rows (`ObservationUnit.SPLIT_ASSIGNMENT`), target-access attempts
+(`ObservationUnit.TARGET_ACCESS_ATTEMPT`), source files, records,
+logical/canonical works, excerpts, musical events/onsets, target rows, label
+occurrences, augmented pairs, sampler presentations, optimizer updates, graph
+nodes, and graph edges are distinct units. A work count is observed only when
+a versioned work identity is present; filename-derived work identity is
+forbidden.
+
+Every common raw metric has `MetricCoverage`, with the invariant
+
+```text
+observed_count + unknown_count == denominator
+```
+
+when computation occurred. The fixed catalogue includes record discovery,
+acceptance/quarantine, parse/conversion outcomes and reasons, duration,
+notes/onsets, bars/beats, tracks/parts, pitch range, density/polyphony,
+tempo/meter and changes, instruments/programs/percussion, target-free graph
+node/edge/size evidence, invalid/empty/oversize records, duplicate/version
+candidates, and cross-split raw-identity collisions. A non-observed metric has
+null observed/unknown values and a structured reason; it is not zero.
+
+Only a fully known-empty count population (`denominator`, `observed_count`, and
+`unknown_count` all zero) has one explicit typed zero; known-empty numeric/
+categorical metrics have no summary. Zero observed rows with a positive unknown
+remainder have no summary of any kind, so unknown is never converted to zero.
+Positive multi-occurrence categorical populations may have no buckets when
+there are no occurrences, and `reason_codes` is explicitly multi-valued. Observed
+discovered/accepted/quarantined inventory rows have identical coverage;
+discovered equals both coverage `observed_count` and accepted plus quarantined.
+Raw numeric extrema/means obey the finite-sample feasibility relation, R7
+endpoint and singleton rules, non-negative/tempo/pitch/discrete bounds. The
+three graph rows have identical coverage/status, and graph-size mean and
+extrema are exactly feasible for the aggregate node-plus-edge occurrences.
+
+For a count summary, `UnitCount.name` equals the enclosing `metric_id` exactly.
+Every `CategoryCount.count.name` also equals that same `metric_id`; the category
+value belongs in `CategoryCount.category`, not in the count name.
+
+Native supervision availability is one mutually exclusive partition:
+
+```text
+available + masked + missing + unsupported == target_row denominator
+```
+
+`unknown`, `not_computed`, `not_applicable`, and `locked` are computation or
+access states outside that partition. Class support binds the full composite
+source identity `(corpus, source task, dialect, source value)`, vocabulary
+identity/version/fingerprint, granularity, split, available-row denominator,
+occurrences, unique records, and proven unique works. Categorical occurrences
+partition available rows. An available empty multilabel row increments
+availability but creates zero label occurrences and never becomes missing.
+Repeated TRAIN/VALIDATION rows for one corpus/task/dialect retain identical
+annotation namespace, vocabulary, granularity, value type, observation unit,
+and work identity, plus one class-support unique-work unit across splits.
+
+For multilabel tasks, `empty_multilabel_available_count` is itself a
+`UnitCount`, not a bare integer. It uses target-row observation and denominator
+units, the native available-row denominator, and the same split, evidence, and
+provenance as its task. Class-support occurrence, unique-record, and
+unique-work counts use label-occurrence/target-row, record/record, and
+work/work units respectively, share scope and provenance, and enforce
+`unique_work <= unique_record <= occurrence` when work support is observed.
+Their `UnitCount.name` values are field-bound exactly as `occurrence_count`,
+`unique_record_count`, and `unique_work_count`.
+
+For a `multi_label` task, each `ClassSupport` row identifies one vocabulary
+label with `SourceValueKind.SCALAR` and a non-empty stripped string value. It
+does not use a `MULTI_LABEL` set identity. Available empty sets appear only in
+`empty_multilabel_available_count` and never in class support. For every label,
+
+```text
+occurrence_count <= availability.available
+                    - empty_multilabel_available_count.value
+```
+
+because one vocabulary label occurs at most once per available non-empty row.
+A standalone `SourceValueIdentity` with kind `MULTI_LABEL` remains valid for a
+set identity, but all members must be unique non-empty stripped strings and are
+canonicalized by JSON ordering.
+
+Projection evidence is secondary to native evidence. Each row binds its
+source-value identity, an exact approved mapping registry identity and
+fingerprint, common task, native state, mapping state, projected value, and
+provenance. `SupervisionEDA@1.0.0` currently admits only
+`music_critic.dilemmadata.common_harmonic@1.0.0` with registry fingerprint
+`bb50920808b6ad3a19fb32b8315a417a837b2ab008efd7bee71e71d120e2ee2e`.
+It does not infer equivalence from surface tokens or repair a native value.
+
+Native availability and projection availability are not interchangeable.
+Each represented approved common task has one
+`ProjectionAvailabilityCounts` row. Its exact fields are corpus, source task,
+dialect, mapping registry, common task identity, observation unit, denominator,
+the seven state counts below, split, evidence scope, and provenance. It uses
+target-row units with the invariant
+
+```text
+exact + coarsened + ambiguous + unsupported + invalid + missing + masked
+    == denominator
+```
+
+Projection value rows are restricted to available identities already present
+in native class support and bind the matching projection-availability row.
+Each aggregate binds the enclosing source task's total target-row denominator,
+split, and evidence scope, and carries its own non-empty provenance. Its seven
+state counts remain independent of native state counts and class-support totals
+because inversion, local-key, and pitch-class-set projections may depend on
+context or another source field. Projection missing/masked therefore need not
+equal native missing/masked. An aggregate row may stand alone. Projection class
+rows are optional; every emitted row requires a matching registry/common-task
+aggregate and an available identity in native class support. Missing and masked
+never appear as projection class rows.
+Quality, inversion, root-PC, and bass-PC use exact static registry mappings.
+Local-key and pitch-class-set projections validate their approved source/task
+routing, mapping state, and output shape; the contract does not claim to
+verify source-local derivation context that is absent from the report.
+
+TEST supervision is structurally impossible. Split filtering precedes target
+descriptor resolution and loading, and the report validator requires zero
+TEST descriptor/loader/record/row evidence and false read/EDA/model-evaluation,
+class-distribution, coverage, and co-occurrence flags. Raw TEST metadata still
+requires an explicitly target-free manifest projection; graph metrics further
+require bound schema/builder/feature-registry/validator proof.
+
+A supervision envelope binds exactly one target-free input manifest with role
+`split_assignment`; that manifest identity fingerprint equals
+`TestTargetLockEvidence.assignment_manifest_fingerprint`. At least one other
+input manifest is target-bearing. All retained TRAIN/VALIDATION assignment rows
+must name the same fingerprint, and the guard rejects an empty or TEST-only
+assignment set. Duplicate retained `(corpus, record_id)` rows, including
+cross-TRAIN/VALIDATION assignments, fail before
+callbacks. A TEST row contributes only its split token to the assignment count;
+its record ID and every other field are deliberately never read. The lock is a
+validated attestation of an exercised adapter path. It does not
+cryptographically prevent unrelated code from opening a target file, so
+adapter acceptance also requires resolver/loader-spy evidence.
+
+`TestTargetLockEvidence.from_guard(...)` constructs all five audit-count fields
+as `UnitCount`: `test_assignment_count`,
+`test_descriptor_resolution_count`, `test_target_loader_call_count`,
+`test_target_records_opened`, and `test_target_rows_loaded`. Their observation
+units are respectively `split_assignment`, `target_access_attempt`,
+`target_access_attempt`, `record`, and `target_row`. Every field has denominator
+unit `split_assignment`, TEST split, the same evidence scope and provenance,
+and the common denominator equal to `test_assignment_count.value`, the number
+of TEST assignment rows. The assignment counter equals that denominator and
+the remaining four counters are observed zero. The guard and facade accept
+evidence scope and provenance, defaulting to fixture and
+`("supervision-target-access-guard",)` only as a fixture convenience.
+Production children pass their report scope and provenance explicitly, and the
+report rejects a lock evidence scope different from its envelope.
+
+For `unknown` or `unavailable` evidence, `input_manifests` may be empty. A
+manifest-free supervision report uses
+`TestTargetLockEvidence.not_executed(...)`, a null assignment-manifest
+fingerprint, and five null `UnitCount` values with common `locked` status,
+reason, TEST split, evidence scope, provenance, and `split_assignment`
+denominator unit. The default unknown assignment denominator is null. This is
+not an observed zero attestation; any observed task still requires an observed
+guard result and the normal manifest bindings.
+
+A supervision extension row with observed coverage counts as observed evidence
+even when every task has a non-observed status. It requires an observed
+`TestTargetLockEvidence`; an explicit non-observed empty metric row may be
+paired with `not_executed(...)`.
+
+Observed graph evidence must equal `APPROVED_RAW_GRAPH_CONTRACT`, not merely
+provide syntactically valid identities. The constant pins the existing raw
+graph schema/builder identity and SHA-256 values for the tracked builder,
+feature-registry, and validator files.
+
+The exact bindings are `music_critic.graph.raw_schema@1.0.0` to
+`src/music_critic/graph/relations.py` hash `e0be8d4c522147036418501b230411ac5fc2eafa5284bab44bbc3e6ee3059fc8`,
+`music_critic.graph.build_raw_graph@1.0.0` to
+`src/music_critic/graph/builder.py` hash `ccf423169631d4bb12295b92b4403625902eb1ded9478165f2ebc23d836fab65`,
+`music_critic.graph.raw_feature_registry@1.0.0` to
+`src/music_critic/graph/feature_registry.py` hash `a041e2c4a221bc0bc722ff3015423230b9e5d5cf56a6efbc4dc71aab351df6f7`,
+and `music_critic.graph.validate_raw_graph@1.0.0` to
+`src/music_critic/graph/validation.py` hash `8de80cbf5929507da727293751aaba723d4256a5bc65aa0309b968873ffafa99`.
+
+Semantic serialization uses UTF-8, key-sorted JSON, normalized order for
+declared set-like rows, no `NaN`/Infinity, finite binary64 shortest-roundtrip
+JSON, and exact rational quantile probabilities under the frozen R7 policy.
+The SHA-256 domain includes schema identity and all semantic bindings, excludes
+the fingerprint field itself, and excludes only designated operational
+metadata. Source extensions are corpus-prefixed and versioned; they cannot
+shadow common fields, contain raw target-derived fields, or use untyped count
+fields.
+
+Production evidence rejects fixture/replay/bounded/synthetic markers in typed
+identity/schema/task/row/count/provenance/reason channels. It does not rewrite
+or reject truthful opaque categories, prose, source/projected values, or the
+complete namespaced extension payload; typed extension provenance is a
+separate attestation field.
+
+Report semantic fingerprints, extension fingerprints, and source-value
+identities are constructor-computed. A `VersionedIdentity.fingerprint` is
+instead supplied and verified against the external release, producer,
+manifest, vocabulary, work, graph, or mapping artifact it binds; that value is
+inside the report semantic domain.
+
+After validation, arbitrary semantic JSON is recursively frozen: nested
+extension-payload mappings are read-only, sequences are tuples, and projected
+values are frozen identically. Public serializers thaw these values into fresh
+canonical JSON mappings/lists; callers therefore cannot mutate validated
+semantics after creation and make a stored report fingerprint stale. Every
+string and mapping key must contain valid UTF-8 scalar text; lone surrogates
+fail validation/loading. Structural identity/provenance strings and mapping
+keys reject Unicode control/format characters, while opaque domain/prose values
+may retain meaningful interior tabs/newlines and emoji. `dumps_canonical_json` and
+`canonical_json_sha256` remain in `music_critic.data.serialization` and are not
+new package-root exports.
+
+Every extension also binds split scope, evidence scope, provenance, and an
+optional versioned work identity. Each `ExtensionRow` is one source-native
+metric with mandatory `MetricCoverage` matching those extension bindings.
+Every row count is an observed summary component over the exact coverage
+denominator/population/scope/provenance; a non-observed row has no payload or
+counts. Coverage with zero observed rows and a positive unknown remainder has
+no payload/counts; fully known-empty coverage has no payload and only optional
+exact typed zeros. Known logical/canonical-work counts or payload work-ID aliases require
+the versioned work identity. Raw extension namespace/schema, row coverage,
+counts, provenance, and payload are all target-free checked. Extension
+uniqueness is `(namespace, split_scope)`, so the same namespace may
+legitimately carry separate TRAIN and VALIDATION evidence while retaining one
+schema/work/target-free identity. A stable row ID also retains one coverage
+observation unit and one observed typed-count name/unit schema. Strict JSON
+loading rejects duplicate keys rather than accepting last-key-wins input.
+
+Payload collision checks recurse through mappings and sequences and reserve
+the common wrapper/envelope fields, every fixed common raw `metric_id`, and
+common task structures. They deliberately allow source-local `name`, `status`,
+`category`, `mean`, `provenance`, `payload`, and `value` fields inside a
+namespaced extension. Population count/frequency/cardinality/total fields
+belong in typed `UnitCount` rows. Exact ratio objects, physical measurements,
+and source probability/weight/confidence summaries remain domain payload, but
+cannot disguise such counts.
+
+`EDAAdapterRegistry` snapshots corpus, adapter identity, and declared extension
+namespaces at registration. Report checks use this immutable declaration, so
+later mutation of the adapter object cannot change its registered identity or
+authorize another namespace.
+
+Free-form semantic evidence cannot carry an exact operational-metadata key, an
+operational alias such as machine/process identity, elapsed/runtime or
+wall-clock timing, or an absolute POSIX, Windows, home-relative, or `file://`
+path. Absolute-looking paths are rejected both as mapping keys and as string
+values. Those values belong in the closed `operational_metadata` mapping.
+Repository/corpus-relative paths and genuine domain fields such as a
+source-event timestamp remain valid semantic values and participate in the
+fingerprint. Normalization rejects aliases including `hostName`, `time_stamp`,
+and `wallclock` variants and finds absolute paths embedded after common
+delimiters in longer text, while URLs, harmonic values such as `V/ii`, and
+source-domain timestamps remain valid.
+
+Token validation also covers identity and provenance channels, not just nested
+payload keys. Raw reports reject target/gold/label/theory/supervision tokens in
+source/producer identities and manifest role/identity/relative path; envelope
+invariant code/reason/provenance, warning code/message/provenance, and
+unavailable detail/provenance; common metric coverage reason/provenance,
+category values, and count name/reason/provenance; graph reasons; and extension
+namespace/schema/work identity/row/count/provenance/payload channels. The
+literal `eda.target_free_unproven` unavailable-reason code has a narrow code-
+position exception (as does the graph-specific counterpart); its detail and
+provenance do not.
+
+Supervision reports reject TEST tokens in source/producer identities, manifest
+fields, envelope invariant code/reason/provenance, warning code/message/
+provenance, unavailable detail/provenance, task/dialect/annotation/vocabulary/
+label-granularity/work identity/reason/nested provenance, class-support work
+reasons, and
+extension identity/row/count/provenance/payload channels. Only the literal
+`eda.test_targets_locked` unavailable-reason code is exempt in its code
+position; detail and provenance are still checked. Non-TEST `scope` and
+`partition` fields remain legal—for example truthful TRAIN or VALIDATION
+metadata—and relative semantic paths are not mistaken for operational absolute
+paths.

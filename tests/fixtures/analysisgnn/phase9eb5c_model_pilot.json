@@ -1,0 +1,85 @@
+{
+  "combined_audit_fingerprint": "529da86a2f88306e7ea61313461fe2819dafccc62b164b3fd335a18488a5d9b4",
+  "comparison": null,
+  "cuda_commands": [
+    "CUBLAS_WORKSPACE_CONFIG=:4096:8 .venv/bin/python scripts/run_phase9eb5c_analysisgnn_corrected.py --smoke --device cuda --seed 17",
+    "CUBLAS_WORKSPACE_CONFIG=:4096:8 .venv/bin/python scripts/run_phase9eb5c_analysisgnn_corrected.py --pilot --profile C0 --device cuda --seed 17",
+    "CUBLAS_WORKSPACE_CONFIG=:4096:8 .venv/bin/python scripts/run_phase9eb5c_analysisgnn_corrected.py --pilot --profile C1 --device cuda --seed 17"
+  ],
+  "fingerprints": {
+    "C0_record_schedule": "c33f247b02380de7ed6bbdda82f4fa7d95ee69c6169ec93a6714556b2c716772",
+    "C1_record_schedule": "c33f247b02380de7ed6bbdda82f4fa7d95ee69c6169ec93a6714556b2c716772",
+    "C0_transposition_schedule": "542d11a225c70e17d74216db497ee5de94ab37263fe8e8649ddfa991f70f06c9",
+    "C1_transposition_schedule": "43060634b9eacb53751feb229fa5bba2dabe6c9aa61b32b170d13f3c59b0f073",
+    "active_head_inventory": "c0d362e4480cec808708f7a4ee1b95e9487218fd7719357e26d9bb73267be911",
+    "class_weight_contract": "b500fd6ee05f9dc64f21b1d9636da954a3537e58d823bed95ea956f41c8c7525",
+    "initial_model_state": "0c18ba4a3b092f1ddfc2c88a09a0435c9881ef34750bf2012f93b41e715414f3",
+    "joint_metric_implementation": "601d949e246bcecaeb3fd465b2c81b2fd572028cf42ad430f2ef02bd96e08723",
+    "loss_implementation": "5be40879a151aebf0771d2f87f0afd26ccbe88531fe4c90e31106678574f7917",
+    "metric_implementation": "75b3628d1539f9604c25a0616c101e1790d2f96f8a1cd34a71d0bcd49095917f",
+    "model_architecture": "c12380dc6a9e4923bf80e843d010698fa7dd8fdefb62e9d3c0262d0c1ff32748",
+    "optimizer_envelope": "91ae6cc6deb05d2c4dc2dd6c4a6d8efd142d7b16fb32ee648f017177fff58d06",
+    "parameter_inventory": "3a0bf2ec80d62cc1b2b02d8a593ae00d5f00ba9718a83681b5fd194cc0ea2034",
+    "resolved_C0": "c105e50132a532a33f99b640c76e15e138e3333346e3b8afa6031e394cb37703",
+    "resolved_C1": "a4c2e99c8f7d0b41340a19f0ba1f3db374ae8a56ff97e194ccab16f32671532e",
+    "routing_contract": "c0c1d70f1e3e3963b42b79e5ba18e253e28f1bc4fbc832c91bd525576c8f8896",
+    "smoke_evidence": "8d7e002c6ea439fe63e4e7df0c2a23cfa64a0172019461e89481779437f512cc",
+    "test_lock": "11a1e3135b21a68597ae9f6a4bcfcdc0db57400ec199c188d7831e4a698c9299"
+  },
+  "fixture_fingerprint": "1bdc1dab093e3e6000027d95bc4f207bfe95eeb3111886cdc32b15aedbed9089",
+  "parameter_inventory": {
+    "frozen": 0,
+    "total": 3661936,
+    "trainable": 3661936
+  },
+  "pilot_summaries": {
+    "C0": null,
+    "C1": null
+  },
+  "schema": "Phase9EB5CModelPilotFixture@1.0.0",
+  "smoke_evidence": {
+    "fingerprint": "8d7e002c6ea439fe63e4e7df0c2a23cfa64a0172019461e89481779437f512cc",
+    "real_train_coverage": {
+      "finite_loss_head_count": 18,
+      "nonzero_gradient_head_count": 18,
+      "records": [
+        "dlc:corelli:op03n04c"
+      ],
+      "shared_encoder_nonzero_gradient": true
+    },
+    "source_free_C0": {
+      "all_head_gradients": true,
+      "applied_updates": 2,
+      "checkpoint_round_trip": true,
+      "encoder_gradient": true,
+      "final_model_state_fingerprint": "6c7576a7e47007ebfbca726649288897f2cba1ca9d2ae51d5d5298df4cfca05d"
+    },
+    "source_free_C1": {
+      "all_head_gradients": true,
+      "applied_updates": 2,
+      "checkpoint_round_trip": true,
+      "encoder_gradient": true,
+      "final_model_state_fingerprint": "77892df4aebedaf3edba58c3d904590e8068f34562a56ffce1ab1ea09bfeda7f"
+    },
+    "test_loader_created": false,
+    "test_metrics_computed": false,
+    "test_targets_read": false
+  },
+  "status": {
+    "c0_pilot_completed": false,
+    "c1_pilot_completed": false,
+    "comparison_completed": false,
+    "cpu_smoke_passed": true,
+    "cuda_smoke_passed": false,
+    "full_training_run": false,
+    "model_implemented": true,
+    "multi_seed_run": false,
+    "pilot_not_run_reason": "cuda_unavailable",
+    "ready_for_cuda_pilot": true,
+    "real_train_coverage_smoke_passed": true,
+    "test_evaluated": false,
+    "test_targets_used_for_evaluation": false,
+    "trainer_implemented": true
+  },
+  "valid": true
+}

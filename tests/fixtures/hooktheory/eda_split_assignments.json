@@ -1,0 +1,24 @@
+{
+  "schema": "HookTheoryEDASplitAssignments@1.0.0",
+  "corpus": "hooktheory",
+  "assignments": [
+    {"record_id": "ordinary_major_fractional", "split": "train"},
+    {"record_id": "minor_inversion_suspension", "split": "train"},
+    {"record_id": "multiple_keys_decorations", "split": "train"},
+    {"record_id": "multiple_tempos_extended", "split": "train"},
+    {"record_id": "multiple_meters", "split": "train"},
+    {"record_id": "root_zero_non_rest", "split": "train"},
+    {"record_id": "borrowed_mode", "split": "train"},
+    {"record_id": "borrowed_pcset", "split": "train"},
+    {"record_id": "borrowed_unknown", "split": "train"},
+    {"record_id": "shared_group_applied", "split": "train"},
+    {"record_id": "shared_group_peer", "split": "train"},
+    {"record_id": "compound_meter_beat_unit_3", "split": "train"},
+    {"record_id": "num_beats_8", "split": "train"},
+    {"record_id": "negative_root_rest", "split": "train"},
+    {"record_id": "null_note_fields", "split": "train"},
+    {"record_id": "alternate_underscore", "split": "train"},
+    {"record_id": "double_flat_bb1", "split": "train"},
+    {"split": "test"}
+  ]
+}

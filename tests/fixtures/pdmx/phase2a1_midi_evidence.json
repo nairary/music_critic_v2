@@ -1,0 +1,74 @@
+{
+  "schema": "PDMXPhase2A1MIDIEvidence@1.0.0",
+  "evidence_id": "pdmx.phase2a1_local_midi_snapshot_evidence",
+  "historical_commits": {
+    "implementation": "32d68e8cb446d9b5dd57bfea1d28b94ccce46274",
+    "closure": "7508f96f3a09ddfd15a29c915a8a78beb25eb881"
+  },
+  "status_excerpt": {
+    "repository_path": "docs/STATUS.md",
+    "commit": "7508f96f3a09ddfd15a29c915a8a78beb25eb881",
+    "start_marker_inclusive": "- PDMX root: `/home/str/music-critic-v2/data/pdmx/mid`.",
+    "end_marker_exclusive": "## Phase 2A.1 scope confirmation",
+    "line_count": 32,
+    "byte_count": 1374,
+    "sha256": "91c744a8e176611875e1c55dcc56d6d39e13b8d7d9f72d2c8ae112e0bd431d58"
+  },
+  "historical_files": {
+    "runner": {
+      "repository_path": "scripts/smoke_midi_adapter.py",
+      "commit": "32d68e8cb446d9b5dd57bfea1d28b94ccce46274",
+      "sha256": "61d5cfb778f3ba8d26ee8edddfcae7bdf02011e436455538e90c45ca401ddd6b"
+    },
+    "strict_integration_test": {
+      "repository_path": "tests/integration/test_real_midi_adapter.py",
+      "commit": "32d68e8cb446d9b5dd57bfea1d28b94ccce46274",
+      "sha256": "109e75dce52bea2a750e09e2bf85626855a359740d8374b2aa2bafac5b15ff1a"
+    }
+  },
+  "claims": {
+    "discovery": {
+      "files_seen": 254035,
+      "tree_shape": "complete_branched_midi_tree"
+    },
+    "bounded_midi_diagnostic": {
+      "sample_mode": "spread",
+      "attempted": 100,
+      "converted": 99,
+      "failed": 1,
+      "warnings": 378,
+      "notes": 47459,
+      "tracks": 246,
+      "type_0": 0,
+      "type_1": 99,
+      "selected_parent_dirs": 100,
+      "selected_min_depth": 3,
+      "selected_max_depth": 3,
+      "failure_reasons": {
+        "midi_adapter.meter_change_inside_bar": 1,
+        "midi_adapter.unreadable_or_corrupt": 0,
+        "midi_adapter.type_2": 0,
+        "midi_adapter.smpte_or_non_ppqn": 0,
+        "midi_adapter.invalid_meter": 0,
+        "midi_adapter.metric_grid_safety": 0,
+        "canonical.validation": 0,
+        "canonical.serialization_round_trip": 0,
+        "adapter.unexpected_exception": 0
+      },
+      "outlier": {
+        "relative_source_path": "2/31/QmcmH3b8xr1N9KSEu5zS4HG7f6Beq1fENiy3bdZ9D3FXrE.mid",
+        "event_tick": 8970,
+        "active_meter": {
+          "numerator": 75,
+          "denominator": 4
+        }
+      }
+    }
+  },
+  "evidence_gaps": {
+    "primary_raw_run_artifact": "not_tracked",
+    "external_availability": "unknown",
+    "exact_invocation": "untracked",
+    "execution_log": "untracked"
+  }
+}

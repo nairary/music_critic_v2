@@ -1,0 +1,143 @@
+{
+  "corrected_v2": {
+    "quality_additions": [
+      "augmented seventh chord",
+      "augmented major tetrachord"
+    ],
+    "quality_class_count": 17,
+    "roman_numeral_class_count": 184,
+    "roman_numeral_transformation": {
+      "add": [
+        "#VII",
+        "bvio7"
+      ],
+      "remove": [
+        "none",
+        "#VIIbvio7"
+      ]
+    },
+    "source_token_routes": {
+      "+7": {
+        "compatibility_label": "augmented triad",
+        "corrected_label": "augmented seventh chord"
+      },
+      "+M7": {
+        "compatibility_label": "augmented triad",
+        "corrected_label": "augmented major tetrachord"
+      }
+    }
+  },
+  "evidence_files": [
+    {
+      "path": "analysisgnn/utils/globals.py",
+      "sha256": "205886a94409dba5c9a41c393be3b8714163b0b1f828221ef19fc7b2973b86da",
+      "symbols": [
+        "DLC_CHORD_TYPE_MAPPING",
+        "CHORD_QUALITIES",
+        "SIMPLE_NUMERAL_VOCABULARY",
+        "CADENCES"
+      ]
+    },
+    {
+      "path": "analysisgnn/utils/chord_representations.py",
+      "sha256": "49be2e51e5d89f28e989b3c5045730938ce26996d23d54b74c1f597bac4adabc",
+      "symbols": [
+        "ChordQuality15",
+        "SimpleRomanNumeral185"
+      ]
+    },
+    {
+      "path": "analysisgnn/train/train_analysisgnn.py",
+      "sha256": "aac75dad00c3f637e96ae85b2bf8fd1b37f015f171d7f49afabdfb77c2d85a45",
+      "symbols": [
+        "TASK_DICT"
+      ]
+    },
+    {
+      "path": "analysisgnn/models/analysis.py",
+      "sha256": "c5efc9086ce101a0732fb883ef508d09040a7109abc6b73bdee4bc9ba396dc5a",
+      "symbols": [
+        "ContinualAnalysisGNN.validation_step",
+        "ContinualAnalysisGNN.test_step",
+        "onsetwise_logit_aggregation"
+      ]
+    }
+  ],
+  "external_commit": "e115182fb29b74bdcb6bf3547ed427d967580947",
+  "external_repository": "https://github.com/manoskary/analysisgnn",
+  "fingerprint": "09e7b4b6a07c43d0b4c0eb0bcc6e4e7d2101c4cd89e2ec81f8824cad50da9da5",
+  "paper_text": {
+    "exact_official_reproduction": false,
+    "joint_components": [
+      "local_key",
+      "primary_degree",
+      "secondary_degree",
+      "quality",
+      "inversion"
+    ],
+    "prediction_entity_type": "note",
+    "publication": "AnalysisGNN: Unified Music Analysis with Graph Neural Networks",
+    "publication_doi": "10.5281/zenodo.17496562",
+    "source_locations": [
+      "section 4.3 Tasks",
+      "Table 2 caption"
+    ],
+    "task_count": 20
+  },
+  "pinned_code": {
+    "code_only_excluded_heads": [
+      "staff"
+    ],
+    "evaluator_branches": {
+      "note_nct_validation": [
+        "local_key",
+        "primary_degree",
+        "secondary_degree",
+        "quality",
+        "inversion"
+      ],
+      "onset_test": [
+        "primary_degree",
+        "secondary_degree",
+        "quality",
+        "inversion"
+      ]
+    },
+    "head_count": 21,
+    "quality": {
+      "head_class_count": 15,
+      "literal_count_including_missing": 16,
+      "missing_sentinel": "None",
+      "semantic_labels": [
+        "major triad",
+        "minor triad",
+        "diminished triad",
+        "augmented triad",
+        "minor seventh chord",
+        "major seventh chord",
+        "dominant seventh chord",
+        "incomplete dominant-seventh chord",
+        "diminished seventh chord",
+        "half-diminished seventh chord",
+        "augmented sixth",
+        "German augmented sixth chord",
+        "French augmented sixth chord",
+        "Italian augmented sixth chord",
+        "minor-augmented tetrachord"
+      ]
+    },
+    "roman_numeral": {
+      "literal_contains": [
+        "none",
+        "#VIIbvio7"
+      ],
+      "literal_excludes_due_to_missing_comma": [
+        "#VII",
+        "bvio7"
+      ],
+      "literal_unique_count": 184,
+      "model_head_class_count": 185
+    }
+  },
+  "schema_version": "analysisgnn-pinned-scientific-contract-e115182-v1"
+}

@@ -1,0 +1,69 @@
+{
+  "schema": "Phase9EB5DFullTrainingFixture@1.0.0",
+  "contract_fingerprint": "24361dd84aabca021cef1d2be279d9c5688753a018828ebd4907aac85999143d",
+  "preflight": {
+    "fingerprint": "47bc76d8f3ce5e5d9ed68528b4a3e410f120be69db7b1e9f4a0e65568043e0a5",
+    "initial_model_state_fingerprint": "0c18ba4a3b092f1ddfc2c88a09a0435c9881ef34750bf2012f93b41e715414f3",
+    "resolved_C0_fingerprint": "780ea77f4c1b5ed8195d8a44dd9fa9dae1eec31ff6af80459136ac5b3a0d26dd",
+    "resolved_C1_fingerprint": "9d7dcab7bf641297fb851f27c0981d7acf816a0dee4e46a5e22441399d68f427",
+    "record_schedule_fingerprints": {
+      "C0": "67f4401806f2d5419bb849449aef811fd54dfbca62588c5a1543dbbe6c1b63f8",
+      "C1": "67f4401806f2d5419bb849449aef811fd54dfbca62588c5a1543dbbe6c1b63f8"
+    },
+    "transposition_schedule_fingerprints": {
+      "C0": "af937f0ece2ffc459a093b5d8a19be815c4159653b545059eee723c3bc71bb2b",
+      "C1": "745aef3bf213228635bbd4926a5f9d61f4dc26a425434b3757535eeccae4ef4a"
+    },
+    "test_loader_created": false,
+    "test_targets_read": false,
+    "test_metrics_computed": false,
+    "full_training_run": false,
+    "multi_seed_run": false,
+    "valid": true
+  },
+  "completed_b5c_pilots": {
+    "C0": {
+      "applied_updates": 500,
+      "best_primary_score": 0.036663969804067165,
+      "best_update": 100,
+      "final_primary_score": 0.03632012795424089,
+      "summary_fingerprint": "9021cfda67f41fa5f85a1ec72707ac6e52baac9509110778844295fab8ed1a3e",
+      "transposition_schedule_fingerprint": "33e361f4dd1c58fca3f06fa9c677ed0ad2fe1cb595f0402f74415f4036233403",
+      "valid": true
+    },
+    "C1": {
+      "applied_updates": 500,
+      "best_primary_score": 0.03548936046536255,
+      "best_update": 300,
+      "final_primary_score": 0.034247543204401154,
+      "summary_fingerprint": "126dc3d55bffb60571b3fb38810ccc14e078910dec4a5f68da8dfc4e5326359a",
+      "transposition_schedule_fingerprint": "0e327a49eb2c65e20dd49dad24cadbb07d0324f3481c88814725fa5b6e3b5931",
+      "valid": true
+    },
+    "initial_model_state_fingerprint": "0c18ba4a3b092f1ddfc2c88a09a0435c9881ef34750bf2012f93b41e715414f3",
+    "record_schedule_fingerprint": "c128d388ab2fe58081e585c4cb1fc1a776f149dd44a663d998447f3a5bf2ea50",
+    "final_primary_score_delta_C1_minus_C0": -0.0020725847498397343,
+    "paired_initial_state": true,
+    "paired_record_schedule": true,
+    "test_evaluated": false,
+    "multi_seed_run": false
+  },
+  "commands": [
+    ".venv/bin/python scripts/run_phase9eb5d_analysisgnn_full.py --preflight --device cuda --seed 17 --output-root outputs/phase9eb5d",
+    ".venv/bin/python scripts/run_phase9eb5d_analysisgnn_full.py --full --profile C0 --device cuda --seed 17 --output-root outputs/phase9eb5d",
+    ".venv/bin/python scripts/run_phase9eb5d_analysisgnn_full.py --full --profile C1 --device cuda --seed 17 --output-root outputs/phase9eb5d"
+  ],
+  "status": {
+    "runner_implemented": true,
+    "preflight_completed": true,
+    "ready_for_paired_cuda_full_training": true,
+    "c0_full_training_completed": false,
+    "c1_full_training_completed": false,
+    "comparison_completed": false,
+    "test_evaluated": false,
+    "multi_seed_run": false
+  },
+  "valid": true,
+  "evidence_fingerprint": "bbc9f41768848a452609441bc1721f51a8a2d34841780b6e8057caaf92763ecb",
+  "fixture_fingerprint": "f6f96b7e232392e6ac8a293f25752af98e57da9206a3313f6570ba28f09c1e81"
+}
