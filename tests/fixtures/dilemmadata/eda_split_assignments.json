@@ -1,0 +1,74 @@
+{
+  "assignments": [
+    {
+      "assignment_manifest_fingerprint": "17a9191d6260fb100548164d39bf95773eff44e58f8693c6e7d73412676abaa9",
+      "corpus": "dilemmadata",
+      "record_id": "an:train:alpha",
+      "split": "train",
+      "target_free": true
+    },
+    {
+      "assignment_manifest_fingerprint": "17a9191d6260fb100548164d39bf95773eff44e58f8693c6e7d73412676abaa9",
+      "corpus": "dilemmadata",
+      "record_id": "an:train:beta",
+      "split": "train",
+      "target_free": true
+    },
+    {
+      "assignment_manifest_fingerprint": "17a9191d6260fb100548164d39bf95773eff44e58f8693c6e7d73412676abaa9",
+      "corpus": "dilemmadata",
+      "record_id": "an:train:gamma",
+      "split": "train",
+      "target_free": true
+    },
+    {
+      "assignment_manifest_fingerprint": "17a9191d6260fb100548164d39bf95773eff44e58f8693c6e7d73412676abaa9",
+      "corpus": "dilemmadata",
+      "record_id": "dlc:train:alpha",
+      "split": "train",
+      "target_free": true
+    },
+    {
+      "assignment_manifest_fingerprint": "17a9191d6260fb100548164d39bf95773eff44e58f8693c6e7d73412676abaa9",
+      "corpus": "dilemmadata",
+      "record_id": "dlc:train:delta",
+      "split": "train",
+      "target_free": true
+    },
+    {
+      "assignment_manifest_fingerprint": "17a9191d6260fb100548164d39bf95773eff44e58f8693c6e7d73412676abaa9",
+      "corpus": "dilemmadata",
+      "record_id": "dlc:train:epsilon",
+      "split": "train",
+      "target_free": true
+    },
+    {
+      "assignment_manifest_fingerprint": "17a9191d6260fb100548164d39bf95773eff44e58f8693c6e7d73412676abaa9",
+      "corpus": "dilemmadata",
+      "record_id": "an:validation:zeta",
+      "split": "validation",
+      "target_free": true
+    },
+    {
+      "assignment_manifest_fingerprint": "17a9191d6260fb100548164d39bf95773eff44e58f8693c6e7d73412676abaa9",
+      "corpus": "dilemmadata",
+      "record_id": "dlc:validation:eta",
+      "split": "validation",
+      "target_free": true
+    },
+    {
+      "assignment_manifest_fingerprint": "17a9191d6260fb100548164d39bf95773eff44e58f8693c6e7d73412676abaa9",
+      "corpus": "dilemmadata",
+      "record_id": "dlc:validation:theta",
+      "split": "validation",
+      "target_free": true
+    },
+    {
+      "split": "test"
+    }
+  ],
+  "fingerprint_policy": "canonical_projection_without_bound_fingerprint_v1",
+  "locked_assignment_count": 162,
+  "schema": "DilemmadataEDASplitAssignments@1.0.0",
+  "semantic_fingerprint": "17a9191d6260fb100548164d39bf95773eff44e58f8693c6e7d73412676abaa9"
+}
