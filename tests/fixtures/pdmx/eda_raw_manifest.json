@@ -1,0 +1,111 @@
+{
+  "schema": "PDMXRawEDAManifest@1.0.0",
+  "corpus": "pdmx",
+  "evidence_basis": [
+    "phase_2a1_repository_status",
+    "phase_2a1_midi_smoke_contract",
+    "phase_10_not_started"
+  ],
+  "evidence_inputs": [
+    {
+      "repository_path": "docs/STATUS.md",
+      "sha256": "4837aedb4b574767447564fcbf8464b3a315de09290f9767ee25f973a9d2432c"
+    },
+    {
+      "repository_path": "scripts/smoke_midi_adapter.py",
+      "sha256": "61d5cfb778f3ba8d26ee8edddfcae7bdf02011e436455538e90c45ca401ddd6b"
+    },
+    {
+      "repository_path": "tests/integration/test_real_midi_adapter.py",
+      "sha256": "a569c8060d4bb9bd697db3a4a16fbf7c73e60ac9d9ab02a89ef090f5d49d884f"
+    }
+  ],
+  "source_state": {
+    "dataset_role": "public_domain_raw_symbolic_ssl_candidate",
+    "paper_url": "https://arxiv.org/abs/2409.10831",
+    "release_pin_state": "not_tracked",
+    "license_artifact_state": "not_tracked",
+    "provenance_state": "local_tree_location_only"
+  },
+  "artifact_state": {
+    "phase10_adapter": "absent",
+    "phase10_manifest": "absent",
+    "phase10_cache": "absent",
+    "phase10_graph_projection": "absent"
+  },
+  "identity_state": {
+    "release_identity": "unproven",
+    "artifact_version_identity": "unproven",
+    "work_identity": "unproven",
+    "duplicate_analysis": "not_computed",
+    "leakage_analysis": "not_computed"
+  },
+  "discovery": {
+    "files_seen": 254035,
+    "tree_shape": "complete_branched_midi_tree"
+  },
+  "bounded_midi_diagnostic": {
+    "sample_mode": "spread",
+    "attempted": 100,
+    "converted": 99,
+    "failed": 1,
+    "warnings": 378,
+    "notes": 47459,
+    "tracks": 246,
+    "type_0": 0,
+    "type_1": 99,
+    "selected_parent_dirs": 100,
+    "selected_min_depth": 3,
+    "selected_max_depth": 3,
+    "failure_reasons": {
+      "midi_adapter.meter_change_inside_bar": 1,
+      "midi_adapter.unreadable_or_corrupt": 0,
+      "midi_adapter.type_2": 0,
+      "midi_adapter.smpte_or_non_ppqn": 0,
+      "midi_adapter.invalid_meter": 0,
+      "midi_adapter.metric_grid_safety": 0,
+      "canonical.validation": 0,
+      "canonical.serialization_round_trip": 0,
+      "adapter.unexpected_exception": 0
+    },
+    "outlier": {
+      "relative_source_path": "2/31/QmcmH3b8xr1N9KSEu5zS4HG7f6Beq1fENiy3bdZ9D3FXrE.mid",
+      "event_tick": 8970,
+      "active_meter": {
+        "numerator": 75,
+        "denominator": 4
+      }
+    }
+  },
+  "resource_estimators": {
+    "conversion_fraction": {
+      "numerator": 99,
+      "denominator": 100
+    },
+    "notes_per_converted_record": {
+      "numerator": 47459,
+      "denominator": 99
+    },
+    "tracks_per_converted_record": {
+      "numerator": 246,
+      "denominator": 99
+    },
+    "warning_occurrences_per_converted_record": {
+      "numerator": 378,
+      "denominator": 99
+    }
+  },
+  "graph_state": {
+    "status": "not_computed",
+    "reason": "eda.target_free_unproven"
+  },
+  "scan_policy": {
+    "production_scan_run": false,
+    "bounded_scan_run_for_this_task": false,
+    "corpus_files_opened_for_this_task": false,
+    "midi_conversion_run_for_this_task": false,
+    "graph_build_run": false,
+    "duplicate_scan_run": false,
+    "domain_gap_run": false
+  }
+}
