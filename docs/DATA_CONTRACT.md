@@ -2161,3 +2161,300 @@ a separate B5H RNG domain and serializes its absolute position. The sealed
 Primary VALIDATION remains the 162 identity records; all-shift views are a
 separate diagnostic artifact. No TEST row, loader, target or metric belongs to
 either contract.
+
+## 24. Multi-source EDA reports
+
+The cross-corpus evidence boundary contains two independent schemas:
+`RawCorpusEDA@1.0.0` for Dilemmadata, POP909-CL, HookTheory, and PDMX, and
+`SupervisionEDA@1.0.0` only for the first three. Both use
+`MultiSourceEDAEnvelope@1.0.0`. PDMX supervision is invalid; an empty
+placeholder report is not a valid substitute for absent capability.
+
+The envelope binds schema/kind, corpus, source/release and producer identities,
+repository commit, evidence and execution scope, completeness, split scope,
+used observation units, input manifest identities/fingerprints, invariants,
+warnings, unavailable reasons, and a semantic payload. Absolute paths,
+hostname, PID, timestamps, and wall-clock duration belong only to
+`operational_metadata`. They are serialized for diagnostics but excluded from
+the semantic fingerprint.
+
+Every `UnitCount` contains `observation_unit`, `value`, `denominator`,
+`denominator_unit`, split, evidence scope, provenance, and computation status.
+Counts can be aggregated only when all units and scopes agree. Split-assignment
+rows (`ObservationUnit.SPLIT_ASSIGNMENT`), target-access attempts
+(`ObservationUnit.TARGET_ACCESS_ATTEMPT`), source files, records,
+logical/canonical works, excerpts, musical events/onsets, target rows, label
+occurrences, augmented pairs, sampler presentations, optimizer updates, graph
+nodes, and graph edges are distinct units. A work count is observed only when
+a versioned work identity is present; filename-derived work identity is
+forbidden.
+
+Every common raw metric has `MetricCoverage`, with the invariant
+
+```text
+observed_count + unknown_count == denominator
+```
+
+when computation occurred. The fixed catalogue includes record discovery,
+acceptance/quarantine, parse/conversion outcomes and reasons, duration,
+notes/onsets, bars/beats, tracks/parts, pitch range, density/polyphony,
+tempo/meter and changes, instruments/programs/percussion, target-free graph
+node/edge/size evidence, invalid/empty/oversize records, duplicate/version
+candidates, and cross-split raw-identity collisions. A non-observed metric has
+null observed/unknown values and a structured reason; it is not zero.
+
+Only a fully known-empty count population (`denominator`, `observed_count`, and
+`unknown_count` all zero) has one explicit typed zero; known-empty numeric/
+categorical metrics have no summary. Zero observed rows with a positive unknown
+remainder have no summary of any kind, so unknown is never converted to zero.
+Positive multi-occurrence categorical populations may have no buckets when
+there are no occurrences, and `reason_codes` is explicitly multi-valued. Observed
+discovered/accepted/quarantined inventory rows have identical coverage;
+discovered equals both coverage `observed_count` and accepted plus quarantined.
+Raw numeric extrema/means obey the finite-sample feasibility relation, R7
+endpoint and singleton rules, non-negative/tempo/pitch/discrete bounds. The
+three graph rows have identical coverage/status, and graph-size mean and
+extrema are exactly feasible for the aggregate node-plus-edge occurrences.
+
+For a count summary, `UnitCount.name` equals the enclosing `metric_id` exactly.
+Every `CategoryCount.count.name` also equals that same `metric_id`; the category
+value belongs in `CategoryCount.category`, not in the count name.
+
+Native supervision availability is one mutually exclusive partition:
+
+```text
+available + masked + missing + unsupported == target_row denominator
+```
+
+`unknown`, `not_computed`, `not_applicable`, and `locked` are computation or
+access states outside that partition. Class support binds the full composite
+source identity `(corpus, source task, dialect, source value)`, vocabulary
+identity/version/fingerprint, granularity, split, available-row denominator,
+occurrences, unique records, and proven unique works. Categorical occurrences
+partition available rows. An available empty multilabel row increments
+availability but creates zero label occurrences and never becomes missing.
+Repeated TRAIN/VALIDATION rows for one corpus/task/dialect retain identical
+annotation namespace, vocabulary, granularity, value type, observation unit,
+and work identity, plus one class-support unique-work unit across splits.
+
+For multilabel tasks, `empty_multilabel_available_count` is itself a
+`UnitCount`, not a bare integer. It uses target-row observation and denominator
+units, the native available-row denominator, and the same split, evidence, and
+provenance as its task. Class-support occurrence, unique-record, and
+unique-work counts use label-occurrence/target-row, record/record, and
+work/work units respectively, share scope and provenance, and enforce
+`unique_work <= unique_record <= occurrence` when work support is observed.
+Their `UnitCount.name` values are field-bound exactly as `occurrence_count`,
+`unique_record_count`, and `unique_work_count`.
+
+For a `multi_label` task, each `ClassSupport` row identifies one vocabulary
+label with `SourceValueKind.SCALAR` and a non-empty stripped string value. It
+does not use a `MULTI_LABEL` set identity. Available empty sets appear only in
+`empty_multilabel_available_count` and never in class support. For every label,
+
+```text
+occurrence_count <= availability.available
+                    - empty_multilabel_available_count.value
+```
+
+because one vocabulary label occurs at most once per available non-empty row.
+A standalone `SourceValueIdentity` with kind `MULTI_LABEL` remains valid for a
+set identity, but all members must be unique non-empty stripped strings and are
+canonicalized by JSON ordering.
+
+Projection evidence is secondary to native evidence. Each row binds its
+source-value identity, an exact approved mapping registry identity and
+fingerprint, common task, native state, mapping state, projected value, and
+provenance. `SupervisionEDA@1.0.0` currently admits only
+`music_critic.dilemmadata.common_harmonic@1.0.0` with registry fingerprint
+`bb50920808b6ad3a19fb32b8315a417a837b2ab008efd7bee71e71d120e2ee2e`.
+It does not infer equivalence from surface tokens or repair a native value.
+
+Native availability and projection availability are not interchangeable.
+Each represented approved common task has one
+`ProjectionAvailabilityCounts` row. Its exact fields are corpus, source task,
+dialect, mapping registry, common task identity, observation unit, denominator,
+the seven state counts below, split, evidence scope, and provenance. It uses
+target-row units with the invariant
+
+```text
+exact + coarsened + ambiguous + unsupported + invalid + missing + masked
+    == denominator
+```
+
+Projection value rows are restricted to available identities already present
+in native class support and bind the matching projection-availability row.
+Each aggregate binds the enclosing source task's total target-row denominator,
+split, and evidence scope, and carries its own non-empty provenance. Its seven
+state counts remain independent of native state counts and class-support totals
+because inversion, local-key, and pitch-class-set projections may depend on
+context or another source field. Projection missing/masked therefore need not
+equal native missing/masked. An aggregate row may stand alone. Projection class
+rows are optional; every emitted row requires a matching registry/common-task
+aggregate and an available identity in native class support. Missing and masked
+never appear as projection class rows.
+Quality, inversion, root-PC, and bass-PC use exact static registry mappings.
+Local-key and pitch-class-set projections validate their approved source/task
+routing, mapping state, and output shape; the contract does not claim to
+verify source-local derivation context that is absent from the report.
+
+TEST supervision is structurally impossible. Split filtering precedes target
+descriptor resolution and loading, and the report validator requires zero
+TEST descriptor/loader/record/row evidence and false read/EDA/model-evaluation,
+class-distribution, coverage, and co-occurrence flags. Raw TEST metadata still
+requires an explicitly target-free manifest projection; graph metrics further
+require bound schema/builder/feature-registry/validator proof.
+
+A supervision envelope binds exactly one target-free input manifest with role
+`split_assignment`; that manifest identity fingerprint equals
+`TestTargetLockEvidence.assignment_manifest_fingerprint`. At least one other
+input manifest is target-bearing. All retained TRAIN/VALIDATION assignment rows
+must name the same fingerprint, and the guard rejects an empty or TEST-only
+assignment set. Duplicate retained `(corpus, record_id)` rows, including
+cross-TRAIN/VALIDATION assignments, fail before
+callbacks. A TEST row contributes only its split token to the assignment count;
+its record ID and every other field are deliberately never read. The lock is a
+validated attestation of an exercised adapter path. It does not
+cryptographically prevent unrelated code from opening a target file, so
+adapter acceptance also requires resolver/loader-spy evidence.
+
+`TestTargetLockEvidence.from_guard(...)` constructs all five audit-count fields
+as `UnitCount`: `test_assignment_count`,
+`test_descriptor_resolution_count`, `test_target_loader_call_count`,
+`test_target_records_opened`, and `test_target_rows_loaded`. Their observation
+units are respectively `split_assignment`, `target_access_attempt`,
+`target_access_attempt`, `record`, and `target_row`. Every field has denominator
+unit `split_assignment`, TEST split, the same evidence scope and provenance,
+and the common denominator equal to `test_assignment_count.value`, the number
+of TEST assignment rows. The assignment counter equals that denominator and
+the remaining four counters are observed zero. The guard and facade accept
+evidence scope and provenance, defaulting to fixture and
+`("supervision-target-access-guard",)` only as a fixture convenience.
+Production children pass their report scope and provenance explicitly, and the
+report rejects a lock evidence scope different from its envelope.
+
+For `unknown` or `unavailable` evidence, `input_manifests` may be empty. A
+manifest-free supervision report uses
+`TestTargetLockEvidence.not_executed(...)`, a null assignment-manifest
+fingerprint, and five null `UnitCount` values with common `locked` status,
+reason, TEST split, evidence scope, provenance, and `split_assignment`
+denominator unit. The default unknown assignment denominator is null. This is
+not an observed zero attestation; any observed task still requires an observed
+guard result and the normal manifest bindings.
+
+A supervision extension row with observed coverage counts as observed evidence
+even when every task has a non-observed status. It requires an observed
+`TestTargetLockEvidence`; an explicit non-observed empty metric row may be
+paired with `not_executed(...)`.
+
+Observed graph evidence must equal `APPROVED_RAW_GRAPH_CONTRACT`, not merely
+provide syntactically valid identities. The constant pins the existing raw
+graph schema/builder identity and SHA-256 values for the tracked builder,
+feature-registry, and validator files.
+
+The exact bindings are `music_critic.graph.raw_schema@1.0.0` to
+`src/music_critic/graph/relations.py` hash `e0be8d4c522147036418501b230411ac5fc2eafa5284bab44bbc3e6ee3059fc8`,
+`music_critic.graph.build_raw_graph@1.0.0` to
+`src/music_critic/graph/builder.py` hash `ccf423169631d4bb12295b92b4403625902eb1ded9478165f2ebc23d836fab65`,
+`music_critic.graph.raw_feature_registry@1.0.0` to
+`src/music_critic/graph/feature_registry.py` hash `a041e2c4a221bc0bc722ff3015423230b9e5d5cf56a6efbc4dc71aab351df6f7`,
+and `music_critic.graph.validate_raw_graph@1.0.0` to
+`src/music_critic/graph/validation.py` hash `8de80cbf5929507da727293751aaba723d4256a5bc65aa0309b968873ffafa99`.
+
+Semantic serialization uses UTF-8, key-sorted JSON, normalized order for
+declared set-like rows, no `NaN`/Infinity, finite binary64 shortest-roundtrip
+JSON, and exact rational quantile probabilities under the frozen R7 policy.
+The SHA-256 domain includes schema identity and all semantic bindings, excludes
+the fingerprint field itself, and excludes only designated operational
+metadata. Source extensions are corpus-prefixed and versioned; they cannot
+shadow common fields, contain raw target-derived fields, or use untyped count
+fields.
+
+Production evidence rejects fixture/replay/bounded/synthetic markers in typed
+identity/schema/task/row/count/provenance/reason channels. It does not rewrite
+or reject truthful opaque categories, prose, source/projected values, or the
+complete namespaced extension payload; typed extension provenance is a
+separate attestation field.
+
+Report semantic fingerprints, extension fingerprints, and source-value
+identities are constructor-computed. A `VersionedIdentity.fingerprint` is
+instead supplied and verified against the external release, producer,
+manifest, vocabulary, work, graph, or mapping artifact it binds; that value is
+inside the report semantic domain.
+
+After validation, arbitrary semantic JSON is recursively frozen: nested
+extension-payload mappings are read-only, sequences are tuples, and projected
+values are frozen identically. Public serializers thaw these values into fresh
+canonical JSON mappings/lists; callers therefore cannot mutate validated
+semantics after creation and make a stored report fingerprint stale. Every
+string and mapping key must contain valid UTF-8 scalar text; lone surrogates
+fail validation/loading. Structural identity/provenance strings and mapping
+keys reject Unicode control/format characters, while opaque domain/prose values
+may retain meaningful interior tabs/newlines and emoji. `dumps_canonical_json` and
+`canonical_json_sha256` remain in `music_critic.data.serialization` and are not
+new package-root exports.
+
+Every extension also binds split scope, evidence scope, provenance, and an
+optional versioned work identity. Each `ExtensionRow` is one source-native
+metric with mandatory `MetricCoverage` matching those extension bindings.
+Every row count is an observed summary component over the exact coverage
+denominator/population/scope/provenance; a non-observed row has no payload or
+counts. Coverage with zero observed rows and a positive unknown remainder has
+no payload/counts; fully known-empty coverage has no payload and only optional
+exact typed zeros. Known logical/canonical-work counts or payload work-ID aliases require
+the versioned work identity. Raw extension namespace/schema, row coverage,
+counts, provenance, and payload are all target-free checked. Extension
+uniqueness is `(namespace, split_scope)`, so the same namespace may
+legitimately carry separate TRAIN and VALIDATION evidence while retaining one
+schema/work/target-free identity. A stable row ID also retains one coverage
+observation unit and one observed typed-count name/unit schema. Strict JSON
+loading rejects duplicate keys rather than accepting last-key-wins input.
+
+Payload collision checks recurse through mappings and sequences and reserve
+the common wrapper/envelope fields, every fixed common raw `metric_id`, and
+common task structures. They deliberately allow source-local `name`, `status`,
+`category`, `mean`, `provenance`, `payload`, and `value` fields inside a
+namespaced extension. Population count/frequency/cardinality/total fields
+belong in typed `UnitCount` rows. Exact ratio objects, physical measurements,
+and source probability/weight/confidence summaries remain domain payload, but
+cannot disguise such counts.
+
+`EDAAdapterRegistry` snapshots corpus, adapter identity, and declared extension
+namespaces at registration. Report checks use this immutable declaration, so
+later mutation of the adapter object cannot change its registered identity or
+authorize another namespace.
+
+Free-form semantic evidence cannot carry an exact operational-metadata key, an
+operational alias such as machine/process identity, elapsed/runtime or
+wall-clock timing, or an absolute POSIX, Windows, home-relative, or `file://`
+path. Absolute-looking paths are rejected both as mapping keys and as string
+values. Those values belong in the closed `operational_metadata` mapping.
+Repository/corpus-relative paths and genuine domain fields such as a
+source-event timestamp remain valid semantic values and participate in the
+fingerprint. Normalization rejects aliases including `hostName`, `time_stamp`,
+and `wallclock` variants and finds absolute paths embedded after common
+delimiters in longer text, while URLs, harmonic values such as `V/ii`, and
+source-domain timestamps remain valid.
+
+Token validation also covers identity and provenance channels, not just nested
+payload keys. Raw reports reject target/gold/label/theory/supervision tokens in
+source/producer identities and manifest role/identity/relative path; envelope
+invariant code/reason/provenance, warning code/message/provenance, and
+unavailable detail/provenance; common metric coverage reason/provenance,
+category values, and count name/reason/provenance; graph reasons; and extension
+namespace/schema/work identity/row/count/provenance/payload channels. The
+literal `eda.target_free_unproven` unavailable-reason code has a narrow code-
+position exception (as does the graph-specific counterpart); its detail and
+provenance do not.
+
+Supervision reports reject TEST tokens in source/producer identities, manifest
+fields, envelope invariant code/reason/provenance, warning code/message/
+provenance, unavailable detail/provenance, task/dialect/annotation/vocabulary/
+label-granularity/work identity/reason/nested provenance, class-support work
+reasons, and
+extension identity/row/count/provenance/payload channels. Only the literal
+`eda.test_targets_locked` unavailable-reason code is exempt in its code
+position; detail and provenance are still checked. Non-TEST `scope` and
+`partition` fields remain legal—for example truthful TRAIN or VALIDATION
+metadata—and relative semantic paths are not mistaken for operational absolute
+paths.

@@ -29,6 +29,8 @@ REQUIRED_DOCS = {
     "PHASE6A_BASELINE.md",
     "PHASE7A_SSL_BASELINE.md",
     "PHASE8B2_COMPARISON_PROTOCOL.md",
+    "MULTISOURCE_EDA_CONTRACT.md",
+    "MULTISOURCE_EDA_HANDOFF.md",
     "legacy_snapshot.json",
 }
 
@@ -44,6 +46,7 @@ REQUIRED_PACKAGES = {
     "adapters",
     "exporters",
     "experiments",
+    "eda",
 }
 
 

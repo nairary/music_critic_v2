@@ -4148,3 +4148,120 @@ not clamped or mutated.
   CPU runner smoke, compileall and `git diff --check` pass. The complete local
   suite was intentionally not run; one Required GitHub `full-suite` is the PR
   gate.
+
+## Multi-source EDA foundational contract — 2026-09-03
+
+- Preflight used the separate worktree
+  `/tmp/music-critic-v2-multisource-eda-contract` on branch
+  `audit/multisource-eda-contract` at required base
+  `659bde251fee6c836564a45aea854b6abcac9fe0`. The main worktree's unrelated
+  untracked `phase9c-diagnostics/` directory and the running C2 scope were not
+  touched.
+- The stdlib-only `music_critic.eda` package defines
+  `MultiSourceEDAEnvelope@1.0.0`, `RawCorpusEDA@1.0.0`,
+  `SupervisionEDA@1.0.0`, and
+  `MultiSourceEDACapabilityRegistry@1.0.0`. All four named corpora support raw
+  reports; Dilemmadata, HookTheory, and POP909-CL support supervision; PDMX is
+  explicitly raw/SSL-only and needs only the raw adapter protocol.
+- Common raw evidence has a complete typed metric catalogue, explicit
+  observation units/denominators/unknown populations, exact target-free graph
+  bindings through `APPROVED_RAW_GRAPH_CONTRACT`, and corpus-owned extensions.
+  Every extension row is one metric with explicit `MetricCoverage`; its typed
+  counts bind the same denominator, unit, split, evidence scope, and
+  provenance. Unknown remainders never fabricate zero summaries, categorical
+  integer maps cannot hide counts, observed work counts require a versioned
+  work identity, and namespaces may repeat only across distinct splits.
+- Supervision remains source-native. Per-common-task projection availability
+  binds the native task's total target-row denominator and scopes, while its
+  exhaustive seven-state partition remains independent of native state/class
+  totals; projection missing/masked need not equal native missing/masked.
+  Projection aggregates may stand alone, while optional projection value rows
+  require a matching aggregate and originate only from available native class
+  support.
+  The existing Dilemmadata common-harmonic registry is the sole approved
+  projection registry. Static quality/inversion/root/bass rows are exact;
+  dynamic local-key/pitch-class-set validation covers routing/state/value
+  shape without overstating derivation attestation. Available empty multilabel
+  rows use a scoped `UnitCount`, not a bare integer.
+- TEST access is gated before descriptor/path/sidecar resolution. The guard
+  requires at least one TRAIN/VALIDATION row under one assignment fingerprint;
+  a repeated `(corpus, record_id)` across or within TRAIN/VALIDATION fails
+  before callbacks, and a TEST row is counted from `split` without reading its
+  record ID.
+  `SupervisionEDA` binds that fingerprint to exactly one target-free
+  `split_assignment` manifest and at least one target-bearing manifest. The
+  lock is a validated adapter-path attestation, backed by resolver/loader-spy
+  tests, not a cryptographic claim about arbitrary unrelated Python code. Its
+  five audit counters are `UnitCount` values created by
+  `TestTargetLockEvidence.from_guard(...)`: assignment, descriptor/loader,
+  opened-record, and loaded-row observations respectively use
+  `split_assignment`, `target_access_attempt`, `record`, and `target_row`. They
+  share a `split_assignment` denominator equal to the TEST assignment-row
+  count, TEST split, report evidence scope, and provenance. Fixture scope/
+  provenance defaults remain fixture-only; production children pass their
+  report values.
+- `unknown` and `unavailable` reports may have no input manifests. In the
+  supervision form, `TestTargetLockEvidence.not_executed(...)` supplies a null
+  assignment fingerprint and five null, reason-bearing `locked` counters;
+  unexecuted access is not reported as observed zero. Observed tasks retain the
+  guard and assignment/target-manifest requirements. Any populated supervision
+  extension row also counts as observed evidence and requires an observed lock,
+  even if all tasks are non-observed.
+- Canonical serialization reuses the repository's finite, Unicode-preserving,
+  key-sorted JSON helpers; set-like rows are normalized, duplicate JSON keys
+  and non-finite values fail closed, operational metadata has a closed typed
+  allowlist, and operational values plus the self-hash are outside the semantic
+  SHA-256 domain. Validated arbitrary semantic JSON is recursively frozen in
+  memory, including nested extension payloads and projected values; public
+  serializers emit fresh canonical JSON containers so callers cannot stale a
+  stored fingerprint by later mutation. Every string/key must be valid UTF-8
+  scalar text, and lone surrogates fail closed. The canonical helpers remain
+  in `music_critic.data.serialization` and are not package-root exports.
+  Free-form semantics reject operational aliases and absolute paths, but retain
+  fingerprinted relative paths and genuine source-domain timestamps. Raw
+  target and supervision TEST tokens are
+  checked across source/producer, manifest, task/vocabulary/dialect, extension/
+  work/row/count, payload, and provenance channels; truthful non-TEST scope/
+  partition metadata remains allowed.
+- Final identity hardening binds raw count-summary and categorical-row count
+  names to their enclosing `metric_id`; `ClassSupport` count names are exactly
+  `occurrence_count`, `unique_record_count`, and `unique_work_count`. Multilabel
+  class support uses one scalar non-empty stripped string identity per
+  vocabulary label, empty sets use only `empty_multilabel_available_count`, and
+  each label occurrence count is bounded by available non-empty rows.
+- Raw target-token validation additionally covers envelope invariant/warning/
+  unavailable detail and provenance, common metric coverage/category/count
+  names/reasons/provenance, and graph reasons. Supervision TEST-token validation
+  additionally covers envelope rows, task reasons/nested provenance, and
+  class-support work reasons. The canonical `eda.target_free_unproven` and
+  `eda.test_targets_locked` unavailable-reason codes have narrow code-position
+  exceptions only. Absolute paths are rejected in semantic mapping keys as well
+  as values and when embedded after common delimiters; alias normalization
+  covers `hostName`, `time_stamp`, and `wallclock` variants. URLs, `V/ii`,
+  relative paths, source-domain timestamps, and truthful non-TEST metadata
+  remain allowed.
+- Extension collision checks recurse over common wrapper/envelope fields,
+  fixed common metric IDs, and common task structures. Generic namespaced
+  source-local `name`, `status`, `category`, `mean`, `provenance`, `payload`,
+  and `value` remain valid; bare count/denominator/total aliases still require
+  `UnitCount`. Adapter registration snapshots corpus, adapter identity, and
+  declared namespaces, so later object mutation cannot rewrite the registered
+  declaration. Public report entry points and adapter returns require the exact
+  registered root dataclass types, so forged subclasses fail closed.
+- Synthetic four-corpus fixtures and focused tests cover capability, units,
+  availability, projection, TEST access, adapters, extensions, serialization,
+  graph attestation, and public-import isolation. Final prescribed targeted
+  result: `777 passed, 2 warnings in 104.29s`; repository-contract result:
+  `6 passed in 1.38s`. The two warnings are the existing `torch.jit.script`
+  deprecation warnings.
+- No real corpus traversal, checksum recomputation, MIDI conversion, graph
+  build, duplicate/domain-gap scan, checkpoint or large-artifact read, GPU
+  use, training, production audit, or full repository suite was run for this
+  task. Data, caches, graphs, target sidecars, membership, splits/grouping,
+  vocabularies, masks, projections, models, heads, losses, samplers, SSL,
+  training configuration, checkpoints, production manifests, and C0/C1/C2
+  artifacts remain unchanged.
+- The exact foundational commit cannot self-identify inside its own tracked
+  handoff without changing its object ID. `docs/MULTISOURCE_EDA_HANDOFF.md`
+  therefore retains `<EDA_CONTRACT_SHA>`; the final post-commit report supplies
+  the exact pushed SHA from which all four child worktrees must be created.

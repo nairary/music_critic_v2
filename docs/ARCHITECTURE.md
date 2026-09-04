@@ -1631,3 +1631,168 @@ routing. Identity-only validation selects checkpoints. A separate all-shift
 diagnostic reports per-shift loss/score/joint values, macro and worst-shift
 gap without replacing the primary metric. Checkpoints serialize orbit
 position and RNG/table identity. TEST has no loader or metric path.
+
+## Multi-source EDA foundation boundary
+
+The common EDA layer is read-only evidence infrastructure. It is not a corpus
+adapter and has no dependency on Torch, MIDI renderers, dataset loaders, or
+legacy code. Its control flow is:
+
+```text
+target-free source/manifest ──> source raw adapter ──> RawCorpusEDA
+split assignment ──> TEST gate ──> descriptor/sidecar loader
+                                      │
+                                      └──────────────> SupervisionEDA
+typed validated report ──> canonical semantic projection ──> SHA-256
+```
+
+The TEST branch terminates at the split gate, before descriptor decoding, path
+construction, or sidecar loading. PDMX terminates after the raw branch because
+its supervision capability is false. `RawCorpusEDA` accepts graph metrics only
+with an explicit `target_free=true` proof bound to graph schema, builder,
+feature registry, and validator identities. Other graph evidence is structured
+unavailable, never a zero-sized graph claim.
+
+`music_critic.eda` owns the fixed envelope, capability registry, common raw
+metric catalogue, observation/availability semantics, validators, semantic
+serializer, TEST guard, and adapter registry. A source branch owns discovery,
+aggregation, and versioned extensions below its `<corpus>.` namespace. An
+extension cannot override a common field. Each `ExtensionRow` is one
+source-native metric with mandatory `MetricCoverage`; source-specific counts
+are typed summary components bound to that coverage. The shared layer validates
+the corpus and producer identity of every adapter result. Registration
+snapshots the corpus, adapter identity, and declared extension namespaces;
+mutating the adapter object later cannot rewrite that declaration.
+
+Reports are derived artifacts only. Creating them cannot mutate cache/index
+identity, raw graphs, target bundles, components/splits, vocabularies,
+projections, models, losses, samplers, or training state. The four downstream
+worktrees freeze this schema and the common documents at the exact foundation
+commit; schema evolution is a separate reviewed decision and version bump.
+
+Validated arbitrary semantic JSON is recursively frozen in memory: nested
+extension-payload mappings are read-only, sequences become tuples, and
+projected values follow the same rule. Public serialization constructs fresh
+canonical JSON mappings/lists, so caller mutation cannot stale the report's
+stored semantic fingerprint. Every string and mapping key must be valid UTF-8
+scalar text, so lone surrogates fail closed. Structural identifiers,
+provenance, and mapping keys reject Unicode control/format characters; opaque
+domain/prose values may preserve meaningful interior whitespace and emoji. The shared canonical helpers stay
+in `music_critic.data.serialization` and are not added as package-root exports.
+
+Supervision construction binds the access path to its evidence. The envelope
+contains exactly one target-free `split_assignment` manifest whose identity
+fingerprint equals `TestTargetLockEvidence.assignment_manifest_fingerprint`,
+plus at least one target-bearing manifest. The guard rejects an empty or
+TEST-only assignment view, requires every retained TRAIN/VALIDATION row to
+bind that one fingerprint, rejects duplicate retained
+`(corpus, record_id)` keys before callbacks—including cross-TRAIN/VALIDATION
+duplicates—so the retained split plan is mutually exclusive, and returns the lock
+attestation after loading only those retained rows. A TEST branch reads only
+its split token and never its record ID. This is an executable, validated
+attestation of the adapter path, not a cryptographic sandbox around arbitrary
+unrelated code; source adapters must use the guard and prove non-invocation
+with descriptor and loader spies.
+
+The guard materializes lock audit counts only through
+`TestTargetLockEvidence.from_guard(...)`. Its assignment counter observes
+`split_assignment`; descriptor and loader calls observe
+`target_access_attempt`; opened target records observe `record`; and loaded
+rows observe `target_row`. `ObservationUnit.TARGET_ACCESS_ATTEMPT` is a public
+audit unit. All five are `UnitCount` values bound to TEST, a common
+`split_assignment` denominator equal to the TEST assignment-row count, one
+evidence scope, and one provenance. The guard/facade fixture defaults are
+explicit conveniences; production source paths pass the report scope and
+provenance rather than inheriting them.
+
+An `unknown` or `unavailable` report may truthfully have no input manifest.
+For supervision, that manifest-free form uses
+`TestTargetLockEvidence.not_executed(...)`: the assignment fingerprint is null
+and all five counter values are null with shared `locked` status and a reason,
+instead of fabricated access zeros. Observed tasks still require the observed
+guard attestation and the normal assignment/target manifests.
+
+Any supervision extension row with observed coverage is also observed
+supervision evidence for this gate, even if every task is non-observed. Such a
+report therefore requires an observed `TestTargetLockEvidence`; an explicit
+non-observed empty metric row may accompany an unexecuted lock.
+
+Typed names prevent counts from being moved between fields without detection.
+A common raw count summary and every categorical-row `UnitCount` use the
+enclosing `metric_id` as `name`. `ClassSupport` uses exactly
+`occurrence_count`, `unique_record_count`, and `unique_work_count` for its three
+field-bound count names. For a `multi_label` task, one class-support row is one
+non-empty stripped vocabulary-label string represented by a scalar source-value
+identity. Empty sets exist only in `empty_multilabel_available_count`, and one
+label's occurrences cannot exceed the number of available non-empty rows. A
+standalone multi-label source-value identity may represent a set, but each
+member is a unique non-empty stripped string and that set identity is not a
+class-support row.
+
+Native and common-projection availability are different planes.
+`AvailabilityCounts` partitions source-native target rows into available,
+masked, missing, and unsupported. A `ProjectionAvailabilityCounts` row for an
+approved common task separately partitions its target-row population into
+exact, coarsened, ambiguous, unsupported, invalid, missing, and masked. It may
+stand alone. It binds the native task's total denominator and scopes, but its
+seven state counts are independent of native state/class totals because
+projection can depend on context or another source field; in particular,
+projection missing/masked need not equal native missing/masked. Optional
+projection value rows originate only from available native class support and
+require a matching aggregate row. Static
+quality/inversion/root/bass mappings are exact registry lookups; dynamic
+local-key and pitch-class-set rows validate approved routing, state, and value
+shape without claiming to attest their external derivation context.
+
+Observed graph evidence is not established by four arbitrary versioned
+strings. It must equal `APPROVED_RAW_GRAPH_CONTRACT`, which pins the current
+raw graph schema and builder version together with the tracked builder,
+feature-registry, and validator file hashes. Source extensions likewise carry
+their own split, evidence scope, provenance, and optional work identity. Each
+row is one metric with mandatory coverage bound exactly to the extension. Its
+observed typed counts share that coverage denominator, population unit, split,
+evidence scope, and provenance; a non-observed row has no payload or counts.
+Known logical/canonical-work counts or payload work-ID aliases require the
+versioned work identity. Raw extension identity, row-coverage, and count
+metadata participate in target-free validation. One namespace may have
+distinct TRAIN and VALIDATION instances keyed by `(namespace, split_scope)`,
+but keeps one schema/work/target-free identity across them. A stable `row_id`
+also keeps one coverage unit and one observed typed-count name/unit schema.
+Extension payloads are checked recursively against common wrapper/envelope fields, fixed common
+metric IDs, and common task structures. Generic source-local names such as
+`name`, `status`, `category`, `mean`, `provenance`, `payload`, and `value`
+remain legal inside the namespaced payload. Population counts use `UnitCount`;
+exact ratios, physical measurements, and source probability/confidence
+summaries remain domain payload and cannot disguise counts.
+
+The report boundary recursively keeps machine-local material out of semantic
+evidence. Exact operational keys, token-equivalent operational aliases, and
+absolute POSIX/Windows/home/file-URI paths in either mapping keys or string
+values are rejected outside the closed `operational_metadata` mapping. Corpus-
+or repository-relative semantic paths and domain facts such as a source-event
+timestamp remain valid and are hashed. Alias normalization catches forms such
+as `hostName`, `time_stamp`, and `wallclock_seconds`, and absolute paths remain
+forbidden when embedded after common delimiters in longer text. It does not
+misclassify URLs, music-theory values such as `V/ii`, or source-domain
+timestamps as operational evidence.
+
+Production-scope marker validation is limited to typed attestation channels
+such as identity, schema, task/row/count names, reason codes, and provenance.
+Opaque source-domain fields and the complete namespaced extension payload are
+preserved; `SourceExtension.provenance` remains the separate typed evidence
+channel.
+
+Raw target tokens are checked across source/producer and manifest identities;
+envelope invariant code/reason/provenance, warning code/message/provenance, and
+unavailable detail/provenance; common metric coverage/category/count names,
+reasons, and provenance; and extension namespace/schema/work identity/row/
+payload/count channels. Only the canonical `eda.target_free_unproven` reason
+code position (and its graph-specific equivalent) has the narrow token
+exception; associated detail/provenance remains checked. Supervision TEST-token
+validation similarly reaches envelope invariant/warning/unavailable channels,
+task identity/dialect/annotation/vocabulary/label-granularity/work/reason and
+nested provenance, and class-support work reasons, in addition to
+manifest/extension/row/count channels. Only the canonical
+`eda.test_targets_locked` unavailable-reason code position is exempt. This is a
+token-specific lock: truthful TRAIN or VALIDATION `scope`/`partition` metadata
+is allowed when it does not select or encode TEST.

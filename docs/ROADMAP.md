@@ -1036,3 +1036,75 @@ sealed from-scratch run is batch 2, at most 120,000 updates/240,000 draws,
 6,000 warmup updates, peak LR 0.005, FP32 and cosine decay. Identity
 VALIDATION remains primary; all-shift VALIDATION is diagnostic. Repository
 status may become ready, but training and TEST remain unexecuted.
+
+## Multi-source EDA foundation status
+
+The shared contract foundation is complete at schema versions
+`RawCorpusEDA@1.0.0`, `SupervisionEDA@1.0.0`, and
+`MultiSourceEDAEnvelope@1.0.0`. Contract capability is raw=true for
+Dilemmadata, POP909-CL, HookTheory, and PDMX; supervision=true only for the
+first three. This matrix does not claim any production EDA was executed.
+
+Four source-specific raw implementations and three supervision implementations
+remain separate follow-up tasks. They register source adapters and use
+corpus-prefixed extensions without editing the shared schema or common docs.
+Each worktree must branch from the exact foundation SHA, not the moving branch
+name. PDMX production ingestion remains Phase 10 work and its metadata is not
+automatically theory supervision.
+
+Validated arbitrary semantic JSON is recursively frozen in memory, including
+nested extension payloads and projected values. Public serializers return
+fresh canonical JSON containers, preventing caller mutation after validation
+from staling the stored report fingerprint. Every string/key must be valid
+UTF-8 scalar text, and lone surrogates fail closed. The reused canonical
+helpers remain in `music_critic.data.serialization`, not package-root exports.
+
+Final contract hardening keeps TEST audit units explicit: assignment rows use
+`split_assignment`; descriptor and loader calls use the dedicated
+`target_access_attempt` unit; opened records and loaded rows use `record` and
+`target_row`, all over the TEST assignment-row denominator. Duplicate retained
+`(corpus, record_id)` assignments—including cross-TRAIN/VALIDATION duplicates—
+fail before callbacks and TEST row IDs remain unread.
+
+An `unknown` or `unavailable` report may be manifest-free. Its supervision lock
+comes from `TestTargetLockEvidence.not_executed(...)`, with a null assignment
+fingerprint and null reason-bearing `locked` counters rather than observed
+zeros. The semantic boundary also rejects operational aliases, absolute paths,
+and raw-target/TEST tokens across source, manifest, task, extension, work, row,
+count, and provenance channels. Relative semantic paths and truthful non-TEST
+scope/partition metadata remain supported. Any supervision extension row with
+observed coverage still requires an observed TEST-lock attestation even when
+all tasks are non-observed; an explicit non-observed empty metric row does not.
+
+The final typed-name and token audit binds common raw count-summary and
+categorical-row names to `metric_id` and class-support count names to their
+exact fields. Raw target-token checks also cover envelope invariant/warning/
+unavailable content and common metric coverage/category/count metadata;
+supervision TEST-token checks also cover envelope rows, task identity/schema
+(including label granularity), reasons/nested provenance, and class-support
+work reasons.
+Only the canonical target-free-unproven and TEST-targets-locked reason codes
+receive narrow code-position exceptions; their detail/provenance remains
+checked. Absolute paths fail in semantic mapping keys as well as values.
+Alias normalization includes `hostName`, `time_stamp`, and `wallclock`
+variants, and paths embedded after common delimiters also fail; URLs, `V/ii`,
+and source-domain timestamps remain valid.
+
+Multilabel class support is one scalar non-empty stripped string identity per
+vocabulary label. Empty available sets use only
+`empty_multilabel_available_count`; each label count is bounded by available
+non-empty rows. A standalone `MULTI_LABEL` set identity is canonicalized only
+from unique non-empty stripped string members.
+
+Extension payload collision checks recurse over common wrapper/envelope fields,
+fixed common metric IDs, and common task structures. Namespaced source-local
+`name`, `status`, `category`, `mean`, `provenance`, `payload`, and `value`
+remain valid. Each row is one source-native metric with mandatory coverage;
+its observed typed-count components bind the same population/scope/provenance,
+and a non-observed row is empty. Population counts require `UnitCount`; exact
+ratios, physical measurements, and source probability/confidence summaries
+remain domain payload but cannot disguise counts.
+Across splits, stable task/extension identities retain their task work units,
+extension row coverage units, and observed typed-count schemas.
+Adapter registration immutably snapshots corpus, adapter identity, and declared
+namespaces, so later mutation cannot rewrite the registered declaration.

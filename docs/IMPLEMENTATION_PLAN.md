@@ -4356,6 +4356,82 @@ Use these as conceptual references. Confirm licenses, dataset versions, and impl
 - Implement preflight, smoke, checkpoint/resume and full runner paths, but do
   not execute the 120k run in this PR. TEST stays inaccessible.
 
+## Foundational multi-source EDA contract (TZ 1/5)
+
+- Freeze `RawCorpusEDA@1.0.0`, `SupervisionEDA@1.0.0`, their common envelope,
+  capability matrix, typed counts/availability, canonical fingerprints,
+  source-extension boundary, and pre-loader TEST guard before any of four
+  source-specific implementations diverge.
+- Support raw contract implementations for Dilemmadata, POP909-CL, HookTheory,
+  and PDMX. Support supervision implementations only for the first three;
+  PDMX remains raw/SSL-only and its Phase 10 adapter remains pending.
+- Reuse existing V2 canonical serialization, target-free graph, source-native
+  registry, approved Dilemmadata projection, split-manifest, and Phase 9E-B4
+  TEST-lock concepts. Do not create a new common ontology or reinterpret
+  deferred/incompatible crosswalks.
+- Recursively freeze validated arbitrary semantic JSON, including nested
+  extension payloads and projected values; public serialization emits fresh
+  canonical JSON containers so external mutation cannot stale a report
+  fingerprint. Reject lone surrogates in every string/key, and keep the reused
+  canonical helpers in `music_critic.data.serialization` without package-root
+  re-exports.
+- Keep TEST-lock accounting unit-safe: assignment rows use
+  `split_assignment`, descriptor/loader calls use `target_access_attempt`,
+  opened records use `record`, and loaded target rows use `target_row`, all over
+  the common `split_assignment` denominator.
+- Allow manifest-free `unknown`/`unavailable` reports without inventing
+  evidence. Supervision uses `TestTargetLockEvidence.not_executed(...)` with a
+  null assignment fingerprint and null, reason-bearing `locked` counters;
+  observed tasks continue to require the guard and manifest bindings.
+- Treat every supervision extension row with observed coverage as evidence for
+  the TEST gate, even when all tasks are non-observed; require an observed lock
+  attestation in that case. Permit explicit non-observed empty metric rows with
+  an unexecuted lock.
+- Reject operational aliases and absolute paths recursively from free-form
+  semantic mapping keys and values. Validate raw target tokens through envelope
+  invariant/warning/unavailable fields and common metric coverage/category/
+  count metadata, as well as source, manifest, extension, work, row/count, and
+  provenance identities. Validate supervision TEST tokens through envelope
+  rows, task identity/dialect/annotation/vocabulary/label-granularity/work/
+  reason/nested provenance, and class-support work reasons as well as the
+  existing channels. Keep only the narrow canonical reason-code exceptions; allow honest
+  non-TEST scope/partition metadata and relative semantic paths. Normalize
+  `hostName`, `time_stamp`, and `wallclock` aliases and reject absolute paths
+  embedded after common delimiters, without rejecting URLs, `V/ii`, or genuine
+  source-domain timestamps.
+- Recursively reserve common wrapper/envelope fields, fixed raw metric IDs, and
+  common task structures from extension payloads, while allowing generic
+  namespaced source fields such as `name`, `status`, `category`, `mean`,
+  `provenance`, `payload`, and `value`. Make every extension row one
+  source-native metric with mandatory coverage; bind its observed typed-count
+  summary components to that population/scope/provenance and require a
+  non-observed row to be empty. Population count aliases use `UnitCount`, while
+  exact ratios, physical measurements, and source probability/confidence
+  summaries remain domain payload and cannot disguise counts. Snapshot corpus,
+  adapter identity, and declared namespaces at registration so later adapter
+  mutation cannot alter them.
+- Bind every raw count-summary or categorical-row `UnitCount.name` to its
+  `metric_id`, and every class-support name to its typed field. Model
+  multilabel class support as one scalar non-empty string identity per
+  vocabulary label; reserve
+  `empty_multilabel_available_count` for empty sets, cap each label's occurrence
+  count by available non-empty rows, and require string-only standalone
+  `MULTI_LABEL` set identities.
+- Enforce common raw zero-summary arity, multi-occurrence category semantics,
+  exact inventory conservation, numeric endpoint/singleton/sample feasibility,
+  and graph coverage/aggregate consistency. Keep repeated task and extension
+  schema identities, task class-support work units, and extension row/count
+  units stable across TRAIN and VALIDATION, and reject duplicate
+  retained `(corpus, record_id)` assignments across either split before target
+  callbacks.
+- Prove the foundation only with tracked code/docs and synthetic fixtures.
+  Production report generation and real corpus distributions belong to four
+  later child tasks rooted at the exact foundation commit.
+- Non-goals are corpus scans/checksums, MIDI conversion, graph construction,
+  checkpoint reads, GPU/training, duplicate/domain-gap scans, and any change to
+  raw data/cache/graphs, membership/splits, targets/projections, models/SSL,
+  samplers, training configs, checkpoints, or C0/C1/C2 evidence.
+
 ---
 
 # Final instruction to Codex
