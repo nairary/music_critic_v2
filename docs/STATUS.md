@@ -423,14 +423,20 @@
 
 ## Current phase
 
-- Date: 2026-09-01
-- Current task: Phase 9E-B5B frozen AnalysisGNN training policy on stacked
-  branch `phase/9eb5b-analysisgnn-training-policy`, based on exact B5A head
-  `2c304ac1570ac41af77ec4c0e9a1afd444e73068`.
-- B5B freezes three non-runnable profiles, corrected 8/10/2 head roles,
-  masked/group-normalized loss, TRAIN-only class weights, component-balanced
-  sampling, validation metrics, and stop gates. It implements/runs no model or
-  trainer, does no validation inference, and leaves TEST closed. Historical
+- Date: 2026-09-04
+- Current task: Phase 9E-B5K C0-120k compute-matched control. The user reports
+  that training is now in progress, and the live attempt is registered as
+  `EXP-9EB5K-C0-120K-001`. Exact training checkout, command, output root,
+  environment, start time, and live progress remain pending run evidence.
+- B5G/H implementation is complete. Verified imported primary evidence records
+  completed C0/C1 10,000-update runs and a completed C2 120,000-update run.
+  C0 remains the selected baseline until the running compute-matched C0-120k
+  control finishes and is reviewed. Existing results use only seed 17. TEST is
+  declared closed for the running control and must be verified from its final
+  evidence.
+- Substantial future runs now require a pre-run tracked record, immutable full
+  evidence outside Git, post-run finalization including failures, and a
+  deterministic ledger update under `docs/EXPERIMENT_LOGGING.md`. Historical
   Phase 9C execution context follows below.
 - The completed parent evidence is fixed by manifest fingerprint
   `6e64f33e64de9c3d864d75828a6916d95afa9fcbadc75c14359b884cab83ab10`
@@ -4128,15 +4134,25 @@ not clamped or mutated.
   identity occurs 1,295 times. Shift-set sizes are 12:1231, 11:31, 10:8,
   9:12, 8:3, 7:8, 6:1 and 2:1. Each epoch is a deterministic no-replacement
   permutation under a separate B5H RNG domain.
-- The unexecuted sealed C2 run is seed 17, batch 2, 120,000 maximum updates,
-  240,000 draws, 6,000 warmup updates, peak LR 0.005, FP32, cosine decay and
-  no early stopping. It comprises 15 complete orbits plus a 9,165-draw
-  partial orbit. Identity VALIDATION remains primary and all-shift validation
-  is separate diagnostics.
-- Repository status is `inverse_contract_valid=true`,
-  `full_orbit_profile_valid=true`, `ready_for_full_orbit_training=true`, and
-  `full_orbit_training_run=false`. Model, split, sidecars, cache, class
-  weights, B5D artifacts and TEST remain unchanged. No legacy source was used.
+- The sealed C2 run subsequently completed at seed 17, batch 2, 120,000
+  successful updates, 240,000 draws, 6,000 warmup updates, peak LR 0.005,
+  FP32, cosine decay and no early stopping. It comprises 15 complete orbits
+  plus a 9,165-draw partial orbit. Identity VALIDATION remains primary and
+  all-shift validation is separate diagnostics.
+- Imported primary evidence reports best identity primary score
+  `0.49666884914040565` at update 115,000 and final
+  `0.496239360421896` at update 120,000. All-shift macro is
+  `0.441465709048`; shift 11 is worst at `0.388149842620`. Runtime was
+  `108056.96478980687` seconds (about 30.016 hours), with zero NaN, overflow,
+  or skipped updates.
+- Execution-registry status for the imported C2 evidence is
+  `inverse_contract_valid=true`, `full_orbit_profile_valid=true`, and
+  `full_orbit_training_run=true`. The original source-free B5H planning
+  fixture remains immutable with `full_orbit_training_run=false`; it describes
+  repository readiness before the external run, not the later execution
+  result. Model, split, sidecars, cache, class weights, B5D artifacts and TEST
+  remain unchanged. C0 remains the selected baseline until the planned
+  compute-matched C0-120k control is complete. No legacy source was used.
 - Full B5G summary/evidence/fixture fingerprints are `4b2ac10b19cdfe2c...`,
   `44354c01cb7784ad...`, and `8fd448a6cb112a3e...`. C2 profile/table/partial-
   epoch/fixture fingerprints are `2de42ac93cfb6eb6...`,
@@ -4148,3 +4164,58 @@ not clamped or mutated.
   CPU runner smoke, compileall and `git diff --check` pass. The complete local
   suite was intentionally not run; one Required GitHub `full-suite` is the PR
   gate.
+
+## Repository-wide experiment evidence registry — 2026-09-04
+
+- The supplied transfer package is preserved byte-for-byte in ignored,
+  content-addressed local artifact storage and identified by SHA-256
+  `2a340242cdd7b917eec4def9c8644bb2c10330e72ec9c8cbcf9d2291acfe9823`
+  and size 22,237,876 bytes. This local copy is not a cross-machine backup.
+- Gzip/tar integrity, all 11 internal `SHA256SUMS` entries, all four nested
+  tar archives, safe paths/member types, JSON/JSONL decoding, and available
+  self-fingerprints were checked without executing imported scripts or
+  instructions. C0/C1 duplicate primary files agree byte-for-byte between
+  their profile and provenance archives.
+- Tracked records `EXP-9EB5D-C0-001`, `EXP-9EB5D-C1-001`, and
+  `EXP-9EB5H-C2-001` contain the verified compact results and point to the
+  local package by digest. `PLAN-9EB5K-C0-120K` immutably preserves the
+  pre-run definition; the linked attempt `EXP-9EB5K-C0-120K-001` is now
+  `running` based on the user's report. The package's older Phase 9C ledger
+  entries are not promoted to fully verified records because their primary
+  evidence archives are absent.
+- Access observations are distinct from declared policy. Completed imported
+  C0/C1/C2 records retain evidence-backed booleans. The planning record and
+  running C0 attempt retain `null` VALIDATION/TEST observations until primary
+  run evidence arrives, while their separately sourced policy allows
+  VALIDATION and closes every TEST access mode.
+- Provenance gaps remain explicit: C0/C1 machine-readable evidence omits exact
+  Git SHA/branch; C2 records its Git SHA only in transfer documentation, while
+  its compact archive omits environment, resolved config, full training
+  contract, and checkpoint bytes. The original B5F aggregate remains
+  `valid=false` because obsolete aliases produced null observations, even
+  though its canonical shift-zero metrics reproduced exactly.
+- `AGENTS.md` now makes logging automatic across future Codex tasks. The
+  tracked compact registry and deterministic ledger are governed by
+  `ExperimentRecord@1.0.0`; full evidence stays ignored or external and every
+  completed, failed, aborted, or invalid substantial run remains immutable.
+- No model training, validation inference, TEST access, cache rebuild,
+  checkpoint load, legacy inspection, or imported-code execution occurred in
+  this registration task.
+- This follow-up only registered the externally running control; it did not
+  inspect or interfere with the process. No progress or result is claimed.
+  The running record must be finalized from retained evidence as `completed`,
+  `failed`, `aborted`, or `invalid` when the process terminates.
+- Final registry tests pass `58 passed in 4.36s`; registry validation passes
+  for five records with fingerprint
+  `f51f4f947a5da57a502352d951a7c2a06684889f151b09ace6f7e7ac59664e15`,
+  deterministic ledger render/check passes with SHA-256
+  `1d457ffe8523ff86477494c09c4eb781702c5e832e6a4c5e4248596e67370fcd`,
+  and compileall plus `git diff --check` pass. The
+  complete local suite immediately before the final registry-only hardening
+  reached `1940 passed, 59 skipped, 10 failed, 1 warning in 421.20s`; the
+  hardening is covered by the final 36-test selection. The ten full-suite
+  failures are outside the new registry surface: four DataLoader tests are
+  blocked by sandbox denial of PyTorch shared-memory worker management, one
+  worker-profiler test reports that same restriction, four model/audit checks
+  see pre-existing local PyTorch state-fingerprint mismatches, and one runner
+  expects an unavailable `python` executable instead of `python3`.

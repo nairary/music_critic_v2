@@ -4356,6 +4356,30 @@ Use these as conceptual references. Confirm licenses, dataset versions, and impl
 - Implement preflight, smoke, checkpoint/resume and full runner paths, but do
   not execute the 120k run in this PR. TEST stays inaccessible.
 
+### Phase 9E-B5H external execution evidence — 2026-09-04 import
+
+- After the implementation PR, C2 completed independently from training
+  checkout head `659bde251fee6c836564a45aea854b6abcac9fe0`: seed 17,
+  batch 2, 120,000 successful updates, 240,000 draws, and zero skipped,
+  overflow, or NaN updates. The primary run-summary self-fingerprint is
+  `0f8936e60933b9b65b2e76b37a03307a0ed553e90a012f62fd421494e825b3d4`.
+- Best identity VALIDATION primary score is `0.49666884914040565` at update
+  115,000; final is `0.496239360421896` at 120,000. All-shift macro is
+  `0.441465709048`, with shift 11 worst at `0.388149842620`. The all-shift
+  self-fingerprint is
+  `a0d55ff980b33ef8c604bb8bea400f296095496faefc2745139ae29aa2bd3f9a`.
+- The imported transfer package is identified by SHA-256
+  `2a340242cdd7b917eec4def9c8644bb2c10330e72ec9c8cbcf9d2291acfe9823`.
+  Its compact C2 archive omits checkpoint bytes, environment, resolved config,
+  full training contract, and the repository source for the documented B5J
+  validation-eligibility finalization; those remain explicit reproducibility
+  gaps even though the supplied JSON/log integrity checks pass.
+- C2-120k cannot be used as a causal augmentation comparison with C0/C1-10k.
+  Keep C0 as the current selected baseline. The next declared scientific run
+  is `PLAN-9EB5K-C0-120K`, a fresh C0-120k control matched to C2's seed,
+  initialization, optimizer, scheduler, budget, batch size, and validation
+  protocol. TEST stays locked.
+
 ---
 
 # Final instruction to Codex
