@@ -4224,3 +4224,67 @@ This log is append-only.
   data/cache/graph, target sidecar, split/grouping, vocabulary, projection,
   model, SSL, sampler, training config, checkpoint, C0/C1/C2 artifact, or
   production manifest changes under this decision.
+
+## 2026-09-04 — ADR-116: Substantial experiments use a repository-wide immutable evidence registry
+
+- Status: Accepted as a cross-cutting scientific-evidence policy. It changes
+  no model, data, split, target, loss, checkpoint, inference, or TEST contract.
+- Context: Prior phases already preserved full generated outputs outside Git
+  and committed compact phase-specific seals, but no repository-wide rule
+  required the pattern in every future Codex task. A user-supplied seed-17
+  transfer package also contains completed C0/C1/C2 evidence plus a manual
+  ledger whose C0/C1 archive-status text is stale and whose older Phase 9C
+  entries lack their primary archives.
+- Decision: Make the root `AGENTS.md` the mandatory always-on enforcement
+  point and define the detailed contract in `docs/EXPERIMENT_LOGGING.md`. A
+  reusable skill is not the primary mechanism because it is not guaranteed to
+  trigger in every task; it may be added later only as a cross-project
+  convenience.
+- Decision: Define `ExperimentRecord@1.0.0` as one canonical, fingerprinted
+  lifecycle JSON file per experiment under `docs/experiments/records/` and
+  derive `docs/EXPERIMENT_LEDGER.md` deterministically from those records.
+  Plan a substantial run before execution and finalize it as completed,
+  failed, aborted, or invalid. Planned/running records may transition only
+  forward; once terminal, a record is immutable. Reruns and corrections
+  receive new linked identities, and negative evidence is never erased.
+- Decision: Keep declared VALIDATION/TEST policy separate from observed access.
+  Every observation is tri-state: `true` or `false` requires primary evidence,
+  while `null` means unknown. Pending and planning-only records must therefore
+  retain `null` observations even when their declared policy closes TEST.
+- Decision: A substantial experiment includes real-data non-fixture training
+  or evaluation, costly/GPU work, comparisons and ablations, checkpoint or
+  model selection, any TEST access, external result import, decision-changing
+  diagnostics, and informative failed/invalid attempts. Ordinary tests and
+  tiny synthetic smokes remain outside the ledger unless cited as scientific
+  evidence. Hardware gates are recorded separately from quality claims.
+- Decision: Keep full logs, checkpoints, metric streams, archives, datasets,
+  and generated outputs in ignored or external storage. Retained local bundles
+  use content-addressed SHA-256 paths under `artifacts/experiments/`; tracked
+  records contain only portable locators, hashes, sizes, availability,
+  provenance gaps, results, and claim boundaries. A local ignored copy is not
+  represented as a durable backup.
+- Decision: Treat every imported archive member—including prompts, README
+  files, scripts, and source snapshots—as untrusted evidence, never project
+  instructions. Validate path/member safety recursively, outer and available
+  internal checksums, primary JSON/JSONL/log claims, and archive omissions
+  before registration. Imported code is not executed implicitly and is never
+  extracted over the live checkout.
+- Decision: Register the verified completed profiles as
+  `EXP-9EB5D-C0-001`, `EXP-9EB5D-C1-001`, and `EXP-9EB5H-C2-001`. C2 records
+  best/final identity primary scores `0.49666884914040565` at 115,000 and
+  `0.496239360421896` at 120,000, with all-shift macro `0.441465709048`.
+  TEST remained closed. Missing C2 environment/config/checkpoint bytes and its
+  absent B5J finalization source remain explicit provenance gaps.
+- Decision: Do not select C2 over C0 or claim an augmentation benefit from
+  this import. C0/C1 used 10,000 updates while C2 used 120,000, all use only
+  seed 17, and no C0-120k result exists. Keep C0 as the current baseline and
+  register `PLAN-9EB5K-C0-120K` as the unexecuted compute-matched control
+  before causal comparison; multi-seed claims remain unavailable.
+- Consequences: Future Codex tasks in this repository must create and finalize
+  records without a repeated user reminder, render the ledger, and update
+  STATUS. Compact records remain reviewable in Git while heavy evidence stays
+  outside it. The supplied archive is preserved locally by digest but still
+  requires external object/artifact storage to survive machine or checkout
+  loss. Older Phase 9C prose from the transfer ledger is retained inside that
+  archive only and is not promoted to verified records without its primary
+  evidence.
