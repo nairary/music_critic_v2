@@ -1,0 +1,41 @@
+{
+  "schema": "Pop909ClEDASupervisionFixture@1.0.0",
+  "corpus": "pop909_cl",
+  "ontology_version": "1.0.1",
+  "ontology_fingerprint": "86ea17b016eafb7109fe050f9332c57f8e0f3399046debc01f4d8ac5d19d9613",
+  "records": {
+    "fixture-pop-train-a": {
+      "split": "train",
+      "rows": [
+        {"task_id": "pop909_cl.chord.bass", "state": "available", "value": "E"},
+        {"task_id": "pop909_cl.chord.boundary", "state": "available", "value": "present"},
+        {"task_id": "pop909_cl.chord.inversion", "state": "available", "value": "4"},
+        {"task_id": "pop909_cl.chord.no_chord", "state": "available", "value": "N"},
+        {"task_id": "pop909_cl.chord.quality", "state": "available", "value": "M"},
+        {"task_id": "pop909_cl.chord.root", "state": "available", "value": "C"}
+      ]
+    },
+    "fixture-pop-train-b": {
+      "split": "train",
+      "rows": [
+        {"task_id": "pop909_cl.chord.bass", "state": "available", "value": "A"},
+        {"task_id": "pop909_cl.chord.boundary", "state": "available", "value": "present"},
+        {"task_id": "pop909_cl.chord.inversion", "state": "masked", "value": null},
+        {"task_id": "pop909_cl.chord.no_chord", "state": "missing", "value": null},
+        {"task_id": "pop909_cl.chord.quality", "state": "available", "value": "m"},
+        {"task_id": "pop909_cl.chord.root", "state": "masked", "value": null}
+      ]
+    },
+    "fixture-pop-validation-a": {
+      "split": "validation",
+      "rows": [
+        {"task_id": "pop909_cl.chord.bass", "state": "available", "value": "F"},
+        {"task_id": "pop909_cl.chord.boundary", "state": "available", "value": "present"},
+        {"task_id": "pop909_cl.chord.inversion", "state": "available", "value": "10"},
+        {"task_id": "pop909_cl.chord.no_chord", "state": "available", "value": "N"},
+        {"task_id": "pop909_cl.chord.quality", "state": "unsupported", "value": null},
+        {"task_id": "pop909_cl.chord.root", "state": "available", "value": "G"}
+      ]
+    }
+  }
+}
