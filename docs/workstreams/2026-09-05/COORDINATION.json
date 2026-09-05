@@ -139,6 +139,8 @@
       "publicationRepository": "nairary/music_critic_v2",
       "publicationRef": "refs/heads/codex/develop",
       "publicationAuthorization": "User requested moving current development to a separate branch copied from the retained main in the GitHub publication discussion",
+      "publicationStatus": "not_executed_auto_review_requires_explicit_public_repository_and_branch_confirmation",
+      "remotePushed": false,
       "mainCommit": "f0e0886161c9f67786011508006db61c803c1752",
       "remoteMainUnchanged": true,
       "report": "BRANCH_STRATEGY.md"

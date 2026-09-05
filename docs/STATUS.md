@@ -19,6 +19,10 @@
   2 warnings in 52.87s**. Branch ancestry, JSON, links and whitespace are checked
   for this documentation/ref-only change. No new tests or experiments are run.
 - [Branch strategy and exact source identities](workstreams/2026-09-05/BRANCH_STRATEGY.md).
+- Publication was attempted for `refs/heads/codex/develop` but automatic
+  approval review rejected it before execution, requiring explicit confirmation
+  of that branch and the public repository. Local separation is complete;
+  the development branch remains unpublished pending that confirmation.
 
 ## Four-workstream integration into local main — 2026-09-05
 
