@@ -4319,3 +4319,146 @@ This log is append-only.
 - Consequences: Routine STATUS edits no longer break PDMX replay, historical
   zero values cannot be mistaken for current counters, and each evidence layer
   retains its own time scope. No legacy source or runtime dependency is used.
+
+
+## 2026-09-05 — ADR-WS1-20260905: Version complete raw inputs separately from frozen experiments
+
+- Status: Implemented for WS1 review; integration and new experiments remain
+  separate decisions. Scope is Phase 9E input correctness and Phase 2B
+  HookTheory conversion, not a model or scientific-result change.
+- Context: Historical transposition changes note pitch but retains old track
+  mean/min/max statistics. HookTheory conversion formerly enlarged raw duration
+  using chord annotation extent and late key-target onsets; full-record cache
+  identity was also sensitive to annotations and target visibility.
+- Decision: Preserve `transposition.py`, all its frozen APIs and profile
+  fingerprints. Add `CompleteRawGraphTransposition@1.0.0` as a separate opt-in
+  API with a registry-bound contract fingerprint. Recompute note pitch/class/
+  octave, track mean/std/min/max and note relative pitch from actual ownership,
+  following existing builder availability and percussion policies. Retain
+  detached source integrity, topology, IDs and exact timing. The B5G signed
+  tritone inverse is reused unchanged; it is not a newly discovered defect.
+- Decision: Version HookTheory conversion as `2.0.0` and mandatory raw projection
+  as `1.0.0`. Source duration and observable melody/rest/tempo/meter timing
+  determine geometry. Clip overlapping annotation intervals; mask fully
+  outside intervals at the endpoint with explicit reasons. Empty observed
+  content can remain zero-duration. Do not change relative melody decoding.
+- Decision: Bind HookTheory corpus indices to the new adapter version and raw
+  fingerprint through existing `cache_input_sha256`. Its adapter config
+  fingerprint describes raw preparation only. Preserve target visibility in
+  conversion provenance, full source hashes in index lineage and full canonical
+  hashes in immutable artifact paths. Different labels may share a raw key but
+  cannot overwrite each other's artifacts. New projection rejects historical
+  pieces; no old record/cache is silently migrated. Generic cache/schema APIs
+  and every other corpus remain unchanged.
+- Consequences: The detailed contract is `docs/INPUT_CORRECTNESS_CONTRACT.md`.
+  Synthetic CPU rebuild/cache tests establish mechanics only. Historical C2
+  impact is unknown; frozen C0/C1/C2 remain reproducible. No current trainer
+  opts into the complete API and no experiment is launched. Future adoption
+  requires a new registered protocol/experiment and fresh artifacts, with TEST
+  closed until separately authorized. Legacy logic is not used.
+
+## 2026-09-05 — ADR-WS2: Strict corrected-theory warm-start and shared objective harness
+
+- Status: Implemented for synthetic CPU contract acceptance; scientific
+  warm-start/retention effectiveness remains untested.
+- Context: The existing SSL encoder export accepts the hierarchical baseline,
+  while the corrected model has a separate BiGRU and 18 task heads. A reverse
+  transfer must neither weaken that validator nor discard the theory branch.
+- Decision: Add `theory-ssl-warmstart@1.0.0` as a separate complete corrected
+  in-memory envelope with `synthetic_in_memory` provenance. Bind fixed model,
+  raw feature/graph and actual module contracts, complete state keys, shapes,
+  dtypes, finite tensors, tensor fingerprints and an explicit four-group
+  `k -> encoder.k` mapping before mutation. Retain BiGRU/head state separately;
+  never represent the full state as an encoder-only export or fabricate file
+  provenance. Application uses strict full loads with rollback.
+- Decision: Share the same transferred local/pooling/Transformer/fusion module
+  and Parameter objects across SSL and retained theory branches, without
+  aliasing the original source. Keep SSL mask/decoder/projectors fresh and
+  freeze/exclude its inherited unused task/reconstruction heads. Expose an
+  inventory with each active parameter exactly once.
+- Decision: Compose existing losses with explicit nonnegative coefficients on
+  caller-prepared raw batches/bindings and separately supplied sidecars/weights.
+  Theory labels join after raw prediction. Missing targets omit the term and
+  are diagnosed. Preserve historical 8/10 loss and full-view detached SSL
+  targets before the corrected BiGRU. A local subclass restores each child
+  train/eval flag after the inherited target pass, including failures.
+- Consequences: No shared trainer/model/graph/adapter/vocabulary changes,
+  dependency additions, frozen C0/C2 edits, or experiment runs are required.
+  The next scientific action needs a registered checkpoint-provenance protocol
+  and a predeclared retained-theory evaluation. See
+  `WS2_THEORY_SSL_HARNESS.md` and `workstreams/2026-09-05/WS2_RESULT.md`.
+
+## 2026-09-05 — ADR-WS3-001: PDMX source components precede raw bar windows
+
+- Status: WS3 implementation proposal, synthetic contract checks complete;
+  coordinator review/integration and real-source acceptance remain separate.
+- Scope: Phase 10 engineering foundation only. Existing canonical, corpus,
+  graph, split, SSL/trainer and historical PDMX EDA contracts remain unchanged.
+- Decision: Pin the supported MusicRender metrical JSON profile to upstream
+  source commit `5c6a25b613e4497469e855e8bd1423b1d834ff45`. This identifies the
+  parser's source definitions, not a supplied PDMX release. Fixture mode is
+  explicit; unknown release/license/cross-corpus evidence is not filled with
+  invented fixture facts. Future production mode requires explicit bindings.
+- Decision: Use supplied source IDs/relative paths/hashes, declared license
+  filters, and evidence-bearing lineage links. Group all source metadata by
+  exact hash and lineage before filtering/windowing, then validate complete
+  explicit TRAIN/VALIDATION assignments. TEST is denied before source/cache
+  readers. Window split assignments are derived from those components and
+  validated by the existing SplitManifest machinery.
+- Decision: Windows preserve exact global-to-local offsets, original bar/note
+  IDs, and effective start tempo/meter context. Crossing notes are explicitly
+  clipped with deterministic derived IDs/provenance. Grace notes remain zero
+  duration; missing optional fields and voice evidence stay unavailable. Gold
+  segmentation, chord-array note synthesis and theory labels are not inputs.
+  VALIDATION overlap requires explicit source-piece aggregation acknowledgement.
+- Decision: Compose the existing canonical cache with bounded thread workers,
+  versioned source shards and completed-source journals. Contract fingerprints
+  include source/selection/split/window/projection plus shared cache/graph
+  versions. Atomic final publication occurs only after all source results;
+  corruption fails closed, changed bindings retain a separate namespace.
+  Metadata remains O(records + windows); payloads obey worker/source budgets.
+- Decision: The lazy PDMX loader adds version/split checks and returns the
+  existing SSLRawSample/collator boundary without target-sidecar access.
+  Reports distinguish records/components/windows, clipping and resource
+  rejections, and graph statistics only from actually built graphs.
+- Consequences: WS3 supplies fixture-verified mechanics, not real-corpus
+  readiness or scaled SSL evidence. Unsupported irregular source bars are
+  quarantined under the unchanged canonical contract. One writer per contract
+  root is required. Objective-specific SSL eligibility, corpus/source license
+  verification, cross-corpus lineage and actual resource acceptance remain
+  future work under a separately authorized planned experiment. The complete
+  contract is `docs/PDMX_PIPELINE_CONTRACT.md`. No legacy logic is reused.
+
+## 2026-09-05 — ADR-WS4: Freeze a separate POP909-CL root/quality evaluator
+
+- Status: Implemented for synthetic CPU acceptance only; real-data transfer
+  evaluation and historical checkpoint compatibility remain unverified.
+- Context: Corrected 18-head C0/C2 models expose spelled root37 and quality17
+  predictions on raw beats, while POP909-CL supplies independently available
+  source chord events. Existing supervised evaluation and resume semantics do
+  not specify the desired transfer crosswalk or restricted model-only loading.
+- Decision: Add an isolated versioned evaluator without changing common
+  registries, graph/adapters, training resume, evaluation contracts or frozen
+  profiles. Accept hash/size-bound restricted CPU model-only envelopes, verify
+  the exact corrected contract and all state tensors, preserve caller RNG and
+  load no training state. Historical fingerprint-only envelopes report their
+  missing contract payload; restricted-load failure has no unsafe fallback.
+- Decision: Marginalize all spelled-root softmax probabilities into PCs before
+  prediction. Quality takes full17 argmax before subset9 gold eligibility.
+  Explicit interval templates bind the subset. Count outside-subset winners
+  as errors in full17 confusion; observed-true-class macro-F1 remains per task.
+- Decision: Fix native as primary and metadata_removed as secondary before
+  metrics. Remove exactly note velocity/program/channel and track
+  program/channel through canonical replacement plus public graph rebuild.
+  Source-event start maps to a unique raw half-open beat using RationalTime.
+  Multiple events in a beat remain separate observations with a shared
+  prediction, separate conflict counts and an explicit resolution limit.
+- Decision: Delay target extraction/join until both raw views have predictions.
+  Keep root/quality masks independent and intersect only for joint accuracy.
+  Report separate event/piece/group coverage, unavailable label and alignment
+  axes, null denominator reasons and deterministic model/view/source bindings.
+  The CLI performs only generated-fixture smoke; TEST is denied before readers.
+- Consequences: This is score-conditioned harmonic transfer tooling, not a
+  music-quality score, a paper reproduction, a checkpoint choice or a measured
+  improvement. Future TRAIN/VALIDATION evaluation needs an independent planned
+  experiment and verified artifacts. Legacy inspection/reuse is unnecessary.

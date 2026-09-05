@@ -1,5 +1,182 @@
 # Music Critic V2 Status
 
+## Four-workstream integration into local main — 2026-09-05
+
+- User approved and received the accepted four-workstream union in local main
+  through an ordinary merge from candidate a628af4bb72358f0ca99ad1a8c04fcf4a78cc845.
+  Existing coordination documents are included and retained in a recovery
+  stash. No new implementation or scientific phase is added.
+- Main checkout gate: **814 passed, 6 CUDA-only skips, 2 deselected,
+  2 upstream warnings in 52.87s**. All 34 implementation/test/config/CLI files
+  match the accepted source; the merge preparation tree matched the candidate.
+- [Main integration record](workstreams/2026-09-05/MAIN_INTEGRATION.md) records
+  preservation, exact source identity and verification. GitHub publication
+  has not been performed; scientific/TEST/C0 boundaries remain unchanged.
+
+## Four-workstream wave completed in isolated checkout — 2026-09-05
+
+- All four implementations are independently accepted; seven review findings
+  are resolved. Corrected joint gate: **814 passed, 6 CUDA-only skips,
+  2 deselected, 2 upstream warnings in 55.38s**, including two coordinator
+  cross-component regressions. Earlier failed evidence is retained.
+- [Final integration report](workstreams/2026-09-05/INTEGRATION_RESULT.md)
+  binds the 33 implementation/test/config files, exact selection/results and
+  isolated checkout. Common STATUS/ADR additions preserve previous history.
+- The 10-minute review heartbeat is PAUSED after completion. No tasks were
+  archived or worktrees cleaned. Main has coordination documentation only;
+  combined implementation is uncommitted in the separate checkout, not merged.
+- No real-data/TEST/checkpoint/legacy/SSH/C0 access or scientific run occurred.
+  Acceptance establishes fixture mechanics, not model quality or corpus
+  readiness. Next repository action is review of the complete diff and a
+  separate main-integration decision; next scientific work needs its own
+  registered protocol and verified real artifacts.
+
+## Coordinated development wave — 2026-09-05
+
+- The user authorized four separate implementation tasks with review and
+  follow-up coordination in the scientific coordinator task. Specifications
+  and acceptance boundaries are in
+  [the coordination plan](workstreams/2026-09-05/README.md).
+- WS1 covers versioned transposition feature completeness and HookTheory raw
+  timeline independence; WS2 covers theory-to-SSL transfer and a shared-backbone
+  synthetic harness; WS3 covers PDMX preparation/cache infrastructure; WS4 covers
+  a frozen POP909-CL root/quality evaluator.
+- This entry records authorized development, not completed implementation or
+  scientific evidence. Tests are limited to synthetic CPU fixtures. TEST,
+  real-data runs, trained-checkpoint loading, SSH, and changes to the current
+  C0 run remain outside scope. The C0/C2 scientific comparison remains pending.
+- Each task owns a separate worktree and reports exact tests and limitations.
+  The coordinator reviews actual changes, returns corrections, and consolidates
+  documentation; task completion is distinct from acceptance and integration.
+  Live coordination identities are recorded separately from experiment records
+  in workstreams/2026-09-05/COORDINATION.json.
+- Setup validation: repository-contract tests passed (6 passed in 1.21s), all
+  workstream document links resolved, and git diff --check passed. Four task
+  creations were queued and four worktrees at the expected base were observed.
+  The review heartbeat is active every 10 minutes; implementation and review
+  completion remain tracked in the coordination state, not asserted here.
+- Initial WS1 review authorized a bounded HookTheory-only cache identity fix
+  through the existing cache_input_sha256 extension point. It separates raw
+  projection identity from target-bearing artifact identity without changing
+  shared cache APIs/schema; implementation and regression acceptance are pending.
+- All four actual task IDs are now resolved, their expected base is verified,
+  and active execution was confirmed through the task status API. No task is
+  accepted yet; WS2 has reached its synthetic-test stage according to its report.
+
+### WS1 review accepted — 2026-09-05
+
+- The coordinator accepted WS1 content a2bb43ea55053aa2bcd6bb7f3b04372ab381ae398c9183caea319250ee7bcf2c
+  after actual-diff review, independent fingerprint reproduction, two additional
+  static reviews and 187 passing synthetic CPU tests (2.58s; two upstream
+  warnings and one non-fatal pytest-cache write warning).
+- Separate complete transposition and HookTheory raw timeline/cache separation
+  meet the bounded WS1 criteria; historical C0/C2 paths remain unchanged.
+  [Review evidence](workstreams/2026-09-05/WS1_REVIEW.md) records the exact scope,
+  commands and limitations. WS1 is accepted for isolated integration, not merged
+  into main; combined compatibility and all scientific claims remain pending.
+
+### WS4 review R1 — 2026-09-05
+
+- Independent review found one coverage classification defect: expected-missing
+  chord annotation spans were counted as trailing-unannotated regions. A synthetic
+  adapter-evidence reproduction confirmed 1 where 0 is expected. Correction and
+  a regression were requested; WS4 is not accepted yet.
+- The independent CPU gate passed 115 tests (one existing CUDA case deselected;
+  two upstream warnings, 5.18s). The uncovered edge case and next review boundary
+  are preserved in [WS4 R1](workstreams/2026-09-05/WS4_REVIEW_R1.md).
+
+### WS4 review accepted after R1 correction — 2026-09-05
+
+- Coverage classification WS4-R1-001 is resolved with two adapter-evidence
+  regressions. The coordinator verified the 14-file content fingerprint
+  d89fa514991a436958fd24a1fc3aea7728a3eb9b372d5a82721f0006041666b9
+  and repeated the focused CPU gate: 117 passed, one CUDA case deselected,
+  two upstream warnings in 5.16s.
+- WS4 is accepted for isolated integration. [R2 evidence](workstreams/2026-09-05/WS4_REVIEW_R2.md)
+  retains the implementation and scientific limits; real POP909 evaluation and
+  actual C0/C2 checkpoint compatibility remain unverified.
+
+### WS3 review R1 — 2026-09-05
+
+- Independent review reproduced stale quarantine reuse on resume: a previously
+  missing source becoming valid still produced zero accepted records and a cache
+  hit. WS3-R1-001 requires explicit changed-observation handling and regressions.
+- The full 157296-byte submitted patch was independently reproduced; the CPU
+  gate passed 269 tests (one existing shared-memory worker case deselected;
+  two upstream warnings, 8.80s). [R1 evidence](workstreams/2026-09-05/WS3_REVIEW_R1.md)
+  distinguishes these checks from the author's full 270-test run.
+- Adapter/window review additionally found WS3-R1-002: Decimal parsing of an
+  extreme JSON exponent escapes the adapter error boundary and aborts the
+  pipeline. The coordinator reproduced it through the actual adapter. Both
+  findings were returned for bounded fixes and regressions; review is complete,
+  but WS3 is not accepted.
+
+### WS2 review R1 — 2026-09-05
+
+- Independent gate passed 213 tests with six CUDA skips and two upstream
+  warnings in 32.87s. Additional synthetic probes exposed three P2 cases:
+  fully masked zero-candidate heads fail in loss gather; numeric-type equality
+  accepts stale contract fingerprints; distinct Parameter objects may share
+  storage despite alias preflight. All were independently reproduced and
+  returned for bounded local corrections. [R1 evidence](workstreams/2026-09-05/WS2_REVIEW_R1.md)
+  records exact revisions, checks and expected regressions. WS2 is not accepted.
+
+### WS3 review accepted after R1 corrections — 2026-09-05
+
+- Both PDMX findings are resolved. The complete revised patch fingerprint
+  af294bd8e5a48568a93622a432498953b8ff0bfb5133e1b111b97ba047e5db4f
+  (172749 bytes) was independently reproduced. Repeated gate: 275 passed,
+  one shared-memory worker case deselected, two upstream warnings in 9.04s.
+  [R2 evidence](workstreams/2026-09-05/WS3_REVIEW_R2.md) retains the distinction
+  from the author's full 276-test run and all fixture-only claim boundaries.
+- WS1, WS3 and WS4 are accepted for isolated integration. WS2 remediation
+  and joint compatibility checks remain pending; main has no implementation
+  integration and no scientific experiment was launched.
+- Prepared an isolated local clone at
+  /private/tmp/music-critic-v2-ws-integration-20260905 on the expected base and
+  codex/ws-integration-20260905 branch. Reverified and copied accepted WS1/3/4
+  source revisions; consolidated STATUS and DECISIONS additions without losing
+  original history. WS2 is not included yet, and joint checks have not run.
+
+### WS2 review accepted after R1 corrections — 2026-09-05
+
+- All three WS2 findings are resolved. Root reproduced implementation manifest
+  32aa819b318cd72170e01fd0406a707620fe9c3ebfcb269a753c4823bd774633
+  and repeated the complete gate: 238 passed, six CUDA skips, two upstream
+  warnings in 35.80s. [R2 review](workstreams/2026-09-05/WS2_REVIEW_R2.md)
+  records exact content binding, independent reviews and remaining claim limits.
+- All four workstreams are now individually accepted. Joint compatibility
+  testing in the isolated copy remains the final engineering gate. Main code,
+  active C0, TEST, real datasets/checkpoints and experiment records are unchanged.
+- All four accepted implementations are now composed in the isolated checkout.
+  Added two coordinator-owned synthetic integration regressions: PDMX windows
+  through complete transposition and a shared SSL step; retained theory state
+  through restricted model-only loading and both frozen POP909 views. The union
+  of all profile gates plus these two checks is running, with real-data modules
+  excluded. Common documentation additions retain the original history.
+
+### Isolated integration R1 — 2026-09-05
+
+- Joint gate: 1 failed, 812 passed, six CUDA skips, two deselections, two
+  upstream warnings in 53.72s. Both new cross-component tests passed.
+- INT-R1-001 exposes a direct mido import in WS4's experimental smoke module,
+  violating the existing repository-wide import boundary. WS4 was returned
+  for a narrow move of generated MIDI construction into a new adapter helper;
+  the coordinator authorized that new owned file, without weakening the test.
+  [Integration R1](workstreams/2026-09-05/INTEGRATION_REVIEW_R1.md) retains the
+  failed gate and exact scope. Joint acceptance remains pending; main code and
+  scientific experiment boundaries remain unchanged.
+
+### WS4 R3 integration remediation accepted — 2026-09-05
+
+- INT-R1-001 is resolved by moving only generated MIDI construction to the
+  newly authorized adapter helper. Existing repository import rules and adapter
+  APIs are unchanged. Root repeated WS4 plus repository checks: 124 passed,
+  one CUDA case deselected, two upstream warnings in 6.14s; fixture bytes match.
+  [R3 review](workstreams/2026-09-05/WS4_REVIEW_R3.md) binds the 15-file revision.
+- All individual workstreams are accepted again. The final combined gate is
+  being repeated on the corrected union; the earlier failed gate is retained.
+
 ## Phase 9E-B5B AnalysisGNN frozen training policy — 2026-09-01
 
 - Added `AnalysisGNNTrainingPolicy@1.0.0` and three serialized future profiles.
@@ -4380,3 +4557,223 @@ not clamped or mutated.
   imported-code execution, or legacy repository inspection occurred. The next
   scientific action remains finalizing the running C0 record from primary RTX
   evidence; the next repository action is the integration PR and Required CI.
+
+
+## WS1 — complete raw inputs, Phase 9E / Phase 2B — 2026-09-05
+
+- Review-ready implementation from base/HEAD
+  `f0e0886161c9f67786011508006db61c803c1752`; no commit, push or integration.
+- Added opt-in `CompleteRawGraphTransposition@1.0.0` in
+  `experiments/analysisgnn/transposition_inputs.py`. All eight pitch-derived
+  columns and builder availability rules are recomputed from actual ownership.
+  Detached graphs match independent canonical rebuilds and directed inverses
+  exactly. Frozen transposition APIs, profiles and fingerprints are unchanged.
+- HookTheory adapter `2.0.0` now derives raw geometry only from source duration
+  and observable melody/rest/tempo/meter timing. Out-of-range chord/key spans
+  are clipped or masked with explicit reasons; empty melody cannot obtain
+  duration from labels. Relative melody pitch reconstruction is unchanged.
+- New HookTheory raw projection `1.0.0` has annotation-independent bytes and
+  fingerprint. Approved HookTheory-only corpus glue uses that fingerprint in
+  the existing raw cache-key boundary, with raw configuration identity separate
+  from target visibility provenance and full source/canonical artifact hashes.
+  Historical caches remain historical and are never relabeled or overwritten.
+- Validation: primary synthetic CPU suite **185 passed, 2 warnings in 3.16s**;
+  parser/exporter/multisource regressions **124 passed, 1 deselected, 2 warnings
+  in 2.59s**; the deselected worker-parity check separately **1 passed,
+  2 warnings in 12.03s** after authorized shared-memory sandbox escalation.
+  All warnings are upstream Torch JIT deprecations. No dependency skips.
+- Contract and exact commands: `docs/INPUT_CORRECTNESS_CONTRACT.md` and
+  `docs/workstreams/2026-09-05/WS1_RESULT.md`. Legacy was not accessed/reused.
+  No real corpus/TEST/checkpoint/training/SSH access or experiment record.
+  No claim about historical C2 impact or augmentation benefit. Next gate is
+  coordinator review/integration, then a separately registered experiment
+  before any training adoption of the new contract.
+
+## WS2 theory → SSL bridge and shared objective harness — 2026-09-05
+
+- Implemented the bounded Phase 9E → Phase 7–8 bridge before Phase 10 in
+  `ssl/theory_warmstart.py` and `ssl/theory_retention_harness.py`. Fixed corrected
+  architecture and full BiGRU/18-head retention are preserved. No shared API,
+  frozen C0/C2 profile, adapter, graph, vocabulary, trainer or dependency changed.
+- A separate strict complete-state in-memory envelope maps all four backbone
+  groups as `k -> encoder.k`, validates exact state/runtime/feature contracts and
+  fingerprints before mutation, and retains source independence. Both branches
+  use the same backbone Parameter objects; fresh SSL and inactive inherited
+  heads have explicit keys/fingerprints and a duplicate-free optimizer inventory.
+- Existing detached full-view SSL objectives and corrected 8/10 loss compose
+  with explicit coefficients. Theory sidecars join only after raw prediction;
+  missing labels omit loss terms. A local SSL subclass restores every child
+  train/eval flag after target execution, including exceptions.
+- Final new tests plus unchanged transfer tests: `69 passed, 2 warnings in
+  13.55s`, no skips (66 new tests). Profile regressions: `147 passed, 6 skipped,
+  2 warnings in 20.25s`; skipped cases require CUDA and are not CPU passes.
+  Warning source is the existing upstream `torch.jit.script` deprecation.
+  Compileall, tracked diff check and new-file whitespace check pass.
+- No real-data experiment, trained checkpoint, TEST data/loader, SSH, GPU or
+  legacy repository access occurred. No experiment records/ledger changed.
+  Synthetic checks establish mechanics only. No forgetting-resistance or model
+  quality conclusion is supported.
+- Ready for coordinator review on unchanged base
+  `f0e0886161c9f67786011508006db61c803c1752`; changes are uncommitted and not
+  integrated. Exact commands, fingerprints and limitations are in
+  `workstreams/2026-09-05/WS2_RESULT.md`; API contract is in
+  `WS2_THEORY_SSL_HARNESS.md`, with append-only `ADR-WS2` in DECISIONS.
+- Next scientific phase: separately registered warm-start experiment with real
+  checkpoint provenance and predeclared retained-theory evaluation; not launched.
+
+## WS2 R2 review remediation — 2026-09-05
+
+- Addressed coordinator findings `WS2-R1-001/002/003` within the two WS2 modules
+  and their tests. R1 review evidence, commands and implementation fingerprint
+  remain preserved in the original handoff; the R2 addendum supersedes its status.
+- Empty-candidate heads now use a private zero-row alignment for the unchanged
+  corrected loss. Original public alignment, diagnostics and full masked counts
+  remain available; harmonic heads and mixed SSL continue to train without
+  fabricated logits or targets.
+- Supplied contracts must pass a recomputed self-fingerprint and type-sensitive
+  canonical comparison. Preflight rejects overlapping parameter storage ranges
+  in each separate input model, including distinct offset/frombuffer views.
+  Intended shared backbone Parameter objects after transfer remain supported.
+- Final combined gate: `238 passed, 6 skipped, 2 warnings in 35.94s`; all 91 WS2
+  tests pass without skips. The six skips are existing actual-CUDA checks and
+  warnings are upstream `torch.jit.script` deprecation. Compileall and
+  diff/whitespace checks pass; independent local review has no remaining finding.
+- Base/HEAD is unchanged at `f0e0886161c9f67786011508006db61c803c1752`.
+  R2 four-file implementation manifest:
+  `32aa819b318cd72170e01fd0406a707620fe9c3ebfcb269a753c4823bd774633`.
+  Full commands/hashes are in `workstreams/2026-09-05/WS2_RESULT.md`.
+- Ready for coordinator R2 review, uncommitted and not integrated. No frozen
+  corrected training/loss, profile, shared API, experiment record, real-data
+  execution, trained checkpoint, TEST loader/data, GPU, SSH or legacy change.
+  The next scientific phase remains a separately registered warm-start and
+  retained-theory evaluation protocol; not launched.
+
+## WS3 — PDMX pipeline engineering foundation — 2026-09-05
+
+- Base and unchanged HEAD: `f0e0886161c9f67786011508006db61c803c1752`;
+  implementation is an uncommitted reviewable diff in the WS3 worktree.
+- Added the pinned MusicRender metrical JSON raw adapter, explicit source and
+  selection manifests, transitive source components before filtering/windows,
+  pre-reader TEST guards, exact clipped bar windows, bounded preprocessing,
+  sealed source shards/journal and atomic versioned canonical-cache publication.
+  Source paths are portable and workers/resume/relocated roots are deterministic.
+- Added the lazy split/version-guarded raw SSL window loader and explicit CLI.
+  Reporting separates records/components/windows, filter/quarantine/resource
+  reasons, clipping and actual-graph statistics. Fixtures make no real-corpus
+  distribution, throughput or quality claim. Decoder/trainer APIs are unchanged.
+- The format is pinned to upstream commit
+  `5c6a25b613e4497469e855e8bd1423b1d834ff45`, while concrete PDMX release/license
+  provenance and actual-source compatibility remain unverified. Unsupported
+  irregular bars fail closed. No voices or theory targets are synthesized.
+- Final prescribed CPU selection: `270 passed, 2 warnings in 20.37s`, no skips.
+  The existing Torch deprecation warnings remain. An earlier sandboxed run
+  had `259 passed, 1 failed` because `torch_shm_manager` was denied; the isolated
+  test and final complete selection passed outside sandbox without modifying
+  the shared environment. Compileall and `git diff --check` exit 0.
+- Added 97 synthetic cases. No real corpus/cache, trained checkpoint, TEST
+  input/target/loader, SSH, GPU, training/evaluation or active C0 access occurred.
+  Ordinary tests require no standalone experiment record. Existing ledger,
+  terminal records, frozen profiles, PDMX EDA, dependencies and shared APIs
+  remain unchanged. Legacy was not inspected or reused.
+- Contract: `docs/PDMX_PIPELINE_CONTRACT.md`; architectural record:
+  ADR-WS3-001; complete handoff: `docs/workstreams/2026-09-05/WS3_RESULT.md`.
+  Await coordinator actual-diff review and isolated integration. Future real
+  Phase 10 acceptance needs separate authorization, planned record, verified
+  release/license/schema/lineage/split bindings and retained terminal evidence;
+  this does not complete Phase 10 or begin scaled SSL/Phase 11.
+
+### WS3 review R1-001 — unverified-source resume correction
+
+- The coordinator rejected initial review patch
+  `8034c147541a63f31452ecc71f71fbe3a5b558eed537790b65b51a81ccf12edc`
+  on a confirmed P2: a formerly unreadable source becoming valid reused the
+  old unverified quarantine and counted a cache hit. Initial verification above
+  is retained as the history of that revision.
+- The successful-verification resume branch now requires a previously observed
+  source hash and no pre-read failure reason. Otherwise it raises explicit
+  `pdmx.resume_source_changed`, preserving journal/shard/publication bytes and
+  requiring an explicit retry in a new output root. No shared schema/API or
+  adapter/window change was needed.
+- Three new synthetic cases cover unreadable/hash-mismatch/bytes-limit to
+  valid, unchanged rejected non-hits, unchanged accepted hits, no parser
+  callbacks on denied resume, complete old-artifact byte equality and explicit
+  retry. Targeted checks: `6 passed, 28 deselected, 2 warnings in 0.90s`.
+- Corrected complete prescribed selection: `273 passed, 2 warnings in 20.17s`,
+  no skips/deselections, outside sandbox for the existing two-worker regression.
+  Compileall and `git diff --check` pass. No real corpus/TEST/legacy/checkpoint
+  access, dependency/shared-runtime modification or scientific run occurred.
+- Base/HEAD remains `f0e0886161c9f67786011508006db61c803c1752`, uncommitted.
+  R1 history and commands are in `docs/workstreams/2026-09-05/WS3_RESULT.md`.
+  Await coordinator re-review of the new complete patch; not accepted/integrated.
+
+### WS3 review R1-002 — invalid decimal JSON quarantine
+
+- The coordinator found an uncaught `decimal.InvalidOperation` during JSON
+  parsing for a tiny extreme exponent. The new mixed-pipeline test reproduced
+  the defect before the correction (`1 failed, 2 warnings in 0.83s`).
+- The adapter now catches that specific exception only at its existing JSON
+  decoding boundary, yielding `invalid_json`. The bad source is quarantined
+  and the valid source completes. There is no broad pipeline exception catch;
+  parameterized tests confirm unknown TypeError/RuntimeError still propagate.
+- Targeted combined R1 checks: `9 passed, 73 deselected, 2 warnings in 0.88s`.
+  Final complete prescribed selection with both R1 fixes:
+  `276 passed, 2 warnings in 20.33s`, no skips/deselections. Compileall and
+  `git diff --check` pass. Initial 270-test and R1-001 273-test results above
+  remain historical checkpoints, not acceptance of those revisions.
+- R1-001/R1-002 add six cases, for 103 new WS3 synthetic cases total. Shared
+  APIs, windowing, dependencies, source/TEST boundaries and frozen profiles
+  remain unchanged. No real corpus/checkpoint/legacy or scientific run access.
+  Both corrections are in the new uncommitted full-patch handoff and report;
+  coordinator re-review remains pending, without accepted/integrated claims.
+
+## WS4 — frozen POP909-CL evaluator — 2026-09-05
+
+- Added `music_critic.experiments.pop909_cl_frozen` with a restricted CPU
+  model-only checkpoint loader, registry-bound root/quality projection,
+  native/metadata_removed views, exact source-event alignment, independent
+  metrics/coverage and synthetic-only CLI. Contract and boundaries are in
+  `docs/POP909_CL_FROZEN_EVALUATION.md`; handoff is in
+  `docs/workstreams/2026-09-05/WS4_RESULT.md`.
+- Root sums all 37 spelled softmax classes into 12 PCs before argmax. Quality
+  keeps full17 winners while scoring supported subset9 gold. Outside-subset
+  predictions remain errors; missing/ambiguous/unsupported/unaligned coverage,
+  same-beat conflicts, and empty-denominator reasons are explicit.
+- Channel-0 raw graph predictions for both fixed views precede target
+  extraction/join in the smoke. Metadata removal changes exactly five fields
+  and rebuilds all derived features, including track.mean_velocity.
+- Acceptance: all 98 new synthetic CPU tests passed. Combined with corrected
+  model and checkpoint-evaluation regressions: `115 passed, 1 skipped,
+  2 warnings in 5.66s`; the skipped existing test requires CUDA and is outside
+  this CPU wave. The explicit CPU-only selection also passes with that one
+  CUDA case deselected. CLI `--smoke` completes with TEST inputs/targets/metrics
+  false. Exact commands and revision evidence are recorded in the handoff.
+- No shared API/dependency changes, legacy reuse, corpus scan, real model
+  checkpoint read, real-data training/evaluation, TEST access, SSH, experiment
+  record changes, or frozen C0/C2 modifications. Historical restricted-load
+  compatibility remains unverified. This establishes implementation mechanics,
+  not zero-shot quality; next is a separately registered TRAIN/VALIDATION run
+  after the required checkpoint artifacts are verified.
+- Coordinator review R1 found that the adapter stores `missing_chord_targets`
+  inside `trailing_spans` for expected target absence. WS4 now counts only
+  `kind == "trailing_unannotated"`; missing-target piece/group coverage remains
+  separate. Two real-dataclass synthetic report regressions cover missing
+  markers and actual trailing-kind spans in both views. Updated acceptance:
+  `27 passed, 2 warnings in 2.03s` for the evaluation module and
+  `117 passed, 1 deselected, 2 warnings in 5.64s` for the final focused CPU gate
+  (100 new WS4 tests passed; existing CUDA-only case deselected). R1 remediation
+  awaits coordinator re-review; acceptance/integration is not claimed.
+- Coordinator R2 accepted the R1-remediated revision for isolated integration
+  at content fingerprint `d89fa514991a436958fd24a1fc3aea7728a3eb9b372d5a82721f0006041666b9`.
+  The later joint gate found INT-R1-001: the smoke's direct `mido` import
+  violated the existing experiments-package import boundary. With explicitly
+  expanded ownership, MIDI object construction moved unchanged into the new
+  isolated `adapters/pop909_cl_synthetic.py`; `run.synthetic_input` retains its
+  API and behavior. Existing adapters, repository tests and dependencies were
+  not changed.
+- INT-R1-001 validation: **124 passed, 1 deselected, 2 warnings in 6.05s** for
+  the complete WS4 focused gate plus `tests/test_repository_contract.py`.
+  All 101 new WS4 tests passed. A new regression locks the pre-move MIDI
+  SHA/size; independent before/after checks preserve both MIDI byte streams,
+  source group and smoke report fingerprint. History R1/R2 is retained in the
+  handoff. Coordinator status is again `changes_requested` pending integration
+  re-review; no real data/checkpoints/TEST or legacy were accessed.

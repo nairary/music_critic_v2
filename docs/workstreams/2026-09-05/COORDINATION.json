@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 1,
+  "coordinatorThreadId": "01a06e25-7dba-7430-86da-202cacede488",
+  "projectId": "f3d5d094-b756-4fa2-ad28-e8042c47c5a0",
+  "authorizedDate": "2026-09-05",
+  "expectedBaseHead": "f0e0886161c9f67786011508006db61c803c1752",
+  "scope": "implementation_and_synthetic_cpu_tests",
+  "cadenceMinutes": 10,
+  "heartbeatId": "music-critic-v2",
+  "heartbeatStatus": "PAUSED",
+  "heartbeatStopReason": "All four workstreams accepted and corrected joint regression gate completed",
+  "tasks": [
+    {
+      "workstream": "WS1",
+      "spec": "WS1_INPUT_CORRECTNESS.md",
+      "clientThreadId": "client-new-thread:a37fb053-c376-444c-b00e-a30eaab9a8fd",
+      "threadId": "01a072ef-796d-7ec0-91da-1c3234497bbd",
+      "hostId": "local",
+      "title": "WS1: Исправить признаки транспозиции…",
+      "worktree": "/Users/aavalsamakin/.codex/worktrees/ef79/music-critic-v2",
+      "baseHead": "f0e0886161c9f67786011508006db61c803c1752",
+      "status": "accepted",
+      "waitCursor": "434e2697-c925-4711-9944-72783d879029:2",
+      "lastReviewedRevision": {
+        "baseHead": "f0e0886161c9f67786011508006db61c803c1752",
+        "contentSha256": "a2bb43ea55053aa2bcd6bb7f3b04372ab381ae398c9183caea319250ee7bcf2c",
+        "changedFileCount": 9,
+        "report": "WS1_REVIEW.md",
+        "independentTests": "187 passed, 3 warnings in 2.58s"
+      },
+      "reviewRounds": 1,
+      "blockingReason": null,
+      "findings": []
+    },
+    {
+      "workstream": "WS2",
+      "spec": "WS2_THEORY_SSL.md",
+      "clientThreadId": "client-new-thread:b8a17a72-0f82-44e6-9044-ee2d92a73bd1",
+      "threadId": "01a072ef-83ec-72a3-87f7-4785fd35c1a4",
+      "hostId": "local",
+      "title": "WS2: Связать theory backbone с SSL",
+      "worktree": "/Users/aavalsamakin/.codex/worktrees/437e/music-critic-v2",
+      "baseHead": "f0e0886161c9f67786011508006db61c803c1752",
+      "status": "accepted",
+      "waitCursor": "bc2e914e-57d8-4ba7-a9cd-27e60a654a8f:10",
+      "lastReviewedRevision": {
+        "baseHead": "f0e0886161c9f67786011508006db61c803c1752",
+        "implementationManifestSha256": "32aa819b318cd72170e01fd0406a707620fe9c3ebfcb269a753c4823bd774633",
+        "contentSha256": "a1774ca3b7ed1808531540b45e85fbda43e09b348f1fb6356aaa914b0fe57cf0",
+        "changedFileCount": 7,
+        "report": "WS2_REVIEW_R2.md",
+        "independentTests": "238 passed, 6 CUDA skips, 2 warnings in 35.80s"
+      },
+      "reviewRounds": 2,
+      "blockingReason": null,
+      "findings": [
+        {"id": "WS2-R1-001", "priority": 2, "status": "resolved", "summary": "Private zero-row loss alignment preserves original predictions/diagnostics and full masked counts"},
+        {"id": "WS2-R1-002", "priority": 2, "status": "resolved", "summary": "Supplied self-fingerprint and canonical type-sensitive contract validated before mutation"},
+        {"id": "WS2-R1-003", "priority": 2, "status": "resolved", "summary": "Per-device parameter storage overlap rejected atomically for source/destination"}
+      ]
+    },
+    {
+      "workstream": "WS3",
+      "spec": "WS3_PDMX_PIPELINE.md",
+      "clientThreadId": "client-new-thread:e94626c2-f521-42f4-8776-14d093035fb5",
+      "threadId": "01a072ef-948d-72c2-b223-8f6229c6fffb",
+      "hostId": "local",
+      "title": "WS3: Подготовить pipeline PDMX",
+      "worktree": "/Users/aavalsamakin/.codex/worktrees/06c5/music-critic-v2",
+      "baseHead": "f0e0886161c9f67786011508006db61c803c1752",
+      "status": "accepted",
+      "waitCursor": "5988dea9-da48-4c2e-b6b1-6c2b3a1e5d29:5",
+      "lastReviewedRevision": {
+        "baseHead": "f0e0886161c9f67786011508006db61c803c1752",
+        "fullPatchSha256": "af294bd8e5a48568a93622a432498953b8ff0bfb5133e1b111b97ba047e5db4f",
+        "fullPatchBytes": 172749,
+        "report": "WS3_REVIEW_R2.md",
+        "independentTests": "275 passed, 1 shared-memory worker case deselected, 2 warnings in 9.04s"
+      },
+      "reviewRounds": 2,
+      "blockingReason": null,
+      "findings": [
+        {"id": "WS3-R1-001", "priority": 2, "status": "resolved", "summary": "Restored pre-read failures now reject resume without overwriting sealed evidence; three transition regressions"},
+        {"id": "WS3-R1-002", "priority": 2, "status": "resolved", "summary": "InvalidOperation caught narrowly at parse boundary; mixed-source isolation and unknown-error propagation regressions"}
+      ]
+    },
+    {
+      "workstream": "WS4",
+      "spec": "WS4_POP909_EVALUATOR.md",
+      "clientThreadId": "client-new-thread:eca3ab8a-0229-4df5-8bfb-3bd14d7fdb0f",
+      "threadId": "01a072ef-a4b6-7872-8d97-2a2c6afd744a",
+      "hostId": "local",
+      "title": "WS4: Создать оценщик POP909-CL",
+      "worktree": "/Users/aavalsamakin/.codex/worktrees/46dc/music-critic-v2",
+      "baseHead": "f0e0886161c9f67786011508006db61c803c1752",
+      "status": "accepted",
+      "waitCursor": "b0a33020-b313-429d-b17d-f4744f57b289:6",
+      "lastReviewedRevision": {
+        "baseHead": "f0e0886161c9f67786011508006db61c803c1752",
+        "contentSha256": "ee6f39a55184542c9031ecd6adfdac1566cad2df00ab0afb006c3cd41b3f9a5b",
+        "changedFileCount": 15,
+        "report": "WS4_REVIEW_R3.md",
+        "independentTests": "124 passed, 1 CUDA case deselected, 2 warnings in 6.14s"
+      },
+      "reviewRounds": 3,
+      "blockingReason": null,
+      "findings": [
+        {"id": "WS4-R1-001", "priority": 2, "status": "resolved", "summary": "missing_chord_targets excluded from trailing_unannotated count; two adapter-evidence/report regressions pass"},
+        {"id": "INT-R1-001", "priority": 2, "status": "resolved", "summary": "Synthetic MIDI construction moved to new adapter helper; unchanged repository import gate and byte-equivalence regression pass"}
+      ]
+    }
+  ],
+  "integration": {
+    "status": "integrated_local_main",
+    "worktree": "/private/tmp/music-critic-v2-ws-integration-20260905",
+    "checkoutType": "isolated_local_clone",
+    "branch": "codex/ws-integration-20260905",
+    "includedWorkstreams": ["WS1", "WS2", "WS3", "WS4"],
+    "sourceManifest": "/private/tmp/music-critic-ws-integration-sources.json",
+    "revision": {
+      "baseHead": "f0e0886161c9f67786011508006db61c803c1752",
+      "implementationFileCount": 33,
+      "implementationSha256": "5a77bb232e0a2c9e65a0547da866f5e068fc9cbade21655a032788476b72ae0e",
+      "manifest": "INTEGRATION_CODE_MANIFEST.json"
+    },
+    "testResults": "R2: 814 passed, 6 CUDA skips, 2 deselected, 2 warnings in 55.38s",
+    "reviewReport": "INTEGRATION_RESULT.md",
+    "priorReviewReport": "INTEGRATION_REVIEW_R1.md",
+    "testSelection": "/private/tmp/music-critic-ws-integration-tests.json",
+    "testLog": "/private/tmp/music-critic-ws-integration-r2-tests.log",
+    "fullReviewPatch": "/private/tmp/music-critic-ws-integration-final.patch",
+    "mainMerged": true,
+    "mainIntegration": {
+      "authorizedDate": "2026-09-05",
+      "authorization": "User approved the proposed integration into main",
+      "targetPath": "/Users/aavalsamakin/Projects/music-critic-v2",
+      "strategy": "local ordinary merge commit; preserve named recovery stash",
+      "status": "completed",
+      "baseCommit": "f0e0886161c9f67786011508006db61c803c1752",
+      "candidateCommit": "a628af4bb72358f0ca99ad1a8c04fcf4a78cc845",
+      "candidateTree": "f1ea3c896a10a5f6b773ed50f97fb1419e4b804e",
+      "recoveryStash": "db327d8329ecc17b8de625462df8ff96e56f6da8",
+      "mainTests": "814 passed, 6 CUDA skips, 2 deselected, 2 warnings in 52.87s",
+      "mainTestLog": "/private/tmp/music-critic-main-integration-20260905/main-gate.log",
+      "fullCodeManifest": "MAIN_INTEGRATION_CODE_MANIFEST.json",
+      "fullCodeSha256": "929c064ee2abb9acb007836bd7aa00f20edc39cdadb0971fc074d9aabd4f329e",
+      "remotePushed": false,
+      "report": "MAIN_INTEGRATION.md"
+    },
+    "coordinatorTestFile": "tests/experiments/test_workstream_synthetic_integration.py"
+  },
+  "setupVerification": {
+    "repositoryContract": "6 passed in 1.21s",
+    "specCount": 4,
+    "relativeLinks": "passed",
+    "gitDiffCheck": "passed"
+  },
+  "scopeLimits": {
+    "realDataRuns": false,
+    "trainedCheckpointLoads": false,
+    "testDatasetAccess": false,
+    "ssh": false,
+    "modifyC0": false,
+    "mainMerge": true,
+    "remotePush": false
+  },
+  "sharedFileDecisions": [
+    {
+      "workstream": "WS4",
+      "file": "src/music_critic/adapters/pop909_cl_synthetic.py",
+      "scope": "New isolated helper owning existing tiny synthetic MIDI construction only; keep run.synthetic_input API/fixture behavior and existing repository import rules; no existing adapter API edits",
+      "status": "approved_by_coordinator",
+      "reason": "INT-R1-001 joint repository import-contract failure"
+    },
+    {
+      "workstream": "WS1",
+      "file": "src/music_critic/tasks/corpus.py",
+      "scope": "HookTheory adapter-version glue plus raw fingerprint via existing cache_input_sha256 and raw config without include_targets; preserve full source/canonical/target provenance; synthetic identity and artifact non-overwrite regressions; shared helpers/schema unchanged",
+      "status": "approved_by_coordinator",
+      "otherOwnerNotified": "WS3"
+    }
+  ],
+  "pendingSetupNote": "Setup complete: all four actual thread IDs resolved and active status confirmed by wait_threads. list_threads did not yet expose new tasks; WS2 ID was located by a read-only local app metadata lookup scoped to its unique worktree, then verified through read_thread/wait_threads and git HEAD. Use the saved actual IDs and cursors; do not recreate."
+}
