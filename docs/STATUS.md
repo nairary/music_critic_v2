@@ -1,5 +1,25 @@
 # Music Critic V2 Status
 
+## Stable main and development branch — 2026-09-05
+
+- The user changed the repository layout: `main` remains at the published
+  pre-workstream baseline f0e0886161c9f67786011508006db61c803c1752, while
+  `codex/develop` contains all four accepted workstreams. The development
+  branch starts from that main and preserves the full integration history,
+  including 849abd601f6d1faa7d429cf1c62600f60ade5f4c. The current checkout is
+  `codex/develop`; the previous temporary local-main integration below is history.
+- The retained baseline contains completed C0/C1 10k and C2 120k records.
+  C0-120k still has no verified final result in the registry; moving Git refs
+  does not change experiment status or establish augmentation benefit.
+- Only development-branch publication to `nairary/music_critic_v2` is authorized
+  for this step. Remote main stays unchanged. Future work branches start from
+  `codex/develop`; promotion to main requires a separate reviewed decision.
+- No implementation changes: all 34 code/test/config/CLI fingerprints match
+  the accepted source. Retained gate: **814 passed, 6 CUDA skips, 2 deselected,
+  2 warnings in 52.87s**. Branch ancestry, JSON, links and whitespace are checked
+  for this documentation/ref-only change. No new tests or experiments are run.
+- [Branch strategy and exact source identities](workstreams/2026-09-05/BRANCH_STRATEGY.md).
+
 ## Four-workstream integration into local main — 2026-09-05
 
 - User approved and received the accepted four-workstream union in local main

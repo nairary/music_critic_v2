@@ -111,7 +111,7 @@
     }
   ],
   "integration": {
-    "status": "integrated_local_main",
+    "status": "integrated_development_branch",
     "worktree": "/private/tmp/music-critic-v2-ws-integration-20260905",
     "checkoutType": "isolated_local_clone",
     "branch": "codex/ws-integration-20260905",
@@ -129,13 +129,26 @@
     "testSelection": "/private/tmp/music-critic-ws-integration-tests.json",
     "testLog": "/private/tmp/music-critic-ws-integration-r2-tests.log",
     "fullReviewPatch": "/private/tmp/music-critic-ws-integration-final.patch",
-    "mainMerged": true,
+    "mainMerged": false,
+    "developmentBranch": {
+      "name": "codex/develop",
+      "baseCommit": "f0e0886161c9f67786011508006db61c803c1752",
+      "acceptedIntegrationCommit": "849abd601f6d1faa7d429cf1c62600f60ade5f4c",
+      "checkoutPath": "/Users/aavalsamakin/Projects/music-critic-v2",
+      "publicationRemote": "origin",
+      "publicationRepository": "nairary/music_critic_v2",
+      "publicationRef": "refs/heads/codex/develop",
+      "publicationAuthorization": "User requested moving current development to a separate branch copied from the retained main in the GitHub publication discussion",
+      "mainCommit": "f0e0886161c9f67786011508006db61c803c1752",
+      "remoteMainUnchanged": true,
+      "report": "BRANCH_STRATEGY.md"
+    },
     "mainIntegration": {
       "authorizedDate": "2026-09-05",
       "authorization": "User approved the proposed integration into main",
       "targetPath": "/Users/aavalsamakin/Projects/music-critic-v2",
       "strategy": "local ordinary merge commit; preserve named recovery stash",
-      "status": "completed",
+      "status": "historical_completed_then_preserved_on_develop",
       "baseCommit": "f0e0886161c9f67786011508006db61c803c1752",
       "candidateCommit": "a628af4bb72358f0ca99ad1a8c04fcf4a78cc845",
       "candidateTree": "f1ea3c896a10a5f6b773ed50f97fb1419e4b804e",
@@ -161,8 +174,9 @@
     "testDatasetAccess": false,
     "ssh": false,
     "modifyC0": false,
-    "mainMerge": true,
-    "remotePush": false
+    "mainMerge": false,
+    "remotePush": true,
+    "remotePushRef": "refs/heads/codex/develop"
   },
   "sharedFileDecisions": [
     {
