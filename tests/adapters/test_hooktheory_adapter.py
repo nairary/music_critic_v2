@@ -376,7 +376,10 @@ def test_duration_is_derived_or_extended_from_valid_content() -> None:
     assert piece.duration_qn == RationalTime(6)
     assert "hooktheory.duration_derived" in codes(piece)
 
-    short = convert(raw_record(end_beat=2, chords=[chord(beat=4, duration=3)]))
+    short = convert(raw_record(
+        end_beat=2,
+        notes=[{"beat": 4, "duration": 3, "sd": "1", "octave": 0, "isRest": False}],
+    ))
     assert short.duration_qn == RationalTime(6)
     assert "hooktheory.duration_extended" in codes(short)
 

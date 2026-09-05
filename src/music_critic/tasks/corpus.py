@@ -13,6 +13,7 @@ from pathlib import Path, PurePosixPath
 import tempfile
 from typing import TYPE_CHECKING, Any, Callable
 
+from music_critic.adapters.hooktheory import HOOKTHEORY_ADAPTER_VERSION
 from music_critic.data import (
     SCHEMA_VERSION,
     CanonicalPiece,
@@ -42,7 +43,7 @@ if TYPE_CHECKING:
 MULTISOURCE_CORPUS_INDEX_VERSION = "1.0.0"
 MULTISOURCE_CACHE_VERSION = "1.0.0"
 CORPUS_CACHE_INPUT_IDENTITY_VERSION = "1.0.0"
-HOOKTHEORY_CORPUS_ADAPTER_VERSION = "2B.1"
+HOOKTHEORY_CORPUS_ADAPTER_VERSION = HOOKTHEORY_ADAPTER_VERSION
 
 
 class CorpusContractError(ValueError):
@@ -923,6 +924,10 @@ def build_hooktheory_corpus_cache(
         HookTheoryAdapterError,
         convert_hooktheory_record,
     )
+    from music_critic.adapters.hooktheory import (
+        HOOKTHEORY_RAW_INPUT_VERSION,
+        hooktheory_raw_input_fingerprint,
+    )
     from music_critic.adapters._json_stream import iter_jsonl, iter_object_records
 
     _validate_builder_limit(limit)
@@ -976,6 +981,7 @@ def build_hooktheory_corpus_cache(
                     source_relative_path=relative,
                     source_sha256=row_sha,
                     suggested_split=piece.split,
+                    cache_input_sha256=hooktheory_raw_input_fingerprint(piece),
                 )
             except HookTheoryAdapterError as exc:
                 quarantined.append(
@@ -993,7 +999,14 @@ def build_hooktheory_corpus_cache(
         dataset_id=dataset_id,
         adapter_name="hooktheory",
         adapter_version=HOOKTHEORY_CORPUS_ADAPTER_VERSION,
-        adapter_config=asdict(config),
+        # This fingerprint describes raw input preparation. Target visibility
+        # remains in canonical conversion provenance and artifact SHA; full
+        # source SHA/fingerprint remain available for source lineage.
+        adapter_config={
+            "dataset_name": config.dataset_name,
+            "adapter_version": config.adapter_version,
+            "raw_input_version": HOOKTHEORY_RAW_INPUT_VERSION,
+        },
         source_identity=raw.name,
         source_fingerprint=lambda: _fingerprint(sorted(source_rows)),
         creation_policy=(
