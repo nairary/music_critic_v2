@@ -1,5 +1,8 @@
 # Music Critic V2
 
+This is the **fusion research branch**: linear logit fusion, task-attention
+fusion and grouped MMoE remain available here alongside the temporal baseline.
+
 Current working baseline: **temporal/C2 (80k)**. Experimental fusion/MMoE stays
 on `codex/fusion`. See [branches and reproducibility](docs/BRANCHES_AND_RELEASES.md)
 and [Yandex Cloud deployment](docs/YANDEX_CLOUD_DEPLOYMENT.md).
