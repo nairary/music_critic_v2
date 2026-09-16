@@ -5,6 +5,9 @@ stalled update, must be enforced by the external coordinator resource wrapper.
 """
 from __future__ import annotations
 
+from music_critic.cuda_memory import initialize_cuda_memory_statistics
+from music_critic.device import resolve_runtime_device
+
 import argparse
 from contextlib import nullcontext
 from copy import deepcopy
@@ -156,7 +159,7 @@ def main(argv=None):
                 if not torch.cuda.is_available():
                     raise ValueError("group_pilot.cuda_unavailable")
                 torch.empty(1, device=device)
-                torch.cuda.reset_peak_memory_stats(device)
+                initialize_cuda_memory_statistics(resolve_runtime_device(device))
             batch = build_group_pilot_fixture()
             schedule = (bind_train_batch(batch, config),) * config.updates
             source = document["source_checkpoint"]

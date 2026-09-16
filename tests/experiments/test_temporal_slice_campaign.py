@@ -12,7 +12,7 @@ import torch
 
 from music_critic.experiments.analysisgnn import corrected_training as old
 from music_critic.experiments.analysisgnn.full_orbit_training import FullOrbitPair, FullOrbitSampler
-from music_critic.experiments.analysisgnn.harmonic_fusion_resume import capture_safe_rng, restore_safe_rng
+from music_critic.experiments.analysisgnn.training_rng import capture_safe_rng, restore_safe_rng
 from music_critic.experiments.analysisgnn.temporal_slices import build_temporal_batch
 from music_critic.experiments.analysisgnn.temporal_slices import campaign as c
 from music_critic.experiments.analysisgnn.temporal_slices.cache import (

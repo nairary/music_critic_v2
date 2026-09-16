@@ -1,5 +1,9 @@
 # Music Critic V2
 
+Current working baseline: **temporal/C2 (80k)**. Experimental fusion/MMoE stays
+on `codex/fusion`. See [branches and reproducibility](docs/BRANCHES_AND_RELEASES.md)
+and [Yandex Cloud deployment](docs/YANDEX_CLOUD_DEPLOYMENT.md).
+
 Music Critic V2 is a raw-symbolic-first research project for reusable symbolic
 music representation learning, theory analysis, and preference-aware quality
 assessment.

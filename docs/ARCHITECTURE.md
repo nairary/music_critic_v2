@@ -1,5 +1,13 @@
 # Music Critic V2 Architecture
 
+**Main integration selected, 2026-09-16:** the completed temporal/C2 stage is
+now the selected working baseline. The historical opt-in descriptions below
+record development order. Experimental logit fusion, task attention and MMoE
+belong to `codex/fusion`; main retains independent shared data/RNG utilities.
+No temporal operator, head, target or training schedule changes in this merge.
+See [branch map](BRANCHES_AND_RELEASES.md).
+
+
 Opt-in temporal graph experiment (2026-09-15): `TemporalSliceModel` runs the
 unchanged C2 encoder and then a bidirectional raw temporal graph stage, with
 separate slice states, metric parents, sustained-note links and finer harmonic

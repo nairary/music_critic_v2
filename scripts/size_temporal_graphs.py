@@ -9,7 +9,7 @@ import time
 
 import torch
 from music_critic.data import loads_piece
-from music_critic.experiments.analysisgnn.harmonic_fusion_data import read_bound_bytes
+from music_critic.experiments.analysisgnn.frozen_training_data import read_bound_bytes
 from music_critic.experiments.analysisgnn.training_policy import CORRECTED_SPLIT_ASSIGNMENTS_SHA256
 from music_critic.experiments.analysisgnn.temporal_slices import build_temporal_batch
 from music_critic.experiments.registry import load_record

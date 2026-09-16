@@ -7,6 +7,9 @@ cache entries and an idle CUDA device. The CLI registers evidence separately.
 
 from __future__ import annotations
 
+from music_critic.cuda_memory import initialize_cuda_memory_statistics
+from music_critic.device import resolve_runtime_device
+
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager, nullcontext
 from copy import deepcopy
@@ -453,7 +456,7 @@ def _run_arms(root, protocol, plan, paths, external_context, max_bytes, max_entr
                            cuda_events=diagnostic and device == "cuda"), phase="measured", update=None)
             if device == "cuda":
                 torch.cuda.synchronize()
-                torch.cuda.reset_peak_memory_stats()
+                initialize_cuda_memory_statistics(resolve_runtime_device("cuda"))
             resources_before = resource_snapshot()
             cache_before = None if cache is None else cache.diagnostics()
             profiler = None

@@ -1,5 +1,12 @@
 # Music Critic V2 Data Contract
 
+**2026-09-16 integration:** temporal/C2 is selected for main. Shared frozen
+TRAIN/VALIDATION loading moves to `frozen_training_data.py`; schema identifiers,
+source payloads, masks and historical fingerprints remain intact. Cloud bundles
+retain the original manifest and derive a relocated manifest by changing only
+operational paths. TEST payloads do not enter prepared training bundles.
+
+
 Status: **ACCEPTED FOR PHASE 1 IMPLEMENTATION**.
 
 Opt-in Phase9E temporal extension (2026-09-15): `RawTemporalSliceGraph@1.0.0`

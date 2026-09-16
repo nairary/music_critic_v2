@@ -20,7 +20,7 @@ import torch
 
 from music_critic.experiments.registry import load_record
 from music_critic.experiments.analysisgnn.corrected_model import model_state_fingerprint
-from music_critic.experiments.analysisgnn.harmonic_fusion_data import FrozenFusionData
+from music_critic.experiments.analysisgnn.frozen_training_data import FrozenTrainingData
 from music_critic.experiments.analysisgnn.performance_training import prepare_performance_class_weights, performance_gradient_diagnostics
 from music_critic.experiments.analysisgnn.temporal_slices.campaign import components, scientific_config
 from music_critic.experiments.analysisgnn.temporal_slices.cache import (
@@ -104,7 +104,7 @@ def select_probe(sizing, manifest):
             "completed_whole_train_sizing_required")
     require(sizing.get("validation_payload_accessed") is False and sizing.get("test_payload_accessed") is False,
             "sizing_access_boundary")
-    # Structural rejection precedes even FrozenFusionData metadata access.
+    # Structural rejection precedes even FrozenTrainingData metadata access.
     rows = manifest.get("records", ())
     require(all(r.get("split") in ("train", "validation") for r in rows), "test_declaration_forbidden")
     by_id = {r["record_id"]: r for r in rows}
@@ -202,7 +202,7 @@ def run(config, out):
     total_memory = torch.cuda.get_device_properties(device).total_memory
     require(total_memory >= GPU_LIMIT_BYTES, "insufficient_device_capacity")
     torch.cuda.set_per_process_memory_fraction(GPU_LIMIT_BYTES / total_memory, device)
-    data = FrozenFusionData(manifest)
+    data = FrozenTrainingData(manifest)
     data.require_train_records(selected)
     eligible = {}
     for entry in data.table:

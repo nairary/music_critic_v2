@@ -23,9 +23,9 @@ from music_critic.experiments.analysisgnn.temporal_slices.cache import (
     implementation_fingerprint, transpose_temporal_historical,
     FrozenTemporalRecordLoader, read_temporal_record,
 )
-from music_critic.experiments.analysisgnn.harmonic_fusion_data import FrozenFusionData
+from music_critic.experiments.analysisgnn.frozen_training_data import FrozenTrainingData
 from music_critic.data import load_piece
-from test_harmonic_fusion_data import source  # Shared synthetic sealed-file fixture.
+from test_frozen_training_data import source  # Shared synthetic sealed-file fixture.
 
 
 @pytest.fixture
@@ -212,7 +212,7 @@ def test_preparation_and_cache_do_not_consume_training_rng(fixture):
 
 @pytest.mark.parametrize("split", ("train", "validation"))
 def test_authenticated_reader_reuses_frozen_canonical_bytes(source, split):
-    data = FrozenFusionData(source)
+    data = FrozenTrainingData(source)
     row = next(r for r in source["records"] if r["split"] == split)
     graph, sidecar = read_temporal_record(data, row["record_id"], split=split)
     expected = build_temporal_batch((load_piece(row["piece"]["path"]),))
@@ -232,7 +232,7 @@ def test_authenticated_reader_reuses_frozen_canonical_bytes(source, split):
     ("synthetic:train:0001", "train"), ("missing", "validation")))
 def test_temporal_reader_split_gate_precedes_io(source, monkeypatch, record_id, split):
     import music_critic.experiments.analysisgnn.temporal_slices.cache as module
-    data = FrozenFusionData(source)
+    data = FrozenTrainingData(source)
     def denied(*args, **kwargs):
         pytest.fail("split gate allowed forbidden payload I/O")
     monkeypatch.setattr(module, "read_bound_bytes", denied)
@@ -242,7 +242,7 @@ def test_temporal_reader_split_gate_precedes_io(source, monkeypatch, record_id, 
 
 
 def test_cached_production_reader_detects_source_file_replacement(source):
-    data = FrozenFusionData(source)
+    data = FrozenTrainingData(source)
     row = next(r for r in source["records"] if r["split"] == "train")
     cache = TemporalGraphCache(FrozenTemporalRecordLoader(data), max_bytes=10**8, max_entries=1295)
     cache.get(row["record_id"])

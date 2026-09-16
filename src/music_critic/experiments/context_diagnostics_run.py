@@ -1,6 +1,9 @@
 """Bounded context-suite CLI: mechanics by default, registered frozen inference opt-in."""
 from __future__ import annotations
 
+from music_critic.cuda_memory import initialize_cuda_memory_statistics
+from music_critic.device import resolve_runtime_device
+
 import argparse
 from contextlib import ExitStack
 from dataclasses import dataclass, field
@@ -200,7 +203,7 @@ def _run_checkpoint_suite(*, checkpoint: Path, checkpoint_sha256: str, size_byte
     model = loaded.model.to(device).eval()
     if device != "cpu":
         torch.cuda.synchronize(device)
-        torch.cuda.reset_peak_memory_stats(0)
+        initialize_cuda_memory_statistics(resolve_runtime_device("cuda:0"))
     started = time.perf_counter()
     observations = []
     for pair in build_context_pair_suite():

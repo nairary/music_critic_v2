@@ -1,5 +1,25 @@
 # Music Critic V2 Status
 
+## Temporal main integration and cloud migration — 2026-09-16
+
+User authorizes promoting completed temporal/C2 to main, retaining unfinished
+fusion separately, and preparing the project in their Yandex Cloud. Full working
+state preserved as `codex/research-preserved-20260916` at42254af. Shared warm-data
+and safe RNG utilities extracted without changing schemas, model tensors,
+sampling or losses. Main candidate excludes experimental fusion/MMoE modules;
+code/results remain preserved. See [branch map](BRANCHES_AND_RELEASES.md).
+
+Cloud/folder access confirmed. Private STANDARD bucket
+`music-critic-v2-b1g0sie8odv6h7khh28l` created in the existing default folder.
+No VM/training. SSH restored; prepared files are present. All4375 bound files
+(1457 TRAIN/VALIDATION records plus metadata) packaged with SHA256 verification;
+original manifest retained, relocated manifest changes paths only. Upload waits
+for explicit destination approval after automatic review rejected forwarding
+an IAM token to the GPU host. Revised transfer route keeps credentials on Mac.
+Temporal targeted tests168passed; migration/RNG tests and full-suite review are
+in progress. No legacy access, model evaluation or scientific TEST access.
+
+
 ## Yandex Cloud storage preparation; no VM or training — 2026-09-16
 
 Cloud and default folder access verified through read-only MCP. VM and bucket

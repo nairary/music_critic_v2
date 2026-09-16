@@ -1,5 +1,16 @@
 # Music Critic V2 Engineering Roadmap
 
+## 2026-09-16 — Integration and cloud storage before further architecture work
+
+Promote completed temporal/C2 into main and retain unfinished fusion/MMoE on
+`codex/fusion`; preserve the full pre-integration snapshot. Package source,
+authenticated prepared TRAIN/VALIDATION data and retained results for private
+Object Storage. No training deployment or VM budget in this phase. Afterwards,
+implement and test the previously selected temporal attention operator, then
+request a concrete training budget and validate the selected cloud environment.
+See [branch map](BRANCHES_AND_RELEASES.md) and [cloud plan](YANDEX_CLOUD_DEPLOYMENT.md).
+
+
 ## 2026-09-16 — Next focus: temporal attention, continuation declined
 
 User chooses to retain the completed80k temporal baseline and work on attention,

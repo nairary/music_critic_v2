@@ -7,6 +7,9 @@ occurs at import; production launch belongs to the registered guarded CLI.
 
 from __future__ import annotations
 
+from music_critic.cuda_memory import initialize_cuda_memory_statistics
+from music_critic.device import resolve_runtime_device
+
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import asdict, replace
@@ -584,7 +587,7 @@ def run_prefetch_replay(output_root: Path | str, *, experiment_id: str, mode="fi
                         timer, phase = StageTimer(), "measured"
                         if device == "cuda":
                             torch.cuda.synchronize()
-                            torch.cuda.reset_peak_memory_stats()
+                            initialize_cuda_memory_statistics(resolve_runtime_device("cuda"))
                         pids = stream.diagnostics(include_worker_runtime=False)["worker_pids"]
                         before, worker_before = resource_snapshot(), worker_resources(pids)
                         started = time.perf_counter()

@@ -29,8 +29,8 @@ from .. import corrected_training as ref
 from ..contracts import fingerprint
 from ..corrected_model import model_state_fingerprint
 from ..full_orbit_training import FullOrbitSampler, build_full_orbit_optimizer_scheduler
-from ..harmonic_fusion_data import FrozenFusionData
-from ..harmonic_fusion_resume import capture_safe_rng, preserve_caller_rng, restore_safe_rng
+from ..frozen_training_data import FrozenTrainingData
+from ..training_rng import capture_safe_rng, preserve_caller_rng, restore_safe_rng
 from ..performance_prefetch import PrefetchJob, _LimitedBuffer, _assert_cpu
 from ..performance_replay import _scaler, recursive_state_fingerprint
 from ..performance_training import (
@@ -108,7 +108,7 @@ def _worker_init(manifest, source_fingerprint, per_worker_cache, expected_implem
     from .cache import FrozenTemporalRecordLoader, TemporalGraphCache, implementation_fingerprint
     require(expected_implementation == {"cache": implementation_fingerprint(),
                 "campaign": sha256(Path(__file__).read_bytes()).hexdigest()}, "worker_implementation_mismatch")
-    data = FrozenFusionData(manifest)
+    data = FrozenTrainingData(manifest)
     _worker_cache = TemporalGraphCache(FrozenTemporalRecordLoader(data),
         max_bytes=per_worker_cache, max_entries=1295)
     _worker_source = source_fingerprint
@@ -591,7 +591,7 @@ def main(argv=None):
     require(device == "cuda" and torch.cuda.is_available(), "native_cuda_required")
     environment = campaign_environment()
     write_json(args.output / "environment.json", environment)
-    data = FrozenFusionData(manifest)
+    data = FrozenTrainingData(manifest)
     runtime_keys = ("python", "torch", "numpy", "packages", "torch_cuda_build", "cudnn_version",
                     "gpu", "cuda_device_count", "cublas_workspace_config", "cudnn_allow_tf32", "matmul_allow_tf32")
     bindings = dict(source=fingerprint(source), data=data.manifest_fingerprint,

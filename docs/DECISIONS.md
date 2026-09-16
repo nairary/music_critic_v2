@@ -1,5 +1,22 @@
 # Architecture Decision Log
 
+## 2026-09-16 — Promote completed temporal to main; isolate fusion development
+
+User explicitly selects the completed temporal/C2 implementation as the main
+working version, with unfinished fusion on a separate branch. This supersedes
+historical opt-in/default wording for branch selection only. Preserve original
+C2 APIs, exact temporal operator, task registry, loss, cache/resume semantics
+and immutable experiment evidence. Extract shared data/RNG utilities so main
+has no import dependency on experimental fusion models. Keep complete research
+snapshot and fusion training/testing code on named branches.
+
+This is repository organization and deployment preparation, not new quality
+evidence or a training launch. Attention remains the next hypothesis, without
+new GPU budget. Cloud transfer creates derivative operational paths/manifests;
+original payload checksums and terminal records remain unchanged. Do not reuse
+old runtime admission on a new cloud host. See [branch map](BRANCHES_AND_RELEASES.md).
+
+
 ## 2026-09-16 — Prioritize temporal attention over further baseline training
 
 User explicitly declines continuing the completed temporal model to120k and

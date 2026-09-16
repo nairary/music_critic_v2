@@ -25,8 +25,8 @@ from music_critic.data import loads_piece
 from music_critic.data.raw_time_readout_slots import ReadoutSlots
 from ..contracts import fingerprint
 from ..corrected_training import transpose_raw_graph_batch
-from ..harmonic_fusion_data import (
-    FrozenFusionData, _FILES, _identity, _json, _require, read_bound_bytes,
+from ..frozen_training_data import (
+    FrozenTrainingData, _FILES, _identity, _json, _require, read_bound_bytes,
 )
 from ..multitask_contract import TARGET_SIDECAR_VERSION
 from .graph import EDGES, NODES, SCHEMA, TemporalGraphBatch, build_temporal_batch
@@ -168,9 +168,9 @@ def _read_temporal_record(data, record_id, split):
     return graph, sidecar, payloads["sidecar"]
 
 
-def read_temporal_record(data: FrozenFusionData, record_id: str, *, split: str = "train"):
+def read_temporal_record(data: FrozenTrainingData, record_id: str, *, split: str = "train"):
     """Uncached authenticated canonical reference, TRAIN/VALIDATION, never TEST."""
-    if type(data) is not FrozenFusionData:
+    if type(data) is not FrozenTrainingData:
         raise ValueError("temporal_cache.frozen_data_required")
     graph, sidecar, _ = _read_temporal_record(data, record_id, split)
     return graph, sidecar
@@ -195,12 +195,12 @@ class FrozenTemporalRecordLoader:
     """TRAIN-only loader; source identities checked on hits, hashes on changes.
 
     Full byte authentication is required at startup/resume through the supplied
-    FrozenFusionData manifest. The cache never discovers sources or writes files.
+    FrozenTrainingData manifest. The cache never discovers sources or writes files.
     """
     synthetic = False
 
-    def __init__(self, data: FrozenFusionData):
-        if type(data) is not FrozenFusionData:
+    def __init__(self, data: FrozenTrainingData):
+        if type(data) is not FrozenTrainingData:
             raise ValueError("temporal_cache.frozen_data_required")
         self.data = data
         self.implementation_seal = implementation_fingerprint()

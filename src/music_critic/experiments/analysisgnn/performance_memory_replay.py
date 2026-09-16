@@ -8,6 +8,9 @@ are separately labelled. Finite extrema are not a universal OOM proof.
 
 from __future__ import annotations
 
+from music_critic.cuda_memory import initialize_cuda_memory_statistics
+from music_critic.device import resolve_runtime_device
+
 from dataclasses import asdict, dataclass, fields
 import gc
 from hashlib import sha256
@@ -297,7 +300,7 @@ def _child(directory: str, case: dict, strategy: str, device: str, paths, bindin
         initial = _state_fingerprints(model, optimizer, scheduler, scaler)
         _write(root / "initial-state-fingerprints.json", initial)
         if device == "cuda":
-            torch.cuda.reset_peak_memory_stats()
+            initialize_cuda_memory_statistics(resolve_runtime_device("cuda"))
         mark("before_preparation")
         for number in (1, 2):
             mark("native_preparation", number, snapshot=False)

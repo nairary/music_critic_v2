@@ -9,7 +9,7 @@ import pytest
 import torch
 
 from music_critic.data import dumps_piece, load_piece
-from music_critic.experiments.analysisgnn import harmonic_fusion_data as data
+from music_critic.experiments.analysisgnn import frozen_training_data as data
 from music_critic.experiments.analysisgnn.contracts import fingerprint
 from music_critic.experiments.analysisgnn.full_orbit_training import build_full_orbit_table, full_orbit_table_contract
 from music_critic.tasks import collate_multisource_samples, prepare_multisource_sample
@@ -110,7 +110,7 @@ def test_metadata_preflight_has_no_cache_payload_read_and_native_train_tuples_on
         return original(binding)
     monkeypatch.setattr(data, "read_bound_bytes", read)
     monkeypatch.setattr(data.reference, "load_production_record", _deny)
-    loader = data.FrozenFusionData(source)
+    loader = data.FrozenTrainingData(source)
     assert len(loader.assignments) == 1619
     assert len(loader.validation_record_ids) == 162
     assert len(loader.table) == 15540  # Explicit synthetic full12 table.
@@ -120,7 +120,7 @@ def test_metadata_preflight_has_no_cache_payload_read_and_native_train_tuples_on
 
 @pytest.mark.parametrize("split", ["train", "validation"])
 def test_reader_exactly_reuses_reference_raw_preparation_and_preserves_masks(source, split):
-    loader = data.FrozenFusionData(source)
+    loader = data.FrozenTrainingData(source)
     row = next(item for item in source["records"] if item["split"] == split)
     piece = load_piece(row["piece"]["path"])
     expected = collate_multisource_samples((prepare_multisource_sample(piece),)).raw_graph_batch
@@ -142,7 +142,7 @@ def test_reader_exactly_reuses_reference_raw_preparation_and_preserves_masks(sou
 @pytest.mark.parametrize("record_id,split", [("synthetic:test:0000", "test"), ("synthetic:test:0000", "train"),
     ("synthetic:validation:0000", "train"), ("synthetic:train:0001", "train"), ("missing", "validation")])
 def test_record_and_split_rejection_precedes_all_io(source, monkeypatch, record_id, split):
-    loader = data.FrozenFusionData(source)
+    loader = data.FrozenTrainingData(source)
     monkeypatch.setattr(data, "read_bound_bytes", _deny)
     monkeypatch.setattr(data, "_identity", _deny)
     with pytest.raises(ValueError, match="fusion_data"):
@@ -152,24 +152,24 @@ def test_record_and_split_rejection_precedes_all_io(source, monkeypatch, record_
 def test_declared_test_payload_and_forbidden_allowed_splits_fail_before_metadata(source, monkeypatch):
     monkeypatch.setattr(data, "read_bound_bytes", _deny)
     with pytest.raises(ValueError, match="train_validation_only"):
-        data.FrozenFusionData(source, allowed_splits=("test",))
+        data.FrozenTrainingData(source, allowed_splits=("test",))
     source["records"][0]["split"] = "test"
     with pytest.raises(ValueError, match="record_split_forbidden"):
-        data.FrozenFusionData(source)
+        data.FrozenTrainingData(source)
 
 
 def test_missing_validation_and_scheduled_train_exports_fail_closed(source):
-    loader = data.FrozenFusionData(source)
+    loader = data.FrozenTrainingData(source)
     assert loader.require_train_records(["synthetic:train:0000"] * 2) == ("synthetic:train:0000",)
     with pytest.raises(ValueError, match="warm_export_not_declared"):
         loader.require_train_records(["synthetic:train:0001"])
     source["records"].pop()
     with pytest.raises(ValueError, match="complete_validation_required"):
-        data.FrozenFusionData(source)
+        data.FrozenTrainingData(source)
 
 
 def test_manifest_identity_is_portable_and_callers_cannot_mutate_internal_membership(source, tmp_path):
-    first = data.FrozenFusionData(source)
+    first = data.FrozenTrainingData(source)
     moved = deepcopy(source)
     root = tmp_path / "moved"
     for key in data._METADATA:
@@ -179,7 +179,7 @@ def test_manifest_identity_is_portable_and_callers_cannot_mutate_internal_member
         for key in data._FILES:
             row[key]["path"] = str(root / "unread-exports" / row["record_id"] / key)
     moved["records"].reverse()
-    second = data.FrozenFusionData(moved)
+    second = data.FrozenTrainingData(moved)
     assert first.manifest_fingerprint == second.manifest_fingerprint
     assert first.bindings == second.bindings
     exported = first.assignments
@@ -193,7 +193,7 @@ def test_manifest_identity_is_portable_and_callers_cannot_mutate_internal_member
 def test_caller_hash_does_not_override_frozen_source_pin(source, key):
     source[key]["sha256"] = "0" * 64
     with pytest.raises(ValueError, match="frozen_.*hash_mismatch"):
-        data.FrozenFusionData(source)
+        data.FrozenTrainingData(source)
 
 
 @pytest.mark.parametrize("field,value", [("sha256", "0" * 64), ("size_bytes", 1), ("size_bytes", True),
@@ -202,7 +202,7 @@ def test_bad_payload_pin_fails_before_decode(source, monkeypatch, field, value):
     source["records"][0]["piece"][field] = value
     monkeypatch.setattr(data, "loads_piece", _deny)
     with pytest.raises(ValueError, match="fusion_data"):
-        loader = data.FrozenFusionData(source)
+        loader = data.FrozenTrainingData(source)
         loader.reader("synthetic:train:0000", split="train")
 
 
@@ -223,13 +223,13 @@ def test_self_consistent_wrong_record_payload_rejected(source, tmp_path, change)
         value = {"piece_split": "test", "piece_group": "wrong", "piece_id": "piece:other"}[change]
         piece = replace(piece, **{field: value})
         _replace_file(row, "piece", dumps_piece(piece).encode(), tmp_path)
-    loader = data.FrozenFusionData(source)
+    loader = data.FrozenTrainingData(source)
     with pytest.raises(ValueError, match="fusion_data"):
         loader.reader(row["record_id"], split="train")
 
 
 def test_full_binding_verification_reads_only_declared_exports_without_graphs(source, monkeypatch):
-    loader = data.FrozenFusionData(source)
+    loader = data.FrozenTrainingData(source)
     monkeypatch.setattr(data, "loads_piece", _deny)
     report = loader.verify_bindings()
     assert report["verified_records"] == 163 and report["record_files_verified"] == 489
@@ -240,7 +240,7 @@ def test_full_binding_verification_reads_only_declared_exports_without_graphs(so
 
 
 def test_metadata_drift_after_construction_blocks_before_graph_decode(source, monkeypatch):
-    loader = data.FrozenFusionData(source)
+    loader = data.FrozenTrainingData(source)
     Path(source["shift_eligibility"]["path"]).write_bytes(b"changed")
     monkeypatch.setattr(data, "loads_piece", _deny)
     with pytest.raises(ValueError, match="metadata_changed"):
@@ -248,7 +248,7 @@ def test_metadata_drift_after_construction_blocks_before_graph_decode(source, mo
 
 
 def test_missing_warm_file_never_invokes_corpus_conversion(source, monkeypatch):
-    loader = data.FrozenFusionData(source)
+    loader = data.FrozenTrainingData(source)
     Path(source["records"][0]["piece"]["path"]).unlink()
     monkeypatch.setattr(data.reference, "load_production_record", _deny)
     with pytest.raises(ValueError, match="artifact_unavailable"):
@@ -260,7 +260,7 @@ def test_symlink_payload_rejected(source, tmp_path):
     link = tmp_path / "link.json"
     link.symlink_to(row["piece"]["path"])
     row["piece"]["path"] = str(link)
-    loader = data.FrozenFusionData(source)
+    loader = data.FrozenTrainingData(source)
     with pytest.raises(ValueError, match="symlink_forbidden"):
         loader.reader(row["record_id"], split="train")
 
@@ -268,7 +268,7 @@ def test_symlink_payload_rejected(source, tmp_path):
 def test_duplicate_json_keys_rejected_even_with_matching_hash(source, tmp_path):
     row = source["records"][0]
     _replace_file(row, "metadata", b'{"record_id":"one","record_id":"two"}', tmp_path)
-    loader = data.FrozenFusionData(source)
+    loader = data.FrozenTrainingData(source)
     with pytest.raises(ValueError, match="duplicate_json_key"):
         loader.reader(row["record_id"], split="train")
 
@@ -277,13 +277,13 @@ def test_eligibility_incomplete_or_semantically_changed_cannot_pass_caller_hash(
     payload = Path(source["shift_eligibility"]["path"]).read_bytes().splitlines()
     source["shift_eligibility"] = _write(tmp_path / "incomplete.jsonl", b"\n".join(payload[1:]))
     with pytest.raises(ValueError, match="complete_train_eligibility_required"):
-        data.FrozenFusionData(source)
+        data.FrozenTrainingData(source)
     changed = json.loads(payload[0]); changed.update(corrected_valid=False,
         corrected_invalid_reasons=["synthetic"], graph_range_valid=False)
     payload[0] = json.dumps(changed).encode()
     source["shift_eligibility"] = _write(tmp_path / "changed.jsonl", b"\n".join(payload))
     with pytest.raises(ValueError, match="identity_shift_required"):
-        data.FrozenFusionData(source)
+        data.FrozenTrainingData(source)
 
 
 def test_valid_nonidentity_eligibility_drift_is_rejected_by_historical_orbit(source, tmp_path):
@@ -291,7 +291,7 @@ def test_valid_nonidentity_eligibility_drift_is_rejected_by_historical_orbit(sou
     rows[1].update(corrected_valid=False, corrected_invalid_reasons=["synthetic"], graph_range_valid=False)
     source["shift_eligibility"] = _write(tmp_path / "different-orbit.jsonl", _jsonl(rows))
     with pytest.raises(ValueError, match="frozen_orbit_table_mismatch"):
-        data.FrozenFusionData(source)
+        data.FrozenTrainingData(source)
 
 
 def test_duplicate_and_cross_split_assignments_fail_even_under_test_hash_override(source, tmp_path, monkeypatch):
@@ -305,11 +305,11 @@ def test_duplicate_and_cross_split_assignments_fail_even_under_test_hash_overrid
         source["split_assignments"] = _write(tmp_path / f"bad-{mutation}.jsonl", _jsonl(changed))
         monkeypatch.setattr(data.reference, "CORRECTED_SPLIT_ASSIGNMENTS_SHA256", source["split_assignments"]["sha256"])
         with pytest.raises(ValueError, match=error):
-            data.FrozenFusionData(source)
+            data.FrozenTrainingData(source)
 
 
 def test_authenticated_sidecar_mask_change_does_not_change_raw_graph(source, tmp_path):
-    before = data.FrozenFusionData(source)
+    before = data.FrozenTrainingData(source)
     raw_before, _ = before.reader("synthetic:train:0000", split="train")
     row = source["records"][0]
     payload = json.loads(Path(row["sidecar"]["path"]).read_text())
@@ -318,7 +318,7 @@ def test_authenticated_sidecar_mask_change_does_not_change_raw_graph(source, tmp
             "missing_reason": "synthetic_missing", "confidence": None}}}]
     payload["fingerprint"] = fingerprint({key: value for key, value in payload.items() if key != "fingerprint"})
     _replace_file(row, "sidecar", payload, tmp_path)
-    after = data.FrozenFusionData(source)
+    after = data.FrozenTrainingData(source)
     raw_after, sidecar = after.reader("synthetic:train:0000", split="train")
     assert after.manifest_fingerprint != before.manifest_fingerprint
     for node_type in raw_before.node_types:
@@ -340,4 +340,4 @@ def test_self_consistent_reweighted_class_payload_cannot_replace_frozen_weights(
     fixture["class_weight_payload"] = build_class_weight_payload(rows)
     source["class_weights"] = _write(tmp_path / "reweighted.json", fixture)
     with pytest.raises(ValueError, match="frozen_class_weights_mismatch"):
-        data.FrozenFusionData(source)
+        data.FrozenTrainingData(source)

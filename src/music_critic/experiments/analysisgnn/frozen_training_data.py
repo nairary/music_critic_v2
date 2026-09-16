@@ -1,4 +1,4 @@
-"""Strict read-only Dilemma warm exports for the separate bounded fusion pilot.
+"""Shared strict read-only Dilemma warm exports for TRAIN/VALIDATION campaigns.
 
 The coordinator supplies a SHA/size-bound manifest; this is not a corpus
 locator or a preprocessing command. Missing warm exports fail closed. Existing
@@ -106,7 +106,7 @@ def _portable(value):
     return value
 
 
-class FrozenFusionData:
+class FrozenTrainingData:
     """Metadata-authenticated reader for explicit TRAIN/VALIDATION warm files.
 
     Manifest fields: ``schema_version``, four metadata bindings named in

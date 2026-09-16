@@ -6,6 +6,9 @@ All outputs are exclusive, and a durable event prefix survives process failure.
 """
 from __future__ import annotations
 
+from music_critic.cuda_memory import initialize_cuda_memory_statistics
+from music_critic.device import resolve_runtime_device
+
 import argparse
 from collections import Counter
 from dataclasses import asdict, replace
@@ -334,7 +337,7 @@ def execute(config, protocol, exports, *, checkpoint: Path, record_path: Path, o
                     reference = FrozenC2Reference(FileBinding(str(checkpoint), CHECKPOINT["sha256"], CHECKPOINT["size_bytes"]),
                         CHECKPOINT["model_contract_sha256"], CHECKPOINT["model_state_sha256"], config["device"], progress.emit)
                     if config["device"] != "cpu":
-                        torch.cuda.reset_peak_memory_stats(0)
+                        initialize_cuda_memory_statistics(resolve_runtime_device("cuda:0"))
                 progress.state["raw_pieces_started"] += 1
                 progress.state["validation_raw_started"] += export.member.split == "validation"
                 progress.emit("raw_read_started", {"stage": "raw_read", "piece_id": export.member.piece_id,

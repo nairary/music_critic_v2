@@ -272,6 +272,8 @@ def test_cli_uses_only_fake_nvidia_smi_subprocess(tmp_path):
 def _fake_owned_child(monkeypatch, *, exit_code=0, outcomes=None):
     """No real PID is signalled: every lifecycle OS boundary is a local fake."""
     calls = []
+    monkeypatch.setattr(wrapper.threading, "active_count", lambda: 1)
+    monkeypatch.setattr(wrapper.signal, "getsignal", lambda signum: signal.SIG_DFL)
     child = SimpleNamespace(pid=987654321, returncode=None)
     info = SimpleNamespace(si_pid=child.pid, si_code=1, si_status=exit_code)
     pending = list(outcomes or [info])

@@ -23,7 +23,7 @@ import torch
 
 from music_critic.experiments.analysisgnn.contracts import canonical_json, fingerprint
 from music_critic.experiments.analysisgnn.corrected_model import corrected_model_contract, model_state_fingerprint
-from music_critic.experiments.analysisgnn.harmonic_fusion_resume import (
+from music_critic.experiments.analysisgnn.training_rng import (
     capture_safe_rng, restore_safe_rng, _validate_safe_rng,
 )
 from music_critic.experiments.analysisgnn.performance_replay import recursive_state_fingerprint
