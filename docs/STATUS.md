@@ -27,7 +27,11 @@ Mac sandbox5passed; fusion branch87passed. Full Linux CPU run initially had
 one float32 batch-invariance assertion used a tolerance below one epsilon.
 Git-backed regressions123passed/5skipped; isolated ownership/objective groups
 82passed/1skipped after correcting only that numerical tolerance. The complete
-post-fix CPU validation is being finalized. No production ownership guard or
+post-fix CPU validation passed:4797passed/65skipped plus62native tests in a
+separate process,4859passed total. CI now follows that process separation.
+Six warnings remain, including DataLoader QueueFeederThread teardown in the
+monolithic process; see [integration evidence](INTEGRATION_VALIDATION_20260916.md).
+No production ownership guard or
 scientific fingerprint was weakened. No legacy access, model evaluation or
 scientific TEST access. These are synthetic checks and archival operations,
 not new scientific experiments. Earlier same-date preparation entries below
