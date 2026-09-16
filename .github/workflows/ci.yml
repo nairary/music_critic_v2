@@ -105,7 +105,15 @@ jobs:
         if: >-
           steps.changes.outputs.ci_relevant == 'true' &&
           steps.success-cache.outputs.cache-hit != 'true'
-        run: python -m pytest -q
+        run: |
+          # Native ownership checks require one main thread. DataLoader tests
+          # may leave feeder threads in pytest, so run these checks separately.
+          python -m pytest -q \
+            --ignore=tests/experiments/test_research_pilot_resource_wrapper.py \
+            --ignore=tests/test_context_diagnostics_resource_wrapper.py
+          python -m pytest -q \
+            tests/experiments/test_research_pilot_resource_wrapper.py \
+            tests/test_context_diagnostics_resource_wrapper.py
       - name: Compile Python sources
         if: >-
           steps.changes.outputs.ci_relevant == 'true' &&
