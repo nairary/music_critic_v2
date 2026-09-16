@@ -11,13 +11,27 @@ code/results remain preserved. See [branch map](BRANCHES_AND_RELEASES.md).
 
 Cloud/folder access confirmed. Private STANDARD bucket
 `music-critic-v2-b1g0sie8odv6h7khh28l` created in the existing default folder.
-No VM/training. SSH restored; prepared files are present. All4375 bound files
-(1457 TRAIN/VALIDATION records plus metadata) packaged with SHA256 verification;
-original manifest retained, relocated manifest changes paths only. Upload waits
-for explicit destination approval after automatic review rejected forwarding
-an IAM token to the GPU host. Revised transfer route keeps credentials on Mac.
-Temporal targeted tests168passed; migration/RNG tests and full-suite review are
-in progress. No legacy access, model evaluation or scientific TEST access.
+No VM/training. User explicitly approved the private destination and the Mac
+relay route. Prepared TRAIN/VALIDATION, local raw corpora, POP909-CL and the
+complete temporal80k result are uploaded and verified. All4375 prepared files
+were also restored into a fresh local directory and rechecked against original
+SHA256 bindings (1457 records;18,731,474,478 bytes). Historical experiment
+archives are transferring. Original manifests remain immutable; relocation
+changes paths only. CLI authentication stays on Mac; no IAM token reached the
+GPU host. Public GitHub publication is separately awaiting explicit approval.
+
+Focused integration253passed; temporal168passed; worker tests outside the
+Mac sandbox5passed; fusion branch87passed. Full Linux CPU run initially had
+4824passed/35failed/65skipped: Git-provenance tests were run from a tar without
+.git, strict native ownership tests encountered DataLoader feeder threads, and
+one float32 batch-invariance assertion used a tolerance below one epsilon.
+Git-backed regressions123passed/5skipped; isolated ownership/objective groups
+82passed/1skipped after correcting only that numerical tolerance. The complete
+post-fix CPU validation is being finalized. No production ownership guard or
+scientific fingerprint was weakened. No legacy access, model evaluation or
+scientific TEST access. These are synthetic checks and archival operations,
+not new scientific experiments. Earlier same-date preparation entries below
+describe historical state superseded by this integration.
 
 
 ## Yandex Cloud storage preparation; no VM or training — 2026-09-16
