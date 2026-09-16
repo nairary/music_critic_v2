@@ -1,0 +1,382 @@
+{
+  "schema_version": "MusicCriticCloudPayloadIndex@1.0.0",
+  "bucket": "music-critic-v2-b1g0sie8odv6h7khh28l",
+  "release_prefix": "releases/20260916-temporal-main-r1",
+  "payload_objects": 62,
+  "payload_bytes": 33683229077,
+  "verification": "Each payload upload verified Content-MD5, HEAD size, ETag and SHA256 metadata. Final release independently rechecks every HEAD and records completion in COMPLETE.json.",
+  "objects": [
+    {
+      "key": "code/temporal-main/74bfbd1974f539fd/code-backup.bundle",
+      "sha256": "d8a29d0a777390327932b4cd33e76d8161f2a405a1c7a679804ed4f3a42ddebe",
+      "size_bytes": 4919042,
+      "md5": "5a87564a1136d06cbbae0f41e30b98f6"
+    },
+    {
+      "key": "code/temporal-main/74bfbd1974f539fd/early-code-source-status.json",
+      "sha256": "265b5f734d8f3fd795b8c836b35e5bb1a4d71248f4ed97aebe9c13513219f5eb",
+      "size_bytes": 410,
+      "md5": "7338dc89b78791d662892e074ff559df"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/data-manifest.json",
+      "sha256": "48a5301dcf83c12eb6ba5f5a00e658e3d0972221bc9db5eea5fa1e62f384dd38",
+      "size_bytes": 1288201,
+      "md5": "13ca734a74de373a7effb98ff42ef2d7"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/original-manifest.json",
+      "sha256": "58085b4e58e03f3ad362a58d2bfef693b5946e9f676d8e5c3dfe20b2af1406ae",
+      "size_bytes": 1237353,
+      "md5": "f7ab9a6ce59b8961e926d73d7f030c15"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0000.tar.gz",
+      "sha256": "fdec89deaf87a5cdc73060254d8f6ba0eaf7337929a54e56083f6ada11092611",
+      "size_bytes": 47277799,
+      "md5": "c5a61105038e1898904b0c9a40ae472d"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0001.tar.gz",
+      "sha256": "5315b6ec570b2ad86e33408774b7a8a87555d7c59c8b3c9abcdb79a7cd50cdc6",
+      "size_bytes": 63069615,
+      "md5": "569de8a14b0a16b44cbd1e9ee493913e"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0002.tar.gz",
+      "sha256": "18fd806e319566754dba19ca1bef6a4e756d32f57016ae80862527bb363efc5f",
+      "size_bytes": 56811283,
+      "md5": "5ea5c1744ca85eccf99cc072db1d424d"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0003.tar.gz",
+      "sha256": "b6bbe5b71dcd7ae73730faaf60f6b0db9fcaec1d5fc3141fc5d508de0189adf8",
+      "size_bytes": 20777702,
+      "md5": "43daa4a92d4ad6a6d1cdc44096900e46"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0004.tar.gz",
+      "sha256": "6cc7090b1d2c484671281b67da324acf1c3406d3814041e3657175dc37eb5a8e",
+      "size_bytes": 45910550,
+      "md5": "8f3b4a01c4032f16f4b4947a0739dbd3"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0005.tar.gz",
+      "sha256": "236e6b1c75c1ea6361185d66f39e953dd715e1cd63d47be638b3656c6a4e5751",
+      "size_bytes": 70980344,
+      "md5": "c046d4561cb59d9cac1d78c573a5c866"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0006.tar.gz",
+      "sha256": "87b3bb4214e875624a2b070ad759fd8a619ee1d436cca545085bde809b9f678d",
+      "size_bytes": 27068815,
+      "md5": "1081ca4efa83543ce27491f728335a39"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0007.tar.gz",
+      "sha256": "bf965d9912b2579de33d568ed419029dfda644d64c04ec567afd99a2bea36d8e",
+      "size_bytes": 28346020,
+      "md5": "91c076a3b1e52f3127c60f5b8592c4b5"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0008.tar.gz",
+      "sha256": "8b7fd1efdc1d4012639975c9e5f24e04aba3b92cf5b33ca490065b979c5506c2",
+      "size_bytes": 59185307,
+      "md5": "b617a30504d3080c62139dd1777ef079"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0009.tar.gz",
+      "sha256": "40ab9131682a22013b1b81f2d9f6dfab526840f68f277a395dbb8c87029dcc54",
+      "size_bytes": 27730516,
+      "md5": "f07f34ebce5cbc27856e13a91b3ce4f6"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0010.tar.gz",
+      "sha256": "64893aff671a06495ab2c35a5e71c394345934b2a77cc05a900e4b2889f7add4",
+      "size_bytes": 16233131,
+      "md5": "084bf31a8ea4fecb2d9f24aba019224c"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0011.tar.gz",
+      "sha256": "166b7ce6f93e70514c9c8f5b2df4ed2f8cc129534a844f936c4481a2c6e261ab",
+      "size_bytes": 15087824,
+      "md5": "32c24900505d11d55f8dd13a68bb9059"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0012.tar.gz",
+      "sha256": "e7b10de4694d8b595f084903ffda0bf2e73984505fc8575fcf873de35619adbb",
+      "size_bytes": 17403624,
+      "md5": "31acbb95e1795344bae1e9657d959e08"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0013.tar.gz",
+      "sha256": "cd2df2e495b9bce2a9e477ad72fc4582aa8e3cf00d02f6866feb3554ed174b92",
+      "size_bytes": 27948494,
+      "md5": "f7f52c68b94899d113cebe8b31b4fb7a"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0014.tar.gz",
+      "sha256": "46a6fc4acd2af124fa3bb5787d480594574da66fe12ea862e21e39c8a927e5ad",
+      "size_bytes": 21130272,
+      "md5": "db8419193a4db69a335b531ebb82aedc"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0015.tar.gz",
+      "sha256": "a1a8886eca2e91b0a9695a7606a47e7231d1e00b7784e1c16a8781ac96608de3",
+      "size_bytes": 22739023,
+      "md5": "e82e5a2a170600b779269456f18295a6"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0016.tar.gz",
+      "sha256": "b61f6edc72936671cdb69869bf56aabaacea1bb9c8efe23bd04aab13b8cd1fa3",
+      "size_bytes": 39733964,
+      "md5": "15cfd771d95373ff0683dc9d32fca9e9"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0017.tar.gz",
+      "sha256": "2c007e5f65b5666ab7397b6e6ac567410b9d6c4b683f15281dda840d690d7f5b",
+      "size_bytes": 64594651,
+      "md5": "963aaac8b7fc5b10a357cce6d9070fc4"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0018.tar.gz",
+      "sha256": "865b66f08c68a97e9e4e9b2fa6fd8ca93d7914edb73d96d59ff0d655eb9d227b",
+      "size_bytes": 66777582,
+      "md5": "6dbf91a26ee17a460918e3809718b2a1"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0019.tar.gz",
+      "sha256": "060e9ad68cc7a3a9d9c48936a89314c45e4468381e8b0288beca8497e7f936b2",
+      "size_bytes": 69089545,
+      "md5": "6365d39e366d6e3eb4c0193cba69cc9e"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0020.tar.gz",
+      "sha256": "ce1d74688a87dba745fcb5d1be09f9a465e7b0f9702e424e8ad422e8ae71b0c6",
+      "size_bytes": 38969850,
+      "md5": "9bbd6bf55abc340f05fc34ffbe631c50"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0021.tar.gz",
+      "sha256": "429d1ea119cea1b85144e195412d74b7ab841f6d69d473be5d8f49c7cf143da3",
+      "size_bytes": 36502336,
+      "md5": "a3a2518dca471441724a3bd50d9b31d7"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/payload-0022.tar.gz",
+      "sha256": "3b0857e6a06cb993fbc963555000b7f93cdfc09b6901596c66cf060bb1431f0b",
+      "size_bytes": 22360660,
+      "md5": "64702c3ff52349ead6df7257e9a54a5d"
+    },
+    {
+      "key": "data/prepared/58085b4e58e03f3a/receipt.json",
+      "sha256": "1904b052e663ccbdc18f49ce72ec119430e6c19ba8ff125d0b5d5d34dec54f15",
+      "size_bytes": 4632,
+      "md5": "561f3dc61a0c94e646137f1d0c9d3c14"
+    },
+    {
+      "key": "data/raw/local-corpora/4a550a62f76b9e79/local-raw-datasets.json",
+      "sha256": "89604409308660b440a46fa3961b64641aab486d4337397125f865ce6086d71d",
+      "size_bytes": 369,
+      "md5": "1dd964d2753151483357679bcc858448"
+    },
+    {
+      "key": "data/raw/local-corpora/4a550a62f76b9e79/local-raw-datasets.tar.gz",
+      "sha256": "4a550a62f76b9e792dd3e5cc5b2ef29623750d0573b457a5d07622cf54125aa2",
+      "size_bytes": 866847855,
+      "md5": "c8de4e5b8042226530ec228970488b2d"
+    },
+    {
+      "key": "data/raw/pop909-raw/0ae25e6fd11b3c19/pop909-raw.json",
+      "sha256": "0958dbc07653a0e1cb2643cb5cf5faf433da9f8e17e9bba836da322c258ae053",
+      "size_bytes": 1101,
+      "md5": "700194182993972c279b4adf141463dc"
+    },
+    {
+      "key": "data/raw/pop909-raw/0ae25e6fd11b3c19/pop909-raw.tar.gz",
+      "sha256": "0ae25e6fd11b3c1940c659d5b700336bcc1838f403f89f44001d67e9ad9c87d1",
+      "size_bytes": 5372910,
+      "md5": "1629977f7d87f37ff8272d4cd60208a5"
+    },
+    {
+      "key": "data/raw/server-source-variants/2c28c03654159996/server-raw-source-variants.json",
+      "sha256": "d00b0c11b2005668671d3c7c73d9aef266436d3dcc4035080b2940f3973105cd",
+      "size_bytes": 523,
+      "md5": "dc08335a3f4b45c9cef5a9d5a6dfa6e5"
+    },
+    {
+      "key": "data/raw/server-source-variants/2c28c03654159996/server-raw-source-variants.tar.gz",
+      "sha256": "2c28c036541599964862322bffcdb312d66a7714e4d1f1e64c5a5de9b52aaa38",
+      "size_bytes": 361307557,
+      "md5": "922fddc109d3942002d4a9221d1959bd"
+    },
+    {
+      "key": "experiments/environment-provenance/20260916/environment-provenance.tar.gz",
+      "sha256": "11e98b84985fdea98532f8c0fd4b9d9f4ca5f15ba358f0bec10d6b1c58c86d34",
+      "size_bytes": 3416,
+      "md5": "4596ec3436b2632932abccad5a7a0367"
+    },
+    {
+      "key": "experiments/history/early-experiments/14df8498a4240375/early-experiments.json",
+      "sha256": "566745a491e95ebd6d37f48a0b0d5a5d9728aa95e8257f5a01b3a6eabaab1389",
+      "size_bytes": 1836,
+      "md5": "405a11ba8e4836607bb2f5a3ec362b98"
+    },
+    {
+      "key": "experiments/history/early-experiments/14df8498a4240375/early-experiments.tar.gz.part-0000",
+      "sha256": "9dacb61246bfacc7e386e5f536a3f6282f9d2f5d61044df8b7205920fd6e097d",
+      "size_bytes": 2147483648,
+      "md5": "49df1ca0bb8e8989d8306c02a8a6ecdc"
+    },
+    {
+      "key": "experiments/history/early-experiments/14df8498a4240375/early-experiments.tar.gz.part-0001",
+      "sha256": "9de587084bedbd72c79c546dbce605d09a1fc37a6248fb5cdb0256e7eca87c4b",
+      "size_bytes": 2147483648,
+      "md5": "a4749cd909d9410c10fc2f919e77d1f5"
+    },
+    {
+      "key": "experiments/history/early-experiments/14df8498a4240375/early-experiments.tar.gz.part-0002",
+      "sha256": "1106a94355385b569652d1a6064ae599d4d81ad757c5983910e1aff93218433d",
+      "size_bytes": 2147483648,
+      "md5": "826218dd2430f2726084de1c5e737bff"
+    },
+    {
+      "key": "experiments/history/early-experiments/14df8498a4240375/early-experiments.tar.gz.part-0003",
+      "sha256": "82da2655b2798214de0640bf7271e30fbfb8ad095b8d13e99fcd15651796148c",
+      "size_bytes": 2147483648,
+      "md5": "fe255920fec6bec56ba78581d939de57"
+    },
+    {
+      "key": "experiments/history/early-experiments/14df8498a4240375/early-experiments.tar.gz.part-0004",
+      "sha256": "bd930e658cd1a7befa10db156ab07c5175bda8ac95e05a8459d401151183792f",
+      "size_bytes": 211059922,
+      "md5": "54b5dc4009aefa2e2929838766f77b1b"
+    },
+    {
+      "key": "experiments/history/fusion-and-attention/f5687c8958a33b78/fusion-and-attention.json",
+      "sha256": "02ae3768983fce66ed06beded4193f2e3f894481de6df2c23f8f4965f6bb9779",
+      "size_bytes": 1943,
+      "md5": "1c5adf5b848e564a58096a6debabf564"
+    },
+    {
+      "key": "experiments/history/fusion-and-attention/f5687c8958a33b78/fusion-and-attention.tar.gz.part-0000",
+      "sha256": "888960ba9dad03a8a0a945d21de31143a445579fa2d573c16cfc92a41daeef29",
+      "size_bytes": 2147483648,
+      "md5": "2884e8cb12726b44b88ea29e0ebde1c8"
+    },
+    {
+      "key": "experiments/history/fusion-and-attention/f5687c8958a33b78/fusion-and-attention.tar.gz.part-0001",
+      "sha256": "ec2e743dcce2f904d1e3a82eca81f7f79791ed4b037757497a508094a131c76e",
+      "size_bytes": 2147483648,
+      "md5": "aa3929a16ff3b208b260afd5a4aa5d61"
+    },
+    {
+      "key": "experiments/history/fusion-and-attention/f5687c8958a33b78/fusion-and-attention.tar.gz.part-0002",
+      "sha256": "08ceff735118247329c378818f5f9169ae3e925d80824546c08f6664e3f634fd",
+      "size_bytes": 2147483648,
+      "md5": "27a3052782500245b770531329e8cfe1"
+    },
+    {
+      "key": "experiments/history/fusion-and-attention/f5687c8958a33b78/fusion-and-attention.tar.gz.part-0003",
+      "sha256": "2b12ed46d5b5390e31994d55c384ec13df23f60f2893c659bc26731494487436",
+      "size_bytes": 474966840,
+      "md5": "81c2ed1d2fc706fa7a8d4d1179829e19"
+    },
+    {
+      "key": "experiments/history/historical-c2/d82986db9d939b74/historical-c2.json",
+      "sha256": "36a6df5200032bf172e212d8035b4aeb129e6217b46204361fe14e4ab667ba2e",
+      "size_bytes": 1103,
+      "md5": "0f457159694e2618300d870260a0de44"
+    },
+    {
+      "key": "experiments/history/historical-c2/d82986db9d939b74/historical-c2.tar.gz",
+      "sha256": "d82986db9d939b745bd842bbbb39b3cf0ea6c9325c92ca6ed3d277a423b0a32f",
+      "size_bytes": 754323513,
+      "md5": "538dde7e70e1187af891416244377a31"
+    },
+    {
+      "key": "experiments/history/mmoe/0cbedbd84d341011/mmoe.json",
+      "sha256": "3e9a46e89623ebf97583cf443eb9d954ceaded9082cb26c2919de604ada8fcdf",
+      "size_bytes": 1269,
+      "md5": "a2cc11075365662ab69786c05f68516d"
+    },
+    {
+      "key": "experiments/history/mmoe/0cbedbd84d341011/mmoe.tar.gz.part-0000",
+      "sha256": "ae8c9178d2c244b23aa4bb1de695a831e131abdfd8e5d628be030a75903f19f6",
+      "size_bytes": 2147483648,
+      "md5": "c7936ea2011400dda59303e8c3f33d98"
+    },
+    {
+      "key": "experiments/history/mmoe/0cbedbd84d341011/mmoe.tar.gz.part-0001",
+      "sha256": "bea27eb114d3ee658fbc636612d3fe5882bc449e414d91c4935e990072af1c93",
+      "size_bytes": 177442723,
+      "md5": "50ba729dc84ff0a2d20a404d92df838c"
+    },
+    {
+      "key": "experiments/history/performance/98ea74f3ec1cc38e/performance.json",
+      "sha256": "64eeb526cbe2c6acd9750126e7a3d7aaa73f41be750eb8b71434c2c5202ade67",
+      "size_bytes": 1107,
+      "md5": "ab11ac72d6f392291cb0d80149f0a7bb"
+    },
+    {
+      "key": "experiments/history/performance/98ea74f3ec1cc38e/performance.tar.gz",
+      "sha256": "98ea74f3ec1cc38ed16b4de0902512a5f1618183f7cd8511e10f414592d6b736",
+      "size_bytes": 1199275247,
+      "md5": "d9a3532d9af5ea45292d3e9c3e0167bc"
+    },
+    {
+      "key": "experiments/history/research-september/2dcbaf31b8dc429a/research-september.json",
+      "sha256": "8715c9a36f14e506cf14d900a9e7594829b466e32184d51b406d0c2270b38eb1",
+      "size_bytes": 1320,
+      "md5": "a311c4e1f4842e6cfce5cb584a923ff2"
+    },
+    {
+      "key": "experiments/history/research-september/2dcbaf31b8dc429a/research-september.tar.gz.part-0000",
+      "sha256": "a23048ae0cc293aa9ab5e4069440597fc16b2f684c0ca4abd01430cefc342693",
+      "size_bytes": 2147483648,
+      "md5": "4353f8b062a996958c1d53131e969e2c"
+    },
+    {
+      "key": "experiments/history/research-september/2dcbaf31b8dc429a/research-september.tar.gz.part-0001",
+      "sha256": "fece90fba1e31be8f6de899c8d2cef7c13b8552b22e717af270d4b456646ce5e",
+      "size_bytes": 1112776251,
+      "md5": "560b8f91b137add0781fe458b851df75"
+    },
+    {
+      "key": "experiments/history/temporal-attempts/16e4384f81d2a17f/temporal-attempts.json",
+      "sha256": "e5d2d8ed7d8e9f1be52fe3df27b47b564ad8554100f92f66e4dea0c20ff4c8e2",
+      "size_bytes": 1495,
+      "md5": "c4eea04e376fa52cfa4550d63d289aa4"
+    },
+    {
+      "key": "experiments/history/temporal-attempts/16e4384f81d2a17f/temporal-attempts.tar.gz",
+      "sha256": "16e4384f81d2a17fe6353dec7417d151bca1290e21973b4c7753114372dcb6dc",
+      "size_bytes": 7177800,
+      "md5": "ffd3cac39c8df8c5580ea0af2ee0f7ad"
+    },
+    {
+      "key": "experiments/local-archives/20260916/local-experiment-artifacts.tar.gz",
+      "sha256": "f0d2159fa44c29e610ae059641e9203bea9fb13c7597e55904a28f8cf029c66d",
+      "size_bytes": 598442363,
+      "md5": "13b73c94ec1f5d0b38d4462e550c3130"
+    },
+    {
+      "key": "experiments/local-archives/20260916/music_critic_c0_c2_logs_handoff_20260906.tar.gz",
+      "sha256": "d7cf7bf4a6f5e9973b4c1acfcbefc39e80b340df34f1ec12173dfde6fb8145ca",
+      "size_bytes": 23217293,
+      "md5": "d981a9b927a4d12d45fde6727549a9b1"
+    },
+    {
+      "key": "experiments/local-working-evidence/20260916/local-working-evidence.tar.gz",
+      "sha256": "c8a65aa4c982c17a0b2753c2f64cd72ab15c665b02a7a38fce090dd1084358c0",
+      "size_bytes": 3362901520,
+      "md5": "d8c9e479e1608333604b0f540c70b90b"
+    },
+    {
+      "key": "experiments/temporal-80k/6ff207ed5979a318/temporal-80k-original.tar.gz",
+      "sha256": "6ff207ed5979a318cb082ef402483079802ad00b0242496ad51a8666f042fbdc",
+      "size_bytes": 4287570424,
+      "md5": "3127078a24aab918a79ff4468434d833"
+    }
+  ]
+}

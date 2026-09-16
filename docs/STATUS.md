@@ -1,5 +1,21 @@
 # Music Critic V2 Status
 
+## Cloud parallel-training feasibility and storage budget — 2026-09-16
+
+User reports an18,000RUB grant dedicated to this project and accepts storage
+up to500RUB/month; training deployment remains deferred. Independent jobs can
+use separate GPU VMs with unique records/output roots. Shared-GPU execution is
+not currently admitted: temporal memory probe uses physicalGPU0 and rejects
+other compute processes; shared-host GPU selection/monitoring needs separate
+validation. Two equal parallel runs consume approximately the same VM-hours as
+the same runs sequentially, but spend faster. Actual cloud GPU quotas are not
+verified. [Deployment guide](YANDEX_CLOUD_DEPLOYMENT.md) records these boundaries.
+Documentation-only clarification; no model/legacy changes, TEST, experiment,
+VM or upload in this clarification task. Concurrent migration progress is tracked
+in the deployment guide; the older SSH failure is not a current migration blocker
+claim. Next training step: choose GPU budget and register new admission runs.
+
+
 ## Temporal main integration and cloud migration — 2026-09-16
 
 User authorizes promoting completed temporal/C2 to main, retaining unfinished
@@ -20,8 +36,13 @@ No VM/training. User explicitly approved the private destination and the Mac
 relay route. Prepared TRAIN/VALIDATION, local raw corpora, POP909-CL and the
 complete temporal80k result are uploaded and verified. All4375 prepared files
 were also restored into a fresh local directory and rechecked against original
-SHA256 bindings (1457 records;18,731,474,478 bytes). Historical experiment
-archives are transferring. Original manifests remain immutable; relocation
+SHA256 bindings (1457 records;18,731,474,478 bytes). All eight historical archive
+groups are transferred with no missing declared sources. In total62 payload
+objects, including an early three-branch Git backup, are uploaded and verified;
+see [cloud payload index](CLOUD_STORAGE_SNAPSHOT_20260916.json). A downloaded
+Git bundle was cloned successfully with all three refs and main/fusion separation
+checked. The final nine-file release records its completion in the last-uploaded
+`releases/20260916-temporal-main-r1/COMPLETE.json`. Original manifests remain immutable; relocation
 changes paths only. CLI authentication stays on Mac; no IAM token reached the
 GPU host. Public GitHub publication is separately awaiting explicit approval.
 
