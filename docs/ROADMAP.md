@@ -1,7 +1,129 @@
 # Music Critic V2 Engineering Roadmap
 
+## 2026-09-16 — Next focus: temporal attention, continuation declined
+
+User chooses to retain the completed80k temporal baseline and work on attention,
+superseding the80k→120k proposal below. First change targets receiver-dependent
+weighting of neighbors within the existing temporal relations, retaining two
+rounds, raw candidates, eighteen heads and routing. Define and test that isolated
+operator before a quality run; no new training budget was selected here. Windows,
+extra rounds, relation gates, changes and JEPA remain separate subsequent axes.
+Current task changes documentation only; no model implementation or launch.
+
+## 2026-09-16 — Temporal80k completed; continuation proposed
+
+Verified best/final primary0.503951114 at80k exceeds historical C2 best115k
+0.496668849. Training exited0 with80k updates/160k draws; see
+[final review](experiments/TEMPORAL_80K_FINAL_RU.md). Improvements do not cover
+root/pedal or native-TRAIN-unseen tuples. Single-seed historical comparison.
+Proposed next: explicit full-state80k→120k continuation, preserving immutable80k
+and original LR horizon. Requires tested continuation binding; not authorized
+or launched by this review. Afterwards: typed temporal attention as a separate
+architecture test; changes validation/alignment integration independently.
+
+
+## 2026-09-15 — Temporal C2 accelerated80k launched after admission
+
+MMoE stopped at47186updates; best40k/full47k retained. Temporal cache/workers/
+fullresume, all1295TRAIN sizing and nativeGPU equivalence/memory admission
+completed. `EXP-TEMPORAL-C2-80K-001` now runs freshseed17/batch2 to80k on the
+originalC2 120k LR horizon withoutfusion/MMoE. Next: compare common-support
+validation to historical C2 at matching5k checkpoints, retain expanded support
+separately, and review the80k result. No automaticfurtherbudget. See
+[launch evidence](experiments/TEMPORAL_C2_LAUNCH_RU.md).
+
+## 2026-09-15 — Exact temporal graph prototype implemented
+
+Local model/alignment/update primitives and tests are ready; four-TRAIN CPU
+forward/backward admission passed (`EXP-TEMPORAL-SLICE-CPU-001`). Next is an
+isolated accelerated-cache/full-resume integration, whole-TRAIN sizing and GPU
+equivalence/memory admission when the device is free, followed by an explicitly
+bound quality comparison. Current MMoE80k is untouched; no new campaign was
+launched. [Contract and limitations](TEMPORAL_SLICE_GRAPH.md).
+
+## 2026-09-15 — Two-group MMoE80k authorized
+
+Implement two four-expert MLP banks on beat and note/onset contextual features,
+task-specific gates for all18heads, and retained attention fusion. One fresh
+80000-update run after native equivalence admission; use completed attention
+and historical C2 references. The cancelled no-fusion control stays cancelled.
+See [protocol](GROUPED_MMOE_EXPERIMENT.md).
+
 The scientific detail in `IMPLEMENTATION_PLAN.md` remains authoritative. This
 document is the phase execution checklist.
+
+## 2026-09-14 — task-attention and same-runtime control selected
+
+User authorized the AnalysisGNN-style fusion mechanism adapted to12beat heads, with80000from-scratch updates per arm. Accelerated/reference gates precede sequential attention/control training on the same GPU/runtime/data stream. MMoE will be specified and evaluated separately after this comparison; no combined modification is in the current queue. See [protocol](TASK_ATTENTION_FUSION.md).
+
+## 2026-09-14 — authorized fusion continuation to80k completed
+
+Full-state15k→80k continuation completed. Best/final primary0.472602 remains below historicalC2-80k 0.489375; matched elapsed interval is15.87percent shorter. No baseline promotion or further training is implied. See [final review](experiments/FUSION_C2_80K_FINAL_RU.md). Next experiment awaits user selection.
+
+## 2026-09-13 — authorized accelerated fusion15k follow-up completed
+
+The user-selected from-scratch fusion run finished15000updates on the historicalC2 nominal schedule with four workers and8GiBcompact cache. Its final primary0.35295 is below historicalC2-15k 0.39134; comparable elapsed time is16.34percent lower. Runtime differs, so causal attribution remains open. See [comparison](experiments/FUSION_C2_15K_COMPARISON_RU.md). No model promotion or additional training is authorized by this result review.
+
+## 2026-09-13 — finish the three authorized pilots
+
+The context, optional logit-fusion and structural-SSL implementations are now
+integrated into the developer checkout. Frozen context diagnostics and the
+local-control comparison have completed. Structural SSL completed the fixed
+200 mixed plus 100 theory-recovery updates per masking policy, with no primary
+endpoint improvement over its initial C2 score. Fusion passed its real TRAIN
+reference gate and completed the registered512updates per arm, but its process
+was aborted during report serialization by the swap guard. Both original
+records retain this terminal abort. A separate compact posthoc check recovered
+and verified retained metric aggregation: final0.492768 control versus0.468709 fusion, both best at
+update0. Final independent review and posthoc registry closure are complete;
+no retraining was needed. These runs used separately sealed execution sources
+and one GPU queue. Their results and
+limits are tracked in the [completion review](experiments/RESEARCH_PILOTS_20260913_REVIEW.md).
+The original corrected baseline stays unchanged; broader targets and a new
+training campaign await discussion of these completed results.
+
+## 2026-09-08 future direction — melody, voices, rhythm, form and arrangement
+
+The user requested broader musical supervision beyond the harmonic heads.
+[Target and source readiness](MULTI_ASPECT_TARGETS_FUTURE.md) separates existing
+annotations, raw-derived SSL targets and missing semantic labels. Priorities
+are source-scoped Dilemma voice audit and rhythmic masking; original POP909
+role supervision needs its own adapter, and named song-form targets still need
+semantic coverage and time alignment. This proposal does not alter the three
+active isolated pilots, current C0/C2 or architecture.
+
+## 2026-09-08 priority — frozen POP before modifier learning
+
+Completed: unchanged selected C0/C2 checkpoints on the existing 101-piece
+POP909-CL VALIDATION split under the current frozen protocol. A separately
+registered model-only export preserves source weights/provenance; TEST stayed
+closed. C2 improves both primary tasks, while rare quality classes and input
+metadata sensitivity remain limitations. See the
+[paired result](experiments/POP909_CL_C0_C2_FROZEN_REVIEW.md).
+
+The user-requested future direction is
+[factorized harmonic modifiers](HARMONIC_MODIFIERS_FUTURE.md): audit source
+meaning/coverage first, then additions/omissions/alterations/suspended-form
+targets and annotated pitch sets; contextual suspension/resolution is a later
+step. This is a proposal, not an adopted architecture or a launched experiment.
+
+## 2026-09-07 parallel increment — POP909-CL frozen transfer
+
+The next evaluation increment after WS4 is a separate explicit
+TRAIN/VALIDATION entrypoint using the same frozen root/quality metrics. Keep
+the original synthetic-only API unchanged. Check full existing split closure,
+allowlisted source/projection hashes and a matching planned experiment before
+real execution. Initial C0/C2 evaluation uses the same POP VALIDATION members
+and checkpoints selected only on Dilemmadata; verified source and checkpoint
+artifacts are still required. Details: [POP909_CL_TRANSFER](POP909_CL_TRANSFER.md).
+
+The September 7 [harmonic logit-fusion increment](HARMONIC_LOGIT_FUSION_ABLATION.md)
+implemented the isolated wrapper, model-only checkpoint and CPU mechanics.
+Trainer, resume, evaluator and bounded dispatch were subsequently integrated
+on September 13; current scientific execution is tracked above. No baseline
+promotion follows from those mechanics tests. Performance measurements retain
+their separate server ownership.
+Degradation/PLL/fragility quality evaluation remains a separate later question.
 
 ## Phase 9C-D — onset-BiGRU convergence continuation
 
@@ -1038,10 +1160,18 @@ VALIDATION remains primary; all-shift VALIDATION is diagnostic. Imported
 seed-17 evidence records a completed 120,000-update run with best identity
 score `0.49666884914040565` at 115,000, final identity score
 `0.496239360421896`, and all-shift macro `0.441465709048`; TEST remained
-closed. This is not compute-matched against the completed C0-10k screen and
-does not replace C0 as the baseline. The next scientific gate is the linked
-running C0-120k control `EXP-9EB5K-C0-120K-001`; multi-seed and augmentation-
-benefit claims remain unavailable until its primary evidence is registered.
+closed in the historical report. On 2026-09-06, the separate C0-120k control
+`EXP-9EB5K-C0-120K-001` was finalized from the supplied logs. Its final identity
+is `0.45862210914492607` and all-shift macro `0.3710325619516273`, below C2
+at the same update/draw budget. [Independent audit](experiments/C0_C2_120K_REVIEW.md)
+`EXP-9EB5K-C0-C2-AUDIT-001` supports a descriptive seed-17 transposition benefit,
+with missing C2 runtime/full TRAIN ledger, checkpoint-byte and historical
+access-trace limits. C2 is a follow-up candidate; no baseline promotion or
+multi-seed superiority is established. The next gates are provenance recovery,
+registered VALIDATION-only best-checkpoint/class/component evaluation, and
+additional matched seeds after performance equivalence for both C0 and C2.
+Historical track pitch statistics and native-versus-augmented unseen tuples
+must remain explicit; feature-complete WS1 is a separate experimental change.
 
 ## Multi-source EDA foundation status
 

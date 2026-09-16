@@ -1,0 +1,88 @@
+{
+  "binding_audit": {
+    "experiment_id": "EXP-RESEARCH-DILEMMA-BINDINGS-001",
+    "record_binding": {
+      "locator": "EXP-RESEARCH-DILEMMA-BINDINGS-001.json",
+      "sha256": "521b2dbcab1d2117ec722d099b70d86663e5cfa36e7a5e86f0d9500346d719f6",
+      "size_bytes": 7001
+    }
+  },
+  "bootstrap_draws": 200,
+  "budget": {
+    "cpu_threads": 1,
+    "max_candidates_per_level": 16384,
+    "max_forwards": 32,
+    "max_gpu_allocated_bytes": 4294967296,
+    "max_notes_per_piece": 16384,
+    "max_target_entities_per_piece": 20000,
+    "max_wall_seconds": 600,
+    "train_pieces": 128,
+    "training_updates": 0,
+    "validation_pieces": 32
+  },
+  "cache_index_binding": {
+    "locator": "cache-bindings.jsonl",
+    "sha256": "5ad21b1f9bad7cfeac2a098866724b5d80d08361d0e5d3188b5fb298086cc6ee",
+    "size_bytes": 1233467
+  },
+  "checkpoint": {
+    "model_contract_sha256": "c12380dc6a9e4923bf80e843d010698fa7dd8fdefb62e9d3c0262d0c1ff32748",
+    "model_state_sha256": "82ed08304b565a1447062a95112c8a51b47ce75c8f46f07b858443236ba83f39",
+    "sha256": "a151dec0af22f25ac6ec8ad75927cf2889644284061fd7e35a129c67e836b797",
+    "size_bytes": 14844299
+  },
+  "device": "cuda:0",
+  "experiment_id": "EXP-CTX-C2-LOCAL-001",
+  "metadata_bindings": {
+    "full_raw_manifest.json": {
+      "locator": "metadata/full_raw_manifest.json",
+      "sha256": "421cb23a4f1cdac444dc9df244f54fdf625d0a19ffb1368d973890435843b389",
+      "size_bytes": 73829
+    },
+    "overlap_exclusions.jsonl": {
+      "locator": "metadata/overlap_exclusions.jsonl",
+      "sha256": "20a02da59821eb71f5f37e0cc05bee8d1993b0eb6ef8807ab144325e1b865496",
+      "size_bytes": 4933
+    },
+    "paper_candidate_manifest.json": {
+      "locator": "metadata/paper_candidate_manifest.json",
+      "sha256": "ae806363358bae8e82931581b11ade48f9d9fa9a4883fb18e15e4425f69e1dfb",
+      "size_bytes": 73385
+    },
+    "paper_candidate_records.jsonl": {
+      "locator": "metadata/paper_candidate_records.jsonl",
+      "sha256": "42d688619c5699e404ec545076339547bb38d16976c6e4605437e8c539f972c1",
+      "size_bytes": 1321236
+    },
+    "source_components.jsonl": {
+      "locator": "metadata/source_components.jsonl",
+      "sha256": "909e84531cc1c70fab14dd24dfe1c9525c5634e5edd46a6f88faf13cfc755778",
+      "size_bytes": 1230886
+    },
+    "split_assignments.jsonl": {
+      "locator": "metadata/split_assignments.jsonl",
+      "sha256": "056de0942918976981401db5017f6e567bc8949bae91ae395f0bd669adbfd51a",
+      "size_bytes": 528617
+    },
+    "task_registry.json": {
+      "locator": "metadata/task_registry.json",
+      "sha256": "232e1b45542334755018f1b710741532924eee3facb77a14656fa3c1c8ce2b42",
+      "size_bytes": 30293
+    },
+    "vocabularies.json": {
+      "locator": "metadata/vocabularies.json",
+      "sha256": "3895c52d46fc980250484850afabc953d74108d9a766a409aa4e158926523deb",
+      "size_bytes": 51718
+    }
+  },
+  "schema_version": "ContextLocalControlConfig@1.0.0",
+  "seed": 17,
+  "tasks": [
+    "local_key",
+    "root",
+    "quality",
+    "primary_degree",
+    "cadence",
+    "metrical_strength"
+  ]
+}

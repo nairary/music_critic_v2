@@ -7,7 +7,7 @@ retained. The Phase 7 encoder-only export contract is deliberately unchanged.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, is_dataclass
+from dataclasses import asdict, dataclass, is_dataclass, replace
 from typing import Mapping
 
 import torch
@@ -85,6 +85,7 @@ class TheoryWarmstartResult:
     ssl_model: TheoryWarmstartSSLModel
     theory_model: CorrectedAnalysisGNNModel
     report: TheoryWarmstartReport
+    artifact_evidence: Mapping[str, object] | None = None
 
 
 def _belongs(name: str, groups: tuple[str, ...]) -> bool:
@@ -220,6 +221,10 @@ def export_theory_warmstart_state(source: CorrectedAnalysisGNNModel) -> dict[str
     This API makes no claims about checkpoint files or training provenance.
     A registered experiment needs its own checkpoint provenance contract.
     """
+    return _export_state(source, provenance="synthetic_in_memory")
+
+
+def _export_state(source: CorrectedAnalysisGNNModel, *, provenance: str):
     reference = _reference()
     if type(source) is not CorrectedAnalysisGNNModel or (
         not _canonical_equal(
@@ -233,7 +238,7 @@ def export_theory_warmstart_state(source: CorrectedAnalysisGNNModel) -> dict[str
     cloned = {name: value.detach().cpu().clone() for name, value in state.items()}
     return {
         "contract": _contract(reference),
-        "provenance": "synthetic_in_memory",
+        "provenance": provenance,
         "corrected_state": cloned,
         "state_fingerprint": model_state_fingerprint(cloned),
     }
@@ -262,6 +267,44 @@ def load_theory_warmstart(
     state (including fresh and inactive groups) is attested before mutation.
     No keys are filtered out of validation and no partial load is permitted.
     """
+    return _load_state(destination, export, provenance="synthetic_in_memory")
+
+
+def load_model_only_theory_warmstart(
+    destination: TheoryWarmstartSSLModel, path: object, *,
+    expected_sha256: str, expected_size_bytes: int,
+    expected_state_fingerprint: str,
+) -> tuple[TheoryWarmstartResult, dict[str, object]]:
+    """Separate artifact entrypoint; the old synthetic envelope stays strict.
+
+    The existing restricted loader binds bytes, complete corrected contract and
+    every tensor. An external experiment/source binding must establish that this
+    artifact is the selected C2; a model-only payload cannot prove its history.
+    No optimizer or historical RNG is loaded. The returned evidence describes
+    actual artifact provenance, never synthetic provenance.
+    """
+    from music_critic.experiments.pop909_cl_frozen.checkpoint import (
+        MODEL_ONLY_CHECKPOINT_SCHEMA, load_model_checkpoint,
+    )
+
+    loaded = load_model_checkpoint(
+        path, expected_sha256=expected_sha256,
+        expected_size_bytes=expected_size_bytes,
+    )
+    if loaded.evidence["checkpoint_schema"] != MODEL_ONLY_CHECKPOINT_SCHEMA:
+        raise TheoryWarmstartError("ws2.model_only_schema_required")
+    if loaded.evidence["model_state_fingerprint"] != expected_state_fingerprint:
+        raise TheoryWarmstartError("ws2.model_only_state_binding_mismatch")
+    provenance = "verified_model_only_artifact"
+    result = _load_state(
+        destination, _export_state(loaded.model, provenance=provenance),
+        provenance=provenance,
+    )
+    result = replace(result, artifact_evidence=dict(loaded.evidence))
+    return result, dict(loaded.evidence)
+
+
+def _load_state(destination, export, *, provenance: str) -> TheoryWarmstartResult:
     reference = _reference()
     contract = _contract(reference)
     if not isinstance(export, Mapping) or set(export) != {
@@ -270,7 +313,7 @@ def load_theory_warmstart(
         raise TheoryWarmstartError("ws2.export.fields_invalid")
     if (
         not _valid_export_contract(export["contract"], contract)
-        or export["provenance"] != "synthetic_in_memory"
+        or export["provenance"] != provenance
     ):
         raise TheoryWarmstartError("ws2.export.contract_incompatible")
     source = _validate_state(export["corrected_state"], reference.state_dict(), "export")
@@ -321,7 +364,7 @@ def load_theory_warmstart(
         row["destination_keys"] = tuple("encoder." + key for key in row["keys"])
     report = TheoryWarmstartReport(
         contract_version=THEORY_WARMSTART_VERSION,
-        provenance="synthetic_in_memory",
+        provenance=provenance,
         source_state_fingerprint=export["state_fingerprint"],
         contract_fingerprint=contract["fingerprint"],
         transferred=transferred_report,

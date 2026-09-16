@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping
+from typing import Callable, Mapping
 
 import torch
 from torch import Tensor, nn
@@ -201,6 +201,8 @@ class SourceNativeTaskHeads(nn.Module):
     def forward(
         self,
         encoder_output: EncoderOutput,
+        *,
+        feature_transform: Callable[[str, Tensor], Tensor] | None = None,
     ) -> tuple[TaskPrediction, ...]:
         """Enumerate candidates from raw embeddings, independent of targets."""
 
@@ -241,6 +243,11 @@ class SourceNativeTaskHeads(nn.Module):
                 )
                 candidate_offset += count
             routed = torch.cat(embeddings, dim=0)
+            if feature_transform is not None:
+                transformed = feature_transform(spec.task_id, routed)
+                if transformed.shape != routed.shape or transformed.device != routed.device:
+                    raise ValueError("task feature transform must preserve candidate rows and width")
+                routed = transformed
             if self.force_float32:
                 with torch.amp.autocast(routed.device.type, enabled=False):
                     logits = self.heads[_head_key(spec_index)](

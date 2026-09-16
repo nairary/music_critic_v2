@@ -43,6 +43,7 @@ from music_critic.experiments.analysisgnn.multitask_contract import (
     TASK_BY_ID,
     get_vocabulary,
 )
+from music_critic.experiments.analysisgnn.performance_replay import _scaler
 from music_critic.experiments.analysisgnn.training_policy import (
     AUXILIARY_HEADS,
     CORRECTED_NO_TRANSPOSITION_PROFILE_ID,
@@ -354,7 +355,7 @@ def test_checkpoint_contains_complete_state_and_resume_matches_uninterrupted(tmp
     sampler_i = CorrectedComponentSampler(
         components, shifts, profile_id=config.profile_id
     )
-    scaler_i = torch.amp.GradScaler("cpu", enabled=False)
+    scaler_i, _ = _scaler()
     torch.manual_seed(177)
     _one_update(interrupted, optimizer_i, scheduler_i, batch)
     sampler_i.advance_after_applied_update()
@@ -385,7 +386,7 @@ def test_checkpoint_contains_complete_state_and_resume_matches_uninterrupted(tmp
     sampler_r = CorrectedComponentSampler(
         components, shifts, profile_id=config.profile_id
     )
-    scaler_r = torch.amp.GradScaler("cpu", enabled=False)
+    scaler_r, _ = _scaler()
     restored = load_checkpoint(
         checkpoint,
         model=resumed,

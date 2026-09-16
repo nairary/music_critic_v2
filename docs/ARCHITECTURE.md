@@ -1,5 +1,52 @@
 # Music Critic V2 Architecture
 
+Opt-in temporal graph experiment (2026-09-15): `TemporalSliceModel` runs the
+unchanged C2 encoder and then a bidirectional raw temporal graph stage, with
+separate slice states, metric parents, sustained-note links and finer harmonic
+outputs. Same18 tasks/loss, no fusion/MMoE. Its isolated campaign now implements
+four CPU workers, private identity graph caches, ordered preparation and full
+checkpoint continuation. Historical dispatchers and graph schemas are unchanged.
+Native admission is distinct from implementation completion; see
+[contract and admission status](TEMPORAL_SLICE_GRAPH.md).
+
+**Temporal campaign integration — 2026-09-15.**
+
+The 8 GiB accounted cache budget is split across four 2 GiB workers. At most
+five serialized result reservations add approximately 2.22 GiB; these limits do
+not cover RSS, transient copies or GPU activations. Caches store identity graphs
+only. After collation the exact historical C2 transposition is applied, including
+its unchanged track pitch summaries, so no unrelated input repair enters the
+comparison. A disposable queue follows the frozen sampler; only applied updates
+advance its committed cursor. Full checkpoints restore model, optimizer,
+scheduler, scaler, RNG, sampler and selection progress, with source/runtime
+bindings; caches and speculative jobs are rebuilt after restart.
+
+The configured comparison uses 80k updates with the original 120k learning-rate
+schedule and selects by common-support primary macro-F1, reporting expanded
+support separately. All 1,295 TRAIN graphs have been built successfully. Native
+gate001 passed the twelve-shift equivalence portion but failed checkpoint
+metadata compatibility. Gate002 subsequently passed full native resume, and
+memory002 passed the largest graph batches. The authorized80k run completed;
+best/final validation primary is0.503951114. It exceeds historicalC2 at80k and
+best115k, with single-seed/runtime/added-capacity caveats; timing alone is not
+isolated. See [final review](experiments/TEMPORAL_80K_FINAL_RU.md).
+
+Opt-in research extension (2026-09-15): `GroupedMMoEAttentionModel` adds two
+banks of four128→256→128GELU experts before the18task classifiers. Twelve beat
+tasks share one bank; five note tasks and onset cadence share the second
+bank's parameters with separate raw entity rows. Every task has its own
+event-dependent softmax gate. Existing12task attention follows the classifiers.
+Baseline default unchanged; no additional loss or target input. See the
+[authorized80k protocol](GROUPED_MMOE_EXPERIMENT.md).
+
+Optional research module (2026-09-14): `TaskAttentionModel` applies an
+AnalysisGNN-style projection/self-attention/latent-residual/output block to
+the twelve aligned beat-task logits. Six note/onset heads keep their existing
+routes. This opt-in ablation has a distinct model/checkpoint contract and
+does not change the corrected baseline, graph inputs or label masks. A paired
+same-runtime attention/control80k experiment is authorized; MMoE is a later
+separate stage. See [protocol](TASK_ATTENTION_FUSION.md).
+
 Status: **INCREMENTAL**. Phase 6A implements raw feature and local-GNN
 representations; Phase 6B implements deterministic hierarchy, coarse
 Transformer context, and top-down fusion; Phase 6C supplies reproducible
@@ -1494,6 +1541,22 @@ paper/pinned evaluator branches disagree. Corrected data must not substitute
 for those missing official artifacts.
 
 ## Phase 9E-B5C corrected 18-head runtime
+
+The original runtime below remains frozen. A separate optional harmonic
+logit-fusion mechanics increment is described in
+[HARMONIC_LOGIT_FUSION_ABLATION.md](HARMONIC_LOGIT_FUSION_ABLATION.md).
+It adds one zero-initialized bias-free cross-task linear residual to each of
+the 12 exactly aligned beat heads, using the original logits of the other
+11 heads simultaneously. It has its own model/output/model-only checkpoint
+contracts and adds 216,886 parameters. It never receives target sidecars.
+This is an optional prototype with a separate bounded trainer, full-state
+resume contract, complete-validation evaluator and registered dispatcher,
+integrated on September 13. It is not an enabled default, an AnalysisGNN
+reproduction or evidence of improved musical understanding. The historical
+corrected model and six non-harmonic prediction paths remain as described
+below; updating the shared backbone in the fusion pilot may change all 18
+tasks. Scientific execution and acceptance are recorded in the
+[three-pilot review](experiments/RESEARCH_PILOTS_20260913_REVIEW.md).
 
 `CorrectedAnalysisGNNModel@1.0.0` is the Music Critic V2 corrected
 AnalysisGNN-derived multi-task baseline, not an exact AnalysisGNN

@@ -1,5 +1,2099 @@
 # Music Critic V2 Status
 
+## Yandex Cloud storage preparation; no VM or training — 2026-09-16
+
+Cloud and default folder access verified through read-only MCP. VM and bucket
+lists are empty in that folder. User clarified that training deployment is not
+needed now and asked about storage cost; no paid resources or uploads were made.
+Local data occupies approximately 19 GiB, but the latest temporal campaign uses
+1457 authenticated TRAIN/VALIDATION records (~17.435 GiB plus metadata) whose
+manifest points at the prior GPU server. Full matching warm data was not found
+locally; direct read-only SSH failed authentication. Existing successful gate
+runtime (Torch2.2.2/PyG2.6.1) also differs from pyproject minimums, so environment
+migration needs explicit validation. See [deployment preparation](YANDEX_CLOUD_DEPLOYMENT.md).
+Only code snapshot and transfer planning are prepared; no legacy, model, TEST,
+training or experiment registry changes. Next: resolve prepared-data access and
+storage scope, then upload; GPU budget and new admission remain later work.
+
+
+## Per-track temporal attention proposed — 2026-09-16
+
+User explores per-track processing and cross-track attention. Code confirms C2
+preserves separate note/track rows and note-to-track ownership; its full coarse
+Transformer already mixes bar/track/song context. Missing granularity is an
+explicit track-by-slice or track-by-bar sequence, not track identity itself.
+Proposed later refinement: per-track event states, time context within tracks,
+cross-track exchange at aligned moments, retained track channels and an ensemble
+readout for existing harmonic heads. Track is not equivalent to voice; grouping
+late C2 states does not undo prior contextual mixing. No per-track gold labels
+are invented. Contract updated as a proposal; the first attention experiment
+on existing temporal relations remains selected. No code, launch, SSH, TEST,
+legacy work, new experiment result or GPU-budget change in this discussion.
+
+## Yandex Cloud MCP setup — 2026-09-16
+
+User reports receiving a Yandex Cloud training grant and plans to run part of
+future experiments there. Added user-level Codex MCP configuration outside the
+repository: `yandex-cloud-docs` uses the documentation HTTPS endpoint;
+`yandex-cloud-toolkit` uses `npx -y @yandex-cloud/mcp -s toolkit` with a 60-second
+startup timeout. A server-local PATH exposes the existing desktop-bundled Node.js
+and npx; no project dependency was added. Both entries parse and are enabled in
+`codex mcp get`; unrelated configuration was checked for semantic equality.
+Live MCP initialization passed for both servers: documentation server 1.0.0
+and toolkit `yc-mcp` 1.0.1. Toolkit `tools/list` also passed; no cloud tool was
+invoked. Cloud account authorization and grant/resource availability have not
+been verified. This is infrastructure setup only: no cloud resource operation,
+training, dataset/checkpoint access, TEST access, or legacy inspection/reuse.
+No scientific experiment record or architectural decision is introduced.
+Current Phase 9E temporal-attention direction remains unchanged; next cloud step
+is account/access and compute planning before registering any training run.
+
+
+## Temporal timing, relation attention and repeated-read clarification — 2026-09-16
+
+Follow-up clarification: note memory, event vectors and bar summaries come from
+latent encoder/temporal states, never from classification heads. Note memory
+can retain C2 note rows; slice states use raw time features plus messages; bar
+rows already exist in C2. Further aggregation of refined slices into bar context
+belongs to the proposed repeated-read block. Q/K/V are projections of these
+states and the18 prediction heads stay downstream. Contract wording updated;
+no model, training, TEST, legacy or experiment-state changes.
+
+Read-only code review confirms original C2 already receives note onset/duration
+and note-to-beat active links. The extension explicitly represents attack/release
+and all intervening event slices, with finer harmonic outputs; it is not first
+introduction of note timing. Exact topology and float network features are
+distinct. Per-relation attention selects neighbors; dynamic selection between
+relation summaries is a separate gate proposal, despite existing learned
+relation projections. Current two rounds already revisit evolving states;
+later explicit retained note memory plus context exchange and rereading would
+be a separate refinement architecture. Contract explanation updated accordingly.
+No model code, new experiment, SSH, training, TEST or legacy work. Attention
+remains next focus; user-declined120k continuation stays declined.
+
+## User selects temporal attention; no 120k continuation — 2026-09-16
+
+User explicitly declines extending the completed temporal version from80k to120k
+and selects attention as the next improvement. This supersedes the continuation
+proposal below; preserve completed80k and all immutable evidence. No continuation
+or new training has been launched. Current task explains the implemented model
+and proposed mechanism; model code is unchanged.
+
+First attention candidate: keep the existing raw slice topology, two temporal
+rounds, width128, eighteen tasks and output routing. Replace per-relation uniform
+neighbor means with receiver-dependent attention normalized within each relation;
+retain relation summation and the existing residual/normalization path. Separate
+experiments may later consider relation gates, temporal windows, repeated note
+reading, changes supervision and JEPA. None is part of the first attention change.
+The final80k improvement is established for this historical seed17 comparison;
+its cause is not isolated between routing, exact slices and added graph capacity.
+No additional scientific experiment or GPU budget is allocated by this explanation.
+
+## Temporal C2 80k completed and independently reviewed — 2026-09-16
+
+`EXP-TEMPORAL-FINAL-002` completed after SSH recovery; prior transport failure
+FINAL-001 remains immutable. Producer training `EXP-TEMPORAL-C2-80K-001` is now
+imported as completed, byte-identical to the terminal producer record. End:
+03:47:46 UTC / 06:47:46 MSK. Exactly 80,000 updates, 160,000 draws, exit 0.
+Best = final at 80k: primary 0.503951114; C2 80k 0.489375249 (+0.014575865),
+C2 final120k 0.496239360, C2 best115k 0.496668849. All 16 matching checkpoints
+favor temporal; 16/18 heads improve, including 7/8 primary. Root and pedal
+regress. Joint 28.9236% → 31.8835%; native-TRAIN-unseen 58 → 55/1090.
+Logged CE improves in 15/18 heads, but last primary mean CE does not improve
+over 65k; extra training benefit is not guaranteed.
+
+Full runner 15.146h; matched15100→80000 12.287h vs C2 16.150h (23.92% less).
+Four-worker queue drained; no resource stop, peak GPU 4717MiB. Verified36
+file hashes,35 terminal artifact bindings,288 head confusion/support checks,
+80k draws and79999 pre/post LR transitions. Best/latest checkpoint byte hash
+4cc3e12d5dfc67490e8ae51102103f9a10bfd7e9a4e6380398e32e877cf6f4f2.
+Common/expanded identical. One seed, historical runtime, added depth/capacity
+and routing differences limit causal claims. No new forward, tensor load or TEST.
+
+Proposed next GPU experiment: separate full-state80k→120k continuation using
+the original LR horizon, after implementing and testing explicit continuation
+binding; not launched or newly authorized. Estimated additional7–8h is only
+planning arithmetic. Then attention on unchanged temporal relations/two stages/
+18heads; changes validation/binding/head integration can be prepared separately.
+No production default, model code or legacy change.
+[Full Russian comparison](experiments/TEMPORAL_80K_FINAL_RU.md).
+
+
+## Temporal 80k final review awaiting producer access — 2026-09-16
+
+`EXP-TEMPORAL-FINAL-001` failed to obtain fresh evidence: two SSH connections
+reset by peer before authentication, exit 255. No remote command ran; no new
+quality or completion report was obtained. Local artifact search found no newer
+temporal result. Last verified evidence remains PROGRESS-003 (65k validation,
+66,300 training at 01:12:41 UTC). Training status is currently unknown; its
+unchanged running record is historical, not a live process observation.
+Do not infer completion from the prior ETA or infer a server/training failure
+from this transport failure. A retry needs a new linked attempt ID.
+
+Next after access: verify terminal reports/accounting, final80k and best-within80k,
+then choose the next experiment. Existing proposal: attention on unchanged
+relations/two stages/18 heads; prepare changes validation/binding separately.
+No new training, TEST, model-code, checkpoint loading or legacy changes.
+[Access status and next steps](experiments/TEMPORAL_FINAL_001_ACCESS_STATUS_RU.md).
+
+
+## Temporal C2 validation 65k reviewed — 2026-09-16
+
+`EXP-TEMPORAL-PROGRESS-003` completed a read-only producer review at 01:12:41 UTC
+(04:12:41 MSK). Training journal reached 66,300; latest validation is 65k.
+Temporal primary 0.494609863 exceeds historical C2 at 65k (0.464964125,
+delta +0.029645737) and 80k (0.489375249), but remains below C2 final 120k
+(0.496239360) and best 115k (0.496668849). All 13 matched validation points favor
+temporal; the curve is not monotonic. At 65k, 14/18 heads improve, including
+7/8 primary heads. Quality is the only declining primary head. Large cadence
+and harmonic_rhythm gains are auxiliary and do not inflate primary directly.
+
+Seventeen producer hashes, 234 head confusion/support checks, native bindings,
+and the registered 120k audit artifact verified. Common/expanded are identical;
+ten earlier producer files unchanged. Joint accuracy 25.2689% → 30.2275%.
+Unseen tuples 56 → 64/1090 are defined relative to native TRAIN before
+augmentation; post-augmentation novelty is not established. One seed,
+historical runtime differences and added capacity limit causal claims.
+No model run, checkpoint/raw-corpus/TEST access or process changes. Existing
+80k training continues; training record remains nonterminal. Next: final and
+best-within-80k comparison. [Russian report](experiments/TEMPORAL_PROGRESS_003_RU.md).
+
+
+## Temporal80k operational finish estimate — 2026-09-15
+
+Read-only journal snapshot at18:37:40UTC /21:37:40MSK showed31770applied
+updates,48230remaining. Last5k/10k/20k wall-clock rates including periodic
+validation/checkpoints were1.4547/1.4601/1.4693updates/s. Recent validation
+and checkpoint boundary overhead is about120.76s;10validation points remain
+including80k. Separate ordinary-update plus validation estimate gives06:46:36
+MSK on16September; rolling-window estimates give06:46–06:52. Working planning
+estimate: approximately06:50MSK, about9h10remaining at snapshot, with a
+nonstatistical scheduling allowance of06:30–07:20 if throughput remains similar.
+No completion guarantee: interruptions or changed workload shift the estimate.
+Artifacts: ignored `outputs/temporal_eta_20260915_1836/`. Operational arithmetic
+only, no new scientific evaluation, model run, checkpoint load or training
+change. Final validation is included; post-run artifact sealing may add time.
+
+
+## Post-temporal experiment sequence proposed — 2026-09-15
+
+User confirms that the current temporal campaign should continue; its approved
+80k endpoint and configuration remain unchanged. Proposed next sequence, not a
+new launch authorization: review common-support final80k and best-within80k
+against historical C2; test typed attention on the same temporal topology,
+two rounds and18tasks; prepare changes integration independently and then
+compare added supervision with a matched existing-task continuation. Windows
+and repeated note reading remain separate subsequent architecture hypotheses.
+Fusion can be reconsidered on aligned temporal outputs with a bounded frozen
+backbone diagnostic; lower base error alone does not guarantee fusion benefit.
+JEPA follows as a separate representation-learning pilot with supervised replay
+and a theory-only continuation control, before any PDMX-scale commitment.
+
+Changes readiness checked against code and completed full-TRAIN record:
+251038 usableannotations,34055nonempty,99atoms over1011DLC TRAINworks.
+No changes head/loss is in the current18-head temporal campaign. VALIDATION
+targets, binding of prepared raw/onset targets to current campaign slices and
+training integration remain. Corrected the stale canonical-alignment-future
+paragraph in [modifier plan](HARMONIC_MODIFIERS_FUTURE.md). No new experiment,
+raw-data access, model execution, SSH, TEST or legacy work in this planning task.
+
+## Temporal C2 validation30k reviewed — 2026-09-15
+
+`EXP-TEMPORAL-PROGRESS-002` completed read-only producer review at18:20UTC.
+Latestvalidation30k primary0.452357721 vs historicalC2 0.443239812 (+0.009117909).
+Trainingjournal reached30100; no terminal/failure report at snapshot. Allsix
+5kpoints favor temporal, but thegap varies: +0.017830 at20k,+0.001406 at25k,
++0.009118 at30k. User0.4135 corresponds to20k;15k0.409113411 now producerverified.
+
+At30k15/18heads improve (6/8primary). Cadence0.273232→0.589589 and
+harmonic_rhythm0.665115→0.875293 areauxiliary. Root,secondary_degree,pedal
+regress. Joint2454→2554/10507; unseen-tuples39→26/1090, so compositional
+improvement is not established. Tenproducer filehashes,108headconfusion/support
+checks andnativebindings passed; common/expanded identical, old5k/10k unchanged.
+Two immutable snapshots retained. One seed, historicalruntime andaddedcapacity
+remain caveats. No newforward/train/checkpoint/rawcorpus/TEST or processchanges.
+Existing80k budget unchanged. [Current Russian report](experiments/TEMPORAL_PROGRESS_002_RU.md).
+
+## Temporal latent refinement research — 2026-09-15
+
+`EXP-TEMPORAL-LATENT-RESEARCH-001` completed source/literature review of typed
+attention, residual gating, metric windows and repeated note-memory access.
+Current two temporal layers already use residual post-LayerNorm relation means;
+429,952 added parameters verified by constructor arithmetic. Five reviewed
+runtime files match the admitted source snapshot. Local windows after C2 still
+receive upstream global context; new temporal states do not reenter its original
+coarse Transformer. First proposal: query-dependent attention on unchanged
+relations/two rounds, then separate windows or early-feature memory; hypotheses
+only, no model-code, current-campaign, budget or baseline change.
+
+Historical C2 at15k is0.3913428672. User reports rounded temporal0.4091,
+approximately+0.017757; this15k producer report was not fetched or verified.
+Earlier5k/10k remain the independently verified producer points. No new forward,
+training, checkpoint load, raw corpus, SSH or TEST access. Reviewed14primary
+sources; two independent reviews; seven local links checked. Registry/ledger
+synchronization test:1passed in0.18s. [Russian research report](research/TEMPORAL_LATENT_REFINEMENT_20260915_RU.md).
+
+## Temporal C2 early validation comparison — 2026-09-15
+
+`EXP-TEMPORAL-PROGRESS-001` completed a read-only comparison of existing5k/10k
+reports with hash-bound historical C2. Primary:0.305268 vs0.294941 at5k;
+0.367509 vs0.358226 at10k. Atbothpoints13/18heads improve. At10k the largest
+gains are harmonic_rhythm +0.202648 andcadence +0.184926; root declines0.034000.
+Joint accuracy rises0.126297→0.142572 on10507events; unseen-tuple falls18→11
+correct outof1090. All36head class/record/component supports match; confusion
+F1 and eight-head primary recomputed, producer values match userlog. Common
+and expanded scopes are identical. Source/data/runtime bindings match nativegate.
+
+Early modest configuration improvement, not80k superiority or isolated timing
+causality: one seed, historicalruntime difference and addedgraphcapacity remain.
+No newforward/train/checkpoint/rawdata/TESTaccess or processchanges; original80k
+continues under its existing authorization. Userlog reached12500; reviewedlast
+validation10k, not a fresh liveprogress reading.
+[Detailed early comparison](experiments/TEMPORAL_PROGRESS_001_RU.md).
+
+## Temporal validation metric display clarified — 2026-09-15
+
+Read-only inspection of the existing temporal5k validation report confirms
+`common_support` and `expanded_support` are entirely identical, including all18
+head supports/confusions. For example, root has148669rows and cadence1488 in
+both scopes. The primary score0.3052677270025015 averages observed-class macro-F1
+over the same8primary heads. Expanded means additional eligible annotated target
+rows formerly unaligned, not more heads or a different model. On this fixed
+validation population it adds no rows, so both displayed scores should remain
+identical at later checkpoints while the scores themselves change with learning.
+Fine temporal states can still improve predictions for existing rows that
+previously shared a beat output. Existing report SHA256:
+`9ec37134e1d87338342aaf739ae7ed5eadb7280ed692296d42dab25472c5624e`.
+This is a metric-semantics clarification, with no rerun, new evaluation,
+checkpoint load, training change, TEST or legacy access.
+
+## Temporal C2 80k started after native admission — 2026-09-15
+
+`EXP-TEMPORAL-C2-80K-001` is **running** on RTX3090 in the isolated
+`music_critic_temporal_20260915_v3` source snapshot. Fresh seed17/batch2,
+18heads, historical C2 transpositions and120k scheduler, stop80k; nofusion/MMoE.
+Four workers and8GiB accounted cache are active. At12:40:52UTC the verified
+journal contained191updates/382draws, no partial tail orstderr; runtime/data
+bindings match completed nativegate.4371files for1295TRAIN+162VALIDATION
+verified at startup, TESTpayloads excluded. Supervisor owns the detached run,
+resource checks, checkpoint shutdown and automatic remote terminal record.
+
+GPU-GATE002 passed32updates with exact12shift reference/accelerated agreement
+and full restricted checkpoint continuation. GPU-MEMORY002 passed5largest-size
+forward/backwards with0updates: peakallocated2.41GiB/reserved2.61GiB,
+sampledwholeGPU3817MiB. All1295TRAINgraphs built; finalnative temporaltests
+124passed/1skipped in29.85s; separate reviseddesktopguard25tests passed0.76s.
+Failed sizing/gate/memory attempts are retained with explicit retry lineage.
+
+Checkpoints every1k and validation every5k. Common-support primary selects
+the model; expanded-support metrics remain separate. No quality improvement
+or final80k result is claimed. Local registry mirrors the server at launch;
+terminal artifacts must be imported after completion. [Launch report and
+progress command](experiments/TEMPORAL_C2_LAUNCH_RU.md).
+
+## Temporal campaign native admission in progress — 2026-09-15
+
+`EXP-TEMPORAL-SIZING-002` completed all1295 TRAIN graphs in337.416s:
+1216363 temporal slices and20978532 extension edges. Ranked graph sizes and
+the full per-piece journal were checked independently and retained locally.
+Attempt001 failed before data access because its planned-record filename was
+not the experiment ID; that failed evidence remains in the registry.
+
+Native temporal tests:123passed,1skipped in28.86s (CPU AMP GradScaler absent
+inTorch2.2; the campaign usesFP32). `EXP-TEMPORAL-GPU-GATE-001` verified exact
+reference/accelerated states across all12 shifts, then failed when strict
+checkpoint serialization encountered non-primitive environment metadata.
+Its28appliedupdates and receipts are preserved; full resume is not yet admitted.
+The compatibility fix and a separately registered retry precede largest-graph
+GPU admission and the authorized fresh80k run. TEST remains closed.
+
+## MMoE stopped; temporal campaign preparation authorized — 2026-09-15
+
+User approved stoppingMMoE and preparing/launching the next ordinaryC2 temporal
+graph80k run after cache/resume/GPU admission. `EXP-MMOE-STOP-001` completed:
+owned supervisor receivedSIGTERM, reaped trainer/group, GPUfreed. Original
+`EXP-MMOE-C2-80K-001` is **aborted at47186updates/94372draws**. Full journal
+has no gaps/duplicates and finite logged losses. Best40k and full47k checkpoints
+were copied both into a separate server retention directory and a local archive;
+hashes and ZIPchecks passed. The186updates after47k are accounted in logs but
+are not represented by a saved fullcheckpoint. No claim of completed80k.
+
+Preserved evidence: `outputs/mmoe_stop_001/`;24archivefiles,20hashmatches to the
+remote terminal record, plus bothcheckpoint hashes. Newcode is isolated in the
+temporal package; cache/checkpoint/campaign work and native admission are ongoing.
+
+## Live MMoE progress reviewed through45k — 2026-09-15
+
+`EXP-MMOE-PROGRESS-003`: read-only SSH snapshot11:36:44UTC confirms46110/80000
+durable updates, alive trainer/supervisor and latest46k checkpoint file. Latest
+45k primary0.401334 versusC2 0.434508 /attention0.430823; best40k0.403561.
+30→45k gain only0.001043. MMoE cadence predicts PAC for all1488eligible
+validation events at every10–45k evaluation; harmonic_rhythm class1 recall3.47%
+at45k. Only2/18heads exceed each reference. Positive evidence retained:
+unseen-tuple correct63/1090 versusC2 23 andattention42; not yet a stable trend.
+
+Recommendation: stop this configuration for experiment prioritization, retaining
+best and last, then prepare ordinary C2 with exact temporal slices. Late recovery
+is not ruled out. No process signals, training changes or new run executed;
+original MMoE run remains running at the snapshot. New temporal campaign still
+needs cache/resume and GPU admission. Estimated remaining MMoE time7.2h at
+recent measured pace. [Full review](experiments/MMOE_PROGRESS_003_RU.md).
+
+18embedded file hashes verified;162confusion-based head metric checks,
+486historical support comparisons,9primary and9stdout checks passed. No raw
+VALIDATION/TEST payload, inference, checkpoint tensor load or legacy access.
+
+## Exact temporal graph prototype — 2026-09-15
+
+Implemented opt-in `temporal_slices` graph/model/alignment/update modules,
+without editing existing model, raw-builder, target, cache or campaign source.
+Separate slice states retain raw attacks/releases/beat boundaries, relative
+metric features, sustained-note links and bidirectional graph propagation.
+Same18 tasks/classes/frozen loss; harmonic exact-time outputs plus raw beat
+fallback, cadence slices only, note heads keep note identity. Historical common
+support is tracked separately. [Contract](TEMPORAL_SLICE_GRAPH.md).
+
+76 targeted tests passed (20 new,56 regressions). CPU fixture autocast forward
+also passed with FP32 logits. `EXP-TEMPORAL-SLICE-CPU-001` checked four frozen
+TRAIN pieces in two batches of two: physical/canonical/sidecar hashes match,
+all historical valid rows retained, logits and gradients finite, zero optimizer
+updates. Bounded CPU forward+backward grew17.6%, input graph tensors50.9%,
+parameters11.7%; no inference about GPU speed or learned quality follows.
+[Russian report](experiments/TEMPORAL_SLICE_CPU_RU.md).
+Registry/ledger synchronization passed (1 test,0.17s); all10 terminal artifact
+hashes and268 implementation-source hashes verified unchanged after the run.
+
+Prototype is locally trainable, not yet an accelerated80k campaign. Remaining:
+separate compact-cache/batching integration, full checkpoint/resume and sampler
+bindings, whole-TRAIN sizing, reference/accelerated equivalence and GPU-memory
+admission. No SSH, live checkpoint, GPU, VALIDATION/TEST payload or legacy access;
+MMoE80k left untouched (running per user; live status not checked here).
+
+## Raw-time candidate and target-routing preparation — 2026-09-15
+
+`EXP-RAW-TIME-COVERAGE-001/002` completed. All1295 TRAIN records were
+rematerialized in682.28s CPU, with exact historical piece/sidecar hashes;
+an independent verifier passed. The raw attack/offset/beat-boundary union
+provides1216363 fine positions and covers all11015 eligible cadence rows,
+including six previously unmapped targets. It misses412 distinct eligible
+harmonic times in77 works; no fine-only policy among the four passed the
+lossless-support criterion. [Russian report](experiments/RAW_TIME_READOUT_PREPARATION_RU.md).
+
+Prepared isolated raw-only candidate and target-routing modules. For the next
+readout prototype, preserve all540329 raw beat outputs in a separate namespace
+for rare harmonic fallback; cadence cannot borrow beat outputs. Parent-derived
+arithmetic confirms full eligible support and native target-row slot-error
+floors root42403→32, quality43611→30, harmonic_rhythm200657→5. These are
+structural constraints, not model metrics or promised F1 improvements. Fixed
+subdivisions2/3/4/6/12 add positions but do not reduce the residual floor.
+The second analysis took26.70s and passed independent arithmetic verification.
+
+98 targeted tests passed (49candidate/census,19verifier,23routing,7fallback).
+Registry/ledger synchronization passed (1test,0.16s). All135/132 new artifact
+hashes,116/120 source-manifest entries and21 parent artifact hashes verified.
+Source snapshots and result hashes are retained. Full-corpus execution applies
+to the candidate generator; whole-corpus fallback retention is arithmetic from
+verified mappings, with the new routing module tested on fixtures. No new
+training, model/checkpoint load, SSH, GPU, VALIDATION/TEST payload or legacy
+access. Existing models, targets and caches remain unchanged.
+
+Next: an opt-in learned raw-time readout with distinct time-specific features,
+gradient/alignment/batching checks and later quality comparison. Candidate and
+routing preparation is complete; that trained readout is not yet implemented.
+See [contract](RAW_TIME_READOUT_PREPARATION.md).
+
+## Full TRAIN target/output-slot census — 2026-09-15
+
+`EXP-TARGET-SLOT-CENSUS-002` completed all 1295 TRAIN records (284 AN, 1011
+DLC; 1209 components) in 541.15s local CPU. All 1295 canonical pieces and
+all 1295 expanded sidecars match historical cache SHA-256 values exactly.
+[Russian report](experiments/TARGET_SLOT_CENSUS_RU.md).
+
+Confirmed beat-output conflicts impose native TRAIN event-accuracy error
+floors of 3.8909% root, 4.5603% bass, 3.8269% quality and 17.5767%
+harmonic_rhythm. These are not macro-F1 values, model results, or VALIDATION
+bounds. Most conflicts join different exact times. There are also 48
+same-time conflicting positions across 12 DLC records; root retains 30
+unavoidable errors after ideal time separation. Six available cadence targets
+in three records lack raw onset candidates at tied-note continuation times.
+Eight tests passed; source hashes, coverage, per-piece/dialect/class sums and
+five source example cards verified. Fifteen edge-case rematerializations also
+match historical sidecars. An initial AN filename lookup failure before any
+corpus payload read is retained separately as `EXP-TARGET-SLOT-CENSUS-001`.
+Final registry/ledger synchronization test passed (1 test); all 21 result
+artifact hashes and 71 source-manifest hashes verified.
+
+Next proposed step: raw-candidate coverage and isolated finer harmonic readout,
+especially harmonic_rhythm; explicit treatment of simultaneous annotation
+conflicts. No target relabeling, cache/model/training changes, new training,
+VALIDATION/TEST payload access, checkpoint load, SSH or legacy access.
+Diagnostic code, tests, source snapshots and ignored results are preserved.
+
+## Graph architecture research and source-free diagnostics — 2026-09-15
+
+`EXP-ARCH-GRAPH-RESEARCH-001` reviews actual information flow, primary GNN/music
+literature, VAE alternatives and deferred JEPA/voice/window ideas. See the
+[Russian report](research/GRAPH_ARCHITECTURE_REVIEW_20260915_RU.md).
+Two synthetic witnesses passed: distinct subbeat harmonic events can share
+one beat logit row with conflicting valid labels; the final BiGRU updates
+onset/beat/bar but leaves note/track/song unchanged. Notes do receive earlier
+global context. Neither finding measures corpus frequency, oversquashing or
+the cause of MMoE's relative deficit. The shared readout limitation affects
+the baseline too. All 18 local report links resolve; independent local-code
+and deferred-objective reviews found no substantial errors.
+Checks: 2 synthetic tests passed (1 dependency warning); registry/ledger sync
+test passed (1 test); all 6 artifact hashes and 267 source-manifest hashes
+verified. Initial invalid synthetic note identifier was fixed in the fixture;
+its first-attempt failure log is retained. Production code was not changed.
+
+Proposed next gate: TRAIN-only output-slot conflict census, then isolated
+raw-event readout/context-routing ablations if warranted, followed by a
+matched message-passing control and bounded JEPA objective pilot. No model
+promotion or accepted architecture change. Existing MMoE training is untouched;
+no SSH, real-data training/inference, real checkpoint load, TEST or legacy
+access. Full diagnostic evidence is ignored under
+`outputs/architecture_graph_research_20260915/`.
+
+## Multiple harmonic interpretations proposal — 2026-09-15
+
+Recorded the user's idea of competing explanatory harmonic analyses in
+[a design note](HARMONIC_INTERPRETATION_PROPOSAL.md). Proposal only: no accepted
+architecture or training changes. Distinguish evidence coverage/consistency,
+posterior over interpretations, masked-note PLL and musical preference.
+An interpretation used in a masked evaluation must not leak the hidden note;
+current18-head confidence and SSL representation reconstruction are not PLL.
+Possible next design step: bounded alternative analyses with raw-note evidence
+and style-aware checks, retaining ambiguity/unknowns. This is not launched;
+the existing MMoE comparison remains current. Documentation only; no tests of
+model behavior, experiments, TEST or legacy access in this discussion.
+
+## MMoE supplied-log progress to21k — 2026-09-15
+
+`EXP-MMOE-PROGRESS-002` completed. Latest supplied training21k/80k; validation20k
+primary0.334647, versus C2 0.395738/linear0.372147/attention0.371423. MMoE
+gained only0.004682 since15k; narrowing attention gap mainly reflects its
+historical dip, while C2 gap stays near0.061. No final ranking or expert-collapse
+claim. No SSH, checkpoint load, inference, TEST or running-source changes.
+[Comparison](experiments/MMOE_PROGRESS_002_RU.md). Next:25–30k and per-head metrics.
+
+## MMoE supplied-log progress to16k — 2026-09-15
+
+`EXP-MMOE-PROGRESS-001` completed an offline review of a user-supplied stdout
+excerpt. Latest logged update16000/80000; latest validation15000. Primary at
+5k/10k/15k:0.211575/0.292938/0.329966. At15k attention0.379720,
+linear0.352950 and C2 0.391343. MMoE improves but does not close the gap to
+attention across these three points. Common completed-update interval100→15000
+is11228.99s versus attention11100.94s (+1.15%). Full schedule/runtime and
+per-head quality are not verifiable from stdout alone. Historical reference
+artifacts hash-verified; no live SSH, inference, checkpoint loads, training
+changes or TEST. [Russian comparison](experiments/MMOE_PROGRESS_001_RU.md).
+Next useful review is25–30k with per-head validation; existing80k run unchanged.
+
+## Post-break audit and correction of claims — 2026-09-15
+
+`EXP-POSTBREAK-AUDIT-001` audits September13–15 changes and prerequisite
+fusion/performance/MMoE/changes/POP/context/SSL paths. See the
+[Russian audit](experiments/POSTBREAK_AUDIT_20260915_RU.md).
+
+Confirmed: the most recent attention report again overstates unseen-tuple
+novelty. The metric is relative to **native TRAIN before augmentation**;
+73/1090 versus58/1090 and43/1090 do not establish unseen-after-augmentation
+recognition. This restores the existing ADR-C0C2-001 boundary, without changing
+F1/joint numbers or rewriting immutable historical reports.
+
+Two implementation gaps need fixing **before another accelerated resume**:
+best-selection state is not restored automatically and a valid earlier best
+is rejected; initialization exceptions before the try/finally can bypass
+prefetch cleanup. Fixture reproducers confirm both. Neither finding establishes
+corruption of the current uninterrupted from-scratch MMoE run. The inherited
+stale track mean/min/max pitch remains pinned for historical comparability;
+the tested complete transformation is still a separate opt-in implementation.
+
+2052 regression tests passed;24 skipped. The one ledger failure was caused
+solely by adding this audit record before rendering; its recheck passed.
+43 additional/adversarial and complete-transposition tests passed. Actual
+theory loss reaches all18MMoE gates, both expert banks and the encoder.
+707/707 packaged source files and52/52 selected local evidence artifacts match
+their hashes. Source-free tests do not establish musical quality or cover all
+GPU/real-data behavior. A lightweight SSH read failed authentication, so this
+audit supplies no new live training status. No production/server changes,
+new real-data training/inference, checkpoint load, TEST or legacy access.
+Next: preserve the current experiment; repair resume lifecycle before reuse,
+then interpret completed MMoE with the corrected metric boundaries. Prepared
+changes targets are not yet connected to a training head/loss.
+
+## Grouped MMoE80k launched — 2026-09-15
+
+User now explicitly authorized implementation and one from-scratch80k run.
+Added opt-in two-bank MMoE (four128→256→128experts per bank), gates for all18
+tasks, unchanged following beat attention, versioned checkpoints/resume and
+sampled routing diagnostics. Beat bank serves12tasks; note/onset bank shares
+parameters across five note heads and cadence without mixing entity rows.
+The536648 added parameters test specialization and extra capacity together.
+No raw/data/loss/legacy changes or dependency additions. Baseline heads retain
+their default path; an optional shape-preserving feature transform is used by
+MMoE only. [Protocol](GROUPED_MMOE_EXPERIMENT.md).
+
+`EXP-MMOE-GATE-001` completed its native GPU equivalence gate:12batches across
+all12shifts,24total applied updates/48draws, exact reference/accelerated raw,
+sidecar, loss and model/optimizer/scheduler/RNG state agreement. Gate queue
+stage took66.85s. Its terminal record was imported with report/receipt hashes
+verified. `EXP-MMOE-C2-80K-001` is now **running**, freshly initialized with
+the same baseline fingerprint as attention. Startup snapshot confirms17durable
+updates and expert routing diagnostics for all18tasks; no validation yet.
+
+Tests:61passed locally (2existing warnings,6.05s) and61passed in the pinned
+Linux runtime (39dependency warnings,7.49s), including exact next-step resume.
+Source delivery verified709files; no new dependency installation. Full model
+has4284478parameters (3661936base +85894attention +536648MMoE). Same C2 orbit,
+seed17/batch2,120k scheduler, four ordered workers and8GiBcache; stop at80k.
+Only this training follows the gate; cancelled control is not restarted.
+
+External root: `/home/humtech/music_critic_mmoe_20260915`; detached queue PID
+1279340 at launch, supervised training and durable logs survive SSH closure.
+Observe `train-mmoe/stdout.log`; validation every5000, checkpoints every1000.
+Full startup/source evidence: `outputs/grouped_mmoe_20260915/`. Quality and
+final speed remain pending; startup mechanics are not a claim of MMoE benefit.
+
+## Redundant control stopped by user request — 2026-09-15
+
+User explicitly cancelled the remaining no-fusion80k control. Verified exact
+supervisor identity and sent SIGTERM through a Linux pidfd; its ownership-aware
+cleanup terminated the training process group. At04:20:17 MSK the supervisor
+recorded `aborted / supervisor_signal`; queue and runner subsequently exited.
+The queue's generic terminal classification is `failed` for all nonzero exits;
+that original remote record is retained verbatim. The local nonterminal
+`EXP-TASKATTN-CONTROL-80K-001` is finalized as **aborted by user**, not an
+optimization failure. `EXP-TASKATTN-CONTROL-STOP-001` records the stop evidence.
+
+Retained3207 complete training-journal updates/6414 draws, no validation yet;
+last checkpoint is3000, with checkpoints1000/2000 also retained and hashed.
+Any in-flight work beyond the final durable journal entry is unknown. Existing
+weights/logs were not deleted or rewritten. Supervisor and runner absent after
+stop; GPU snapshot0% utilization/798MiB. Attention80k artifacts unchanged.
+
+Historical C2 remains the descriptive comparison; the full same-runtime pair
+will not be available. User expressed interest in MMoE, but no MMoE model,
+training budget or launch is authorized by this tentative interest. No MMoE
+training started; placement/size/protocol remain to be specified. No runtime
+source or legacy edits, new training, inference, TEST or checkpoint loading.
+Verification uses live stop receipts, durable journals and checkpoint hashes;
+no new unit tests needed for operational cancellation/documentation.
+
+## Task attention80k completed: mixed metric outcome — 2026-09-15
+
+Read-only endpoint review `EXP-TASKATTN-80K-REVIEW-002` verified the completed
+`EXP-TASKATTN-C2-80K-001` and imported its exact terminal record from the GPU
+server. At80k, attention primary macro-F1 is **0.463385**, versus historical
+C2 **0.489375** and linear fusion **0.472602**. All three achieve their best
+score within80k at the endpoint. Attention nevertheless has higher harmonic
+joint accuracy (**0.295327** versus0.289236/0.284096) and unseen-tuple accuracy
+(**73/1090**, versus58/1090 and43/1090). These are descriptive single-seed
+comparisons, not a completed same-runtime causal ablation.
+
+Root/local-key heads account for66% of the net primary gap; sparse VALIDATION
+classes suffer large precision/recall changes despite similar event accuracy.
+Attention improves5/18 head F1s over C2, while14/18 head cross-entropies worsen.
+Late TRAIN loss nearly equals C2 and attention best F1 is final: the logs do
+not establish failed optimization or ordinary late overfitting. Fusion has a
+residual in projected space but no raw-logit bypass or separate raw-head loss;
+cross-task interference and hyperparameter sensitivity remain hypotheses.
+
+Training exited0 with80k applied updates/160k draws and a drained four-worker
+queue. Runner wall time16.845h; common15100→80000 interval13.653h versus16.150h
+historical C2 and13.586h linear (~15.46% less elapsed than C2, ~0.49% more than
+linear). Reviewed1200 metric/support conditions,80k schedule matches,
+25 terminal JSON artifact bindings and four source hashes. Focused fixture
+tests:10 passed,1 existing dependency warning,3.06s. No real checkpoint loads,
+new inference, TEST, deployment or legacy changes in this review.
+
+At the **2026-09-15 03:59:50 MSK snapshot**, the queued same-runtime control
+had started and reached1500 updates with no validation yet. Existing queue
+unchanged; finish that comparison before attributing a causal architecture
+effect or adding MMoE. Initial collector attempt001 failed on a still-empty
+control receipt and is preserved as failed; retry002 completed successfully.
+Detailed [Russian endpoint report](experiments/TASK_ATTENTION_80K_FINAL_RU.md)
+contains all16 validation points,18 heads, class diagnostics and claim limits.
+
+## Compositional changes head explained — 2026-09-15
+
+Proposed implementation, not an adopted architecture: build each of the99
+atom vectors through a shared nonlinear MLP over concatenated marker,
+alteration and degree embeddings; score every complete atom against projected
+contextual raw-onset features with independent sigmoid outputs. The existing
+parser already exposes these components. Full atom identity is preserved,
+including 2 versus9 and plain9 versus+9; multiple concurrent modifiers do not
+lose their component associations. All class descriptions are available at
+inference; gold per-example changes remain loss-only targets.
+
+Existing encoder/decoder and18 heads are reusable; new head/routing/loss
+integration is still pending. Shared components permit transfer between labels
+but do not guarantee rare/unseen-combination recognition or musical semantics.
+Evaluate against an ordinary99-output head under the same data, initialization
+policy, budget and balancing; measure rare-class support and original-task
+retention. Documentation only: no implementation/tests, training, data mutation,
+legacy or experiment record. General label-embedding precedent:
+[Akata et al., CVPR2015](https://www.cv-foundation.org/openaccess/content_cvpr_2015/html/Akata_Evaluation_of_Output_2015_CVPR_paper.html);
+the proposed musical factorization is our candidate, not that paper's result.
+
+## Rare changes classes: balancing and synthetic examples discussed — 2026-09-15
+
+Reviewed retained full-TRAIN supports: +9 has 366 annotations/64 works,
++b9 23/11, +13 13/6, and -3 2/1. Discussed candidates, not adopted changes:
+capped new-head loss reweighting and asymmetric negative suppression; bounded
+rare-example resampling; shared degree/alteration/operation parameters while
+preserving complete multilabel atoms; context-checked synthetic added tones.
+Repeating a work does not provide independent musical contexts, and sampling
+whole works also repeats frequent co-occurring labels and all other tasks.
+
+A possible synthetic pilot would edit actual notes in isolated TRAIN-derived
+copies, preserve original annotations, record edit provenance and confidence,
+recompute or mask affected auxiliary targets, and keep each source family in
+one split. Added-tone recognition and stylistic appropriateness are separate
+claims; unfamiliar alterations/voice resolutions are not automatically valid
+supervision. Synthetic benefit must be measured on untouched real validation
+examples, with rare-class support and original18-task retention reported.
+First establish the new head baseline; compare balancing and augmentation
+separately. No corpus/model edits, training, new experiment or architecture
+decision in this discussion; existing attention/control queue unchanged.
+References: [Asymmetric Loss, ICCV2021](https://arxiv.org/abs/2009.14119),
+[Distribution-Balanced Loss, ECCV2020](https://arxiv.org/abs/2007.09654).
+
+## DLC changes full selected TRAIN alignment completed — 2026-09-14
+
+`EXP-CHANGES-ALIGNMENT-FULLTRAIN-001` completed all 1,011 explicitly bound DLC
+TRAIN works, zero processing failures, 277.47s on local CPU. The unchanged
+`DLCChangesAlignment@1.1.0` gate retains 251,038 source annotations with usable
+raw onsets, including 34,055 nonempty modifier sets; 840,925 of 868,994 onset
+candidates are usable. Notation provenance alone excludes 2,029 previously
+unmasked annotations. All 99 atoms retain positive support; 45 have fewer than
+ten usable annotation examples and 24 occur in only one supported work.
+
+Added a sequential full-manifest exporter and six fixture tests. Combined
+parser/alignment/audit/export tests: 75 passed, one existing dependency
+deprecation warning. Independent verification checked 4,055 artifact hashes,
+all 868,994 candidate masks/identities, exact annotation/class weights and
+the complete source support; all 12 prior alignment files match byte-for-byte.
+Verification took 25.57s. Full artifacts and cleaned frequencies are under
+`outputs/changes_alignment_fulltrain_001/`; the new [Russian report and all
+99 class frequencies](experiments/DLC_CHANGES_FULLTRAIN_RU.md) supersede the
+earlier preliminary support table for training-data counts.
+
+No model/head/loss or running experiment change, new dependency, legacy,
+GPU/SSH, VALIDATION/TEST payload or historical cache mutation. The earlier
+144-view transposition gate remains bounded evidence; no new full-corpus
+transposed-graph pass was run. New raw pieces and targets are mutually bound;
+historical training-cache byte equivalence is unverified. Data preparation for
+this selected TRAIN is complete. Next: separately scoped loader/head/loss
+integration and learning pilot, with canonical fingerprint checks if reusing
+historical caches. No new architecture decision or training launch.
+
+## Task-attention interim comparison at 40k — 2026-09-14
+
+`EXP-TASKATTN-PROGRESS-003` completed a read-only live review at 20:13 MSK:
+last logged update 44,700/80,000; latest validation 40,000; training process
+present, stderr empty, no terminal report/launch receipt. Same-runtime control
+has not started. Attention primary 0.421964 versus historical C2 0.444671 and
+linear fusion 0.431163. Attention best so far is 0.435121 at 30k; all eight
+primary heads at 40k are below C2, with 2/18 heads improved overall. Joint is
+0.204054 versus C2 0.209765 / linear 0.211668; unseen tuples 5/1090 versus
+43/1090 / 34/1090, down from attention 47/1090 at 35k. No stable attention
+benefit or causal failure mechanism established. Historical C2 also dipped
+at 35k, so that primary fluctuation alone is not attention-specific.
+
+Verified 40,000 record/component/shift matches and 600 saved validation
+metric/support conditions. Matched completed-update interval 15,100–40,000:
+attention 18,791.469s, linear 18,730.278s, C2 21,921.609s. Attention elapsed
+is 14.28% lower than historical C2 and 0.33% higher than linear; historical
+runtime differs. No training/queue/source changes, new inference, checkpoint
+load, TEST or legacy access. Snapshot/log review only; existing 80k pair
+continues. [Full Russian report](experiments/TASK_ATTENTION_PROGRESS_003_RU.md).
+
+## DLC changes class-frequency reference — 2026-09-14
+
+Added [Russian class table](DLC_CHANGES_CLASSES_RU.md) from the immutable
+`EXP-CHANGES-TRAIN-TARGETS-002` vocabulary: all 99 atoms, annotation/piece
+supports and frequency bins (43 with 1–9 examples; 29 with 10–99; 22 with
+100–999; five with at least 1,000). Verified the source vocabulary SHA-256,
+99 unique table rows and the 50,929 positive-atom total. These are original
+lexical-export frequencies before the stricter source-notation alignment
+gate, not final cleaned training supports. The later 12-piece sample covers
+65 usable atoms; this does not reduce the full vocabulary to 65 classes.
+Clarified one proposed multilabel modifier task versus separately needed
+note/voice resolution relations. Documentation only: no implementation,
+model execution, new corpus scan, training, TEST/VALIDATION payload access,
+dependency or legacy reuse. No implementation tests required or run in this
+documentation task. Next: full TRAIN support after the gate, then the
+separately scoped head/loss/gradient pilot; architecture remains unchanged.
+
+## DLC changes alignment and transposition gate — 2026-09-14
+
+Completed `EXP-CHANGES-ALIGNMENT-001` and follow-up `EXP-CHANGES-ALIGNMENT-002`.
+New isolated `DLCChangesAlignment@1.1.0` joins source rows through raw adapter
+tie/repair lineage to every raw note-attack onset. On 12 targeted TRAIN pieces:
+1,152 annotations, 3,863 candidates, 3,432 usable positions after all masks;
+1,048 supported annotations with exactly 1,048 total annotation weight.
+59 beats contain conflicting modifier sets, motivating onset routing for the
+future auxiliary head. All 144 directed views/inverses and 108,912 root-relative
+interval checks pass. Source coverage is 67/99 atoms, usable onset coverage 65;
+these are selected examples, not full-corpus alignment estimates.
+
+Musical review corrected the earlier unsupported assumption that `IM7 → ^#8`
+is normal shorthand expansion. The new literal/special-symbol provenance gate
+masks unexplained fields (85 annotation groups in two selected pieces), without
+rewriting old targets or labeling unknowns negative. `Ger6 → b3` is preserved.
+Other disagreements between source chord-tone sets and observed notes are
+recorded, not automatically used to invent note roles. Review is technical,
+not independent human expert validation. Nonzero pickup offset tested on a
+fixture only; selected real pieces have zero offset.
+
+Validation: 129 parser/alignment/audit/transposition tests passed, including
+42 new tests; additionally 58 registry tests passed, all 86 records validate
+and the regenerated ledger matches. 59 exported artifact hashes verified. No new dependencies,
+legacy reuse, model execution, training changes, GPU/SSH, or TEST/VALIDATION
+payload access. Canonical historical cache byte identity remains unchecked;
+this gate uses fresh raw-only conversion of explicitly bound TRAIN sources.
+See [Russian report](experiments/DLC_CHANGES_ALIGNMENT_RU.md).
+Next: opt-in onset multilabel-head/loss/gradient pilot with a separate protocol;
+no new training run was launched by this task.
+
+## DLC changes source targets prepared — 2026-09-14
+
+Completed isolated `DLCChangesTargets@1.0.0` parser/exporter and manifest-bound
+TRAIN sidecars. `EXP-CHANGES-TRAIN-CENSUS-001` scanned 1,011 DLC pieces from
+retained actual TRAIN draws; `EXP-CHANGES-TRAIN-TARGETS-002` exported 257,771
+source annotation groups from 1,661,584 note rows. There are 254,541 unmasked
+targets (36,340 nonempty), 99 source-native atomic classes and 3,230 masked
+groups (3,226 invalid chord gates; four conflicting changes groups).
+All source hashes/sizes and independent output roundtrips/supports verified.
+43 classes have fewer than ten annotation examples. Parser does not infer
+temporal preparation/suspension/resolution or canonical alignment. Current
+training, raw graph, canonical caches, task registry and 18 heads unchanged;
+no VALIDATION/TEST payload, model/GPU/SSH or legacy execution. No dependencies
+added. The first extraction attempt failed at system-Python dependency import
+before source access and is retained as `EXP-CHANGES-TRAIN-TARGETS-001`.
+
+Validation: 27 new fixture tests; final combined selection 106 passed,
+one multiprocessing test deselected there and separately passed outside the
+sandbox (sandbox denied `torch_shm_manager`). Total 107 selected tests pass.
+Registry validates all 84 records; ledger regenerated. Initial registry test
+failures due to noncanonical JSON formatting were corrected without changing
+record content/fingerprints. No unresolved test failures in this selection.
+See [target contract and results](DLC_CHANGES_TARGETS.md); full files under
+`outputs/changes_train_targets_002/`. Next: small musical review and alignment/
+transposition validation before any added head or training comparison.
+
+## Harmonic analyzer source feasibility audit — 2026-09-14
+
+`EXP-HARMONIC-DATA-AUDIT-001` completed a bounded source-format review of five real files: two Dilemmadata TSVs proven in retained TRAIN draws, one TRAIN HookTheory cache and one TRAIN POP909-CL cache hash-checked against their indices, and one unassigned PDMX MusicRender JSON. Original POP909 was reviewed from existing audit and upstream documentation only. DLC changes/chord-tone fields and HookTheory modifier targets provide additional supervision beyond the current 18 heads; CL has six target families despite the two-task frozen transfer evaluation. PDMX chord objects represent note groups, not functional harmony labels. Missing evidence principally concerns source-scoped voice links, note-level non-chord-tone roles, preparation/resolution relations and human validation of critical remarks. No new corpus-wide coverage claim, source/code changes, model execution, training, graph construction, TEST payload access or legacy execution. [Russian report](research/HARMONIC_ANALYZER_DATA_FEASIBILITY_RU.md). Next proposed phase: TRAIN coverage and semantic audit of DLC modifiers/voice bindings, then a small reviewed relation set; no new training or architecture decision adopted.
+
+## Task-attention interim comparison at 25k — 2026-09-14
+
+`EXP-TASKATTN-PROGRESS-002` completed a read-only live artifact review at 16:09 MSK: attention training event 25300/80000, latest validation 25000, empty stderr and no terminal receipt. Current same-runtime control has not started. Primary attention 0.383537 versus historical C2 0.411683 and linear fusion 0.369862; attention dropped at 20k and recovered at 25k, only +0.003817 versus 15k. Joint accuracy 0.172456 versus C2 0.195489 / linear 0.145237; unseen tuple 36/1090 versus 27/1090 / 0/1090. Attention improves 2/18 heads against C2 and 13/18 against linear; harmonic_rhythm remains substantially lower. Verified 25000 historical schedule matches and 375 validation metric/support checks. Matched completed-update interval 15100–25000: attention 7386.345s, linear 7358.619s, C2 8661.708s. Single seed, historical runtime differs; no final ranking or architecture promotion. No training modifications, checkpoint loading, new inference, TEST or legacy changes. Next step remains completed attention/control 80k review. [Full comparison](experiments/TASK_ATTENTION_PROGRESS_002_RU.md).
+
+## Musical rule corruption literature review — 2026-09-14
+
+Completed a source-based review of algorithmic musical alterations and rule-based generation: [Russian research report](research/MUSICAL_RULE_CORRUPTIONS_RESEARCH_RU.md). The report includes 25 source entries and 17 candidate operators across harmony, voice leading, melody, rhythm and structure. It separates known edits, formal violations and human-confirmed deterioration, and proposes a ten-song development pilot with acceptable-variation controls. These are research recommendations, not implemented operators or validated quality labels. Documentation only: no training, GPU access, TEST, dataset changes, new experiment records or legacy code execution. Existing architectural decisions remain unchanged. Next step: prepare and review a few manual rule cards before selecting operators for a prototype.
+
+## Task-attention interim comparison at15k — 2026-09-14
+
+`EXP-TASKATTN-PROGRESS-001` completed an artifact-only review at attention17400/80000; latest validation15000. Primary attention0.379720 versus linear0.352950 and historicalC2 0.391343. Joint0.140383 versuslinear0.098125/C2 0.133435; unseen19/1090 versus2/1090 for both references. Attention improves12/18heads versuslinear but2/18versusC2, with substantial harmonic_rhythm regression. Verified15000matching draws/LR for attention/linear, historical record/component/shift equality, equal initial base fingerprint/runtime for attention/linear,225metric checks on5k/10k/15k. Matched15kelapsed11166.591s versuslinear11088.640s (+0.70%) and historicalC2 13254.245s (−15.75%). Historical runtime differs. Attention is still running; new same-runtime control has not started and remains next in queue. No checkpoint load, new model execution, TEST, training modification or MMoE launch. No implementation/legacy changes; next step remains completed paired80k review. [Full comparison](experiments/TASK_ATTENTION_PROGRESS_001_RU.md).
+
+## Task-attention/control80k pair authorized — 2026-09-14
+
+Implemented separate12beat task-attention fusion (projection64,4attention
+heads,ReLU/LayerNorm,latent residual,task-specific output), strict model-only
+and full-state schema, and explicit campaign model-kind selection. Existing
+linear defaults remain covered by regression tests. Both arms start from
+identical corrected base tensors and declared seed streams; runtime is pinned
+to the earlier fusion environment. No MMoE, legacy imports or TEST.
+Local70tests passed (2warnings,6.35s), including exact resumed next step and
+queue failure/ordering. Native70tests passed (39dependency warnings,8.19s). Both real
+accelerated/reference gates completed24applied updates each with exact
+loss/model/optimizer/scheduler/RNG equality. Preregistered `EXP-TASKATTN-GATE-001`,
+`EXP-TASKATTN-CONTROL-GATE-001`, `EXP-TASKATTN-C2-80K-001` and
+`EXP-TASKATTN-CONTROL-80K-001`. Execution root:
+`/home/humtech/music_critic_task_attention_20260914`. Controller runs gates
+then attention80k and control80k sequentially, preserving terminal evidence.
+[Protocol](TASK_ATTENTION_FUSION.md). Attention training is confirmed running
+from scratch; last retained startup snapshot includes4500updates, no stderr
+errors. Initial base fingerprint matches both gates; control remains planned
+in the automatic sequential queue. Native test and startup evidence are
+retained under `outputs/task_attention_20260914/startup/`. No quality result
+is claimed yet. Next step: review the completed paired80k result before MMoE.
+
+## MMoE candidate discussed — 2026-09-14
+
+User asked whether MoE could support task specialization. Proposed, not adopted: small dense multi-gate mixture of2–4 feature experts after the shared encoder/decoder, task-specific gates conditioned on raw-derived entity features, preserving entity routing and target masks. Existing classifiers are task heads, not automatically MoE experts. Learned experts have no guaranteed melody/rhythm semantics; meaningful specialization needs tasks and held-out probes. Initial dense mixing avoids sparse dispatch complexity and token dropping; no speed or rare-class gain is promised. Compare with the same-runtime shared-head and task-attention controls at comparable capacity/compute; inspect per-task retention and routing concentration. Sparse routing, hard semantic expert assignments, gold-label routing, new GPU runs and implementation remain outside this discussion. No code/tests/legacy or scientific decision changes. Reference: Ma et al., KDD2018 Multi-gate Mixture-of-Experts; routing/load imbalance risks: Expert Choice Routing, arXiv2202.09368.
+
+## Official fusion limitations discussed — 2026-09-14
+
+Source/literature-only follow-up separates observed phrase regression in paper Table4 from unmeasured design risks: task attention is per-note and inherits temporal context from the encoder; logit-only task tokens lack direct access to richer task features; attention weights are not calibrated reliability or causal explanations; no explicit valid musical tuple or transposition-equivariance constraint is imposed by this fusion module; its latent residual does not provide an identity-preserving raw-logit bypass for inserting into a pretrained baseline. Candidate ablations are a zero-initialized residual correction with controllable strength, richer context-conditioned task tokens and separately tested cross-level communication using raw ownership. None is adopted or proven superior. Recommended evaluation separates official-style attention from added modifications and uses the same runtime/control, per-task/class metrics and joint accuracy. No code change, test run, real-data experiment, checkpoint access, TEST or training launch.
+
+## Official AnalysisGNN fusion source comparison — 2026-09-14
+
+Verified public upstream commit `e115182fb29b74bdcb6bf3547ed427d967580947`, `analysisgnn/models/analysis.py`, CrossTaskTransformer and TorchAnalysisGNN.forward_clf, against paper arXiv2509.06654v1 section3.2. Each task logits pass through Linear→ReLU→LayerNorm into out_channels/2 dimensions, then four-head attention across tasks at each note, residual+LayerNorm, and a task-specific Linear output. Residual is in projected task space, not a raw-logit additive correction. Default forward includes all configured tasks; task subset is supported. No cross-task detach is present; paper supervises final outputs, so these two properties are not unique defects in our linear baseline. Attention is over tasks, not temporal windows. Paper Table4 with/without fusion: RN-DLC .516/.503, RN-AugNet .530/.491, cadence .558/.541, phrase .742/.752; no universal gain. This is source/literature clarification only: no implementation, model execution, TEST, checkpoint, legacy or architecture decision change. Proposed future reproduction must explicitly distinguish this task-attention module from the existing12beat linear residual.
+
+## Fusion source-mechanics review — 2026-09-14
+
+Read-only code review confirms the current optional fusion is a simultaneous bias-free linear residual over the other11 original logits for each of12beat heads, with zero initialization, no logit normalization/context gate and no cross-task detach. It is not an official AnalysisGNN fusion reproduction. Loss supervises final fused predictions only; original harmonic heads are not separately anchored. Shared optimizer and global gradient clipping include fusion parameters. These are design properties and candidate explanations, not measured causes of the80k regression. Cadence is outside the directly fused12heads, so its gain cannot be called a direct cadence-fusion effect. Focused source-free mechanics tests41passed, one dependency deprecation warning,3.49s; no implementation change, checkpoint read, real-data evaluation, training or legacy reuse. No architectural decision changed. Proposed next diagnostic: same-checkpoint original versus fused outputs and correction/logit scales, with coadaptation caveat; any future normalized/gated or stop-gradient design requires a separate controlled experiment.
+
+## Fusion80k completed and reviewed — 2026-09-14
+
+`EXP-FUSION-C2-CONTINUE-80K-001` completed65000additional updates/130000draws, cumulative80000updates. Imported terminal record byte-identically after verifying retained artifact hashes. `EXP-FUSION-C2-80K-FINAL-001` confirms65000matched record/component/shift updates and57latest-validation metric checks. Best/final fusion primary0.472602 at80k versus historicalC2 0.489375;4/18heads improve. Joint0.284096 versus0.289236; unseen43/1090 versus58/1090. Full continuation49172.647s; matched15001→80000 interval48987.494s versus58228.341s,15.87percent less time (1.189xthroughput). Resource supervisor exit0, GPUpeak3309MiB, swapgrowth4460KiB, cachehit12.26percent. Runtime differences and one seed prevent causal attribution. No new model execution, checkpoint loading, TEST or baseline promotion; no continuation beyond80k. No implementation/legacy changes. [Final Russian report](experiments/FUSION_C2_80K_FINAL_RU.md). Earlier running snapshots below are historical.
+
+## Fusion interim snapshot — 2026-09-14
+
+Read-only review at44700/80000, latest validation40000: fusion primary0.431163 versus historicalC2 0.444671;4/18heads improve, joint0.211668 versus0.209765. All29700 continuation draws/batches checked against historical record/component/shift sequence;57 metric checks passed. Matched elapsed boundary15001→44700:22339.285s versus26220.776s,14.80percent less time (1.174xthroughput). Runtime differs; no causal attribution or model promotion. Run was still active, stderr empty; approximately7.38h remaining at observed speed. No training/inference/TEST/checkpoint load launched by review. Records PROGRESS-001 and text-only erratum002 preserve original evidence; [corrected report](experiments/FUSION_C2_80K_PROGRESS_RU_CORRECTED.md). Existing80k training continues. No implementation or legacy changes.
+
+## Fusion continuation 15k to80k authorized — 2026-09-13
+
+`EXP-FUSION-C2-CONTINUE-80K-001` registers 65000 additional updates from the immutable15k full checkpoint (`31b6da7f…de130`). The new execution root is `/home/humtech/music_critic_fusion80k_20260913`. The continuation restores model, optimizer,120k scheduler, scaler, sampler and Python/NumPy/Torch/CUDA RNG; it starts a fresh bounded queue at draw30000. Four workers,8GiB aggregate compact cache, fp32, seed17 and the parent Python3.12/Torch2.2.2 runtime are retained. Validation every5000 global updates, full checkpoints every1000; supervisor limit24h with existing resource guards. No TEST, legacy logic, architectural change or baseline promotion. Added a strict hash-bound resume helper and exact-next-update fixture; local19passed and native Linux19passed. Startup verified: restored model fingerprint matches the parent15k validation fingerprint, sampler position30000, next LR0.004923500664848326. Applied updates15001 and15002 have finite losses1.310746 and1.052010. Launcher PID178421 runs detached from SSH; compact startup evidence is retained under `outputs/fusion80k_20260913/startup/`. Training continues; no endpoint quality result is claimed. Local registry has71valid records. Next step is the user-requested endpoint review after80k; no recurring agent monitor was created.
+
+## Fusion15k completed and compared with historicalC2 — 2026-09-13
+
+`EXP-FUSION-C2-SCRATCH-15K-001` completed15000updates/30000draws, supervisor exit0; its remote terminal record is imported byte-identically. `EXP-FUSION-C2-15K-COMPARISON-001` independently checks downloaded metrics/log identities, full schedule/LR parity, all class supports and fusion confusion-derived F1. Final primary0.3529495 versus historicalC2 0.3913429; fusion lower16/18heads and8/8primary. Comparable loop time before15kvalidation:11088.640s versus13254.245s (16.34percent less); fullfusion duration11279.193s. Four workers,8GiBcache,11.86percent cachehit rate, swapgrowth0. Runtime differs (Torch2.2.2/cu118 versus2.13/cu130), so this does not isolate fusion or optimization effects. No checkpoints loaded, new inference/training/TEST, or model promotion. Full [Russian comparison](experiments/FUSION_C2_15K_COMPARISON_RU.md). Earlier running notes below are historical.
+
+
+## Accelerated from-scratch fusion 15k authorized — 2026-09-13
+
+User explicitly selected from-scratch fusion for15000updates, historicalC2-15k comparison, and the accelerated implementation; final scientific review is deferred to the user. A separate campaign composes four existing ordered workers,8GiB aggregate compact cache and optimized updates with unchanged historicalC2 transposition and120k/6000-warmup/0.005peak schedule. Added explicit runtime-capped transport policy (not claimed premeasured sizing), keeping existing measured-reservation defaults unchanged. Compact confusion metrics replace the prior pilot prediction accumulation; checkpoints exclude validation histories. The external supervisor allows an explicitly bounded long run, with unchanged RAM/swap/GPU checks. No legacy, TEST or historical checkpoint writes.
+
+Local focused checks56passed before the final added schedule test; native Linux current packet73passed including that test and all ownership checks, zero skips. Registered `EXP-FUSION-ACCEL-C2-GATE-001` and `EXP-FUSION-C2-SCRATCH-15K-001`; real-data gate dispatched first. Training is confirmed running: first applied updates1and2 have finite losses3.788714and3.645509. Startup evidence is retained locally; no quality result is claimed. Execution root `/home/humtech/music_critic_fusion15k_20260913_r2`; authoritative runtime differs from original C2 and must accompany any historical comparison.
+
+
+
+- Gate001 failed after one reference update because accelerated alignment rebuilt a strict GPU fusion output with CPU metadata. Its evidence and terminal failure are retained. Added a private join-only metadata view, preserving the full fusion output contract. Retry002 completed24updates on12shifted TRAIN batches using four workers: prepared tensors, sidecars, loss, model/optimizer/scheduler/RNG agreed exactly. Native focused compatibility tests24passed; no historical-runtime equality is claimed.
+- The15k runner uses the original6000-step warmup and120k cosine horizon, validates at5k/10k/15k, saves compact full states every1000updates and separate final/best model exports. Resource timeout12h with existing host/GPU/swap guards. Final report and a terminal experiment record are written automatically on the server; no recurring agent monitor or automatic scientific review was enabled.
+
+## Authorized completion of the three pilots resumed — 2026-09-13
+
+Current snapshot: the three authorized pilot outcomes are closed and
+independently reviewed. Context gives descriptive evidence against a simple
+local control. The short structural-SSL pilot shows no primary improvement.
+Fusion finished512updates and three full162-record validations per arm; its
+original process was aborted during report assembly, so those two records stay
+`aborted`. Completed `EXP-FUSION-P512-POSTHOC-001` separately verifies retained
+metric aggregation and four finite model exports. Final control0.492768 versus
+fusion0.468709; both selected best states are update0. The independent review
+agrees. No new raw prediction/confusion recomputation or full optimizer/RNG/
+resume verification is claimed. No model promotion or further experiment is
+made. No GPU or CPU job remains from these pilots. Detailed history follows.
+
+- User authorized finishing the existing work before selecting new directions.
+  All three existing tasks were resumed for their missing real-data dispatcher,
+  evaluator and recovery integration. New melody/rhythm/window architectures,
+  full120k and PDMX-scale work remain outside this completion scope.
+- Server connection succeeded. A fresh isolated execution root is
+  `/home/humtech/music_critic_research_20260913`; historical checkouts and
+  training environments are unchanged. Initial observation: RTX3090 idle,
+  821MiB GPU memory, approximately49GiB available host memory. Subsequent
+  launches recheck current resources; this is not a permanent availability claim.
+- `EXP-CTX-C2-LINUX-001` completed: all49 native Linux ownership tests passed
+  without skips. `EXP-CTX-C2-SUITE-GPU-001` completed20/20 frozenC2 forwards,
+  zero updates/unknown completions,3.54s total and1198MiB sampled whole-device
+  peak. The three musical-context pairs have nonzero full-view sensitivity and
+  zero restricted-view differences; synthetic sensitivity is not correctness.
+- `EXP-RESEARCH-DILEMMA-BINDINGS-001` completed: all1295TRAIN and162VALIDATION
+  cached raw/expanded-sidecar files match their metadata hashes; authoritative
+  split bytes and component counts match. No TEST payload was opened. Original
+  corpus conversion was not repeated. `EXP-RESEARCH-DILEMMA-METADATA-002`
+  separately verified the pinned target-free1619-record B3 piece mapping.
+- Added a separate pilot resource wrapper reusing the exact accepted native
+  ownership core. It monitors time, whole-device GPU usage, available host RAM
+  and swap growth; task accounting and scientific acceptance remain separate.
+  Local tests5passed/8Linuxskips; `EXP-PILOT-SUPERVISOR-LINUX-001` completed
+  with62nativeLinux tests passed and zero skips. No legacy logic was used.
+- `EXP-FUSION-CUDA-SYNTHETIC-001` failed before Torch import/CUDA/updates:
+  coordinator copied its record to a nonmatching basename. Failure is immutable.
+  Retry `EXP-FUSION-CUDA-SYNTHETIC-002` completed24updates/48draws in12.43s,
+  with exact same-process fresh-object restoration for both arms; all216886
+  fusion scalars changed and12 output heads have nonzero residuals. Nine internal
+  artifact identities independently verified. This is mechanics, not quality.
+- `EXP-SSL-GROUP-CUDA-001` failed before any encoder forward or update after
+  loadingC2: torch2.2.2 lacks the new device-argument autocast inspection API.
+  A narrow compatibility fix and tests were returned to the originating task;
+  the failed receipt remains immutable. New evaluators also must not label all
+  tuples unseen when a verified TRAIN tuple inventory is unavailable.
+- `EXP-PILOT-RAW-SIZING-001` completed1457raw count checks plus290sidecar
+  container counts in32.93s, without graphs or forwards. The fixed context
+  selection contains up to9164notes; prospective caps are being increased
+  before any scientific run, retaining the selection. All162VALIDATION pieces
+  contain at most7512notes/13557conservative raw nodes. Actual CUDA memory and
+  edge counts are separate execution observations.
+- A stalled old SSH multiplex channel was replaced after a fresh connection
+  confirmed that the server and completed fusion result were healthy. No
+  server restart or running experiment interruption was performed. All three
+  real-data pilots remain unlaunched while their final packages are reviewed.
+- Compatibility retry `EXP-SSL-GROUP-CUDA-002` completed:8 applied updates,
+  24encoder forwards,0 unknown, exact replay in both arms. Independent artifact
+  and journal checks passed; actual Torch2.2.2 CPU suite58passed. Whole-device
+  peak1422MiB,11.43s total, intra/inter-op1. This is synthetic mechanics only.
+- The context local-control package passed249 independent tests; its server
+  preflight exactly matches the fixed protocol fingerprint. The prospective
+  16384note/candidate bounds retain all selected records. `EXP-CTX-C2-LOCAL-001`
+  is now launched under the600s/4GiB external guard; no result is claimed yet.
+- `EXP-CTX-C2-LOCAL-001` completed32/32 frozen forwards,6 local fits and
+  zero updates/unknown completions on all160selected records;124.43s total,
+  1424MiB sampled whole-device peak.47artifact hashes and all12 point metrics
+  independently verified. C2/local macro-F1: key0.425676/0.135170,
+  root0.587355/0.237967,quality0.417442/0.089480,degree0.335861/0.035675,
+  cadence0.294089/0.226259,metrical0.601345/0.101046. These are descriptive
+  results with different TRAIN data/capacity/features, not causal context proof.
+  Macro bootstrap is conditional on40–120 of200draws; cadence delta interval
+  crosseszero. Scientific fusion/SSL pilots remain pending source admission.
+- Reconstructed SSL scientific003 independently;126 new scientific CPU tests
+  passed locally79.54s and on actual Linux/Torch2.2.2 in94.14s. This is a scoped
+  compatibility observation; declared dependencies and historical venv unchanged.
+  Cached preparation/run plans are being bound to the already verified data.
+- `EXP-SSL-GROUP-SCIENTIFIC-PREPARE-001` registered and launched CPU-only:
+  sequential common TRAIN eligibility,300 fixed batch schedules and complete
+  VALIDATION graph bindings. Source003 and exact request/plan hashes are sealed;
+  external3600s/host-RAM/swap supervision applies. No training/checkpoint/TEST.
+- Preparation001 failed in2.14s before any data/checkpoint read or graph:
+  the operational helper emitted a noncanonical record, and the coordinator
+  dispatched despite a failing registry check. Original rejected bytes/trace
+  retained and terminal record finalized. Retry002 requires canonical helper
+  publication and a passed full metadata CLI preflight before execution.
+- Canonical PREPARE002 passed complete CLI metadata preflight and root registry
+  validation before launch. It is now running CPU-only under the3600s guard.
+  The final helper passed21 tests, keeps failed001 as parent and preserves the
+  earlier unlaunched setup snapshot. Scientific source003 remains unchanged.
+- Fusion004 native CPU acceptance returned697passed/4failed in137.63s.
+  The failures are tests calling newer GradScaler/add_safe_globals APIs on
+  historicalTorch2.2.2. Runtime metadata admission also rejected the in-memory
+  TorchVersion string subtype. Source004 remains sealed; compatibility005 is
+  being prepared before any real fusion execution. Full logs are retained.
+- SSL PREPARE002 completed1804.81s:1174 jointly eligible TRAIN pieces,121
+  long-piece exclusions, all162VALIDATION pieces and both mask policies available.
+  Verified2457 raw reads/762 sidecars,2336 graphs,0updates/TEST; minimum38.24GiB
+  availableRAM, swap growth2.27MiB. Full binding and journal independently checked.
+- `EXP-SSL-GROUP-SCIENTIFIC-PILOT-001` passed full metadata preflight and
+  canonical62-record registry check before GPU launch. It now runs the fixed
+  200mixed+100recovery updates per arm with full162-piece evaluation at baseline
+  and each endpoint. External wall bound7200s was selected prospectively from
+  observed preparation cost; GPU16GiB/host8GiB floor/swap256MiB unchanged.
+  Fusion stays queued while this sole model GPU job runs. No result claimed yet.
+- Integrated the three accepted source candidates into this developer checkout:
+  93 source/test/config/script files, with zero cross-candidate or pre-existing
+  root conflicts. Original existing bytes are retained in an ignored backup;
+  sealed remote execution packages remain unchanged. The58-file combined
+  targeted test selection is running locally. No default model promotion,
+  dependencies, legacy use, historical checkpoint changes, commit or push.
+- Fusion005 native acceptance passed706tests,0failures/skips in143.26s.
+  Runtime/reference metadata admission passed; reference001 is planned and
+  registered but waits for the SSL GPU job. An operational UUID substitution
+  typo was rejected before CUDA/model execution and corrected in a new helper.
+- SSL PILOT001 initial full162-piece evaluation completed810forwards/0updates.
+  Primary macro-F1 exactly reproduces the historical C2 best0.49666884914040565.
+  This checks the transferred theory path; no endpoint benefit is claimed.
+- Combined local integration tests:1596passed/18Linux-or-CUDA skips/27setup
+  errors. All27 share one omitted planned-record fixture. The fixture is now
+  isolated under tests/fixtures/ssl_group and its CLI module is rerun; no
+  training source or sealed execution package was changed by this repair.
+  All28 tests in the repaired CLI module passed in1.63s; therefore all1623
+  runnable selected tests now pass, with18platform/CUDA skips. The706native
+  fusion checks and62native ownership checks independently passed on Linux.
+- Prospective fusion006 changes only the full-pair wall guard2400→7200s
+  from observed real-data parsing/evaluation costs. Reference remains600s,
+  pair512updates/arm and all scientific fields unchanged. Targeted82tests
+  passed locally11.87s and natively17.33s; metadata/reference admission passed.
+  The unlaunched reference001 planned record now binds006;005plans retained.
+- SSL first200mixed updates and full162-piece endpoint evaluation completed:
+  primary0.4963477849960327 versus baseline0.49666884914040565. Recovery is
+  running; no final paired outcome yet. Song-level SSL projected vectors become
+  more homogeneous (prediction cosine0.99933 versus0.98800), while note target
+  variance does not collapse. This is a projected-branch diagnostic, not proof
+  that the entire backbone collapses. Preserve it in the final evaluation.
+- Full evidence is under ignored `outputs/research_resume_20260913/`, with
+  compact lifecycle records in `docs/experiments/records/`. The existing
+  ten-minute `music-critic` heartbeat is active again for finishing the pilots,
+  with notifications only for meaningful changes. No commit, push or merge.
+- First SSL arm now completed200mixed+100recovery updates and both full
+  evaluations: final recovery primary0.494803000241518 versus initial0.496669.
+  The beat-group arm is running from the same initialization/schedules; final
+  paired verification remains pending. Updated ROADMAP/ARCHITECTURE to reflect
+  the integrated optional trainer/evaluator paths, without baseline promotion.
+- Second SSL arm completed200mixed updates and entered its full162-piece
+  endpoint evaluation;100recovery updates and final evaluation remain. The
+  first arm's independent18-head review confirms the aggregate and highlights
+  rare-class effects. Saved exact continuation commands and verification steps
+  in ignored `outputs/research_resume_20260913/CONTINUE_PILOTS.md`; the existing
+  ten-minute heartbeat remains ACTIVE for this same scope.
+- Second SSL mixed endpoint completed all162VALIDATION records: primary
+  0.49333593994379044 versus random-mask0.4963477849960327 at the same200
+  updates; final recovery outcome remains pending. Fusion's offline result
+  verifier received a separate reviewed correction (missing metrics, exact
+  checkpoint bytes/contracts, tighter LR and journal/request bindings);
+  11independent helper/static checks pass. This changes no sealed run source,
+  experiment budget or model; full artifact verification remains unexecuted.
+- `EXP-SSL-GROUP-SCIENTIFIC-PILOT-001` completed and independently verified:
+  600applied updates,605journal operations,5complete162-piece evaluations,
+  5450encoder forwards,0replay/unknown;5072.73s total.69local evidence files,
+  22referenced artifacts and checkpoint/evaluation state fingerprints checked;
+  all model/optimizer tensors finite. Primary baseline0.496669; random-mask
+  mixed/recovery0.496348/0.494803; beat-group0.493336/0.493686. No improvement
+  or group-mask advantage is demonstrated by this short seed17 pilot. No
+  matched theory-only continuation is present. The first record finalizer
+  rejected an absolute execution locator before publication; a portable
+  locator-only correction succeeded, with the scientific artifacts unchanged.
+  Registry63records and regenerated ledger pass. Fusion reference is next.
+- Final independent SSL review recomputed90per-headF1 values and5primary
+  scores and agrees with the bounded conclusion. Much of the between-policy
+  primary difference comes from rare tonicized-key classes; after recovery
+  beat-group harmonic-joint accuracy is slightly higher, so no universal
+  metric winner is claimed. Detailed paired review is retained in outputs.
+- `EXP-FUSION-TRAIN-REFERENCE-001` completed2updates/4draws in8.87s and its
+  report, journal, manifest and resource binding passed independent import.
+  The metadata catalog includes TRAIN/VALIDATION aggregates; reference itself
+  reads no per-record VALIDATION payload or evaluation. Both P512 records
+  were registered and all65records validated before launching the fixed
+  `fusion-p512-attempt-001` pair under the7200s external guard. This is now
+  the only model GPU job; no P512 metric outcome is claimed yet.
+
+## Resumption status verified — 2026-09-13
+
+- Read current task state, records and local evidence after the user's limit
+  interruption. All three development tasks have completed their local stages;
+  the scheduled `music-critic` poller is still PAUSED. Their new CUDA/scientific
+  runs remain planned; no new launch is recorded. Actual remote server activity
+  was not observed in this read-only status check.
+- All three worktrees remain present. Rechecked the sealed context r2 manifest,
+  cumulative fusion patch and SSL review002 manifest against the accepted
+  hashes: all match. The C2 model-only export also exists and matches its
+  recorded SHA-256. Full package/source verification must still precede dispatch.
+- The temporary local Python environment used for September8 tests no longer
+  exists. Recreate a suitable environment before repeating local tests, or use
+  the verified existing Linux environment for its native gate. No previous test
+  result is relabelled as newly rerun.
+- Next: Linux CPU-only supervisor acceptance; then source/runtime/checkpoint
+  preflight and bounded synthetic CUDA checks in one queue. Scientific context,
+  fusion (proposed512 updates per arm), and group-SSL (proposed200 per arm)
+  pilots still require their documented real-data/split/schedule/evaluator
+  integration. SSL recovery100 per arm is specified but not implemented by the
+  fixture CLI. Neither source integration nor training happened in this check.
+- Existing C0/C2 and POP results remain the latest model-quality evidence.
+  Real TRAIN C2 equivalence is still needed before using the optimized C0
+  performance configuration for scientific C2 training. Broader melodic,
+  rhythmic, form and arrangement targets remain the documented future proposal.
+- Changed only this status note; legacy was not used. No TEST, SSH, GPU,
+  experiment registration, dependency installation, commit, push or merge.
+
+## First-stage parallel preparation independently reviewed — 2026-09-08
+
+- Context revision r2 closes the PID ownership cleanup finding. Independently
+  verified all 18 sealed files and reran five context modules plus repository
+  contract: 140 passed, 10 Linux platform skips, zero failures, two warnings
+  in 3.29s. The ten native Linux checks remain mandatory before GPU admission.
+  [Final local review](workstreams/2026-09-08/01_COORDINATOR_REVIEW_003.md).
+- Fusion and structural SSL already passed independent second reviews (115
+  and 128 targeted tests). All three first-stage local preparations are accepted
+  within their documented boundaries. This is not GPU or scientific acceptance.
+- The coordinator is closing the scheduled first-stage poller under its
+  completion rule. Next execution step: isolated Linux CPU-only resource-wrapper
+  verification, followed by verified source/checkpoint/runtime preflight and
+  single-queue bounded CUDA gates. No remote job was launched in this stage.
+- Implementation remains in the three isolated worktrees. Only coordinator
+  documentation and ignored evidence changed here; no merge, commit, legacy
+  reuse, TEST access or new scientific result.
+
+## Broader musical targets — source-readiness proposal, 2026-09-08
+
+- Recorded the user's melody/voice/rhythm/form/arrangement direction in
+  [a source-aware target map](MULTI_ASPECT_TARGETS_FUTURE.md). Verified adapter
+  call sites and retained audits; no real corpus or TEST records were read.
+- Dilemma source voice identities require scoped source-row/tie binding before
+  new targets. HookTheory supplies isolated melody, while current POP909-CL
+  combines the score; original POP909 role supervision remains a future adapter.
+- Rhythmic SSL can derive answers from hidden notes, but needs a new timing
+  leakage audit. Named section/form labels and arrangement quality are not
+  available merely because notes, section markers or instrument IDs exist.
+- Documentation-only proposal; no new training, architecture adoption, target
+  importer, dependency, legacy reuse, experiment record, commit or merge.
+
+## Second independent reviews of parallel research tasks — 2026-09-08
+
+- Fusion increment002: all 22 own files verified; an independent reconstructed
+  copy passed 115 targeted tests, zero failures/skips, two warnings in 45.26s.
+  All four prior findings are closed. CPU mechanics accepted; CUDA runtime
+  initialization, source/config/record and resource preflight remain before
+  the synthetic GPU gate. [Review](workstreams/2026-09-08/02_COORDINATOR_REVIEW_002.md).
+- Structural SSL review-002: 22 files and 43 new artifact hashes/sizes verified;
+  independently passed 128 tests, zero failures/skips, two warnings in 31.38s.
+  Three independent injected failures confirmed durable accounting and poisoned
+  state rejection. Four prior findings closed; CPU mechanics accepted.
+  [Review](workstreams/2026-09-08/03_COORDINATOR_REVIEW_002.md).
+- Context r1: 18 safe sealed members and current STATUS verified; independently
+  passed 138 tests, zero failures/skips, two warnings in 4.71s. Three previous
+  findings are closed, but new process-group cleanup must preserve PID ownership
+  before signaling. Narrow r2 requested before GPU dispatch.
+  [Review](workstreams/2026-09-08/01_COORDINATOR_REVIEW_002.md).
+- No new scientific experiment, real checkpoint load, GPU/SSH, TEST, legacy,
+  implementation integration, commit, push or merge occurred. These are CPU
+  engineering checks. The ten-minute coordinator remains active for the final
+  context correction; no training progress or musical-quality gain is claimed.
+- Root documentation checks: repository contract 6 passed in 1.10s;
+  whitespace check passed; all 46 root experiment records and the unchanged
+  generated ledger validate. Child records remain in their isolated packages.
+
+## Coordinator reviews of context and structural SSL — 2026-09-08
+
+- All three actual task IDs are verified by direct read_thread; app listing
+  incompleteness is a discovery limitation, not stalled execution.
+- Structural SSL: verified the 19-file patch and all 34 retained artifact
+  hashes/sizes; independently reconstructed source passed 110 focused tests
+  with zero failures/skips and two warnings in 25.14s. Requested post-update
+  finite-state guards, runtime drift checks, strict accounting validation and
+  interrupted-attempt receipts. Pitch masking and source-scoped voice mapping
+  claims remain narrow. [Review](workstreams/2026-09-08/03_COORDINATOR_REVIEW_001.md).
+- Context diagnostics: verified 16 sealed regular archive members and patch
+  reconstruction; independently passed 89 new tests with zero failures/skips
+  and two warnings in 1.91s. Requested forward failure accounting, explicit
+  checkpoint-selection provenance limits and resealing of post-handoff STATUS
+  drift. [Review](workstreams/2026-09-08/01_COORDINATOR_REVIEW_001.md).
+- Both revisions were returned to their originating tasks. No new model-quality
+  experiment, GPU/SSH, real corpus, TEST, legacy or main-code change occurred.
+  CPU mechanics do not establish scientific pilot readiness. Next is review
+  of corrected packages before assigning the single remote GPU queue.
+
+## Coordinator review of fusion integration — 2026-09-08
+
+- Verified the received fusion task and its initial 19-file patch independently:
+  all before/after hashes matched and no hidden inherited source changes were
+  found. A separately reconstructed copy passed all 100 new tests, with zero
+  failures/skips and two existing warnings in 18.80 seconds. Six saved CPU
+  smoke artifacts also matched their hashes and stated synthetic budget.
+- Requested a narrow second increment before CUDA dispatch: device-consistent
+  CUDA RNG inventory, mandatory nonzero fusion-learning acceptance, complete
+  scheduled-validation recovery, and failed-smoke prefix accounting.
+  The valid saved CPU smoke is retained; no musical-quality result follows.
+  See [independent review](workstreams/2026-09-08/02_COORDINATOR_REVIEW_001.md).
+- All three worktrees have matching source-bootstrap receipts and their own
+  implementation changes. The app listing omitted the directly readable fusion
+  task, so unresolved discovery IDs are no longer treated as proof of stalled
+  setup. Fusion corrections were sent to its verified actual task ID.
+- GPU, scientific pilot, TEST, server and legacy access remain unstarted in
+  this review. No merge, commit or baseline promotion. Next step is independent
+  acceptance of corrected fusion and receipt of the other task handoffs.
+
+## Three parallel research tasks prepared — 2026-09-08
+
+- User authorized separate tasks for C2 context diagnostics, harmonic logit
+  fusion integration, and voice relations / structural SSL. Concrete scopes,
+  acceptance checks and shared constraints are in
+  [the coordination specification](workstreams/2026-09-08/README.md).
+- Each task receives an isolated worktree and the same hash-bound snapshot
+  of the current develop working tree, including uncommitted prior work.
+  Implementation, CPU tests and retained-artifact analysis can run in parallel;
+  expensive execution is handed to the coordinator for one shared GPU queue.
+- The first structural SSL comparison isolates group masking from voice
+  relations. Fusion retains an equally continued control; diagnostics do not
+  equate context sensitivity with correct functional interpretation.
+- All three create requests were accepted with pending client IDs; actual
+  execution remains unconfirmed until worktree setup resolves. The
+  [dispatch record](workstreams/2026-09-08/DISPATCH.md) retains their identities.
+  A separate ten-minute heartbeat `music-critic` coordinates review here;
+  the previous completed performance heartbeat stays paused.
+- Verification: all 752 source hash/size pairs matched; three isolated
+  bootstrap checks passed; git diff --check passed. No new training, inference,
+  raw-corpus, TEST or server access occurred. No baseline or architecture is
+  promoted; legacy is unused. Next step is task bootstrap and independent
+  review of each first implementation package.
+
+## Supervisor figures from retained metrics — 2026-09-08
+
+- Replaced the text-heavy presentation with three shareable figures and a
+  [combined PDF](../outputs/reports/transposition_figures_20260908/c0_c2_metrics.pdf):
+  the 25-point C0/C2 validation learning curves, all 18 final-120k head
+  macro-F1 values, and native POP quality F1 for the eight supported classes
+  with five unavailable template classes shown separately. Labels preserve
+  final versus best-checkpoint selection and target support; unknown scores
+  are not rendered as zero. Figures use the same seed-17 source results.
+- Retained source values are copied without smoothing or new metric
+  estimation. PDF text checks cover all 36 head values; all three 2000x1500
+  PNGs passed visual inspection. Four-decimal head values retain the small
+  chord-tone difference. No new confidence intervals or significance claims.
+- Independent exact checks passed: 50/50 curve points, 36/36 head values,
+  16/16 POP class F1 values, 5/5 unavailable-class nulls, and 7/7 source
+  hash/size pairs. The ignored verification manifest binds final output hashes.
+- Reporting only: no new experiment, training/inference, raw-data/TEST/server
+  access, implementation dependency or legacy reuse. Implementation tests do
+  not apply. Plotting materials and evidence hashes remain under ignored
+  `outputs/reports/transposition_figures_20260908/`; prior experiment records,
+  architectural decisions and proposed next scientific phase are unchanged.
+
+## Supervisor metrics brief — 2026-09-08
+
+- Prepared an ignored [compact Russian supervisor brief](../outputs/reports/supervisor_metrics_20260908.md)
+  from the existing C0/C2 audit, frozen POP paired review and historical SSL
+  pilot documentation. It distinguishes final/best checkpoints, observed-class
+  macro-F1/event accuracy, mapped target coverage, early SSL scope, current
+  supervised evidence and future critic/SSL hypotheses.
+- Rechecked both retained POP report bytes against their registered SHA-256
+  and sizes (2/2 passed); displayed values agree with existing terminal records
+  and paired reviews. Preserved seed, cadence/rare-class, cross-corpus overlap,
+  historical transposition and incomplete C2 provenance limitations.
+- Reporting only: no new experiment, inference, raw-data/TEST/server access,
+  model change or legacy reuse. No implementation tests apply. Existing
+  experiment records and scientific decisions remain unchanged; next proposed
+  scientific work is bounded context/class diagnostics and matched seed repeats.
+
+## Neural music understanding literature review — 2026-09-08
+
+- Completed the requested project-grounded review of 46 primary publications,
+  surveys and official resources, including relevant July/August 2026 preprints.
+  The Russian [14-page review](../outputs/research/music-understanding-20260908/neural-music-understanding-review-20260908.docx)
+  is an ignored local deliverable, not a new experimental result. Full source
+  details and limitations are retained in 46 linked endnotes.
+- Priorities proposed for review: controlled context diagnostics on C2 and
+  investigation of false D7 predictions; separate frozen-classifier and harmonic
+  logit-fusion ablations; explicit voice relations and musical group masking;
+  then a compute-matched SSL pilot and controlled multi-corpus training.
+  Existing hierarchy and Phase 7/8 SSL mechanisms are acknowledged; their
+  musical benefits are not assumed. No architecture or roadmap decision is
+  adopted by this literature review.
+- Dataset recommendations distinguish new annotations from independent new
+  works, incomplete label coverage, overlap and source-specific rights. PDMX
+  remains an SSL candidate requiring eligibility and duplication checks.
+  Degradations remain an evaluation-first direction; PLL requires a normalized
+  probabilistic decoder, and tension is not automatically musical badness.
+- Document verification passed: all 14 rendered pages visually reviewed at
+  original resolution (10 final pages byte-identical to the reviewed prior
+  render, four changed pages re-inspected), 46/46 endnote references resolved,
+  53 body and 46 endnote hyperlinks resolved, accessibility findings
+  **0 high / 0 medium / 0 low**. Artifact: 68,152 bytes, SHA-256
+  `7a4fb3785402702024cabe308a48ae63d71f962050c5d452fb09afc18ae53258`.
+- This task changes this status and creates the ignored review artifact only;
+  no implementation tests were needed. No training, dataset download,
+  checkpoint/server access or TEST access occurred. Legacy was not inspected
+  or reused. Next proposed phase is bounded C2 context diagnostics; independent
+  corpus yield and downstream critic quality remain unverified.
+
+## POP per-class recognition display — 2026-09-08
+
+- `EXP-POP-TRANSFER-CLASS-DISTRIBUTION-001` is completed: a post-hoc,
+  artifact-only report of all 13 POP template classes, C0/C2, both existing
+  input views, per-class recall/precision, type confusion and joint root+quality
+  recognition. It reads the two retained reports, with no raw corpus reads,
+  checkpoint access, forwards, updates or TEST. The preliminary in-memory
+  calculation preceded registration and is explicitly disclosed; the record
+  precedes reproducible artifact materialization, not initial exploration.
+- All eight observed-quality confusion rows and pooled joint counts were
+  independently verified against the parent reports. Diminished seventh has
+  no eligible gold support; mM7/+7 are outside the frozen projection; sus
+  counts cannot be separated from ambiguity. All 11 augmented triads have an
+  ambiguous root, so their joint recognition rate is unavailable, not zero.
+- The display reports empirical TP/support, not model confidence: per-event
+  softmax values were not retained. C2 D7 recall is 90/145 = 62.07%, while
+  precision is 90/871 = 10.33% on the eligible subset. The original evaluation
+  protocol and terminal records remain unchanged. Only this status, a new
+  record/ledger entry and response visualization are added; legacy is unused.
+- Display verification passed at 736/360 px in light/dark themes: all 13 rows,
+  exact recall/precision counts, both view/metric controls, unavailable
+  augmented-root handling, no horizontal overflow or JavaScript errors.
+  Registry and deterministic ledger validation passed (46 records).
+
+## Frozen POP evaluation completed; future modifiers proposed — 2026-09-08
+
+- `EXP-POP-TRANSFER-EXPORT-001`, `EXP-POP-TRANSFER-C0-001` and
+  `EXP-POP-TRANSFER-C2-001` are completed. Both unchanged best checkpoints
+  (C0 95k, C2 115k, selected on Dilemmadata) were evaluated on the same 101
+  POP909-CL VALIDATION pieces, two predeclared views, zero parameter updates.
+  TEST inputs, targets, metrics and selection remained closed.
+- Native primary root macro-F1: C0 **0.892292**, C2 **0.908590**;
+  quality macro-F1: **0.373857 / 0.453021**; root+quality joint accuracy:
+  **0.707735 / 0.749307**. Root/quality coverage is 11,911/11,918 out of
+  12,833 chord events; masks are identical between models. Eight quality
+  classes have gold support; major/minor triads account for 90.34% of eligible
+  quality events. The result supports descriptive two-task transfer, not
+  broad theory understanding, critic quality or statistical significance.
+- The predeclared metadata-removed secondary view improves both models;
+  C2 quality macro-F1 is **0.512451**, joint accuracy **0.798186**. This view
+  jointly removes velocity, program and channel fields; the responsible field
+  and mechanism are not isolated. Native remains primary. Cross-corpus
+  duplication has not been audited. See the [paired frozen review](experiments/POP909_CL_C0_C2_FROZEN_REVIEW.md).
+- The new restricted checkpoint exporter preserves both source model-state
+  fingerprints and verifies the final model-only artifacts with the existing
+  strict loader. It does not execute the optimizer/NumPy RNG pickle tail,
+  use unsafe loading or add globals to the allowlist. The original failed
+  input gate remains immutable. Focused validation: **121 passed**, zero
+  failures/skips, across three invocations; no model architecture changed.
+- [Future modifier learning](HARMONIC_MODIFIERS_FUTURE.md) records the requested
+  direction and source/ambiguity limits. No new heads, losses, source labels or
+  shared ontologies are implemented. Legacy is not inspected or reused.
+
+## Integrated comparison completed and reviewed — 2026-09-07
+
+- Completion housekeeping: `coordination.active_controller` is null; the V14
+  path is retained as `last_controller`. The heartbeat remains paused.
+- The authorized single B2 series completed 1,440 updates / 2,880 draws.
+  Each arm used 80 discarded warmup and 400 measured updates with the same
+  initial training state and ordered jobs. Direct measured / whole-arm times:
+  workers4 **278.293 / 377.016 s**, compact workers0 **335.282 / 442.330 s**,
+  original reference workers0 **421.420 / 533.293 s**.
+- Workers4 achieved **1.5143x measured throughput** and **29.30% less whole-arm
+  time** than original. All 1,200 measured rows, five state/RNG/loss/schedule
+  fingerprints, cache/queue/resource/callback/closure evidence passed the explicit
+  post-hoc review. Root additionally compared every measured loss/job dictionary
+  and independently recalculated ratios. Sampled aggregate RSS peaked at 12.477
+  GiB, minimum headroom was 42.531 GiB; swap/OOM deltas and policy violations were zero.
+- Original producer `EXP-9EP1-PREFETCH-INTEGRATED-001` remains completed;
+  its controller remains failed on an incorrect `cudnn_allow_tf32=false`
+  expectation. Negative import014 is immutable. Separately registered post-hoc
+  review `EXP-9EP1-GPU-EVIDENCE-015` is **completed**, fingerprint
+  `7706ccb07ec92cd9ef23df0be49e053406ebed10aa968f6eb8dd9c1d314f1891`.
+  Historical/current final snapshots have cuDNN TF32 allowed; the identical helper
+  does not alter the flag. A current pre-run snapshot is absent, so measured
+  pre/post continuity and all-TF32-disabled execution are not claimed.
+- This is one fixed-order, C0 identity-only engineering result. Retain workers4
+  with an 8 GiB aggregate compact cache as the measured candidate; canonical
+  training defaults remain unchanged. C2 nonidentity equivalence and scientific
+  runner adoption are separate next steps. No additional GPU series was run.
+- Validation: 302 implementation target tests passed, then 60 focused V14
+  target tests passed. The actual post-hoc validator passed all remaining checks;
+  no broad test rerun was needed for evidence-only finalization. Full artifacts
+  stay ignored, terminal records/reports are immutable, and legacy was not used.
+  See [timings and post-hoc review](experiments/PERFORMANCE_REPLAY_INTEGRATED_POSTHOC_REVIEW.md)
+  and [retained original rejection](experiments/PERFORMANCE_REPLAY_INTEGRATED_GATE_REJECTION.md).
+
+## Compact sizing accepted; integrated GPU series running — 2026-09-07
+
+- `EXP-9EP1-GPU-EVIDENCE-013` independently accepted all 480 compact CPU jobs
+  from completed `EXP-9EP1-PREFETCH-RESERVATIONS-004`; source256 remains `9d6…`.
+  Exact original source record and 12 artifacts are retained. Largest payload
+  is 51.404 MiB within R455 MiB. One 2 GiB cache reported 122 hits/838 misses;
+  sampled RSS reached 3.158 GiB, headroom remained at least 51.195 GiB, swap/OOM
+  deltas were zero. This serial gate establishes neither four-worker RAM nor speed.
+- The unchanged model/data implementation already passed 302 target tests.
+  V14 launch/controller additions passed **60 target tests, 0 failures/skips,
+  3.66 s**; source code was unchanged. The authorized single three-arm series
+  `EXP-9EP1-PREFETCH-INTEGRATED-001` started at 03:59:36 UTC (controller PID
+  512293): 80 warmup + 400 measured updates per arm, with direct whole-arm timing.
+  Completion, equivalence and speed are not yet established.
+  See [compact reservation review](experiments/PERFORMANCE_REPLAY_COMPACT_RESERVATION_REVIEW.md).
+
+## User adds an original baseline to the combined comparison — 2026-09-07
+
+- The latest user instruction adds a third, entirely unoptimized arm to the
+  single-repeat plan. Order: **integrated workers4, integrated workers0,
+  original baseline workers0**. Use B2 with 400 measured and 80 discarded
+  warmup updates per arm (1,440 updates / 2,880 draws total). Keep the
+  historical 120k scheduler and identical initial training state and ordered
+  draws. Three repeats and a separate no-cache worker pair remain cancelled.
+- The first two arms combine compact prepared cache, direct collation and
+  optimized update. Their common 8 GiB accounted cache budget is partitioned
+  4 x 2 GiB versus 1 x 8 GiB; physical RSS/IPC limits remain separate. The
+  third arm uses original loading/collation/identity preparation and the
+  existing reference update/class weights, without prepared cache or workers.
+  The existing optimized worker-zero arm is not this original baseline.
+- Compare the first two arms for worker/cache-topology effects, and each
+  against the third for total package gain. One fixed-order series does not
+  satisfy the earlier three-repeat acceptance criterion. The integrated
+  implementation is in progress; no result is claimed. Existing
+  prefetch already includes optimized update; compact cache currently belongs
+  to the separate synchronous runner. Add only an explicit opt-in preparation
+  strategy with process-local lazy caches, one aggregate accounted budget,
+  no retained parent cache in the worker arm, fresh arm state and measured
+  aggregate RSS. Preserve defaults, identity-only C0 and numerical behavior.
+- Retain direct whole-arm timing and separate warm-window timing; disclose
+  cache initialization, worker startup, hits/misses/evictions and cleanup.
+  TEST/VALIDATION, full 120k runs, legacy and canonical C0/C2 remain outside
+  this increment. New source/protocol bindings and focused integration tests
+  precede the registered real-data pair. Existing sizing evidence must not
+  be relabeled as proof of the new cache path.
+- The performance task acknowledged the earlier cancellation before GPU
+  launch; the additional original arm has now been dispatched explicitly.
+  The existing ten-minute heartbeat preserves one three-arm series in this
+  order. This scope change does not relabel any ongoing CPU sizing attempt.
+  Historical records remain unchanged. The coordinator changed only current
+  planning documentation and the heartbeat in this update.
+- Subsequent independent coordinator reviews accepted the local cache and
+  three-arm implementation in their static scope. Verified original reference
+  preparation/update and raw class weights, distinct arm identities, unchanged
+  120k/6k LR horizon, shared initial state, retained warmup cursor/cache,
+  direct whole-arm timing, process cache budgets and actual serialization caps.
+  Final reviewed replay SHA: `116cb7c0bfd42f2e7833f95158c8a7768ba91060d392c08bfcab0937cfa9aa32`;
+  preparer SHA: `ce536e34e25cee7adc82402b4760e38a814a5e408d3746612adf5584d00601a5`.
+  No coordinator test rerun or real-data execution occurred in this review.
+  GPU acceptance remains pending. Launch must explicitly specify `repeats=1`
+  because the preserved CLI default is three; 800 measured/160 warmup draws
+  per arm yield the requested 1,440 total updates. Cache history can change
+  pickle size despite equal values; runtime reservation enforcement is retained
+  and no universal history-fit or RSS bound is claimed from entry accounting.
+
+## POP input gate and task recovery — 2026-09-07
+
+- The user reported refreshed limits. The performance task's last app turn
+  had failed with a usage-limit error; continuation was sent and its existing
+  ten-minute heartbeat was updated to the accepted SCREEN002 stopping point.
+  A dispatched continuation does not establish a running remote experiment.
+- `EXP-POP-TRANSFER-INPUTS-001` is finalized **failed** at the restricted
+  checkpoint-loading gate. Both copied best checkpoint files match expected
+  SHA/size, and all 101 original POP VALIDATION source files match the validated
+  allowlist. C0 and C2 envelopes are rejected on NumPy RNG globals in the local
+  Python 3.12.14 / Torch 2.13.0 runtime. This is a format compatibility failure,
+  not evidence of corrupted weights. Tensor/model-state validation remains open.
+- The ten retained input/diagnostic artifacts are hash-bound in the record.
+  No MIDI parsing, target extraction, model forward, parameter update or TEST
+  payload access occurred. Global split metadata was used only for membership.
+  No unsafe deserialization, globals allowlisting or checkpoint RNG restoration
+  was used. A separate model-only export/extraction attempt must preserve the
+  original source identity, selection provenance and model-state fingerprint.
+- Logit-fusion mechanics remain accepted on synthetic tests; real training and
+  quality benefit remain unmeasured. The next cross-corpus result is still the
+  frozen C0/C2 comparison after resolving checkpoint compatibility. See
+  [POP transfer](POP909_CL_TRANSFER.md). Legacy and model implementation are
+  unchanged by this status/finalization step.
+- Finalization checks: **36 experiment records valid**, deterministic ledger
+  regenerated and checked, `git diff --check` passed. No implementation change
+  or new test run was required for this evidence/status-only step.
+
+## Harmonic logit-fusion mechanics — 2026-09-07
+
+- The user's follow-up on the parallel improvements starts the isolated
+  fusion mechanics increment described in
+  [the ablation document](HARMONIC_LOGIT_FUSION_ABLATION.md). Added a separate
+  raw-only wrapper, 12 simultaneous zero-initialized bias-free cross-task
+  residuals, new output/model contract and strict model-only checkpoint.
+  The added 216,886 parameters are 5.9227% of the 3,661,936-parameter baseline.
+- Current old C0/C2 models, defaults, graph, loss/trainer, checkpoint loader,
+  POP transfer runner and performance code are unchanged. Six non-harmonic
+  predictions pass through the wrapper; the future shared-backbone updates
+  can nevertheless affect all 18 tasks. No real corpus/checkpoint/TEST read,
+  scientific experiment, GPU work or legacy reuse occurs in this increment.
+- Independent fixture gates verify exact initial logits/loss/base gradients,
+  differentiable cross-head routing, candidate alignment, caller RNG and
+  new model-only state restoration. Root combined acceptance: **109 passed,
+  zero failures/skips**, two existing upstream Torch JIT deprecation warnings,
+  8.29s; `git diff --check` passed. This includes 65 new cases and 44 old
+  model/POP-loader/repository regressions. No effectiveness claim or baseline
+  promotion follows from mechanics.
+- Next: integrate the separately versioned training/resume/evaluation path,
+  register a matched no-fusion/fusion pilot after performance acceptance,
+  and compare with equal additional training. The original C0/C2 POP transfer
+  remains the next cross-corpus measurement; copied real artifacts and the
+  subsequent checkpoint compatibility failure are recorded above.
+
+## POP909-CL transfer preparation — 2026-09-07
+
+- The user requested useful parallel work on POP generalization or logit
+  fusion while performance work continues. This increment prioritizes an
+  explicit frozen TRAIN/VALIDATION evaluator on the Mac, without adding
+  server load. See [POP transfer](POP909_CL_TRANSFER.md).
+- Added a hash-bound score-only reader and separate request/preflight/run
+  entrypoint. Complete original global split closure and selected membership
+  are checked before source/checkpoint access; both raw views precede target
+  extraction. A matching planned experiment is required for execution.
+  The original WS4 synthetic APIs and report bytes remain unchanged.
+- Local index metadata contains POP 701 TRAIN / 101 VALIDATION / 106 TEST;
+  all constituent indices, including HookTheory, bind the original split.
+  No actual source MIDI root or trained C0/C2 checkpoint bytes have yet been
+  verified for this evaluation. No real transfer result, update, TEST access
+  or new substantial experiment occurred in this implementation increment.
+- At completion of POP preparation, logit fusion was only a proposal. The
+  later mechanics increment above supersedes its implementation status;
+  real training, benefit and any cadence improvement remain unmeasured.
+- Root acceptance: **142 passed / 1 CUDA case deselected** in 5.55s for WS4,
+  source reader, repository contract and corrected model; **24 passed** in
+  the separate registered-transfer/CLI gate. Each run reports two existing
+  upstream Torch JIT deprecation warnings; `git diff --check` passed.
+  All checks use synthetic inputs. Legacy and performance implementation are
+  untouched. Next: bind real artifacts and register C0/C2 evaluation in a
+  free performance window. Source/weights inventory has been requested from
+  the performance task after its worker screen, without extra server load now.
+
+## Integrated performance implementation and source deployment — 2026-09-07
+
+- Local three-arm execution preserves final model/optimizer/scheduler/scaler,
+  loss and RNG fingerprints. The combined replay/evidence/repository gate
+  passes **145 tests** with two upstream warnings (45.53s); the explicit mixed
+  timing/reference metadata assertion passes separately (1 test, 4.47s).
+  Compact-cache tests pass32, existing pool tests46, sizing tests41; their
+  independent reviews accepted the bounded implementation.
+- The isolated GPU checkout now has source256 fingerprint `9d6dc4df7356924caaae62692dc99199c0995c1260550d0e2b272228296f49c3`.
+  Exactly five opt-in source/script files changed at03:35:10UTC;251 remain
+  byte-identical, prior bytes are preserved, canonical repositories untouched.
+  The actual target gate passes **302tests**, zero failures/skips (98.64s).
+  Compact sizing004 started03:43:30UTC undercontroller507915:480CPUjobs,
+  960draws,0updates/0poolworkers,2GiB cache in the one sizing process.
+  Import013 was planned beforelaunch; the GPUseries is not running yet.
+- Original-preparer RES003 completed480jobs/960draws over690TRAINrecords at
+  03:27:37UTC, with0updates/0poolworkers. Independent import012 is completed,
+  source record/artifacts copied byte-identically; maximum observed payload
+  is51.40MiB withinR455MiB, sampledRSS peaks705.82MiB, swap/OOM deltas0.
+  This is retained original-preparer evidence, not compact-cache acceptance.
+  See [longer sizing review](experiments/PERFORMANCE_REPLAY_LONGER_RESERVATION_REVIEW.md).
+- Compact payload values match across cold/hit/eviction/bypass and budgets,
+  but pickle lengths can differ due to aliasing. The new sizing will report
+  its declared2GiB-per-process history; actualserialization<=R remains enforced
+  for every transported job. No capacity-independent byte-size bound is claimed.
+
+## Performance work resumed by user — 2026-09-07 MSK
+
+- `PREFETCH-SCREEN-002` started at **2026-09-06 23:51:58 UTC**, with
+  controller/root PIDs 448888/448899 in the isolated performance checkout.
+  The V11 target gate passed **114 tests, zero failures/skips**, 3.17s wrapper
+  time. Full target source256 verification permits only the approved producer
+  callback change; old receipts and original source bytes remain preserved.
+  Four fixed B2 arms (workers 0/1/2/4) completed at 00:04:32 UTC. Independent
+  import011 is completed: all 400 measured rows and five captured state/loss/
+  RNG/schedule fingerprints match; 480 updates include 80 discarded warmup
+  updates. Rates are **2.469/1.913/2.843/3.283 records/s**. Four workers improve
+  the warm window by **32.95%**; the sum of reported setup/warmup/cleanup and
+  measured phases improves by **11.91%**, not a full end-to-end measurement.
+  Sampled owned RSS sum peaks at 3.96 GB, headroom stays above 54.68 GB, and
+  swap-I/O counters do not grow. All owned processes exited without signals.
+  See [worker screen review](experiments/PERFORMANCE_REPLAY_WORKER_SCREEN_REVIEW.md).
+  Four workers are a candidate for fresh longer sizing and three repeated
+  comparisons at that time, not an adopted scientific training configuration.
+  The later user instruction below supersedes the repeat count. Do not
+  combine its ratio with the separate compact-cache 2.9x result.
+- Import012 is planned for RESERVATIONS003: 480 sequential B2 sizing jobs
+  covering 800 measured plus 160 warmup draws, with zero model updates or
+  pool workers. Started03:18:28UTC and **completed03:27:37UTC**, controller497068;
+  independent import012 is completed as documented above.
+  The coordinator completed its requested
+  POP/checkpoint transfer and released the remote window. V12 now passes
+  all 32 focused target tests (1.51s pytest; 2.87s wrapper) and the actual
+  source/B5A/desktop/resource preflight; final independent review acceptedV12.
+  Current B5A metadata is bound by SHA/size in planned012.
+  The new launch receipt must recheck these bytes before and after,
+  because source256 alone does not cover those sampler-input bytes.
+- The user shortened the next speed comparison to **one pair, workers4 then0**.
+  The earlier three-repeat plan is superseded before launch; RES003 sizing
+  volume stays480 jobs. Current prefetch already includes optimized updates
+  and original warm CPU preparation, but not compact cache. Combined-cache
+  glue and the exact baseline are being resolved with the coordinator; no
+  additional GPU series or combined-cache result is claimed.
+- A separate local C2 schedule module now declares 12 coverage plus 100
+  historical FullOrbitSampler B2 jobs from hash-bound TRAIN metadata.
+  Root verification: **37 passed**, two upstream Torch warnings, 2.43s.
+  Independent review accepted its explicit caller limits: consistency-only
+  validation is not source authentication; production must call the metadata
+  re-verifier with externally accepted bindings. No real selection, sizing,
+  graph read, C2 update or deployment occurred. The dedicated nonzero sizing
+  caller and real C2 observation/resume runner still need implementation.
+- `RECOVERY-001` and `DESKTOP-PREFLIGHT-001` are completed. The current boot
+  spans the outage; retained logs show a coincident VPN/network incident,
+  without OOM/Xid/panic in the bounded kernel window. Current RAM availability
+  is 56.93 GB; source256 hashes and runtime package metadata match. Five idle
+  GPU samples showed 0% utilization and a constant 288 MiB sum for the two
+  admitted desktop compute contexts. See the
+  [recovery review](experiments/PERFORMANCE_REPLAY_RECOVERY_REVIEW.md).
+- The coordinator authorized a minimal new V11 desktop policy because the
+  original guard rejects Nautilus. No desktop application is closed, no old
+  guard is suppressed or overwritten, and no CPU reservation calibration is
+  repeated. EVIDENCE010 is aborted before launch; SCREEN002 / EVIDENCE011
+  bind the new wrapper. Full call-chain review found two additional producer
+  calls to the same old guard. The coordinator authorized an optional policy
+  callable at those boundaries, preserving the default and all numerical
+  model/step/loader/prewarm/schedule/loss behavior. One orchestration source
+  file receives an explicit successor hash; old receipts remain immutable.
+  Loader/preparer reservation bindings are unaffected. Focused regression
+  and successor checks precede launch.
+- The user explicitly reported server recovery and requested continuation.
+  This supersedes the pause below; that section remains historical evidence.
+  The coordinator first restored an hourly heartbeat and subsequently relayed
+  the user's ten-minute interval; the active configuration now uses ten minutes.
+- Registered `EXP-9EP1-RECOVERY-001` before the bounded read-only host/log/
+  resource check. If current health permits, resume the existing V10 fixture
+  gate and fixed B2 worker 0/1/2/4 screen without repeating completed runs.
+  Then independently verify and perform the longer selected comparison and
+  separate real-TRAIN historical-C2 equivalence. No scientific seeds or
+  TEST/VALIDATION access are authorized by this resumption.
+- The existing 2.900269 ratio already combines compact cache and optimized
+  updates; do not multiply it by the update-only ratio. Include cache build
+  and worker startup costs separately from warm throughput. Full resident
+  TRAIN cache and combination with prefetch remain possible later experiments,
+  conditional on measured memory budget, without per-worker full-cache copies.
+
+## Performance work paused by user — 2026-09-06 16:44 UTC
+
+- The user's later instruction, relayed by the scientific coordinator,
+  supersedes all previous heartbeat/reconnect/continuation instructions.
+  Automation `music-critic-v2` is **PAUSED**, confirmed from its saved local
+  configuration. No SSH/SCP, remote probes, tests, experiments, or local
+  implementation will resume without an explicit new user message. All three
+  performance subagents are completed; no task-owned retry loop is pending.
+- Saved stopping point: `RESERVATIONS-002` / `EVIDENCE-009` completed;
+  `PREFETCH-SCREEN-001` never launched; `EVIDENCE-010` remains planned.
+  The V10 fixture/retry-driver copies may be partial. Preserve the failed
+  43-pass/one-fail target gate and all sealed evidence. Recovery checks are
+  deferred until the user explicitly resumes work, even if connectivity returns.
+- Incident evidence, read locally without new server access: the last saved
+  host snapshot at **16:10:51 UTC** reported MemAvailable **51,243,388,928 B**
+  of MemTotal **66,108,309,504 B**, with **5,296,128 B** swap used.
+  Serial CPU sizing then completed at **16:13:05 UTC**, exit 0, zero model
+  updates and no CPU worker pool; its owned subtree exited without signals.
+  Torch getters reported intra-op 1 / inter-op 28; these are configuration
+  readings, not measured CPU utilization. No continuous CPU/RAM/swap/OOM trace
+  was retained for the time of disconnection, so outage causality is unknown.
+- The last target controller test gate took **0.98s** pytest / **2.418s**
+  wrapper and failed only because a JSON fixture was absent. Two subsequent
+  small file transfers timed out; the retry driver was not executed. No
+  reboot/shutdown, network/firewall changes, or canonical-process kill was
+  issued. The coordinator's last live observation at **16:23:01 UTC** found
+  no performance processes. SSH unreachability does not establish a host
+  crash or OOM. This pause update runs no tests and changes no source,
+  terminal experiment record, ledger, checkpoint, dataset, or legacy file.
+
+## C0-120k completed; independent C0/C2 audit — 2026-09-06
+
+- `EXP-9EB5K-C0-120K-001` is now completed from supplied primary logs:
+  120,000 sequential applied updates, 240,000 draws, identity-only C0,
+  25 identity validation points and final all-shift evidence. The linked
+  `EXP-9EB5K-C0-C2-AUDIT-001` records the independent import and recomputation.
+- Seed-17 C2 exceeds C0: best identity **0.496669 vs 0.466995**, final
+  identity **0.496239 vs 0.458622**, final all-shift macro **0.441466 vs
+  0.371033**, and each of the 12 individual shifts. All eight primary heads
+  and 16/18 heads improve in final macro-F1. This is a positive matched
+  update/draw-budget result; missing C2 runtime/config/full TRAIN log prevent
+  complete verification that execution differed only by transposition.
+- Class analysis found a material cadence regression: IAC correct answers
+  **139 to 28 of 272**, overall cadence accuracy **79.97% to 73.32%**.
+  Metrical macro-F1 falls mainly on 17 rare notes while accuracy improves
+  **98.82% to 99.39%**. Native-unseen tuple improvement **5 to 71 of 1090**
+  does not establish novelty after C2 augmentation. About 70% of C0's
+  best-to-final primary drop comes from classes with support 2 and 3.
+- Verified 29/29 bundle manifest files, 9/9 available C0 nested manifest
+  entries, eight self-fingerprints and four reconstructed C0 history hashes.
+  No checkpoint bytes were supplied, so tensor integrity/exact resume were
+  not reverified. Historical zero nan/overflow/skipped fields are literal
+  constants, not independently measured attempt counters. Historical TEST
+  observations remain partial; this offline audit accessed no TEST data.
+- C2 is the priority candidate for follow-up, with no formal baseline
+  promotion or new training. Next: recover missing provenance; registered
+  VALIDATION-only best-checkpoint/class/component evaluation; distinguish
+  native-unseen from augmentation-unseen; then additional matched seeds
+  after performance acceptance. The historical stale track pitch statistics
+  remain an explicit experimental limitation; WS1 changes need a separate
+  comparison. Any optimized runner needs C2-path equivalence as well as C0.
+- [Scientific review](experiments/C0_C2_120K_REVIEW.md) preserves the numbers,
+  class-level findings and claim limits. Only evidence records/documents
+  changed in this audit; no model, dataset, checkpoint or legacy changes.
+  Validation consists of independent arithmetic/integrity reviews and the
+  registry/ledger checks, with no new training or inference.
+- Performance coordination moved to the separate task
+  **Ускорение C0: GPU-эксперименты и проверка**. Its former five-minute
+  heartbeat is now paused by the later user instruction above.
+  Earlier dated sections below retain their historical state; their pending
+  C0 statements are superseded by this completed audit.
+
+## C0 performance replay — 2026-09-06, full TRAIN index accepted
+
+- `RESERVATIONS-002` and independent `EVIDENCE-009` are **completed**:
+  all 120 jobs / 240 draws / 219 TRAIN records, unchanged reported maximum
+  **41,565,463 bytes** and sum **1,874,422,579 bytes**, new preparer/manifest
+  bindings, **131.416819s** source execution. Verified all 44 exported files,
+  12 source artifacts, 30 controller entries and source256; original source
+  record and artifacts copied byte identically. See the sealed
+  [reservation refresh review](experiments/PERFORMANCE_REPLAY_RESERVATION_REFRESH_REVIEW.md).
+- The immediate next run is `PREFETCH-SCREEN-001`; import `EVIDENCE-010` is
+  planned. Its narrow controller reuses the reviewed V9 supervisor and passed
+  independent review plus **44 local tests** (author 1.25s, root 1.24s).
+  The first target attempt had **43 passed / one failed / zero skips or
+  warnings in 0.98s** because the approved JSON proposal fixture was missing
+  at the test's expected path. Source/controller/test changes are unnecessary;
+  a separate retry driver preserves that failed report. At **16:26 UTC**,
+  SSH broke during delivery of the fixture and retry driver; reconnect timed
+  out. Their remote copy may be partial and must be checked after reconnect.
+  The screen has **not launched**. The last live observation at 16:23 UTC
+  showed no active performance experiment; current remote state is unknown.
+  After explicit user resumption, the saved next steps are to verify these
+  two files, run the same 44 tests, obtain fresh host preflight, and launch
+  the fixed 0/1/2/4 screen. Connectivity alone is not authorization to resume.
+  No new preparatory experiments are needed. The task heartbeat is paused.
+  Bounded reconnect attempts at 16:29 and 16:34 UTC also timed out. The
+  offline screen verifier is locally ready after independent review and
+  **39 passing synthetic tests** (author 3.86s, root 3.88s); no actual screen
+  result or accepted V10 runtime receipt exists yet. Its final archive
+  inventory will be checked against the eventual completed run.
+- The failure below is resolved by a separate test bootstrap: the installed
+  PyG 2.6.1 imports CUDA probe tensors when `pytest` is already imported.
+  Importing PyG before pytest in the test parent and fresh spawn children
+  preserves the production import order. No project source, test bytes,
+  worker guards or device policy were changed for this remedy. Attempt002
+  passed **312 tests, zero failures/errors/skips** (157.96s wrapper); the
+  original 302/10 gate and import diagnostic remain preserved. Controller-v9
+  launched `EXP-9EP1-PREFETCH-RESERVATIONS-002` at **16:10:51 UTC**, PID
+  **239509**, after accepting the actual second runtime receipt. At
+  **16:11:45 UTC** it had 45 durable payload rows and remained running.
+  Its protocol remains 120 serial CPU jobs / 240 draws, with no model
+  updates or CPU worker pool. Independent import009 remains planned.
+- The two-module worker telemetry overlay was deployed only to the isolated
+  performance checkout at **15:53:13 UTC**, preserving the four original
+  module/test files before replacement. The complete 256-file source mapping
+  now has fingerprint `2e924725ce67ded218c87188bb17a13b98a621cf943b467be6eb2c99b9735ef3`.
+  Its first original-runtime test gate **failed: 302 passed, 10 failed,
+  zero skips, 39 warnings in 155.40s** (156.63s wrapper). All ten failures
+  involve custom fault-injection workers reaching a CUDA-initialized guard
+  before the intended test scenario; the cause and remedy are recorded above. Failed gate bytes
+  are retained under `outputs/phase9ep1/controller-v9/server-runtime-gate.*`.
+  At that failed attempt no runtime was accepted or experiment launched;
+  the later attempt and launch are recorded above. Do not reuse old
+  reservations, relax the worker guard, or infer production readiness.
+- The reviewed reservation controller's root gate passed **128 tests with
+  one Linux skip in 14.10s**; its Linux tests subsequently passed within the
+  target suite above. The separate offline verifier passed **107 tests**
+  locally (author 11.60s; root 12.09s). These checks do not override the
+  failed project runtime gate. Earlier deployment-pending statements below
+  describe the state before this overlay.
+- `EXP-9EP1-B2-MEMORY-REPLAY-001` and independent `EVIDENCE-008` are
+  **completed**. All 25 fixed pairs / 50 fresh children / 100 updates agree
+  exactly; source execution took **513.229s**, ending **15:19:49 UTC**.
+  Verified 483 run artifacts, 21 controller manifest entries, source256 and
+  100 applied/state/loss rows. No OOM occurred on these finite cases.
+  Maximum observed child RSS is about **1.58 GB**; CUDA peak allocated
+  **1,977,271,808 bytes**, reserved **2,233,466,880 bytes**. This does not
+  accept aggregate worker/cache RAM, every possible pair or long-run memory.
+  See the sealed [native memory review](experiments/PERFORMANCE_REPLAY_NATIVE_MEMORY_REVIEW.md).
+  The controller and all observed owned processes exited before export.
+  Verifier tests passed **71/71**, both author and root, in 24.65s.
+  Next is the two-module worker telemetry overlay, new `RESERVATIONS-002`,
+  then the fixed one-repeat direct0/1/2/4 production worker screen.
+- Controller-v8 passed independent review before launch; root local tests
+  reported **119 passed / one Linux skip / two warnings
+  in 28.40s**, actual target **120 passed / zero skips** (19.50s wrapper).
+  The existing source256 remains unchanged. `EVIDENCE-008` verified
+  25 fixed ordered TRAIN pairs, 50 fresh children and 100 updates / 200 draws,
+  preserving the registered 256-update upper bound. It launched at
+  **15:11:14 UTC**, with 52.81 GB host memory available at launch; that
+  instantaneous observation is not a memory bound. At 15:11:46 UTC the
+  first two pairs completed and the controller remained running.
+  Local worker startup telemetry is separately reviewed and tested
+  (**182 passed / one CUDA skip / two warnings / 119.06s**; independent root
+  rerun: **182 passed / one skip / two warnings / 112.93s**); it is not deployed
+  and will require new exact-job reservations after source replacement.
+
+- Controller-v5 completed both registered runs at **13:40:33 UTC**.
+  `EXP-9EP1-GPU-EVIDENCE-005` independently verified the sealed archive,
+  37 run artifacts, 17 controller entries and all 254 executable source
+  bindings. Original terminal records remain unchanged. The full TRAIN index
+  contains **1,295 records / 1,209 components** and yields five extremal records,
+  or 25 ordered B2 cases for the later fresh-process memory experiment.
+- Compact accounted entries sum to **16,245,576,971 bytes**; decoded entries
+  sum to **34,767,811,358 bytes**. Full TRAIN does not fit the earlier 8 GiB
+  cache. These are entry-accounting sums, not RSS or activation/OOM bounds.
+  The scalar index and its finite case selection do not establish memory safety.
+- The CUDA identity fixture preserves reported state/loss/RNG across
+  direct0/1/2/4 and accounts for **40 updates / 80 draws**, including resume.
+  Review found that its old resume helper loads into already-correct training
+  objects, so a no-op restoration could pass. Queue reconstruction and own
+  checkpoint byte hashes are verified; effective fresh-runtime restoration
+  remains unproven. This limitation is sealed in the
+  [fixture/index review](experiments/PERFORMANCE_REPLAY_PREFETCH_FIXTURE_INDEX_REVIEW.md).
+- A separate historical C2 synthetic gate now reconstructs model, AdamW,
+  scheduler and scaler before restore and rejects omitted restoration of full
+  state, Adam or RNG. Its local five-module gate reports **181 passed, five
+  CUDA skips, two warnings in 91.97s**. The full 108-update target CUDA gate
+  later completed as recorded below; real TRAIN C2 remains pending. Historical track pitch statistics
+  remain unchanged; this does not introduce the separate WS1 behavior.
+- After **68 target controller tests passed in 0.68s**, controller-v6 launched
+  `EXP-9EP1-PREFETCH-RESERVATIONS-001` at **14:09:15 UTC**. It serially measures
+  120 exact B2 jobs (200 measured + 40 warmup draws), with no model updates.
+  The frozen plan reserves **455 MiB per job**, five slots and **2,275 MiB
+  globally**, derived from the complete index. It completed at **14:11:27 UTC**:
+  all 120 jobs fit; the reported maximum is **41,565,463 bytes** across 219
+  scheduled TRAIN records. Independent import **EVIDENCE-006 completed**:
+  all 12 run artifacts, 16 controller entries, 254 source bindings and 120
+  size rows verified. Serialized reservations are not process-tree memory limits.
+  [Reservation review](experiments/PERFORMANCE_REPLAY_RESERVATION_REVIEW.md)
+  preserves the exact scope and observed sizing inter-op setting of 28.
+- The next C2 source overlay was deployed at **14:23:34 UTC**, adding exactly
+  two executable files and their test while preserving all prior 254 source
+  files. The controller passed independent review and the root local gate
+  (**70 passed, one Linux-only skip in 2.33s**). The combined 14-module
+  target gate passed **513 tests, zero skips, 40 warnings in 140.66s**,
+  including the Linux ownership test. The registered synthetic C2 gate ran
+  from **14:35:13 to 14:36:19 UTC**: **108 updates / 216 draws**, nine exact
+  branches reported completed. Controller and observed owned processes exited.
+  Independent **EVIDENCE-007 completed**: 108 trace rows, 18 run artifacts,
+  19 controller entries, source256 and four own-checkpoint hashes verified.
+  Fresh-object restoration is accepted on this synthetic C2 protocol;
+  real TRAIN C2 remains pending. See the sealed
+  [C2 restoration review](experiments/PERFORMANCE_REPLAY_C2_RESTORATION_REVIEW.md).
+  Parent thread settings use getters, but exported worker settings are constants;
+  actual per-worker runtime observations remain required for production acceptance.
+  The subsequent finite memory gate is now accepted above. Next: the reviewed
+  worker telemetry overlay and new reservation sizing, the fixed one-repeat
+  direct0/1/2/4 worker screen, then separately sized three-repeat
+  acceptance of the selected configuration. Canonical runs and TEST/VALIDATION
+  remain outside performance execution. Earlier dated snapshots are historical.
+
+## C0 performance replay — 2026-09-06, compact cache verified
+
+- `EXP-9EP1-GPU-THROUGHPUT-002` completed at **13:03:39 UTC**. Independent
+  `EXP-9EP1-GPU-EVIDENCE-004` is completed: **36 run artifacts, nine controller
+  entries, nine accepted source bindings, 2,400 primary rows and 4,602 GPU
+  samples** checked; original terminal bytes and full evidence retained.
+  Three B2 pairs preserve loss/gradient-norm/draw/graph traces and saved
+  complete-state/RNG/schedule fingerprints. Exported tensors were unavailable
+  for a second independent rehash; this is an uninterrupted identity replay.
+- Median throughput is **1.838590 → 5.332404 records/s**, ratio **2.900269**
+  (+190.03% throughput; 65.52% less measured time). The >=20% target passes
+  for this warm all-hit workload. Warmup plus measured schedules cover 690
+  distinct TRAIN records; the measured 800-draw suffix contains 602. Each
+  optimized measured arm has 800 hits, zero misses and zero evictions.
+  The cache holds 8,420,704,345 accounted bytes under the 8 GiB cap.
+- This is not full-training readiness or a guaranteed 2.9x 120k speedup.
+  All 1,295 TRAIN records cannot fit the 1,024-entry cap; byte distribution
+  and long-run misses remain unknown. The 519–526-second population prewarm
+  is excluded. RSS reaches a **10.13 GB process-lifetime high-water mark**,
+  not a fresh per-arm peak or a global 8 GiB memory guarantee. Details and
+  scope: [compact-cache review](experiments/PERFORMANCE_REPLAY_COMPACT_CACHE_REVIEW.md).
+- Final local twelve-module prefetch integration gate: **407 passed, five
+  CUDA skips, three warnings in 95.04s**. A later full-TRAIN-membership
+  guard adds two regression cases; its final focused module passes
+  **49 tests, two warnings in 11.44s**. The source capsule with that fix is
+  deployed only to the isolated performance checkout. The complete target
+  runtime twelve-module gate passed **414 tests, 40 warnings, no skips in
+  88.17s**. The accepted receipt binds all 254 executable source files,
+  controller, target test log and completed EVIDENCE-004.
+- Next is the registered target-CUDA fixture/resume gate and full TRAIN
+  size index, followed by exact-job reservations and the direct0/1/2/4-worker
+  screen on original preparation plus optimized update. The screen remains
+  200 measured + 40 warmup draws per arm, one repeat, B2. Selected three-repeat
+  prefetch, fresh-process extreme-memory and historical C2 equivalence gates
+  remain required. Controller-v5 reports the registered CUDA fixture/resume
+  gate completed and the full TRAIN index running from **13:22:54 UTC**;
+  their independent evidence import is planned as EVIDENCE-005. Remote source
+  is frozen until that queue exits. No canonical C0/C2 model, checkpoints, TEST or VALIDATION
+  were changed by this work. Earlier dated snapshots below remain historical.
+
+## C0 performance replay — 2026-09-06, update isolation verified
+
+- `EXP-9EP1-GPU-UPDATE-ONLY-001` completed at 11:30 UTC. The original data
+  path in both arms gives **1.856601 → 2.185625 records/s**: **17.72%** higher
+  throughput, or **430.895 → 366.028 seconds** for 800 measured draws per arm.
+  All 400 B2 pairs preserve per-update losses, gradient norms and draws;
+  full-state/RNG/schedule fingerprints agree. One repeat is not the required
+  three-repeat acceptance, and its improvement is below the 20% target.
+- Full update time falls **144.533 → 80.236 seconds**, accounting for 64.30
+  of the 64.87 seconds saved. Original loading is essentially unchanged at
+  **267.502 versus 266.967 seconds**, about 73% of the optimized window.
+  Do not subtract separate historical runs to estimate a pure cache effect.
+- Completed `EXP-9EP1-GPU-EVIDENCE-003` retained the terminal source record
+  unchanged and verified **16 artifacts, eight controller entries and nine
+  source bindings**, primary metric/loss traces and 1,660 GPU telemetry rows.
+  Archive SHA: `4f9811f0248f302e4ae707a236d43882d3cc857bcd3a65f79fe6c062ec31d56d`.
+  Whole-device GPU samples include the exempt desktop process; process RSS
+  remains a lifetime high-water mark, not an isolated peak for each arm.
+- The local compact-cache candidate retains original hash-verified sidecar
+  JSON bytes and decodes a fresh dictionary per consumer. Graph copying,
+  validation, labels/provenance and the 8 GiB accounted limit remain. A local
+  regression run passed **149 tests, five CUDA skips, two warnings in 11.17s**.
+  This does not establish production speed or peak memory safety.
+- The new protocol constructs no prepared cache globally or in baseline
+  arms. Optimized arms alone get a fresh bounded LRU; previous caches are
+  released and collected outside warmup/measurement. Tests cover cyclic
+  ownership, optimized-first rotation and exact state restoration. Final local
+  gate: **152 passed, five CUDA skips, two warnings in 13.83s**; actual server
+  gate: **157 passed, 40 warnings in 10.99s**.
+- `controller-v4` launched `EXP-9EP1-GPU-THROUGHPUT-002` at **11:46:58 UTC**,
+  parent throughput-001. It compares the compact-cache-plus-update package
+  against the original baseline: B2, three rotated repeats, 800 measured +
+  160 warmup draws per arm, same 8 GiB accounted cap. No result is known yet.
+  Planned `EXP-9EP1-GPU-EVIDENCE-004` will import only after terminal exit.
+- Pure local memory-index helpers now compute graph sizes, unique CPU
+  storage, separate decoded/compact entry accounting and deterministic ordered
+  B2 extreme cases from explicitly supplied TRAIN identities. Root review
+  accepted their stated limits; the agent's six-module regression reports
+  **187 passed, five CUDA skips, three warnings in 14.46s**, including 35 new
+  memory tests. No corpus index or GPU memory gate has run; these helpers are
+  not deployed to the running remote source.
+- The user's next priority is bounded ordered CPU multiprocessing prefetch.
+  Local implementation is proceeding in parallel; planned worker-count
+  screening is **0/1/2/4 on one fixed frozen-data + optimized-update package**,
+  followed by a separately registered three-repeat gate. Preserve committed
+  sampler/RNG/resume semantics, warm TRAIN-only reads, aggregate buffer
+  accounting, bounded worker/thread counts and failure propagation. Do not
+  duplicate an 8 GiB cache per worker or change active remote source.
+  Canonical C0/C2, TEST/VALIDATION and legacy remain untouched.
+- The local ordered-prefetch prototype passed **17 synthetic tests, two
+  warnings in 23.46s** and independent source review. It requires explicit
+  synthetic opt-in for injected callables, sealed production sources and a
+  measured reservation manifest; preserves parent RNG and committed cursor;
+  handles delayed/failed/partial IPC frames with owned-process cleanup.
+  Production spawn, CUDA parent-state/resume, aggregate memory and throughput
+  remain unmeasured. The zero-worker performance control will prepare directly
+  without unnecessary pickle encoding/decoding. Replay integration and its
+  separate reservation-size gate are still being developed locally.
+- The separate registered TRAIN memory-index CLI is prepared and reviewed
+  locally: **24 new synthetic tests**, with a four-module regression reporting
+  **139 passed, three warnings in 11.64s**. It plans before source startup,
+  prebinds the full TRAIN assignment, streams compact size rows and retains
+  partial failures. No actual index has run. Its read observations remain
+  explicitly unknown beyond the guarded source/binding evidence; it does not
+  claim a system-wide I/O trace or establish prefetch/RSS/OOM safety.
+- The ordered-prefetch replay and registered reservation gate are now integrated
+  and independently reviewed locally. The root ten-module gate passed
+  **337 tests, five CUDA skips and three warnings in 85.85s**. Worker zero
+  prepares directly; 1/2/4-worker arms share the original frozen preparation
+  and optimized parent update. Completed reservation evidence binds exact
+  scheduled jobs and their unchanged per-job reservations. Full-model CPU
+  tests cover logits, Adam/RNG and serialized resume with pending jobs.
+  These sources remain local while controller-v4 runs; target CUDA resume,
+  production spawning, throughput and aggregate memory remain unverified.
+- The initial worker screen is specified as **200 measured + 40 warmup draws
+  per arm, B2, one repeat, workers 0/1/2/4**. This respects the existing minimum
+  of 100 measured production updates; it is only a screen. The selected
+  worker configuration will require new sizing evidence for the separate
+  800 + 160 draw, three-repeat comparison. A fresh-process B2 extreme-case
+  memory runner is being prepared locally; no full TRAIN index or memory
+  acceptance has occurred.
+
+## C0 performance replay — 2026-09-06, negative throughput result and isolation
+
+- `EXP-9EP1-GPU-THROUGHPUT-001` completed at 10:15 UTC with all three B2
+  loss-trace/full-state/RNG/schedule pairs exactly equal. Median records/s:
+  reference B2 **1.649032**, prepared-cache B2 **1.192079**, B4 **1.240876**,
+  B8 **1.276667**. B2 is **0.722896x** reference (27.71% lower throughput),
+  so the production speed target is **not met**. The completed record is
+  valid negative engineering evidence; it is not relabelled as a failed run.
+- `EXP-9EP1-GPU-EVIDENCE-002` verified and retained the original diagnostic-002
+  and throughput-001 records, all **96** listed artifacts and **11** controller
+  entries. Primary metric row counts, loss fingerprints, graph counts and B2
+  schedules/pairs were recomputed. Full traces remain ignored; archive SHA
+  `13338367f206d0437564bfb5beb36284d83c9e86b37850d4d955131b2c82bfea`.
+- Each measured optimized arm has **189 cache hits / 611 misses** across 800
+  draws. B2 preparation takes 571–574 seconds; update time alone improves by
+  51–60 seconds per 400 updates. Expanded sidecar copies/accounting are
+  plausible preparation costs, but existing nested timings do not isolate
+  each one. The short instrumented diagnostic's apparent speedup did not
+  survive this broader unprofiled measurement.
+- Added opt-in `--optimized-data-strategy frozen`: both arms use original
+  loading/collation/identity/H2D, and only the update implementation differs.
+  No prepared graph cache is constructed. The old prepared-cache default
+  remains available. Declared data strategies must be present and match in
+  returned evidence, otherwise the registered attempt fails closed.
+- Independent review accepted the new routing and evidence bindings. Local
+  gate: **136 passed, 5 CUDA skips, 2 warnings in 10.75s**. Actual server
+  runtime gate: **141 passed, 40 warnings in 7.80s**. A deployment precheck
+  first matched its own SSH shell; it changed no source, and the resulting
+  old-source test run is not counted as the new gate. Exact argument matching
+  and shell fail-fast preceded the fresh successful gate.
+- Exclusive `controller-v3` started `EXP-9EP1-GPU-UPDATE-ONLY-001` at 11:03
+  UTC, parent throughput-001: B2 only, 800 measured + 160 warmup draws per arm,
+  one unprofiled repeat. This isolates the update change; it is not the
+  three-repeat speed acceptance. Current queue/socket/PID are in ignored
+  `outputs/phase9ep1/coordination.json`. No canonical/legacy changes, new
+  scientific training or TEST/VALIDATION access. C2-path equivalence and
+  worst-case TRAIN memory acceptance remain separate requirements.
+- [Detailed negative-result review](experiments/PERFORMANCE_REPLAY_GPU_REVIEW.md).
+
+## C0 performance replay — 2026-09-06, first GPU gate and retry
+
+- The canonical process exited and the exclusive first queue ran. Its exit
+  does not establish successful C0 completion or final model quality; those
+  results were not inspected in this performance task.
+- `EXP-9EP1-GPU-FIXTURE-001` completed on the actual Torch 2.2.2/CUDA 11.8
+  environment with exact B2 loss, full training-state, RNG and schedule
+  equality. The 16-draw fixture measured 9.9701 records/s for reference B2 and
+  15.6438 for optimized B2 (about 1.569x). This is a short synthetic gate,
+  not a real-graph throughput estimate.
+- `EXP-9EP1-GPU-DIAGNOSTIC-001` failed during prewarm, before model updates:
+  the new loader wrongly required `CanonicalPiece.split == "train"` although
+  Dilemmadata intentionally produces `split=None`. Runtime TRAIN authority is
+  the frozen B3 assignment and matching cache metadata. The minimal fix accepts
+  `None` or `train` without changing the piece; explicit non-TRAIN values still
+  fail, and the authoritative gate still precedes cache reads.
+- The original terminal records and all 30 listed artifacts, plus 10 controller
+  manifest entries, were imported unchanged and verified under completed
+  `EXP-9EP1-GPU-EVIDENCE-001`. The archive is in ignored content-addressed
+  storage. The failed parent's unknown access observations remain unchanged;
+  import verification does not replace them with policy assertions.
+- Added explicit sealed terminal parent linkage for retries in the opt-in CLI
+  and evidence wrapper. Independent review accepted the data fix, parent
+  linkage and replacement queue. Local joint gate: **118 passed, 5 CUDA skips,
+  2 warnings in 9.71s**. Same-runtime server joint gate: **123 passed,
+  40 upstream warnings in 6.31s**, including CUDA logits/gradient/state and
+  checkpoint/resume tests. An earlier remote test invocation lost its output
+  through a stalled SSH channel and is not counted as a passed gate.
+- A new exclusive `controller-v2` launched `EXP-9EP1-GPU-DIAGNOSTIC-002` at
+  04:42:40 UTC, linked to failed diagnostic-001. Only after exact equivalence
+  succeeds will it launch `EXP-9EP1-GPU-THROUGHPUT-001`, linked to diagnostic-002.
+  The current controller path and restored SSH socket are in ignored
+  `outputs/phase9ep1/coordination.json`; controller-v1 is sealed history.
+- At 04:56 UTC the remote terminal diagnostic-002 record reports **completed**
+  at 04:51:03, with identical reference/optimized B2 initial and final full-state,
+  per-update loss-trace, final RNG and schedule fingerprints on real TRAIN
+  graphs. This short instrumented pass is not the throughput acceptance test.
+  The queue started `EXP-9EP1-GPU-THROUGHPUT-001` at 04:51:08 and it remains
+  running. `EXP-9EP1-GPU-EVIDENCE-002` is planned for verified import after the
+  queue exits. The diagnostic retained about 5.29 GB of artifacts; bulk copying,
+  hashing and compression are deferred so they do not contend with benchmark
+  CPU/I/O. Full local artifact verification therefore remains pending.
+- No frozen training/model source, canonical environment/cache/output, legacy
+  logic or scientific protocol changed. Production speedup and worst-case
+  graph memory acceptance remain pending. The five-minute coordination
+  heartbeat remains active and stays quiet while execution proceeds normally.
+
+## C0 performance replay — 2026-09-06, GPU execution pending
+
+- User authorized autonomous implementation, isolated experiments and SSH to
+  their GPU host; the canonical C0 run and both existing server checkouts stay
+  unchanged. Added opt-in preparation/update/measurement/replay/evidence
+  modules and CLI on `codex/develop`, with no legacy reuse or dependency
+  change to C0. Historical training/model/graph modules remain byte-identical.
+- Registered read-only preflight `EXP-9EP1-PREFLIGHT-001` is completed. Both
+  server checkouts share head 97d7c0b8a7be5313d993076fae96fea3d39539fd;
+  the active checkout is `~/music_critic_v2`, but C0 uses the older environment
+  under `~/Paper/critic/outputs/phase9eb1/environment/venv`: Python 3.12.8,
+  Torch 2.2.2+cu118, PyG 2.6.1. The normal `.venv` directories use Torch 2.13.
+  This runtime distinction must remain explicit in later C0/C2 interpretation.
+- New-source gate in C0's actual environment, with CUDA hidden: **94 passed,
+  5 CUDA skips, 39 upstream warnings in 4.62s**. Missing pytest was supplied
+  through an isolated test-only folder; the active environment was not modified.
+  Tests cover masks/alignment, exact logits/loss/pre/post-clip gradients,
+  immutable graph caches, corrupted bindings, exact frozen checkpoint/resume,
+  equal-draw measurements and failure/evidence lifecycle.
+- `EXP-9EP1-CPU-FIXTURE-001` is **completed**, with 9,600 measured draws across
+  12 arms (800 per arm, three rotated repeats). Median records/s: original B2
+  **20.1267**, optimized B2 **40.4289**, optimized B4 **70.9255**, optimized B8
+  **111.7123**. B2 is about **2.009x** faster on this tiny synthetic CPU workload.
+  All three B2 pairs have exactly equal loss traces, complete training-state,
+  RNG and draw-schedule fingerprints. This is not production GPU/quality evidence.
+- Independent review corrected per-arm LRU initialization and evidence
+  finalization corner cases before that run. GPU graph validators, original
+  loss, every-update finite/clip guards, per-sample BiGRU and Dropout execution
+  remain enabled. No scientific batch or model change was accepted.
+- A separate server checkout `~/music_critic_perf_20260906` holds the reviewed
+  source. An exclusive bounded queue waits for canonical C0 to exit, then runs
+  `EXP-9EP1-GPU-FIXTURE-001`, `EXP-9EP1-GPU-DIAGNOSTIC-001` and
+  `EXP-9EP1-GPU-THROUGHPUT-001`; each registers before execution and stops the
+  queue on failure or an equivalence mismatch. The queue checks accepted source
+  hashes before each run and records external GPU utilization separately.
+- [Protocol and claim boundaries](PERFORMANCE_REPLAY.md). Full local evidence
+  is under ignored `outputs/phase9ep1/`; operational coordination details are
+  in ignored `outputs/phase9ep1/coordination.json`. GPU speedup, worst-case
+  production batch memory and final C0-120k results remain unverified.
+
+## Training mechanics audit — 2026-09-05
+
+- Added six permanent synthetic CPU checks on `codex/develop`, based on
+  da8c9dcd999a4b522f87f9a20bf3506ad26497b7. No production source, frozen profile,
+  scientific record, main branch or live C0 state changed.
+- The full fixed128 corrected model learned two opposing artificial patterns
+  in all 18 heads through 80 actual applied updates: loss 3.7118869 → 0.0079506,
+  6/36 → 36/36 correct. Reversed-batch and identical-input controls passed.
+  This proves bounded learning mechanics, not musical semantics or generalization.
+- WS2 checks confirm coherent hidden-pitch masking, unavailable/unsupported
+  objectives and mixed → theory-only → SSL-only → unavailable transitions
+  without stale-gradient or inactive-parameter updates.
+- Joint 14-module gate: **228 passed, 2 CUDA skips, 1 failed, 2 warnings in
+  34.21s**; all six new tests passed. The old MLP initialization hash test also
+  fails alone on unchanged f0e0886 with the same actual hash. Exact cross-runtime
+  cause remains unknown; neither expected hash nor dependencies were changed.
+- The audit records 25 structurally unused final-branch tensors (231,680
+  parameters, about 6.3%) and the known empty-candidate gather-before-mask
+  limitation of historical loss/metrics; the WS2 wrapper already guards its
+  own loss path. No ordinary nonempty-batch learning stopper was found.
+- [Full audit and reproducible checks](workstreams/2026-09-05/TRAINING_MECHANICS_AUDIT.md)
+  separate passed mechanics, unresolved limits and future production-runner
+  work. No real-data run, TEST access, trained checkpoint load, SSH or legacy
+  inspection occurred. C0/C2 effectiveness and SSL retention/collapse remain
+  empirical questions.
+
 ## Stable main and development branch — 2026-09-05
 
 - The user changed the repository layout: `main` remains at the published
@@ -4801,3 +6895,43 @@ not clamped or mutated.
   source group and smoke report fingerprint. History R1/R2 is retained in the
   handoff. Coordinator status is again `changes_requested` pending integration
   re-review; no real data/checkpoints/TEST or legacy were accessed.
+
+- Fusion posthoc001 registered separately after both originals became aborted.
+  The retained helper passed36independent unit tests in1.434s; an initial local
+  setup error came only from its relocated fixture source path and was fixed
+  in the test wrapper, leaving helper/source bytes unchanged. Local restricted
+  model-only verification checked all four exports, finite tensors and exact
+  contract/state fingerprints:0.159s,337.11MiB peakRSS,0forwards/updates. Both
+  selected-best base states equal the original C2 state; final states differ.
+  A CPU-only streaming pass now reads the two3.26GB summaries under512MiB
+  address-space and3600s wall limits. Original report/manifest are not recreated.
+  Full optimizer/checkpoint resume validation is outside this posthoc scope.
+
+- Posthoc001 completed696.62s, exit0. Compact import matched summary/model
+  pins and recalculated108head means/6primary means from3744retained class
+  rows, plus10104journal entries and exactpaired draws. Original dispatcher's
+  large prediction-history serialization remains an engineering limitation;
+  the posthoc tool recovers this run, not a production logging fix. No further
+  real fusion dispatch should occur until a separate tested logging change.
+
+- Final independent fusion review completed:108head means,6primary means,
+  common populations/supports, selection, joint/novelty and4export byte/state
+  cross-links agree;660review assertions,0failures (not independent scientific
+  tests). Root posthoc001 is now completed; both originalarm records remain
+  aborted. All66registry records validate and the ledger is regenerated.
+  Context,SSL andfusion have completed outcome review; broader directions
+  await discussion. No legacy logic used, new model code, commit or push.
+
+- The existing ten-minute music-critic heartbeat was paused through the app
+  after all three outcome reviews and record closure. No replacement automation
+  or experiment was created. Next work requires discussion of these results.
+
+## Russian report of the completed pilots — 2026-09-13
+
+Added the [Russian final report](experiments/RESEARCH_PILOTS_20260913_REPORT_RU.md)
+with metric definitions, protocols and outcomes for context, structural SSL
+and fusion, all18final fusion heads, the preserved report abort, verification
+limits and remaining logging work. Figures were drawn from the existing
+completed records and independent reviews; no new experiment or model change.
+Document checks:42table rows including headers/separators,18fusion head rows
+and7local source links verified. Experiment records remain unchanged.

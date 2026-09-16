@@ -270,14 +270,9 @@ def _predict_piece(model: CorrectedAnalysisGNNModel, piece: CanonicalPiece, view
     return task_rows, binding
 
 
-def evaluate_frozen(model: CorrectedAnalysisGNNModel, inputs: Iterable[EvaluationPiece], *, split: str,
-                    checkpoint_evidence: dict | None = None) -> dict:
-    """Evaluate declared synthetic input providers; targets open after predict.
-
-    Iterating ``inputs`` itself may read sources, so the gate must precede it.
-    Only eval-mode CPU models are accepted; this function never changes mode.
-    """
-    guard_execution(split)
+def _evaluate_core(model: CorrectedAnalysisGNNModel, inputs: Iterable[EvaluationPiece], *,
+                   checkpoint_evidence: dict | None = None) -> dict:
+    """Compute frozen CPU metrics after the caller's execution/access guard."""
     if any(module.training for module in model.modules()) or any(p.device.type != "cpu" for p in model.parameters()):
         raise ValueError("pop909_frozen.cpu_eval_model_required")
     initial_state = model_state_fingerprint(model)
@@ -350,15 +345,29 @@ def evaluate_frozen(model: CorrectedAnalysisGNNModel, inputs: Iterable[Evaluatio
         views[view_id] = {"role": "primary" if view_id == "native" else "secondary",
                           "input_bindings": bindings, "view_fingerprint": fingerprint(bindings),
                           **_summarize(rows, piece_rows), "event_observations": rows}
-    payload = {
-        "schema_version": REPORT_SCHEMA, "protocol": evaluation_protocol(),
-        "split": split, "provenance": {"kind": "caller_declared_synthetic_fixture", "scientific_quality_evidence": False},
-        "access_observations": {"synthetic_piece_count": len(piece_rows), "target_reader_calls": len(piece_rows),
-                                "real_data_execution_enabled": False, "test_inputs_accessed": False,
-                                "test_targets_accessed": False, "test_metrics_accessed": False},
+    return {
         "model": {"contract": model_contract, "state_fingerprint": initial_state,
                   "checkpoint_evidence": checkpoint_evidence},
         "pieces": piece_rows, "views": views,
+    }
+
+
+def evaluate_frozen(model: CorrectedAnalysisGNNModel, inputs: Iterable[EvaluationPiece], *, split: str,
+                    checkpoint_evidence: dict | None = None) -> dict:
+    """Evaluate declared synthetic input providers; targets open after predict.
+
+    Iterating ``inputs`` itself may read sources, so the gate must precede it.
+    Only eval-mode CPU models are accepted; this function never changes mode.
+    """
+    guard_execution(split)
+    core = _evaluate_core(model, inputs, checkpoint_evidence=checkpoint_evidence)
+    payload = {
+        "schema_version": REPORT_SCHEMA, "protocol": evaluation_protocol(),
+        "split": split, "provenance": {"kind": "caller_declared_synthetic_fixture", "scientific_quality_evidence": False},
+        "access_observations": {"synthetic_piece_count": len(core["pieces"]), "target_reader_calls": len(core["pieces"]),
+                                "real_data_execution_enabled": False, "test_inputs_accessed": False,
+                                "test_targets_accessed": False, "test_metrics_accessed": False},
+        **core,
     }
     return {**payload, "report_fingerprint": fingerprint(payload)}
 

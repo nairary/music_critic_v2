@@ -1,5 +1,9 @@
 # POP909-CL frozen corrected-model evaluation
 
+2026-09-07 extension: [POP909_CL_TRANSFER](POP909_CL_TRANSFER.md) describes the
+separate explicit TRAIN/VALIDATION entrypoint. This document's original v1
+API, execution guard and report remain synthetic-only.
+
 WS4, 2026-09-05. Implementation gate for future transfer evaluation, based on
 `f0e0886161c9f67786011508006db61c803c1752`. This additive protocol evaluates
 root and quality only. It neither reproduces AnalysisGNN's paper evaluator nor
