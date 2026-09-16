@@ -44,7 +44,13 @@ Git bundle was cloned successfully with all three refs and main/fusion separatio
 checked. The final nine-file release records its completion in the last-uploaded
 `releases/20260916-temporal-main-r1/COMPLETE.json`. Original manifests remain immutable; relocation
 changes paths only. CLI authentication stays on Mac; no IAM token reached the
-GPU host. Public GitHub publication is separately awaiting explicit approval.
+GPU host. User explicitly authorized public GitHub publication on2026-09-16
+to `nairary/music_critic_v2`: temporal in `main`, unfinished fusion in
+`codex/fusion`, and the preserved full source snapshot in
+`codex/research-preserved-20260916`. Publication includes tracked source,
+tests and compact reports; datasets, full logs, checkpoints and credentials
+remain outside Git. Uncommitted parallel cloud-planning edits are preserved
+locally and are not included in this publication.
 
 Focused integration253passed; temporal168passed; worker tests outside the
 Mac sandbox5passed; fusion branch87passed. Full Linux CPU run initially had
