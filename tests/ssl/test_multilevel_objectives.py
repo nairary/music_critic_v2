@@ -529,7 +529,9 @@ def test_level_loss_is_invariant_to_batch_partition_and_sample_order():
             reference["numerator"], abs=1e-6
         )
         assert candidate["mean_loss"] == pytest.approx(
-            reference["mean_loss"], abs=1e-7
+            # Float32 matmul/reduction order can differ by one ULP between
+            # full and singleton batches (observed on the x86 CPU runtime).
+            reference["mean_loss"], abs=2 * torch.finfo(torch.float32).eps
         )
 
 

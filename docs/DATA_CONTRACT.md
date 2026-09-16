@@ -1,6 +1,44 @@
 # Music Critic V2 Data Contract
 
+**2026-09-16 integration:** temporal/C2 is selected for main. Shared frozen
+TRAIN/VALIDATION loading moves to `frozen_training_data.py`; schema identifiers,
+source payloads, masks and historical fingerprints remain intact. Cloud bundles
+retain the original manifest and derive a relocated manifest by changing only
+operational paths. TEST payloads do not enter prepared training bundles.
+
+
 Status: **ACCEPTED FOR PHASE 1 IMPLEMENTATION**.
+
+Opt-in Phase9E temporal extension (2026-09-15): `RawTemporalSliceGraph@1.0.0`
+wraps the unchanged production graph with exact raw attack/release/beat-boundary
+slices. `TemporalSliceTargets@1.0.0` routes targets only after predictions;
+harmonic fallback uses existing raw beats, cadence has no fallback, note IDs
+and source masks remain intact. Per-row historical common-support masks are
+separate from expanded support. This does not change canonical schema or
+historical caches. The isolated temporal campaign and its new cache/IPC schemas
+are described in the [detailed contract](TEMPORAL_SLICE_GRAPH.md).
+
+### Temporal cache and training bindings — 2026-09-15
+
+`TemporalSliceIdentityCache@1.0.0` retains private CPU identity graphs with the
+original authenticated sidecar JSON bytes. `TemporalSliceCPUPayload@1.0.0`
+serializes exact temporal positions as canonical integer numerator/denominator
+pairs, preserving raw node identity, sample boundaries and fallback namespaces.
+Old cache payloads cannot be interpreted as temporal graphs. TRAIN membership
+is checked before cache/source access; VALIDATION uses an explicit separate
+reader, and TEST payload access remains closed. Unavailable/masked targets never
+become negatives and cannot create graph nodes or edges.
+
+Batch collation owns its tensors and decoded sidecars, including duplicate
+record occurrences. Historical C2 pitch transforms run on the collated view;
+temporal times, relations and metric features remain unchanged. Known stale
+track pitch summaries are preserved for this comparison. The model-selection
+mask intersects new target coverage with historical support; expanded support
+is reported separately. Full training checkpoints bind data, source, runtime
+and the committed sampler/draw cursor. Disposable caches and prefetched jobs
+are excluded from resume state. The whole-TRAIN graph census and separate
+native training/resume and memory gates have passed for this source snapshot;
+the80k run has begun. These checks do not establish model quality.
 
 ## Phase 9E-B2 Dilemmadata raw-coverage remediation
 
@@ -2458,3 +2496,39 @@ position; detail and provenance are still checked. Non-TEST `scope` and
 `partition` fields remain legal—for example truthful TRAIN or VALIDATION
 metadata—and relative semantic paths are not mistaken for operational absolute
 paths.
+
+
+## DLC changes source target sidecar (2026-09-14)
+
+`DLCChangesTargets@1.0.0` is an isolated, TRAIN-fitted source-annotation sidecar;
+see [DLC_CHANGES_TARGETS.md](DLC_CHANGES_TARGETS.md). Atomic modifier presence is
+multilabel, with full-string parsing, chord-validity/context gates and explicit
+missing/conflict masks. Repeated TSV note rows share a source annotation target.
+Source row identity and serialized rational time are retained, but canonical
+alignment and true preparation/resolution links are not inferred. Empty fields
+are negatives only under the documented valid expanded DLC annotation contract.
+Targets, annotation IDs and gold boundaries cannot enter raw graph construction
+or define prediction candidates. This does not change the accepted canonical
+schema, existing task registry, caches, vocabulary or 18-head training policy.
+
+### Optional changes alignment gate (2026-09-14)
+
+`DLCChangesAlignment@1.1.0` consumes the source sidecar plus authenticated
+`DilemmadataRawTargetAlignmentEvidence`; it joins by exact source-row identity
+and canonical rational time, not floats or inferred gold spans. Candidates are
+all canonical raw note-attack onsets. Tied continuations retain their own source
+time and canonical note lineage without overwriting attack targets. Source
+anchors with no raw attack cannot introduce candidates. Ambiguous source,
+repair, vocabulary or coincident-label bindings are masked. Different sets
+inside one raw beat are diagnosed, never unioned into a new target.
+
+An additional notation-provenance gate requires agreement with literal chord
+parentheses or explicitly recognized It/Ger/Fr expansion. Unexplained fields
+are masked, not converted to absence. This gate is separate from the immutable
+initial lexical sidecar. Each supported annotation contributes total weight
+one across its usable onset positions. Masks, dense values, provenance and
+weights remain target-only. A view binding preserves these relative targets
+under whole-piece mode-preserving directed transposition, with the existing
+raw transform/range policy owned by the caller. It does not support independent
+part transposition or modal reharmonization. No new head or primary-loss change
+is implemented. [Gate results](experiments/DLC_CHANGES_ALIGNMENT_RU.md).

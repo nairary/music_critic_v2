@@ -1,0 +1,39 @@
+{
+  "schema": "WS2GroupMaskingScientificPlan@1.0.0",
+  "pilot": {
+    "seed": 17,
+    "updates": 200,
+    "mask_rate": 0.3,
+    "lambda_ssl": 0.7,
+    "lambda_theory": 0.3,
+    "learning_rate": 0.0003,
+    "max_samples_per_batch": 2,
+    "max_notes_per_batch": 8192,
+    "max_nodes_per_batch": 20000,
+    "max_edges_per_batch": 200000
+  },
+  "recovery": {
+    "seed": 17,
+    "updates": 100,
+    "mask_rate": 0.3,
+    "lambda_ssl": 0.0,
+    "lambda_theory": 1.0,
+    "learning_rate": 0.0003,
+    "max_samples_per_batch": 2,
+    "max_notes_per_batch": 8192,
+    "max_nodes_per_batch": 20000,
+    "max_edges_per_batch": 200000
+  },
+  "checkpoint_interval": 50,
+  "source_checkpoint": {
+    "kind": "C2_model_only",
+    "parent_experiment_id": "EXP-POP-TRANSFER-EXPORT-001",
+    "locator": "outputs/pop909_transfer/20260908/export-001/c2-model-only.pt",
+    "sha256": "a151dec0af22f25ac6ec8ad75927cf2889644284061fd7e35a129c67e836b797",
+    "size_bytes": 14844299,
+    "state_fingerprint": "82ed08304b565a1447062a95112c8a51b47ce75c8f46f07b858443236ba83f39"
+  },
+  "data_request": null,
+  "prepared_data": null,
+  "resume": null
+}

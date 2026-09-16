@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from fractions import Fraction
+from hashlib import sha256
 import os
 from os import PathLike
 from pathlib import Path
@@ -33,17 +34,26 @@ from music_critic.data import (
     TargetArray,
     TempoEvent,
     ValidationReport,
+    piece_to_dict,
     validate_piece,
 )
+from music_critic.data.serialization import dumps_canonical_json
 
 
 __all__ = [
+    "HOOKTHEORY_ADAPTER_VERSION",
+    "HOOKTHEORY_RAW_INPUT_VERSION",
     "HookTheoryAdapterConfig",
     "HookTheoryAdapterError",
     "convert_hooktheory_record",
     "load_hooktheory_piece",
+    "hooktheory_raw_input_bytes",
+    "hooktheory_raw_input_fingerprint",
 ]
 
+
+HOOKTHEORY_ADAPTER_VERSION = "2.0.0"
+HOOKTHEORY_RAW_INPUT_VERSION = "1.0.0"
 
 _TRACK_ID = "track:melody"
 _DEFAULT_TEMPO = 500_000
@@ -87,6 +97,9 @@ _NATURAL_TONICS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 class HookTheoryAdapterConfig:
     dataset_name: str
     include_targets: bool = True
+    # Bound into the corpus builder's explicit raw config projection. Target
+    # visibility stays in canonical provenance; old artifacts keep their IDs.
+    adapter_version: str = field(default=HOOKTHEORY_ADAPTER_VERSION, init=False)
 
 
 class HookTheoryAdapterError(Exception):
@@ -987,6 +1000,34 @@ def _borrowed(value: Any) -> tuple[str | None, bool]:
     return None, False
 
 
+def _clip_target_interval(
+    start: RationalTime,
+    end: RationalTime,
+    duration: RationalTime,
+    kind: str,
+    source_index: int,
+    piece_id: str,
+    flags: list[QualityFlag],
+) -> tuple[RationalTime, RationalTime, bool]:
+    """Keep target spans in raw time; empty intersections have no supervision."""
+
+    clipped_start, clipped_end = min(start, duration), min(end, duration)
+    available = clipped_start < clipped_end
+    if not available or clipped_start != start or clipped_end != end:
+        reason = "clipped_to_raw_timeline" if available else "outside_raw_timeline"
+        flags.append(
+            _flag(
+                f"hooktheory.{kind}_{reason}",
+                f"{kind} source index {source_index}: original interval "
+                f"[{start.num}/{start.den}, {end.num}/{end.den}); raw duration "
+                f"{duration.num}/{duration.den}; "
+                + ("retained overlap." if available else "all targets masked."),
+                piece_id,
+            )
+        )
+    return clipped_start, clipped_end, available
+
+
 def _annotations_and_targets(
     keys: Sequence[_KeyRegion],
     melody: Sequence[_MelodyValue],
@@ -1004,13 +1045,16 @@ def _annotations_and_targets(
     for index, key in enumerate(keys):
         annotation_id = f"span:key-{key.source_index:06d}"
         end = keys[index + 1].onset if index + 1 < len(keys) else duration
-        end = max(key.onset, min(end, duration))
+        end = max(key.onset, end)
+        start, end, available = _clip_target_interval(
+            key.onset, end, duration, "local_key", key.source_index, piece_id, flags
+        )
         annotations.append(
             AnnotationSpan(
                 annotation_id=annotation_id,
                 annotation_type="theory.local_key",
                 layer="target_alignment",
-                start_qn=key.onset,
+                start_qn=start,
                 end_qn=end,
                 track_id=None,
                 value=None,
@@ -1018,8 +1062,10 @@ def _annotations_and_targets(
             )
         )
         key_ids.append(annotation_id)
-        tonic_entries.append(_available(None if key.tonic_pc is None else str(key.tonic_pc)))
-        mode_entries.append(_available(key.mode))
+        tonic_entries.append(
+            _available(str(key.tonic_pc) if available and key.tonic_pc is not None else None)
+        )
+        mode_entries.append(_available(key.mode if available else None))
     targets.extend(
         (
             _target(
@@ -1068,19 +1114,27 @@ def _annotations_and_targets(
         )
     }
     for chord in chords:
+        start, end, available = _clip_target_interval(
+            chord.onset, chord.onset + chord.duration, duration,
+            "chord", chord.source_index, piece_id, flags,
+        )
         annotations.append(
             AnnotationSpan(
                 annotation_id=chord.annotation_id,
                 annotation_type="theory.chord",
                 layer="target_alignment",
-                start_qn=chord.onset,
-                end_qn=chord.onset + chord.duration,
+                start_qn=start,
+                end_qn=end,
                 track_id=None,
                 value=None,
                 provenance_id="prov:annotation",
             )
         )
         chord_ids.append(chord.annotation_id)
+        if not available:
+            for entries in chord_values.values():
+                entries.append(_available(None))
+            continue
         raw = chord.raw
         is_rest = raw.get("isRest") is True
         chord_values["presence"].append(_available("false" if is_rest else "true"))
@@ -1246,14 +1300,16 @@ def _provenance(
             source="music_critic.adapters.hooktheory",
             record_id=None,
             uri=None,
-            version="1",
+            version=HOOKTHEORY_ADAPTER_VERSION,
             checksum_sha256=None,
             created_at=None,
             parents=tuple(sorted(conversion_parents)),
             details=(
                 ("bpm_rounding", "nearest_integer_half_up"),
+                ("include_targets", include_targets),
                 ("meter_mapping", "numBeats;beatUnit1=4;beatUnit3=8"),
                 ("onset", "piecewise_raw_beat_to_qn;beatUnit1=1;beatUnit3=1/2"),
+                ("raw_timeline", "source_duration;melody_observable_timing;tempo;meter"),
                 ("source_order", "raw_event_index"),
                 ("tempo", "quarter_bpm_simple;felt_pulse_bpm_compound"),
             ),
@@ -1473,7 +1529,7 @@ def convert_hooktheory_record(
     tempos, tempo_flags, default_tempo = _select_tempos(payload, timeline, piece_id)
     keys, key_flags = _key_regions(payload, timeline, piece_id)
     melody, note_flags, note_end = _make_notes(payload, keys, timeline, piece_id)
-    chords, chord_flags, chord_end = _chord_regions(payload, timeline, piece_id)
+    chords, chord_flags, _ = _chord_regions(payload, timeline, piece_id)
     flags.extend(tempo_flags)
     flags.extend(meter_flags)
     flags.extend(key_flags)
@@ -1482,13 +1538,20 @@ def convert_hooktheory_record(
 
     content_end = max(
         note_end,
-        chord_end,
-        max((key.onset for key in keys), default=RationalTime(0)),
         max((event.onset_qn for event in tempos), default=RationalTime(0)),
         max((event.onset_qn for event in meters), default=RationalTime(0)),
     )
     duration, duration_flags = _raw_duration(payload, timeline, content_end, piece_id)
     flags.extend(duration_flags)
+    if not melody:
+        flags.append(
+            _flag(
+                "hooktheory.empty_melody",
+                "No sounding melody notes; duration uses only source duration and "
+                "observable melody/tempo/meter timing, never annotation extent.",
+                piece_id,
+            )
+        )
     bars, beats, bar_flags = _bars_and_beats(duration, meters, piece_id)
     flags.extend(bar_flags)
 
@@ -1556,6 +1619,68 @@ def convert_hooktheory_record(
     if report.errors:
         raise _validation_error(clip_id, report)
     return piece
+
+
+def hooktheory_raw_input_bytes(piece: CanonicalPiece) -> bytes:
+    """Serialize exact mandatory raw geometry for input identity/cache keys.
+
+    This projection has its own version and excludes targets, diagnostics,
+    split, source metadata and semantic provenance. ``dumps_piece`` remains
+    the separate, target-bearing canonical artifact serialization.
+    Only pieces produced by this adapter version may use the new identity;
+    historical artifacts must be rebuilt explicitly from their source.
+    """
+
+    encoded = piece_to_dict(piece)
+    if not any(
+        record.provenance_id == "prov:conversion"
+        and record.source == "music_critic.adapters.hooktheory"
+        and record.version == HOOKTHEORY_ADAPTER_VERSION
+        for record in piece.provenance
+    ):
+        raise HookTheoryAdapterError(
+            "raw input projection requires the current HookTheory adapter version; "
+            "historical pieces must be rebuilt explicitly from source",
+            clip_id=piece.piece_id,
+        )
+    fields_by_collection = {
+        "tracks": ("track_id", "source_track_index", "program", "channel", "is_percussion"),
+        "notes": (
+            "note_id", "track_id", "pitch", "onset_qn", "duration_qn",
+            "velocity", "channel", "program", "is_percussion", "is_grace",
+        ),
+        "bars": (
+            "bar_id", "index", "start_qn", "duration_qn", "meter_event_id",
+            "metric_offset_qn", "is_pickup", "is_incomplete",
+        ),
+        "beats": (
+            "beat_id", "bar_id", "meter_event_id", "index_in_bar", "start_qn",
+            "duration_qn", "position_in_bar_qn", "is_downbeat", "strength",
+        ),
+        "tempo_events": ("tempo_event_id", "onset_qn", "microseconds_per_quarter"),
+        "meter_events": ("meter_event_id", "onset_qn", "numerator", "denominator"),
+    }
+    projection = {
+        "raw_input_version": HOOKTHEORY_RAW_INPUT_VERSION,
+        "adapter_version": HOOKTHEORY_ADAPTER_VERSION,
+        "schema_version": encoded["schema_version"],
+        "piece_id": encoded["piece_id"],
+        "duration_qn": encoded["duration_qn"],
+        **{
+            collection: [
+                {name: row[name] for name in names}
+                for row in encoded[collection]
+            ]
+            for collection, names in fields_by_collection.items()
+        },
+    }
+    return dumps_canonical_json(projection).encode("utf-8")
+
+
+def hooktheory_raw_input_fingerprint(piece: CanonicalPiece) -> str:
+    """Return the SHA-256 of the versioned target-independent input bytes."""
+
+    return sha256(hooktheory_raw_input_bytes(piece)).hexdigest()
 
 
 def _find_structure_row(

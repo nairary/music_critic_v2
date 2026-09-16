@@ -1,5 +1,152 @@
 # Architecture Decision Log
 
+## 2026-09-16 — Promote completed temporal to main; isolate fusion development
+
+User explicitly selects the completed temporal/C2 implementation as the main
+working version, with unfinished fusion on a separate branch. This supersedes
+historical opt-in/default wording for branch selection only. Preserve original
+C2 APIs, exact temporal operator, task registry, loss, cache/resume semantics
+and immutable experiment evidence. Extract shared data/RNG utilities so main
+has no import dependency on experimental fusion models. Keep complete research
+snapshot and fusion training/testing code on named branches.
+
+This is repository organization and deployment preparation, not new quality
+evidence or a training launch. Attention remains the next hypothesis, without
+new GPU budget. Cloud transfer creates derivative operational paths/manifests;
+original payload checksums and terminal records remain unchanged. Do not reuse
+old runtime admission on a new cloud host. See [branch map](BRANCHES_AND_RELEASES.md).
+
+
+## 2026-09-16 — Prioritize temporal attention over further baseline training
+
+User explicitly declines continuing the completed temporal model to120k and
+selects the attention mechanism for the next improvement. Keep the80k checkpoint,
+terminal records and historical result unchanged. The primary gain is supported
+by `EXP-TEMPORAL-FINAL-002`; isolated timing causality, general critic quality and
+multi-seed superiority are not established.
+
+Selected direction: receiver-dependent attention over the current typed temporal
+edges, first normalized separately within each relation. Preserve the existing
+two rounds, width, raw slice candidates, eighteen tasks and output routing; keep
+the sum across relations and residual/normalization path. This isolates neighbor
+weighting from new topology, supervision or recurrence. Attention is a hypothesis,
+not an established benefit; no new learned semantic labels enter graph inputs.
+
+Windows at different metric scales, repeated note-memory reading, relation gates,
+relative edge features, changes supervision and JEPA remain separate experiments.
+This decision authorizes focus on that direction, not an unspecified GPU budget.
+The present explanatory task changes no model code, launches no training and
+inspects/reuses no legacy logic. The prior120k proposal is superseded, not erased
+from its immutable experiment report.
+
+## 2026-09-15 — Prioritize exact-time C2 after early MMoE termination
+
+User accepted the proposed switch: stopcurrentMMoE, retainbest/latest and
+prepare the ordinaryC2 temporal graph variant for fresh80k after admission.
+MMoE stopped at47186durableupdates; best40k and full47k are retained. This is
+an experiment-priority decision, not proof that MMoE can never recover or that
+the new graph improves quality. Positive45k unseen-tuple evidence remains.
+Keep18heads/classes, seed17,batch2, original120k LR horizon and C2transpose
+schedule; no fusion/MMoE in the new arm. Common-support validation must be
+reported separately from expanded raw-time coverage. Source/cache/checkpoint
+schemas stay distinct; require native equivalence, exactresume and resource
+admission before the80k launch. TESTremainsclosed.
+
+Admission subsequently passed in SIZING002, GPU-GATE002 and GPU-MEMORY002;
+`EXP-TEMPORAL-C2-80K-001` was launched from scratch. Failed predecessors
+remain preserved. The checkpoint fix normalizes TorchVersion metadata only;
+the memory-probe desktop exception verifies exact executables and bounded
+memory, without altering the admitted training source. No baseline promotion
+or quality conclusion follows from these engineering checks.
+
+## 2026-09-15 — Isolated temporal graph implementation after target coverage audit
+
+User approved implementing more exact event graphs while MMoE80k continues.
+Keep the strict production meaning of `onset` as note attack. Add separate
+raw temporal slices and bidirectional links to notes/onsets/beats/bars, plus
+neighboring slice links, in a late graph stage after unchanged C2 encoding.
+Reuse all18 heads/classes and loss with exact-time harmonic routing and the
+previously selected raw beat fallback. Note identity and metric hierarchy remain.
+This is an explicit wrapper schema, not a silent mutation of the six-type graph.
+
+`EXP-TEMPORAL-SLICE-CPU-001` supports bounded technical feasibility on four
+TRAIN works, not quality or accelerated campaign promotion. Complete cache,
+resume and GPU equivalence/sizing admission before a long run; retain historical
+common-support masks for comparison. Do not launch over the active MMoE80k.
+No legacy reuse or live-run changes. [Contract](TEMPORAL_SLICE_GRAPH.md).
+
+## 2026-09-15 — Raw-time preparation preserves source support with raw beat fallback
+
+`EXP-RAW-TIME-COVERAGE-001/002` establish raw-candidate coverage on all1295
+TRAIN records. Select the union of raw note attacks, note offsets and beat
+starts/ends for the next isolated readout prototype. Preserve every existing
+raw beat in a separate output namespace; an eligible harmonic target missing
+an exact candidate may retain its verified old beat route. Candidate creation
+must precede targets and must not select only beats that contain gold misses.
+Cadence does not borrow beat outputs; the chosen union covers its six formerly
+unmapped eligible TRAIN targets. Source masks/classes and note identity routes
+remain unchanged. Simultaneous label disagreement and rare coarse fallback
+conflicts remain explicit.
+
+Fine-only union is not lossless:412 eligible times in77 works are absent.
+The preserved-beat scheme retains all eligible native TRAIN rows; its residual
+slot-error floors are32root/30quality/5harmonic_rhythm. These are arithmetic
+constraints, not trained quality. Fixed subdivisions up to12 increased candidate
+counts without reducing these residual floors. The chosen scheme has1756692
+fine-plus-beat positions,3.25times the historical harmonic beat output count;
+this is not a training-time estimate.
+
+This decision selects a prepared candidate/routing contract, not a production
+architecture promotion. Current C2/fusion/MMoE models are unchanged. A learned
+time-specific readout, full-corpus integration and a later quality experiment
+are separate work. See [contract](RAW_TIME_READOUT_PREPARATION.md) and
+[evidence](experiments/RAW_TIME_READOUT_PREPARATION_RU.md).
+
+## 2026-09-15 — Two-group MMoE plus attention, one80k run
+
+User authorized two four-expert banks on beats and notes/onsets, each expert
+128→256→128 with GELU, with task-specific dense softmax gates before existing
+classifiers and retained beat attention-fusion. All18tasks train jointly.
+This is an opt-in architecture experiment; no baseline promotion or alteration
+of raw inputs, targets, loss, historical C2 orbit or120k scheduler. Run one
+fresh80k model after a native reference/accelerated gate. Compare to completed
+attention and historical C2; no new no-fusion control is authorized. Increased
+capacity and routing are changed together, so isolate those effects only in a
+later separately authorized ablation. See [protocol](GROUPED_MMOE_EXPERIMENT.md).
+
+## 2026-09-14 — Opt-in changes supervision uses raw onset candidates and notation provenance
+
+`DLCChangesAlignment@1.1.0` is a target-only research adapter for a future
+modifier head. Use every raw note-attack onset as a candidate; source labels
+cannot construct positions, graph topology or encoder inputs. Preserve exact
+raw-adapter tie/repair/time lineage. Do not merge distinct modifier sets within
+a beat: the bounded TRAIN gate found 59 such beats. Divide each supported
+source annotation's weight over its usable onset positions.
+
+Require literal chord/changes consistency or a specifically recognized
+It/Ger/Fr expansion. The earlier interpretation of `IM7 → ^#8` as normal
+expansion is not established and is superseded by a mask for unexplained
+correspondences. Preserve historical exports and source values. These targets
+describe annotated harmonic context, not individual prepared/dissonant/resolved
+notes or exhaustive sounding pitch sets. No existing 18-head route, cache,
+model, loss or training experiment is changed. A trained auxiliary-head
+comparison remains a separate opt-in experiment. Evidence:
+`EXP-CHANGES-ALIGNMENT-001/002`; [report](experiments/DLC_CHANGES_ALIGNMENT_RU.md).
+
+## 2026-09-14 — Separate task-attention ablation before MMoE
+
+User selected an AnalysisGNN-style attention fusion comparison before adding
+MMoE, and explicitly chose80000from-scratch updates per arm. Implement the
+upstream projection/self-attention/latent-residual/output mechanism in a new
+opt-in module, adapting it to our12aligned beat heads. Retain the remaining
+six heads, encoder, raw graph,18-task loss and historicalC2 schedule. This is
+not a full AnalysisGNN reproduction and does not replace the frozen baseline.
+Compare against a fresh control in the same pinned runtime; historical C2 is
+secondary descriptive context. Both arms use four workers and8GiBcache.
+Keep old linear-fusion artifacts/loaders distinct. MMoE placement and budget
+will be specified after reviewing this pair; no MMoE training is in this queue.
+See [protocol](TASK_ATTENTION_FUSION.md).
+
 ## 2026-08-25 — Stateful continuation bundles may be sealed parents
 
 - Decision: a verified Phase 9C-C continuation bundle may serve as the
@@ -4319,3 +4466,225 @@ This log is append-only.
 - Consequences: Routine STATUS edits no longer break PDMX replay, historical
   zero values cannot be mistaken for current counters, and each evidence layer
   retains its own time scope. No legacy source or runtime dependency is used.
+
+
+## 2026-09-05 — ADR-WS1-20260905: Version complete raw inputs separately from frozen experiments
+
+- Status: Implemented for WS1 review; integration and new experiments remain
+  separate decisions. Scope is Phase 9E input correctness and Phase 2B
+  HookTheory conversion, not a model or scientific-result change.
+- Context: Historical transposition changes note pitch but retains old track
+  mean/min/max statistics. HookTheory conversion formerly enlarged raw duration
+  using chord annotation extent and late key-target onsets; full-record cache
+  identity was also sensitive to annotations and target visibility.
+- Decision: Preserve `transposition.py`, all its frozen APIs and profile
+  fingerprints. Add `CompleteRawGraphTransposition@1.0.0` as a separate opt-in
+  API with a registry-bound contract fingerprint. Recompute note pitch/class/
+  octave, track mean/std/min/max and note relative pitch from actual ownership,
+  following existing builder availability and percussion policies. Retain
+  detached source integrity, topology, IDs and exact timing. The B5G signed
+  tritone inverse is reused unchanged; it is not a newly discovered defect.
+- Decision: Version HookTheory conversion as `2.0.0` and mandatory raw projection
+  as `1.0.0`. Source duration and observable melody/rest/tempo/meter timing
+  determine geometry. Clip overlapping annotation intervals; mask fully
+  outside intervals at the endpoint with explicit reasons. Empty observed
+  content can remain zero-duration. Do not change relative melody decoding.
+- Decision: Bind HookTheory corpus indices to the new adapter version and raw
+  fingerprint through existing `cache_input_sha256`. Its adapter config
+  fingerprint describes raw preparation only. Preserve target visibility in
+  conversion provenance, full source hashes in index lineage and full canonical
+  hashes in immutable artifact paths. Different labels may share a raw key but
+  cannot overwrite each other's artifacts. New projection rejects historical
+  pieces; no old record/cache is silently migrated. Generic cache/schema APIs
+  and every other corpus remain unchanged.
+- Consequences: The detailed contract is `docs/INPUT_CORRECTNESS_CONTRACT.md`.
+  Synthetic CPU rebuild/cache tests establish mechanics only. Historical C2
+  impact is unknown; frozen C0/C1/C2 remain reproducible. No current trainer
+  opts into the complete API and no experiment is launched. Future adoption
+  requires a new registered protocol/experiment and fresh artifacts, with TEST
+  closed until separately authorized. Legacy logic is not used.
+
+## 2026-09-05 — ADR-WS2: Strict corrected-theory warm-start and shared objective harness
+
+- Status: Implemented for synthetic CPU contract acceptance; scientific
+  warm-start/retention effectiveness remains untested.
+- Context: The existing SSL encoder export accepts the hierarchical baseline,
+  while the corrected model has a separate BiGRU and 18 task heads. A reverse
+  transfer must neither weaken that validator nor discard the theory branch.
+- Decision: Add `theory-ssl-warmstart@1.0.0` as a separate complete corrected
+  in-memory envelope with `synthetic_in_memory` provenance. Bind fixed model,
+  raw feature/graph and actual module contracts, complete state keys, shapes,
+  dtypes, finite tensors, tensor fingerprints and an explicit four-group
+  `k -> encoder.k` mapping before mutation. Retain BiGRU/head state separately;
+  never represent the full state as an encoder-only export or fabricate file
+  provenance. Application uses strict full loads with rollback.
+- Decision: Share the same transferred local/pooling/Transformer/fusion module
+  and Parameter objects across SSL and retained theory branches, without
+  aliasing the original source. Keep SSL mask/decoder/projectors fresh and
+  freeze/exclude its inherited unused task/reconstruction heads. Expose an
+  inventory with each active parameter exactly once.
+- Decision: Compose existing losses with explicit nonnegative coefficients on
+  caller-prepared raw batches/bindings and separately supplied sidecars/weights.
+  Theory labels join after raw prediction. Missing targets omit the term and
+  are diagnosed. Preserve historical 8/10 loss and full-view detached SSL
+  targets before the corrected BiGRU. A local subclass restores each child
+  train/eval flag after the inherited target pass, including failures.
+- Consequences: No shared trainer/model/graph/adapter/vocabulary changes,
+  dependency additions, frozen C0/C2 edits, or experiment runs are required.
+  The next scientific action needs a registered checkpoint-provenance protocol
+  and a predeclared retained-theory evaluation. See
+  `WS2_THEORY_SSL_HARNESS.md` and `workstreams/2026-09-05/WS2_RESULT.md`.
+
+## 2026-09-05 — ADR-WS3-001: PDMX source components precede raw bar windows
+
+- Status: WS3 implementation proposal, synthetic contract checks complete;
+  coordinator review/integration and real-source acceptance remain separate.
+- Scope: Phase 10 engineering foundation only. Existing canonical, corpus,
+  graph, split, SSL/trainer and historical PDMX EDA contracts remain unchanged.
+- Decision: Pin the supported MusicRender metrical JSON profile to upstream
+  source commit `5c6a25b613e4497469e855e8bd1423b1d834ff45`. This identifies the
+  parser's source definitions, not a supplied PDMX release. Fixture mode is
+  explicit; unknown release/license/cross-corpus evidence is not filled with
+  invented fixture facts. Future production mode requires explicit bindings.
+- Decision: Use supplied source IDs/relative paths/hashes, declared license
+  filters, and evidence-bearing lineage links. Group all source metadata by
+  exact hash and lineage before filtering/windowing, then validate complete
+  explicit TRAIN/VALIDATION assignments. TEST is denied before source/cache
+  readers. Window split assignments are derived from those components and
+  validated by the existing SplitManifest machinery.
+- Decision: Windows preserve exact global-to-local offsets, original bar/note
+  IDs, and effective start tempo/meter context. Crossing notes are explicitly
+  clipped with deterministic derived IDs/provenance. Grace notes remain zero
+  duration; missing optional fields and voice evidence stay unavailable. Gold
+  segmentation, chord-array note synthesis and theory labels are not inputs.
+  VALIDATION overlap requires explicit source-piece aggregation acknowledgement.
+- Decision: Compose the existing canonical cache with bounded thread workers,
+  versioned source shards and completed-source journals. Contract fingerprints
+  include source/selection/split/window/projection plus shared cache/graph
+  versions. Atomic final publication occurs only after all source results;
+  corruption fails closed, changed bindings retain a separate namespace.
+  Metadata remains O(records + windows); payloads obey worker/source budgets.
+- Decision: The lazy PDMX loader adds version/split checks and returns the
+  existing SSLRawSample/collator boundary without target-sidecar access.
+  Reports distinguish records/components/windows, clipping and resource
+  rejections, and graph statistics only from actually built graphs.
+- Consequences: WS3 supplies fixture-verified mechanics, not real-corpus
+  readiness or scaled SSL evidence. Unsupported irregular source bars are
+  quarantined under the unchanged canonical contract. One writer per contract
+  root is required. Objective-specific SSL eligibility, corpus/source license
+  verification, cross-corpus lineage and actual resource acceptance remain
+  future work under a separately authorized planned experiment. The complete
+  contract is `docs/PDMX_PIPELINE_CONTRACT.md`. No legacy logic is reused.
+
+## 2026-09-05 — ADR-WS4: Freeze a separate POP909-CL root/quality evaluator
+
+- Status: Implemented for synthetic CPU acceptance only; real-data transfer
+  evaluation and historical checkpoint compatibility remain unverified.
+- Context: Corrected 18-head C0/C2 models expose spelled root37 and quality17
+  predictions on raw beats, while POP909-CL supplies independently available
+  source chord events. Existing supervised evaluation and resume semantics do
+  not specify the desired transfer crosswalk or restricted model-only loading.
+- Decision: Add an isolated versioned evaluator without changing common
+  registries, graph/adapters, training resume, evaluation contracts or frozen
+  profiles. Accept hash/size-bound restricted CPU model-only envelopes, verify
+  the exact corrected contract and all state tensors, preserve caller RNG and
+  load no training state. Historical fingerprint-only envelopes report their
+  missing contract payload; restricted-load failure has no unsafe fallback.
+- Decision: Marginalize all spelled-root softmax probabilities into PCs before
+  prediction. Quality takes full17 argmax before subset9 gold eligibility.
+  Explicit interval templates bind the subset. Count outside-subset winners
+  as errors in full17 confusion; observed-true-class macro-F1 remains per task.
+- Decision: Fix native as primary and metadata_removed as secondary before
+  metrics. Remove exactly note velocity/program/channel and track
+  program/channel through canonical replacement plus public graph rebuild.
+  Source-event start maps to a unique raw half-open beat using RationalTime.
+  Multiple events in a beat remain separate observations with a shared
+  prediction, separate conflict counts and an explicit resolution limit.
+- Decision: Delay target extraction/join until both raw views have predictions.
+  Keep root/quality masks independent and intersect only for joint accuracy.
+  Report separate event/piece/group coverage, unavailable label and alignment
+  axes, null denominator reasons and deterministic model/view/source bindings.
+  The CLI performs only generated-fixture smoke; TEST is denied before readers.
+- Consequences: This is score-conditioned harmonic transfer tooling, not a
+  music-quality score, a paper reproduction, a checkpoint choice or a measured
+  improvement. Future TRAIN/VALIDATION evaluation needs an independent planned
+  experiment and verified artifacts. Legacy inspection/reuse is unnecessary.
+
+## 2026-09-06 — ADR-C0C2-001: Accept the completed matched-budget result with bounded claims
+
+- Context: `EXP-9EB5K-C0-120K-001` now has a verified 120,000-row applied-update
+  ledger and terminal summary. Independent audit `EXP-9EB5K-C0-C2-AUDIT-001`
+  finds C2 ahead in final identity, all 12 shifts and all eight primary heads
+  at the same seed-17 update/draw budget. This resolves the missing-control
+  result described in the earlier 2026-09-04 decisions; those records remain
+  immutable history.
+- Decision: Accept descriptive evidence of benefit for the historical C2
+  augmentation and prioritize C2 for controlled follow-up. Preserve C0 as
+  control and do not promote a scientific baseline or claim multi-seed
+  significance here. Missing C2 runtime/config/full TRAIN ledger prevent
+  verifying every execution confound; missing checkpoint bytes prevent
+  rechecking tensor integrity and exact resume. Report historical TEST access
+  as partial evidence, separately from the closed policy and this audit's
+  observed absence of TEST access.
+- Decision: Interpret unseen tuples relative to native TRAIN only until an
+  augmented-exposure inventory is evaluated. Treat cadence as a material
+  class-level regression; do not conflate it with metrical macro-F1's rare
+  classes or infer a universal late-training collapse from C0's rare-class
+  peak. Keep final-versus-best checkpoint selection explicit.
+- Consequences: Next scientific checks need separately registered protocols:
+  recover provenance, evaluate best checkpoints on VALIDATION with component
+  and class predictions, then test additional matched seeds after performance
+  acceptance. C2 transposition-path equivalence is required before adopting
+  an optimized runner. WS1's feature-complete transformation changes model
+  inputs relative to historical stale track pitch statistics and requires a
+  distinct comparison. No theory/SSL objective, model, TEST, dataset, main
+  branch or legacy behavior changes. The result supports backbone task
+  learning, not a validated music-quality critic or degradation/PLL result.
+
+## 2026-09-07 — ADR-POP-TRANSFER-001: Add explicit frozen transfer without changing WS4
+
+- Context: The user requested useful POP909 generalization work in parallel
+  with performance experiments. WS4 already specifies root/quality arithmetic,
+  views and strict model-only loading, but its public execution is synthetic.
+- Decision: Add a separate TRAIN/VALIDATION request, preflight and CPU runner.
+  Require all SHA-bound constituent indices, the validated original global
+  split, an explicit selected membership and a matching planned experiment
+  before source/checkpoint access. Do not infer membership from file names or
+  use the target-bearing canonical cache as an early raw reader.
+- Decision: Read a hash-bound channel-0 projection without chord extraction,
+  predict both predeclared views, then extract source targets with renewed
+  source/projection checks. Reuse WS4 metric arithmetic through a private core;
+  retain the synthetic public API and its exact report. Real reports have new
+  schemas, actual access observations and explicit input/checkpoint bindings.
+- Consequences: This establishes execution mechanics, not measured transfer
+  or music-quality performance. Verified real MIDI/checkpoint artifacts and
+  registered attempts remain prerequisites; cross-corpus duplicate absence
+  is not established. Preserve full old C0/C2 model and training contracts,
+  missing-label masks and closed TEST. Legacy inspection/reuse is unnecessary.
+- The separate harmonic logit-fusion document is a proposal only: no model
+  decision, implementation, learned benefit or baseline promotion is accepted
+  from that design. See [transfer](POP909_CL_TRANSFER.md) and
+  [fusion proposal](HARMONIC_LOGIT_FUSION_ABLATION.md).
+
+## 2026-09-07 — ADR-FUSION-MECHANICS-001: Isolate a minimal harmonic cross-task prototype
+
+- Context: Following completed POP transfer tooling, the user asked again
+  about parallel architecture improvements. Implement the previously proposed
+  minimal fusion as a distinct mechanics increment; the preceding ADR's
+  proposal-only implementation status is historical, not a permanent ban.
+- Decision: Keep the corrected baseline untouched and compose it through an
+  opt-in wrapper. On each raw beat, add a zero-initialized bias-free linear
+  correction from the other 11 original harmonic-head logits. Corrections
+  are simultaneous, FP32 and differentiable; no labels, masks, confidence or
+  gold structure enter forward. Candidate identities and class order must
+  agree exactly before mixing. Six other outputs pass through unchanged.
+- Decision: Use separate model/output and model-only checkpoint contracts
+  including the full ordered class registry and base contract. Strict loading
+  verifies bytes, complete contract and tensors before state application;
+  it restores no optimizer or saved training RNG. Old loaders remain strict.
+- Consequences: The prototype adds 216,886 weights (+5.9227%). Synthetic
+  identity/gradient/state tests establish mechanics only, not effectiveness,
+  CUDA performance, a ready production resume or a better critic. The
+  future experiment needs equally continued no-fusion and fusion models,
+  measured added compute, registered budgets and a separate evaluator binding.
+  No TEST, real training, legacy reuse or baseline promotion occurs here.

@@ -12,6 +12,7 @@ import pytest
 from music_critic.experiments.registry import (
     ACCESS_POLICY_FIELDS,
     DATA_ACCESS_FIELDS,
+    TEST_ACCESS_FIELDS,
     ExperimentRegistryError,
     SCHEMA_VERSION,
     inspect_archive,
@@ -663,16 +664,19 @@ def test_committed_registry_and_generated_ledger_are_in_sync() -> None:
     ) == render_markdown_ledger(records)
 
 
-def test_running_c0_access_is_unknown_while_declared_policy_stays_closed() -> None:
+def test_completed_c0_retains_historical_access_uncertainty_and_closed_test_policy() -> None:
     records = load_registry(REPOSITORY_ROOT / "docs/experiments/records")
     by_id = {str(record["experiment_id"]): record for record in records}
     record = by_id["EXP-9EB5K-C0-120K-001"]
-    assert record["status"] == "running"
+    assert record["status"] == "completed"
 
     access = record["data_access"]
     assert isinstance(access, dict)
-    assert access["access_evidence_status"] == "pending_primary_evidence"
-    assert all(access[field] is None for field in DATA_ACCESS_FIELDS)
+    assert access["access_evidence_status"] == "partial_primary_evidence"
+    assert access["validation_accessed"] is True
+    assert all(access[field] is None for field in TEST_ACCESS_FIELDS)
+    assert record["budget"]["attempted"] is None
+    assert record["budget"]["skipped"] is None
 
     policy = access["declared_policy"]
     assert isinstance(policy, dict)
@@ -689,7 +693,8 @@ def test_running_c0_access_is_unknown_while_declared_policy_stays_closed() -> No
     assert isinstance(policy["source"], str) and policy["source"].strip()
 
     ledger = render_markdown_ledger([record])
-    assert "unknown; unknown/unknown/unknown/unknown" in ledger
+    assert "yes; unknown/unknown/unknown/unknown" in ledger
+    assert "partial_primary_evidence" in ledger
     assert "forbidden/forbidden/forbidden/forbidden" in ledger
 
 

@@ -1,0 +1,46 @@
+{
+  "schema": "WS2GroupMaskingPilotPlan@1.0.0",
+  "pilot": {
+    "seed": 17,
+    "updates": 200,
+    "mask_rate": 0.3,
+    "lambda_ssl": 0.7,
+    "lambda_theory": 0.3,
+    "learning_rate": 0.0003,
+    "max_samples_per_batch": 2,
+    "max_notes_per_batch": 8192,
+    "max_nodes_per_batch": 20000,
+    "max_edges_per_batch": 200000
+  },
+  "source_checkpoint": {
+    "kind": "C2_model_only",
+    "parent_experiment_id": "EXP-POP-TRANSFER-EXPORT-001",
+    "locator": "outputs/pop909_transfer/20260908/export-001/c2-model-only.pt",
+    "sha256": "a151dec0af22f25ac6ec8ad75927cf2889644284061fd7e35a129c67e836b797",
+    "size_bytes": 14844299,
+    "state_fingerprint": "82ed08304b565a1447062a95112c8a51b47ce75c8f46f07b858443236ba83f39"
+  },
+  "scientific_data_bindings": {
+    "status": "not_bound_do_not_launch_scientific_training",
+    "corpus": "verified_Dilemmadata_TRAIN_candidate_only",
+    "raw_index_sha256": null,
+    "source_component_split_sha256": null,
+    "paired_policy_eligibility_sha256": null,
+    "ordered_raw_ssl_and_theory_schedule_sha256": null,
+    "theory_sidecar_manifest_sha256": null,
+    "frozen_class_weights_sha256": null,
+    "fixed_validation_membership_sha256": null,
+    "paired_recovery_schedule_sha256": null,
+    "retention_evaluator_binding": null
+  },
+  "fixture_gate": {
+    "updates_per_arm": 2,
+    "exact_resume_replay_per_arm": true,
+    "total_applied_updates_including_replay": 8,
+    "encoder_forwards_including_replay": 24,
+    "max_wall_seconds": 600,
+    "precision": "FP32_no_AMP",
+    "CPU_threads": 1,
+    "corpus_download_or_preprocessing": false
+  }
+}
