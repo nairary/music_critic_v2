@@ -8,6 +8,11 @@ state preserved as `codex/research-preserved-20260916` at42254af. Shared warm-da
 and safe RNG utilities extracted without changing schemas, model tensors,
 sampling or losses. Main candidate excludes experimental fusion/MMoE modules;
 code/results remain preserved. See [branch map](BRANCHES_AND_RELEASES.md).
+Local main promotion completed by ordinary merge092711f. Fusion has the shared
+integration updates and retains its own56 additional paths and heads hook.
+Added a stdlib restore CLI with six synthetic tests; all19 migration tool tests
+pass. It verifies hashes/splits, rejects unsafe members and existing destinations,
+and emits a new path-only manifest and restore receipt. Model code is unchanged.
 
 Cloud/folder access confirmed. Private STANDARD bucket
 `music-critic-v2-b1g0sie8odv6h7khh28l` created in the existing default folder.

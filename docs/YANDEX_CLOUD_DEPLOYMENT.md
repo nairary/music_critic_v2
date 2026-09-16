@@ -34,6 +34,7 @@
 | `experiments/history/` | C2, fusion/attention, MMoE, SSL/контекст, ускорение, ранние эксперименты и неудачные попытки |
 | `experiments/local-archives/20260916/` | Неизменяемые локальные архивы и пользовательский C0/C2 handoff |
 | `experiments/local-working-evidence/20260916/` | Локальные отчёты, аудиты, changes-таргеты и остальные рабочие результаты |
+| `experiments/environment-provenance/20260916/` | Версии зависимостей, pyvenv metadata и исходный AnalysisGNN patch без установленного окружения |
 | `releases/20260916-temporal-main-r1/` | Код main/fusion, Git bundle, каталог объектов и инструкция восстановления |
 
 Подготовленные данные, исходные корпуса, POP909-CL, temporal80k и локальные
@@ -79,14 +80,32 @@ SHA256. Крупные исторические архивы разбиты по
    `releases/20260916-temporal-main-r1/` и проверить контрольные суммы.
 2. Восстановить Git: `git clone -b main repository.bundle music-critic-v2`.
    Fusion сохранён в bundle отдельно; см. [карту веток](BRANCHES_AND_RELEASES.md).
-3. Скачать подготовленные данные с `yc storage s3 cp --recursive`, проверить
-   части по receipt и распаковать в `/srv/music-critic/data/prepared`.
-   Проверить все файлы по `data-manifest.json` перед допуском обучения.
+3. Скачать и восстановить подготовленный набор командой ниже. Скрипт проверяет
+   receipt, части, каждый payload, допустимые имена и TRAIN/VALIDATION splits.
+   Выбранная директория назначения должна отсутствовать; её родитель должен
+   быть доступен для записи. Частичная неудачная распаковка не перезаписывается.
 4. Исторические архивы распаковывать в отдельную пустую директорию. Части
    сначала соединить в порядке receipt и сверить полный хеш. Старые source
    snapshots не распаковывать поверх текущего checkout.
-5. При другом корне данных создать новый производный манифест, заменив только
-   пути. Исходные манифесты и цепочка SHA256 остаются неизменными.
+5. При другом корне данных изменить `--destination`: скрипт создаст производный
+   `data-manifest.json` с новыми путями и `restore-receipt.json`, сохранив
+   исходный манифест и SHA256 payload. Повторная проверка без распаковки —
+   та же команда с `--verify-only`.
+
+Из корня восстановленного репозитория, с Python3.12+:
+
+```bash
+yc storage s3 cp \
+  s3://music-critic-v2-b1g0sie8odv6h7khh28l/data/prepared/58085b4e58e03f3a/ \
+  incoming/prepared/ --recursive
+python scripts/restore_training_data.py \
+  --package incoming/prepared \
+  --destination "$PWD/restored-data/prepared" \
+  --expected-receipt-sha256 1904b052e663ccbdc18f49ce72ec119430e6c19ba8ff125d0b5d5d34dec54f15
+```
+
+Скрипту не нужны Torch/CUDA; он не запускает модель и не разбирает музыкальные
+таргеты. Новый манифест здесь будет `restored-data/prepared/data-manifest.json`.
 
 Object Storage используется для хранения; обучение читает локальный диск
 будущей VM. Перенос не делает прежние GPU-gates действительными на другой машине.
