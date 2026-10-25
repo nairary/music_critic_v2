@@ -31,6 +31,12 @@ initialization fingerprints; shell collision test отдельно прошёл 
 индекс устройства. Затронутые critic/C4/API/helper tests — 389 passed, 1 skipped (14,11 с).
 Это CPU/unit-проверки; новые GPU admission и научные результаты не заявляются.
 
+Первый Linux CI на 6179a13 остановлен лимитом 30 минут на 75% набора,
+без test failures до остановки. Финальный CI ограничивает OMP/MKL/OpenBLAS
+одним потоком, как завершившийся локальный прогон, и имеет лимит 45 минут;
+состав тестов и assertions не сокращены. CUDA lifecycle fixes проверяются
+на новом source fingerprint перед merge.
+
 Новые данные, обучение, TEST/evaluation и legacy не запускались.
 
 ## Google Drive для checkpoints и подготовка Git — 24 октября 2026

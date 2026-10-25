@@ -54,6 +54,7 @@ PYTHONPATH=src python -c "from music_critic.data import load_piece; from music_c
 ## Проверки
 
 ```bash
+export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 python3 tests/test_project_catalog.py -v
 python3 scripts/build_project_catalog.py --check
 python -m pytest -q \
