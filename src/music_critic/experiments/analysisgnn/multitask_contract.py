@@ -42,7 +42,9 @@ ENTITY_REGISTRY_VERSION = "analysisgnn-multitask-entities-v1"
 SPLIT_CONTRACT_VERSION = "analysisgnn-source-component-split-v1"
 METRIC_CONTRACT_VERSION = "analysisgnn-corrected-and-paper-text-metrics-v2"
 DATASET_MANIFEST_VERSION = "phase9eb3-analysisgnn-multitask-dataset-v2"
-TARGET_SIDECAR_VERSION = "analysisgnn-source-native-target-sidecar-v1"
+LEGACY_TARGET_SIDECAR_VERSION = "analysisgnn-source-native-target-sidecar-v1"
+TARGET_SIDECAR_VERSION = "analysisgnn-source-native-target-sidecar-v2"
+DLC_PCSET_DECODER_ID = "dlc-relative-fifths-to-absolute-pc-v1"
 SOURCE_COMPONENT_VERSION = "dilemmadata-source-component-v1"
 CORRECTED_QUALITY_VOCABULARY_ID = "dilemmadata-corrected-quality-17-v1"
 COMPATIBILITY_QUALITY_VOCABULARY_ID = (
@@ -1213,7 +1215,9 @@ def load_split_assignments(
 def get_entity_mappings(
     sidecar: Mapping[str, object], *, entity_id: str | None = None
 ) -> tuple[Mapping[str, object], ...]:
-    if sidecar.get("schema_version") != TARGET_SIDECAR_VERSION:
+    if sidecar.get("schema_version") not in {
+        LEGACY_TARGET_SIDECAR_VERSION, TARGET_SIDECAR_VERSION
+    }:
         raise AnalysisGNNMultitaskContractError("unknown entity sidecar version")
     relations = sidecar.get("relations")
     if not isinstance(relations, list):
@@ -1347,6 +1351,31 @@ def _pcset_label(value: str) -> str:
     return normalized.replace("(", "").replace(")", "").replace(" ", "")
 
 
+def _dlc_pcset_label(value: str, localkey_tpc: str) -> tuple[str | None, str | None]:
+    """Project DLC relative fifth coordinates, never literal PCs or added_tones."""
+    if localkey_tpc.strip() in _MISSING:
+        return None, "dlc_localkey_tpc_missing"
+    try:
+        tonic = int(localkey_tpc)
+    except ValueError:
+        return None, "dlc_localkey_tpc_invalid"
+    try:
+        tones = ast.literal_eval(value)
+    except (SyntaxError, ValueError):
+        tones = None
+    if not isinstance(tones, (tuple, list)) or not tones or any(
+        not isinstance(tone, int) or isinstance(tone, bool) for tone in tones
+    ):
+        return None, "dlc_chord_tones_invalid"
+    pcs = sorted({(7 * (tone + tonic)) % 12 for tone in tones})
+    return ",".join(map(str, pcs)), None
+
+
+def _require_target_sidecar_version(version: str) -> None:
+    if version not in {LEGACY_TARGET_SIDECAR_VERSION, TARGET_SIDECAR_VERSION}:
+        raise AnalysisGNNMultitaskContractError("unknown target sidecar version")
+
+
 def _spelling(row: Mapping[str, str], dialect: str) -> str | None:
     step_field = "s_step" if dialect == "an_joint" else "step"
     alter_field = "s_alter" if dialect == "an_joint" else "alter"
@@ -1457,8 +1486,20 @@ def _target_state(
     *,
     source_entity_id: str,
     canonical_entity_id: str,
+    target_sidecar_version: str,
 ) -> TargetState:
     task = get_task(task_id)
+    corrected_pcset = (
+        task_id == "pitch_class_set" and dialect == "dlc"
+        and target_sidecar_version == TARGET_SIDECAR_VERSION
+    )
+    pcset_provenance = {
+        "decoder_id": DLC_PCSET_DECODER_ID,
+        "localkey_tpc": row.values.get("localkey_tpc", ""),
+        "source_coordinates": "localkey_relative_fifths",
+        "canonical_coordinates": "absolute_pitch_classes_mod12",
+        "includes_added_tones": False,
+    } if corrected_pcset else {}
     if dialect not in task.source_dialects:
         return TargetState(
             available=False,
@@ -1468,7 +1509,7 @@ def _target_state(
             canonical_value=None,
             source_entity_id=source_entity_id,
             canonical_entity_id=canonical_entity_id,
-            provenance={"dialect": dialect, "source_fields": list(task.source_fields)},
+            provenance={**pcset_provenance, "dialect": dialect, "source_fields": list(task.source_fields)},
         )
     if row.repair_mask_scope == "all" or (
         row.repair_mask_scope == "note" and task.prediction_level == "note"
@@ -1481,7 +1522,7 @@ def _target_state(
             canonical_value=None,
             source_entity_id=source_entity_id,
             canonical_entity_id=canonical_entity_id,
-            provenance={"repair_lineage_applied": True, "source_row_ordinal": row.ordinal},
+            provenance={**pcset_provenance, "repair_lineage_applied": True, "source_row_ordinal": row.ordinal},
         )
     gate, gate_reason = _gate(task_id, row.values)
     if not gate:
@@ -1493,9 +1534,12 @@ def _target_state(
             canonical_value=None,
             source_entity_id=source_entity_id,
             canonical_entity_id=canonical_entity_id,
-            provenance={"repair_lineage_applied": False, "source_row_ordinal": row.ordinal},
+            provenance={**pcset_provenance, "repair_lineage_applied": False, "source_row_ordinal": row.ordinal},
         )
     field, raw = _field_and_value(task_id, row.values, dialect)
+    if task_id == "pitch_class_set" and target_sidecar_version == TARGET_SIDECAR_VERSION:
+        field = "chord_tones" if dialect == "dlc" else "a_pcset"
+        raw = row.values.get(field, "").strip()
     # A valid pedal gate makes blank/None an explicit negative; other blanks are missing.
     if raw in _MISSING and task_id != "pedal":
         return TargetState(
@@ -1506,19 +1550,26 @@ def _target_state(
             canonical_value=None,
             source_entity_id=source_entity_id,
             canonical_entity_id=canonical_entity_id,
-            provenance={"source_field": field, "source_row_ordinal": row.ordinal},
+            provenance={**pcset_provenance, "source_field": field, "source_row_ordinal": row.ordinal},
         )
-    canonical = _canonical_value(task_id, raw, row.values, dialect)
+    missing_reason = "unknown_value_not_in_pinned_production_vocabulary"
+    if corrected_pcset:
+        candidate, decode_error = _dlc_pcset_label(raw, row.values.get("localkey_tpc", ""))
+        pcset_provenance["decoded_absolute_pcset"] = candidate
+        canonical = None if candidate is None else get_vocabulary(task.vocabulary_id).normalize(candidate)
+        missing_reason = decode_error or missing_reason
+    else:
+        canonical = _canonical_value(task_id, raw, row.values, dialect)
     if canonical is None:
         return TargetState(
             available=False,
             masked=True,
-            missing_reason="unknown_value_not_in_pinned_production_vocabulary",
+            missing_reason=missing_reason,
             source_value=raw or None,
             canonical_value=None,
             source_entity_id=source_entity_id,
             canonical_entity_id=canonical_entity_id,
-            provenance={"source_field": field, "source_row_ordinal": row.ordinal},
+            provenance={**pcset_provenance, "source_field": field, "source_row_ordinal": row.ordinal},
         )
     return TargetState(
         available=True,
@@ -1529,10 +1580,11 @@ def _target_state(
         source_entity_id=source_entity_id,
         canonical_entity_id=canonical_entity_id,
         provenance={
+            **pcset_provenance,
             "dialect": dialect,
             "source_field": field,
             "source_row_ordinal": row.ordinal,
-            "target_sidecar_version": TARGET_SIDECAR_VERSION,
+            "target_sidecar_version": target_sidecar_version,
         },
     )
 
@@ -1584,9 +1636,12 @@ def _interval_entity_id(
     return entity_id if onset < end else None
 
 
-def materialize_target_sidecar(accepted: DilemmadataAccepted) -> dict[str, object]:
-    """Materialize shared entities and independent per-head masks for one record."""
+def materialize_target_sidecar(
+    accepted: DilemmadataAccepted, *, target_sidecar_version: str = TARGET_SIDECAR_VERSION,
+) -> dict[str, object]:
+    """Materialize v2 targets; explicit v1 is historical reproduction only."""
 
+    _require_target_sidecar_version(target_sidecar_version)
     record = accepted.record
     piece = accepted.piece
     rows = source_target_rows(accepted)
@@ -1640,6 +1695,7 @@ def materialize_target_sidecar(accepted: DilemmadataAccepted) -> dict[str, objec
                     record.dialect,
                     source_entity_id=source_entity_id,
                     canonical_entity_id=harmonic_id,
+                    target_sidecar_version=target_sidecar_version,
                 )
             )
             for task_id in _HARMONIC_TASK_IDS
@@ -1680,6 +1736,7 @@ def materialize_target_sidecar(accepted: DilemmadataAccepted) -> dict[str, objec
                     record.dialect,
                     source_entity_id=source_id,
                     canonical_entity_id=onset_id,
+                    target_sidecar_version=target_sidecar_version,
                 )
             )
             for task_id in _ONSET_TASK_IDS
@@ -1731,6 +1788,7 @@ def materialize_target_sidecar(accepted: DilemmadataAccepted) -> dict[str, objec
                         record.dialect,
                         source_entity_id=source_id,
                         canonical_entity_id=note_id,
+                        target_sidecar_version=target_sidecar_version,
                     )
                 )
                 for task_id in _NOTE_TASK_IDS
@@ -1783,7 +1841,7 @@ def materialize_target_sidecar(accepted: DilemmadataAccepted) -> dict[str, objec
         "repair_evidence_fingerprint": (
             None if accepted.repair_evidence is None else accepted.repair_evidence.fingerprint
         ),
-        "schema_version": TARGET_SIDECAR_VERSION,
+        "schema_version": target_sidecar_version,
         "source_component_id": record.source_group_id,
     }
     payload["fingerprint"] = _fast_fingerprint(payload)
@@ -1827,6 +1885,7 @@ def sidecar_contract_counts(sidecar: Mapping[str, object]) -> dict[str, object]:
 
 def materialize_target_sidecar_descriptor(
     accepted: DilemmadataAccepted,
+    *, target_sidecar_version: str = TARGET_SIDECAR_VERSION,
 ) -> dict[str, object]:
     """Stream a complete logical sidecar into content-addressed audit evidence.
 
@@ -1835,6 +1894,7 @@ def materialize_target_sidecar_descriptor(
     need the expanded rows use :func:`materialize_target_sidecar`.
     """
 
+    _require_target_sidecar_version(target_sidecar_version)
     record = accepted.record
     piece = accepted.piece
     rows = source_target_rows(accepted)
@@ -1940,6 +2000,7 @@ def materialize_target_sidecar_descriptor(
                 record.dialect,
                 source_entity_id=source_id,
                 canonical_entity_id=entity_id,
+                target_sidecar_version=target_sidecar_version,
             )
             observe_target(task_id, state)
             available[task_id] = state.available and not state.masked
@@ -1979,6 +2040,7 @@ def materialize_target_sidecar_descriptor(
                     record.dialect,
                     source_entity_id=source_id,
                     canonical_entity_id=entity_id,
+                    target_sidecar_version=target_sidecar_version,
                 ),
             )
         observe_relation(
@@ -2019,6 +2081,7 @@ def materialize_target_sidecar_descriptor(
                     record.dialect,
                     source_entity_id=source_id,
                     canonical_entity_id=note.note_id,
+                    target_sidecar_version=target_sidecar_version,
                 )
             observe_target(task_id, state)
         observe_relation("note_to_onset", note.note_id, onset_ids.get(note.onset_qn))
@@ -2042,7 +2105,7 @@ def materialize_target_sidecar_descriptor(
         "repair_evidence_fingerprint": (
             None if accepted.repair_evidence is None else accepted.repair_evidence.fingerprint
         ),
-        "schema_version": TARGET_SIDECAR_VERSION,
+        "schema_version": target_sidecar_version,
         "source_component_id": record.source_group_id,
         "target_states_fingerprint": target_digest.hexdigest(),
         "task_states": {

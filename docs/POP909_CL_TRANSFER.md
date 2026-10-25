@@ -1,5 +1,16 @@
 # POP909-CL: frozen C0/C2 transfer
 
+2026-10-01: пользователь запросил полный POP909 и подтвердил C3 three-pass
+relation gate, шаг 80 000. Отдельный `scripts/evaluate_c3_pop909.py` требует
+matching planned record, явного scoped TEST разрешения и точного pinned
+индекса из 908 принятых записей. Исторические C0/C2 и synthetic APIs сохраняют
+прежний запрет TEST. Новый wrapper наследует metric policy и объявляет
+собственную full-population execution policy.
+Полный C3-прогон завершён: native root macro-F1 0.897446,
+quality macro-F1 0.361193, joint accuracy 0.726104; все 908 принятых записей.
+На сопоставимом прежнем VALIDATION: 0.920000 / 0.416032 / 0.748803.
+[Полные метрики, протокол и проверка](experiments/C3_POP909_FULL_20261001_RU.md).
+
 2026-09-08. Реальная frozen-оценка C0/C2 завершена на одинаковых 101
 произведении VALIDATION, без дообучения и TEST. C2 лучше по обеим основным
 метрикам: root macro-F1 0.908590 против 0.892292, quality macro-F1 0.453021

@@ -22,7 +22,7 @@ from music_critic.tasks import collate_multisource_samples, prepare_multisource_
 from . import corrected_training as reference
 from .contracts import fingerprint
 from .full_orbit_training import build_full_orbit_table, full_orbit_table_contract
-from .multitask_contract import PAPER_DEFINED_JOINT_COMPONENTS, TARGET_SIDECAR_VERSION
+from .multitask_contract import PAPER_DEFINED_JOINT_COMPONENTS, LEGACY_TARGET_SIDECAR_VERSION as TARGET_SIDECAR_VERSION
 from .performance_c2_train_schedule import _train_records
 
 

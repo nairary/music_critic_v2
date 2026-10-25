@@ -1086,10 +1086,13 @@ def _allows_exact_irregular_measure(ctx: _Context, bar: CanonicalBar) -> bool:
     provenance = ctx.provenance_by_id.get(bar.provenance_id)
     return bool(
         provenance is not None
-        and provenance.source == "music_critic.dilemmadata_adapter"
-        and any(
-            key == "raw_repair_evidence_version" and isinstance(value, str)
-            for key, value in provenance.details
+        and (
+            (provenance.source == "music_critic.dilemmadata_adapter"
+             and any(key == "raw_repair_evidence_version" and isinstance(value, str)
+                     for key, value in provenance.details))
+            or (provenance.source == "music_critic.tavern_adapter"
+                and dict(provenance.details).get("exact_score_measure_boundaries_version")
+                == "tavern-exact@2")
         )
     )
 

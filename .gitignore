@@ -1,4 +1,9 @@
 .env
+# Any environment variant (.env.local, .env.production, ...) may hold secrets.
+# The literal ".env" rule above does not match them.
+.env.*
+# The documented template is committed on purpose and must stay published.
+!.env.example
 .venv/
 venv/
 __pycache__/
@@ -43,3 +48,6 @@ dist/
 .vscode/
 .idea/
 .DS_Store
+
+# Local agent session state; never part of a published delivery.
+.omo/

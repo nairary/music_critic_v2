@@ -30,6 +30,7 @@ from music_critic.experiments.analysisgnn.class_balance import (
 )
 from music_critic.experiments.analysisgnn.contracts import canonical_json, fingerprint
 from music_critic.experiments.analysisgnn.multitask_contract import (
+    LEGACY_TARGET_SIDECAR_VERSION,
     ASSIGNMENT_ALGORITHM,
     ASSIGNMENT_NAMESPACE,
     EXPECTED_PAPER_COUNTS,
@@ -890,7 +891,7 @@ def build_audit(
         )
         if not isinstance(converted, DilemmadataAccepted):
             raise RuntimeError(f"frozen TRAIN raw record failed: {record_id}")
-        sidecar = materialize_target_sidecar(converted)
+        sidecar = materialize_target_sidecar(converted, target_sidecar_version=LEGACY_TARGET_SIDECAR_VERSION)
         contract_counts = sidecar_contract_counts(sidecar)
         descriptor = descriptors[record_id]
         if (

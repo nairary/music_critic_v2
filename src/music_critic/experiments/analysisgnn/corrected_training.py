@@ -1811,7 +1811,7 @@ def load_production_record(
         sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
     else:
         from music_critic.adapters.dilemmadata import DilemmadataAccepted, convert_dilemmadata_record
-        from music_critic.experiments.analysisgnn.multitask_contract import materialize_target_sidecar
+        from music_critic.experiments.analysisgnn.multitask_contract import LEGACY_TARGET_SIDECAR_VERSION, materialize_target_sidecar
 
         record = _resolve_selected_corpus_record(record_id, split=required_split, paths=paths)
         accepted = convert_dilemmadata_record(record)  # type: ignore[arg-type]
@@ -1820,7 +1820,7 @@ def load_production_record(
                 "analysisgnn.corrected.production_record_quarantined", f"{record_id}:{accepted}"
             )
         piece = accepted.piece
-        sidecar = materialize_target_sidecar(accepted)
+        sidecar = materialize_target_sidecar(accepted, target_sidecar_version=LEGACY_TARGET_SIDECAR_VERSION)
         record_root.mkdir(parents=True, exist_ok=True)
         temporary_piece = piece_path.with_suffix(".json.tmp")
         temporary_sidecar = sidecar_path.with_suffix(".json.tmp")

@@ -1,265 +1,90 @@
 # Music Critic V2
 
-Current working baseline: **temporal/C2 (80k)**. Experimental fusion/MMoE stays
-on `codex/fusion`. See [branches and reproducibility](docs/BRANCHES_AND_RELEASES.md)
-and [Yandex Cloud deployment](docs/YANDEX_CLOUD_DEPLOYMENT.md).
+Исследовательский проект для представления символической музыки,
+предсказания музыкальной теории, условного восстановления событий и сравнения
+музыкальных вариантов. Вход энкодера — ноты, время и наблюдаемая структура
+MIDI; теория служит отдельными целями, отсутствующие метки маскируются.
 
-Music Critic V2 is a raw-symbolic-first research project for reusable symbolic
-music representation learning, theory analysis, and preference-aware quality
-assessment.
+## С чего начать
 
-This repository is a clean-room successor to the legacy Music Critic V1
-repository. V1 may be inspected as read-only reference material, but this
-package has no runtime dependency on it and must remain runnable when the legacy
-checkout is absent.
+| Задача | Страница |
+|---|---|
+| Понять C0–C4, SSL, critic и HCM | [Каталог моделей](docs/MODELS.md) |
+| Найти вопросы, попытки и результаты | [Кампании экспериментов](docs/experiments/README.md) |
+| Получить данные и проверить версию | [Датасеты и Google Drive](docs/DATASETS.md) |
+| Установить пакет и выбрать маршрут | [Первый запуск](docs/GETTING_STARTED.md) |
+| Связать код, данные, конфиг и веса | [Воспроизводимость](docs/REPRODUCIBILITY.md) |
 
-## Current state
+## Скачать данные и checkpoints
 
-Phases 0 through 5B.2, the Phase 6A/6B representation baselines, and the
-Phase 6C reproducible supervised training harness are implemented and merged.
-Phase 6D-A adds deterministic supervised checkpoint evaluation, train-only
-trivial baselines, and bounded performance evidence for those unchanged
-baselines. Phase 7A is accepted and merged as a deterministic
-GraphMAE2-inspired masked-graph SSL baseline over the unchanged raw-only graph.
-It adds note pitch-group masking, owner-track-statistic and peer-note leakage
-closure, shared stop-gradient full-view representation targets, contextual
-decoder re-masking, bar/song latent prediction, target-free raw-cache loading,
-and strict SSL checkpoint/resume and encoder-transfer contracts.
-The accepted CUDA/AMP hotfix is merged through PR #17 at main
-`5afec305cfa62ab2c200c5b1e7270ae35cd8a102`. It resolves runtime CUDA
-requests to a concrete `cuda:N`, validates explicit indices before transfer,
-computes low-precision representation objectives in FP32, and separates
-no-leakage from pitch-sensitive reconstruction evidence.
-Phase 8A adds deterministic onset, beat, contiguous-bar, and track/bar
-start-descendant pitch masks, explicit policy-mixture/unavailable contracts,
-and distinct hierarchy binding/output envelopes over the same prepared-input
-attestation path. Span policies retain the seed-ranked top-K from the complete
-near-optimal tolerance set and use a separate rank domain for final choice,
-so early canonical track/bar prefixes cannot exclude later candidates. Phase
-8A uses the unchanged Phase 7A objectives only for bounded mechanics evidence
-and remains in draft PR #16 pending final-head review, Required CI, and an
-independent exact-final RTX 3090 acceptance run.
-Decoder context mode
-`online_owner_track_bar_song_temporal_neighbors` retains masked-online
-owner/bar/song/temporal context after latent re-masking, avoiding predictions
-that depend only on one shared mask token when a view is fully re-masked.
-The repository provides an exact immutable
-canonical schema, generic MIDI and HookTheory adapters, diagnostic canonical
-MIDI export, a production POP909-CL adapter, and a versioned raw-only PyG
-heterograph builder. The POP909-CL adapter fingerprints the pinned 909-file
-corpus, projects only channel-0 score content into raw canonical pieces, keeps
-channel-1 chord evidence as masked target-only supervision, and streams corpus
-conversion with typed missing-target and quarantine results. The graph uses
-mandatory `song`, `track`, `bar`, `beat`, `onset`, and `note` nodes and never
-uses theory targets, gold semantic structure, split, or provenance as encoder
-input or topology. HookTheory and generic MIDI therefore have graph-schema
-parity; their raw observations and supervision are not expected to have general
-data parity. A versioned source-native target ontology, exact canonical target
-alignment, tensor sidecars, and a production mixed-source PyG collator preserve
-that raw-only boundary. Phase 5B.2 adds portable canonical caching, globally
-manifested splits, a lazy Dataset, deterministic mixture sampling, and
-worker-safe loading. Phase 6A adds comparable feature-only and local
-relation-aware encoders, retained local outputs, 14 source-native
-fully-supervised heads, inspectable losses, local reconstruction plumbing,
-strict checkpoints, and CPU diagnostics. Phase 6B adds deterministic raw-edge
-ownership, bar/track pooling, a per-sample coarse Transformer, contextual SONG
-rows, top-down gated residual fusion, strict hierarchical checkpoints, and a
-controlled three-way ablation. Phase 8B supplies bounded multi-level objective
-mechanics. Phase 9B.1 adds a pinned Dilemmadata AN/DLC production raw adapter,
-target-independent cache identity, group-safe splits, and an SSL-ready loader
-while keeping canonical targets and annotations empty. Runtime policies and
-discovered records fail closed, and full-corpus readiness is checked against a
-committed production manifest after two independent source builds. Adaptive SSL,
-corruption training, preference training, PLL, and deployable scoring inference
-are not implemented yet. Phase 9B.2 adds external target sidecars and exactly
-four safe Dilemmadata quality/inversion heads, source-entry training/evaluation,
-and the bounded RTX hardware gate. Phase 9C-A adds the executable seed-17
-scratch/Phase-7A/Phase-8A/multilevel-equal validation pilot control plane with
-profiling, exact-assignment three-source split composition, fixed-update
-`last.pt` comparison, immutable resume, encoder-only transfer, component
-bootstrap, and a locked test split. Its production RTX profile and pilot remain
-pending.
-Phase 7A reconstruction is SSL representation plumbing only: it is not a
-masked-note likelihood, PLL, critic, quality score, or full-scale effectiveness
-claim. Phase 8A is not completion of Phase 8; comparative multi-level
-objectives are Phase 8B, the one-seed Dilemmadata validation pilot is Phase
-9C-A, and PDMX-scale SSL evaluation remains Phase 10.
+- [Датасеты на Google Drive](https://drive.google.com/drive/folders/1NE52nepE_89IHg4Ms7ZYZse2VeQYqSae):
+  локальные версии Dilemma AN/DLC, POP909/POP909-CL, HookTheory/HTCanon,
+  PDMX, TAVERN и наши производные корпуса с разметкой. Комплект без отдельных
+  аудиорендеров — 11,17 GB; все 17 файлов загружены.
+- [Checkpoints на Google Drive](https://drive.google.com/drive/folders/1-wnBgYNl0KtlzRGNUxpvKtTtzOpbwkDN):
+  архив 96 локальных checkpoint-файлов, включая промежуточные и проверочные
+  состояния, — 2,95 GB. Архив и три файла сопровождения загружены.
 
-## Layout
+Для обеих папок включён режим «Все, у кого есть ссылка → Читатель»:
+можно просматривать и скачивать файлы, редактирование закрыто. SHA-256, точный состав,
+порядок восстановления и текущий статус — в [каталоге артефактов](docs/ARTIFACTS.md).
+Архив checkpoints не обозначает выбранную лучшую модель: совместимые код,
+конфиг и эксперимент определяются для конкретных весов.
 
-- `src/music_critic/data/`: canonical timing, schema, validation, serialization;
-- `src/music_critic/adapters/`: generic MIDI, HookTheory, POP909-CL, and
-  target-independent Dilemmadata conversion;
-- `src/music_critic/exporters/`: output-only diagnostic MIDI rendering;
-- `src/music_critic/graph/`: feature registry, relations, builder, validation,
-  and deterministic graph serialization;
-- `src/music_critic/tasks/`: source-native ontology, exact alignment, versioned
-  encodings, target tensorization, mixed-source collator, corpus loading, and
-  statistics;
-- `src/music_critic/models/`: Phase 6A raw feature/local-GNN encoders and the
-  Phase 6B deterministic hierarchy, coarse Transformer, top-down fusion,
-  source-native heads, losses, reconstruction, diagnostics, and checkpoints;
-- `src/music_critic/training/`: Hydra configuration, non-mutating batch device
-  transfer, split CLI, deterministic runners, metrics, and epoch checkpoints;
-- `src/music_critic/evaluation/`: candidate-first checkpoint evaluation,
-  streaming metrics, train-only priors, and the opt-in bounded profiler;
-- `src/music_critic/ssl/`: versioned field masks and overlays, deterministic
-  MaskPlans and hierarchy-aware planners, contextual decoder views,
-  representation objectives, bounded and production-cache raw-only loading,
-  masked hierarchical model, checkpoints, transfer, and training CLI;
-- `docs/`: authoritative plan, architecture, contracts, decisions, and status;
-- `configs/`: reserved for phase-owned configuration;
-- `scripts/`: audits, rendering/smoke tools, and graph benchmark;
-- `tests/`: canonical, adapter, exporter, audit, integration, and graph tests.
+## Что есть в проекте
 
-## Environment
+- Канонические события с точным рациональным временем, адаптеры источников,
+  raw-графы и маскированные теоретические цели.
+- Контрольные энкодеры C0/C1/C2, temporal/C3, attention/relation gate и C4.
+- Маскированное самообучение представлений и отдельный парный/аспектный критик.
+- PLL/HCM: локальное условное предсказание и полный контекст с памятью мотивов.
+- Подготовка теоретической разметки, corpus400, реестр запусков и CPU/GPU/cloud-инструменты.
 
-Optional environment variables are documented in `.env.example`:
+Реализация, проверенный запуск и научное качество — отдельные статусы.
+Temporal/C2 80k — исторически выбранная основа main от 16 сентября;
+последующие C3/C4/HCM/critic относятся к отдельным кампаниям.
+Эта навигационная правка не выбирает нового победителя.
 
-- `MUSIC_DATA_ROOT`: external dataset root;
-- `MUSIC_CRITIC_LEGACY_ROOT`: read-only V1 checkout location.
+## Быстрая проверка без датасета и весов
 
-Datasets remain outside Git. Never commit data, MIDI/audio corpora, generated
-outputs, caches, or checkpoints.
-
-## Commands
-
-Run directly from a checkout:
+Из корня checkout:
 
 ```bash
-PYTHONPATH=src python -c "import music_critic; print(music_critic.__version__)"
-python -m pytest -q
-python -m compileall src
-make check
-make legacy-check
+PYTHONPATH=src python3 -c "import music_critic; print(music_critic.__version__)"
+python3 scripts/build_project_catalog.py --check
+python3 tests/test_project_catalog.py -v
 ```
 
-Build a raw graph or run the small construction benchmark from canonical JSON:
+Установка, канонический пример и маршруты моделей — в [первом запуске](docs/GETTING_STARTED.md).
+Зависимости — в [pyproject.toml](pyproject.toml); исторические нативные среды
+указываются в записях экспериментов.
 
-```bash
-PYTHONPATH=src python -c \
-  "from music_critic.data import load_piece; from music_critic.graph import build_raw_graph; print(build_raw_graph(load_piece('tests/fixtures/data/canonical_piece_v2.json')))"
-PYTHONPATH=src python scripts/benchmark_graph_builder.py \
-  tests/fixtures/data/canonical_piece_v2.json --repeats 5
-PYTHONPATH=src python scripts/benchmark_graph_builder.py \
-  --synthetic-suite --repeats 1
-PYTHONPATH=src python scripts/benchmark_multisource_collator.py \
-  --samples 32 --repeats 3
-PYTHONPATH=src python scripts/benchmark_multisource_collator.py \
-  --target-heavy --repeats 3
-PYTHONPATH=src python scripts/benchmark_phase6a.py \
-  --larger-repeats 4 --overfit-steps 40
-PYTHONPATH=src python scripts/benchmark_phase6b.py \
-  --larger-repeats 4 --overfit-steps 30
-PYTHONPATH=src python -m music_critic.ssl.run \
-  experiment=one_batch model=hierarchical data=bounded device=cpu
-PYTHONPATH=src python scripts/accept_phase8a_hierarchical_masking.py \
-  --output /tmp/phase8a-cpu-acceptance.json
-PYTHONPATH=src python scripts/benchmark_phase8a_hierarchical_masking.py
-PYTHONPATH=src python scripts/accept_phase8a_cuda_amp.py \
-  --device cuda:0 --amp --amp-dtype float16 \
-  --expected-head "$(git rev-parse HEAD)" \
-  --expected-device-name "NVIDIA GeForce RTX 3090" \
-  --portable-report /tmp/phase8a-cpu-acceptance.json \
-  --output /tmp/phase8a-cuda-amp-hardware.json
-```
+## Устройство репозитория
 
-The final command is optional hardware acceptance. It requires real CUDA and
-emits a separate `Phase8ACudaAmpHardwareEvidence@1.2.0` artifact; a CPU run or
-CUDA skip is not GPU evidence. Both documented Phase 8A script files are thin
-wrappers over importable `music_critic.ssl` acceptance modules and work from
-the repository root without modifying `sys.path`.
+| Путь | Назначение |
+|---|---|
+| `src/music_critic/` | Данные, графы, модели, задачи, обучение, critic, PLL |
+| `src/music_critic/experiments/` | Воспроизводимые исследовательские варианты; часть используется текущими моделями |
+| `configs/` | [Карта конфигов и шаблонов](configs/README.md) |
+| `scripts/` | Подготовка, запуск, проверка и перенос |
+| `tests/` | Контрактные, синтетические и отдельно включаемые интеграционные проверки |
+| `docs/experiments/records/` | Все попытки, включая failed/aborted/invalid |
+| `docs/` | Контракты, исследования, отчёты и решения |
 
-For production-cache SSL, the target-free dataset loads each canonical cache
-piece and rebuilds its raw graph without projecting supervised targets. SSL
-reports separately identify the data source, whether a production cache was
-read, whether the run was one-batch plumbing, and whether production or
-full-corpus SSL training occurred.
+Данные, веса, аудио/MIDI, кэши и полные логи хранятся вне Git.
+Обе папки Google Drive доступны для просмотра и скачивания по ссылке;
+редактирование закрыто.
+Версии данных и веса связаны с кодом через манифесты, SHA-256 и размеры.
 
-`build_raw_graph` validates its `CanonicalPiece` by default. Callers that have
-already run canonical validation may opt into the documented
-`assume_valid=True` fast path. Structural timing remains exact rational data
-through graph indexing and becomes `float32` only when feature tensors are
-materialized. PyTorch/PyG imports are isolated to the graph/model-facing
-packages (`music_critic.graph`, `music_critic.tasks`, `music_critic.models`,
-`music_critic.training`, `music_critic.evaluation`, and `music_critic.ssl`);
-the project already declares those packages as global installation
-dependencies.
+## Контракты и история
 
-An editable installation is optional:
+[Архитектура](docs/ARCHITECTURE.md) · [Данные](docs/DATA_CONTRACT.md) ·
+[Протокол экспериментов](docs/EXPERIMENT_LOGGING.md) ·
+[Полный ledger](docs/EXPERIMENT_LEDGER.md) · [Решения](docs/DECISIONS.md) ·
+[Roadmap](docs/ROADMAP.md) · [Журнал состояния](docs/STATUS.md).
 
-```bash
-python -m pip install -e .
-python -m pip install -e '.[training]'
-```
-
-See `docs/ROADMAP.md` for staged implementation work and
-`docs/IMPLEMENTATION_PLAN.md` for the scientific specification.
-
-Run the opt-in production acceptance against an installed pinned corpus:
-
-```bash
-PYTHONPATH=src python scripts/accept_pop909_cl_adapter.py \
-  --root data/pop909-cl \
-  --manifest tests/fixtures/pop909_cl/production_manifest.json \
-  --output /tmp/music-critic-v2-phase4b-production-acceptance.json
-```
-
-POP909-CL production evidence and the completed Phase 4B contract are documented
-in `docs/POP909_CL_FIELD_AUDIT.md` and
-`docs/POP909_CL_ADAPTER_CONTRACT.md`. Original POP909 is retained separately
-as lineage/possible ablation evidence in
-`docs/POP909_ORIGINAL_FIELD_AUDIT.md`.
-The Phase 5A/5B.1 sidecar and collator contracts are documented in
-`docs/MULTISOURCE_TARGET_CONTRACT.md` and `docs/MULTISOURCE_COLLATOR.md`.
-The Phase 5B.2 portable corpus index/cache, external split manifest, lazy
-Dataset, deterministic mixture sampler, and worker-safe DataLoader contract is
-documented in `docs/MULTISOURCE_DATASET.md`. Full corpus cache builds are
-explicit opt-in commands; default tests use bounded/synthetic artifacts only.
-The learned local baseline and its strict non-critic/non-SSL boundary are in
-`docs/PHASE6A_BASELINE.md`.
-The deterministic hierarchy, bar+track Transformer, contextual song row,
-top-down fusion, and controlled three-way ablation are in
-`docs/PHASE6B_HIERARCHY.md`.
-Phase 6C cache/split preparation, one-batch acceptance, ordinary training,
-device transfer, artifacts, and epoch-boundary resume are in
-`docs/TRAINING.md`.
-Phase 6D-A evaluation metrics, baseline provenance, fingerprint checks,
-artifacts, test-split acknowledgement, and profiling are in
-`docs/EVALUATION.md`.
-The deterministic GraphMAE2-inspired Phase 7A mask, model, objective,
-checkpoint, transfer, and bounded-science contracts are in
-`docs/PHASE7A_SSL_BASELINE.md`.
-Phase 8A hierarchy policies, start-descendant semantics, mixtures, prepared
-profile, leakage audit, bounded fixture, and non-claim boundary are in
-`docs/PHASE8A_HIERARCHICAL_MASKING.md`.
-Phase 8B.1 objective mechanics are in
-`docs/PHASE8B_MULTILEVEL_OBJECTIVES.md`; the Phase 8B.2A compute-matched
-schedule, downstream transfer, validation selection, test lock, statistics,
-and artifact protocol are in `docs/PHASE8B2_COMPARISON_PROTOCOL.md`.
-
-Build the bounded Phase 8B.2A matrix without training or writes:
-
-```bash
-PYTHONPATH=src python -m music_critic.experiments.phase8b2.run \
-  comparison=bounded_acceptance action=plan
-```
-
-Evaluate a checkpoint on fixed validation:
-
-```bash
-PYTHONPATH=src python -m music_critic.evaluation.run \
-  checkpoint=/absolute/path/to/best.pt \
-  data=mixed \
-  data.index_paths='[/absolute/path/hooktheory.index.json,/absolute/path/pop909_cl.index.json]' \
-  data.cache_roots='[/absolute/path/hooktheory,/absolute/path/pop909_cl]' \
-  data.split_manifest=/absolute/path/global.split.json \
-  split=validation \
-  output_dir=/absolute/path/to/evaluation
-```
-
-Test evaluation additionally requires
-`acknowledge_test_evaluation=true`. The detailed synthetic profiler is
-disabled unless `enabled=true`; see `docs/EVALUATION.md` for its bounded
-matrix command. Production cache paths are read-only inputs: evaluation never
-rebuilds or mutates canonical artifacts.
+[Прежний README](docs/archive/README_PRE_CATALOG_20261024.md) сохранён как
+исторический снимок с прежними ссылками. [План публикации](docs/workstreams/2026-10-22/github-publication/plan.md)
+покрывает более широкий релиз; [текущая подготовка Git](docs/GIT_PREPARATION.md)
+фиксирует состав и границы проверок. Лицензия всего проекта этой задачей не выбирается.
+Legacy V1 используется как read-only reference и не нужен для работы V2.

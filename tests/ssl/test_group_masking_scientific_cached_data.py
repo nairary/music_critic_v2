@@ -11,7 +11,7 @@ from music_critic.adapters import dilemmadata as adapter
 from music_critic.data import dumps_piece
 from music_critic.experiments.analysisgnn import corrected_training as reference
 from music_critic.experiments.analysisgnn.contracts import fingerprint
-from music_critic.experiments.analysisgnn.multitask_contract import materialize_target_sidecar
+from music_critic.experiments.analysisgnn.multitask_contract import LEGACY_TARGET_SIDECAR_VERSION, materialize_target_sidecar
 from music_critic.ssl import group_masking_scientific_cached_data as subject
 from music_critic.ssl.group_masking_pilot import GroupPilotConfig, bind_train_batch
 from tests.ssl.test_group_masking_scientific_data import make_disk_request, _file, _jsonl
@@ -35,7 +35,7 @@ def make_cached_request(tmp_path, monkeypatch, *, single_validation=False, singl
         record = reference._resolve_selected_corpus_record(record_id, split=row["split"], paths=paths)
         accepted = adapter.convert_dilemmadata_record(record)
         assert isinstance(accepted, adapter.DilemmadataAccepted)
-        sidecar = materialize_target_sidecar(accepted)
+        sidecar = materialize_target_sidecar(accepted, target_sidecar_version=LEGACY_TARGET_SIDECAR_VERSION)
         piece = accepted.piece
         if ((single_validation and row["split"] == "validation")
                 or (single_train and record_id == "an:training:same")):

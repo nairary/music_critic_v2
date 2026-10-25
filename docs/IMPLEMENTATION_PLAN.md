@@ -13,6 +13,37 @@ Phase 9C-D continuation is specified in
 
 # Codex Implementation Specification: Music Critic V2
 
+**Multigenre collection amendment, 2026-10-07:** the user authorizes autonomous
+collection and event-bound enrichment beyond the former three-work pilot.
+[T07](workstreams/2026-10-07/multigenre-theory-enrichment/spec.md) covers admitted
+TRAIN native exports, compatible public score analyses, individual Astra ultra
+weak interpretations, immutable releases and a shared numerical loader. Dense
+native coverage and contextual semantic coverage are measured separately.
+No model training or neural architecture change is included in this amendment.
+
+**Canonical relation targets, 2026-10-06:** the user requests usable event flags
+from the Astra source analysis. The bounded T05
+[specification](workstreams/2026-10-06/relational-midi-targets/spec.md) adds exact
+source binding and auxiliary weak TargetBundles for three existing TRAIN works,
+with per-role masks and preserved interval evidence. Dataset release and loader
+verification are in scope; new model heads, training and full-TRAIN annotation
+are separate phases.
+
+**Whole-piece amendment, 2026-09-28:** implement the user's selected full-song
+context and 1/2/4/8/16/32-bar motif bank under the separate
+[whole-piece specification](workstreams/2026-09-28/hcm-whole-piece/spec.md) and
+[contract](HCM_WHOLE.md). Whole mode retains bounded local masked targets,
+supports the four canonical source adapters and rejects truncation. Code and
+synthetic verification are distinct from native admission and training.
+
+**Accepted implementation amendment, 2026-09-28:** the user requests the HCM-1
+conditional event model after the architecture research. Its opt-in scope,
+interfaces, exact-time/masking contracts and remaining admission gates are
+defined in [HCM1.md](HCM1.md) and recorded in [DECISIONS](DECISIONS.md). This
+adds a separately testable path; it does not authorize replacing active training,
+preparing real corpora, opening TEST or launching GPU/cloud experiments. Legacy
+modules are not inspected, imported or copied for this change.
+
 **Repository:** `nairary/Fine-tune-text2midi-llm-with-gnn-theory-critic`  
 **Primary goal:** replace the current HookTheory-specific, corruption-heavy teacher/observer pipeline with a reusable multi-dataset symbolic-music critic that:
 

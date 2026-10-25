@@ -117,6 +117,21 @@ class TemporalGraphBatch:
 
 
 def build_temporal_batch(pieces: Sequence) -> TemporalGraphBatch:
+    """Build temporal graphs after fully validating caller-supplied pieces."""
+    return _build_temporal_batch(pieces, assume_valid=False)
+
+
+def _build_temporal_batch_from_validated_pieces(pieces: Sequence) -> TemporalGraphBatch:
+    """Private loader path immediately after authenticated canonical validation.
+
+    Canonical validation has already completed on these locally owned pieces.
+    Raw and temporal graph output validation remains identical to the public
+    path; this does not admit arbitrary caller-supplied canonical objects.
+    """
+    return _build_temporal_batch(pieces, assume_valid=True)
+
+
+def _build_temporal_batch(pieces: Sequence, *, assume_valid: bool) -> TemporalGraphBatch:
     if not pieces:
         raise ValueError("empty temporal batch")
     bases, inventories, features = [], [], []
@@ -124,7 +139,7 @@ def build_temporal_batch(pieces: Sequence) -> TemporalGraphBatch:
     pointers = {n: [0] for n in NODES}
     edges = {e: [] for e in EDGES}
     for sample, piece in enumerate(pieces):
-        base = build_raw_graph(piece)
+        base = build_raw_graph(piece, assume_valid=assume_valid)
         slots = build_readout_slots(piece)
         bases.append(base)
         inventories.append(slots)

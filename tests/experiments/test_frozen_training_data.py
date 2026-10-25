@@ -308,6 +308,18 @@ def test_duplicate_and_cross_split_assignments_fail_even_under_test_hash_overrid
             data.FrozenTrainingData(source)
 
 
+def test_v2_targets_cannot_enter_frozen_v1_training_even_when_rehashed(source, tmp_path):
+    from music_critic.experiments.analysisgnn.multitask_contract import TARGET_SIDECAR_VERSION
+    row = source["records"][0]
+    payload = json.loads(Path(row["sidecar"]["path"]).read_text())
+    payload["schema_version"] = TARGET_SIDECAR_VERSION
+    payload["fingerprint"] = fingerprint({key: value for key, value in payload.items() if key != "fingerprint"})
+    _replace_file(row, "sidecar", payload, tmp_path)
+    loader = data.FrozenTrainingData(source)
+    with pytest.raises(ValueError, match="sidecar_contract_mismatch"):
+        loader.reader(row["record_id"], split="train")
+
+
 def test_authenticated_sidecar_mask_change_does_not_change_raw_graph(source, tmp_path):
     before = data.FrozenTrainingData(source)
     raw_before, _ = before.reader("synthetic:train:0000", split="train")

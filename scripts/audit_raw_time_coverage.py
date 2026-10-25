@@ -214,7 +214,7 @@ def run(args):
                 candidates = candidate_time_sets(piece)
                 if tuple(candidates) != POLICIES:
                     raise ValueError('unexpected candidate policy contract')
-                sidecar = previous.materialize_target_sidecar(accepted)
+                sidecar = previous.materialize_target_sidecar(accepted, target_sidecar_version=previous.LEGACY_TARGET_SIDECAR_VERSION)
                 piece_sha = sha256(previous.dumps_piece(piece).encode()).hexdigest()
                 sidecar_sha = sha256(json.dumps(sidecar, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
                 if piece_sha != historical['piece_sha256'] or sidecar_sha != historical['sidecar_sha256']:

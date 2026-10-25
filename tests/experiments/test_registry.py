@@ -321,6 +321,93 @@ def test_observed_access_cannot_violate_declared_policy(
         validate_record(seal_record(record))
 
 
+def _invalid_observed_policy_violation():
+    record = _record(status='invalid')
+    access = record['data_access']
+    access.update(access_evidence_status='partial_primary_evidence',
+        test_inputs_accessed=True, test_targets_accessed=None,
+        policy_violations=['test_inputs_accessed'])
+    record['validity']['reason'] = 'Authenticated input read contradicted the closed TEST policy; targets unknown.'
+    return record
+
+
+def test_invalid_record_truthfully_retains_forbidden_observed_access():
+    record = validate_record(seal_record(_invalid_observed_policy_violation()))
+    access = record['data_access']
+    assert access['test_inputs_accessed'] is True
+    assert access['test_targets_accessed'] is None
+    assert access['declared_policy']['test_inputs_allowed'] is False
+    assert access['policy_violations'] == ['test_inputs_accessed']
+    ledger = render_markdown_ledger([record])
+    assert 'yes/unknown/no/no' in ledger
+    assert 'forbidden/forbidden/forbidden/forbidden' in ledger
+
+
+def test_invalid_record_accepts_all_known_input_and_target_violations_without_metrics():
+    record = _invalid_observed_policy_violation()
+    access = record['data_access']
+    access.update(access_evidence_status='verified_primary_evidence',
+        test_targets_accessed=True,
+        policy_violations=['test_targets_accessed', 'test_inputs_accessed'])
+    validated = validate_record(seal_record(record))
+    assert validated['data_access']['test_metrics_computed'] is False
+    assert validated['data_access']['test_used_for_selection'] is False
+
+
+def test_invalid_record_requires_every_violation_including_validation():
+    record = _record(status='invalid')
+    access = record['data_access']
+    access.update({field: True for field in DATA_ACCESS_FIELDS})
+    access['declared_policy'].update({field: False for field in ACCESS_POLICY_FIELDS})
+    access['policy_violations'] = list(DATA_ACCESS_FIELDS)
+    validate_record(seal_record(record))
+    access['policy_violations'].remove('validation_accessed')
+    with pytest.raises(ExperimentRegistryError, match='policy_violations'):
+        validate_record(seal_record(record))
+
+
+@pytest.mark.parametrize('status', ['planned', 'running', 'completed', 'failed', 'aborted'])
+def test_violation_declaration_does_not_authorize_noninvalid_record(status):
+    record = _invalid_observed_policy_violation()
+    record['status'] = status
+    with pytest.raises(ExperimentRegistryError, match='policy_violation:test_inputs_accessed'):
+        validate_record(seal_record(record))
+
+
+@pytest.mark.parametrize('declaration', [None, [], ['test_targets_accessed'],
+    ['test_inputs_accessed', 'test_targets_accessed'],
+    ['test_inputs_accessed', 'test_inputs_accessed'], 'test_inputs_accessed',
+    ['test_inputs_allowed'], [1], {'test_inputs_accessed': True}])
+def test_invalid_policy_violation_requires_exact_unique_observed_fields(declaration):
+    record = _invalid_observed_policy_violation()
+    record['data_access']['policy_violations'] = declaration
+    with pytest.raises(ExperimentRegistryError, match='policy_violations'):
+        validate_record(seal_record(record))
+
+
+def test_invalid_policy_violation_requires_declaration_and_reason():
+    record = _invalid_observed_policy_violation()
+    del record['data_access']['policy_violations']
+    with pytest.raises(ExperimentRegistryError, match='policy_violations'):
+        validate_record(seal_record(record))
+    record = _invalid_observed_policy_violation()
+    record['validity']['reason'] = '  '
+    with pytest.raises(ExperimentRegistryError, match='validity.reason'):
+        validate_record(seal_record(record))
+
+
+def test_invalid_violation_still_requires_consistent_evidence_flags():
+    record = _invalid_observed_policy_violation()
+    record['data_access']['access_evidence_status'] = 'verified_primary_evidence'
+    with pytest.raises(ExperimentRegistryError, match='verified_values_required'):
+        validate_record(seal_record(record))
+    record = _invalid_observed_policy_violation()
+    record['data_access']['test_metrics_computed'] = True
+    record['data_access']['policy_violations'].append('test_metrics_computed')
+    with pytest.raises(ExperimentRegistryError, match='test_metrics_require_inputs_and_targets'):
+        validate_record(seal_record(record))
+
+
 @pytest.mark.parametrize(
     ("policy_overrides", "message"),
     [

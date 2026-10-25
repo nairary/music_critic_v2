@@ -1,5 +1,51 @@
 # Music Critic V2 Engineering Roadmap
 
+## 2026-10-07 — Scale event-bound theory supervision
+
+T07 expands the requested data phase to practicable admitted TRAIN corpora and
+source-compatible public analyses, preserving exact canonical note IDs, unknown
+masks, multiple analytic views and individual weak interpretation provenance.
+Native facts, source functional analyses and Astra-authored temporal relations
+remain separately measurable. [Specification](workstreams/2026-10-07/multigenre-theory-enrichment/spec.md).
+Next scientific phase: choose a compact output ontology and source/view sampling,
+independently review semantic labels, then run the registered shared-parameter
+auxiliary-loss/PLL comparison. Dataset size alone does not establish improvement.
+
+## 2026-10-06 — Canonical note-role targets from Astra analysis
+
+T05 converts source participant roles into usable current-TRAIN TargetBundles,
+with exact note IDs, relation intervals, independent masks and pseudo-label
+provenance. The bounded release covers three works, not complete works or the
+whole corpus. [Specification](workstreams/2026-10-06/relational-midi-targets/spec.md).
+Next: expand verified canonical coverage for rock/pop/jazz and measure annotation
+agreement on held-out reviewed examples before claiming semantic accuracy.
+Prediction heads and training require a separate implementation/run scope.
+
+## 2026-09-28 — Whole songs and long motif memory
+
+The requested full-source hierarchy and 1/2/4/8/16/32-bar motif implementation
+is specified in [HCM_WHOLE.md](HCM_WHOLE.md), including full-source preparation,
+whole sampler, branch-separated decoder, warm start and exact whole resume.
+The code phase uses synthetic CPU tests only. Next: registered source completeness
+and coverage preparation, then 3090 resource/replay admission with fresh capacity
+check. Compare matched no-bank, 1/2/4/8 and 1/2/4/8/16/32 conditions only after
+admission. Corpus size, compute budget and benefit are not inferred from tests.
+
+## 2026-09-28 — HCM-1 code phase and next admission gate
+
+User-authorized core implementation is complete: exact conditional event codec,
+mask-before-graph, tiled differentiable C3, multiscale memory, nested decoder,
+typed relations, serial training/resume and registry-bound CLI. See
+[HCM-1](HCM1.md). Synthetic CPU checks do not complete native admission or
+scientific evaluation; current critic training is not migrated.
+
+Next: prepare/audit source-grouped canonical inputs and selected weights; measure
+profile coverage; register a bounded CPU/CUDA parity and resource gate with a
+fresh capacity check, then select a short training pilot budget. Packed batching,
+mixed precision, caches and source-native auxiliary heads require later scoped
+implementation. Likelihood, intervention detection and human preference remain
+separate evaluation targets.
+
 ## 2026-09-16 — Integration and cloud storage before further architecture work
 
 Promote completed temporal/C2 into main and retain unfinished fusion/MMoE on

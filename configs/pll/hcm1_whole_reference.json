@@ -1,0 +1,93 @@
+{
+  "schema": "PLLWholeRunConfig@1",
+  "protocol_id": "hcm1-whole-reference-template-not-admitted",
+  "seed": 17,
+  "model": {
+    "width": 256,
+    "global_layers": 2,
+    "event_layers": 6,
+    "heads": 8,
+    "ff_dim": 1024,
+    "field_width": 128,
+    "field_heads": 4,
+    "field_ff_dim": 512,
+    "dropout": 0.1,
+    "relation_dim": 64,
+    "relation_components": 4,
+    "max_fields": 64,
+    "relations": "transr"
+  },
+  "context": {
+    "context_bars": 512,
+    "core_bars": 4,
+    "halo_bars": 1,
+    "max_tracks": 16,
+    "max_notes_per_tile": 2048,
+    "max_edges_per_tile": 200000,
+    "max_slices_per_tile": 8192,
+    "max_memory": 1152,
+    "max_fine_memory": 512
+  },
+  "codec": {
+    "max_events": 512,
+    "max_tracks": 16,
+    "max_denominator": 65535,
+    "max_numerator": 18446744073709551615
+  },
+  "training": {
+    "lr": 0.0002,
+    "backbone_lr": 2e-05,
+    "weight_decay": 0.01,
+    "grad_clip": 1.0,
+    "accumulation": 1,
+    "total_updates": 1000,
+    "warmup_updates": 50,
+    "unfreeze_update": null
+  },
+  "freeze_policy": "frozen",
+  "sampling": {
+    "length_weights": {
+      "1": 0.5,
+      "2": 0.3,
+      "4": 0.2
+    },
+    "single_track_probability": 0.5
+  },
+  "pretrained": null,
+  "resume": null,
+  "attempt_updates": 100,
+  "checkpoint_every": 50,
+  "whole_piece": {
+    "max_piece_bars": 512,
+    "max_piece_notes": 65536,
+    "bar_slots": 4,
+    "block_bars": 8,
+    "block_slots": 4,
+    "song_slots": 8,
+    "block_layers": 2,
+    "song_layers": 2,
+    "near_bars": 4,
+    "max_local_tokens": 512,
+    "max_detail_tokens_per_bar": 128,
+    "motif_scales": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      32
+    ],
+    "motif_beat_scales": [
+      1,
+      2
+    ],
+    "motif_top_k": 4,
+    "motif_details_per_candidate": 64,
+    "motif_overlap_threshold": 0.5,
+    "max_motif_candidates": 8192,
+    "freeze_local": true,
+    "enable_global": true,
+    "enable_motifs": true
+  },
+  "warm_start": null
+}

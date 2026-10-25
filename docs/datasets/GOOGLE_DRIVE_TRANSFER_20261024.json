@@ -1,0 +1,500 @@
+{
+  "schema_version": "MusicCriticDatasetTransfer@1.0.0",
+  "date_moscow": "2026-10-24",
+  "purpose": "User-authorized dataset backup, capacity assessment, transfer and link-based reader access",
+  "destination": {
+    "provider": "Google Drive",
+    "folder_id": "1NE52nepE_89IHg4Ms7ZYZse2VeQYqSae",
+    "url": "https://drive.google.com/drive/u/1/folders/1NE52nepE_89IHg4Ms7ZYZse2VeQYqSae",
+    "capacity_bytes_conservative": 15000000000,
+    "initial_usage_display": "642 KB of 15 GB",
+    "sharing_changed": true,
+    "usage_after_upload_ui_display": "10.4 GB of 15 GB",
+    "share_url": "https://drive.google.com/drive/folders/1NE52nepE_89IHg4Ms7ZYZse2VeQYqSae",
+    "sharing_status": "anyone_with_link_viewer",
+    "sharing_role": "reader",
+    "sharing_user_confirmation": "User explicitly confirmed link-based viewing and downloading for both dataset and checkpoint folders",
+    "sharing_verified_at_utc": "2026-10-24T14:10:20.517742+00:00",
+    "sharing_verification": "Share dialog displayed Все, у кого есть ссылка; Читатель; Настройки доступа обновлены.",
+    "sharing_screenshot": "outputs/google_drive_transfer_20261024/link-access-enabled.png"
+  },
+  "status": "symbolic_core_uploaded_ui_confirmed",
+  "full_snapshot": {
+    "receipt": {
+      "schema": "FullLocalDatasetTransferReceipt@1",
+      "parts": [
+        {
+          "name": "all-local-datasets.tar.gz.part-0000",
+          "sha256": "52de1d6e0912d764d9836d99c588fa2d7718f8e0deb0e19838c08d3e659fd194",
+          "size_bytes": 1073741824
+        },
+        {
+          "name": "all-local-datasets.tar.gz.part-0001",
+          "sha256": "6fac0ec8cd1fb89f05b416f4814265c99536edc24f86bcdd93fa21ea406e217f",
+          "size_bytes": 1073741824
+        },
+        {
+          "name": "all-local-datasets.tar.gz.part-0002",
+          "sha256": "5264bb531f0adcf9aae9f166c25f02fba4ef43f6fab70043ff72e0411cda40a7",
+          "size_bytes": 1073741824
+        },
+        {
+          "name": "all-local-datasets.tar.gz.part-0003",
+          "sha256": "295e2731be8ed7c849e88bbaef92c96c97cfa4a3bf496d59194d34ba3cb84c80",
+          "size_bytes": 1073741824
+        },
+        {
+          "name": "all-local-datasets.tar.gz.part-0004",
+          "sha256": "3106cde0dcbd2c0437b1a10be13b21b559edb4b5bfd6f293b89e04af579e3662",
+          "size_bytes": 1073741824
+        },
+        {
+          "name": "all-local-datasets.tar.gz.part-0005",
+          "sha256": "c5e4cf8d8b9892ab2a50aa08563f9052bcb101a14f7a67b90de68d2bfffebbdc",
+          "size_bytes": 1073741824
+        },
+        {
+          "name": "all-local-datasets.tar.gz.part-0006",
+          "sha256": "4045afcd173ee1a52d60b7a7d01d2c1a0349fbc9018bbad83e56ab05cc103b91",
+          "size_bytes": 1073741824
+        },
+        {
+          "name": "all-local-datasets.tar.gz.part-0007",
+          "sha256": "e20d6549edabe704534508004657c2519d3991b494e0f08a6d3aeb6255b46774",
+          "size_bytes": 1073741824
+        },
+        {
+          "name": "all-local-datasets.tar.gz.part-0008",
+          "sha256": "754506405e44ab718dc8a181ff45dda5fcab93d0cd8ab5364a2c6dda390880f3",
+          "size_bytes": 1073741824
+        },
+        {
+          "name": "all-local-datasets.tar.gz.part-0009",
+          "sha256": "03ca5bfbb0f7da4045c2a993bd963f98c8ae7f0285f8a9428f6ea8f033e9576d",
+          "size_bytes": 1073741824
+        },
+        {
+          "name": "all-local-datasets.tar.gz.part-0010",
+          "sha256": "61ea83ebf87d6a6dc0cf3ad597b9818bf53a4bf44712f9175cf4e026ac20dced",
+          "size_bytes": 1073741824
+        },
+        {
+          "name": "all-local-datasets.tar.gz.part-0011",
+          "sha256": "89ad8d37db7aeec0226852d6a5f972b19d125f906f168581e5569a51470c18ee",
+          "size_bytes": 1073741824
+        },
+        {
+          "name": "all-local-datasets.tar.gz.part-0012",
+          "sha256": "5e6d820e1aeb5b90462e3a82c888d31aa8bd226e506e5baeec9c8e24205fe3a8",
+          "size_bytes": 1073741824
+        },
+        {
+          "name": "all-local-datasets.tar.gz.part-0013",
+          "sha256": "7fc2184720f45daf738248e2436d6e2981dab6ad8c0d313e14cb8f76271c2fe6",
+          "size_bytes": 1073741824
+        },
+        {
+          "name": "all-local-datasets.tar.gz.part-0014",
+          "sha256": "4483a5cd1e01675586fd09a6dece807ec78da84adcd37c19f737c15354499327",
+          "size_bytes": 1073741824
+        },
+        {
+          "name": "all-local-datasets.tar.gz.part-0015",
+          "sha256": "a5d56b54584bc5388dbd668201f27584a619325e8012713a99eb12b82efe388d",
+          "size_bytes": 1073741824
+        },
+        {
+          "name": "all-local-datasets.tar.gz.part-0016",
+          "sha256": "c00c9397fbf526c9933330b5417294c9a8799577763f5e161d7218df6c27d0f8",
+          "size_bytes": 568880033
+        }
+      ],
+      "compressed_size_bytes": 17748749217,
+      "compressed_sha256": "5e87421c6aafbd1dc3911b6c174cb707140ba9301293eb9643612307b837b09b",
+      "file_count": 221309,
+      "unique_payload_count": 190126,
+      "logical_size_bytes": 132296837463,
+      "unique_size_bytes": 119772677528,
+      "excluded_count": 2,
+      "redundant_delivery_zip_count": 15,
+      "fits_15GB_decimal_with_100MB_reserve": false,
+      "verification": "all regular members rehashed; all hardlinks resolve to earlier authenticated members",
+      "remote_status": "not_uploaded"
+    },
+    "delivery_files": [
+      {
+        "name": "all-local-datasets.tar.gz.part-0000",
+        "sha256": "52de1d6e0912d764d9836d99c588fa2d7718f8e0deb0e19838c08d3e659fd194",
+        "size_bytes": 1073741824
+      },
+      {
+        "name": "all-local-datasets.tar.gz.part-0001",
+        "sha256": "6fac0ec8cd1fb89f05b416f4814265c99536edc24f86bcdd93fa21ea406e217f",
+        "size_bytes": 1073741824
+      },
+      {
+        "name": "all-local-datasets.tar.gz.part-0002",
+        "sha256": "5264bb531f0adcf9aae9f166c25f02fba4ef43f6fab70043ff72e0411cda40a7",
+        "size_bytes": 1073741824
+      },
+      {
+        "name": "all-local-datasets.tar.gz.part-0003",
+        "sha256": "295e2731be8ed7c849e88bbaef92c96c97cfa4a3bf496d59194d34ba3cb84c80",
+        "size_bytes": 1073741824
+      },
+      {
+        "name": "all-local-datasets.tar.gz.part-0004",
+        "sha256": "3106cde0dcbd2c0437b1a10be13b21b559edb4b5bfd6f293b89e04af579e3662",
+        "size_bytes": 1073741824
+      },
+      {
+        "name": "all-local-datasets.tar.gz.part-0005",
+        "sha256": "c5e4cf8d8b9892ab2a50aa08563f9052bcb101a14f7a67b90de68d2bfffebbdc",
+        "size_bytes": 1073741824
+      },
+      {
+        "name": "all-local-datasets.tar.gz.part-0006",
+        "sha256": "4045afcd173ee1a52d60b7a7d01d2c1a0349fbc9018bbad83e56ab05cc103b91",
+        "size_bytes": 1073741824
+      },
+      {
+        "name": "all-local-datasets.tar.gz.part-0007",
+        "sha256": "e20d6549edabe704534508004657c2519d3991b494e0f08a6d3aeb6255b46774",
+        "size_bytes": 1073741824
+      },
+      {
+        "name": "all-local-datasets.tar.gz.part-0008",
+        "sha256": "754506405e44ab718dc8a181ff45dda5fcab93d0cd8ab5364a2c6dda390880f3",
+        "size_bytes": 1073741824
+      },
+      {
+        "name": "all-local-datasets.tar.gz.part-0009",
+        "sha256": "03ca5bfbb0f7da4045c2a993bd963f98c8ae7f0285f8a9428f6ea8f033e9576d",
+        "size_bytes": 1073741824
+      },
+      {
+        "name": "all-local-datasets.tar.gz.part-0010",
+        "sha256": "61ea83ebf87d6a6dc0cf3ad597b9818bf53a4bf44712f9175cf4e026ac20dced",
+        "size_bytes": 1073741824
+      },
+      {
+        "name": "all-local-datasets.tar.gz.part-0011",
+        "sha256": "89ad8d37db7aeec0226852d6a5f972b19d125f906f168581e5569a51470c18ee",
+        "size_bytes": 1073741824
+      },
+      {
+        "name": "all-local-datasets.tar.gz.part-0012",
+        "sha256": "5e6d820e1aeb5b90462e3a82c888d31aa8bd226e506e5baeec9c8e24205fe3a8",
+        "size_bytes": 1073741824
+      },
+      {
+        "name": "all-local-datasets.tar.gz.part-0013",
+        "sha256": "7fc2184720f45daf738248e2436d6e2981dab6ad8c0d313e14cb8f76271c2fe6",
+        "size_bytes": 1073741824
+      },
+      {
+        "name": "all-local-datasets.tar.gz.part-0014",
+        "sha256": "4483a5cd1e01675586fd09a6dece807ec78da84adcd37c19f737c15354499327",
+        "size_bytes": 1073741824
+      },
+      {
+        "name": "all-local-datasets.tar.gz.part-0015",
+        "sha256": "a5d56b54584bc5388dbd668201f27584a619325e8012713a99eb12b82efe388d",
+        "size_bytes": 1073741824
+      },
+      {
+        "name": "all-local-datasets.tar.gz.part-0016",
+        "sha256": "c00c9397fbf526c9933330b5417294c9a8799577763f5e161d7218df6c27d0f8",
+        "size_bytes": 568880033
+      },
+      {
+        "name": "DATASET_SNAPSHOT_MANIFEST.json.gz",
+        "sha256": "ec6a4f9e12aa83606ff8dc644cfd5779c6f63eea810101b747c8947f4c54a741",
+        "size_bytes": 14861201
+      },
+      {
+        "name": "FULL_LOCAL_DATASETS_RECEIPT.json",
+        "sha256": "3d798c16997a7bcd1b9464d22c2fea56a063204f34b6a60d11ddaffece0b35c9",
+        "size_bytes": 3660
+      },
+      {
+        "name": "RESTORE.md",
+        "sha256": "6e3c81607b008263510533fd79f46230ce9ad8f06920d777aa71f2e6b12c11c5",
+        "size_bytes": 2397
+      },
+      {
+        "name": "additional-prepared-and-listening-inputs-20261024.tar.gz",
+        "sha256": "344e0079a7baf1cdbab86fd55bbc8369fe9f0ff070f8c900972082ff221b40fb",
+        "size_bytes": 40758331
+      },
+      {
+        "name": "supplement-receipt.json",
+        "sha256": "1bb0c00364d9a7668b4bf66f062a46d90f9232db05768f557e72cbbbcf43917d",
+        "size_bytes": 1096
+      },
+      {
+        "name": "SHA256SUMS",
+        "sha256": "e43fe3bfce74d704caf224cebcde208ec46fac7cc4e689d9b03fe98a933b95ed",
+        "size_bytes": 2223
+      }
+    ],
+    "delivery_size_bytes": 17804378125,
+    "local_root": "outputs/google_drive_transfer_20261024/full-local",
+    "manifest_size_bytes": 54812030,
+    "manifest_sha256": "3d4d968193e7ec34f7bb167983cfa58f28455f772892c0b7b7367ac8a6f0009f"
+  },
+  "supplement": {
+    "archive": "additional-prepared-and-listening-inputs-20261024.tar.gz",
+    "sha256": "344e0079a7baf1cdbab86fd55bbc8369fe9f0ff070f8c900972082ff221b40fb",
+    "size_bytes": 40758331,
+    "files": 1261,
+    "logical_bytes": 741395904,
+    "verified": "all archive members rehashed",
+    "roots": [
+      "outputs/c3_relationgate_changes_3090_20260919",
+      "outputs/hcm2_human_eval_20261001/data",
+      "outputs/hcm1_expanded_20260928/evaluation002/data",
+      "outputs/hcm1_expanded_20260928/evaluation003/data",
+      "outputs/hcm1_3090_handoff_20260928/critic-terminal001/data",
+      "outputs/hcm1_3090_handoff_20260928/player-smoke/prepared",
+      "outputs/hcm1_3090_handoff_20260928/native-evaluation001/outputs/hcm1_pilot_20260928/prepare003/data",
+      "outputs/hcm1_3090_handoff_20260928/native-gate001/outputs/hcm1_pilot_20260928/prepare003/data",
+      "outputs/hcm1_expanded_20260928/evaluation002/external/hcm1_handoff_20260928/outputs/hcm1_pilot_20260928/prepare003/data",
+      "outputs/hcm1_expanded_20260928/evaluation003/external/hcm1_handoff_20260928/outputs/hcm1_pilot_20260928/prepare003/data"
+    ]
+  },
+  "remote_byte_redownload_verified": false,
+  "initial_account_transfer": {
+    "folder_id": "1HZvq3FnpHttFbNXl3irYfN6itjf0or6F",
+    "status": "UI confirmed 6 files uploaded; new selected account is a distinct destination",
+    "files": [
+      "local-raw-datasets.tar.gz",
+      "local-raw-datasets.json",
+      "prepared-train-validation-20260916.zip",
+      "corpus400-release003-and-materialized-20261024.tar.gz",
+      "corpus400-snapshot-summary.json",
+      "corpus400-snapshot-manifest.json"
+    ],
+    "new_destination_transfer_not_implied": true,
+    "corpus400_subset": {
+      "archive": "corpus400-release003-and-materialized-20261024.tar.gz",
+      "size_bytes": 274655795,
+      "sha256": "31b13c8a0d9bfe8de25417d9cc5cbac340221adb1c574ccdd50842d0c0a4e49c",
+      "files": 3812,
+      "uncompressed_bytes": 6037318529,
+      "expected_bindings_checked": 1055,
+      "missing_direct_references": [],
+      "archive_member_verification": "all_members_rehashed",
+      "scope": "completed release003 payload/direct hash-bound references plus retained materialize001 attempt001; not all author attempts or later release004 candidate; no new semantic acceptance",
+      "remote_status": "UI confirmed complete on original account"
+    }
+  },
+  "scientific_scope": "Opaque byte backup and hash/membership checks only; no inference, target interpretation, model selection or new experiment results. All semantic masks/statuses retain original meaning.",
+  "limitations": [
+    "Locally available dataset roots only; remote-only completeness not established",
+    "File names/bytes preserved; original absolute path locators require separate relocation after restore",
+    "Historical experiment records and source originals are not rewritten",
+    "Initial account and selected new account are distinct locations",
+    "Byte snapshot is checked per file, not an atomic filesystem snapshot; original semantic validity is unchanged"
+  ],
+  "capacity_assessment": "Exceeds even 15 GiB (16106127360 bytes), before external manifests and receipts. No full upload attempted on selected new Drive.",
+  "full_delivery_bytes": 17804378125,
+  "symbolic_core": {
+    "receipt": {
+      "schema": "SymbolicCoreTransferReceipt@1",
+      "parts": [
+        {
+          "name": "symbolic-core.tar.gz.part-0000",
+          "size_bytes": 1073741824,
+          "sha256": "52de1d6e0912d764d9836d99c588fa2d7718f8e0deb0e19838c08d3e659fd194"
+        },
+        {
+          "name": "symbolic-core.tar.gz.part-0001",
+          "size_bytes": 1073741824,
+          "sha256": "6fac0ec8cd1fb89f05b416f4814265c99536edc24f86bcdd93fa21ea406e217f"
+        },
+        {
+          "name": "symbolic-core.tar.gz.part-0002",
+          "size_bytes": 1073741824,
+          "sha256": "5264bb531f0adcf9aae9f166c25f02fba4ef43f6fab70043ff72e0411cda40a7"
+        },
+        {
+          "name": "symbolic-core.tar.gz.part-0003",
+          "size_bytes": 1073741824,
+          "sha256": "295e2731be8ed7c849e88bbaef92c96c97cfa4a3bf496d59194d34ba3cb84c80"
+        },
+        {
+          "name": "symbolic-core.tar.gz.part-0004",
+          "size_bytes": 1073741824,
+          "sha256": "3106cde0dcbd2c0437b1a10be13b21b559edb4b5bfd6f293b89e04af579e3662"
+        },
+        {
+          "name": "symbolic-core.tar.gz.part-0005",
+          "size_bytes": 1073741824,
+          "sha256": "c5e4cf8d8b9892ab2a50aa08563f9052bcb101a14f7a67b90de68d2bfffebbdc"
+        },
+        {
+          "name": "symbolic-core.tar.gz.part-0006",
+          "size_bytes": 1073741824,
+          "sha256": "4045afcd173ee1a52d60b7a7d01d2c1a0349fbc9018bbad83e56ab05cc103b91"
+        },
+        {
+          "name": "symbolic-core.tar.gz.part-0007",
+          "size_bytes": 1073741824,
+          "sha256": "e20d6549edabe704534508004657c2519d3991b494e0f08a6d3aeb6255b46774"
+        },
+        {
+          "name": "symbolic-core.tar.gz.part-0008",
+          "size_bytes": 1073741824,
+          "sha256": "754506405e44ab718dc8a181ff45dda5fcab93d0cd8ab5364a2c6dda390880f3"
+        },
+        {
+          "name": "symbolic-core.tar.gz.part-0009",
+          "size_bytes": 1073741824,
+          "sha256": "ffa7daa7c9ae8cbca0e84d6fe3659d696fb11b083aa6812eade10a6ff3c76633"
+        },
+        {
+          "name": "symbolic-core.tar.gz.part-0010",
+          "size_bytes": 375321912,
+          "sha256": "ee1952e617099043d1c8bb9a9c802bb486a1093bc551a74b18b5866fb00a07aa"
+        }
+      ],
+      "compressed_size_bytes": 11112740152,
+      "compressed_sha256": "16ec40e46a3dc29ace75579aa0d60280808a4e7c5b16fa731ab7611f64212772",
+      "file_count": 219181,
+      "unique_payload_count": 188807,
+      "omitted_audio_files": 2128,
+      "omitted_audio_logical_bytes": 10509326042,
+      "logical_bytes": 121787511421,
+      "verification": "all members rehashed; hardlinks checked",
+      "remote_status": "not_uploaded",
+      "scope": "Separate subset of the full local dataset backup: excludes loose WAV/MP3/FLAC/OGG/AIFF/M4A/MP4/WebM renders. Preserves selected source corpora, MIDI, canonical/prepared inputs, all selected annotation attempts/reviews, numerical targets and metadata. Mixed retained source/delivery archives are kept opaque and may include audio. Full backup remains intact. Not a new semantic release."
+    },
+    "delivery_files": [
+      {
+        "name": "symbolic-core.tar.gz.part-0000",
+        "size_bytes": 1073741824,
+        "sha256": "52de1d6e0912d764d9836d99c588fa2d7718f8e0deb0e19838c08d3e659fd194"
+      },
+      {
+        "name": "symbolic-core.tar.gz.part-0001",
+        "size_bytes": 1073741824,
+        "sha256": "6fac0ec8cd1fb89f05b416f4814265c99536edc24f86bcdd93fa21ea406e217f"
+      },
+      {
+        "name": "symbolic-core.tar.gz.part-0002",
+        "size_bytes": 1073741824,
+        "sha256": "5264bb531f0adcf9aae9f166c25f02fba4ef43f6fab70043ff72e0411cda40a7"
+      },
+      {
+        "name": "symbolic-core.tar.gz.part-0003",
+        "size_bytes": 1073741824,
+        "sha256": "295e2731be8ed7c849e88bbaef92c96c97cfa4a3bf496d59194d34ba3cb84c80"
+      },
+      {
+        "name": "symbolic-core.tar.gz.part-0004",
+        "size_bytes": 1073741824,
+        "sha256": "3106cde0dcbd2c0437b1a10be13b21b559edb4b5bfd6f293b89e04af579e3662"
+      },
+      {
+        "name": "symbolic-core.tar.gz.part-0005",
+        "size_bytes": 1073741824,
+        "sha256": "c5e4cf8d8b9892ab2a50aa08563f9052bcb101a14f7a67b90de68d2bfffebbdc"
+      },
+      {
+        "name": "symbolic-core.tar.gz.part-0006",
+        "size_bytes": 1073741824,
+        "sha256": "4045afcd173ee1a52d60b7a7d01d2c1a0349fbc9018bbad83e56ab05cc103b91"
+      },
+      {
+        "name": "symbolic-core.tar.gz.part-0007",
+        "size_bytes": 1073741824,
+        "sha256": "e20d6549edabe704534508004657c2519d3991b494e0f08a6d3aeb6255b46774"
+      },
+      {
+        "name": "symbolic-core.tar.gz.part-0008",
+        "size_bytes": 1073741824,
+        "sha256": "754506405e44ab718dc8a181ff45dda5fcab93d0cd8ab5364a2c6dda390880f3"
+      },
+      {
+        "name": "symbolic-core.tar.gz.part-0009",
+        "size_bytes": 1073741824,
+        "sha256": "ffa7daa7c9ae8cbca0e84d6fe3659d696fb11b083aa6812eade10a6ff3c76633"
+      },
+      {
+        "name": "symbolic-core.tar.gz.part-0010",
+        "size_bytes": 375321912,
+        "sha256": "ee1952e617099043d1c8bb9a9c802bb486a1093bc551a74b18b5866fb00a07aa"
+      },
+      {
+        "name": "CORE_DATASET_MANIFEST.json.gz",
+        "sha256": "817da691845daf4d08d93363fa909f637e0a4e88523b5b2e56f95d73e8beeca9",
+        "size_bytes": 14846717
+      },
+      {
+        "name": "RESTORE.md",
+        "sha256": "09109222c4daf849c784c762bc3f55736fa6d5559472a8b47aab226f1340e020",
+        "size_bytes": 1576
+      },
+      {
+        "name": "SYMBOLIC_CORE_RECEIPT.json",
+        "sha256": "93298ac3ed4109902d11e647fbbb57d22453e0be57362d575b7c5b225cd25de1",
+        "size_bytes": 2795
+      },
+      {
+        "name": "additional-prepared-and-listening-inputs-20261024.tar.gz",
+        "sha256": "344e0079a7baf1cdbab86fd55bbc8369fe9f0ff070f8c900972082ff221b40fb",
+        "size_bytes": 40758331
+      },
+      {
+        "name": "supplement-receipt.json",
+        "sha256": "1bb0c00364d9a7668b4bf66f062a46d90f9232db05768f557e72cbbbcf43917d",
+        "size_bytes": 1096
+      },
+      {
+        "name": "SHA256SUMS",
+        "sha256": "2052d90f04d074af9f94fe7b1ea477092928eb4e1a14bbf9a8d862ba7914df08",
+        "size_bytes": 1546
+      }
+    ],
+    "delivery_size_bytes": 11168352213,
+    "local_root": "outputs/google_drive_transfer_20261024/symbolic-core",
+    "manifest_size_bytes": 54812041,
+    "manifest_sha256": "286f7e0ef61cea29524a64cba9063b8d8866d0bf3e5a61c8cee6110a47a16cbb"
+  },
+  "symbolic_delivery_bytes": 11168352213,
+  "symbolic_core_fits_conservative_15GB": true,
+  "symbolic_free_bytes_on_conservative_15GB": 3831647787,
+  "scope_choice": "User selected upload of MIDI, sources and all annotation without loose audio renders; complete snapshot retained locally",
+  "selected_destination_upload_status": "completed_ui_confirmed",
+  "selected_destination_upload": {
+    "selected_scope": "symbolic_core",
+    "file_count": 17,
+    "size_bytes": 11168352213,
+    "ui_observation": "Google Drive displayed \"Загружены 17 файлов\"; destination contains exactly 17 file rows and all expected delivery file names matched",
+    "remote_byte_redownload_verified": false,
+    "completed_observed_at_utc": "2026-10-24T09:23:18Z",
+    "ui_confirmed_file_names": [
+      "symbolic-core.tar.gz.part-0000",
+      "symbolic-core.tar.gz.part-0001",
+      "symbolic-core.tar.gz.part-0002",
+      "symbolic-core.tar.gz.part-0003",
+      "symbolic-core.tar.gz.part-0004",
+      "symbolic-core.tar.gz.part-0005",
+      "symbolic-core.tar.gz.part-0006",
+      "symbolic-core.tar.gz.part-0007",
+      "symbolic-core.tar.gz.part-0008",
+      "symbolic-core.tar.gz.part-0009",
+      "symbolic-core.tar.gz.part-0010",
+      "CORE_DATASET_MANIFEST.json.gz",
+      "RESTORE.md",
+      "SYMBOLIC_CORE_RECEIPT.json",
+      "additional-prepared-and-listening-inputs-20261024.tar.gz",
+      "supplement-receipt.json",
+      "SHA256SUMS"
+    ],
+    "local_delivery_sha256_rechecked": true,
+    "ui_completion_screenshot": "outputs/google_drive_transfer_20261024/new-drive-upload-complete.png"
+  },
+  "capacity_assessment_scope": "Dataset-only capacity numbers exclude later separate checkpoint upload; Drive then displayed 13.15 GB of 15 GB"
+}
