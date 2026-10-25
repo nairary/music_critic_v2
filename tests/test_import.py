@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import music_critic
+import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -16,11 +17,13 @@ def test_import_and_version() -> None:
     assert music_critic.__version__
 
 
-def test_public_import_has_no_heavy_or_legacy_imports() -> None:
+@pytest.mark.parametrize("package", ["music_critic", "music_critic.pll"])
+def test_public_import_has_no_heavy_or_legacy_imports(package: str) -> None:
     code = """
 import json
 import sys
-import music_critic
+import importlib
+importlib.import_module(sys.argv[1])
 
 forbidden = (
     "torch",
@@ -41,7 +44,7 @@ raise SystemExit(1 if loaded else 0)
     env = os.environ.copy()
     env["PYTHONPATH"] = str(REPO_ROOT / "src")
     result = subprocess.run(
-        [sys.executable, "-c", code],
+        [sys.executable, "-c", code, package],
         cwd="/tmp",
         env=env,
         check=False,

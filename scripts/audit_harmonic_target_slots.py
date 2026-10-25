@@ -18,6 +18,7 @@ import time
 from music_critic.adapters import dilemmadata as adapter
 from music_critic.data import dumps_piece
 from music_critic.experiments.analysisgnn.multitask_contract import (
+    LEGACY_TARGET_SIDECAR_VERSION,
     TASK_BY_ID, get_vocabulary, materialize_target_sidecar,
 )
 from music_critic.experiments.analysisgnn.training_policy import (
@@ -238,7 +239,7 @@ def run(args):
                 accepted=adapter.convert_dilemmadata_record(record)
                 if not isinstance(accepted,adapter.DilemmadataAccepted):
                     raise ValueError(f'conversion rejected: {accepted.categories}')
-                sidecar=materialize_target_sidecar(accepted)
+                sidecar=materialize_target_sidecar(accepted, target_sidecar_version=LEGACY_TARGET_SIDECAR_VERSION)
                 sidecar_sha=sha256(json.dumps(sidecar,sort_keys=True,separators=(',',':')).encode()).hexdigest()
                 piece_sha=sha256(dumps_piece(accepted.piece).encode()).hexdigest()
                 bound=cache[rid]

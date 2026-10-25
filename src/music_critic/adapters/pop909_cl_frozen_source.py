@@ -58,6 +58,18 @@ def read_raw_source(
         _fail("test_access_forbidden", "TEST source access is forbidden")
     if split not in ("train", "validation"):
         _fail("split_invalid", "explicit train or validation split required")
+    return _read_bound_score(record, split=split,
+                             expected_projection_sha256=expected_projection_sha256)
+
+
+def _read_bound_score(record: Pop909ClCorpusRecord, *, split: str,
+                      expected_projection_sha256: str) -> CanonicalPiece:
+    """Shared score conversion; the calling entrypoint owns its access guard.
+
+    The original public reader still forbids TEST before reaching this helper.
+    The separately registered C3 full-corpus entrypoint admits only its explicitly
+    authorized, complete POP909-CL population, retaining original split identity.
+    """
     if not isinstance(record, Pop909ClCorpusRecord):
         _fail("record_invalid", "Pop909ClCorpusRecord required")
     if any(

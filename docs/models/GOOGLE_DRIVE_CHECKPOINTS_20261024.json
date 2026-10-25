@@ -1,0 +1,648 @@
+{
+  "schema": "GoogleDriveCheckpointTransfer@1",
+  "date_moscow": "2026-10-24",
+  "destination": {
+    "folder_id": "1-wnBgYNl0KtlzRGNUxpvKtTtzOpbwkDN",
+    "url": "https://drive.google.com/drive/folders/1-wnBgYNl0KtlzRGNUxpvKtTtzOpbwkDN",
+    "sharing_status": "anyone_with_link_viewer",
+    "sharing_changed": true,
+    "sharing_role": "reader",
+    "sharing_user_confirmation": "User explicitly confirmed link-based viewing and downloading for both dataset and checkpoint folders",
+    "sharing_verified_at_utc": "2026-10-24T14:10:20.517742+00:00",
+    "sharing_verification": "Share dialog displayed Все, у кого есть ссылка; Читатель; Настройки доступа обновлены.",
+    "sharing_screenshot": "outputs/google_drive_checkpoints_20261024/link-access-enabled.png"
+  },
+  "upload_status": "completed_ui_confirmed",
+  "remote_byte_redownload_verified": false,
+  "delivery_size_bytes": 2946638364,
+  "local_root": "outputs/google_drive_checkpoints_20261024",
+  "delivery_files": [
+    {
+      "name": "local-checkpoints-20261024.tar.gz",
+      "size_bytes": 2946608516,
+      "sha256": "331d4a166562705bffdc61d352ca47350581793f34b0d680b3cf99aa5a7e7b35"
+    },
+    {
+      "name": "CHECKPOINT_BACKUP_RECEIPT.json",
+      "size_bytes": 28814,
+      "sha256": "f9c6409aed29ccb2d30f68cd5d402500d3130f965644cdf6ff231e719a0e4f1a"
+    },
+    {
+      "name": "RESTORE_CHECKPOINTS.md",
+      "size_bytes": 748,
+      "sha256": "9f95dfec8746f43a73c6583264353851aee81bd9086780db36ad9c5c32f95048"
+    },
+    {
+      "name": "SHA256SUMS",
+      "size_bytes": 286,
+      "sha256": "6ad682420cfd0567f0f1e4a07693d89e830baaeac2d85b4c844808d1034c62d2"
+    }
+  ],
+  "snapshot": {
+    "schema": "LocalCheckpointBackup@1",
+    "scope": "All local regular .pt/.pth/.ckpt/.safetensors files in outputs/artifacts/checkpoints; opaque byte backup only, not selection of production or best models; remote-only completeness unknown",
+    "archive": "local-checkpoints-20261024.tar.gz",
+    "sha256": "331d4a166562705bffdc61d352ca47350581793f34b0d680b3cf99aa5a7e7b35",
+    "size_bytes": 2946608516,
+    "file_count": 96,
+    "logical_bytes": 4532993489,
+    "unique_payload_count": 71,
+    "verification": "Every regular archive member rehashed and all hardlinks verified; no checkpoint deserialized or executed",
+    "remote_status_at_packaging": "not_uploaded",
+    "files": [
+      {
+        "path": "outputs/c4_pop909_20261005/train001-final/checkpoint-080000.pt",
+        "size_bytes": 55788026,
+        "sha256": "d3b9ef43f13f738658fc9949500951fef179557a5561c928ead3f7957122a8ef",
+        "mtime_ns": 1791219507812613087
+      },
+      {
+        "path": "outputs/c4_pop909_20261005/train001-first-checkpoint/checkpoint-001000.pt",
+        "size_bytes": 55787642,
+        "sha256": "65702cdcebd17bf15de79cae5f64212b2ab06cd9ad84d6523c3761f589a3a1f3",
+        "mtime_ns": 1791193900015541944
+      },
+      {
+        "path": "outputs/cloud_batch4_20260917/export/files/gate/run/gate-resume-000002.pt",
+        "size_bytes": 49104288,
+        "sha256": "3b4c70fddb8ae879d4557bd0e9fe49ae57b1781148a6ba0e8e2d6d65059e6433",
+        "mtime_ns": 1789613968274903716
+      },
+      {
+        "path": "outputs/cloud_prepared_terminal_import_001/files/gate/run/gate-resume-000002.pt",
+        "size_bytes": 49104224,
+        "sha256": "e063f1e8c7b414760add5a041fc2c33dba849a08025b9c0c923d5b21a5c125a7",
+        "mtime_ns": 1789600905075409459
+      },
+      {
+        "path": "outputs/cpu_pipeline_gate_20260917/export/files/run/gate-resume-000002.pt",
+        "size_bytes": 49104288,
+        "sha256": "90e75d9b8f107395320c8c47a09ad2bf95d53c146d8e0080c7edd873a31eb9f8",
+        "mtime_ns": 1789609211977235525
+      },
+      {
+        "path": "outputs/critic_authored_curriculum_20260927/backbone-import001/checkpoint-080000-validated.pt",
+        "size_bytes": 58805104,
+        "sha256": "d651511441907d4d559d0d3009c925107b9e371ca462db953f189ad4528e4a35",
+        "mtime_ns": 1790476619514876210
+      },
+      {
+        "path": "outputs/critic_authored_curriculum_20260927/native-gate003/probe-checkpoint.pt",
+        "size_bytes": 8845898,
+        "sha256": "fab2832ba1569494f84966551761f789b4d3c213fe5403b62bdd310f9be4301e",
+        "mtime_ns": 1790484460842342837
+      },
+      {
+        "path": "outputs/critic_authored_curriculum_20260927/test-env/lib/python3.12/site-packages/distutils-precedence.pth",
+        "size_bytes": 151,
+        "sha256": "2638ce9e2500e572a5e0de7faed6661eb569d1b696fcba07b0dd223da5f5d224",
+        "mtime_ns": 1790473815627880144
+      },
+      {
+        "path": "outputs/critic_c3g_20260922/engineering/source-parity/reference-nonuniform.pt",
+        "size_bytes": 166434,
+        "sha256": "aeb5a543f218269acaf9b0b7fa9a8625e4259b72faeb53982e05d5f6c3334899",
+        "mtime_ns": 1790041102824320049
+      },
+      {
+        "path": "outputs/critic_c3g_20260922/engineering/source-parity/reference-uniform.pt",
+        "size_bytes": 166190,
+        "sha256": "b57c7b4246dbe78a0b60bfb5273e5e05f44d6a4a7dda63a9a4c731a31a08db29",
+        "mtime_ns": 1790041102824146591
+      },
+      {
+        "path": "outputs/critic_c3g_20260922/gate001/native/probe-checkpoint.pt",
+        "size_bytes": 9258491,
+        "sha256": "f4cd2239a29a80a16ab3e7673e22845c955879cfefb6eeefde13021419f30176",
+        "mtime_ns": 1790045030285193704
+      },
+      {
+        "path": "outputs/critic_c3g_20260922/train001/operator-stop/extracted/train-evidence/train/training/checkpoints/update-00000000-attempt-00000000-event-00000001.pt",
+        "size_bytes": 3088999,
+        "sha256": "2e12fa20704bb5e8443e80ad71459f84d7562873e32d2460a69af907547d0d43",
+        "mtime_ns": 1790045952114443540
+      },
+      {
+        "path": "outputs/critic_c3g_20260922/train001/operator-stop/extracted/train-evidence/train/training/checkpoints/update-00000000-attempt-00000000-event-00000003.pt",
+        "size_bytes": 3089127,
+        "sha256": "678f99ebaec0c4a2087912965b1153fc65e5f8a8e30167b5d50d967c4957c630",
+        "mtime_ns": 1790046976292411804
+      },
+      {
+        "path": "outputs/critic_c3g_20260922/train001/operator-stop/extracted/train-evidence/train/training/checkpoints/update-00001000-attempt-00001000-event-00001005.pt",
+        "size_bytes": 9249523,
+        "sha256": "1b8e87d53fd4d4a1ac1133df70c7dabc583f890995da5d45a279d0e58ce55e39",
+        "mtime_ns": 1790058301165944814
+      },
+      {
+        "path": "outputs/critic_c3g_20260922/train001/operator-stop/extracted/train-evidence/train/training/checkpoints/update-00001364-attempt-00001364-event-00001370.pt",
+        "size_bytes": 9249523,
+        "sha256": "954fcdc13f436a262132fe21386d2e3abf5d6d18ee371b5648144ac8a5fe79ae",
+        "mtime_ns": 1790062052253754615
+      },
+      {
+        "path": "outputs/hcm1_3090_handoff_20260928/critic-terminal001/data/evidence/train002/training/checkpoints/update-00000605-attempt-00000605-event-00000001.pt",
+        "size_bytes": 8838226,
+        "sha256": "7c6660b2fc345ef2551f396e51cd2cd196bab771174a7486e889b784cf4bf011",
+        "mtime_ns": 1790563565205682928
+      },
+      {
+        "path": "outputs/hcm1_3090_handoff_20260928/critic-terminal001/data/evidence/train002/training/checkpoints/update-00000738-attempt-00000738-event-00000136.pt",
+        "size_bytes": 8838226,
+        "sha256": "1dc796c3143e558ed202e230b430b01ac6551c4253ba36720226d0c39fd260d1",
+        "mtime_ns": 1790563565207029347
+      },
+      {
+        "path": "outputs/hcm1_3090_handoff_20260928/critic-terminal001/data/evidence/train002/training/checkpoints/update-00000984-attempt-00000984-event-00000384.pt",
+        "size_bytes": 8838226,
+        "sha256": "159030446136ba6f8648339d74b0cdbe8d55f6ba4158a873149d4fa85522e3a9",
+        "mtime_ns": 1790563565212366356
+      },
+      {
+        "path": "outputs/hcm1_3090_handoff_20260928/critic-terminal001/data/evidence/train002/training/checkpoints/update-00001230-attempt-00001230-event-00000632.pt",
+        "size_bytes": 8838226,
+        "sha256": "5c008e7fbb651291baecbaab9223642379a415ca9a03c76ec51abab0d3a66ead",
+        "mtime_ns": 1790563565213739192
+      },
+      {
+        "path": "outputs/hcm1_3090_handoff_20260928/critic-terminal001/data/evidence/train002/training/checkpoints/update-00001476-attempt-00001476-event-00000880.pt",
+        "size_bytes": 8838226,
+        "sha256": "70d1116e85d27ead09307e977b7e3aa232f134508e1ec5e6ae7ad3778ecb75bc",
+        "mtime_ns": 1790563565215069152
+      },
+      {
+        "path": "outputs/hcm1_3090_handoff_20260928/critic-terminal001/data/evidence/train002/training/checkpoints/update-00001722-attempt-00001722-event-00001128.pt",
+        "size_bytes": 8838226,
+        "sha256": "038faee2bdb90566b853c8bb772bedc9a276de7d46743b8ab71f4dce9f3ce3e8",
+        "mtime_ns": 1790563565218851576
+      },
+      {
+        "path": "outputs/hcm1_3090_handoff_20260928/critic-terminal001/data/evidence/train002/training/checkpoints/update-00001723-attempt-00001723-event-00001130.pt",
+        "size_bytes": 8838226,
+        "sha256": "6facac53ab120f453d0764c23a004de30678a320f517688a94d95238efa9bab6",
+        "mtime_ns": 1790563565222171123
+      },
+      {
+        "path": "outputs/hcm1_3090_handoff_20260928/native-gate001/outputs/gate001/gate-initial.pt",
+        "size_bytes": 133440331,
+        "sha256": "c29cabde61b6c73ac45058e42ca287fca30a8f682230bf9f75ec21158c7de3d4",
+        "mtime_ns": 1790566299643358619
+      },
+      {
+        "path": "outputs/hcm1_3090_handoff_20260928/native-gate001/outputs/gate001/gate-one-step.pt",
+        "size_bytes": 133440331,
+        "sha256": "d23a11188d9a5c2f95808f80995dfeeccf320cbbd8e9815eabf9ec619f077245",
+        "mtime_ns": 1790566299666186043
+      },
+      {
+        "path": "outputs/hcm1_3090_handoff_20260928/parent001/outputs/hcm1_pilot_20260928/train001/checkpoint-00010000.pt",
+        "size_bytes": 133439307,
+        "sha256": "be8b6d59aa9b334d6b9e31cd822557ba0774871e0d083dfd402ddcd9dc2cbaa4",
+        "mtime_ns": 1790565921167598064
+      },
+      {
+        "path": "outputs/hcm1_expanded_20260928/train-final001/outputs/train001/checkpoint-00020000.pt",
+        "size_bytes": 133440267,
+        "sha256": "4380356f09c778d52a2c831f2ccee0b8d0f5bddc022ad79afff699cdf2c32d71",
+        "mtime_ns": 1790577527231480521
+      },
+      {
+        "path": "outputs/hcm1_pilot_20260928/backbone/checkpoint-080000-validated.pt",
+        "size_bytes": 58805104,
+        "sha256": "d651511441907d4d559d0d3009c925107b9e371ca462db953f189ad4528e4a35",
+        "mtime_ns": 1790551098895511695
+      },
+      {
+        "path": "outputs/hcm1_pilot_20260928/deployment/train001-checkpoint-00000100.pt",
+        "size_bytes": 133439243,
+        "sha256": "46dd074ca3527af79beae451da52ff43a303e196d9ff26884479df53ca191568",
+        "mtime_ns": 1790552482390265559
+      },
+      {
+        "path": "outputs/hcm1_pilot_20260928/gate001/gate-update-00000001.pt",
+        "size_bytes": 133439243,
+        "sha256": "d1d19faa1ca4b21b22f28f8648b2609880907d95832e796a2f3dea3ed32a91f2",
+        "mtime_ns": 1790551703942922835
+      },
+      {
+        "path": "outputs/hcm2_random_cloud_20261001_resume/checkpoint-00010000.pt",
+        "size_bytes": 244538955,
+        "sha256": "42316ba1c2c48bf6968c7c7f57983682ae3b4a37c19f10895ee5aa0d37954d84",
+        "mtime_ns": 1790867199033930385
+      },
+      {
+        "path": "outputs/phase9ep1/EXP-9EP1-C2-CUDA-EQUIVALENCE-001/optimized-w0-resumed/own-checkpoint.pt",
+        "size_bytes": 41978292,
+        "sha256": "76c09b89d82b132529e2b1a6176d0733ed7a3ff93570430284e5d198c246c548",
+        "mtime_ns": 1788705641799075326
+      },
+      {
+        "path": "outputs/phase9ep1/EXP-9EP1-C2-CUDA-EQUIVALENCE-001/optimized-w1-resumed/own-checkpoint.pt",
+        "size_bytes": 41978484,
+        "sha256": "1f02912f3015ea926c066fb8d2ba777cbd6b1196adab82a122b1c5739d63e03d",
+        "mtime_ns": 1788705641897188920
+      },
+      {
+        "path": "outputs/phase9ep1/EXP-9EP1-C2-CUDA-EQUIVALENCE-001/optimized-w2-resumed/own-checkpoint.pt",
+        "size_bytes": 41978484,
+        "sha256": "13760b3c3178c9380b2705ddf1dfe7a5b0ca22e907c42b2634565a59a728280b",
+        "mtime_ns": 1788705641998469772
+      },
+      {
+        "path": "outputs/phase9ep1/EXP-9EP1-C2-CUDA-EQUIVALENCE-001/optimized-w4-resumed/own-checkpoint.pt",
+        "size_bytes": 41978484,
+        "sha256": "8aba66d26840d189770f589920362e9567bcbb01552f700c6fd0b135035549ab",
+        "mtime_ns": 1788705642092379231
+      },
+      {
+        "path": "outputs/phase9ep1/EXP-9EP1-PREFETCH-CUDA-FIXTURE-001/own-checkpoints/worker-0.pt",
+        "size_bytes": 41948622,
+        "sha256": "392844bd52dd1bd3a83662b09a8d553c2dfd5ad8b617b6adbe8dc8a0634541e1",
+        "mtime_ns": 1788702411321094639
+      },
+      {
+        "path": "outputs/phase9ep1/EXP-9EP1-PREFETCH-CUDA-FIXTURE-001/own-checkpoints/worker-1.pt",
+        "size_bytes": 41948814,
+        "sha256": "533ebd75b9bcf02c94f3bdc523e20b428415a7e64b58b96c422fe3da954a96a0",
+        "mtime_ns": 1788702411413754798
+      },
+      {
+        "path": "outputs/phase9ep1/EXP-9EP1-PREFETCH-CUDA-FIXTURE-001/own-checkpoints/worker-2.pt",
+        "size_bytes": 41948814,
+        "sha256": "a8c3f72a3305debf1ba36abbf513cf4b608df9e0f711e335194b364d1ce315a2",
+        "mtime_ns": 1788702411505899580
+      },
+      {
+        "path": "outputs/phase9ep1/EXP-9EP1-PREFETCH-CUDA-FIXTURE-001/own-checkpoints/worker-4.pt",
+        "size_bytes": 41948814,
+        "sha256": "6c98e8f2e419d3b7f7d6439e4acf866ba5cee5bb95636ec0d5cf5ed24acad743",
+        "mtime_ns": 1788702411598030155
+      },
+      {
+        "path": "outputs/phase9ep1/imports/EXP-9EP1-GPU-EVIDENCE-005/verification-attempt-001/verified-bundle/outputs/phase9ep1/EXP-9EP1-PREFETCH-CUDA-FIXTURE-001/own-checkpoints/worker-0.pt",
+        "size_bytes": 41948622,
+        "sha256": "392844bd52dd1bd3a83662b09a8d553c2dfd5ad8b617b6adbe8dc8a0634541e1",
+        "mtime_ns": 1788702411321094639
+      },
+      {
+        "path": "outputs/phase9ep1/imports/EXP-9EP1-GPU-EVIDENCE-005/verification-attempt-001/verified-bundle/outputs/phase9ep1/EXP-9EP1-PREFETCH-CUDA-FIXTURE-001/own-checkpoints/worker-1.pt",
+        "size_bytes": 41948814,
+        "sha256": "533ebd75b9bcf02c94f3bdc523e20b428415a7e64b58b96c422fe3da954a96a0",
+        "mtime_ns": 1788702411413754798
+      },
+      {
+        "path": "outputs/phase9ep1/imports/EXP-9EP1-GPU-EVIDENCE-005/verification-attempt-001/verified-bundle/outputs/phase9ep1/EXP-9EP1-PREFETCH-CUDA-FIXTURE-001/own-checkpoints/worker-2.pt",
+        "size_bytes": 41948814,
+        "sha256": "a8c3f72a3305debf1ba36abbf513cf4b608df9e0f711e335194b364d1ce315a2",
+        "mtime_ns": 1788702411505899580
+      },
+      {
+        "path": "outputs/phase9ep1/imports/EXP-9EP1-GPU-EVIDENCE-005/verification-attempt-001/verified-bundle/outputs/phase9ep1/EXP-9EP1-PREFETCH-CUDA-FIXTURE-001/own-checkpoints/worker-4.pt",
+        "size_bytes": 41948814,
+        "sha256": "6c98e8f2e419d3b7f7d6439e4acf866ba5cee5bb95636ec0d5cf5ed24acad743",
+        "mtime_ns": 1788702411598030155
+      },
+      {
+        "path": "outputs/phase9ep1/imports/EXP-9EP1-GPU-EVIDENCE-007/verification-attempt-001/verified-bundle/outputs/phase9ep1/EXP-9EP1-C2-CUDA-EQUIVALENCE-001/optimized-w0-resumed/own-checkpoint.pt",
+        "size_bytes": 41978292,
+        "sha256": "76c09b89d82b132529e2b1a6176d0733ed7a3ff93570430284e5d198c246c548",
+        "mtime_ns": 1788705641799075326
+      },
+      {
+        "path": "outputs/phase9ep1/imports/EXP-9EP1-GPU-EVIDENCE-007/verification-attempt-001/verified-bundle/outputs/phase9ep1/EXP-9EP1-C2-CUDA-EQUIVALENCE-001/optimized-w1-resumed/own-checkpoint.pt",
+        "size_bytes": 41978484,
+        "sha256": "1f02912f3015ea926c066fb8d2ba777cbd6b1196adab82a122b1c5739d63e03d",
+        "mtime_ns": 1788705641897188920
+      },
+      {
+        "path": "outputs/phase9ep1/imports/EXP-9EP1-GPU-EVIDENCE-007/verification-attempt-001/verified-bundle/outputs/phase9ep1/EXP-9EP1-C2-CUDA-EQUIVALENCE-001/optimized-w2-resumed/own-checkpoint.pt",
+        "size_bytes": 41978484,
+        "sha256": "13760b3c3178c9380b2705ddf1dfe7a5b0ca22e907c42b2634565a59a728280b",
+        "mtime_ns": 1788705641998469772
+      },
+      {
+        "path": "outputs/phase9ep1/imports/EXP-9EP1-GPU-EVIDENCE-007/verification-attempt-001/verified-bundle/outputs/phase9ep1/EXP-9EP1-C2-CUDA-EQUIVALENCE-001/optimized-w4-resumed/own-checkpoint.pt",
+        "size_bytes": 41978484,
+        "sha256": "8aba66d26840d189770f589920362e9567bcbb01552f700c6fd0b135035549ab",
+        "mtime_ns": 1788705642092379231
+      },
+      {
+        "path": "outputs/pop909_transfer/20260908/export-001/c0-model-only.pt",
+        "size_bytes": 14844299,
+        "sha256": "19953be08f78274ebf4d6716a79c833f87bedf613daa35f7a17f19bc2174d931",
+        "mtime_ns": 1788845624246165974
+      },
+      {
+        "path": "outputs/pop909_transfer/20260908/export-001/c2-model-only.pt",
+        "size_bytes": 14844299,
+        "sha256": "a151dec0af22f25ac6ec8ad75927cf2889644284061fd7e35a129c67e836b797",
+        "mtime_ns": 1788845624605856057
+      },
+      {
+        "path": "outputs/pop909_transfer/inputs-001/c0-best-validation.ckpt",
+        "size_bytes": 44710174,
+        "sha256": "7f6c3b15761e7bb18425622591fe1327ca5c74c4b5b3540eea0ed3c9086a40ff",
+        "mtime_ns": 1788740054560443545
+      },
+      {
+        "path": "outputs/pop909_transfer/inputs-001/c2-best-validation.ckpt",
+        "size_bytes": 44500549,
+        "sha256": "fb5247920ca000ed4ca8d6266bbdb24b2dddcef230231d6ad723bd4faba6fc8a",
+        "mtime_ns": 1788740086600901869
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-FUSION-CUDA-SYNTHETIC-002/run/control-update-000003.pt",
+        "size_bytes": 42411452,
+        "sha256": "a620ad76d2fc8b1528c009c51b41591a145a163f0d012458615fe2d86a9c7d77",
+        "mtime_ns": 1789266674788535667
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-FUSION-CUDA-SYNTHETIC-002/run/control-update-000006.pt",
+        "size_bytes": 42574460,
+        "sha256": "e261f005959f190895560f28b24340332b6dfe24ece504f4852fe305edd5a536",
+        "mtime_ns": 1789266669076922702
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-FUSION-CUDA-SYNTHETIC-002/run/fusion-final-model-only.pt",
+        "size_bytes": 15735910,
+        "sha256": "f01edc948bdbda0b740a737c93d855d1d359df04b79a603a226c3c53f3118294",
+        "mtime_ns": 1789266656922126696
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-FUSION-CUDA-SYNTHETIC-002/run/fusion-update-000003.pt",
+        "size_bytes": 45028364,
+        "sha256": "8190738406e3246e9527400a8182b402f27d0119d559ad304caadaf70859e159",
+        "mtime_ns": 1789266654796079789
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-FUSION-CUDA-SYNTHETIC-002/run/fusion-update-000006.pt",
+        "size_bytes": 45191372,
+        "sha256": "78a3f88319a84564c736a8d2935764b3c9534fa2ed9cab1caa9aadb8cc3c4fb7",
+        "mtime_ns": 1789266662869388308
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-CUDA-002/run/beat_pitch_descendants-final.pt",
+        "size_bytes": 60399748,
+        "sha256": "b83f32792c9ab597dd60bd84b155a0ccaefc4105f4ccdd7b789ed52275ab1c35",
+        "mtime_ns": 1789268165540835555
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-CUDA-002/run/beat_pitch_descendants-update1.pt",
+        "size_bytes": 60395396,
+        "sha256": "e094680d55f23741f76d302870873a19f330e2d1490175c4834d3d7d116884f7",
+        "mtime_ns": 1789268147290171361
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-CUDA-002/run/independent_note_pitch-final.pt",
+        "size_bytes": 60399748,
+        "sha256": "8b3672f96e7cd3fed7836d63b442c8323349f9ad4cd5137cf69624c64147559c",
+        "mtime_ns": 1789268156534078989
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-CUDA-002/run/independent_note_pitch-update1.pt",
+        "size_bytes": 60395396,
+        "sha256": "d78b53e8e21932259a5b882900f8c5fadebed051a62821b0c92ab8b1a949c1a8",
+        "mtime_ns": 1789268175532304386
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-SCIENTIFIC-PILOT-001/execution/checkpoints/baseline-000000.pt",
+        "size_bytes": 29518278,
+        "sha256": "b4b21d82dc6532e22ca474c83289d4291a844f55cd18a2fe6fa77d1ff0d6dd7a",
+        "mtime_ns": 1789277372683102236
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-SCIENTIFIC-PILOT-001/execution/checkpoints/beat_pitch_descendants.pilot-000000.pt",
+        "size_bytes": 29518278,
+        "sha256": "4b2b5cfb9d0465426e9eafd589fc5316623f00d55754d7c33a0b40a8b255358f",
+        "mtime_ns": 1789277470186459120
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-SCIENTIFIC-PILOT-001/execution/checkpoints/beat_pitch_descendants.pilot-000050.pt",
+        "size_bytes": 60640772,
+        "sha256": "d40595e0926dbc25b5d5bf625f657c766f8cb165ea0c976d044a9364a67f02a6",
+        "mtime_ns": 1789277357462933205
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-SCIENTIFIC-PILOT-001/execution/checkpoints/beat_pitch_descendants.pilot-000100.pt",
+        "size_bytes": 60876164,
+        "sha256": "62bdfec738dfabf015bdfe324102d3b4e0ca708c953e476732999661595fef43",
+        "mtime_ns": 1789277411867375701
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-SCIENTIFIC-PILOT-001/execution/checkpoints/beat_pitch_descendants.pilot-000150.pt",
+        "size_bytes": 61111684,
+        "sha256": "2c0e85e7f3aff331f263c0198c899dd82d28fef47faf149ae75f78cdaeecda33",
+        "mtime_ns": 1789277347082026259
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-SCIENTIFIC-PILOT-001/execution/checkpoints/beat_pitch_descendants.pilot-000200.pt",
+        "size_bytes": 61347204,
+        "sha256": "b68b92ee8963de1f3f14e5fa4c4772687e31c08b01b66989b1eaf852a8f7bc83",
+        "mtime_ns": 1789277452387940881
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-SCIENTIFIC-PILOT-001/execution/checkpoints/beat_pitch_descendants.recovery-000000.pt",
+        "size_bytes": 29511558,
+        "sha256": "b7fe41ff17d6ce295fe9070e5619175af52a9931e774be47d62e7134983ec877",
+        "mtime_ns": 1789277456748606096
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-SCIENTIFIC-PILOT-001/execution/checkpoints/beat_pitch_descendants.recovery-000050.pt",
+        "size_bytes": 57577123,
+        "sha256": "05ee99f9b2149f32a2e4925f456108f655870930689176af766ee73eaa438238",
+        "mtime_ns": 1789277401884960898
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-SCIENTIFIC-PILOT-001/execution/checkpoints/beat_pitch_descendants.recovery-000100.pt",
+        "size_bytes": 57722979,
+        "sha256": "1c41b17415becf276a420aeb3698cbab63c666f23247005381990f663f1c3811",
+        "mtime_ns": 1789277433771742684
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-SCIENTIFIC-PILOT-001/execution/checkpoints/independent_note_pitch.pilot-000050.pt",
+        "size_bytes": 60640772,
+        "sha256": "6812624fdc1e823b95796821a3f9d80b239a25a14db18c580b85859b83b00c0f",
+        "mtime_ns": 1789277367450644311
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-SCIENTIFIC-PILOT-001/execution/checkpoints/independent_note_pitch.pilot-000100.pt",
+        "size_bytes": 60876164,
+        "sha256": "1cf38c9fdc8f4881c831e90efda3bee46c63def695f61afc3c322d6d3c95ffa1",
+        "mtime_ns": 1789277384247599829
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-SCIENTIFIC-PILOT-001/execution/checkpoints/independent_note_pitch.pilot-000150.pt",
+        "size_bytes": 61111684,
+        "sha256": "709b71222d38533bb062d5a998fa0d38eb2f39d74c5b5797ce4d98fc374aab70",
+        "mtime_ns": 1789277424700625600
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-SCIENTIFIC-PILOT-001/execution/checkpoints/independent_note_pitch.pilot-000200.pt",
+        "size_bytes": 61347204,
+        "sha256": "e8ef40ae887f4b302b38aba8623eab6d74b7b8b7e503529ba34194853492df63",
+        "mtime_ns": 1789277443130328859
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-SCIENTIFIC-PILOT-001/execution/checkpoints/independent_note_pitch.recovery-000000.pt",
+        "size_bytes": 29511558,
+        "sha256": "4fe76d01c82701ba7efea76b2155058a3f2708f96db602e9d992567d9700c2cd",
+        "mtime_ns": 1789277416160418217
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-SCIENTIFIC-PILOT-001/execution/checkpoints/independent_note_pitch.recovery-000050.pt",
+        "size_bytes": 57577123,
+        "sha256": "1d00beed8494a01adda516506cddb530661bf2199aff3dbcfca289ea6c9a9484",
+        "mtime_ns": 1789277392994715738
+      },
+      {
+        "path": "outputs/research_resume_20260913/EXP-SSL-GROUP-SCIENTIFIC-PILOT-001/execution/checkpoints/independent_note_pitch.recovery-000100.pt",
+        "size_bytes": 57722979,
+        "sha256": "6db4110868d6599962e299529c065fa3a76124ada99b3d39629b10e9a59bb014",
+        "mtime_ns": 1789277465604340010
+      },
+      {
+        "path": "outputs/research_resume_20260913/fusion-p512-attempt-001/run/control-best-model.pt",
+        "size_bytes": 14843902,
+        "sha256": "ee97ffc009fe8ec2e5b9d32d18cb6b50bc6ab92143e57dbae5b382e3d6005e21",
+        "mtime_ns": 1789284848819678213
+      },
+      {
+        "path": "outputs/research_resume_20260913/fusion-p512-attempt-001/run/control-final-model.pt",
+        "size_bytes": 14843902,
+        "sha256": "9d4677eb9744f069ea02a5c48b5431149ba90dca31fe50d032e47cab18b23d03",
+        "mtime_ns": 1789284851821399253
+      },
+      {
+        "path": "outputs/research_resume_20260913/fusion-p512-attempt-001/run/fusion-best-model.pt",
+        "size_bytes": 15735910,
+        "sha256": "b1099ab73213a1fdc0e09975b8e2ad91560acd491fc080735d36c8ed5c4bc53e",
+        "mtime_ns": 1789284854912553447
+      },
+      {
+        "path": "outputs/research_resume_20260913/fusion-p512-attempt-001/run/fusion-final-model.pt",
+        "size_bytes": 15735910,
+        "sha256": "df5b60508fad9b63823e4a711f63a646d0299ac08642c4807b7abb77b250411a",
+        "mtime_ns": 1789284857425505100
+      },
+      {
+        "path": "outputs/research_resume_20260913/ssl-completed-fetch-001/execution/checkpoints/baseline-000000.pt",
+        "size_bytes": 29518278,
+        "sha256": "b4b21d82dc6532e22ca474c83289d4291a844f55cd18a2fe6fa77d1ff0d6dd7a",
+        "mtime_ns": 1789277372683102236
+      },
+      {
+        "path": "outputs/research_resume_20260913/ssl-completed-fetch-001/execution/checkpoints/beat_pitch_descendants.pilot-000000.pt",
+        "size_bytes": 29518278,
+        "sha256": "4b2b5cfb9d0465426e9eafd589fc5316623f00d55754d7c33a0b40a8b255358f",
+        "mtime_ns": 1789277470186459120
+      },
+      {
+        "path": "outputs/research_resume_20260913/ssl-completed-fetch-001/execution/checkpoints/beat_pitch_descendants.pilot-000050.pt",
+        "size_bytes": 60640772,
+        "sha256": "d40595e0926dbc25b5d5bf625f657c766f8cb165ea0c976d044a9364a67f02a6",
+        "mtime_ns": 1789277357462933205
+      },
+      {
+        "path": "outputs/research_resume_20260913/ssl-completed-fetch-001/execution/checkpoints/beat_pitch_descendants.pilot-000100.pt",
+        "size_bytes": 60876164,
+        "sha256": "62bdfec738dfabf015bdfe324102d3b4e0ca708c953e476732999661595fef43",
+        "mtime_ns": 1789277411867375701
+      },
+      {
+        "path": "outputs/research_resume_20260913/ssl-completed-fetch-001/execution/checkpoints/beat_pitch_descendants.pilot-000150.pt",
+        "size_bytes": 61111684,
+        "sha256": "2c0e85e7f3aff331f263c0198c899dd82d28fef47faf149ae75f78cdaeecda33",
+        "mtime_ns": 1789277347082026259
+      },
+      {
+        "path": "outputs/research_resume_20260913/ssl-completed-fetch-001/execution/checkpoints/beat_pitch_descendants.pilot-000200.pt",
+        "size_bytes": 61347204,
+        "sha256": "b68b92ee8963de1f3f14e5fa4c4772687e31c08b01b66989b1eaf852a8f7bc83",
+        "mtime_ns": 1789277452387940881
+      },
+      {
+        "path": "outputs/research_resume_20260913/ssl-completed-fetch-001/execution/checkpoints/beat_pitch_descendants.recovery-000000.pt",
+        "size_bytes": 29511558,
+        "sha256": "b7fe41ff17d6ce295fe9070e5619175af52a9931e774be47d62e7134983ec877",
+        "mtime_ns": 1789277456748606096
+      },
+      {
+        "path": "outputs/research_resume_20260913/ssl-completed-fetch-001/execution/checkpoints/beat_pitch_descendants.recovery-000050.pt",
+        "size_bytes": 57577123,
+        "sha256": "05ee99f9b2149f32a2e4925f456108f655870930689176af766ee73eaa438238",
+        "mtime_ns": 1789277401884960898
+      },
+      {
+        "path": "outputs/research_resume_20260913/ssl-completed-fetch-001/execution/checkpoints/beat_pitch_descendants.recovery-000100.pt",
+        "size_bytes": 57722979,
+        "sha256": "1c41b17415becf276a420aeb3698cbab63c666f23247005381990f663f1c3811",
+        "mtime_ns": 1789277433771742684
+      },
+      {
+        "path": "outputs/research_resume_20260913/ssl-completed-fetch-001/execution/checkpoints/independent_note_pitch.pilot-000050.pt",
+        "size_bytes": 60640772,
+        "sha256": "6812624fdc1e823b95796821a3f9d80b239a25a14db18c580b85859b83b00c0f",
+        "mtime_ns": 1789277367450644311
+      },
+      {
+        "path": "outputs/research_resume_20260913/ssl-completed-fetch-001/execution/checkpoints/independent_note_pitch.pilot-000100.pt",
+        "size_bytes": 60876164,
+        "sha256": "1cf38c9fdc8f4881c831e90efda3bee46c63def695f61afc3c322d6d3c95ffa1",
+        "mtime_ns": 1789277384247599829
+      },
+      {
+        "path": "outputs/research_resume_20260913/ssl-completed-fetch-001/execution/checkpoints/independent_note_pitch.pilot-000150.pt",
+        "size_bytes": 61111684,
+        "sha256": "709b71222d38533bb062d5a998fa0d38eb2f39d74c5b5797ce4d98fc374aab70",
+        "mtime_ns": 1789277424700625600
+      },
+      {
+        "path": "outputs/research_resume_20260913/ssl-completed-fetch-001/execution/checkpoints/independent_note_pitch.pilot-000200.pt",
+        "size_bytes": 61347204,
+        "sha256": "e8ef40ae887f4b302b38aba8623eab6d74b7b8b7e503529ba34194853492df63",
+        "mtime_ns": 1789277443130328859
+      },
+      {
+        "path": "outputs/research_resume_20260913/ssl-completed-fetch-001/execution/checkpoints/independent_note_pitch.recovery-000000.pt",
+        "size_bytes": 29511558,
+        "sha256": "4fe76d01c82701ba7efea76b2155058a3f2708f96db602e9d992567d9700c2cd",
+        "mtime_ns": 1789277416160418217
+      },
+      {
+        "path": "outputs/research_resume_20260913/ssl-completed-fetch-001/execution/checkpoints/independent_note_pitch.recovery-000050.pt",
+        "size_bytes": 57577123,
+        "sha256": "1d00beed8494a01adda516506cddb530661bf2199aff3dbcfca289ea6c9a9484",
+        "mtime_ns": 1789277392994715738
+      },
+      {
+        "path": "outputs/research_resume_20260913/ssl-completed-fetch-001/execution/checkpoints/independent_note_pitch.recovery-000100.pt",
+        "size_bytes": 57722979,
+        "sha256": "6db4110868d6599962e299529c065fa3a76124ada99b3d39629b10e9a59bb014",
+        "mtime_ns": 1789277465604340010
+      },
+      {
+        "path": "outputs/temporal_campaign_003/gate-evidence/gate-002/run/gate-resume-000002.pt",
+        "size_bytes": 49103763,
+        "sha256": "8418fc3766a9f9f5101f5a9d55e93b173ad4ba4a061cd6db1f2fb7b8758c0283",
+        "mtime_ns": 1789475459362231174
+      }
+    ]
+  },
+  "limitations": [
+    "Only locally available checkpoint files; remote-only checkpoints not covered",
+    "Opaque byte backup; no deserialization, inference, model selection or new scientific result",
+    "Includes intermediate, gate and smoke states; loader/config/experiment bindings must be checked per checkpoint",
+    "Original files retained locally; sharing is separate from upload completion"
+  ],
+  "ui_observation": "Загружены 4 файла; all four expected file names present in selected checkpoint folder",
+  "ui_confirmed_file_names": [
+    "local-checkpoints-20261024.tar.gz",
+    "CHECKPOINT_BACKUP_RECEIPT.json",
+    "RESTORE_CHECKPOINTS.md",
+    "SHA256SUMS"
+  ],
+  "usage_after_upload_ui_display": "13.15 GB of 15 GB",
+  "ui_completion_screenshot": "outputs/google_drive_checkpoints_20261024/upload-complete.png",
+  "combined_dataset_and_checkpoint_delivery_bytes": 14114990577,
+  "combined_delivery_fits_conservative_15GB": true
+}

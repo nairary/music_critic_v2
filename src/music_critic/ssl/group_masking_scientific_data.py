@@ -403,7 +403,7 @@ class BoundScientificData:
             files = self._source_files(record_id)
             self._check_sources(files)
             from music_critic.adapters.dilemmadata import DilemmadataAccepted, convert_dilemmadata_record
-            from music_critic.experiments.analysisgnn.multitask_contract import materialize_target_sidecar
+            from music_critic.experiments.analysisgnn.multitask_contract import LEGACY_TARGET_SIDECAR_VERSION, materialize_target_sidecar
             record = reference._resolve_selected_corpus_record(record_id, split=split, paths=self._paths)
             accepted = convert_dilemmadata_record(record)
             if not isinstance(accepted, DilemmadataAccepted):
@@ -413,7 +413,7 @@ class BoundScientificData:
             if sample.piece_id != self._paper[record_id]["piece_id"]:
                 _fail("record_piece_identity_mismatch")
             self.access_observations["raw_records_loaded"] += 1
-            sidecar = materialize_target_sidecar(accepted) if targets else None
+            sidecar = materialize_target_sidecar(accepted, target_sidecar_version=LEGACY_TARGET_SIDECAR_VERSION) if targets else None
             if targets:
                 self.access_observations["target_sidecars_materialized"] += 1
                 if (sidecar.get("record_id") != record_id

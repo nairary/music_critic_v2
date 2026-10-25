@@ -13,6 +13,10 @@ from music_critic.tasks.dilemmadata_registry import (
     DILEMMADATA_TARGET_FAMILIES,
 )
 from music_critic.tasks.ontology import TARGET_FAMILIES, TargetFamilySpec
+from music_critic.tasks.relational_registry import (
+    RELATIONAL_TARGET_ENCODING_REGISTRY_VERSION,
+    RELATIONAL_TARGET_FAMILIES,
+)
 
 
 TARGET_ENCODING_REGISTRY_VERSION = "1.0.0"
@@ -49,6 +53,7 @@ class TargetEncodingSpec:
         if self.registry_version not in {
             TARGET_ENCODING_REGISTRY_VERSION,
             DILEMMADATA_TARGET_ENCODING_REGISTRY_VERSION,
+            RELATIONAL_TARGET_ENCODING_REGISTRY_VERSION,
         }:
             raise ValueError("target encoding registry version is inconsistent")
         if not self.task_id:
@@ -167,14 +172,26 @@ DILEMMADATA_TARGET_ENCODINGS = tuple(
 DILEMMADATA_TARGET_ENCODING_BY_TASK = MappingProxyType(
     {spec.task_id: spec for spec in DILEMMADATA_TARGET_ENCODINGS}
 )
+RELATIONAL_TARGET_ENCODINGS = tuple(
+    _encoding_spec(
+        task,
+        registry_version=RELATIONAL_TARGET_ENCODING_REGISTRY_VERSION,
+    )
+    for task in RELATIONAL_TARGET_FAMILIES
+)
+RELATIONAL_TARGET_ENCODING_BY_TASK = MappingProxyType(
+    {spec.task_id: spec for spec in RELATIONAL_TARGET_ENCODINGS}
+)
 
 
 def target_encoding_spec(task_id: str) -> TargetEncodingSpec:
-    """Resolve a core or explicitly registered Dilemmadata encoding."""
+    """Resolve a core or explicitly registered sidecar extension encoding."""
 
     spec = TARGET_ENCODING_BY_TASK.get(task_id)
     if spec is None:
         spec = DILEMMADATA_TARGET_ENCODING_BY_TASK.get(task_id)
+    if spec is None:
+        spec = RELATIONAL_TARGET_ENCODING_BY_TASK.get(task_id)
     if spec is None:
         raise KeyError(task_id)
     return spec
@@ -272,6 +289,8 @@ __all__ = [
     "TARGET_ENCODING_REGISTRY_VERSION",
     "DILEMMADATA_TARGET_ENCODINGS",
     "DILEMMADATA_TARGET_ENCODING_BY_TASK",
+    "RELATIONAL_TARGET_ENCODINGS",
+    "RELATIONAL_TARGET_ENCODING_BY_TASK",
     "TargetEncodingSpec",
     "dilemmadata_target_encoding_contract_dict",
     "dilemmadata_target_encoding_contract_fingerprint",

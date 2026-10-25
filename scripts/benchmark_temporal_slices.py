@@ -90,7 +90,7 @@ def run(root):
             accepted = prior.adapter.convert_dilemmadata_record(prior.bind_source(corpus, a))
             if not isinstance(accepted, prior.adapter.DilemmadataAccepted):
                 raise ValueError("conversion rejected")
-            piece, sidecar = accepted.piece, prior.materialize_target_sidecar(accepted)
+            piece, sidecar = accepted.piece, prior.materialize_target_sidecar(accepted, target_sidecar_version=prior.LEGACY_TARGET_SIDECAR_VERSION)
             piece_hash = sha256(prior.dumps_piece(piece).encode()).hexdigest()
             target_hash = sha256(json.dumps(sidecar, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
             if piece_hash != bound["piece_sha256"] or target_hash != bound["sidecar_sha256"]:

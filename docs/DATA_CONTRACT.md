@@ -1,5 +1,427 @@
 # Music Critic V2 Data Contract
 
+## Honest annotation model provenance — 2026-10-22
+
+The user-authorized annotation settings now include `gpt-6.1-sol` / `high`
+as well as the historical `gpt-6-astra` / `ultra` pair. Model receipts retain
+the exact requested model/effort, `human_gold=false`, input/output hashes and
+explicit actual-backend information (including unknown `null`). Requested
+settings do not establish the actual backend, musical correctness or equivalence
+between models. A different independent reviewer remains mandatory.
+
+New Sol-authored fields use `origin="model_individual_context"`, with the
+exact model identified by their author provenance and evidence. Existing
+`astra_individual_context` fields and historical receipts remain unchanged.
+Fresh Sol recipes/overlays reject Astra field attribution; mixed inherited
+bundles retain their original field history. Explicit pitch-template projections
+retain the actual upstream model-origin category. No masks, values, timing,
+profile semantics, native annotations or model-training targets are inferred
+from the change of annotator.
+
+## Preparation in authored views — T08 clarification, 2026-10-14
+
+The generic `analysis.preparation` field describes an incoming, explicitly
+interpreted `prepares` relation in the selected musical view. Its current
+corpus meaning is broader than the conventional preparation of a suspension:
+accepted views include both a consonant note retained into a new dissonant
+harmonic context and an established melodic anchor introducing an addressed
+ornamental dependency. This is a corpus convention, not a claim that those
+musical mechanisms are interchangeable.
+
+State the actual mechanism, participants, reference interval and entry/exit
+evidence in the relation's rationale and attributes. An adjacent note or a
+step by itself does not establish preparation. Conversely, a fresh attack or
+the absence of a tie does not establish `status="none"`: it excludes only one
+possible mechanism. Known absence requires an individual review of the incoming
+dependency within the declared interpretation; unresolved alternatives remain
+masked. Resolution likewise needs an addressed outgoing dependency and its
+actual arrival, rather than a generic next-note link.
+
+This clarification preserves the existing T07 relation types, T08 profile,
+direction rules and availability masks. It does not automatically accept old
+edges or rewrite historical views. Apply it during new source-grounded review,
+including corrections or retractions where required. The admitted examples
+and current review scope are recorded in
+[COMPLETION-002](experiments/records/EXP-CORPUS400-COMPLETION-002.json).
+
+## Scope and reviewed uncertainty — opt-in T08 v2, 2026-10-07
+
+`WholeWorkAnnotationProfile@2` and `WholeWorkAnnotationAssessment@2` are
+implemented separately in `tasks/whole_work_annotation_v2.py`. The existing
+T07 bundle, v1 accounting, author writer and canonical events remain unchanged.
+V2 requires an exact contiguous musical scope ending at canonical duration.
+An excluded leading interval must be proven adapter structural padding, bound
+to source bytes, canonical SHA and the recorded conversion transform; it cannot
+contain any canonical event, including a point grace. Ordinary rests remain
+musical time. External evidence bytes must be authenticated by the caller.
+
+Per-view harmonic layer dispositions can account for explicitly reviewed
+silence or unpitched-only intervals without inventing an empty chord. They must
+name every active event and cannot overlap pitched events or an asserted
+harmonic context. Remembered harmony during a rest remains a separate valid
+authored interpretation. These dispositions create no known pitched targets.
+
+`full_work_review_complete` is separate from strict
+`complete_for_declared_scope`: documented, individually addressed unresolved
+decisions may pass the former while retaining false target masks. Missing or
+unreviewed decisions cannot pass. Every applicable required field also needs
+at least one supported known/legitimate-NA decision; this minimal support gate
+is not a density or corpus-quota guarantee. Field counts and duration coverage
+remain explicit. Independent reviews bind bundle, profile and the assessment
+basis fingerprint. They cannot be reused after scope/policy changes.
+
+Within one view, harmony states and contexts for one note must be exclusive,
+including exact half-open boundary handling for point events. Overlapping
+motifs, phrases, processes and separate alternative views remain supported.
+V2 is opt-in and performs no automatic migration or semantic inference.
+
+## Whole-work accounting — T08, 2026-10-07
+
+The opt-in `WholeWorkAnnotationProfile@1` extends the T07 sidecar without
+changing canonical inputs. Its seven analytical layers are notes, harmony,
+harmonic processes, motifs, phrases, form and ensemble. Exact interval/event
+coverage is computed separately for every declared analytical view; alternative
+partial views cannot fill one another's gaps.
+
+`WholeWorkAnnotationAssessment@1` binds canonical SHA256, bundle and profile
+fingerprints, work-family/genre evidence, source extent, per-layer review scope,
+author provenance and independent review receipts. Full-work verification,
+review coverage, substantive content accounting and independent acceptance are
+separate booleans. Empty arrays, missing fields, excerpts, unresolved readings
+and unknown required content cannot silently pass the completeness gate.
+Model review is not human gold or a musical-accuracy measurement.
+
+Preparation and resolution fields address positive, same-view directed
+relations with actual note/context endpoints. Reviewed absence requires an
+explicit reason and cannot contradict an existing positive relation. Minimum
+semantic value shapes reject placeholder booleans for functions and sonorities;
+these checks establish structural consistency, not correctness of the analysis.
+
+`EventTheoryObjectVocabulary@1` / `EventTheoryObjectTargets@1` preserve object
+semantic fields, exact intervals, views, members and masks. They supplement
+the unchanged T07 numeric representation. Vocabularies are frozen on admitted
+TRAIN; unseen values remain masked and appear in OOV accounting. Neither
+objects nor gold boundaries become compulsory graph inputs.
+
+The T08 materializer admits each source before reading its musical payload,
+retains original bytes where available, and exports canonical events with MIDI
+mapping plus an uncropped inspection packet. `raw_materialized` does not imply
+that the file is a full work or has any completed theoretical analysis.
+See [T08 specification](workstreams/2026-10-07/corpus400/spec.md).
+
+## Multigenre event theory release — T07, 2026-10-07
+
+`EventTheoryEnrichment@1` attaches source-native facts and separately authored
+interpretations to hash-bound canonical pieces. Every admitted note has exact
+context coverage, including explicit unknown gaps; coverage is not semantic
+completeness. Independent fields retain value, availability, origin, evidence,
+unknown reason and uncalibrated null confidence. Native HookTheory extensions,
+alterations and suspensions remain separate from inferred temporal note roles.
+
+Harmonies, note contexts and explicit analysis objects have stable IDs and
+reduced rational quarter-note intervals. Relations name actual participants;
+their scope contains the participants and remains within the piece. Numerical
+participants retain object geometry, declared members and canonical note indices.
+Alternate views/annotators are metadata, never classification targets.
+
+DLC/AN source-note annotations do not establish exact harmony boundaries: their
+applicability is `source_note_annotation`, with original source-row/group IDs.
+Only source positions verified in score time may create harmonic intervals.
+When a retained score interval extends beyond the canonical excerpt, its T07
+applicability is the exact intersection with the canonical extent. Preserve the
+unclipped source interval and projection reason; do not change the raw piece or
+pretend that a clipped endpoint was the source boundary. Wholly external spans
+cannot become positive canonical harmony intervals.
+TAVERN projects raw notes from the exact analysed Joined score and independently
+reparses the stripped `**kern` spines. Same raw notes may retain two analytic views;
+different A/B raw versions are separate records. Spine ordinal is not staff.
+Verified source pickup/incomplete measures may preserve exact fractional lengths.
+
+Admission records name the exact split authority. The frozen V2 component split
+governs DLC; additional AN admission requires the native `training` folder.
+Historical Dilemmadata DLC `test` hints are retained separately and do not mean
+that every admitted item is TRAIN under every historical partition. New PDMX
+augmentation assignments remain distinct from unknown original/global membership.
+
+`EventTheoryInterpretations@1` adds Astra ultra weak targets in `analysis.*` and
+directed relations, authenticated against an immutable base. It cannot overwrite
+available native targets. An unavailable analysis placeholder may receive a new
+interpretation. The requested model/effort, review scope and non-gold status are
+explicit; unavailable backend/token accounting is not guessed.
+
+`EventTheoryVocabulary@1` is built once on the selected TRAIN release. Typed JSON
+classes distinguish false, zero and missing. `EventTheoryNumericTargets@1` stores
+independent categorical arrays, availability masks, exact intervals, view IDs
+and relation endpoint indices. Unseen values are masked with an OOV report.
+Harmony-only clips with no canonical notes are retained as source evidence but
+have `raw_event_train_eligible=false`; raw-MIDI training must exclude them.
+The symbolic bundle remains the authority for source evidence and provenance.
+These sidecars are auxiliary outputs; gold values/boundaries are not raw graph
+features or inference requirements. New neural heads and training are separate.
+See [T07 specification](workstreams/2026-10-07/multigenre-theory-enrichment/spec.md).
+
+## Dense harmonic interval targets — T06, 2026-10-06
+
+`DenseHarmonicTargets@1` implements the contextual coverage goal below for
+pitched canonical notes. Each note is partitioned at exact harmonic and source
+segment boundaries; missing regions have explicit unknown rows. Zero-duration
+events keep point rows and unknown sounding roles. All times are reduced
+rational quarter notes. The original note ID and attack remain unchanged.
+
+Seventeen independent numeric fields cover `role` (core, added, non_chord),
+core/added/combined membership, root/bass membership, spelled chord and key
+degrees, four native source predicates, explicit compound member, and root,
+bass, tonic and relative pitch classes. Each field retains its own mask,
+origin and unknown reason. Generic degrees use major-reference accidentals
+(`b3` is a minor third), not inferred 9/11/13 extensions. Native source scale
+degree is distinct. Compound membership is unavailable without explicit source
+evidence. A source-defined suspension may belong to the declared chord set.
+
+Source TPC/root/bass/tonic are absolute fifth coordinates; source chord/added
+sets are local-key-relative fifth coordinates and require translation before
+comparison. Exact spelling, not just pitch class, determines membership.
+Harmonic objects retain their source Roman labels, changes, key and inversion
+fields with availability, without asserting a new universal function taxonomy.
+
+Source Part/staff/voice identities support conservative next-note links and
+exact sounding overlaps across distinct Parts. Polyphonic or conflicting voice
+identity is unavailable; an omitted overlap is not a negative label. A stored
+raw track is never relabeled as an instrumental part. Verified repaired tie
+continuations that start at a canonical attack or change voice remain accounted
+for but masked, with separate reasons and original source identities retained.
+
+`DenseContextRoleAssignments@1` adds separately authored Astra weak positives
+on exact note intervals. Its 13-role vocabulary extends T05 with passing,
+neighbor, suspension and suspension-preparation roles. Candidates are not
+available targets. Unassigned roles remain unknown. Mechanical screening,
+individual Astra interpretation and source-derived facts have separate origins.
+T05's immutable assignments remain a separate parent layer.
+
+The loader produces independent auxiliary row/link batches with canonical
+indices, exact intervals, fixed vocabularies and boolean masks. Dense field
+unknowns are numeric `-1`; known false predicates are numeric `0` with true
+masks. Gold harmonic boundaries are target geometry, never mandatory encoder
+inputs. This interface does not add model heads or train a tension predictor.
+See [T06 specification](workstreams/2026-10-06/dense-harmonic-targets/spec.md).
+
+## Dense contextual coverage goal — 2026-10-06
+
+The user clarifies that nearly every musical event must participate in the
+analysis. The nine sparse T05 relation flags are an additional annotation layer,
+not a complete description of a note's musical function. This section defines
+the intended next contract; it does not claim new implemented tasks or labels.
+
+For pitched events the primary contextual unit is a canonical note intersected
+with an active harmonic interpretation over an exact half-open interval.
+A sustained note can have several such records without being split into new
+attacks. Preserve harmonic-view identity and unknown/conflicting context rather
+than extending the last known annotation into an unanalysed region.
+
+The dense layer should retain local key, the chord and its function, the note's
+spelled degree/member role, bass/register and metric context, and available
+membership in the chord or its explicit extensions/alterations. A pitch-class
+distance alone cannot distinguish every spelled or compound chord member.
+Chord extensions are part of the represented harmonic context, not automatically
+non-chord tones or errors. Chord function belongs to its harmonic object; notes
+link to that object and have their own roles within it.
+
+Reuse and audit existing source targets before requesting new interpretations:
+the current multitask contract already declares note scale degree, chord-tone,
+root and bass membership. Their declaration does not establish complete coverage
+or changing roles during a held note. T05's viewer displays the new sparse layer,
+not an inventory of every label already available in the underlying corpora.
+
+Temporal voice-leading and inter-part relations add context: continuation,
+preparation/resolution, repetition/doubling and motion against other parts when
+supported. Passing, neighboring, suspension and anticipation roles require
+temporal interpretation beyond chord membership. Source Part/staff/voice and
+canonical track remain distinct. Tension behavior is a contextual target with
+its own evidence, never inferred directly from a non-chord-tone bit or treated
+as music quality. Describing a role does not quantify its causal contribution.
+
+Coverage is assessed over all notes and their harmonic subintervals, with
+available/unknown fields reported independently. Stable chord support is a
+meaningful description; a distinctive expressive event is not required at every
+note. Unknown does not become absent, and full coverage of records does not imply
+all semantic fields are known. Dense output fields remain auxiliary targets;
+raw unlabeled inference must not require their gold values.
+
+## Canonical relational weak targets — 2026-10-06
+
+The opt-in registry `music_critic.relations@1.0.0` adds nine note tasks under
+`theory.relations.*`: `held_common_tone`, `resolving_chordal_seventh`,
+`resolution_arrival`, `anticipation`, `anticipated_arrival`,
+`contrary_ascending`, `contrary_descending`, `octave_upper`, `octave_lower`.
+Each vocabulary is `(absent, present)` with `positive_unlabeled` supervision.
+An admitted positive has value `present`, mask true and pseudo-label provenance;
+the current release creates no negative examples. All unannotated note×role
+pairs have null value and false mask. Uncalibrated confidence stays null.
+
+`RelationalTargetAssignment@1.0.0` records canonical dataset/piece/note IDs,
+exact rational half-open role interval, relation ID, source version and event
+IDs, related canonical notes, annotation status and requested model/effort.
+Multiple roles or role subintervals survive serialization. A TargetBundle projects
+each role to note participation: true means the role occurs in an admitted
+subinterval, not throughout the note. The assignment sidecar retains timing.
+Context-only participants never inherit a target from relation membership alone.
+
+The exporter authenticates source bytes, admissions, canonical pieces and
+existing row-alignment evidence before exact binding. It preserves source score
+Parts/staff/voice separately from canonical tracks. Tied continuation segments
+can map to one canonical note. Native source-to-canonical pickup offsets come
+from retained conversion evidence. Archived pieces with split null use an
+authenticated current-TRAIN membership in a transient target-building view;
+embedded heldout splits are rejected, and original canonical bytes are unchanged.
+The new release directory cannot overwrite an existing release. Missing bindings,
+external-only sources and ambiguous assignments cannot silently become targets.
+See [T05 specification](workstreams/2026-10-06/relational-midi-targets/spec.md).
+
+## C4 POP909-CL supervision — 2026-10-05
+
+`C4Pop909NativeData@1.0.0` validates the complete pinned cross-corpus split
+metadata before any selected source read. Only POP TRAIN and VALIDATION payloads
+are admitted. Both source MIDI bytes and channel-0 projection are authenticated;
+channel-1 chord evidence cannot alter raw geometry or features. Target event
+starts join exact existing raw slices with containing-beat fallback; identity
+validation retains historical source-event-to-beat resolution.
+
+Available native root/bass PCs supervise sums over enharmonic C3 output classes.
+Quality uses the existing subset9/full17 crosswalk. Native inversion semitones
+become chord-tone ordinals only under an exact known interval template. Complete
+source pitch-class sets map to existing93 classes; OOV original or transposed
+sets stay masked. All five masks are independent; absent other-head labels and
+unannotated gaps are not negatives. Target-empty TRAIN records remain in source
+membership but are explicitly excluded from the supervised sampler with reasons.
+Class counts/weights use TRAIN eligible transpositions only. Raw shift eligibility
+depends on score pitches; it never wraps out-of-range MIDI notes.
+
+`C4Pop909Preparation@1.0.0` binds source, split, target fingerprints, eligibility,
+orbit, class weights and implementation. No Dilemmadata sidecar is relabelled as
+POP. Historical POP TEST evaluation does not authorize C4 TEST access. Details:
+[C4 protocol](experiments/C4_POP909_3090_20261005_RU.md).
+
+## Scoped full POP909-CL evaluation — 2026-10-01
+
+For the explicit full-population request, `C3Pop909FullProtocol@1.0.0` binds
+the existing accepted index fingerprint
+`b2008221fa59ddd0df31289561b22341db9c2eac527e1a503eac57b74da27daf` and all908
+records:701 TRAIN/101 VALIDATION/106 TEST. Record172 remains quarantined.
+The matching planned experiment must authorize POP TEST inputs/targets/metrics
+and forbid selection. This exception belongs to that separate endpoint and
+does not unlock Dilemmadata TEST or historical synthetic/C0/C2 APIs.
+
+Channel0 supplies raw inputs; channel1 supplies independent masked root/quality
+targets after both predictions. Original splits, source/lineage/component IDs,
+hashes, missing targets, full17 predictions and subset9 gold are retained.
+Source chord onset joins raw half-open beats using exact rational timing.
+[Protocol and evidence](experiments/C3_POP909_FULL_20261001_RU.md).
+
+## Whole-piece HCM observation and coverage — 2026-09-28
+
+`HierarchicalConditionalWholeMusicModel@1.0.0` requires
+`WholeObservedMusicView`: all declared source bars survive masking, in order.
+Its default profile explicitly rejects sources beyond 512 bars or 65536 visible
+notes; graph/codec/candidate/memory budgets remain separately enforced. No
+unsupported piece is silently replaced with a short excerpt. Onset ownership,
+exact time, raw-only inference and known metric geometry retain the HCM contract.
+Every motif key, candidate and hierarchy is constructed after masking. Candidate
+intervals overlapping the query are excluded even if another track is visible.
+
+`PLLWholePieceCoverage@1` is a fingerprint-bound sidecar of `PLLDataManifest@1`.
+It records source bytes/extent and declared `full`, `excerpt` or `unknown`
+coverage with evidence. Complete ingestion of a supplied excerpt is not full-song
+coverage. Whole training accepts only `full`, one record per source/work, and
+TRAIN-only declared work components across the four canonical source adapters.
+Preparation never joins clips; native heldout hints exclude whole components
+before payload access. Known contrary TEST/VALIDATION reads are recorded as true
+and close preparation as invalid; unverified reads remain unknown. Metadata
+declarations do not establish corpus completeness or cross-corpus deduplication.
+See [details](HCM_WHOLE.md).
+
+## HCM-1 observed input and conditional events — 2026-09-28
+
+`HierarchicalConditionalMusicModel@1.0.0` adds opt-in contracts without changing
+CanonicalPiece or existing graph schemas. `MaskQuery` owns all events whose
+onsets fall in its exact half-open interval on selected known tracks; their
+entire tails are removed before rebuilding any graph, aggregate or identifier.
+Only `ObservedMusicView` enters the encoder; target events remain separate.
+Predictor metadata excludes semantic labels, target-derived segmentation and
+source identifiers. Metric bars/tracks must be independently declared geometry.
+
+The target projection is `(onset, track, kind, MIDI pitch/drum key, duration)`;
+sort order is canonical, duplicates remain, time uses reduced exact rationals,
+and EOS defines an empty or variable-count answer. Velocity, pedal and spelling
+are outside this target. The default profile bounds context at 32 bars/16 tracks
+and targets at 512 events. Unsupported codec/geometry/resource cases are explicit;
+coverage scoring retains their slots. Repaired irregular internal bars and
+off-grid metric offsets are currently unsupported rather than silently altered.
+
+`PLLDataManifest@1` binds canonical bytes and TRAIN identities, explicit source
+weights and caller-declared cross-source work components. It does not establish
+deduplication completeness. Mask sampling uses metric geometry without hidden
+content. Checkpoint binding covers model, protocol, data, source, Torch version,
+device type, optimizer, progress and RNG. Failed reads contradicting a declared
+TRAIN split retain unknown access evidence with a concrete receipt. TEST stays
+closed. Details and limitations: [HCM-1 contract](HCM1.md).
+
+## Critic v1 feature and target boundary — 2026-09-22
+
+`CriticFeaturePyramid@1.0.0` is a detached derivative of ordinary raw inputs:
+per-level vectors, sample ownership, rational geometry, source/checkpoint/actual
+weight identity and explicit feature stages. It does not alter canonical/raw
+graph schemas. Feature caches bind geometry, raw content, dtype and stage; unknown
+or mismatched bindings are rejected. Incomplete bars do not become full spans.
+
+Critic pair/local targets are separate sidecars from verified actual patches.
+Eligibility/support IDs are not all changed notes. Missing aspects/partial diffs
+are masked; exhaustive unchanged positions are negative only for intervention
+presence, never gold musical correctness. Deletion uses existing raw temporal
+candidates, time shifts use exact old/new support, and grace uses event support.
+No target can create predictor nodes. Whole-form and validated musical-error
+location remain unavailable. Original theory labels are not copied to variants.
+
+Reference scales bind actual critic and backbone state, TRAIN works, horizon,
+support and type weights. A missing reference gives raw scores without an overall
+percentile. Comparison requires common support. See [critic contract and APIs](CRITIC_V1.md).
+These interfaces do not authorize new data preparation or change TEST policy.
+
+## DLC pitch-class-set decoding v2 — 2026-09-22
+
+New calls to `materialize_target_sidecar` and its streaming descriptor default
+to `analysisgnn-source-native-target-sidecar-v2`. For DLC, `chord_tones` contains
+integer fifth coordinates relative to `localkey_tpc`, which is the absolute
+local tonic in fifth coordinates. The target is the sorted, deduplicated set
+`{(7 * (tone + localkey_tpc)) % 12 for tone in chord_tones}`. For example,
+`(0, 4, 10)` with tonic `-1` yields `3,5,9`, not the literal `0,4,10`.
+Negative/out-of-range fifths are valid. Pitch-class projection discards spelling.
+`added_tones` is not merged into this target; changes remains a separate task.
+AN continues to use its absolute `a_pcset`; source fields are dialect-specific.
+
+V2 DLC provenance records `dlc-relative-fifths-to-absolute-pc-v1`, the original
+tonic, coordinate systems, exclusion of added tones, and the decoded set when
+decoding is attempted. The original `chord_tones` remains `source_value`.
+Existing chord-validity and repair masks take precedence. Missing tonic,
+invalid integer tonic or invalid/noninteger/empty tone sequence is masked with
+an explicit reason. Missing chord tones remain missing. Decoded values outside
+the existing 93-class vocabulary stay masked; no classes or negatives are
+invented. Entity IDs, exact timing, relations and raw model inputs are unchanged.
+
+Historical B3/B4/B5 audits, training/cache reconstruction and diagnostics pin
+`target_sidecar_version=LEGACY_TARGET_SIDECAR_VERSION` explicitly. This v1
+mode preserves the old literal decoder solely for reproducibility, including
+its known semantic defect. Frozen readers and training alignment still reject
+v2, even if its payload and manifest hashes are recomputed. The materializer's
+version participates in expanded/descriptor fingerprints. Entity relation
+inspection can read both versions because their entity structure is unchanged.
+
+This repair does not replace frozen task/vocabulary registries, class weights,
+augmentation eligibility, caches, results or checkpoints. Before new training
+or a changes comparison, create separately logged v2 TRAIN/VALIDATION exports,
+recount support/OOV/weights and augmentation eligibility, and admit a distinct
+data/runtime/checkpoint protocol. Do not relabel v2 as v1 or resume an old run
+against repaired targets. TEST remains closed. No quality or gradient-impact
+claim follows from this code repair.
+
 **2026-09-16 integration:** temporal/C2 is selected for main. Shared frozen
 TRAIN/VALIDATION loading moves to `frozen_training_data.py`; schema identifiers,
 source payloads, masks and historical fingerprints remain intact. Cloud bundles

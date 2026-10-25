@@ -35,7 +35,7 @@ from music_critic.experiments.analysisgnn.multitask_contract import (
     PAPER_DEFINED_JOINT_COMPONENTS,
     PRODUCTION_REGISTRY_ID,
     PRODUCTION_TASKS,
-    TARGET_SIDECAR_VERSION,
+    LEGACY_TARGET_SIDECAR_VERSION as TARGET_SIDECAR_VERSION,
     full_raw_manifest,
     materialize_target_sidecar_descriptor,
     metric_contract,
@@ -310,8 +310,8 @@ def _audit_record_worker(args) -> dict[str, object]:
     sidecar = None
     deterministic = True
     if is_candidate:
-        sidecar = materialize_target_sidecar_descriptor(converted)
-        second = materialize_target_sidecar_descriptor(converted)
+        sidecar = materialize_target_sidecar_descriptor(converted, target_sidecar_version=TARGET_SIDECAR_VERSION)
+        second = materialize_target_sidecar_descriptor(converted, target_sidecar_version=TARGET_SIDECAR_VERSION)
         deterministic = sidecar["fingerprint"] == second["fingerprint"]
     return {
         "deterministic": deterministic,

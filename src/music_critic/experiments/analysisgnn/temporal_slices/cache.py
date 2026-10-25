@@ -28,7 +28,7 @@ from ..corrected_training import transpose_raw_graph_batch
 from ..frozen_training_data import (
     FrozenTrainingData, _FILES, _identity, _json, _require, read_bound_bytes,
 )
-from ..multitask_contract import TARGET_SIDECAR_VERSION
+from ..multitask_contract import LEGACY_TARGET_SIDECAR_VERSION as TARGET_SIDECAR_VERSION
 from .graph import EDGES, NODES, SCHEMA, TemporalGraphBatch, build_temporal_batch
 
 CACHE_SCHEMA = "TemporalSliceIdentityCache@1.0.0"

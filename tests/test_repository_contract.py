@@ -100,7 +100,9 @@ def test_package_has_no_legacy_or_heavy_imports() -> None:
         allowed_roots = set()
         if relative_parts[0] in {"adapters", "exporters"}:
             allowed_roots.add("mido")
-        if relative_parts[0] in {"graph", "models"}:
+        # Critic's opt-in C3 backbone is also the inherited PLL encoder runtime.
+        # Public music_critic / music_critic.pll imports stay dependency-free.
+        if relative_parts[0] in {"graph", "models", "critic", "pll"}:
             allowed_roots.update({"torch", "torch_geometric"})
         if relative_parts[0] == "tasks":
             allowed_roots.update({"torch", "torch_geometric"})

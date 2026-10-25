@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-21",
+  "source_repo": "https://github.com/mattpocock/skills",
+  "source_bundle": "engineering-suite-ask-matt",
+  "bundle_version": "2.0.0",
+  "upstream_revision": null,
+  "upstream_revision_status": "not supplied in installed plugin manifest",
+  "source_files": [
+    {
+      "path": ".codex-plugin/plugin.json",
+      "sha256": "bc50f428842d87538f6f843877e7bbf31f7bbd3c1dff7ab00abbee5d8861ce72",
+      "size_bytes": 1297
+    },
+    {
+      "path": "third_party_licenses/aihero-LICENSE",
+      "sha256": "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5",
+      "size_bytes": 1068
+    },
+    {
+      "path": "skills/ask-matt/SKILL.md",
+      "sha256": "b25d86fb36b1d294eeead5d7db529f86135f9671f2afcd607579a63bb2213769",
+      "size_bytes": 11417
+    },
+    {
+      "path": "skills/research/SKILL.md",
+      "sha256": "52df71d9fb04398354d2cd5fab9cfec14b25f47f7c6bf33c6bc1d263a02e40c9",
+      "size_bytes": 825
+    },
+    {
+      "path": "skills/diagnosing-bugs/SKILL.md",
+      "sha256": "1a7a6e1f011976e5e302b8f5d26bf236bf0f83f3f37e53dea2a23bf9de548265",
+      "size_bytes": 8560
+    },
+    {
+      "path": "skills/code-review/SKILL.md",
+      "sha256": "9799df5771d20d1a458191646532955712ad6fae0231b39304e27e72902a4417",
+      "size_bytes": 6620
+    },
+    {
+      "path": "skills/tdd/SKILL.md",
+      "sha256": "610551ba2691f1d6ca00eeba73978e955e086cd6762f6918280b606d415e7d9d",
+      "size_bytes": 3580
+    },
+    {
+      "path": "skills/domain-modeling/SKILL.md",
+      "sha256": "f842e2604d468313f968d225e68f707f08ebf0c8764f50254f920535ad01a40a",
+      "size_bytes": 3362
+    },
+    {
+      "path": "skills/codebase-design/SKILL.md",
+      "sha256": "c5265b8a8279c569956960111a6fe3bdf51277ab2f89a5ec8fa24cf6b421bd96",
+      "size_bytes": 6477
+    },
+    {
+      "path": "skills/grill-with-docs/SKILL.md",
+      "sha256": "7de372c13488f1ee96cc11cd8907b56b6809cc93eef776eeddd37de6b6cbe3fe",
+      "size_bytes": 247
+    },
+    {
+      "path": "skills/grilling/SKILL.md",
+      "sha256": "05eda00533d358bb646147c2ffa8c38129103629f679d7c977f67a6afc18ccaf",
+      "size_bytes": 2018
+    },
+    {
+      "path": "skills/to-spec/SKILL.md",
+      "sha256": "43ad9cf318e5e7d3d1fa360253a37021796dc87a0c2e595ad262661a10f85088",
+      "size_bytes": 3043
+    },
+    {
+      "path": "skills/to-tickets/SKILL.md",
+      "sha256": "5c9fba69845c2519b9b35b9af42ae5142c21f8ca15ac2123dc2722002c8058ae",
+      "size_bytes": 5671
+    },
+    {
+      "path": "skills/handoff/SKILL.md",
+      "sha256": "7c62de979fdc7ac32fb5ddb2146156c917f80ee070d30fadc9d40343c4b6ed25",
+      "size_bytes": 894
+    },
+    {
+      "path": "skills/writing-for-agents/SKILL.md",
+      "sha256": "05e01f0192b6a1f39a6871fae3ba311916317881cc74bd47eca3dcda86875c1b",
+      "size_bytes": 10917
+    },
+    {
+      "path": "skills/wayfinder/SKILL.md",
+      "sha256": "fee6e1d0c50f0e736b4ef8a599060c959afae904c9a97d82c97f049fcc3aa0f1",
+      "size_bytes": 11908
+    },
+    {
+      "path": "skills/implement/SKILL.md",
+      "sha256": "6d3fd9e83b8f36e5213854779db49b256a457a7ebb4a503e53fa7dcff696adc3",
+      "size_bytes": 433
+    },
+    {
+      "path": "skills/tdd/tests.md",
+      "sha256": "859f9e592c188fda4fc7277dd180e4ce9c7a2e13f6efe1f6f29eccc9d28c106a",
+      "size_bytes": 2214
+    },
+    {
+      "path": "skills/tdd/mocking.md",
+      "sha256": "3ceb807fdf4a47d6a93d4d9a891e5ba6d362a6247bd08adc451feebfc17361ef",
+      "size_bytes": 1481
+    },
+    {
+      "path": "skills/codebase-design/DEEPENING.md",
+      "sha256": "f3dd099ce99289bd213914d8ee3e2429b78309c3957ca4583f7659551b1d53c1",
+      "size_bytes": 2553
+    },
+    {
+      "path": "skills/codebase-design/DESIGN-IT-TWICE.md",
+      "sha256": "8e740bf98446dbd4dfdc132ac4346d9a7eedaf93de6a495889171cf7f99f16bd",
+      "size_bytes": 2664
+    },
+    {
+      "path": "skills/domain-modeling/CONTEXT-FORMAT.md",
+      "sha256": "17ab16ce783e4d2801ee52fd9acdf550cbf44de65ae76797a93943bbedf22a13",
+      "size_bytes": 2290
+    },
+    {
+      "path": "skills/domain-modeling/ADR-FORMAT.md",
+      "sha256": "944c92aa790e8fbdc9199640b170979abb8a34ba8d0fe18c2a01a63bce140ca0",
+      "size_bytes": 2733
+    },
+    {
+      "path": "skills/writing-for-agents/SKILL-MECHANICS.md",
+      "sha256": "c768e6307c7c10728c401c213f2c4ba71c542127eeb7ad2956aabd15a0fa0059",
+      "size_bytes": 2629
+    }
+  ],
+  "project_adaptations": [
+    "mc-ask-matt",
+    "mc-code-review",
+    "mc-codebase-design",
+    "mc-diagnosing-bugs",
+    "mc-domain-modeling",
+    "mc-grill-with-docs",
+    "mc-handoff",
+    "mc-implement",
+    "mc-research",
+    "mc-tdd",
+    "mc-to-spec",
+    "mc-to-tickets",
+    "mc-wayfinder",
+    "mc-writing-for-agents"
+  ],
+  "new_project_skills": [
+    "scientific-evidence-review",
+    "experiment-protocol"
+  ]
+}

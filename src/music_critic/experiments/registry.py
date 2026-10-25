@@ -396,11 +396,29 @@ def validate_record(
         "test_metrics_computed": "test_metrics_allowed",
         "test_used_for_selection": "test_selection_allowed",
     }
-    for actual_field, policy_field in actual_to_policy.items():
-        if access[actual_field] is True and declared_policy[policy_field] is False:
+    violations = [
+        actual_field for actual_field, policy_field in actual_to_policy.items()
+        if access[actual_field] is True and declared_policy[policy_field] is False
+    ]
+    if violations and status != "invalid":
+        raise ExperimentRegistryError(
+            "experiment_registry.record.data_access_policy_violation:"
+            f"{violations[0]}"
+        )
+    # An invalid terminal record must be able to report an observed policy
+    # breach truthfully. This documents an incident; it never grants access or
+    # changes the original policy. Unknown observations remain unknown.
+    if violations or "policy_violations" in access:
+        declared_violations = access.get("policy_violations")
+        if (
+            not isinstance(declared_violations, list)
+            or any(not isinstance(field, str) or field not in DATA_ACCESS_FIELDS
+                   for field in declared_violations)
+            or len(set(declared_violations)) != len(declared_violations)
+            or set(declared_violations) != set(violations)
+        ):
             raise ExperimentRegistryError(
-                "experiment_registry.record.data_access_policy_violation:"
-                f"{actual_field}"
+                "experiment_registry.record.data_access_policy_violations_exact_fields_required"
             )
     if access["test_metrics_computed"] is True and not (
         access["test_inputs_accessed"] is True

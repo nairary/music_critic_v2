@@ -1,5 +1,561 @@
 # Architecture Decision Log
 
+## 2026-10-24 — Google Drive for checkpoint delivery and link access
+
+The user chooses Google Drive as the external checkpoint store and asks for
+README download links and viewer access for anyone with the link. This extends
+the earlier dataset-only transfer. Preserve the original dataset snapshot and
+use a separate checkpoint folder and transfer receipt. Back up all locally
+available checkpoint bytes without selecting a scientific winner or claiming
+complete remote coverage. Intermediate, gate and smoke states remain explicit.
+
+Keep code/configs/tests and compact hash/size inventories in Git; checkpoints,
+optimizer states and full data remain external. Do not rewrite terminal
+experiment records to add the new location. Upload completion and link access
+are separate verified states. The user explicitly confirmed link-based
+viewing/downloading for both folders. Google Drive now confirms anyone with
+the link as viewer for each folder; no editing permission was granted.
+Source publication is prepared locally; no commit, push or license selection
+is implied by the source snapshot.
+
+## 2026-10-24 — Dataset delivery on Google Drive and derived project navigation
+
+The user selects Google Drive for datasets and requests a readable single Git
+repository with a model catalog and campaign overview. A later instruction
+selects the newly signed-in empty 15 GB Drive as the destination and asks for
+archiving all locally available datasets before assessing capacity.
+
+Keep source code, configs, tests, compact receipts and immutable experiment
+records in Git. Store full data externally as versioned byte snapshots with
+SHA-256, sizes, exact scope and verified restore members. Existing Object
+Storage backups and original local files remain intact. New locations use
+separate transfer receipts, never rewritten terminal records. Google file IDs
+are locators; hashes identify payload. A UI upload receipt is distinct from
+remote byte re-download verification. Access/sharing is not broadened.
+
+Navigation is derived from the existing registry, including every failed,
+aborted, invalid and unclassified attempt. Campaign summaries link existing
+reports/decisions without recomputing metrics or choosing a new baseline.
+Model families, training attempts and checkpoint artifacts stay distinct.
+Historical code paths remain intact; no neural architecture, target contract,
+dependency, legacy, inference or training-budget change is introduced.
+
+See [models](MODELS.md), [campaigns](experiments/README.md),
+[data and transfer scope](DATASETS.md), and [reproducibility](REPRODUCIBILITY.md).
+
+## 2026-10-22 — Retain honest provenance for Sol high annotations
+
+The user replaced Astra Ultra with GPT-6.1 Sol high for the resumed enrichment
+campaign. Existing author validators and construction helpers hardcoded the
+historical pair and Astra field origin. Add the explicit Sol/high pair and
+generic `model_individual_context` origin without rewriting historical
+Astra/ultra fields or weakening weak-label, evidence, hash, mask or independent
+review requirements. Fresh Sol recipe/overlay inputs cannot attribute their
+new decisions to Astra. Keep the historical helper default for old callers;
+Sol callers explicitly request generic model origin. No model-quality or
+annotator-equivalence conclusion follows.
+
+Validation: tests first reproduced missing receipt/origin support and false
+Astra attribution. Independent code review found an overlay receipt still
+hardcoding Astra and missing authored-origin checks in overlay objects; both
+were reproduced and fixed. Four affected synthetic suites then passed146 tests.
+Bounded independent re-review has no remaining Standards/Spec findings; fresh
+code readmission003 binds the final bytes before native author packaging.
+This is a provenance compatibility change within T08; no neural architecture,
+canonical event, legacy logic, dependency or training change is included.
+
+## 2026-10-14 — Generic preparation retains its contextual meaning
+
+During COMPLETION-002, comparison of the admitted existing views exposed a
+possible semantic mismatch: Couperin uses held harmonic preparations, while
+The Ballad of Mona Lisa also uses established melodic anchors introducing
+neighboring figures. The validator checks directed participants and masks;
+it does not restrict `prepares` to tied consonance or prove either musical
+interpretation correct.
+
+Keep the existing generic field and require authors to explain the specific
+mechanism and bounded entry/exit context. Reject both shortcuts: an arbitrary
+preceding step is not sufficient for a positive preparation, and the absence
+of a tie is not sufficient for known absence. Ambiguous incoming dependencies
+remain unavailable. This clarifies the current corpus convention rather than
+equating melodic approach with the conventional preparation of a suspension.
+
+No schema, profile, exporter or model changes are required. Historical bundles
+remain immutable; new reviews may correct individual unsupported decisions.
+Validation is the authenticated comparison of the two admitted views and the
+current directed-relation validator, not a claim of measured musical accuracy.
+See the [contract clarification](DATA_CONTRACT.md#preparation-in-authored-views--t08-clarification-2026-10-14)
+and [active record](experiments/records/EXP-CORPUS400-COMPLETION-002.json).
+
+## 2026-10-07 — T08 distinguishes reviewed works from known theoretical targets
+
+- Context: The first eight source-bound Astra analyses exposed genuine
+  uncertainty, non-musical adapter padding, and a percussion-only ending.
+  Treating every unknown as a negative, padding as a rest, or every silent
+  interval as a chord would misrepresent the data.
+- Decision: Add opt-in accounting v2 in a separate module, leaving canonical
+  events, T07 bundles, v1 and the author writer unchanged. Explicit musical
+  scope may exclude only proven leading adapter padding. Authored harmonic
+  dispositions can account for evidenced silence/unpitched-only spans.
+- Decision: Keep strict target completeness separate from complete review
+  with individually addressed uncertainty. Masks stay false for unresolved
+  fields; per-field support and exact counts remain visible. Neither review
+  acceptance nor a minimal support floor establishes corpus-quota eligibility
+  or musical accuracy. Bind reviews to bundle, profile and assessment basis.
+- Decision: A single analytical view cannot contain overlapping harmony
+  states or overlapping contexts of one note. Half-open point semantics are
+  explicit; overlapping higher musical structures and alternate views remain
+  valid. Independent review found and corrected this guard before adoption.
+- Validation: 115 synthetic tests passed; independent review repeated them
+  and checked 1,000 interval/point combinations against a separate oracle.
+  V2 has not yet been applied to real corpus results. No model, training,
+  inference-input, dependency or legacy change is implied.
+
+## 2026-10-07 — T07 separates corpus scale from depth of interpretation
+
+The user explicitly authorizes autonomous collection/annotation beyond T05/T06's
+three-work limit. A shared event-target sidecar preserves source fields and
+exact note contexts across admitted TRAIN sources, while expert phrase functions
+and individually authored Astra relations have separate origins and counts.
+No membership rule is renamed a tension/resolution annotation; unknown temporal
+roles remain masked. Annotator identity and source-group IDs are metadata.
+
+TAVERN raw inputs come from the actual analysed Joined score, independently
+verified after removing analytical spines. A/B alternate raw versions must not
+share canonical identity. DLC table row groups do not create harmonic intervals
+unless score timing independently establishes their boundaries. These decisions
+extend auxiliary-target representation only; unlabeled inference and existing
+model heads remain unchanged. [T07 specification](workstreams/2026-10-07/multigenre-theory-enrichment/spec.md).
+
+A retained score harmony may extend beyond the canonical excerpt's final note.
+Its T07 applicability is intersected with the canonical extent, while the exact
+original interval and projection reason remain explicit. Raw pieces and sealed
+T06 artifacts are never extended or rewritten to accommodate that mismatch.
+
+The same collection authorization permits explicitly new supplemental PDMX TRAIN
+assignments for verified title+creator work families whose related HookTheory
+clips are all native/current TRAIN. Retain unknown original/global PDMX membership
+and the new augmentation assignment separately; do not edit the global split.
+Metadata admission does not authorize transferring musical labels between versions.
+Jump (Van Halen) and Peg satisfy the family gate; Saints remains research-only.
+
+The final source audit makes split authority explicit: DLC follows the frozen
+V2 component manifest, while AN additionally requires its native training folder.
+198 admitted DLC records have historical Dilemmadata `test` hints (813 are blank),
+generated by that project's split-design procedure; those hints are not evidence
+of an official DCML test split. Retain this distinction, including two AN/DLC
+cross-source components, rather than claiming universal native-TRAIN purity.
+No current frozen VALIDATION/TEST musical payload is admitted by this release.
+
+## 2026-10-06 — Interval batches preserve dense roles separately from expressive labels
+
+T06 uses a separate exact note×harmony target interface rather than adding a
+whole-note projection to the nine T05 flags. This preserves changing roles
+inside held notes and source-segment uncertainty. Source-native and computed
+facts have field-level masks; Astra's temporal interpretations retain their
+own exact intervals and positive-unlabeled provenance. Membership and expressive
+role may coexist, including a suspension inside a source-declared chord set.
+
+Score-defined harmonic boundaries are used only for auxiliary supervision.
+Raw inference, existing graph construction and neural heads remain unchanged.
+The present implementation covers the three complete admitted pilot works;
+it does not authorize whole-TRAIN annotation or establish semantic accuracy.
+See [T06 contract](DATA_CONTRACT.md#dense-harmonic-interval-targets--t06-2026-10-06).
+
+## 2026-10-06 — Full contextual coverage precedes sparse episode expansion
+
+After viewing T05, the user points out that nearly every event has a role in
+harmony and surrounding music. The intended product is a dense description of
+all events and their changing context. Selecting a few expressive episodes is
+insufficient. Keep T05 as a sparse weak-label binding pilot; do not retroactively
+claim it completed the requested musical analysis.
+
+The next data target is a note×harmonic-interval layer across the three complete
+pilot works, with voice-leading/inter-part relations and sparse expressive roles
+as additional fields. Audit and reuse existing note-degree/chord-tone/root/bass
+source supervision first; only missing contextual interpretations need new
+annotation. Preserve exact timing, tied-note identity, source harmony
+views, spelled extensions and independent uncertainty masks. Normal support of
+a chord counts as a role; special-event flags need not be true for every note.
+Every event must be considered, without fabricating a known answer for every
+semantic field. Refer to [dense coverage contract](DATA_CONTRACT.md).
+
+Prioritize this coverage correction before expanding the sparse examples to
+more genres. This clarification changes the target definition and next step;
+it does not implement dense labels, launch whole-TRAIN annotation or training,
+or change the sealed T05 release.
+
+## 2026-10-06 — Usable Astra weak targets for canonical note roles
+
+The user explicitly requests new event-level dataset targets from the source
+analyses. T05 admits individually authored Astra annotations as auxiliary
+weak supervision after exact current-TRAIN source-to-canonical binding.
+Independent human acceptance is not a prerequisite for an available weak target;
+it remains necessary to call the labels human gold or estimate musical accuracy.
+This supersedes T04's operational all-masks-false hold for the new T05 release
+only. The sealed T04 artifacts remain unchanged.
+
+Nine opt-in binary role tasks use positive-unlabeled supervision. Available
+roles have `source=pseudo_label`, `confidence=null`; unannotated note×role pairs
+remain unavailable rather than absent. Per-note participation targets accompany
+exact note×interval assignments and related canonical note IDs. Several roles
+may apply to one note, and tied source fragments can name one sustained note.
+The raw graph and inference requirements do not change. No new prediction heads
+or training run are part of this target release. Musical function and relations
+are the immediate endpoint; no better/worse or tension-score claim is inferred.
+See [T05 specification](workstreams/2026-10-06/relational-midi-targets/spec.md).
+
+## 2026-10-05 — C4 denotes POP909-CL training of the completed C3 architecture
+
+The user requests a fresh POP909-CL analogue of the latest encoder, named C4,
+on the existing RTX3090, with the established transpositions and runtime
+optimizations. Use the completed three-pass relation-gate C3 architecture;
+the later unlaunched changes-head proposal is not the trained reference.
+Retain the original model state layout and isolate the new dataset/loss/runtime
+bindings. Historical Dilemmadata cache, target and checkpoint contracts remain
+strict and unchanged.
+
+POP has independent native availability and pitch-class labels, so missing
+Dilemmadata targets stay masked. Root/bass PC supervision marginalizes spelled
+output probabilities; it must not invent spelling. C4 selection uses the mean
+POP root/quality macro-F1 on the existing VALIDATION membership, distinct from
+Dilemmadata eight-head primary score. Existing TRAIN/VALIDATION membership is
+preserved; earlier scoped POP TEST evaluation does not authorize new TEST use.
+This accepts a training protocol, not a trained artifact or quality conclusion.
+See [C4 protocol](experiments/C4_POP909_3090_20261005_RU.md).
+
+## 2026-10-01 — Scoped full POP909-CL evaluation for selected C3
+
+The user requests the complete POP909 population and confirms cloud C3
+three-pass relation gate at update80000, selected on Dilemmadata VALIDATION.
+The separate C3 full-transfer entrypoint admits all908 accepted pinned CL
+records, preserving TRAIN/VALIDATION/TEST and quarantine172. Its registered
+policy permits POP TEST inputs/targets/metrics for this frozen evaluation,
+never selection; Dilemmadata TEST remains closed. Historical public guards
+are unchanged. The shared internal score conversion retains SHA/projection
+checks and excludes chord targets from raw inputs.
+
+Reuse root37→PC12 marginalization, full17 quality argmax/subset9 gold, native
+primary, metadata_removed secondary and exact source-start/raw-beat alignment.
+Final C3 beat candidates preserve the earlier evaluator's resolution. Full and
+split-specific metrics describe harmonic transfer, not aesthetics or all18heads.
+No model/training decision follows from execution alone.
+[Protocol and evidence](experiments/C3_POP909_FULL_20261001_RU.md).
+
+## 2026-09-30 — Primary endpoint: music quality metric, not generation
+
+The user clarifies that HCM/PLL is intended as a music-quality metric and asks
+for comparison with deep-learning quality evaluators at equal or smaller model
+size. Masked prediction and remote-context abstraction remain candidate means,
+not the final product or sufficient quality evidence. The previous prediction
+research question becomes a mechanism-level subquestion: a lower NLL alone
+does not establish a better quality metric.
+
+The intended external endpoint is agreement with independent human judgments
+of musical content on unseen works, with total model size and full scoring cost
+reported. Frozen encoders count toward model size; repeated masked passes count
+toward inference cost. Audio evaluators require controlled renders of the same
+MIDI and have a different information/pretraining budget. A matched symbolic
+PLL control is proposed separately to isolate the architecture's contribution.
+
+The user has not selected a new parameter target, baseline implementation,
+calibration scheme, human study protocol or GPU run. No training or TEST access
+is authorized by this literature review. Compare concept and hybrid memory
+without a preselected winner as already agreed; do not replace that comparison
+with an assumed aesthetic benefit. See the
+[quality-metric capacity review](research/MUSIC_QUALITY_METRICS_CAPACITY_20260930_RU.md).
+
+## 2026-09-30 — Research focus: abstract remote context for prediction
+
+The user selects the central scientific question: whether abstraction of
+remote musical context improves musical prediction. Compare explicit musical
+concept memory and concept-plus-residual memory without a preselected winner,
+against equally budgeted unconstrained memory. C3 transfer and reward-based
+generator fine-tuning are separate claims, not mandatory evidence for the first
+version of this study. Low likelihood remains a signal for inspection rather
+than an automatic aesthetic verdict.
+
+The near-term deliverable is a paper-like demonstration of existing work and
+experiments for the supervisor on October 3–4; a novel positive result is not
+required for that demonstration. The user estimates about a month for research,
+with 28,000 RUB/month Cloud budget, intermittent RTX 3090 access and possible
+supercomputer access for final runs. These are planning constraints, not a fresh
+Cloud balance check or authorization of a particular new paid run.
+
+No new architecture, dataset expansion or training is adopted by this decision.
+First define a bounded remote-context/concept diagnostic and matched-memory
+protocol. Preserve mask-before-analysis, raw-MIDI inference and all existing
+terminal artifacts. Details and unresolved choices:
+[research](research/HCM2_ABSTRACT_REMOTE_CONTEXT_20260930_RU.md) and
+[decision notes](workstreams/2026-09-30/hcm-semantic-memory/research-decisions.md).
+
+## 2026-09-28 — User authorizes a bounded HCM-2 duration control to10000
+
+After discussing undertraining, the user explicitly requests continuation to
+10000 total updates. This supersedes the operational hold below, without
+retracting the null-retrieval or empty-generation evidence. Continue the exact
+1000-step checkpoint for9000 further updates with full Adam/RNG/sampler state,
+unchanged700POP TRAIN songs, frozen C3 and unchanged architecture/objective.
+The completed parent cosine schedule remains immutable; the child starts a
+declared50-update warmup/cosine segment at the existing peak learning rate.
+It is not an uninterrupted10000-update schedule from scratch. Checkpoints every
+100 updates retain3000/5000/10000 for separately registered fixed-mask evaluation.
+PDMX, Dilemmadata, sampler repairs and encoder unfreezing are not part of this
+controlled duration run. [Protocol](experiments/HCM2_TO_10000_20260928_RU.md).
+
+## 2026-09-28 — HCM-2 pilot does not admit unchanged long continuation
+
+`EXP-HCM2-PILOT-DIAGNOSTIC-002` improves fixed development conditional NLL
+from checkpoint100 to1000, but motif content substitution by a learned null
+is effectively invariant and both bounded free generations emit EOS immediately.
+Deletions/empty targets receive lower total NLL in every tested pair. Therefore
+the user's conditional continuation gate is not met: diagnose early EOS,
+empty-target sampling and null retrieval before more training under this profile.
+This does not establish that C3 is insufficient, that global context is unused,
+or that a proposed repair will work. Preserve genuine rests, fixed evaluation
+masks, separate human preferences and final TEST closure. No architectural
+repair or weight update is adopted by this diagnostic alone.
+See [evidence and limits](experiments/HCM2_PILOT_DIAGNOSTIC_20260928_RU.md).
+
+## 2026-09-28 — Implement whole-song context with 16/32-bar motif candidates
+
+The user selects whole-song learning and extends the proposed 1/2/4/8-bar
+motif bank to 16 and 32 bars, retaining later comparison of their usefulness.
+Implement the complete observed source as context while keeping 1/2/4-bar masked
+targets. Use positional bar/block/song memory, separately gated local/global/
+motif decoder attention and differentiable soft retrieval plus bounded aligned
+details. All representations follow raw masking. Default local C3 and boundary
+projection are frozen; global and motif branches can be disabled by bound config.
+
+The four source adapters supply canonical complete pieces with explicit extent
+and coverage evidence. Whole training refuses excerpt/unknown coverage and does
+not synthesize songs by joining clips. Resource ceilings reject explicitly;
+512 bars is an initial declared ceiling, not measured GPU capacity. Old HCM
+checkpoints can initialize compatible weights only; strict whole resume binds
+the new architecture and sampler. New code does not establish refrain detection,
+improved musical preference or a correction to raw-NLL deletion comparisons.
+
+This phase implements and synthetically verifies mechanics without real corpus
+access, GPU/cloud launches or changes to retained results. Registered source
+preparation, native resource admission and matched 16/32-scale ablation follow.
+No legacy logic or new dependencies. [Contract](HCM_WHOLE.md),
+[acceptance specification](workstreams/2026-09-28/hcm-whole-piece/spec.md).
+
+## 2026-09-28 — HCM-1 migration and an explicit second schedule segment
+
+The user authorizes stopping the pairwise critic after its next committed
+checkpoint, completing HCM's existing10000-update cloud attempt, transferring
+full state to3090, running a small fixed development diagnostic with a listening
+page, and then adding10000 updates unless superseded by new instructions.
+Noisy distortions remain an untested explanation for the critic's behavior.
+
+The completed parent is loaded under its original strict binding and exact
+runtime. A separate script preserves model, Adam, RNG and sampler state while
+binding a new10000-update warmup100/cosine segment at the existing peak LR.
+It does not reinterpret the parent's finished cosine schedule as a20000-step
+schedule. Native replay admission and development evaluation use disposable
+state; the real continuation reloads the unchanged terminal parent.
+
+The diagnostic compares alternative fillings under identical masked contexts,
+reports coverage and known TRAIN overlap, and separates conditional likelihood
+from human preference. TEST and the final campaign reserve remain closed.
+This is an authorized protocol decision, not evidence of quality improvement.
+See [handoff protocol](experiments/HCM1_3090_HANDOFF_20260928_RU.md).
+
+## 2026-09-28 — Implement the HCM-1 reference, without launching training
+
+The user accepts implementation following the consolidated hierarchical PLL
+research. Select a separate raw-mask → tiled C3 → multiscale context → nested
+event/field decoder path, with exact canonical events and typed optional
+TransR-like relations. This implements a conditional distribution over a masked
+polyphonic block, including unknown event count and EOS. It does not replace
+the active pairwise critic, equate likelihood with preference, or establish
+that learned relation components represent named harmonic functions.
+
+The accepted code phase includes differentiable C3 reuse, exact-time codec,
+target-independent masking, serial FP32 trainer, immutable update resume,
+TRAIN-only manifest/runner, bounded registry integration, generation and
+coverage-aware block scoring. Real corpus admission, semantic auxiliary heads,
+optimized batching/cache and GPU fit/quality comparisons remain later phases.
+Default weights are random until explicitly loaded with byte identity. No
+checkpoint was loaded from an active run; no server, cloud or data run was
+started in this task. Synthetic CPU checks establish mechanics only.
+See [implemented contract](HCM1.md) and
+[research basis](research/HIERARCHICAL_PLL_WORKHORSE_20260928_RU.md).
+
+## 2026-09-27 — Use the full hierarchy for the proposed probabilistic decoder
+
+The user requests masked musical prediction that uses the full hierarchy,
+beyond harmonic conditioning alone. Preserve access to note/onset/slice,
+beat/bar, track and song context in the next PLL design; harmony is one
+possible auxiliary signal rather than the only channel into generation.
+This selects a design requirement, not proof that these states encode
+musical form, a concrete decoder implementation or a training launch.
+
+The [feasibility report](research/PLL_GENERATIVE_FEASIBILITY_20260927_RU.md)
+proposes one compact decoder with multiscale context, masking before all
+target-dependent features, and a separately measured memory/throughput gate.
+Additional span summaries, decoder dimensions, frozen/unfrozen schedule,
+mixed-source sampling and24–48GPU-hour exploratory budget remain proposals.
+No change to the active critic campaign, checkpoint, TEST access or compute
+allocation is implied by this direction.
+
+## 2026-09-27 — Select the edit-count curriculum
+
+The user accepts three stages for new-campaign critic training: 3–4 authored
+edits per variant, then 2 or 1, then exactly 1. This supersedes the earlier
+single-edit-only training direction; it does not establish that edit count
+is monotonic musical degradation or example difficulty. One authored edit
+may affect multiple notes or bars. Each combination needs its own compatibility,
+net-diff and aspect-direction evidence; preference between different counts
+must not be inferred from count alone.
+
+The [training plan](research/CRITIC_NEW_CAMPAIGN_TRAINING_20260927_RU.md)
+proposes balanced exposure to all four aspects at every stage, same-aspect
+combinations and masking of unobserved aspect targets. These sampling details,
+stage proportions, a matched random-order comparison and revised compute
+budget remain proposals rather than additional user decisions. A fixed
+single-edit dev set checks the target task throughout. No sampler, data,
+checkpoint or experiment was changed or launched by this decision.
+
+## 2026-09-27 — Select the full critic and external audio assessment
+
+The user selects the full contextual critic for new campaign training and
+declines the simpler trained control. Remove pooling/raw-summary training
+arms from the current plan. Train fresh full-critic parameters on the new
+authored pairs; the proposed three seeds now mean three runs, not six.
+Use pretrained audio-assessment systems as external comparisons: Audiobox
+Aesthetics is the primary proposed candidate; PAM is optional. Their scores
+are model predictions, not ground-truth musical preferences. Compare the
+same musical material under fixed rendering, keep aspect-specific preference,
+overall enjoyment and production quality distinct, and retain independent
+human evaluation. This compares systems, not isolated architectural causes.
+The initial split, preparation gates and compute-budget requirements remain
+as described in the [updated plan](research/CRITIC_NEW_CAMPAIGN_TRAINING_20260927_RU.md).
+No training, dependency installation, weight download or paid launch occurred.
+
+## 2026-09-27 — Train a new critic on the authored campaign
+
+The user selects training on the new45-work authored campaign and declines
+using the previous critic experiment as the basis of the next study. Preserve
+historical records and weights; do not resume or initialize the new head from
+them. The current proposal is a fresh-head, frozen-encoder comparison on
+work-grouped new campaign pairs. Its25/10/10split, comparison arms and optimizer
+settings are proposed implementation choices, not measured results or an
+approved paid compute budget. Weak aspect directions, exact intervention
+locations and human preferences remain separate evidence types.
+See [new training proposal](research/CRITIC_NEW_CAMPAIGN_TRAINING_20260927_RU.md).
+The prior frozen-head evaluation proposal is superseded; no experiment is
+launched by this direction change.
+
+## 2026-09-22 — Select LLM-authored contextual intervention design
+
+After stopping the fixed-operator critic pilot, the user requests composition-
+specific musical analysis by an LLM author, followed by deliberate note edits
+within agreed degradation directions and later human review of a sample.
+The user explicitly selects both independent edited variants and combinations.
+Musical function is a contextual hypothesis; generator intent, verified raw
+edit, model review and human preference remain distinct evidence types.
+Combinations require renewed semantic review; edit count does not establish
+monotonic degradation. Predictor inputs remain raw-only and TEST stays closed.
+
+This selects a design direction, not a completed generator, a new target schema,
+or authorization for an unbounded/API-paid generation run. Proposed controls,
+pilot limits and outstanding implementation choices are in the
+[design note](workstreams/2026-09-21/critic-wayfinder/llm-authored-interventions.md).
+Existing experiment records and original-preferred target behavior are unchanged.
+
+## 2026-09-22 — Select frozen cloud C3 x3+gate for first critic training
+
+The user chooses the retained80k three-pass relation-gated cloud backbone and
+authorizes critic-only training, delegating a generous update cap. Use its exact
+source/checkpoint-bound adapter; do not substitute the two-pass main model or
+the separate3090CHANGES run. Four weak aspect rankings and intervention-local
+heads remain as specified. TRAIN source works supply disjoint critic-train and
+head-dev components; inferred generator roles remain explicit and target-side.
+Native admission must precede the run. The execution cap is3,000RUB/24VMhours;
+actual update cap follows measured throughput. This is a run choice, not evidence
+of architecture superiority. [Protocol](experiments/CRITIC_C3G_CLOUD_PROTOCOL_RU.md).
+
+
+## 2026-09-22 — Implement bounded critic v1 on a frozen encoder
+
+The user requests implementation of the agreed multilevel/aspect/localization
+specification. Implemented separate same-pass feature adapters, exact geometry,
+three recurrent context paths, gated refinement, global and local heads,
+verified target masks, ranking/local losses, reference-score policy, controls,
+critic-only training/resume and one-MIDI inference export. Adopt the explicit
+width128/hidden64 and local-loss0.25 defaults as configurable engineering choices,
+not evidence-backed optima. Retain18theory heads and historical checkpoint APIs.
+
+Reference scales bind actual critic weights and encoder feature identity;
+head-dev selection rejects known work/component/sample/hash overlap and changing
+cohorts. Intervention localization remains separate from validated music-error
+localization. No real data, cloud training, changes, PLL or unfreezing is included.
+See [implementation closure](workstreams/2026-09-21/critic-wayfinder/implementation.md).
+
+## 2026-09-22 — Include explicit local intervention supervision in critic v1
+
+The user accepts adding localization to the multilevel aspect critic. Preserve
+separate global aspect-ranking and local intervention-presence objectives;
+verified edits provide localization targets but do not establish musical harm.
+Unchanged positions may be negative for an exhaustively observed intervention,
+never automatically musically correct. Deletions use raw temporal candidates,
+not fake deleted-note inputs. Unvalidated musical-error locations stay unavailable.
+
+The [v1 specification](workstreams/2026-09-21/critic-wayfinder/spec.md) fixes the
+engineering interfaces, defaults, losses/masks and acceptance criteria. Defaults
+are implementation choices, not empirical findings. This readiness clarification
+does not launch implementation, data expansion, training or paid operations;
+native admission and scientific validation remain separate completion gates.
+
+## 2026-09-22 — Target a multilevel, multi-aspect critic rather than a beat-only primary readout
+
+The user selects joint use of note/event, vertical and larger representations,
+bidirectional contextual processing, rhythm/harmony/melody/structure outputs and
+a weighted overall score. This supersedes the harmony-only beat-to-scalar primary
+proposal; that readout remains a useful control. Preserve raw-only inference,
+explicit availability and horizon, and the separation of synthetic intervention
+direction from human preference. Existing short bar-swap examples support a
+local-order hypothesis, not whole-form quality.
+
+The concrete frozen feature pyramid, three recurrent streams, cross-scale fusion,
+aspect attention and reference-score policy are a **proposed implementation**,
+not yet an accepted specification or experimental result. See
+[design research](research/MULTISCALE_ASPECT_CRITIC_DESIGN_20260922_RU.md).
+Changes/PLL remain separate hypotheses. No training, new data processing, TEST
+access or cloud spend is authorized by this directional clarification.
+
+## 2026-09-22 — Repair DLC pcset semantics with an explicit historical boundary
+
+The user selects correcting DLC `pitch_class_set` before possible future
+changes work. New target materialization defaults to sidecar v2: project
+local-key-relative fifth coordinates to absolute pitch classes using
+`7 * (chord_tone + localkey_tpc) mod 12`, sort and deduplicate, then apply the
+existing vocabulary/mask contract. Do not union `added_tones`, expand the
+93-class vocabulary, alter raw inputs or change loss weighting in this repair.
+
+Retain explicit v1 reproduction for frozen audits and campaigns; retain their
+strict v1 reader/alignment gates. This preserves historical evidence and makes
+accidental use of v2 with old support weights/checkpoint protocols fail closed.
+New training requires a separately recorded data/support/augmentation rebuild
+and a new runtime admission. This decision authorizes the implementation and
+synthetic tests, not corpus rematerialization, training, TEST access or a claim
+about damage to an existing backbone. See [data contract](DATA_CONTRACT.md#dlc-pitch-class-set-decoding-v2--2026-09-22).
+
+## 2026-09-19 — Scratch relation-gated C3 with changes on RTX3090
+
+The user selects joint learning from scratch for the existing18 objectives and
+99-atom multilabel changes head:80k updates,B2,W4,seed17 on the existing3090.
+This supersedes the paired-continuation proposal for this requested run only.
+Preserve three width128 relation-gated passes,historical C2 transposition and
+120k scheduler horizon; use verified temporal targets as auxiliary supervision.
+Select checkpoints by old8 primary macro-F1 and report changes separately.
+One treatment does not establish causal benefit over a matched no-changes arm;
+no additional80k control,cloud run or TEST access is authorized by this decision.
+Native memory/all-shift/full-resume admission remains required before launch.
+See [protocol](experiments/C3_RELATIONGATE_CHANGES_3090_PROTOCOL_RU.md).
+
 ## 2026-09-16 — Promote completed temporal to main; isolate fusion development
 
 User explicitly selects the completed temporal/C2 implementation as the main

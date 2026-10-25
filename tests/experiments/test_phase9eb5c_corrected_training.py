@@ -147,6 +147,15 @@ def _forward_and_align(model, batch, sidecar=None):
     return output, alignment
 
 
+def test_v2_sidecar_requires_a_new_training_protocol() -> None:
+    from music_critic.experiments.analysisgnn.multitask_contract import TARGET_SIDECAR_VERSION
+    batch = _batch()
+    sidecar = _sidecar(batch)
+    sidecar["schema_version"] = TARGET_SIDECAR_VERSION
+    with pytest.raises(CorrectedTrainingError, match="sidecar_schema_invalid"):
+        _forward_and_align(CorrectedAnalysisGNNModel().eval(), batch, sidecar)
+
+
 def test_targets_are_post_prediction_and_mutation_cannot_change_logits() -> None:
     model = CorrectedAnalysisGNNModel().eval()
     batch = _batch()

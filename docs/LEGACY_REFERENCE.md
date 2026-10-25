@@ -2,6 +2,31 @@
 
 This document is an audit map, not a runtime dependency list.
 
+## 2026-09-22 — Legacy corruption reuse research
+
+Read 53 tracked source/config/test files from the pinned legacy commit below
+through GitHub API because the configured local checkout is absent. Every
+download matched its Git blob identity; SHA256/size manifest and read-only
+source copies are under ignored `outputs/legacy_corruptions_review_20260922/`.
+No legacy code was executed, modified, imported or copied into V2 production.
+Historical untracked launch scripts and actual V1 checkpoint exposure remain
+outside this evidence scope.
+
+Found 32 implemented song-object operators, one unimplemented placeholder,
+and five older graph-only corruption modes; the checked full config enables 17
+song modes. Candidate adaptations are local duration/attack edits, real
+bass/voicing continuity, contextual sonority edits, boundary/sequence checks
+and separately evaluated benign controls. These are proposals, not implemented
+algorithms or accepted quality labels. Existing V1 OOD lists/routes do not
+enforce checkpoint-specific family holdout; strict/near-benign names do not
+establish invariance or a positive training route.
+
+Reject graph tensor/label-only edits, float timing, gold inference inputs,
+unconditional original>edited targets for benign or no-op pairs, root-only
+function rules as universal quality criteria, and implicit TEST evaluation.
+Detailed inventory, source references and V2 contract gaps:
+[research report](research/V1_CORRUPTIONS_REUSE_20260922_RU.md).
+
 ## Legacy identity
 
 - Path: `/home/str/Fine-tune-text2midi-llm-with-gnn-theory-critic`

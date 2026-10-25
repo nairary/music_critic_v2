@@ -53,6 +53,114 @@ def test_exact_ticks_optional_metadata_and_empty_theory(tmp_path):
     assert ("note", "next_in_track", "note") in graph.edge_types
 
 
+def test_integral_json_decimals_preserve_exact_projection_and_source_receipt(tmp_path):
+    data = _source()
+    data["resolution"] = 480
+    data["tracks"][0]["notes"][0].update(time=13060, duration=480, velocity=80)
+    data["tempos"] = [{"time": 0, "qpm": 120}, {"time": 13060, "qpm": 89.5}]
+    data["time_signatures"] = [{"time": 0, "numerator": 4, "denominator": 4}]
+    data["key_signatures"] = [{"time": 0, "fifths": -2, "mode": "major"}]
+    data["barlines"] = [{"time": 0}, {"time": 1920}]
+    data["beats"] = [{"time": 0, "is_downbeat": True}]
+    integer_piece = _load(tmp_path, data)
+
+    def decimal_numbers(value):
+        if type(value) is int:
+            return float(value)  # Tiny synthetic values are exactly representable.
+        if isinstance(value, dict):
+            return {key: decimal_numbers(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [decimal_numbers(item) for item in value]
+        return value
+
+    decimal_piece = _load(tmp_path, decimal_numbers(data))
+    assert decimal_piece.notes == integer_piece.notes
+    assert decimal_piece.notes[0].onset_qn == RationalTime(653, 24)
+    assert decimal_piece.notes[0].source_onset_ticks == 13060
+    assert type(decimal_piece.notes[0].source_onset_ticks) is int
+    for field in ("tracks", "source_resolution", "duration_qn", "bars", "beats", "tempo_events",
+                  "meter_events", "key_signature_events", "quality_flags"):
+        assert getattr(decimal_piece, field) == getattr(integer_piece, field)
+    assert decimal_piece.tempo_events[1].onset_qn == RationalTime(653, 24)
+    assert decimal_piece.tempo_events[1].microseconds_per_quarter == 670391
+    source = next(p for p in decimal_piece.provenance if p.provenance_id == "prov:source")
+    integer_source = next(p for p in integer_piece.provenance if p.provenance_id == "prov:source")
+    assert source.checksum_sha256 != integer_source.checksum_sha256
+    projection = next(p for p in decimal_piece.provenance if p.provenance_id == "prov:projection")
+    details = dict(projection.details)
+    assert projection.version == details["adapter_version"] == "1.0.1"
+    assert details["integer_number_policy"] == "finite-integral-decimal-exact-int-v1"
+    assert details["max_decimal_integer_digits"] == 4300
+    assert decimal_piece.quality_flags == ()  # Numeric normalization is not a musical default.
+    assert decimal_piece.targets == decimal_piece.annotations == ()
+
+
+def test_decimal_ticks_do_not_pass_through_binary_float(tmp_path):
+    path = tmp_path / "exact-decimal.json"
+    path.write_text(
+        '{"resolution":9007199254740992,"tracks":[{"notes":'
+        '[{"time":9007199254740993.0,"duration":1.0,"pitch":60}]}]}'
+    )
+    piece = load_pdmx_piece(path, source_id="synthetic", source_group_id="synthetic", split="train")
+    assert piece.notes[0].source_onset_ticks == 9007199254740993
+    assert piece.notes[0].onset_qn == RationalTime(9007199254740993, 9007199254740992)
+    assert piece.notes[0].duration_qn == RationalTime(1, 9007199254740992)
+
+
+@pytest.mark.parametrize("token,expected", [
+    ("1.306e4", 13060), ("-0.0", 0), ("1.0000", 1), ("0e999999999", 0),
+])
+def test_integral_json_number_notations_are_exact(tmp_path, token, expected):
+    path = tmp_path / "exact-notation.json"
+    path.write_text(json.dumps(_source()).replace('"time": 1', '"time": ' + token))
+    piece = load_pdmx_piece(path, source_id="synthetic", source_group_id="synthetic", split="train")
+    assert piece.notes[0].source_onset_ticks == expected
+    assert type(piece.notes[0].source_onset_ticks) is int
+
+
+@pytest.mark.parametrize("field,value", [
+    ("time", 1.5), ("time", -1.0), ("time", True), ("time", "1.0"), ("time", None),
+    ("duration", 1.5), ("duration", -1.0), ("duration", None),
+    ("pitch", 60.5), ("pitch", 128.0), ("pitch", -1.0),
+    ("velocity", 128.0), ("velocity", -1.0), ("velocity", False),
+])
+def test_decimal_compatibility_does_not_relax_integer_validity(tmp_path, field, value):
+    data = _source()
+    data["tracks"][0]["notes"][0][field] = value
+    with pytest.raises(PdmxAdapterError, match="invalid_schema"):
+        _load(tmp_path, data)
+
+
+@pytest.mark.parametrize("token,category", [
+    ("1.000000000000000000000000000001", "invalid_schema"),
+    ("1e-999999999", "invalid_schema"),
+    ("1e999999999", "resource_numeric_expansion"),
+    ("NaN", "invalid_json"), ("Infinity", "invalid_json"), ("-Infinity", "invalid_json"),
+])
+def test_bad_decimal_ticks_reject_before_truncation_or_numeric_expansion(tmp_path, token, category):
+    path = tmp_path / "bad-decimal.json"
+    path.write_text(json.dumps(_source()).replace('"time": 1', '"time": ' + token))
+    with pytest.raises(PdmxAdapterError) as caught:
+        load_pdmx_piece(path, source_id="synthetic", source_group_id="synthetic", split="train")
+    assert caught.value.category == category
+
+
+@pytest.mark.parametrize("fifths", [-8.0, 14.0, 15.0, 241.0, True, "-2"])
+def test_invalid_key_fifths_are_not_normalized_into_another_signature(tmp_path, fifths):
+    data = _source()
+    data["key_signatures"] = [{"time": 0.0, "fifths": fifths}]
+    with pytest.raises(PdmxAdapterError, match="invalid_schema"):
+        _load(tmp_path, data)
+
+
+def test_null_key_fifths_remain_unavailable_with_integral_decimal_time(tmp_path):
+    data = _source()
+    data["key_signatures"] = [{"time": 0.0, "fifths": None, "root": 0}]
+    piece = _load(tmp_path, data)
+    assert piece.key_signature_events == ()
+    assert piece.targets == piece.annotations == ()
+
+
 def test_meter_change_is_exact_bar_boundary_and_tempo_decimal_rounds_half_up(tmp_path):
     data = _source()
     data["tracks"][0]["notes"][0].update(time=1, duration=60)

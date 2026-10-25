@@ -1,5 +1,186 @@
 # Music Critic V2 Architecture
 
+## Whole-work data preparation — T08, 2026-10-07
+
+The corpus400 path separates metadata candidate selection, explicit source
+admission, canonical/MIDI materialization and theoretical annotation.
+`scripts/build_corpus400_catalog.py` reads catalogs and stats referenced files;
+candidate ranking never authorizes musical payload access. The materializer
+consumes a recorded admission manifest under a separate active experiment.
+
+`tasks/whole_work_annotation.py` provides completeness accounting and object
+semantic numeric targets over T07. A coverage report is an evidence-accounting
+result, not a quality score. Note, harmonic-process, motif, phrase, form and
+ensemble objects may overlap; no mandatory single containment tree is added.
+The current encoder, training losses and raw-MIDI inference path are unchanged.
+
+## Source-specific collection, shared event targets — T07, 2026-10-07
+
+`analysis.native_enrichment` preserves admitted HookTheory/POP909 target fields
+and constructs exact note-context partitions. `analysis.dlc_enrichment` joins
+retained source rows with exact canonical binding; it does not infer harmony
+onsets from the first observed note. `analysis.an_enrichment` preserves AN
+note-row facts, tied-note subintervals and unavailable repaired rows; rebuilt
+canonical pieces must match the frozen manifest byte for byte. `adapters.tavern` parses admitted Humdrum
+notes and analyses, preserves A/B views and verifies raw Joined projections.
+Their CLI exporters retain source-specific admission receipts and failed rows.
+
+`tasks.event_theory_enrichment` owns identity, time, field/mask and relation
+validation, immutable authored-layer merging and frozen vocabulary encoding.
+`merge_event_theory_overlays.py` binds individually authored overlays to original
+bundles. `finalize_event_theory_release.py` selects explicit input indexes,
+retains supersession receipts and streams all numerical shards using one TRAIN
+vocabulary. All stages write new paths and preserve earlier attempts.
+
+These are data/loader interfaces, not a change to C3/HCM inference or loss.
+The future shared-parameter auxiliary objective must separately choose sampling,
+source/view weights, output taxonomy and negative-label policy. Numerical masks
+and full note coverage do not establish semantic correctness or PLL benefit.
+[Specification](workstreams/2026-10-07/multigenre-theory-enrichment/spec.md).
+
+## Dense contextual target batches — T06, 2026-10-06
+
+`scripts/build_dense_harmonic_sources.py` authenticates three admitted TRAIN
+sources and joins full TSV rows to canonical notes. Retained score Harmony
+positions and explicit repeat traversal own interval geometry; table group
+onsets do not substitute for actual harmony boundaries. Unsupported score
+navigation fails explicitly. Source Part identity remains separate from raw
+canonical tracks and repaired source rows keep unavailable masks.
+
+`tasks.dense_harmonic_targets` partitions every note over source/harmony
+boundaries, preserves typed fields and constructs conservative physical links.
+Its separate `DenseHarmonicBatch` carries canonical indices, numerical targets,
+field masks and exact identities. It does not project changing roles to a
+single note label or modify the existing target heads and graph encoder.
+
+`scripts/build_dense_harmonic_targets.py` cross-checks source, admission and
+current split membership before publishing a new release of contextual rows,
+explicit numerical arrays, separately attributed Astra assignments and preserved
+T05 assignments. Raw canonical pieces and earlier releases are immutable.
+[Specification](workstreams/2026-10-06/dense-harmonic-targets/spec.md).
+
+## Source-bound relational target sidecars — 2026-10-06
+
+T05 connects explicit Astra participant-role assignments to existing canonical
+notes through authenticated source-row evidence. `analysis.target_binding`
+performs the exact join; `tasks.relational_targets` builds note-participation
+TargetBundles while preserving subinterval assignments and related-note IDs.
+`scripts/build_relational_midi_targets.py` authenticates the inputs and writes
+a new release containing bundles, event assignments, bindings and an index.
+
+The opt-in relational registry supplies nine binary positive-unlabeled tasks
+to the existing multisource encoder/collator. Targets attach after raw graph
+construction and never become input features. The core ontology and existing
+encoding fingerprints remain unchanged; no neural head, optimizer or checkpoint
+is modified. The release is weak supervision, not model-predicted tension or
+validated human analysis. [Specification](workstreams/2026-10-06/relational-midi-targets/spec.md).
+
+## C4 POP909-CL training profile — 2026-10-05
+
+`experiments.c4_pop909` trains the unchanged completed C3 three-pass relation-gate
+architecture from scratch under the name C4. The existing architecture fingerprint
+is checked before training; C4 has a separate full-state checkpoint schema and
+does not weaken historical C3/Dilemmadata loaders. Source-native POP targets
+remain separate from channel-0 raw graph construction. Root and bass use
+differentiable pitch-class marginalization of the spelled C3 logits; quality,
+ordinal inversion and supported pitch-class sets use their existing vocabularies.
+The other thirteen heads receive no invented supervision.
+
+The bounded spawn pool retains the admitted C3 packed CPU tensor transport,
+ordered sampler acknowledgement, historical transposition, FP32 and coalesced
+diagnostics. Private validated graph/forward paths preserve public validation
+and are tested against the reference arithmetic. Checkpoints bind source,
+data, configuration, optimizer, scheduler, sampler and RNG. An interrupted update
+cannot publish its partial state as a resumable checkpoint. The shared-server
+supervisor manages only its owned process group and records terminal evidence.
+See [training protocol](experiments/C4_POP909_3090_20261005_RU.md).
+
+## Frozen C3 full POP909-CL transfer — 2026-10-01
+
+The separate `pop909_cl_frozen.c3_full` entrypoint uses the admitted cloud
+C3 three-pass relation-gate loader at update80000. Complete pinned index/split
+metadata and a matching planned record with scoped POP TEST permission precede
+weights and source payloads. Shared score-only conversion preserves historical
+public TEST guards. Final C3 raw-beat logits reuse the earlier root/quality
+projection, views and exact source-event alignment; source targets open after
+both forwards. Per-event evidence produces pooled and original-split metrics.
+No training, checkpoint selection or core model/graph changes.
+[Protocol](experiments/C3_POP909_FULL_20261001_RU.md).
+
+## Whole-piece HCM and motif memory — 2026-09-28
+
+The accepted extension is implemented as `WholePieceHCM`, leaving `HCM1`
+available under its previous contract. Every source bar is encoded after raw
+masking. Positional track/bar attention produces four slots per bar; 8-bar
+groups produce four slots each, then a song Transformer processes all groups
+and eight song slots. Separate decoder attention paths consume local states,
+global memory and retrieved visible fragments. The bank covers overlapping
+1/2/4/8/16/32-bar and 1/2-beat intervals. Soft candidate/null weights carry
+gradients; top-k with overlap suppression bounds aligned fine-state retrieval.
+
+The initial profile freezes the complete local encoder, including the boundary
+projection. New hierarchy/retrieval/decoder weights train. Whole config, branch
+switches and scales are checkpoint-bound; old HCM transfer is explicit weight-only
+initialization, never resume. No cached embeddings or packed GPU path is implied.
+Full source context and documented source completeness are separate contracts.
+Native fit and musical usefulness remain unmeasured for this new architecture.
+See [whole-piece contract and runner](HCM_WHOLE.md).
+
+## HCM-1 conditional event model — 2026-09-28
+
+The separately requested `music_critic.pll` implementation masks raw onset-owned
+events before graph construction, then runs shared C3 tiles (4 core bars plus
+one-bar halos). A differentiable adapter exports multistage note/onset/beat/
+slice/bar/track states without invoking the inherited eighteen theory heads.
+New bar, track×bar, track and 2/4/8-bar summaries feed a 2×256 global Transformer;
+near-query detailed states remain available to a 6×256 event decoder and nested
+1×128 causal field decoder. Typed TransR-like/bilinear mixtures softly refine
+activity, vertical and melodic candidates; rhythm conditions time decoding.
+Relations can be disabled. No gold harmonic function or semantic segmentation
+is required; relation components are learned latent factors, not named theory.
+
+The normalized target is a bounded canonical event multiset including EOS,
+exact rational onset/duration and unknown event count, not the full raw MIDI
+or a human quality label. A 32-bar window is not whole-piece context. The
+14,333,351-parameter constructor includes unused inherited heads; 9,445,270
+parameters train with inherited C3 frozen. A trainable boundary projection
+precludes caching final tile embeddings even in that mode.
+
+The reference supplies serial FP32 training, hash-bound manifests/checkpoints,
+registered bounded attempts, generation and fixed-query coverage-aware scoring.
+Default construction is explicitly random; pretrained C3 requires byte-bound
+loading. GPU admission, corpus preparation, auxiliary semantic heads, optimized
+batching/caching and scientific quality remain separate work. Existing critic
+and temporal training paths are unchanged. See [implementation and APIs](HCM1.md).
+
+## Bounded multiscale aspect critic v1 — 2026-09-22
+
+`music_critic.critic` implements the requested Phase12 prototype on the existing
+Phase9E encoder. Separate adapters expose main C2/temporal states with exact raw
+geometry and actual-weight bindings. Temporal `forward_with_base` returns the
+same-pass base states additively; existing forward schemas/parameters stay intact.
+The selected cloud C3 x3+relation-gate backbone has a separate versioned
+`critic.c3_backbone` compatibility module and byte-bound weight-only loader. It
+retains the original three-pass state layout and18theory heads; note/beat/slice
+come from round3, onset/bar from round2, track/SONG from the original hierarchy.
+Archived-source synthetic parity is separate from actual CUDA admission.
+Three new BiGRUs process raw track events, temporal slices and bars; complete
+2/4/8-bar spans, sequential gated cross-scale messages and aspect attention
+produce harmony/rhythm/melody/local-structure scores. No early beat-only scalar
+bottleneck, gold segmentation or required voice/role input.
+
+Local heads learn intervention presence under verified patch masks; musical-error
+localization remains unavailable without validated targets. Global aspect ranking,
+local intervention metrics and TRAIN-reference weighted overall are distinct.
+The reference binds the selected critic weights and encoder features. The critic
+owns its optimizer and resume state; backbone and18theory heads remain frozen.
+Raw/beat/multilevel-pooling controls share the pair protocol. Changes/PLL/unfreezing
+are outside v1. [Interfaces and limitations](CRITIC_V1.md),
+[specification](workstreams/2026-09-21/critic-wayfinder/spec.md).
+
+This is code completion with synthetic CPU checks, not native training admission,
+a trained critic, a claim of quality gain or completion of other roadmap phases.
+
 **Main integration selected, 2026-09-16:** the completed temporal/C2 stage is
 now the selected working baseline. The historical opt-in descriptions below
 record development order. Experimental logit fusion, task attention and MMoE

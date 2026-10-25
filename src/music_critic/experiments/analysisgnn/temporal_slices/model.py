@@ -65,9 +65,19 @@ class TemporalSliceModel(nn.Module):
             TemporalRelationLayer(destinations=("note", "beat", "slice"))))
 
     def forward(self, graph: TemporalGraphBatch) -> TemporalOutput:
+        output, _ = self.forward_with_base(graph)
+        return output
+
+    def forward_with_base(self, graph: TemporalGraphBatch):
+        """Return historical outputs and their same-pass contextual base states.
+
+        This adds no parameters, changes no output schema and does not retain
+        tensors on the module. Callers decide whether to detach exported states.
+        """
         if graph.schema != SCHEMA:
             raise ValueError("temporal graph schema mismatch")
-        encoded = self.base.encode(graph.base).fused.embeddings
+        base = self.base.encode(graph.base)
+        encoded = base.fused.embeddings
         x = graph.slice_features
         embeddings = {n: encoded[n] for n in NODES if n != "slice"}
         embeddings["slice"] = self.slice_projection(x / (1 + x.abs()))
@@ -81,4 +91,4 @@ class TemporalSliceModel(nn.Module):
             with torch.amp.autocast(values.device.type, enabled=False):
                 logits[spec.task_id] = self.base.task_heads.heads[f"task_{i:02d}"](values.float())
             keys[spec.task_id] = tuple((sample, n, entity) for n in routes for sample, entity in graph.keys[n])
-        return TemporalOutput(logits, keys, embeddings, graph)
+        return TemporalOutput(logits, keys, embeddings, graph), base

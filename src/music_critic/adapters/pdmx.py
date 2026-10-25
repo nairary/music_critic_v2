@@ -24,8 +24,12 @@ from music_critic.data import (
 )
 
 
-PDMX_ADAPTER_VERSION = "1.0.0"
-PDMX_PROJECTION_VERSION = "1.0.0"
+PDMX_ADAPTER_VERSION = "1.0.1"
+PDMX_PROJECTION_VERSION = "1.0.1"
+PDMX_INTEGER_NUMBER_POLICY = "finite-integral-decimal-exact-int-v1"
+# Match Python's default JSON integer digit envelope before expanding compact
+# Decimal exponents. This is a resource bound, never a rounding threshold.
+PDMX_MAX_DECIMAL_INTEGER_DIGITS = 4300
 PDMX_SCHEMA_PROFILE_ID = "musicrender-metrical-json-raw-v1"
 PDMX_SCHEMA_UPSTREAM_REVISION = "5c6a25b613e4497469e855e8bd1423b1d834ff45"
 PDMX_SCHEMA_PRIMARY_URLS = (
@@ -77,6 +81,16 @@ def _list(value: Any, label: str) -> list[Any]:
 
 
 def _int(value: Any, label: str, minimum: int = 0, maximum: int | None = None) -> int:
+    if isinstance(value, Decimal):
+        if not value.is_finite() or value < minimum or (maximum is not None and value > maximum):
+            raise PdmxAdapterError("invalid_schema", f"{label} must be an integer in range")
+        if value and value.adjusted() >= PDMX_MAX_DECIMAL_INTEGER_DIGITS:
+            raise PdmxAdapterError("resource_numeric_expansion", f"{label} integer exceeds decimal digit bound")
+        if value != value.to_integral_value():
+            raise PdmxAdapterError("invalid_schema", f"{label} must be an integer in range")
+        # JSON 13060.0 and 13060 denote the same exact integer. Reject fractions
+        # above; int() alone would silently truncate them.
+        value = int(value)
     if type(value) is not int or value < minimum or (maximum is not None and value > maximum):
         raise PdmxAdapterError("invalid_schema", f"{label} must be an integer in range")
     return value
@@ -355,6 +369,8 @@ def load_pdmx_piece(
                              "bar_grid_policy": grid_policy,
                              "ignored_annotations": True,
                              "ignored_song_length": True,
+                             "integer_number_policy": PDMX_INTEGER_NUMBER_POLICY,
+                             "max_decimal_integer_digits": PDMX_MAX_DECIMAL_INTEGER_DIGITS,
                              "raw_feature_registry_version": PDMX_RAW_FEATURE_REGISTRY_VERSION,
                              "schema_evidence_status": PDMX_SCHEMA_EVIDENCE_STATUS,
                              "schema_profile_id": PDMX_SCHEMA_PROFILE_ID,

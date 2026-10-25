@@ -1,0 +1,4 @@
+# Reference CPU test environment. Historical experiment receipts define their
+# own native runtime; these constraints do not grant GPU/model admission.
+torch==2.8.0
+torch-geometric==2.7.0

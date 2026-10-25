@@ -262,8 +262,9 @@ def test_split_does_not_call_python_hash(monkeypatch: pytest.MonkeyPatch) -> Non
     def forbidden_hash(_value: object) -> int:
         raise AssertionError("Python hash() must not participate in assignment")
 
-    monkeypatch.setattr("builtins.hash", forbidden_hash)
-    assignments = stable_split_assignments(records, availability)
+    with monkeypatch.context() as scoped_patch:
+        scoped_patch.setattr("builtins.hash", forbidden_hash)
+        assignments = stable_split_assignments(records, availability)
     assert len(assignments) == 1619
 
 

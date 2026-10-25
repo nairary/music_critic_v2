@@ -15,6 +15,11 @@ from music_critic.tasks.ontology import (
     TARGET_ONTOLOGY_VERSION,
     TargetFamilySpec,
 )
+from music_critic.tasks.relational_registry import (
+    RELATIONAL_TARGET_FAMILIES,
+    RELATIONAL_TARGET_FAMILY_BY_ID,
+    RELATIONAL_TARGET_REGISTRY_ID,
+)
 
 
 CORE_TARGET_REGISTRY_ID = f"music_critic.core@{TARGET_ONTOLOGY_VERSION}"
@@ -26,6 +31,7 @@ DILEMMADATA_TARGET_REGISTRY_ID = (
 TARGET_REGISTRY_EXTENSIONS = MappingProxyType(
     {
         DILEMMADATA_TARGET_REGISTRY_ID: DILEMMADATA_TARGET_FAMILIES,
+        RELATIONAL_TARGET_REGISTRY_ID: RELATIONAL_TARGET_FAMILIES,
     }
 )
 
@@ -36,6 +42,8 @@ def target_family_spec(task_id: str) -> TargetFamilySpec:
     spec = TARGET_FAMILY_BY_ID.get(task_id)
     if spec is None:
         spec = DILEMMADATA_TARGET_FAMILY_BY_ID.get(task_id)
+    if spec is None:
+        spec = RELATIONAL_TARGET_FAMILY_BY_ID.get(task_id)
     if spec is None:
         raise KeyError(task_id)
     return spec

@@ -13,6 +13,15 @@ Read before editing:
 - `docs/LEGACY_REFERENCE.md`
 - `docs/DECISIONS.md`
 
+## Repository skills
+
+Project workflows live in `.agents/skills/`; use the `mc-*` variants for this
+repository. When choosing a workflow, read `docs/agents/workflows.md` or invoke
+`mc-ask-matt`. For experiment results and scientific comparisons use
+`scientific-evidence-review`; for substantial runs or evidence imports use
+`experiment-protocol`. These skills apply the authoritative contracts below
+and preserve the current task's scope and existing authorization.
+
 ## Legacy repository
 
 The legacy repository is read-only:
