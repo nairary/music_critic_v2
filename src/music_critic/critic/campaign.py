@@ -19,6 +19,8 @@ from typing import Callable, Sequence
 
 import torch
 
+from music_critic.cuda_memory import initialize_cuda_memory_statistics
+
 from .training import CachedPair, CriticTrainer, _fingerprint, _json_value
 
 
@@ -387,7 +389,7 @@ def probe_runtime(trainer, trainer_factory, dev_bank, *, updates: int,
         if trainer.device.type == 'cuda':
             torch.cuda.synchronize(trainer.device)
     if trainer.device.type == 'cuda':
-        torch.cuda.reset_peak_memory_stats(trainer.device)
+        initialize_cuda_memory_statistics(trainer.device)
     check_budget()
     # FP32 batched GRU/graph reductions may choose a different reduction order.
     # Encoder batching has its own predeclared bound; changing it cannot relax

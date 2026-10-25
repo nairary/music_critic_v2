@@ -56,7 +56,12 @@ PYTHONPATH=src python -c "from music_critic.data import load_piece; from music_c
 ```bash
 python3 tests/test_project_catalog.py -v
 python3 scripts/build_project_catalog.py --check
-PYTHONPATH=src python -m pytest -q
+python -m pytest -q \
+  --ignore=tests/experiments/test_research_pilot_resource_wrapper.py \
+  --ignore=tests/test_context_diagnostics_resource_wrapper.py
+python -m pytest -q \
+  tests/experiments/test_research_pilot_resource_wrapper.py \
+  tests/test_context_diagnostics_resource_wrapper.py
 python -m compileall src
 ```
 

@@ -190,6 +190,58 @@ def test_source_audit_allows_direct_peak_reset_only_in_shared_helper() -> None:
     assert len(observed) == 1
 
 
+def test_critic_probe_uses_shared_cuda_lifecycle(monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+    from music_critic.critic import campaign
+
+    observed: list[torch.device] = []
+
+    def lifecycle(device: torch.device) -> None:
+        observed.append(device)
+        raise _BoundaryReached
+
+    monkeypatch.setattr(campaign, "initialize_cuda_memory_statistics", lifecycle)
+    trainer = SimpleNamespace(
+        device=torch.device("cuda:1"), config=SimpleNamespace(max_updates=2)
+    )
+    with pytest.raises(_BoundaryReached):
+        campaign.probe_runtime(trainer, None, (), updates=2)
+    assert observed == [torch.device("cuda:1")]
+
+
+def test_c4_runtime_resolves_device_before_cuda_lifecycle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from music_critic.experiments.c4_pop909 import training as c4
+
+    observed: list[object] = []
+
+    def resolve(requested: str) -> torch.device:
+        observed.append(requested)
+        return torch.device("cuda:1")
+
+    def lifecycle(device: torch.device) -> None:
+        observed.append(device)
+        raise _BoundaryReached
+
+    monkeypatch.setenv("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    monkeypatch.setattr(torch, "set_num_threads", lambda _: None)
+    monkeypatch.setattr(torch, "use_deterministic_algorithms", lambda _: None)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    for owner, attribute in (
+        (torch.backends.cudnn, "benchmark"),
+        (torch.backends.cudnn, "deterministic"),
+        (torch.backends.cudnn, "allow_tf32"),
+        (torch.backends.cuda.matmul, "allow_tf32"),
+    ):
+        monkeypatch.setattr(owner, attribute, getattr(owner, attribute))
+    monkeypatch.setattr(c4, "resolve_runtime_device", resolve)
+    monkeypatch.setattr(c4, "initialize_cuda_memory_statistics", lifecycle)
+    with pytest.raises(_BoundaryReached):
+        c4.configure_runtime("cuda")
+    assert observed == ["cuda", torch.device("cuda:1")]
+
+
 def test_runtime_device_cuda_api_source_audit_has_no_device_objects() -> None:
     targets = {
         "reset_peak_memory_stats",

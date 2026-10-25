@@ -27,6 +27,9 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 
+from music_critic.cuda_memory import initialize_cuda_memory_statistics
+from music_critic.device import resolve_runtime_device
+
 from music_critic.critic.c3_backbone import (
     C3ThreePassRelationGateModel, C3_SOURCE_ID, validate_c3_source_model,
 )
@@ -596,7 +599,7 @@ def configure_runtime(device):
     torch.backends.cuda.matmul.allow_tf32 = False; torch.backends.cudnn.allow_tf32 = True
     require(device != "cuda" or torch.cuda.is_available(), "cuda_unavailable")
     if device == "cuda":
-        torch.cuda.reset_peak_memory_stats()
+        initialize_cuda_memory_statistics(resolve_runtime_device(device))
     return dict(torch=str(torch.__version__), numpy=str(np.__version__), cuda_build=torch.version.cuda,
         cudnn_version=torch.backends.cudnn.version(), device=device,
         gpu=torch.cuda.get_device_name() if device == "cuda" else None,

@@ -10,7 +10,7 @@
 
 В чистом окружении выявлен конфликт одноимённых pytest-модулей: critic-тесты
 выделены в пакет, все их sibling imports сделаны относительными. Обычная
-сборка теперь собирает 6588 тестов, отдельный critic suite: 365 passed.
+сборка теперь собирает 6590 тестов, отдельный critic suite: 365 passed.
 В производном multisource fixture обновлён только SHA tasks/encoding.py;
 семантическое содержимое и counts не менялись. Исторические fingerprints
 инициализации моделей и evidence fixtures сохранены без подгонки под ARM.
@@ -23,6 +23,14 @@ native environment receipts научных запусков. Mac/ARM не объ
 чтобы не ломать pytest hooks: соответствующий файл — 21 passed. Полный
 локальный прогон остановился внутри pytest до этого исправления; успешным
 не объявляется. Linux CI проверяется на точном составе выпуска перед merge.
+Повторный полный Mac/ARM-прогон: 6455 passed, 65 skipped, 6 failed,
+125 passed subtests (862,49 с). Четыре failures — старые побайтовые
+initialization fingerprints; shell collision test отдельно прошёл с venv
+в PATH. Source audit выявил два прямых CUDA peak reset в critic/C4:
+оба переведены на общий lifecycle helper; mock-проверка сохраняет выбранный
+индекс устройства. Затронутые critic/C4/API/helper tests — 389 passed, 1 skipped (14,11 с).
+Это CPU/unit-проверки; новые GPU admission и научные результаты не заявляются.
+
 Новые данные, обучение, TEST/evaluation и legacy не запускались.
 
 ## Google Drive для checkpoints и подготовка Git — 24 октября 2026
