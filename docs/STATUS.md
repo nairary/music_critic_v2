@@ -2,42 +2,46 @@
 
 ## Исследовательский снимок для обсуждения — 25 октября 2026
 
-Подготовлен выпуск существующего исследовательского кода и компактной истории
-по проверенному source snapshot от 24 октября. Более поздние новые работы
-не включены. В выпуске 373 записи экспериментов; терминальные записи и
-сохранённые результаты не переписывались. Данные и 96 локальных checkpoints
-доступны через отдельные папки Google Drive с просмотром по ссылке.
+Выпуск опубликован в main через [PR #46](https://github.com/nairary/music_critic_v2/pull/46),
+merge commit a9c4c68879702ae148756cfb89f57562a7789ee0. Основа — проверенный
+source snapshot от 24 октября: 373 записи экспериментов и 103 отчёта.
+Более поздние новые работы сохранены локально и в выпуск не включены.
+Терминальные записи и исторические fingerprints моделей не переписывались.
+README связывает модели, кампании, установку, воспроизводимость и Google Drive
+для датасетов и 96 локальных checkpoints с просмотром по ссылке.
 
-В чистом окружении выявлен конфликт одноимённых pytest-модулей: critic-тесты
-выделены в пакет, все их sibling imports сделаны относительными. Обычная
-сборка теперь собирает 6590 тестов, отдельный critic suite: 365 passed.
-В производном multisource fixture обновлён только SHA tasks/encoding.py;
-семантическое содержимое и counts не менялись. Исторические fingerprints
-инициализации моделей и evidence fixtures сохранены без подгонки под ARM.
+[Полный Linux CI](https://github.com/nairary/music_critic_v2/actions/runs/40195871242)
+на fa5e00ce5026eb2466646a8bde2b1ca422e612c4 прошёл: основной процесс —
+6463 passed, 65 skipped, 125 passed subtests за 2325,80 с;
+отдельный процесс resource wrappers — 62 passed за 1,42 с.
+Итого 6525 passed, 65 skipped; compileall также прошёл. Среда:
+Linux/x86, Python 3.13.16, CPU Torch 2.8.0 / PyG 2.7.0;
+OMP/MKL/OpenBLAS ограничены одним потоком, timeout 45 минут.
+CI-relevant source fingerprint совпадает у проверенного кода и merge commit:
+6287d531e2288874e2ed211b364caed5da6f329542832ff822c4d89570285884.
+Последующие изменения только документации сохраняют этот fingerprint.
 
-Для CPU-проверок закреплены Torch 2.8.0 / PyG 2.7.0 в constraints-test.txt;
-команды установки и CI используют этот файл. Эти ограничения не заменяют
-native environment receipts научных запусков. Mac/ARM не объявляется
-эквивалентным Linux/x86 для старых побайтовых initialization audits.
-Тест запрета Python hash() ограничивает подмену областью проверяемого вызова,
-чтобы не ломать pytest hooks: соответствующий файл — 21 passed. Полный
-локальный прогон остановился внутри pytest до этого исправления; успешным
-не объявляется. Linux CI проверяется на точном составе выпуска перед merge.
-Повторный полный Mac/ARM-прогон: 6455 passed, 65 skipped, 6 failed,
-125 passed subtests (862,49 с). Четыре failures — старые побайтовые
-initialization fingerprints; shell collision test отдельно прошёл с venv
-в PATH. Source audit выявил два прямых CUDA peak reset в critic/C4:
-оба переведены на общий lifecycle helper; mock-проверка сохраняет выбранный
-индекс устройства. Затронутые critic/C4/API/helper tests — 389 passed, 1 skipped (14,11 с).
-Это CPU/unit-проверки; новые GPU admission и научные результаты не заявляются.
+Исправлены конфликт pytest-модулей через пакет critic и относительные
+helper imports, область временной подмены hash(), а также прямые CUDA peak
+reset в critic/C4: используется общий lifecycle helper с конкретным индексом.
+Два mock-теста проверяют CUDA boundaries без GPU. В производном multisource
+fixture обновлён только SHA tasks/encoding.py; семантика и counts сохранены.
+Целевые critic/C4/API/helper tests: 389 passed, 1 skipped; дополнительные
+C4 boundaries: 85 passed; release-policy/navigation tests: 16 passed.
 
-Первый Linux CI на 6179a13 остановлен лимитом 30 минут на 75% набора,
-без test failures до остановки. Финальный CI ограничивает OMP/MKL/OpenBLAS
-одним потоком, как завершившийся локальный прогон, и имеет лимит 45 минут;
-состав тестов и assertions не сокращены. CUDA lifecycle fixes проверяются
-на новом source fingerprint перед merge.
+Отрицательная диагностика сохранена в локальных логах: первоначальный pytest
+остановился внутри hooks из-за подмены hash(); повторный Mac/ARM-прогон до
+CUDA repair дал 6455 passed, 65 skipped, 6 failed, 125 passed subtests
+за 862,49 с. Четыре failures — несовпадения исторической инициализации;
+shell collision test прошёл с venv в PATH, source-audit CUDA violation исправлен.
+Linux CI на 6179a13 достиг 75% без failures и остановился по старому лимиту
+30 минут; окончательный полный Linux-прогон выше успешен.
 
-Новые данные, обучение, TEST/evaluation и legacy не запускались.
+Каталог, registry и ledger проверены; все 373 records валидны. Это проверка
+механики и контрактов кода. Native GPU admission и научное качество отдельных
+моделей определяются их собственными records и средами. Реальные данные,
+TEST/evaluation, новые научные training-запуски и legacy в этой задаче не использовались.
+Следующий этап — обсуждение моделей и результатов с научным руководителем.
 
 ## Google Drive для checkpoints и подготовка Git — 24 октября 2026
 

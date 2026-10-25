@@ -2,14 +2,15 @@
 
 [Главная](../README.md) · [Артефакты](ARTIFACTS.md) · [План публикации](workstreams/2026-10-22/github-publication/plan.md)
 
-Подготовка относится к текущим исходникам исследовательского репозитория
-`nairary/music_critic_v2`. База — локальный main, HEAD
-`287bf856643f9e555352e1661a7bf0563772178a`. Подготовка проверяется на отдельной ветке выпуска перед обновлением main.
-Существующие ветки и более поздние локальные работы сохраняются.
+Выпуск nairary/music_critic_v2 опубликован в main через
+[PR #46](https://github.com/nairary/music_critic_v2/pull/46).
+Исходная база — 287bf856643f9e555352e1661a7bf0563772178a;
+merge commit — a9c4c68879702ae148756cfb89f57562a7789ee0.
+Существующие ветки и более поздние локальные работы сохранены.
 
 ## Состав
 
-Включить актуальные src, tests с небольшими fixtures, scripts, configs,
+Включены актуальные src, tests с небольшими fixtures, scripts, configs,
 docs с неизменяемыми records, CI, упаковку и инструкции разработки.
 Отдельные модели и попытки доступны через MODELS и индекс кампаний;
 неудачные эксперименты не скрываются. В README добавлены прямые ссылки
@@ -31,7 +32,7 @@ source-candidates.tar.gz, source_inventory.json и snapshot-receipt.json.
 включая текущие untracked исходники; она не создаёт commit и не меняет index.
 Receipt содержит точные SHA-256/размеры. Эти полные артефакты не входят в Git.
 
-Проверки текущих кандидатов: все Python-файлы разобраны; запрещённых payload
+Проверки исходного снимка от 24 октября: все Python-файлы разобраны; запрещённых payload
 путей нет; ограниченный поиск private-key/PAT/access-key/credential-URL
 паттернов не нашёл совпадений. Те же шаблоны проверены на всех 3597 blobs,
 достижимых через локальные refs; ни один blob не превышает 50 MiB.
@@ -44,16 +45,31 @@ Receipt содержит точные SHA-256/размеры. Эти полны�
 проверен на bundled Python 3.12.14. Точный протокол и результаты
 сохранены в verification.json рядом со снимком.
 
-## Перед публикацией
+## Публикация и проверки
 
-Лицензия проекта и citation metadata пока не выбраны. Чистая установка объявленных зависимостей выполнена в отдельном venv.
-Полный pytest и Linux CI проверяются на точном составе выпуска;
-CPU-версии Torch/PyG закреплены в constraints-test.txt. Исторические
-initialization fingerprints на Mac/ARM отличаются от Linux/x86 и не
-перезаписываются ради текущей среды.
-Готовность исходников к review не означает проверенный запуск всех моделей.
+[Полный Linux CPU CI](https://github.com/nairary/music_critic_v2/actions/runs/40195871242)
+прошёл на fa5e00ce5026eb2466646a8bde2b1ca422e612c4: основной процесс
+6463 passed, 65 skipped, 125 passed subtests (2325,80 с), отдельно resource
+wrappers — 62 passed (1,42 с); всего 6525 passed, 65 skipped. Compileall прошёл.
+Среда: Python 3.13.16, Torch 2.8.0 / PyG 2.7.0 из constraints-test.txt,
+OMP/MKL/OpenBLAS по одному потоку. Проверенный source fingerprint и fingerprint
+опубликованного merge commit совпадают:
+6287d531e2288874e2ed211b364caed5da6f329542832ff822c4d89570285884.
+Финальная запись результатов меняет только документацию.
 
-Следующий этап — reviewable-коммиты на ветке выпуска, полный CI и отправка
-в существующий репозиторий. Не применять слепое git add .; сверить
-source_inventory, текущее состояние файлов и финальный allowlist.
-Force-push, переписывание истории и удаление веток не входят в подготовку.
+Исправления выпуска покрывают pytest collection/helper imports, временную
+подмену hash(), производный multisource source SHA и общий CUDA lifecycle
+для critic/C4. Исторические model initialization fingerprints и terminal
+experiment records сохранены. Полные локальные логи, source inventories,
+резервная копия неопубликованных черновиков и receipts находятся в ignored
+outputs/github_release_20261025; данные и веса в Git не добавлены.
+
+Mac/ARM не эквивалентен Linux/x86 для четырёх старых побайтовых initialization
+checks; полная локальная диагностика и исправленные сбои перечислены в STATUS.
+CPU/unit CI не устанавливает новое GPU admission, качество моделей или
+воспроизводимость всех научных результатов. Реальные корпуса и checkpoints
+в задаче публикации не читались. Legacy логика не использовалась.
+Лицензия всего проекта и citation metadata пока не выбраны.
+
+Следующий этап — обсуждение опубликованного снимка и отдельных кампаний.
+История не переписывалась; force-push и удаление веток не применялись.
