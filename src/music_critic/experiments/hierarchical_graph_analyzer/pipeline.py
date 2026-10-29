@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 import time
 import torch
+from music_critic.cuda_memory import initialize_cuda_memory_statistics
+from music_critic.device import resolve_runtime_device
 
 from .data import load_target_dataset
 from .cache import RawCache,raw_bank
@@ -92,7 +94,7 @@ def native_gate(config,output):
                 target_manifest_sha256=config['target_manifest_sha256'],cache_manifest_sha256=config['cache_manifest_sha256'],
                 heads=dataset.head_sizes,fit_coverage=dict(samples.coverage),raw_exclusions=sum(len(w['exclusions']) for w in cache.works.values()),
                 torch=str(torch.__version__),cuda=torch.version.cuda,device=config['device'],augmentation='none')
-    if config['device'].startswith('cuda'):result['gpu']=torch.cuda.get_device_name()
+    if config['device'].startswith('cuda'):result['gpu']=torch.cuda.get_device_name(resolve_runtime_device(config['device']).index)
     atomic_json(out/'result.json',result)
     try:
         for kind in ('E1','E2','E3','E4','E5'):
@@ -103,18 +105,20 @@ def native_gate(config,output):
                 if time.monotonic()-start>config.get('gate_wall_seconds',600):raise TimeoutError('native gate wall cap')
                 raw,target=samples[i];raw={k:v.to(config['device']) for k,v in raw.items()}
                 target=tensorize_targets(target,device=config['device']);model.zero_grad(set_to_none=True)
-                if config['device'].startswith('cuda'):torch.cuda.reset_peak_memory_stats();torch.cuda.synchronize()
+                if config['device'].startswith('cuda'):
+                    cuda_statistics=initialize_cuda_memory_statistics(next(model.parameters()).device)
+                    torch.cuda.synchronize(cuda_statistics.logical_device_index)
                 begin=time.monotonic();pred=model(raw);loss=compute_loss(pred,target)
                 if not torch.isfinite(loss['loss']):raise ValueError('nonfinite real gate loss')
                 loss['loss'].backward()
                 if any(p.grad is not None and not torch.isfinite(p.grad).all() for p in model.parameters()):raise ValueError('nonfinite real gate gradients')
-                if config['device'].startswith('cuda'):torch.cuda.synchronize()
+                if config['device'].startswith('cuda'):torch.cuda.synchronize(cuda_statistics.logical_device_index)
                 rows.append(dict(work_id=target['work_id'],tile=samples.rows[i][1]['id'],known_h=len(target['ids']),
                     nodes=len(raw['x']),edges=len(raw['edge_type']),raw_times=len(raw['time_positions']),
                     predicted_candidates=len(pred['spans']),wall_seconds=time.monotonic()-begin,
                     loss=float(loss['loss'].detach()),support=loss['support'],
                     gradient_tensors=sum(p.grad is not None and bool(p.grad.abs().sum()) for p in model.parameters()),
-                    peak_cuda_bytes=torch.cuda.max_memory_allocated() if config['device'].startswith('cuda') else None))
+                    peak_cuda_bytes=torch.cuda.max_memory_allocated(cuda_statistics.logical_device_index) if config['device'].startswith('cuda') else None))
                 atomic_json(out/'result.json',result)
                 del raw,pred,loss
             if not any(r['gradient_tensors']>0 and r['support']['matched_events']>0 for r in rows):raise ValueError('native gate has no supervised nonzero gradient sample')

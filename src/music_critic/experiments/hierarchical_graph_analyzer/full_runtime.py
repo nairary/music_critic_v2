@@ -15,6 +15,7 @@ import random
 import time
 
 import torch
+from music_critic.cuda_memory import initialize_cuda_memory_statistics
 from .runtime import save_checkpoint, load_checkpoint
 
 
@@ -495,21 +496,23 @@ def full_native_gate(config,output,*,seed=17):
             if time.monotonic()-start>=config['wall_seconds']:raise TimeoutError('whole-work gate wall cap')
             raw,target=samples[i];raw=move_tensors(raw,next(model.parameters()).device);model.zero_grad(set_to_none=True)
             begin=time.monotonic()
-            if config['device'].startswith('cuda'):torch.cuda.reset_peak_memory_stats();torch.cuda.synchronize()
+            if config['device'].startswith('cuda'):
+                cuda_statistics=initialize_cuda_memory_statistics(next(model.parameters()).device)
+                torch.cuda.synchronize(cuda_statistics.logical_device_index)
             pred=model(raw)
-            if config['device'].startswith('cuda'):torch.cuda.synchronize()
+            if config['device'].startswith('cuda'):torch.cuda.synchronize(cuda_statistics.logical_device_index)
             forward_seconds=time.monotonic()-begin;loss_begin=time.monotonic()
             loss=full_loss(pred,target)
-            if config['device'].startswith('cuda'):torch.cuda.synchronize()
+            if config['device'].startswith('cuda'):torch.cuda.synchronize(cuda_statistics.logical_device_index)
             loss_seconds=time.monotonic()-loss_begin;backward_begin=time.monotonic()
             if not bool(torch.isfinite(loss['loss'])):raise ValueError('nonfinite native gate loss')
             if loss['supported']:loss['loss'].backward()
             if any(p.grad is not None and not bool(torch.isfinite(p.grad).all()) for p in model.parameters()):raise ValueError('nonfinite native gate gradient')
-            if config['device'].startswith('cuda'):torch.cuda.synchronize()
+            if config['device'].startswith('cuda'):torch.cuda.synchronize(cuda_statistics.logical_device_index)
             rows.append(dict(work_id=target['work_id'],known_supervision=loss['supported'],support=loss['support'],loss=float(loss['loss'].detach()),
                 H=len(pred['H']['spans']),h=len(pred['h']['spans']),P=len(pred['P']['spans']),raw_coverage=raw['coverage'],wall_seconds=time.monotonic()-begin,
                 forward_seconds=forward_seconds,loss_seconds=loss_seconds,backward_seconds=time.monotonic()-backward_begin,
-                nonzero_gradient_tensors=sum(p.grad is not None and bool(p.grad.abs().sum()) for p in model.parameters()),peak_cuda_bytes=torch.cuda.max_memory_allocated() if config['device'].startswith('cuda') else None))
+                nonzero_gradient_tensors=sum(p.grad is not None and bool(p.grad.abs().sum()) for p in model.parameters()),peak_cuda_bytes=torch.cuda.max_memory_allocated(cuda_statistics.logical_device_index) if config['device'].startswith('cuda') else None))
             atomic_json(out/'progress.json',dict(status='running',samples=rows))
         if not rows or not any(x['known_supervision'] and x['nonzero_gradient_tensors'] for x in rows):raise ValueError('no supported finite-gradient gate work')
         result=dict(status='completed',summary='Bounded whole-work fit gate completed; no optimizer updates or model quality claim.',samples=rows,applied_updates=0,wall_seconds=time.monotonic()-start,test_locked=True)

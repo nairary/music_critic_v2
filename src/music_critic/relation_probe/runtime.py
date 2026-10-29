@@ -7,6 +7,7 @@ from hashlib import sha256
 from pathlib import Path
 import json,math,random,time
 import torch
+from music_critic.cuda_memory import initialize_cuda_memory_statistics
 from .data import checked_read,exact
 from .model import Probe,masked_pair_loss
 
@@ -215,7 +216,8 @@ def train_run(cache,output,mode,decoder,seed,checkpoint,steps=600,max_seconds=12
     for row in fit:bywork.setdefault(row['work'],[]).append(row)
     names=sorted(bywork);features_cache=None
     started=time.monotonic();best=-1.;completed=0;events=[]
-    torch.cuda.reset_peak_memory_stats() if device.startswith('cuda') else None
+    if device.startswith('cuda'):
+        cuda_statistics=initialize_cuda_memory_statistics(next(model.parameters()).device)
     if mode=='frozen':
         features_cache={};model.eval()
         with torch.no_grad():
@@ -260,7 +262,7 @@ def train_run(cache,output,mode,decoder,seed,checkpoint,steps=600,max_seconds=12
     result=dict(schema='RelationProbeRunResult@1',mode=mode,decoder=decoder,seed=seed,
         planned_updates=steps,applied_updates=completed,wall_seconds=time.monotonic()-started,
         final_dev=metrics,best_work_macro_f1=best,history=events,
-        peak_cuda_bytes=torch.cuda.max_memory_allocated() if device.startswith('cuda') else 0,
+        peak_cuda_bytes=torch.cuda.max_memory_allocated(cuda_statistics.logical_device_index) if device.startswith('cuda') else 0,
         lr=rate,status='completed' if completed==steps else 'aborted',
         reason='updates_complete' if completed==steps else 'run_wall_cap',human_gold=False,
         access=dict(global_train_only=True,downstream_dev=True,corpus_validation=False,test=False))

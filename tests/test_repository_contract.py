@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 import json
 from pathlib import Path
+import subprocess
+import sys
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -122,6 +124,13 @@ def test_package_has_no_legacy_or_heavy_imports() -> None:
             allowed_roots.update(
                 {"hydra", "torch", "torch_geometric"}
             )
+        # These are explicitly imported experimental runtimes. Public package
+        # imports and pure admission utilities retain the lightweight boundary.
+        if relative_parts in {
+            ("relation_probe", "model.py"),
+            ("relation_probe", "runtime.py"),
+        }:
+            allowed_roots.update({"torch", "torch_geometric"})
         if relative_parts[0] in {"cuda_memory.py", "device.py"}:
             allowed_roots.add("torch")
         disallowed_roots = forbidden_roots - allowed_roots
@@ -138,6 +147,22 @@ def test_package_has_no_legacy_or_heavy_imports() -> None:
                 assert root not in disallowed_roots, f"{path}: {node.module}"
         for token in forbidden_text:
             assert token not in source, f"{path} contains legacy path {token}"
+
+
+def test_relation_probe_public_import_remains_dependency_free() -> None:
+    code = f"""
+import importlib.abc
+import sys
+sys.path.insert(0, {str(PACKAGE_ROOT.parent)!r})
+class RejectHeavy(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname.split('.')[0] in {{'torch', 'torch_geometric', 'hydra', 'mido'}}:
+            raise AssertionError('public import requested ' + fullname)
+sys.meta_path.insert(0, RejectHeavy())
+import music_critic.relation_probe
+import music_critic.relation_probe.data
+"""
+    subprocess.run([sys.executable, "-I", "-c", code], check=True, capture_output=True)
 
 
 def test_legacy_snapshot_contract() -> None:

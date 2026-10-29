@@ -1,5 +1,18 @@
 # Music Critic V2 Status
 
+## HIERGRAPH main integration: CI repair — 30 октября 2026
+
+Пользователь запросил merge PR47 в main. Исходный f62bfb6 получил failed Linux CI:
+2 audit failures и 335 каскадных teardown errors. Direct CUDA resets четырёх
+новых runtime/gate путей переведены на общий lifecycle с конкретным device;
+тест backend descriptors больше не ломает monkeypatch undo. Аудит импортов
+разрешает Torch только двум opt-in relation-probe модулям; public/data imports
+отдельно проверяются без тяжёлых зависимостей. Научные результаты и terminal
+records не менялись; JSON tuple finalization и directed coverage остаются
+открытыми задачами. Локально 264 passed, 2 hardware skips, 109 subtests;
+Standards/Spec review blockers отсутствуют. Полный Linux CI и merge ожидаются.
+[Диагноз и проверки](workstreams/2026-10-30/hiergraph-merge/verification.md).
+
 ## HIERGRAPH publication review — 29 октября 2026
 
 Подготовлена отдельная ветка `codex/hiergraph-full-e3-20261029` от опубликованного

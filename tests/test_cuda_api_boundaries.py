@@ -212,6 +212,7 @@ def test_critic_probe_uses_shared_cuda_lifecycle(monkeypatch: pytest.MonkeyPatch
 def test_c4_runtime_resolves_device_before_cuda_lifecycle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from types import SimpleNamespace
     from music_critic.experiments.c4_pop909 import training as c4
 
     observed: list[object] = []
@@ -226,20 +227,57 @@ def test_c4_runtime_resolves_device_before_cuda_lifecycle(
 
     monkeypatch.setenv("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
     monkeypatch.setattr(torch, "set_num_threads", lambda _: None)
-    monkeypatch.setattr(torch, "use_deterministic_algorithms", lambda _: None)
+    monkeypatch.setattr(torch, "use_deterministic_algorithms", lambda _, **_kwargs: None)
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
-    for owner, attribute in (
-        (torch.backends.cudnn, "benchmark"),
-        (torch.backends.cudnn, "deterministic"),
-        (torch.backends.cudnn, "allow_tf32"),
-        (torch.backends.cuda.matmul, "allow_tf32"),
-    ):
-        monkeypatch.setattr(owner, attribute, getattr(owner, attribute))
+    # Backend descriptors can expose values absent from their module __dict__.
+    # Monkeypatching their attributes individually can fail on undo and leave
+    # later tests with the mocked deterministic-algorithms function.
+    monkeypatch.setattr(torch.backends, "cudnn", SimpleNamespace(
+        benchmark=False, deterministic=False, allow_tf32=False,
+    ))
+    monkeypatch.setattr(torch.backends.cuda, "matmul", SimpleNamespace(allow_tf32=False))
     monkeypatch.setattr(c4, "resolve_runtime_device", resolve)
     monkeypatch.setattr(c4, "initialize_cuda_memory_statistics", lifecycle)
     with pytest.raises(_BoundaryReached):
         c4.configure_runtime("cuda")
     assert observed == ["cuda", torch.device("cuda:1")]
+
+
+@pytest.mark.parametrize("requested", ["cuda", "cuda:1"])
+def test_hmember_runtime_resolves_device_before_cuda_lifecycle(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, requested: str,
+) -> None:
+    from music_critic import cuda_memory, device
+    from music_critic.experiments.harmonic_event_reasoner import training
+
+    observed: list[object] = []
+
+    def resolve(value: str) -> torch.device:
+        observed.append(value)
+        return torch.device("cuda:1")
+
+    def lifecycle(value: torch.device) -> CudaMemoryStatisticsLifecycleEvidence:
+        observed.append(value)
+        return CudaMemoryStatisticsLifecycleEvidence(
+            contract_version="1.0.0", logical_device_index=1,
+            initialized_before=False, initialized_after=True,
+        )
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "manual_seed_all", lambda _seed: None)
+    monkeypatch.setattr(
+        torch.cuda, "reset_peak_memory_stats",
+        lambda *_args: pytest.fail("H/member bypassed shared CUDA lifecycle"),
+    )
+    monkeypatch.setattr(device, "resolve_runtime_device", resolve)
+    monkeypatch.setattr(cuda_memory, "initialize_cuda_memory_statistics", lifecycle)
+    monkeypatch.setattr(training, "_manifest", _raise_boundary)
+    with pytest.raises(_BoundaryReached):
+        training.train_run(
+            "unused", tmp_path / "run", "mlp", 17, 1,
+            max_seconds=30, device=requested,
+        )
+    assert observed == [requested, torch.device("cuda:1")]
 
 
 def test_runtime_device_cuda_api_source_audit_has_no_device_objects() -> None:

@@ -409,8 +409,12 @@ def train_run(cache, output, kind, seed, steps, max_seconds=600, device='cuda',
                 raise RuntimeError('requested CUDA device unavailable')
             torch.manual_seed(seed)
             if str(device).startswith('cuda'):
+                from music_critic.cuda_memory import initialize_cuda_memory_statistics
+                from music_critic.device import resolve_runtime_device
+
                 torch.cuda.manual_seed_all(seed)
-                torch.cuda.reset_peak_memory_stats(device)
+                cuda_statistics = initialize_cuda_memory_statistics(
+                    resolve_runtime_device(str(device)))
             path, manifest, bindings = _manifest(cache)
             width = manifest.get('input_width', 266)
             config.update(input_width=width, node_types=manifest.get('node_types', 9),
@@ -562,7 +566,7 @@ def train_run(cache, output, kind, seed, steps, max_seconds=600, device='cuda',
                 train_loss_mean=math.fsum(losses) / len(losses), train_loss_last=losses[-1],
                 exposure_sha256=exposure.hexdigest(), unique_train_h=len(sampled),
                 cpu_cache_peak_bytes=tile_cache.peak_bytes,
-                peak_vram_bytes=torch.cuda.max_memory_allocated(device) if str(device).startswith('cuda') else 0,
+                peak_vram_bytes=torch.cuda.max_memory_allocated(cuda_statistics.logical_device_index) if str(device).startswith('cuda') else 0,
                 config=config)
             if selection_updates:
                 result.update(selection_curve=curve,selected_update=selected['update'],
