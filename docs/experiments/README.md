@@ -6,7 +6,7 @@
 
 [Главная](../../README.md) · [Модели](../MODELS.md) · [Данные](../DATASETS.md) · [Полный ledger](../EXPERIMENT_LEDGER.md)
 
-Всего записей: **373**. aborted: 21; completed: 288; failed: 33; invalid: 8; planned: 10; running: 13.
+Всего записей: **549**. aborted: 21; completed: 447; failed: 45; invalid: 8; planned: 15; running: 13.
 
 | Кампания | Вопрос | Записей |
 |---|---|---:|
@@ -21,7 +21,7 @@
 | [Самообучение и контекст](#ssl) | Работают ли маскирование и перенос представлений без утечки целей? | 10 |
 | [CPU / GPU / облако и производительность](#runtime) | Какие среды, ресурсы и способы исполнения были допущены? | 60 |
 | [Обзоры и сверка сохранённых результатов](#reporting) | Какие выводы можно восстановить из уже сохранённых свидетельств? | 4 |
-| [Требуют классификации](#unclassified) | Какие новые семейства ещё не включены в ручную карту? | 0 |
+| [Требуют классификации](#unclassified) | Какие новые семейства ещё не включены в ручную карту? | 176 |
 
 <a id="hcm"></a>
 
@@ -628,12 +628,194 @@
 
 **Открытый вопрос:** Добавить ручную карту нового семейства; научный итог до её составления неизвестен.
 
-Записей нет.
+<details>
+<summary>Попытки и свидетельства: 176</summary>
+
+| Запись | Статус в реестре | Вид | Название |
+|---|---|---|---|
+| [EXP-HIERGRAPH-80K-CAMPAIGN-001](records/EXP-HIERGRAPH-80K-CAMPAIGN-001.json) | completed | training_campaign | Sequential E1-E5, exact80000 optimizer updates each, seed17 |
+| [EXP-HIERGRAPH-80K-CURVE-REVIEW-001](records/EXP-HIERGRAPH-80K-CURVE-REVIEW-001.json) | completed | evidence_review | Review retained training loss and H selection curves for E1-E5 |
+| [EXP-HIERGRAPH-80K-E1-DETAIL-REVIEW-001](records/EXP-HIERGRAPH-80K-E1-DETAIL-REVIEW-001.json) | completed | evidence_review | Explain E1 field performance and checkpoint40k selection from retained evidence |
+| [EXP-HIERGRAPH-80K-E1-S17-001](records/EXP-HIERGRAPH-80K-E1-S17-001.json) | completed | training_80k | H constructorE1,80000 applied updates,seed17 |
+| [EXP-HIERGRAPH-80K-E1E2-INTERIM-REVIEW-001](records/EXP-HIERGRAPH-80K-E1E2-INTERIM-REVIEW-001.json) | completed | evidence_review | Interim comparison of best retained E1 and E2 selection checkpoints |
+| [EXP-HIERGRAPH-80K-E2-S17-001](records/EXP-HIERGRAPH-80K-E2-S17-001.json) | completed | training_80k | H constructorE2,80000 applied updates,seed17 |
+| [EXP-HIERGRAPH-80K-E3-S17-001](records/EXP-HIERGRAPH-80K-E3-S17-001.json) | completed | training_80k | H constructorE3,80000 applied updates,seed17 |
+| [EXP-HIERGRAPH-80K-E4-S17-001](records/EXP-HIERGRAPH-80K-E4-S17-001.json) | completed | training_80k | H constructorE4,80000 applied updates,seed17 |
+| [EXP-HIERGRAPH-80K-E5-S17-001](records/EXP-HIERGRAPH-80K-E5-S17-001.json) | completed | training_80k | H constructorE5,80000 applied updates,seed17 |
+| [EXP-HIERGRAPH-80K-REVIEW-001](records/EXP-HIERGRAPH-80K-REVIEW-001.json) | completed | evidence_review | Incremental compact evidence review of E1-E5 applied80k campaign |
+| [EXP-HIERGRAPH-ANNOTATION-ADMIT-001](records/EXP-HIERGRAPH-ANNOTATION-ADMIT-001.json) | completed | preparation | TRAIN/fit admission for two annotation continuations |
+| [EXP-HIERGRAPH-ANNOTATION-ADMIT-002](records/EXP-HIERGRAPH-ANNOTATION-ADMIT-002.json) | completed | preparation | TRAIN/fit admission for ELO annotation continuation |
+| [EXP-HIERGRAPH-ANNOTATION-ADMIT-003](records/EXP-HIERGRAPH-ANNOTATION-ADMIT-003.json) | completed | preparation | Flat TRAIN/fit admission for WORK051 pending R2 |
+| [EXP-HIERGRAPH-ANNOTATION-ADMIT-004](records/EXP-HIERGRAPH-ANNOTATION-ADMIT-004.json) | completed | preparation | Flat TRAIN/fit admission for WORK049 remediation after R3 |
+| [EXP-HIERGRAPH-ANNOTATION-ADMIT-005](records/EXP-HIERGRAPH-ANNOTATION-ADMIT-005.json) | completed | preparation | Flat TRAIN/fit admission for WORK056 pending independent R1 |
+| [EXP-HIERGRAPH-ANNOTATION-ADMIT-006](records/EXP-HIERGRAPH-ANNOTATION-ADMIT-006.json) | completed | preparation | Admit retained prior WORK056 review before fresh adjudication |
+| [EXP-HIERGRAPH-ANNOTATION-ADMIT-007](records/EXP-HIERGRAPH-ANNOTATION-ADMIT-007.json) | completed | preparation | Flat TRAIN/fit admission for WORK063 remediation after R1 |
+| [EXP-HIERGRAPH-ANNOTATION-ADMIT-008](records/EXP-HIERGRAPH-ANNOTATION-ADMIT-008.json) | completed | preparation | WORK058 named TRAIN/FIT observed snapshot admission |
+| [EXP-HIERGRAPH-ANNOTATION-ADMIT-009](records/EXP-HIERGRAPH-ANNOTATION-ADMIT-009.json) | completed | preparation | WORK037 named TRAIN/FIT observed snapshot admission |
+| [EXP-HIERGRAPH-ANNOTATION-ADMIT-010](records/EXP-HIERGRAPH-ANNOTATION-ADMIT-010.json) | completed | preparation | WORK054 named TRAIN/FIT observed snapshot admission |
+| [EXP-HIERGRAPH-ANNOTATION-ADMIT-011](records/EXP-HIERGRAPH-ANNOTATION-ADMIT-011.json) | completed | preparation | WORK061 named TRAIN/FIT observed snapshot admission |
+| [EXP-HIERGRAPH-ANNOTATION-ADMIT-012](records/EXP-HIERGRAPH-ANNOTATION-ADMIT-012.json) | completed | preparation | WORK064 named TRAIN/FIT observed snapshot admission |
+| [EXP-HIERGRAPH-ANNOTATION-ADMIT-013](records/EXP-HIERGRAPH-ANNOTATION-ADMIT-013.json) | completed | preparation | WORK043 named TRAIN/FIT observed snapshot admission |
+| [EXP-HIERGRAPH-ANNOTATION-ADMIT-014](records/EXP-HIERGRAPH-ANNOTATION-ADMIT-014.json) | completed | preparation | WORK032 named TRAIN/FIT observed snapshot admission |
+| [EXP-HIERGRAPH-ANNOTATION-ADMIT-015](records/EXP-HIERGRAPH-ANNOTATION-ADMIT-015.json) | completed | preparation | WORK050 named TRAIN/FIT observed snapshot admission |
+| [EXP-HIERGRAPH-ANNOTATION-FITQUEUE-001](records/EXP-HIERGRAPH-ANNOTATION-FITQUEUE-001.json) | completed | metadata_inventory | Remaining 32 TRAIN/FIT annotation source and review metadata routing |
+| [EXP-HIERGRAPH-ANNOTATION-RELEASE-001](records/EXP-HIERGRAPH-ANNOTATION-RELEASE-001.json) | completed | data_preparation | Accepted native annotation overlay for current67 fit works |
+| [EXP-HIERGRAPH-ANNOTATION-RELEASE-002](records/EXP-HIERGRAPH-ANNOTATION-RELEASE-002.json) | completed | data_preparation | Accepted native annotation overlay for current67 fit works |
+| [EXP-HIERGRAPH-ANNOTATION-RELEASE-003](records/EXP-HIERGRAPH-ANNOTATION-RELEASE-003.json) | completed | data_preparation | Accepted native annotation overlay for current67 fit works |
+| [EXP-HIERGRAPH-ANNOTATION-WORK032-001](records/EXP-HIERGRAPH-ANNOTATION-WORK032-001.json) | completed | annotation | Peg source-bound four E7 to Am occurrences |
+| [EXP-HIERGRAPH-ANNOTATION-WORK032-002](records/EXP-HIERGRAPH-ANNOTATION-WORK032-002.json) | completed | annotation | Peg bounded source-bound opening-note continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK032-AUDIT001](records/EXP-HIERGRAPH-ANNOTATION-WORK032-AUDIT001.json) | completed | annotation_review | WORK032 audit/import of existing independent bounded R3 |
+| [EXP-HIERGRAPH-ANNOTATION-WORK032-REVIEW001](records/EXP-HIERGRAPH-ANNOTATION-WORK032-REVIEW001.json) | completed | annotation_review | Independent musical review of Peg four E7 to Am annotation expansions |
+| [EXP-HIERGRAPH-ANNOTATION-WORK032-REVIEW002](records/EXP-HIERGRAPH-ANNOTATION-WORK032-REVIEW002.json) | completed | annotation_review | Independent source and musical review of Peg bounded continuation002 |
+| [EXP-HIERGRAPH-ANNOTATION-WORK037-REVIEW001](records/EXP-HIERGRAPH-ANNOTATION-WORK037-REVIEW001.json) | completed | annotation_review | WORK037 fresh independent R2 against frozen author003 |
+| [EXP-HIERGRAPH-ANNOTATION-WORK043-001](records/EXP-HIERGRAPH-ANNOTATION-WORK043-001.json) | completed | annotation_review | Schulhoff Stomp bounded source-critical annotation continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK043-002](records/EXP-HIERGRAPH-ANNOTATION-WORK043-002.json) | completed | annotation_review | WORK043 narrow correction of two independent review findings |
+| [EXP-HIERGRAPH-ANNOTATION-WORK043-AUDIT001](records/EXP-HIERGRAPH-ANNOTATION-WORK043-AUDIT001.json) | completed | annotation_review | WORK043 audit/import of existing independent bounded R1 |
+| [EXP-HIERGRAPH-ANNOTATION-WORK043-REVIEW001](records/EXP-HIERGRAPH-ANNOTATION-WORK043-REVIEW001.json) | completed | annotation_review | Fresh independent musical review of WORK043 continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK043-REVIEW002](records/EXP-HIERGRAPH-ANNOTATION-WORK043-REVIEW002.json) | completed | annotation_review | Fresh independent musical review of WORK043 continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK047-001](records/EXP-HIERGRAPH-ANNOTATION-WORK047-001.json) | completed | corpus400_annotation_continuation | Source-bound annotation continuation WORK047: Domenico Scarlatti — Sonata K.1 |
+| [EXP-HIERGRAPH-ANNOTATION-WORK047-REVIEW001](records/EXP-HIERGRAPH-ANNOTATION-WORK047-REVIEW001.json) | completed | annotation_review | Fresh independent musical review of WORK047 continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK049-001](records/EXP-HIERGRAPH-ANNOTATION-WORK049-001.json) | completed | corpus400_annotation_continuation | Fresh source-bound remediation of WORK049 after retained R3 |
+| [EXP-HIERGRAPH-ANNOTATION-WORK049-REVIEW001](records/EXP-HIERGRAPH-ANNOTATION-WORK049-REVIEW001.json) | completed | annotation_review | Fresh independent musical review of WORK049 continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK050-001](records/EXP-HIERGRAPH-ANNOTATION-WORK050-001.json) | completed | corpus400_annotation_continuation | Clara Schumann Op23 No2 bounded source-grounded annotation continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK050-AUDIT001](records/EXP-HIERGRAPH-ANNOTATION-WORK050-AUDIT001.json) | completed | annotation_review | WORK050 audit/import of existing independent bounded R2 |
+| [EXP-HIERGRAPH-ANNOTATION-WORK050-REVIEW001](records/EXP-HIERGRAPH-ANNOTATION-WORK050-REVIEW001.json) | completed | annotation_review | Fresh independent musical review of WORK050 continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK051-REVIEW001](records/EXP-HIERGRAPH-ANNOTATION-WORK051-REVIEW001.json) | completed | annotation_review | Independent pending R2 completion for WORK051 |
+| [EXP-HIERGRAPH-ANNOTATION-WORK052-001](records/EXP-HIERGRAPH-ANNOTATION-WORK052-001.json) | completed | corpus400_annotation_continuation | Source-bound annotation continuation WORK052: Gerry Mulligan; Gerry MulliganArr. R. Morris — Festive Minor / Festive Minor Quartet |
+| [EXP-HIERGRAPH-ANNOTATION-WORK052-002](records/EXP-HIERGRAPH-ANNOTATION-WORK052-002.json) | completed | corpus400_annotation_continuation | WORK052 source-grounded correction of independent R1 findings |
+| [EXP-HIERGRAPH-ANNOTATION-WORK052-REVIEW001](records/EXP-HIERGRAPH-ANNOTATION-WORK052-REVIEW001.json) | completed | annotation_review | Fresh independent musical review of WORK052 continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK052-REVIEW002](records/EXP-HIERGRAPH-ANNOTATION-WORK052-REVIEW002.json) | completed | annotation_review | Fresh independent musical review of WORK052 continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK054-001](records/EXP-HIERGRAPH-ANNOTATION-WORK054-001.json) | completed | data_preparation | WORK054 packaging audit of existing authorattempt004 pending fresh review |
+| [EXP-HIERGRAPH-ANNOTATION-WORK054-REVIEW001](records/EXP-HIERGRAPH-ANNOTATION-WORK054-REVIEW001.json) | completed | annotation_review | Fresh independent musical review of WORK054 continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK056-002](records/EXP-HIERGRAPH-ANNOTATION-WORK056-002.json) | completed | corpus400_annotation_continuation | WORK056 targeted correction of two independent codebook findings |
+| [EXP-HIERGRAPH-ANNOTATION-WORK056-REVIEW001](records/EXP-HIERGRAPH-ANNOTATION-WORK056-REVIEW001.json) | completed | annotation_review | Independent pending independent R1 completion for WORK056 |
+| [EXP-HIERGRAPH-ANNOTATION-WORK056-REVIEW002](records/EXP-HIERGRAPH-ANNOTATION-WORK056-REVIEW002.json) | completed | annotation_review | Fresh independent musical review of WORK056 continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK058-AUDIT001](records/EXP-HIERGRAPH-ANNOTATION-WORK058-AUDIT001.json) | completed | annotation_review | WORK058 audit/import of existing independent bounded R2 |
+| [EXP-HIERGRAPH-ANNOTATION-WORK061-001](records/EXP-HIERGRAPH-ANNOTATION-WORK061-001.json) | completed | corpus400_annotation_continuation | WORK061 source-grounded author continuation pending fresh independent review |
+| [EXP-HIERGRAPH-ANNOTATION-WORK061-002](records/EXP-HIERGRAPH-ANNOTATION-WORK061-002.json) | completed | corpus400_annotation_continuation | WORK061 correction of four independent tension-role findings |
+| [EXP-HIERGRAPH-ANNOTATION-WORK061-003](records/EXP-HIERGRAPH-ANNOTATION-WORK061-003.json) | completed | corpus400_annotation_continuation | WORK061 bounded musical continuation after accepted R2 |
+| [EXP-HIERGRAPH-ANNOTATION-WORK061-REVIEW001](records/EXP-HIERGRAPH-ANNOTATION-WORK061-REVIEW001.json) | completed | annotation_review | Fresh independent musical review of WORK061 continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK061-REVIEW002](records/EXP-HIERGRAPH-ANNOTATION-WORK061-REVIEW002.json) | completed | annotation_review | Fresh independent musical review of WORK061 continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK061-REVIEW003](records/EXP-HIERGRAPH-ANNOTATION-WORK061-REVIEW003.json) | completed | annotation_review | Fresh independent musical review of WORK061 continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK062-001](records/EXP-HIERGRAPH-ANNOTATION-WORK062-001.json) | completed | corpus400_annotation_continuation | Source-bound annotation continuation WORK062: Electric Light Orchestra — Don't Bring Me Down / Don't Bring Me Down |
+| [EXP-HIERGRAPH-ANNOTATION-WORK062-REVIEW001](records/EXP-HIERGRAPH-ANNOTATION-WORK062-REVIEW001.json) | completed | annotation_review | Fresh independent musical review of WORK062 continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK063-001](records/EXP-HIERGRAPH-ANNOTATION-WORK063-001.json) | completed | corpus400_annotation_continuation | Source-grounded correction of four WORK063 dependency findings |
+| [EXP-HIERGRAPH-ANNOTATION-WORK063-REVIEW001](records/EXP-HIERGRAPH-ANNOTATION-WORK063-REVIEW001.json) | completed | annotation_review | Fresh independent musical review of WORK063 continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK064-001](records/EXP-HIERGRAPH-ANNOTATION-WORK064-001.json) | failed | corpus400_annotation_continuation | WORK064 retained preexport candidate continuation |
+| [EXP-HIERGRAPH-ANNOTATION-WORK064-002](records/EXP-HIERGRAPH-ANNOTATION-WORK064-002.json) | completed | corpus400_annotation_continuation | WORK064 repair of not-applicable versus reviewed-unknown accounting |
+| [EXP-HIERGRAPH-ANNOTATION-WORK064-REVIEW002](records/EXP-HIERGRAPH-ANNOTATION-WORK064-REVIEW002.json) | completed | annotation_review | Fresh independent musical review of WORK064 continuation |
+| [EXP-HIERGRAPH-FACTOR-EXPORT-001](records/EXP-HIERGRAPH-FACTOR-EXPORT-001.json) | completed | preparation | Factorized chord projection and fit-only current67 target export |
+| [EXP-HIERGRAPH-FULL-E3-S17-001](records/EXP-HIERGRAPH-FULL-E3-S17-001.json) | failed | training | Whole-piece full H/h/P E3 baseline,500 applied updates,seed17 |
+| [EXP-HIERGRAPH-FULL-GATE-001](records/EXP-HIERGRAPH-FULL-GATE-001.json) | completed | engineering_gate | Native full-model fit gate on existing RTX3090,smallest whole work |
+| [EXP-HIERGRAPH-FULL-GATE-002](records/EXP-HIERGRAPH-FULL-GATE-002.json) | failed | engineering_gate | Full E3 native gate on smallest,median,largest fit works |
+| [EXP-HIERGRAPH-FULL-GATE-003](records/EXP-HIERGRAPH-FULL-GATE-003.json) | completed | engineering_gate | Native full-model gate with four H candidates per physical note |
+| [EXP-HIERGRAPH-FULL-PERF-001](records/EXP-HIERGRAPH-FULL-PERF-001.json) | completed | engineering_diagnostic | Nonintrusive live full HIERGRAPH pipeline utilization diagnostic |
+| [EXP-HIERGRAPH-FULL-PERF-002](records/EXP-HIERGRAPH-FULL-PERF-002.json) | completed | engineering_diagnostic | Fit CPU input preparation cost for live sampler next work |
+| [EXP-HIERGRAPH-FULL-PREPARE-001](records/EXP-HIERGRAPH-FULL-PREPARE-001.json) | completed | engineering_preparation | Prepare full whole-piece E3 training on existing RTX3090 |
+| [EXP-HIERGRAPH-FULL-REVIEW-001](records/EXP-HIERGRAPH-FULL-REVIEW-001.json) | completed | evidence_review | Review retained terminal full HIERGRAPH E3 baseline results and finalization discrepancy |
+| [EXP-HIERGRAPH-HFIRST-E1-S17-001](records/EXP-HIERGRAPH-HFIRST-E1-S17-001.json) | planned | training_pilot | First H/F constructor pilot E1, seed17 |
+| [EXP-HIERGRAPH-HFIRST-E2-S17-001](records/EXP-HIERGRAPH-HFIRST-E2-S17-001.json) | planned | training_pilot | First H/F constructor pilot E2, seed17 |
+| [EXP-HIERGRAPH-HFIRST-E3-S17-001](records/EXP-HIERGRAPH-HFIRST-E3-S17-001.json) | planned | training_pilot | First H/F constructor pilot E3, seed17 |
+| [EXP-HIERGRAPH-HFIRST-E4-S17-001](records/EXP-HIERGRAPH-HFIRST-E4-S17-001.json) | planned | training_pilot | First H/F constructor pilot E4, seed17 |
+| [EXP-HIERGRAPH-HFIRST-E5-S17-001](records/EXP-HIERGRAPH-HFIRST-E5-S17-001.json) | planned | training_pilot | First H/F constructor pilot E5, seed17 |
+| [EXP-HIERGRAPH-INTERVAL-EXPORT-001](records/EXP-HIERGRAPH-INTERVAL-EXPORT-001.json) | completed | preparation | Scoped chord/observed interval projection V3 and current67 export |
+| [EXP-HIERGRAPH-READY-CACHE-001](records/EXP-HIERGRAPH-READY-CACHE-001.json) | failed | data_preparation | Frozen raw C3 hierarchy cache for all five H constructors |
+| [EXP-HIERGRAPH-READY-CACHE-002](records/EXP-HIERGRAPH-READY-CACHE-002.json) | failed | data_preparation | Frozen raw C3 hierarchy cache for all five H constructors |
+| [EXP-HIERGRAPH-READY-CACHE-003](records/EXP-HIERGRAPH-READY-CACHE-003.json) | completed | data_preparation | Frozen raw C3 hierarchy cache for all five H constructors |
+| [EXP-HIERGRAPH-READY-CACHE-004](records/EXP-HIERGRAPH-READY-CACHE-004.json) | completed | data_preparation | Frozen raw C3 hierarchy cache for all five H constructors |
+| [EXP-HIERGRAPH-READY-EXPORT-001](records/EXP-HIERGRAPH-READY-EXPORT-001.json) | failed | data_preparation | Refresh current67 HIERGRAPH V3 with accepted native release003 |
+| [EXP-HIERGRAPH-READY-EXPORT-002](records/EXP-HIERGRAPH-READY-EXPORT-002.json) | completed | data_preparation | Refresh current67 HIERGRAPH V3 with accepted native release003 |
+| [EXP-HIERGRAPH-READY-GATE-001](records/EXP-HIERGRAPH-READY-GATE-001.json) | completed | native_engineering_gate | RTX3090 real fit forward/backward admission for E1-E5 |
+| [EXP-HIERGRAPH-READY-REVIEW-001](records/EXP-HIERGRAPH-READY-REVIEW-001.json) | completed | evidence_review | Review E1-E5 preparation readiness and engineering evidence |
+| [EXP-HIERGRAPH-SONORITY-SCOPE-001](records/EXP-HIERGRAPH-SONORITY-SCOPE-001.json) | failed | source_semantics_audit | Bounded authored sonority list semantics audit |
+| [EXP-HIERGRAPH-SONORITY-SCOPE-002](records/EXP-HIERGRAPH-SONORITY-SCOPE-002.json) | completed | source_semantics_audit | Bounded sonority semantics audit with canonical TRAIN authority |
+| [EXP-HIERGRAPH-SUPERVISION-AUDIT-001](records/EXP-HIERGRAPH-SUPERVISION-AUDIT-001.json) | failed | data_audit | Audit current67 supervision for hierarchical harmonic graph analysis |
+| [EXP-HIERGRAPH-SUPERVISION-AUDIT-002](records/EXP-HIERGRAPH-SUPERVISION-AUDIT-002.json) | completed | data_audit | Current67 supervision census with nullable canonical split contract |
+| [EXP-HMEMBER-80K-REVIEW-001](records/EXP-HMEMBER-80K-REVIEW-001.json) | completed | evidence_review | EXP-HMEMBER-80K-REVIEW-001 |
+| [EXP-HMEMBER-80K-S17-GRAPH-001](records/EXP-HMEMBER-80K-S17-GRAPH-001.json) | completed | training | EXP-HMEMBER-80K-S17-GRAPH-001 |
+| [EXP-HMEMBER-80K-S17-MLP-001](records/EXP-HMEMBER-80K-S17-MLP-001.json) | completed | training | EXP-HMEMBER-80K-S17-MLP-001 |
+| [EXP-HMEMBER-80K-S17-SELF-001](records/EXP-HMEMBER-80K-S17-SELF-001.json) | completed | training | EXP-HMEMBER-80K-S17-SELF-001 |
+| [EXP-HMEMBER-80K-S17-TRANSE-001](records/EXP-HMEMBER-80K-S17-TRANSE-001.json) | completed | training | EXP-HMEMBER-80K-S17-TRANSE-001 |
+| [EXP-HMEMBER-80K-S42-GRAPH-001](records/EXP-HMEMBER-80K-S42-GRAPH-001.json) | completed | training | EXP-HMEMBER-80K-S42-GRAPH-001 |
+| [EXP-HMEMBER-80K-S42-MLP-001](records/EXP-HMEMBER-80K-S42-MLP-001.json) | completed | training | EXP-HMEMBER-80K-S42-MLP-001 |
+| [EXP-HMEMBER-80K-S42-SELF-001](records/EXP-HMEMBER-80K-S42-SELF-001.json) | completed | training | EXP-HMEMBER-80K-S42-SELF-001 |
+| [EXP-HMEMBER-80K-S42-TRANSE-001](records/EXP-HMEMBER-80K-S42-TRANSE-001.json) | completed | training | EXP-HMEMBER-80K-S42-TRANSE-001 |
+| [EXP-HMEMBER-80K-S73-GRAPH-001](records/EXP-HMEMBER-80K-S73-GRAPH-001.json) | completed | training | EXP-HMEMBER-80K-S73-GRAPH-001 |
+| [EXP-HMEMBER-80K-S73-MLP-001](records/EXP-HMEMBER-80K-S73-MLP-001.json) | completed | training | EXP-HMEMBER-80K-S73-MLP-001 |
+| [EXP-HMEMBER-80K-S73-SELF-001](records/EXP-HMEMBER-80K-S73-SELF-001.json) | completed | training | EXP-HMEMBER-80K-S73-SELF-001 |
+| [EXP-HMEMBER-80K-S73-TRANSE-001](records/EXP-HMEMBER-80K-S73-TRANSE-001.json) | completed | training | EXP-HMEMBER-80K-S73-TRANSE-001 |
+| [EXP-HMEMBER-DETERMINISM-GATE-001](records/EXP-HMEMBER-DETERMINISM-GATE-001.json) | completed | engineering_gate | EXP-HMEMBER-DETERMINISM-GATE-001 |
+| [EXP-HMEMBER-DIAG-20261026-001](records/EXP-HMEMBER-DIAG-20261026-001.json) | completed | evidence_review | EXP-HMEMBER-DIAG-20261026-001 |
+| [EXP-HMEMBER-LONG-REVIEW-001](records/EXP-HMEMBER-LONG-REVIEW-001.json) | completed | evidence_review | EXP-HMEMBER-LONG-REVIEW-001 |
+| [EXP-HMEMBER-LONG-S17-GRAPH-001](records/EXP-HMEMBER-LONG-S17-GRAPH-001.json) | completed | training | EXP-HMEMBER-LONG-S17-GRAPH-001 |
+| [EXP-HMEMBER-LONG-S17-MLP-001](records/EXP-HMEMBER-LONG-S17-MLP-001.json) | completed | training | EXP-HMEMBER-LONG-S17-MLP-001 |
+| [EXP-HMEMBER-LONG-S17-SELF-001](records/EXP-HMEMBER-LONG-S17-SELF-001.json) | completed | training | EXP-HMEMBER-LONG-S17-SELF-001 |
+| [EXP-HMEMBER-LONG-S17-TRANSE-001](records/EXP-HMEMBER-LONG-S17-TRANSE-001.json) | completed | training | EXP-HMEMBER-LONG-S17-TRANSE-001 |
+| [EXP-HMEMBER-LONG-S42-GRAPH-001](records/EXP-HMEMBER-LONG-S42-GRAPH-001.json) | completed | training | EXP-HMEMBER-LONG-S42-GRAPH-001 |
+| [EXP-HMEMBER-LONG-S42-MLP-001](records/EXP-HMEMBER-LONG-S42-MLP-001.json) | completed | training | EXP-HMEMBER-LONG-S42-MLP-001 |
+| [EXP-HMEMBER-LONG-S42-SELF-001](records/EXP-HMEMBER-LONG-S42-SELF-001.json) | completed | training | EXP-HMEMBER-LONG-S42-SELF-001 |
+| [EXP-HMEMBER-LONG-S42-TRANSE-001](records/EXP-HMEMBER-LONG-S42-TRANSE-001.json) | completed | training | EXP-HMEMBER-LONG-S42-TRANSE-001 |
+| [EXP-HMEMBER-LONG-S73-GRAPH-001](records/EXP-HMEMBER-LONG-S73-GRAPH-001.json) | completed | training | EXP-HMEMBER-LONG-S73-GRAPH-001 |
+| [EXP-HMEMBER-LONG-S73-MLP-001](records/EXP-HMEMBER-LONG-S73-MLP-001.json) | completed | training | EXP-HMEMBER-LONG-S73-MLP-001 |
+| [EXP-HMEMBER-LONG-S73-SELF-001](records/EXP-HMEMBER-LONG-S73-SELF-001.json) | completed | training | EXP-HMEMBER-LONG-S73-SELF-001 |
+| [EXP-HMEMBER-LONG-S73-TRANSE-001](records/EXP-HMEMBER-LONG-S73-TRANSE-001.json) | completed | training | EXP-HMEMBER-LONG-S73-TRANSE-001 |
+| [EXP-HMEMBER-LOSSMASS-DIAG-001](records/EXP-HMEMBER-LOSSMASS-DIAG-001.json) | completed | evidence_review | EXP-HMEMBER-LOSSMASS-DIAG-001 |
+| [EXP-HMEMBER-NATIVE-GATE-001](records/EXP-HMEMBER-NATIVE-GATE-001.json) | completed | engineering_gate | EXP-HMEMBER-NATIVE-GATE-001 |
+| [EXP-HMEMBER-PREPARE-001](records/EXP-HMEMBER-PREPARE-001.json) | completed | preparation | EXP-HMEMBER-PREPARE-001 |
+| [EXP-HMEMBER-REPAIR-S17-GRAPH-BALANCED-001](records/EXP-HMEMBER-REPAIR-S17-GRAPH-BALANCED-001.json) | completed | training | EXP-HMEMBER-REPAIR-S17-GRAPH-BALANCED-001 |
+| [EXP-HMEMBER-REPAIR-S17-GRAPH-PLAIN-001](records/EXP-HMEMBER-REPAIR-S17-GRAPH-PLAIN-001.json) | completed | training | EXP-HMEMBER-REPAIR-S17-GRAPH-PLAIN-001 |
+| [EXP-HMEMBER-REPAIR-S17-MLP-BALANCED-001](records/EXP-HMEMBER-REPAIR-S17-MLP-BALANCED-001.json) | completed | training | EXP-HMEMBER-REPAIR-S17-MLP-BALANCED-001 |
+| [EXP-HMEMBER-REPAIR-S17-MLP-PLAIN-001](records/EXP-HMEMBER-REPAIR-S17-MLP-PLAIN-001.json) | completed | training | EXP-HMEMBER-REPAIR-S17-MLP-PLAIN-001 |
+| [EXP-HMEMBER-REVIEW-001](records/EXP-HMEMBER-REVIEW-001.json) | completed | evidence_review | EXP-HMEMBER-REVIEW-001 |
+| [EXP-HMEMBER-S17-GRAPH-001](records/EXP-HMEMBER-S17-GRAPH-001.json) | completed | training | EXP-HMEMBER-S17-GRAPH-001 |
+| [EXP-HMEMBER-S17-MLP-001](records/EXP-HMEMBER-S17-MLP-001.json) | completed | training | EXP-HMEMBER-S17-MLP-001 |
+| [EXP-HMEMBER-S17-SELF-001](records/EXP-HMEMBER-S17-SELF-001.json) | completed | training | EXP-HMEMBER-S17-SELF-001 |
+| [EXP-HMEMBER-S17-TRANSE-001](records/EXP-HMEMBER-S17-TRANSE-001.json) | completed | training | EXP-HMEMBER-S17-TRANSE-001 |
+| [EXP-HMEMBER-S42-GRAPH-001](records/EXP-HMEMBER-S42-GRAPH-001.json) | completed | training | EXP-HMEMBER-S42-GRAPH-001 |
+| [EXP-HMEMBER-S42-MLP-001](records/EXP-HMEMBER-S42-MLP-001.json) | completed | training | EXP-HMEMBER-S42-MLP-001 |
+| [EXP-HMEMBER-S42-SELF-001](records/EXP-HMEMBER-S42-SELF-001.json) | completed | training | EXP-HMEMBER-S42-SELF-001 |
+| [EXP-HMEMBER-S42-TRANSE-001](records/EXP-HMEMBER-S42-TRANSE-001.json) | completed | training | EXP-HMEMBER-S42-TRANSE-001 |
+| [EXP-HMEMBER-S73-GRAPH-001](records/EXP-HMEMBER-S73-GRAPH-001.json) | completed | training | EXP-HMEMBER-S73-GRAPH-001 |
+| [EXP-HMEMBER-S73-MLP-001](records/EXP-HMEMBER-S73-MLP-001.json) | completed | training | EXP-HMEMBER-S73-MLP-001 |
+| [EXP-HMEMBER-S73-SELF-001](records/EXP-HMEMBER-S73-SELF-001.json) | completed | training | EXP-HMEMBER-S73-SELF-001 |
+| [EXP-HMEMBER-S73-TRANSE-001](records/EXP-HMEMBER-S73-TRANSE-001.json) | completed | training | EXP-HMEMBER-S73-TRANSE-001 |
+| [EXP-HMEMBER-THRESHOLD-DIAG-001](records/EXP-HMEMBER-THRESHOLD-DIAG-001.json) | completed | evaluation | EXP-HMEMBER-THRESHOLD-DIAG-001 |
+| [EXP-LLM-RELATION-NATIVE-GATE-001](records/EXP-LLM-RELATION-NATIVE-GATE-001.json) | completed | engineering_gate | Bounded native resolution gate |
+| [EXP-LLM-RELATION-PREPARE-001](records/EXP-LLM-RELATION-PREPARE-001.json) | failed | data_preparation | Prepare bounded 67-work LLM resolution relation pilot |
+| [EXP-LLM-RELATION-PREPARE-002](records/EXP-LLM-RELATION-PREPARE-002.json) | failed | data_preparation | Prepare bounded 67-work LLM resolution relation pilot |
+| [EXP-LLM-RELATION-PREPARE-003](records/EXP-LLM-RELATION-PREPARE-003.json) | failed | data_preparation | Prepare bounded 67-work LLM resolution relation pilot |
+| [EXP-LLM-RELATION-PREPARE-004](records/EXP-LLM-RELATION-PREPARE-004.json) | completed | data_preparation | Prepare bounded 67-work LLM resolution relation pilot |
+| [EXP-LLM-RELATION-PREPARE-005](records/EXP-LLM-RELATION-PREPARE-005.json) | failed | data_preparation | Prepare bounded 67-work LLM resolution relation pilot |
+| [EXP-LLM-RELATION-PREPARE-006](records/EXP-LLM-RELATION-PREPARE-006.json) | completed | data_preparation | Prepare bounded 67-work LLM resolution relation pilot |
+| [EXP-LLM-RELATION-REVIEW-001](records/EXP-LLM-RELATION-REVIEW-001.json) | completed | scientific_evidence_review | Close bounded resolves_to pilot across paired seeds and decoder modes |
+| [EXP-LLM-RELATION-S17-FROZEN-MLP-001](records/EXP-LLM-RELATION-S17-FROZEN-MLP-001.json) | completed | bounded_training | Resolution pilot {'mode': 'frozen', 'decoder': 'mlp', 'seed': 17} |
+| [EXP-LLM-RELATION-S17-FROZEN-TRANSE-001](records/EXP-LLM-RELATION-S17-FROZEN-TRANSE-001.json) | completed | bounded_training | Resolution pilot {'mode': 'frozen', 'decoder': 'transe', 'seed': 17} |
+| [EXP-LLM-RELATION-S17-FT-MLP-001](records/EXP-LLM-RELATION-S17-FT-MLP-001.json) | completed | bounded_training | Resolution pilot {'mode': 'finetune', 'decoder': 'mlp', 'seed': 17} |
+| [EXP-LLM-RELATION-S17-FT-TRANSE-001](records/EXP-LLM-RELATION-S17-FT-TRANSE-001.json) | completed | bounded_training | Resolution pilot {'mode': 'finetune', 'decoder': 'transe', 'seed': 17} |
+| [EXP-LLM-RELATION-S17-RANDOM-MLP-001](records/EXP-LLM-RELATION-S17-RANDOM-MLP-001.json) | completed | bounded_training | Resolution pilot {'mode': 'random', 'decoder': 'mlp', 'seed': 17} |
+| [EXP-LLM-RELATION-S17-RANDOM-TRANSE-001](records/EXP-LLM-RELATION-S17-RANDOM-TRANSE-001.json) | completed | bounded_training | Resolution pilot {'mode': 'random', 'decoder': 'transe', 'seed': 17} |
+| [EXP-LLM-RELATION-S17-RAW-MLP-001](records/EXP-LLM-RELATION-S17-RAW-MLP-001.json) | completed | bounded_training | Resolution pilot {'mode': 'raw', 'decoder': 'mlp', 'seed': 17} |
+| [EXP-LLM-RELATION-S42-FROZEN-MLP-001](records/EXP-LLM-RELATION-S42-FROZEN-MLP-001.json) | completed | bounded_training | Resolution pilot {'mode': 'frozen', 'decoder': 'mlp', 'seed': 42} |
+| [EXP-LLM-RELATION-S42-FROZEN-TRANSE-001](records/EXP-LLM-RELATION-S42-FROZEN-TRANSE-001.json) | completed | bounded_training | Resolution pilot {'mode': 'frozen', 'decoder': 'transe', 'seed': 42} |
+| [EXP-LLM-RELATION-S42-FT-MLP-001](records/EXP-LLM-RELATION-S42-FT-MLP-001.json) | completed | bounded_training | Resolution pilot {'mode': 'finetune', 'decoder': 'mlp', 'seed': 42} |
+| [EXP-LLM-RELATION-S42-FT-TRANSE-001](records/EXP-LLM-RELATION-S42-FT-TRANSE-001.json) | completed | bounded_training | Resolution pilot {'mode': 'finetune', 'decoder': 'transe', 'seed': 42} |
+| [EXP-LLM-RELATION-S42-RANDOM-MLP-001](records/EXP-LLM-RELATION-S42-RANDOM-MLP-001.json) | completed | bounded_training | Resolution pilot {'mode': 'random', 'decoder': 'mlp', 'seed': 42} |
+| [EXP-LLM-RELATION-S42-RANDOM-TRANSE-001](records/EXP-LLM-RELATION-S42-RANDOM-TRANSE-001.json) | completed | bounded_training | Resolution pilot {'mode': 'random', 'decoder': 'transe', 'seed': 42} |
+| [EXP-LLM-RELATION-S42-RAW-MLP-001](records/EXP-LLM-RELATION-S42-RAW-MLP-001.json) | completed | bounded_training | Resolution pilot {'mode': 'raw', 'decoder': 'mlp', 'seed': 42} |
+| [EXP-LLM-RELATION-S73-FROZEN-MLP-001](records/EXP-LLM-RELATION-S73-FROZEN-MLP-001.json) | completed | bounded_training | Resolution pilot {'mode': 'frozen', 'decoder': 'mlp', 'seed': 73} |
+| [EXP-LLM-RELATION-S73-FROZEN-TRANSE-001](records/EXP-LLM-RELATION-S73-FROZEN-TRANSE-001.json) | completed | bounded_training | Resolution pilot {'mode': 'frozen', 'decoder': 'transe', 'seed': 73} |
+| [EXP-LLM-RELATION-S73-FT-MLP-001](records/EXP-LLM-RELATION-S73-FT-MLP-001.json) | completed | bounded_training | Resolution pilot {'mode': 'finetune', 'decoder': 'mlp', 'seed': 73} |
+| [EXP-LLM-RELATION-S73-FT-TRANSE-001](records/EXP-LLM-RELATION-S73-FT-TRANSE-001.json) | completed | bounded_training | Resolution pilot {'mode': 'finetune', 'decoder': 'transe', 'seed': 73} |
+| [EXP-LLM-RELATION-S73-RANDOM-MLP-001](records/EXP-LLM-RELATION-S73-RANDOM-MLP-001.json) | completed | bounded_training | Resolution pilot {'mode': 'random', 'decoder': 'mlp', 'seed': 73} |
+| [EXP-LLM-RELATION-S73-RANDOM-TRANSE-001](records/EXP-LLM-RELATION-S73-RANDOM-TRANSE-001.json) | completed | bounded_training | Resolution pilot {'mode': 'random', 'decoder': 'transe', 'seed': 73} |
+| [EXP-LLM-RELATION-S73-RAW-MLP-001](records/EXP-LLM-RELATION-S73-RAW-MLP-001.json) | completed | bounded_training | Resolution pilot {'mode': 'raw', 'decoder': 'mlp', 'seed': 73} |
+
+</details>
 
 ## Все текстовые отчёты
 
 <details>
-<summary>Отчёты в этом каталоге: 103</summary>
+<summary>Отчёты в этом каталоге: 116</summary>
 
 - [C0_C2_120K_REVIEW.md](C0_C2_120K_REVIEW.md)
 - [C3_ATTENTION_ARCHITECTURE_AUDIT_RU.md](C3_ATTENTION_ARCHITECTURE_AUDIT_RU.md)
@@ -682,6 +864,18 @@
 - [HCM2_TO_10000_20260928_RU.md](HCM2_TO_10000_20260928_RU.md)
 - [HCM2_VALIDATION_CURVE_20260929_RU.md](HCM2_VALIDATION_CURVE_20260929_RU.md)
 - [HCM_WHOLE_3090_LAUNCH_20260928_RU.md](HCM_WHOLE_3090_LAUNCH_20260928_RU.md)
+- [HIERGRAPH_80K_20261029_RU.md](HIERGRAPH_80K_20261029_RU.md)
+- [HIERGRAPH_ANNOTATION_EXPANSION_20261028_RU.md](HIERGRAPH_ANNOTATION_EXPANSION_20261028_RU.md)
+- [HIERGRAPH_FACTOR_EXPORT_20261027_RU.md](HIERGRAPH_FACTOR_EXPORT_20261027_RU.md)
+- [HIERGRAPH_FULL_20261029_RU.md](HIERGRAPH_FULL_20261029_RU.md)
+- [HIERGRAPH_FULL_PERF_20261029_RU.md](HIERGRAPH_FULL_PERF_20261029_RU.md)
+- [HIERGRAPH_INTERVAL_EXPORT_20261027_RU.md](HIERGRAPH_INTERVAL_EXPORT_20261027_RU.md)
+- [HIERGRAPH_SONORITY_SCOPE_20261027_RU.md](HIERGRAPH_SONORITY_SCOPE_20261027_RU.md)
+- [HIERGRAPH_SUPERVISION_20261027_RU.md](HIERGRAPH_SUPERVISION_20261027_RU.md)
+- [HMEMBER_20261025_RU.md](HMEMBER_20261025_RU.md)
+- [HMEMBER_80K_20261026_RU.md](HMEMBER_80K_20261026_RU.md)
+- [HMEMBER_DIAGNOSIS_20261026_RU.md](HMEMBER_DIAGNOSIS_20261026_RU.md)
+- [HMEMBER_LONG_20261025_RU.md](HMEMBER_LONG_20261025_RU.md)
 - [JAZZ_CORPUS_OVERLAP_20261007_RU.md](JAZZ_CORPUS_OVERLAP_20261007_RU.md)
 - [JHT_HT_PDMX_DEMO_20261007_RU.md](JHT_HT_PDMX_DEMO_20261007_RU.md)
 - [LLM_GENRE_AUTHORING_002_RU.md](LLM_GENRE_AUTHORING_002_RU.md)
@@ -696,6 +890,7 @@
 - [LLM_GENRE_AUTHORING_011_RU.md](LLM_GENRE_AUTHORING_011_RU.md)
 - [LLM_GENRE_AUTHORING_20260923_RU.md](LLM_GENRE_AUTHORING_20260923_RU.md)
 - [LLM_GENRE_CAMPAIGN_FINAL_40_RU.md](LLM_GENRE_CAMPAIGN_FINAL_40_RU.md)
+- [LLM_RELATION_PROBE_20261024_RU.md](LLM_RELATION_PROBE_20261024_RU.md)
 - [MMOE_PROGRESS_001_RU.md](MMOE_PROGRESS_001_RU.md)
 - [MMOE_PROGRESS_002_RU.md](MMOE_PROGRESS_002_RU.md)
 - [MMOE_PROGRESS_003_RU.md](MMOE_PROGRESS_003_RU.md)

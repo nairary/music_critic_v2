@@ -1,0 +1,77 @@
+{
+  "schema": "ImplementationReviewScope@1",
+  "base_head": "287bf856643f9e555352e1661a7bf0563772178a",
+  "state": "current untracked WIP in isolated harmonic-event-pilot; no staged change by this task",
+  "files": [
+    {
+      "path": "configs/hiergraph_full_e3.template.json",
+      "sha256": "60f85b7aa3cfb10a82aa488fa8092326ce9a41640c3a4965b3c55cdd2a0bdc6a",
+      "size_bytes": 1293
+    },
+    {
+      "path": "configs/hiergraph_full_infer.template.json",
+      "sha256": "023288ff9cc029bcbb56d64ea3e2ce0985276b13aa2d40dfaa829d0829c049ae",
+      "size_bytes": 945
+    },
+    {
+      "path": "scripts/run_hiergraph_full.py",
+      "sha256": "89a975786cc742f7a437e9f51d0a277f283bd057ff8e1c68fec1cfb52253d888",
+      "size_bytes": 6837
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/full_data.py",
+      "sha256": "e22f981ee2d2e26cf652d71699a3695c6e740f2b2f4e84c0ab8c1c2009c8cf6c",
+      "size_bytes": 18493
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/full_inference.py",
+      "sha256": "f04a78509366494d3fc88a8a9e898dfcf74e2c4b64ea320bafb18e958883064d",
+      "size_bytes": 8382
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/full_losses.py",
+      "sha256": "fbceb45079912806e56026b96e83adde4e4beb82eebc4cbccbb7ac4485d6b4bf",
+      "size_bytes": 20531
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/full_metrics.py",
+      "sha256": "14335877a7c99f9dc17c28b18a5dae384b9580b1a9cfdf14e8a3f78aa9803a37",
+      "size_bytes": 16766
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/full_model.py",
+      "sha256": "85dc22dc244d92f2855ab7915598d6505b5f7476171c29f9e5b404aaf0297af5",
+      "size_bytes": 28278
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/full_runtime.py",
+      "sha256": "29295e5362e713f087aa7083f95062554d064bcac61dfacc7abfc18a99c51924",
+      "size_bytes": 36658
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_full_losses.py",
+      "sha256": "a83bbcceb095c5bddb1e938cb372cf19f885e5873b74830a84787e6f32aef7f1",
+      "size_bytes": 8120
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_full_metrics.py",
+      "sha256": "3bafe03ae6915dd2bb48bda73c5254ecbb08123d8adedf2aa8864c3f6c9c2d1b",
+      "size_bytes": 6323
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_full_model.py",
+      "sha256": "54c8e0b5ad44a18e21d37666fba5013b0f5d959203ba832b0f0b563de63bb1a9",
+      "size_bytes": 9598
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_full_runtime.py",
+      "sha256": "f6860cf24730bd3349757aeffdd2818c88c7465a95cd7c3cea533f8ed84ad696",
+      "size_bytes": 17867
+    },
+    {
+      "path": "tests/test_hiergraph_full_data.py",
+      "sha256": "e2191e387a65d16467a5c49ff2d78500aa6f5b96e709dbb14141c196773a39cf",
+      "size_bytes": 14437
+    }
+  ]
+}

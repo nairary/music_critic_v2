@@ -1,5 +1,881 @@
 # Music Critic V2 Status
 
+## HIERGRAPH Linux CI verified for main — 30 октября 2026
+
+PR47 готов к запрошенному слиянию после исправлений CI. Полный Linux/Python3.13
+прогон на b997030 прошёл: **7030 passed, 66 skipped, 1991 subtests passed**;
+compileall также успешен. Run40967524048, CI-relevant fingerprint
+190de94fd10ebf6d01203b82c53922dd52fc19310af103ccdb01c7689a2a8d9b.
+Локальная широкая регрессия: 264 passed, 2 hardware skips, 109 subtests;
+полный локальный прогон прерван для диагноза отличий reference environment,
+его нельзя считать успешным. Исторические fingerprint assertions не ослаблены.
+Ни условия завершённого обучения, ни terminal records не изменены.
+[Подтверждение и ограничения](workstreams/2026-10-30/hiergraph-merge/verification.md).
+Актуальный статус merge и его SHA: [PR47](https://github.com/nairary/music_critic_v2/pull/47).
+
+## HIERGRAPH main integration: CI repair — 30 октября 2026
+
+Пользователь запросил merge PR47 в main. Исходный f62bfb6 получил failed Linux CI:
+2 audit failures и 335 каскадных teardown errors. Direct CUDA resets четырёх
+новых runtime/gate путей переведены на общий lifecycle с конкретным device;
+тест backend descriptors больше не ломает monkeypatch undo. Аудит импортов
+разрешает Torch только двум opt-in relation-probe модулям; public/data imports
+отдельно проверяются без тяжёлых зависимостей. Научные результаты и terminal
+records не менялись; JSON tuple finalization и directed coverage остаются
+открытыми задачами. Локально 264 passed, 2 hardware skips, 109 subtests;
+Standards/Spec review blockers отсутствуют. Полный Linux CI и merge ожидаются.
+[Диагноз и проверки](workstreams/2026-10-30/hiergraph-merge/verification.md).
+
+## HIERGRAPH publication review — 29 октября 2026
+
+Подготовлена отдельная ветка `codex/hiergraph-full-e3-20261029` от опубликованного
+main645922d. Включены код полного E3 baseline и его зависимостей, тесты,
+конфигурации и компактная история экспериментов; данные и веса исключены.
+Основной checkout и исследовательский WIP не изменены. Независимые Standards
+и Spec review не нашли блокирующих замечаний. Проверки: 551 passed, 1 CUDA-only
+skip, 367 subtests; 549 canonical records valid. Полный Linux CI ещё не проверен
+для этой ветки. Неисправленная ошибка JSON-финализации и нулевое покрытие
+направленных связей явно сохранены в отчёте.
+[Состав и проверки](workstreams/2026-10-29/hiergraph-publication/verification.md).
+
+## Full HIERGRAPH terminal review —29октября2026,21:46МСК
+
+Compute completed500/500/0skipped,wall5ч26мин,seed17;selected50(51.648%selectionH).
+Parent EXP-HIERGRAPH-FULL-E3-S17-001 immutablefailed:registry sealing rejected
+in-memory tuple metric pairs after result.json/dev persistence. REVIEW-001completed;
+compact SHA/size,fingerprint,counts/exposure/selected consistency verified.
+Dev family-macro:H43.057%(pooled1839/11212),jointH+F13.525%,h10.337%,P72.807%,
+PtypeF1conditional17.125%,participantsrecall9.312%;directedrelations0/3638scored,
+Recall@1/5=0. Coverage failure,not an intrinsic relation-head accuracy estimate.
+
+All5weights retainedremote,existence/size checked,no local byteverification.
+Warnings:allocator allocation retry seen;fatal recordedcauseisJSONtuple. No rerun,
+model reload or corpus read. Primarytrainingfailed1/aborted0;computecompleted1.
+Source002unchanged;automationdeleted afterterminal. Nextfix:terminalJSONnormalization
+and candidate/address coverage diagnostic. Weaklabels,exploratorydevinsideTRAIN,
+TESTclosed;old80kwindowsnotmatchedcomparison. [Final report](experiments/HIERGRAPH_FULL_20261029_RU.md).
+
+
+## Full HIERGRAPH performance diagnostic —29октября2026
+
+PERF-001/002 completed без изменения running source002:120s/61sample,
+GPUmean6.46%,CPU≈100% одного логического CPU,reads0;parent на110completedupdates.
+Отдельная CPU-подготовка того жеwork038:3.42s безmetadata init(4.05s total),
+0model/GPU/optimizer executions. Поэтому prefetch полезен,но не объясняет всю
+≥120s CPU-active паузу. Matcher и per-node relation CUDA/autograd —кодовые
+кандидаты,точная attribution и общий speedup пока неизвестны. Parent позже
+115applied/0skipped,selection10/50/100completed. Новых training runs нет.
+[Measured scope и приоритеты](experiments/HIERGRAPH_FULL_PERF_20261029_RU.md).
+
+
+## Full HIERGRAPH E3 training started —29 октября2026,15:34МСК
+
+EXP-HIERGRAPH-FULL-E3-S17-001 running: подтверждены10 applied/10 attempted/0skipped,
+268.33s. Первый full baseline500 whole-work updates,seed17,cap12h,selection
+10/50/100/250/500. C3 frozen,E3 weight-only40k warmstart+новые H/h/P feedback
+modules,49 eligible fields. Fit43/selection10/dev13 внутриglobalTRAIN;
+work044 исключён целиком как incomplete core,исходный fit44 vocabulary сохранён.
+TEST закрыт,weaklabels,pretraining overlap unknown; качества пока нет.
+
+PREPAREcompleted; GATE001completed; GATE002failed h_capacity сохранён;
+GATE003completed на small/median/largest:2.55/12.65/45.56s,peak1.28/6.81/17.83GiB,
+0optimizerupdates. Финальный budget4H pernote×2slots,relationsnear4/far4,maxH6144.
+Whole-work large matching теперь float64 tensor Hungarian; small exactFraction,
+secondarynear-ties могут отличаться; старые80k windowsteps несопоставимы.
+340tests passed/1CUDA skip/118subtests; focused review41tests+250paritychecks.
+Source002/отдельный campaign001,PID1503196,harddeadline12h; hourly monitor max14,
+без новых runs/LLM API/корпуса. Original/legacy/commit/push не затронуты.
+[Live protocol и gate measurements](experiments/HIERGRAPH_FULL_20261029_RU.md).
+
+
+## Full HIERGRAPH E3 baseline implemented — 29 октября 2026
+
+В isolated harmonic-event-pilot реализована whole-piece модель H/h/P: frozen C3,
+trainable E3, отдельные глобальные H/P, контексты и роли нот, участники процессов,
+направленные связи, soft property feedback, обратные сообщения к H/h/нотам и
+уточнение границ с пересборкой участия. Нормальный forward не принимает targets;
+новый MIDI/canonical JSON анализируется без разметки. Добавлены V3 consumer,
+masked losses/metrics, fit/selection/dev runtime, exact checkpoint API, E3 weight
+warmstart и зарегистрированные gate/train/infer CLI. NBFNet/Query2box отложены.
+
+Final native CPU regression: **337 passed, 1 CUDA-only skipped, 118 subtests
+passed**, одно existing TorchScript warning. Standards и Spec reviews закрыты
+после исправления exact anchor ownership, provenance/checkpoint/vocabulary,
+MIDI и capacity ошибок. Registry check541valid. Это engineering evidence;
+real-data/GPU full-model run, training и quality evaluation не выполнялись.
+
+Перед кампанией нужен зарегистрированный native resource gate и проверка
+полноты whole-work cache (известное core exclusion work044 в cache004).
+Шаблоны prepared:false; прежние 80k updates были локальными окнами и не дают
+оценки времени/экспозиции whole-work training. Singleton relation candidates,
+неподдержанные адреса/точечная геометрия и бюджеты явно отражаются в coverage.
+Исходный checkout, terminal records, legacy, commit/push не затронуты этой задачей.
+
+[Архитектура, задачи, ограничения и следующий запуск](workstreams/2026-10-29/hiergraph-full/implementation.md),
+[spec](workstreams/2026-10-29/hiergraph-full/spec.md),
+[независимые проверки](workstreams/2026-10-29/hiergraph-full/review.md).
+
+
+## HIERGRAPH curve audit —29 октября2026
+
+CURVE-REVIEW-001completed: E1/E2 late selection nearplateau; E3 loses7.23pp from40kpeak,E4 loses23.29pp from2kpeak; E5 drops early then recovers,final2.60pp belowpeak. All five trainlosses decline; no causal overfit/collapse proof. Five exposurechains and compact selection digests verified; plots retained ignored. No GPU/inference/corpus/newruns. [Curves](experiments/HIERGRAPH_80K_20261029_RU.md).
+
+## HIERGRAPH80k completed —29 октября2026,11:15МСК
+
+E1–E5/seed17 все completed,exit0,80000applied каждый;400000total,wall10.62h,failed/aborted0. Selected updates40k/80k/40k/2k/2k. Dev family-macroH E1–E5:0.4643/0.3652/0.4915/0.3463/0.3206; jointH+F0.1523/0.1754/0.1667/0.1345/0.1346. E3 leads H,E2 joint; descriptive one-seed differentselectedupdate/support comparison. Exposure hashes match all five at seven common applied milestones. Compact bytes,available artifact digests,six fingerprints verified; records terminal; REVIEW-001completed. Weights remote without local verification. Weaklabels,frozenC3,exploratorydev withinglobalTRAIN,TESTclosed,pretrainingoverlapunknown. Monitor alreadyPAUSED; no new runs/protocolchanges. [Final report](experiments/HIERGRAPH_80K_20261029_RU.md).
+
+
+## HIERGRAPH80k: E2 completed, E3 running —29 октября,05:44МСК
+
+E2/seed17 completed80000 applied/86967attempted/6967skipped,6834.031s; selected80k. Dev macroH0.3652,jointH+F0.1754,conditionalF0.2253(11families). E1 selected40k gives0.4643/0.1523/0.1640(12families); different selectedupdates/support, descriptive only. Exposure hashes match all seven common checkpoints. E3 active17784applied, E4/E5planned,failed/aborted0; supervisor/worker alive. Compact bytes/records verified in monitor005,weights remote,REVIEW-001running. Weaklabels,exploratorydev insideglobalTRAIN,TESTclosed,pretrainingoverlapunknown. Conditions unchanged. [Report](experiments/HIERGRAPH_80K_20261029_RU.md).
+
+
+
+## Interim E1/E2 best40k comparison —29 октября2026
+
+Matched exposure40k/43462draws, same selection. E1 macroH37.03% vs E2 31.87%;
+jointH+F19.65% vs13.07%. PooledH reverses: E1 18.10%(1422/7855),E2 39.34%
+(3090/7855), largely two dense families holding70.25% of labels. ConditionalF
+0.256vs0.429 uses7vs5families/different recoveredH; no intrinsicF advantage claim.
+E2 remainsrunning, finalcomparisonpending. INTERIM-REVIEW-001 completed,
+no training/protocol changes. [Сравнение](experiments/HIERGRAPH_80K_20261029_RU.md).
+
+
+## E1 detail review —29 октября2026
+
+Retained metrics/loss проанализированы без GPU или corpus. E1 selected40k: dev
+H macro0.4643,pooled0.2644; conditional coreF1 0.599,root0.477,inversion0.333,
+function0.164. Support по heads различается;extension9 имеет лишь10labels одного
+класса. Train loss снижается,selectionH колеблется;causal overfit не доказан.
+DETAIL-REVIEW-001 completed; no training/protocol changes.
+[Разбор](workstreams/2026-10-29/hiergraph-80k/e1-results.md).
+
+
+## HIERGRAPH80k: E1 completed, E2 running —29 октября,03:41МСК
+
+E1/seed17 завершён:80000 applied,86967 attempted,6967 skipped,10099.474s
+(около2ч48мин). Dev на selected40k: family-macro known-H recovery0.4643,
+jointH+F0.1523,conditionalF macroF1 0.1640. H support13families,F12.
+E2 запущен supervisor; сохранён snapshot 10462 applied.
+E3–E5 planned. Failed/aborted0. Exposure E1/E2 совпали на retained common
+applied checkpoints [2000, 5000, 10000]. Compact bytes/fingerprints проверены, weights remote.
+REVIEW-001 running, финальное сравнение pending. Weak labels,exploratorydev
+внутриglobalTRAIN,TEST закрыт,pretrainingoverlapunknown. Условия не менялись.
+[Промежуточная таблица](experiments/HIERGRAPH_80K_20261029_RU.md).
+
+
+## HIERGRAPH E1–E5:80k кампания запущена —29 октября2026
+
+На RTX3090 запущена автономная последовательная очередь E1→E2→E3→E4→E5,seed17,
+по80000 **applied optimizer updates**. Parent EXP-HIERGRAPH-80K-CAMPAIGN-001 и
+EXP-HIERGRAPH-80K-E1-S17-001 running; E2–E5 planned. Проверенный initial snapshot:
+applied1812/attempted1948,skipped136.
+Первый запуск00:38МСК. Source006/campaign-80k001; прежние snapshot/plans не
+переписывались. FrozenC3/cache004/42heads/current67/split44/10/13/augmentationnone
+сохранены. Checkpoints по applied2/5/10/20/40/60/80k,drawcap160k,worker6h,
+campaign31h; это caps,а не прогноз. GlobalVALIDATION/TEST закрыты.
+
+Runner теперь отделяет targetapplied от attempted draws. Supervisor очищает
+process groups,передаёт GPUlock worker,сохраняет partialcounts и terminal records,
+продолжает остальные условия после отдельного сбоя,без implicit retry/resume.
+Local135passed/1CUDA-onlyskip; NativeLinux14passed; независимые Standards/Spec
+reviews прошли после исправлений. Heartbeat раз в час,max32,только actionable
+уведомления. Weak labels,exploratorydev,pretrainingoverlapunknown; качество пока
+не установлено. Основной checkout/legacy/commit/push не затрагивались.
+
+[Live campaign report](experiments/HIERGRAPH_80K_20261029_RU.md),
+[spec](workstreams/2026-10-29/hiergraph-80k/spec.md),
+[80kconfig](../configs/hiergraph_e1_e5_80k_20261029.json).
+
+
+## HIERGRAPH E1–E5: готово к первым пяти пилотам — 28 октября 2026
+
+В isolated harmonic-event-pilot реализованы пять H constructors, общий typed raw
+updater/H refiner и42 H/F heads, masks/matching/metrics, raw C3 cache и exact
+optimizer/RNG resume. Принятые15 annotation replacements спроецированы в те же67
+работ: split44/10/13,45 263H; source H/h geometry сохранена. Все67 представлены в
+финальном raw64 cache004,3256 окон,254.904 s. Один irregular raw core work044
+исключён явно. Fit:25 591 admitted H,598 outside-halo,7 raw-excluded; все26 196
+сохраняются в primary coverage accounting.
+
+125 local tests:124 passed/1 CUDA-only skip; отдельный CUDA test для всех5
+конструкторов passed, exact Adam tensor replay. Native gate001:5×3 real fit
+forward/backward, finite gradients,0 real optimizer updates;36.542 s. Independent
+Standards/Spec reviews и evidence review завершены. Реестр:531 valid records;
+ledger render/check passed. Три failed preparation
+attempts сохранены; исторический completed16-track cache003 не переписан.
+
+Пять EXP-HIERGRAPH-HFIRST-E*-S17-001 остаются **planned**, команды проверены на
+сервере; обучение **не запущено**. Первый protocol:seed17,≤2000 attempted steps,
+1800 s/условие, frozen C3, augmentation=none, common source/data/exposure,
+inner-selection checkpoint choice. TEST закрыт; weak labels, exploratory dev
+внутри globalTRAIN, raw pretraining overlap unknown. P/h/f, feedback, NBFNet,
+Query2box и transposition ablation остаются следующими slices, не этим результатом.
+
+[Отчёт и measured admission](workstreams/2026-10-28/hiergraph-launch-preparation/readiness.md),
+[spec](workstreams/2026-10-28/hiergraph-launch-preparation/spec.md),
+[review](workstreams/2026-10-28/hiergraph-launch-preparation/review.md),
+[launch plan](../configs/hiergraph_e1_e5_launch_20261028.json).
+Основной checkout для GitHub release не менялся; legacy/commit/push0.
+
+## Доразметка TRAIN/fit — принятая release003,28 октября2026
+
+Закрыта текущая кампания:15 произведений с принятыми native версиями,
+52 current67 works без изменений. Available fields 309 503 →
+323 062, net+13 559; 45 новых объектов,
+547 связей; 19442 неподтверждённых меток снято.
+Значительная часть прироста — историческая разметка, сейчас проверенная и
+интегрированная. Последние четыре параллельных потока отдельно дали624 новых
+доступных поля/87 связей. 734 145 native numeric assertions
+прошли,OOV0. Общие97-полевые HIERGRAPH V3 tensors пока не пересозданы.
+
+WORK061 R2/R3,WORK043 R2,WORK032 R1/R2,WORK050 R1 приняты. Negative reviews,
+failed accounting/checker attempts и предыдущие releases001/002 сохранены.
+Новых unique families0, split44/10/13 неизменен, TEST закрыт. Full-work review
+complete у2 работ, strict complete0; weak labels, не gold/quality gain.
+
+Обнаружен account rollover78%→4%used с изменением reset epoch; после этого
+новые авторские проходы не открывались. Четыре потока означают root+три workers;
+фактический backend root неизвестен. GPU/API/new paid resources/legacy/commit/push0.
+Основной checkout не редактировался. [Отчёт](experiments/HIERGRAPH_ANNOTATION_EXPANSION_20261028_RU.md),
+[протокол](workstreams/2026-10-28/annotation-expansion/spec.md).
+Следующий шаг: новый evidence-bound экспорт accepted overlay в общие HIERGRAPH
+V3 targets без изменения split/masks, затем следующие ограниченные авторские
+проходы из оставшейся fit очереди при отдельном запросе.
+
+## Интервальный HIERGRAPH V3: экспорт завершён — 27 октября 2026
+
+`EXP-HIERGRAPH-INTERVAL-EXPORT-001` completed. Новый converter/export добавляет
+37 scoped fields (всего97), сохраняя те же67 TRAIN works и split44fit/10selection/
+13dev. [Отчёт](experiments/HIERGRAPH_INTERVAL_EXPORT_20261027_RU.md),
+[контракт](workstreams/2026-10-27/hierarchical-graph-analyzer/factorized-chord-targets.md).
+
+- Интервалы интерпретированного аккорда:10 309H/45families;6 994 полных набора12bins.
+- Полный наблюдаемый состав:11 096H/10families; root+relative composition:3 212H/10.
+- 47/97 fields проходят минимальный fit-support gate, включая31 новых; это
+  техническая доступность losses, не гарантия качества или достаточности данных.
+- Все134 artifact bindings и67 numeric arrays проверены. Сохранены45 263H,
+  274 936h,10 566objects;4 153 825 прежних field envelopes/mappings и21 718relations
+  семантически совпали сV2, исключая только projection-version metadata.
+- Все35 746 старых positive PC labels сохранены; octave parser добавил46 353.
+  Все7 949 audited observed sets и65 literal roots/12bins совпали;7 884 unknown
+  roots остались masked. Новые observed labels не равны chord membership.
+
+Synthetic tests174:172 passed,2 optional-dependency skips. Independent Standards
+и Spec review пройдены; проверка первичных artifacts/parity завершена. CPU export
+894.463s, peak4.734GiB; numeric verification29.316s, parity128.887s.
+Training/GPU/LLM API0; failed/aborted0. Источники и terminal V2 evidence неизменны;
+исходный release не редактировался. Legacy не использовался, dependencies/commit/
+push нет. Weak source/LLM labels, exploratory dev, unknown raw pretraining overlap;
+TEST закрыт. Observed composition частично детерминирована oracleH/MIDI: покрытие
+не доказывает гармоническое понимание. h degree frame остаётся unadmitted.
+
+Изменены pure interval helper, projection integration, exporter version gates,
+их tests, contract/DATA_CONTRACT/ARCHITECTURE/DECISIONS/STATUS и новый report/record/
+ledger. Следующий этап: native runtime и общая графовая модель с пятьюH constructors;
+отдельно oracle-H/predicted-H evaluation. Display-name renderer, augmentation и
+TODO HIERGRAPH-ENHARMONIC-001 остаются последующими задачами.
+
+## Проверен смысл sonority.tones — 27 октября 2026
+
+[SONORITY-SCOPE-002 completed](experiments/HIERGRAPH_SONORITY_SCOPE_20261027_RU.md):
+27 исходных файлов (964 308 434 bytes), 9 works, 7 949 H проверены по SHA/size
+и exact geometry. Все tones/source IDs совпадают с активными MIDI нотами.
+7 150 literal_key_collection — нажатые клавиши, не гаммы: прежняя догадка
+исправлена. Из 799 trumpet-созвучий 65 имеют scoped literal root; всего
+7 884 выбранных H без размеченного root. Известная тональность не заменяет root.
+
+Сохранены три конкретных примера, построчные проверки и независимый review:
+pass в заявленных границах. Synthetic tests 10/10 passed; GPU/training/LLM API0.
+001 failed сохранён: диагностический код сначала проверял split вместо
+current_split. Новая попытка002 проверила canonical train и current_split=train.
+Global TEST/VALIDATION закрыты; исходный release и старые terminal artifacts
+не менялись. Legacy не использовался; commit/push нет.
+
+Обновлены report, contract, DATA_CONTRACT, DECISIONS, STATUS и registry/ledger.
+Следующий шаг — scoped root extraction и отдельная интервальная проекция,
+затем новый зарегистрированный export; текущие модель и export не изменены.
+
+## Выбрано производное название аккорда — 27 октября 2026
+
+Пользователь делегировал точный нейминг: будущий renderer строит имя из
+поддержанных факторов, сохраняет authored имя и использует root+intervals
+при неоднозначности. [Решение](workstreams/2026-10-27/hierarchical-graph-analyzer/factorized-chord-targets.md#производное-название-аккорда--решение-2026-10-27)
+уточняет, что название списка само по себе не доказывает неверную разметку.
+Существующий AUDIT-002 inventory проверен по зарегистрированным SHA/size;
+нового corpus scan или пересчёта покрытия не было. Изменены три документа;
+код, экспорт, terminal records и original release сохранены. Legacy и новые
+runs не использовались; commit/push нет. Следующий шаг — source-specific
+проверка смысла и полноты перед новой интервальной проекцией.
+
+## Записано упрощение интервального состава — 27 октября 2026
+
+По просьбе пользователя зафиксирована временная энгармоническая эквивалентность
+для будущей coarse цели `(tone_pc - root_pc) % 12`, с сохранением исходного
+написания. TODO HIERGRAPH-ENHARMONIC-001 напоминает вернуть точные ступени при
+переходе к соответствующим задачам. [Контракт](workstreams/2026-10-27/hierarchical-graph-analyzer/factorized-chord-targets.md#уточнение-следующего-этапа-интервальный-состав--2026-10-27)
+разделяет состав аккорда, гамму и звучащее окно; имя аккорда не блокирует
+интервальную цель. Полный admitted состав допускает 0/1, частичный —
+positive/unknown; ноль не означает авторский omit/no.
+
+Изменены только четыре документа: contract, DATA_CONTRACT, DECISIONS, STATUS.
+Проверены все 3 новые ссылки/якоря, сохранение прежнего текста в 4 файлах
+и git diff --check; независимый review пройден. Implementation tests не
+запускались: изменена только документация.
+Код/корпус/экспорт/terminal records/ledger и исходный release не менялись;
+legacy не использовался, commit/push и новые runs отсутствуют. Следующий
+шаг — source-specific admission и реализация отдельной интервальной цели.
+
+## Factorized HIERGRAPH export completed — 2026-10-27
+
+`EXP-HIERGRAPH-FACTOR-EXPORT-001` completed: all67 admitted TRAIN works exported,
+44 fit/10 selection/13 dev with prior family assignments preserved. The source-bound
+V2 converter separates core/seventh/extensions/additions/alterations/omissions and
+bass/inversion, while preserving45,263 H and274,936 h and their exact source IDs,
+views and geometry. [Contract](workstreams/2026-10-27/hierarchical-graph-analyzer/factorized-chord-targets.md);
+[immutable report](experiments/HIERGRAPH_FACTOR_EXPORT_20261027_RU.md).
+
+60 fields exported;16 pass a minimal fit-support eligibility gate,44 deferred.
+Core:12,509 H/58 families; seventh:1,973/34. Most extended factors remain sparse or
+positive-only; bass has only22 events. Author-declared note degrees remain masked
+because their major-reference convention is unverified. Partial/weak labels,
+exploratory downstream dev and unknown raw pretraining overlap remain explicit.
+
+Verification: all134 target artifact SHA/size bindings and all67 numerical JSONs
+checked for identity, geometry counts, masks and vocabulary bounds. Synthetic
+checks135 total:133 passed,2 skipped. Independent Spec/Standards findings fixed
+and rechecked. Normal pure imports work through the lazy184-export tasks facade;
+Torch/PyG/mido tensor integration remains untested, no dependencies installed.
+
+CPU wall663.663s; peak process-group RSS3.442GiB under6GiB; outputs129,188,391bytes
+in ignored outputs/hiergraph_factorized_20261027/attempt001. Failed/aborted0;
+training/GPU/LLM API0. Global VALIDATION/TEST closed; source release and terminal
+history unchanged. No stage/commit/push. Next: shared graph/candidate/matcher/head
+mechanics and a separate native gate before five H-constructor pilots.
+
+## Реализован consumer проекций HIERGRAPH v0 — 27 октября 2026
+
+[Реализация и ограничения](workstreams/2026-10-27/hierarchical-graph-analyzer/projection-implementation.md):
+новый `tasks/hiergraph_projection.py` использует T07/event и whole-work encoders,
+сохраняет source/raw/provenance и строит independent component masks. Поддержаны
+finite F/f/P categories, literal key/explicit tonic/mode, structured root/quality/
+bass, basic inversion с cardinality check, positive-only authored PC evidence и
+spelled/compound degrees при явно admitted reference frame. Roman, local voice
+IDs, free descriptions и неподдержанные схемы остаются preserved/deferred.
+Никакой функции из I/iii/vi не выводится.
+
+Fit vocabulary требует explicit downstream families/split fingerprint и sealed
+active/coarsening fields. Он deterministic/self-fingerprinted; unseen-in-fit,
+новые event fields, OOV, coarsening exclusions и deferred paths видимы отдельно.
+`projection_field_manifest()` одинаков для всех пяти H constructors. Их neural
+integration и настоящий training export ещё не выполнены. Primitive extraction
+переиспользует прежние common/dense значения; source schemas/records/exports
+не мигрировали. Legacy checkout не читался; исходный release не изменён.
+
+Проверки: новый unittest suite — 41 tests, 40 passed + 1 skipped; census —
+23 passed; supervision stream — 11 passed. Native/full tasks facade и regular
+encoding-policy integration не проверены: в локальном Python нет существующих
+pytest/Torch/PyG, integration test явно skipped. Реальные leaf APIs тестируются
+без fake dependencies; новых пакетов нет. Независимые Standards/Spec reviews
+использованы для исправления masked priority, namespace collision, неверного
+information loss, inversion cardinality и nested conflicts. Финальные verdicts:
+Spec pass; Standards без actionable findings. Registry: 453 valid records,
+ledger render --check valid; новых records и перезаписи ledger нет.
+
+Canonical AUDIT-002 completed и retained inventory binding (382611 bytes,
+a6804983…) сверены без нового corpus scan; terminal evidence неизменны.
+Следующий шаг: approved family split/source conventions/active manifest,
+затем зарегистрированный bounded TRAIN preparation/export и native admission.
+Global TRAIN не объявлен fit; VALIDATION/TEST, training/GPU/LLM API не открывались;
+stage/commit/push не выполнялись.
+
+## Закреплён выходной словарь HIERGRAPH v0 — 27 октября 2026
+
+[Контракт словаря](workstreams/2026-10-27/hierarchical-graph-analyzer/output-vocabulary.md)
+разделяет исходную разметку, model-facing projection и frozen numerical vocabulary
+внутреннего fit split. Заданы scoped поля H/F/h/f/P/p; сохранены7 F,13 temporal_role,
+9 voice_role и12 P.process без слияния редких классов. Составные key/sonority/degree
+переиспользуют existing common/dense semantics; unsupported/Roman остаются
+сохранёнными и deferred. Это начальная онтология, не готовый обучающий export.
+
+Канонический AUDIT-002 и retained class-inventory (382611bytes, SHA a6804983…)
+проверены без нового чтения корпуса. Обновлены DATA_CONTRACT, DECISIONS и campaign.
+Нужны явные mapping rules/parsers, synthetic tests и отдельно зарегистрированный
+export с family split и post-projection support. Реализационный код не изменён;
+проверки этого шага — finite-class parity, ссылки и согласованность документов.
+Training/inference/GPU/TEST/LLM API/legacy/commit/push не использовались;
+original release checkout и terminal evidence сохранены без изменений.
+
+## В план включены все пять способов построения H — 27 октября 2026
+
+[AutoSchA и E5 graph-assignment pooling](research/AUTOSCHA_HIERARCHICAL_POOLING_PILOT_20261027_RU.md)
+сопоставлены с первичной статьёй, приложением авторов и текущими supervision
+contracts. E1 bank, E2 segmentation, E3 anchor-free, E4 event queries и E5
+assignment pooling входят в общий план: сначала пять mechanics/pilot условий,
+затем paired seeds17/42/73 при зафиксированном бюджете. Обновлены campaign и
+DECISIONS; раньше предложенный сокращённый subset больше не целевой состав.
+
+E5 создаёт H states через S, отдельно предсказывает границы и сохраняет raw
+notes; S не является gold семантическим участием или глубиной редукции.
+F — общая masked голова, P/feedback/coarse-edge effects — последующие отдельные
+контрасты. При partial labels primary предложен как known-H recovery при
+raw-duration output budget; unmatched не становится negative.
+
+Это документационный план: новых моделей, corpus reads, training/inference,
+GPU/TEST/LLM API, records/ledger или commit/push нет. Проверены ссылки и
+согласованность ограничений; implementation tests не запускались без изменения
+кода. Legacy и original release checkout не менялись. Следующий шаг — общий
+consumer/output/matching contract и реализация пяти constructors с тестами.
+
+## Проверены GitHub adapters и альтернативы построения H — 27 октября 2026
+
+[Статический аудит и варианты detector](research/H_EVENT_DISCOVERY_AND_ADAPTER_REUSE_20261027_RU.md)
+сверены с remote main645922d через GitHub API/ls-remote и committed code. Общие
+CanonicalPiece/TargetBundle, IndexedMultiSourceDataset, dense h intervals,
+enrichment/relation/object numeric targets и raw time helpers уже существуют.
+Нужна их композиция с model outputs/matching/loss, без нового универсального адаптера.
+Fixed-window H — контроль, его оптимальность не установлена; для сравнения предложены
+boundary head и learned H-queries. Query2box остаётся возможным способом описать
+множество участников/ответов, не самостоятельным temporal detector.
+
+Найдено ограничение audit anchor metric: метрические концы хранятся как start+duration,
+а счётчик искал end_qn. Исторические91.8% не являются проверенным покрытием существующего
+raw helper. Счётчик исправлен с regression test; новые корпусные метрики не вычислялись,
+terminal evidence не переписаны. Проверки исправления приведены в исследовательской
+заметке:23 census +11 stream tests passed,0skipped. Corpus/training/GPU/TEST/legacy/commit/push не использовались; original release
+checkout не менялся. Следующий шаг — узкий supervision consumer и протокол сравнения
+H decoders с явной обработкой неполных targets.
+
+
+## Проверена супервизия current67 для HIERGRAPH — 27 октября 2026
+
+[Паспорт H/h/F/f/P/p](experiments/HIERGRAPH_SUPERVISION_20261027_RU.md):
+67 works/families, 174123 raw notes, 45263 H, 274936 h, 2335 P. Проверены201
+SHA/size bindings и совпадение31 опубликованного field-state счётчика.
+F известна у11809 H; temporal_role у74587 h, voice_role у136181; P.process у1872
+в61works. Валидные resolves_to9270 / prepares6531. Есть совместные targets:
+81291 h membership+F, 634 P с h-участниками, 930 P с explicit H и известной F.
+
+До trainer нужны нормализация sonority/Roman/local voice IDs, joint class support,
+negative scopes и raw candidate recall. У H нет явного participant scope в
+проверенных структурных полях; 960 h занимают подинтервал note×H. Attack-only anchors
+покрывают61.6% начал H, расширенные raw anchors обе границы91.8%. Uniform P participant
+roles не установлены. Это weak label availability, не human correctness или
+доказательство достаточности данных. S1 availability завершён, training export/split
+ещё не подготовлены; общая архитектура и defaults не меняются.
+
+EXP-HIERGRAPH-SUPERVISION-AUDIT-001 failed после66works из-за слишком строгой
+собственной проверки nullable canonical split; original bytes сохранены.
+AUDIT-002 повторил тот же admission с подтверждённой current-TRAIN authority:
+67/67, exit0,153.78s, 31 synthetic tests passed,0skipped; независимый claim review.
+Source/parser/tests, отчёт, campaign, records и ledger обновлены только в isolated
+worktree. GPU/training/inference/LLM API/VALIDATION/TEST/commit/push нет; legacy
+не использована, original release не редактировался. Следующий этап — target adapter
+и сопоставление raw candidates с поддержанными targets.
+
+
+## Оформлен план кампании HIERGRAPH-20261027 — 27 октября 2026
+
+Создан [план многоуровневого графового анализатора](workstreams/2026-10-27/hierarchical-graph-analyzer/campaign.md):
+словарь n/h/H/P/p/F/f, прямые h↔P и H↔P, recurrent typed updates,
+raw H/P candidates и whole-piece scope. Зафиксированы задачи, известные границы
+supervision, этапы S0–S8, A/B/C и отдельный C+soft(F/f/P), следующие live-C3,
+NBF и Query2box сравнения. Числовые run budgets/primary endpoint закрываются
+до соответствующих запусков; текущий шаг — документационное планирование.
+
+Направление отражено в DECISIONS; production defaults и schema не меняются.
+Проверены локальные ссылки, сохранение старого текста и независимая содержательная
+проверка; implementation tests не запускались без изменения кода. Remote main
+645922d подтверждён через ls-remote; PR46 merged, release CI success, open PR0.
+Original release checkout не изменён; worktree остаётся detached с накопленным
+WIP. Новый campaign.md local/uncommitted. Corpus/legacy/records/ledger не менялись;
+новых training/inference, GPU, LLM API, commit/push нет. Следующий шаг — task
+passport и implementation contract; Git reconciliation остаётся отдельной работой.
+
+## Уточнены связи P с H/h и задачи общей модели — 27 октября 2026
+
+В [архитектурное предложение](research/HIERARCHICAL_GRAPH_REASONER_CHOICE_20261027_RU.md)
+добавлены явные H↔P и h↔P, различение observed n / contextual h / inferred H/P,
+p как адресного ребра и F/f как контекстных свойств. Предсказанные soft F/f/P
+между кругами — отдельная абляция относительно hidden-only. Зафиксированы
+задачи границ, свойств, участников, ролей и адресатов, raw candidate limits,
+known-negative masks, scope/view правила и различие latent P / supervised P.
+
+Это уточнение целевой схемы, не production migration или новый результат.
+Изменены только report/STATUS; сохранён прежний текст. Проверены вставка и
+локальные ссылки; implementation tests не требуются без изменения кода.
+Corpus/model/legacy/records и original release не менялись; новых запусков,
+API вызовов к LLM, commit/push нет. Следующий этап — task/candidate spec.
+
+## Выбран кандидат для проверки графовой иерархии — 27 октября 2026
+
+[Исследование кода, Stanford CS224W и архитектур](research/HIERARCHICAL_GRAPH_REASONER_CHOICE_20261027_RU.md)
+рекомендует небольшой recurrent updater с HGT-подобным типизированным вниманием,
+сохранением note/h/H/P states и обратным обменом между уровнями. C3 уже содержит
+иерархию; ограничение текущего H/member — frozen features, oracle H, локальные tiles
+и отсутствие обучаемого whole-piece H/P пути. Oversquashing не объявляется доказанным.
+
+Предложены общие raw candidates и A/B/C сравнение с одинаковым контекстом:
+feed-forward, repeated bottom-up, repeated bidirectional. После него отдельно
+проверяется live дообучение C3; NBF query decoder и Query2box не входят в начальный
+grid. Проверены code claims, links и согласованность; независимый code audit
+не нашёл блокеров. Это рекомендация, не принятая migration или результат модели.
+Изменены только report/STATUS; corpus/model/legacy/terminal records и original
+release не менялись. Новых training/inference/LLM API/paid resources/commit/push нет.
+
+
+## Направление общего музыкального анализатора — 27 октября 2026
+
+Подготовлено [предложение по целевому анализатору](research/STRUCTURED_MUSIC_ANALYZER_DIRECTION_20261027_RU.md):
+общие многоуровневые states и специализированные выходы структуры H,
+тональности/функции, ролей нот и адресных зависимостей. Raw H, whole-piece context,
+совместное обучение и online latency имеют отдельные проверки; NBF/Query2box
+остаются опциональными гипотезами. C3 уже имеет18theoryheads; H/member не
+проверяет всю программу. Ближайший предлагаемый шаг — task passport и небольшой
+shared-vs-separate comparison, без нового запуска в этом обсуждении.
+
+Сверены текущие контракты/план и первичные источники AnalysisGNN, AugmentedNet,
+GraphMuse, NBFNet и Query2box. Это proposal, не принятое архитектурное решение
+или новый результат качества. Изменены только заметка и этот STATUS;
+проверены локальные ссылки и вставка. Code/tests/корпус/checkpoints/legacy,
+original release и terminal records не изменялись; training/inference/API нет.
+
+
+## Ночная диагностика H/member завершена — 26 октября 2026
+
+Воспроизведена GPU-недетерминированность агрегации Graph; strict runtime устранил
+расхождения в коротком native gate. Добавлены opt-in strict runtime, exact/FPR10
+thresholds, weighted masked BCE, selected-selection/logit retention и clipping
+accounting. Финальный source:122 native tests passed,0skipped; Standards/Spec
+review и отдельный scientific claim audit пройдены.
+
+Все4контроля MLP/Graph×plain/balanced,seed17 выполнили фиксированные30k;
+120kupdates total,failed0,aborted0,wall17m45s. Schedule/known-pair exposure,
+coverage и initial metrics внутри пар совпали. Graph weighting: devAUROC
+0.9269→0.9599,FPR0.3929→0.3359,но F1 0.7704→0.7574 и selectionAUROC падает.
+При selectionFPR10 уGraph F1/recall растут вместе с devFPR; это tradeoff,
+не готовое исправление. MLP F1 ухудшился. Точный порог на12старых checkpoints
+тоже не дал mean devF1 improvement. Архитектурного/default promotion нет.
+
+[Полный отчёт: причины, все условия, controls, проверка и следующий шаг](experiments/HMEMBER_DIAGNOSIS_20261026_RU.md).
+Review `EXP-HMEMBER-DIAG-20261026-001`;4runtime fingerprints и12compactartifacts
+проверены.24weights+4predictions осталисьremote безlocalbyteverification.
+Own processes завершены;старыйheartbeat PAUSED. Remaining account limit80%
+при минимуме70%. Следующий gate — reviewed scope/negative support и перенос
+calibration;новогоавтозапуска нет. Original release/legacy не менялись,
+TEST закрыт,rawpretrainingoverlapunknown,commit/push нет.
+
+## H/member80k завершена и проверена — 26 октября 2026
+
+12/12 runs выполнили80000 applied updates (960000 total),failed=0,aborted=0;
+wall95min13s. Выбраны checkpoint20–60k; ни один80k. Heartbeat PAUSED после
+второй проверки, собственных активных процессов не найдено. Review
+`EXP-HMEMBER-80K-REVIEW-001`:12canonical records и36compact artifacts SHA/size
+проверены,2k/30k exposure prefixes и paired milestone schedules совпали.
+144weights+12predictions остались remote без локальной byteverification.
+
+Mean selected-dev AUROC:MLP0.9591 (30k:0.9667),TransE0.9630 (0.9626),
+self0.9558 (0.9331),graph0.9275 (0.9408). MacroF1:0.8070/0.8045/0.7825/0.7772;
+FPR≈28–40%. Это descriptive selected-checkpoint comparison, не matched updates.
+Graph numerical drift при одинаковой экспозиции достигает0.0203 selection AUROC
+в общих точках; причина не локализована. Автоматическое продление не обосновано.
+
+[Полный отчёт, seeds, curves, integrity и claim audit](experiments/HMEMBER_80K_20261026_RU.md).
+На80k каждыйseed видел80.2–80.7% из10860 известных train H; missing targets
+не negatives. Weak labels/oracleH,7mixed dev works внутриglobalTRAIN,TEST закрыт,
+raw pretraining overlap unknown. Новых corpus reads/training/inference не было;
+original release checkout и legacy не изменялись. Следующий gate — отдельно
+заданный operating-point/balance protocol и диагностика graph reproducibility.
+
+## H/member duration campaign завершена — 25 октября 2026
+
+Все12runs выполнили30k (360k updates суммарно),failed=0,aborted=0;
+wall42min12s. Автоматизация приостановлена после первой проверки, own processes
+не найдены.12canonical runtime records,36compact artifact SHA/size и parity
+result/progress/curves проверены. Review `EXP-HMEMBER-LONG-REVIEW-001`.
+
+Долгое обучение помогло:mean selected dev AUROC MLP0.9667 (было0.8938),
+TransE0.9626 (0.8462),self0.9331 (0.8666),graph0.9408 (0.8909).
+MacroF1 соответственно0.8086/0.7926/0.7584/0.7768. FPR остаётся≈30–38%.
+Все дошли до30k, но selection выбрал30k в10runs и20k в2; selected dev не
+является matched-update comparison. Prefix2k schedules совпали; у Graph
+небольшой численный дрейф2k AUROC, причина не локализована.
+
+[Полные learning curves, seeds, support и claims](experiments/HMEMBER_LONG_20261025_RU.md).
+Weak labels, oracle H,7mixed dev families внутриglobalTRAIN; TEST закрыт,
+raw pretraining overlap unknown. Новых запусков/корпусных reads/model inference
+нет, original release checkout не изменялся. Следующий вопрос — отдельная
+проверка балансировки/operating point; default architecture не меняется.
+
+
+## H/member learning curves до30k — запущены, 25 октября 2026
+
+По явному запросу пользователя запущена новая изолированная duration campaign:
+те же4heads×3seeds,30 000updates, selection-only оценки2/5/10/20/30k; dev
+единственный раз на выбранных поselection AUROC весах. C3/cache/loss/sampler
+и баланс классов сохранены. Fresh initialization и continuous Adam; старые
+model-only checkpoints не выдаются за optimizer resume.
+
+81native test passed, Standards/Spec review закрыт.12новых planned records
+`EXP-HMEMBER-LONG-*`; supervisor cap4h, worker890s/outer900s/cleanup10s.
+Старт19:08:34UTC (22:08:34МСК), первыйMLP seed17 уже прошёл2k и воспроизвёл
+selection AUROC0.90514 короткого опыта. В launch snapshot достиг22 010updates,
+selection points2/5/10/20k сохранены. [Protocol/status](experiments/HMEMBER_LONG_20261025_RU.md).
+Контрольhourly,max4. Original release checkout и legacy не изменялись; TEST
+закрыт. Следующий этап — завершение learning curves и отдельный evidence review.
+
+## H/member campaign001 завершена — 25 октября 2026
+
+Все12условий (4heads×3seeds) выполнили2000updates; failed=0,aborted=0.
+Supervisor wall775.79s, включая gate/cache244.85s. Проверка1/4:автоматизация
+приостановлена, живых процессов этой кампании не найдено.13runtime records
+валидированы,13compact artifact SHA/size и cache binding сверены; terminal
+records сохранены. Review: `EXP-HMEMBER-REVIEW-001`.
+
+Graph улучшает self-only AUROC на каждом seed (+0.0141/+0.0301/+0.0289),
+но MLP остаётся сопоставимым и быстрее:mean AUROC0.8938 противGraph0.8909,
+macroF1 0.7158 против0.7004. Graph FPR0.508:nonmember errors ещё существенны.
+Это descriptive weak-label/oracle-H result на596mixed H из7families;
+exploratory dev внутриglobalTRAIN, TEST закрыт, raw pretraining overlap unknown.
+Default architecture не меняется. [Таблицы и claim boundaries](experiments/HMEMBER_20261025_RU.md).
+
+Новых training/inference/corpus reads, commits/push не было. Изменены только
+isolated records/ledger/STATUS/report и ignored compact evidence. Original
+GitHub release checkout не затрагивался. Следующий шаг — отдельный протокол
+проверки устойчивости MLP/self/graph; в этой проверке ничего не запущено.
+
+
+## T08/A oracle-H/member — изолированная реализация, 25 октября 2026
+
+Пользователь разрешил код, тесты и попытку обучения на RTX3090 отдельно от
+параллельного GitHub release. Реализуются frozen-C3 cache, четыре query heads,
+строгие membership masks, family selection, метрики и bounded supervisor.
+Подготовка64works завершена:42train/10selection/12dev внутри global TRAIN;
+5 094mixed H до raw-grid/tile exclusions. См. [паспорт](experiments/HMEMBER_20261025_RU.md)
+и `EXP-HMEMBER-PREPARE-001`. Все73native tests прошли без skips; независимый
+Standards/Spec review закрыт. Supervisor реально запущен25.10 12:54:57UTC;
+native gate завершён за244.85s. C3 cache содержит41 633H; mixed H
+train/selection/dev=3330/765/596. Общий бюджет2 000updates/condition выбран
+по timing доdev quality. В сохранённом snapshot завершены3/12условий
+(MLP/TransE/self seed17), выполняется graph seed17. Сравнение не завершено;
+heartbeat ограничен4проверками.
+Original checkout, TEST и legacy не менялись.
+
+
+## Полная программа event reasoner после первого пилота — 25 октября 2026
+
+В [pilot plan](workstreams/2026-10-25/harmonic-event-reasoner/pilot-plan.md)
+уточнена очередность всей программы: после A идут отдельные semantic heads,
+Query2box на oracle H, encoder adaptation и raw H candidates. Эти направления
+частично независимы: Query2box не ждёт detector и не требует победы NBF.
+Далее отдельно проверяются part/group/ensemble scopes, временные процессы,
+shared-witness queries/реальная hierarchy supervision, residual latent factors
+и downstream Critic/HCM. H→notes retrieval уже входит в A; генерация нот по
+функции остаётся отдельной задачей. Все следующие кампании имеют отдельные
+условия и бюджеты; в первые 12 runs / draft 4h они не добавлены.
+
+Изменены только pilot plan и STATUS, исполняемое поведение не менялось.
+Корпус, checkpoints, legacy и сервер не читались; новых runs/records нет.
+Unit/model tests для doc-only уточнения не запускались. Следующий этап —
+паспорт доступности всей supervision и реализация первого supported subset.
+
+## Ближайший H/member эксперимент — план, 25 октября 2026
+
+Сохранён [pilot plan](workstreams/2026-10-25/harmonic-event-reasoner/pilot-plan.md):
+frozen C3, oracle H intervals/scope, предсказание known chord-members против
+known nonmembers внутри одного H. Сравниваются MLP, TransE-like, query self-only
+и NBF-inspired propagation; source/relation доступны обоим refiner одинаково.
+Primary — AUROC внутри H с последующим H/work усреднением и coverage; macroF1,
+FPR, matched exposure и runtime дополняют его. Наличие boolean membership и
+harmony_id проверено по source code; пригодный per-H/per-family subset ещё
+не установлен, старый resolution export для этого не готов.
+
+Предложено максимум 12 условий (4 модели × seeds17/42/73), новый wall cap
+4 часа включая подготовку runtime; это draft budget, исполнение не разрешено
+самим документом и не начато. Raw H candidates, Query2box, C3 finetune/scratch
+и группы — следующие отдельные опыты. Получено независимое review query access,
+primary aggregation и необходимости точного переноса labels в raw режиме.
+
+Изменены pilot plan, ссылка в spec и STATUS. Код, corpus payloads, weights,
+legacy и terminal records не менялись, сервер/GPU не проверялись. Unit/model
+tests не запускались для doc-only задачи; следующий этап — зарегистрированная
+подготовка task passport и фиксация исполняемого config до training.
+
+## Область H: дорожка, группа и ансамбль — 25 октября 2026
+
+В [domain note](research/HARMONIC_EVENT_GRAPH_DESIGN_20261025_RU.md) и
+[spec](workstreams/2026-10-25/harmonic-event-reasoner/spec.md) уточнён candidate
+design: participant_scope, конкретные note members и context_scope разделены.
+Одиночная дорожка, пересекающиеся группы и ансамбль могут иметь представления
+на разных временных масштабах; им не навязывается единое дерево или chord label.
+Raw track не приравнивается к voice/part. Первый H путь предложен на ensemble
+scope при совместимости source labels, local/group supervision требует аудита.
+
+Это уточнение предложенной постановки, без schema/default architecture changes.
+Изменены domain note, spec и STATUS; исходники/контракты прочитаны, corpus,
+checkpoints и legacy не читались. Обучение и новые бюджеты не запускались;
+unit/model tests не применялись к документальным изменениям. Следующий этап —
+scope-aware task passport и отдельная проверка необходимости group discovery.
+
+## Review event reasoner перед реализацией — 25 октября 2026
+
+Сохранён [review](workstreams/2026-10-25/harmonic-event-reasoner/review.md).
+Начинать task passport и минимальный baseline целесообразно; совместный
+C3/H/NBF/Query2box training требует нескольких конкретных контрактов.
+По текущему коду pair supervision допускает source-only решение: positive tails
+у linked sources, negative tails только у none sources. Это структурная
+неоднозначность задачи, не установленная причина поведения обученной модели.
+Нужны reviewed wrong candidates при том же positive source и source-only control.
+
+Предлагаются отдельные NBF-score и inductive-box пути на общих entity states,
+bounded raw H candidates до свободного detector, явная train/inference таблица
+входов, conditioning/propagation controls и критерии успеха по independent families.
+Узкий note-relation опыт не обязан ждать H detector. Новая архитектура/default
+и новый compute budget этим review не приняты.
+
+Проверены canonical REVIEW001 и SHA/size его comparison/compact archive;
+сохранённые пилотные результаты не пересчитывались. Выполнен один независимый
+read-only design review. Изменены review, ссылка в spec и STATUS; код, corpus
+payloads, checkpoints, terminal records и legacy не затронуты. Новых запусков
+нет; unit/model tests неприменимы к этим документальным изменениям.
+Следующий этап — паспорт одной поддержанной задачи и исполняемый bounded protocol.
+
+## Данные, задачи и метрики event reasoner — постановка, 25 октября 2026
+
+Сохранён [research spec](workstreams/2026-10-25/harmonic-event-reasoner/spec.md)
+для C3→H proposals→query-conditioned refiner→box queries. Описаны data fields,
+targets, masked negatives, event/attribute/membership/relation/query metrics,
+oracle-object diagnostic и end-to-end оценка. Frozen этап отделён от joint
+C3 finetune; hierarchy-depth остаётся отдельной неподтверждённой задачей.
+
+Повторно аутентифицирован опубликованный current67-field-coverage binding:
+146785known chord-membership contexts,11809known function slots из45263,
+29339known sonority slots. Это сохранённые weak-label availability counts
+по67current-v2, не новый census, unique examples или semantic accuracy.
+Нормализация классов, per-work support и joint-query coverage пока неизвестны.
+Предыдущий64-work resolution export не содержит готовых targets всего пути:
+нужен отдельный admitted H/membership export.
+
+Изменены только spec и STATUS. Данные/weights/legacy не читались кроме
+готового компактного coverage report и metadata; payload preparation,
+inference/training, result import и новые бюджеты не выполнялись. Новый
+исполняемый код не добавлен; unit/model tests не запускались. Проверены6локальных
+ссылок, формат spec и STATUS diff-check. Следующий gate — task passport и source-query
+interface, с новым planned record до substantial admission/run.
+
+## Экземпляры гармоний и абстрактные функции — обсуждение, 25 октября 2026
+
+В [design note](research/HARMONIC_EVENT_GRAPH_DESIGN_20261025_RU.md) разобрана
+идея many-to-one note→harmony и обратных переходов. Разделены конкретный
+HarmonyEvent с interval/view/участниками, chord structure/prototype,
+контекстная функция и экземпляр многоместного процесса. Действующий export
+уже различает harmonies/note_contexts/objects/relations; полнота targets для
+нового model path этим фактом не устанавливается.
+
+Query2box оценивает кандидатов на ответ, а discovery новых семантических
+объектов требует отдельного proposal/slot механизма. Предложены сохраняемые
+incidence links, typed candidate queries и raw-safe NBFNet refiner; обратный
+retrieval участников отделён от генерации нот по абстрактной функции.
+Это candidate design, схема/default architecture/compute budget не менялись.
+
+Изменены только заметка и STATUS; исходники просмотрены read-only,
+corpus/checkpoints/legacy не читались, код и terminal records не менялись.
+Исполняемых изменений нет; unit/model tests не запускались. Проверены4локальные
+ссылки, формат заметки и STATUS diff-check. Следующий этап — contract
+targets/candidates, без запуска.
+
+## TransE, query-conditioned reasoning и музыкальная иерархия — 25 октября 2026
+
+Выполнен [углублённый обзор](research/QUERY_CONDITIONED_HARMONIC_GRAPHS_20261025_RU.md)
+официальных слайдов Stanford CS224W2024/2025, первичных KG papers и музыкальных
+работ, включая AutoSchA2025, DAGE2025 и KGPFN2026. Полные видеозаписи не
+просматривались; закрытый Canvas не использовался. Новые сравнительные
+результаты/тренировки не импортировались и не запускались.
+
+По коду C3 сохраняет отдельные node/slice states; в relation pilot они
+сжимаются до64d endpoint states без повторного query-conditioned graph pass.
+Это потенциальное ограничение readout, а не установленная причина ошибок
+existence или доказанный oversquashing. Полная структура пьесы не проверялась
+в bounded4+halo bar pilot. Разделены containment, онтология типов,
+пролонгационная редукция, dependency graph и логический query graph.
+
+Предлагается проверить небольшой source/relation-conditioned refiner поверх
+общих C3 features, затем explicit candidate-set operations в духе GNN-QE.
+AutoSchA рассматривается отдельно для hierarchy supervision; hyperbolic/cone
+head — для проверенного частичного порядка. Shared existential witnesses,
+unknown masks, raw-only inference и coverage остаются явными контрактами.
+Это гипотезы, архитектурное решение и новый бюджет не приняты.
+При последующем пояснении уточнён пример DAGE: обычная цепочка A→H→B не
+показывает ограничение Query2box; пример с общей тональностью начала/конца
+фразы демонстрирует потерю идентичности witness при независимых ветвях.
+
+Изменены только обзор и STATUS. Legacy, datasets и checkpoints не читались;
+текущий encoder/readout изучен только чтением, model code не изменялся.
+Проверены5локальных ссылок, формат обзора и STATUS; независимое review
+разделов NBFNet/GNN-QE/ULTRA и предлагаемого сравнения не выявило material
+findings. Unit tests не запускались: исполняемая реализация не менялась.
+Следующий этап — контракт одного различающего опыта; его выполнение не начато.
+
+## Пилот гармонических связей завершён — 25 октября 2026
+
+T08 `resolves_to`:21/21conditions completed, по600updates, seeds17/42/73;
+00:15:54–00:57:19MSK,41min25s включая native gate. Failed/aborted/invalid0.
+Собственные процессы завершены, GPU освобождён. Hourly automation-2 PAUSED
+после первой проверки. Новых запусков/расширения бюджета нет.
+
+Full-pretrained C3+TransE: mean Recall@5 **56.30%**, frozen+TransE45.24%,
+random-full+TransE29.21% на1653общих dev queries. Это описательный сигнал
+ранжирования, при одном split и600updates. Existence-head full TransE во всех
+seeds предсказывает всегда linked:TP1742,FP2578,TN0,FN0; work macroF1=0.598
+совпадает с constant-linked baseline, global macroF1=0.287. Random+MLP имеет
+work macroF1=0.699/global0.402, но устойчивое качество определения связи
+не установлено. Global always-none baseline0.374; negative labels сильно
+сосредоточены в трёх dev works. Готового гармонического анализатора нет.
+
+Scope67current-v2 →66prepared (work044 geometry) →64runtime works
+(work012/work032 track limit);52fit/12dev,2114tiles. Candidate endpoint
+support1645/2271 (72.44%). Masks/alternate views сохранены. Global TEST закрыт,
+downstream-dev внутри TRAIN; raw pretraining overlap неизвестен.
+
+[Отчёт с21строкой и claim matrix](experiments/LLM_RELATION_PROBE_20261024_RU.md),
+[REVIEW001](experiments/records/EXP-LLM-RELATION-REVIEW-001.json).
+Integrity: outer archive/hash/size и133internal files, fingerprints22records,
+106record artifacts проверены;63remote checkpoint artifacts не скачивались
+и не перепроверялись в review. Registry/ledger обновлены. Исходный frozen
+snapshot:29tests passed,1deprecation warning in2.08s; code в этом мониторинге
+не менялся, повторные model tests не запускались. Legacy не читался.
+
+Следующий gate — balance/calibration existence-head плюс raw-TransE/step0
+контроли; это предложение без нового запуска. Архитектурный default не меняется.
+
+## Геометрия гармонических отношений — исследование, 24 октября 2026
+
+Подготовлен [обзор](research/HARMONIC_RELATION_GEOMETRY_20261024_RU.md)
+проекций музыкальных отношений и пересечения множеств ответов. GQE/Query2box
+ближе к предложенному объединению ограничений, чем один TransE; музыкальные
+GNN и экспертные гармонические деревья — смежные первоисточники, не доказанная
+новизна или польза нового декодера. Нынешний HCM RelationRefiner сохраняет
+неименованные latent-компоненты, а T07/T08 — отдельные вспомогательные targets.
+
+Предложены локальные семейства нота–гармония, голосоведение и временные фигуры,
+различены иерархия типов и музыкальная иерархия. Для обучения нужны masked
+атомарные связи, подтверждённые ответы на совместные запросы и отдельная
+политика negatives; неизвестное отношение не превращается в отрицательное.
+Сопоставлены сохранённый T07 и опубликованный RELEASE003 (75 unique/46 deepened),
+без сложения выпусков и без выдачи linked-context counts за accuracy/unique edges.
+Полная текущая поддержка каждого подтипа по независимым произведениям неизвестна.
+Ресурсы обосновывают узкий прототип, но не обещание универсального анализатора.
+
+Сравнение MLP/bilinear, point translation и region/intersection должно сохранять
+один encoder, targets, кандидаты и family split. Следующий этап — атомарные
+контракты 2–3 локальных семейств и отдельно зарегистрированный паспорт данных.
+Это обзор кода, документов и внешних первоисточников: musical payload, TEST,
+новые эксперименты, обучение, схемы, зависимости и архитектурные решения не
+менялись; legacy не читался и не переиспользовался. Изменены только обзор и
+эта запись STATUS. Проверены 11 локальных ссылок (два anchors), формат двух
+документальных областей и git diff --check; независимое содержательное review
+не выявило существенных замечаний. Unit tests не запускались: реализации нет.
+
 ## Исследовательский снимок для обсуждения — 25 октября 2026
 
 Выпуск опубликован в main через [PR #46](https://github.com/nairary/music_critic_v2/pull/46),
@@ -42,6 +918,7 @@ Linux CI на 6179a13 достиг 75% без failures и остановился
 моделей определяются их собственными records и средами. Реальные данные,
 TEST/evaluation, новые научные training-запуски и legacy в этой задаче не использовались.
 Следующий этап — обсуждение моделей и результатов с научным руководителем.
+
 
 ## Google Drive для checkpoints и подготовка Git — 24 октября 2026
 

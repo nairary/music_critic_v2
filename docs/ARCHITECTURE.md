@@ -1,5 +1,82 @@
 # Music Critic V2 Architecture
 
+## Whole-piece E3 H/h/P baseline — 2026-10-29
+
+The opt-in `hierarchical_graph_analyzer/full_*` path extends frozen per-node C3
+features with a trainable E3 constructor and distinct whole-piece H/h/P states.
+Global attention reads individual H/P nodes; local windows only own raw feature
+computation and exact E3 anchors. Three default bottom-up/top-down rounds update
+note states, contextual h, H and P, feed back predicted field distributions,
+and revise H/h/P boundaries. Revised H refreshes note-context candidates; H/P
+boundaries may cross the original window. C3 itself remains frozen.
+
+P begins with raw multiscale bar-window proposals. Two learned subcontext slots
+per physical-note/H overlap permit different note-role intervals. Geometric
+incidence is a candidate, never a semantic chord-membership target. P membership
+and directed relation logits are separate heads. Initial addressed relation
+candidates are H→H and h→h singleton pairs with nearby and distant endpoints;
+unsupported endpoint sets remain explicit misses. NBFNet/Query2box are deferred.
+
+`full_data` owns exact canonical routing and separate native V3 target views;
+`full_model` accepts raw-only inputs; `full_losses/full_metrics` own target-side
+matching, masks and coverage; `full_runtime/full_inference` own bounded execution,
+checkpoint replay and novel MIDI analysis. Existing E1–E5 behavior is unchanged.
+Engineering implementation is verified on fixtures; memory, timing and musical
+quality on real whole works require a fresh registered gate/campaign.
+[Architecture and limits](workstreams/2026-10-29/hiergraph-full/implementation.md).
+
+## Scoped interval projection V3 — 2026-10-27
+
+`tasks.chord_interval_projection` owns pure tone normalization, source-scope
+admission and root-relative PC sets. Its exact rational note interval index is
+constructed once per piece and reused across H rows. Canonical notes authenticate
+observed composition; they do not create a chord interpretation or root.
+`tasks.hiergraph_projection` integrates 37 additional independent masks with the
+existing 60 fields. `experiments.hiergraph_export` remains ontology-driven and
+binds V3 version/fingerprint in both preflight and worker admission.
+
+The old positive-only PC fields remain positive-only. Complete observed zeros
+use distinct target identities. Structural and observed roots stay independent.
+No neural encoder, H constructor, training, augmentation or display-name renderer
+is implemented by this slice. [Contract](workstreams/2026-10-27/hierarchical-graph-analyzer/factorized-chord-targets.md).
+
+## Factorized HIERGRAPH preparation — 2026-10-27
+
+`tasks.chord_structure_projection` owns bounded chord grammar and aliases;
+`tasks.hiergraph_projection` composes them with existing target validators and
+encoders. `experiments.hiergraph_export` supplies immutable source-bound per-work
+CPU caches, streamed fit vocabulary and numerical export. The tasks facade loads
+its existing public exports lazily, so pure targets need no graph dependencies.
+[Contract, tests and execution](workstreams/2026-10-27/hierarchical-graph-analyzer/factorized-chord-targets.md).
+No raw graph, H constructor, role inference, process generator or trainer is
+implemented by this slice.
+
+
+## HIERGRAPH target projection consumer — 2026-10-27
+
+`tasks.hiergraph_projection` composes existing T07 validation/vocabulary/encoding
+and whole-work object/decision APIs with field-specific pure parsers. Immutable
+raw evidence and contextual geometry remain separate from projected envelopes,
+fit-only numerical IDs and coarsening admission. The shared field manifest has no
+H-constructor branch; all E1–E5 must bind the same contract and active vocabulary.
+Shared literal pitch/degree/quality primitives preserve common/dense semantics.
+No raw graph, forward path, source schema or legacy runtime changes are added.
+[Implementation and admission limits](workstreams/2026-10-27/hierarchical-graph-analyzer/projection-implementation.md).
+
+## Opt-in weak relation probe — 2026-10-25
+
+`relation_probe` reuses the existing C3 export without invoking theory heads.
+An authenticated flat reader separates exact contextual targets from sanitized
+raw inputs. Fixed raw bar tiles and raw time slices own the graph; non-slice
+target starts, unsupported geometry, alternative-view contradictions and
+nonbinary relations retain explicit coverage exclusions. Reviewed outgoing-none
+permits negatives only from that same source context/view; other missing tails
+remain unknown. MLP and translation heads share contextual note/slice inputs.
+The opt-in runner compares frozen, fully fine-tuned and randomly initialized C3,
+with process-owned wall caps and separate immutable attempt records. Production
+inference, historical checkpoints, HCM decoder and corpus TEST are unchanged.
+See [bound protocol](experiments/LLM_RELATION_PROBE_20261024_RU.md).
+
 ## Whole-work data preparation — T08, 2026-10-07
 
 The corpus400 path separates metadata candidate selection, explicit source

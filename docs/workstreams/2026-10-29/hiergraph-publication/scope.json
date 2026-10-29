@@ -1,0 +1,1684 @@
+{
+  "base_commit": "645922d4db282ff0c3a06c1cf82ecc9d0594f5c7",
+  "source_checkout_head": "287bf856643f9e555352e1661a7bf0563772178a",
+  "branch": "codex/hiergraph-full-e3-20261029",
+  "trained_source_manifest_sha256": "fa5419f480503f0131e9380bf81eea95930a034dd77ec49f3583124a6303ccf5",
+  "excluded_changed_paths": [
+    ".github/workflows/ci.yml",
+    "README.md",
+    "docs/EXPERIMENT_LEDGER.md",
+    "docs/GETTING_STARTED.md",
+    "docs/GIT_PREPARATION.md",
+    "docs/STATUS.md",
+    "src/music_critic/critic/campaign.py",
+    "src/music_critic/experiments/c4_pop909/training.py",
+    "tests/critic/test_baselines.py",
+    "tests/critic/test_campaign.py",
+    "tests/critic/test_campaign_cli.py",
+    "tests/critic/test_device_geometry.py",
+    "tests/critic/test_geometry_plan.py",
+    "tests/critic/test_probe_progress.py",
+    "tests/critic/test_runtime_equivalence.py",
+    "tests/critic/test_terminal_continuation.py",
+    "tests/experiments/test_phase9eb3_multitask_contract.py",
+    "tests/fixtures/multisource/target_contract_manifest.json",
+    "tests/test_cuda_api_boundaries.py"
+  ],
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "69cdd413398d7d1eae6264fbdd5628d9079864326adc166051d9f417e246f564",
+      "size_bytes": 8036
+    },
+    {
+      "path": "configs/hiergraph_e1_e5_80k_20261029.json",
+      "sha256": "ee75002caf404d030cad16ce7e88e6c21bd76f722abd6732f7425e470c3c804d",
+      "size_bytes": 1124
+    },
+    {
+      "path": "configs/hiergraph_e1_e5_80k_campaign_20261029.json",
+      "sha256": "83a22b693f67e91283541232d36322bd31aab762afa9f314a59c4db8b9d66feb",
+      "size_bytes": 1656
+    },
+    {
+      "path": "configs/hiergraph_e1_e5_first_20261028.json",
+      "sha256": "bcf00d51ff367950cc26dba4d29397c49a3bda729f68825b71f48ee259e60ee2",
+      "size_bytes": 1018
+    },
+    {
+      "path": "configs/hiergraph_e1_e5_launch_20261028.json",
+      "sha256": "9ccd3798918066992bc79eda792a0c2af6ce13c8b19d471d2db0b9da559f79aa",
+      "size_bytes": 3362
+    },
+    {
+      "path": "configs/hiergraph_full_e3.template.json",
+      "sha256": "60f85b7aa3cfb10a82aa488fa8092326ce9a41640c3a4965b3c55cdd2a0bdc6a",
+      "size_bytes": 1293
+    },
+    {
+      "path": "configs/hiergraph_full_infer.template.json",
+      "sha256": "023288ff9cc029bcbb56d64ea3e2ce0985276b13aa2d40dfaa829d0829c049ae",
+      "size_bytes": 945
+    },
+    {
+      "path": "configs/hmember_20261025.json",
+      "sha256": "00330556d49141daf5f2d9a7a873204b4c90cc9290a05832718903f12276df10",
+      "size_bytes": 1515
+    },
+    {
+      "path": "configs/hmember_80k_20261026.json",
+      "sha256": "ce561cc7f4030e408a58e264314b4c9c680e357d4eaa082e14f294327b3cb183",
+      "size_bytes": 1501
+    },
+    {
+      "path": "configs/hmember_long_20261025.json",
+      "sha256": "18ac43fd9fa816ba4bbb4544e119263f2801e0d26367d4d13da92f02f79979ce",
+      "size_bytes": 1361
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "sha256": "a0c5e7dc8de1226ef2705a1db6e68e5e4dea2ba4815d23a80c78dcf73848788f",
+      "size_bytes": 126002
+    },
+    {
+      "path": "docs/DATA_CONTRACT.md",
+      "sha256": "5bc22302bbc4ca6e3d0f450ee3a811bc98a7b73b1a303d2a1c8c3099202dd330",
+      "size_bytes": 146984
+    },
+    {
+      "path": "docs/DECISIONS.md",
+      "sha256": "3939959cdc764fcbc218fed7a1ddda2ab5d7cfc4b3ae020b87a62cf9adfc4e32",
+      "size_bytes": 361454
+    },
+    {
+      "path": "docs/EXPERIMENT_LEDGER.md",
+      "sha256": "d956177996cbca9284d5551ba6bc2489d9284a4e9a9d699159b992a11f6b5b21",
+      "size_bytes": 230224
+    },
+    {
+      "path": "docs/LEGACY_REFERENCE.md",
+      "sha256": "fb1d868a52946f7f1e31aaed2210e9654c8ce12cc4d0708cf78f23149c641d65",
+      "size_bytes": 44143
+    },
+    {
+      "path": "docs/STATUS.md",
+      "sha256": "e0e4dbae5438b92e8bbb67894485228bbdfdd591413ac7660e568ef198dabdbd",
+      "size_bytes": 1201364
+    },
+    {
+      "path": "docs/experiments/HIERGRAPH_80K_20261029_RU.md",
+      "sha256": "0ed458f0fc838a1fb4a6062082d5acaff5da7e8dff58dc2cd8b4bbf47c3d3efe",
+      "size_bytes": 19448
+    },
+    {
+      "path": "docs/experiments/HIERGRAPH_ANNOTATION_EXPANSION_20261028_RU.md",
+      "sha256": "189d41aaf66cb8603f7c1c6287bf826c5ec9e3d1785afebbd7726b3f625c19ab",
+      "size_bytes": 16000
+    },
+    {
+      "path": "docs/experiments/HIERGRAPH_FACTOR_EXPORT_20261027_RU.md",
+      "sha256": "16f9432605f1b21321ec5b597117ee8544f530aa2a942b191e45bdbd1eaef539",
+      "size_bytes": 8859
+    },
+    {
+      "path": "docs/experiments/HIERGRAPH_FULL_20261029_RU.md",
+      "sha256": "7f8375ee505e5063c1a4ff1124f6af203cf91ca3f3adbb1ebd942b4c508b1d5b",
+      "size_bytes": 16419
+    },
+    {
+      "path": "docs/experiments/HIERGRAPH_FULL_PERF_20261029_RU.md",
+      "sha256": "e889e03fffe86dc4025fee314621010a4c4c5ad4d549282c28c47cbfa8a77ff8",
+      "size_bytes": 8160
+    },
+    {
+      "path": "docs/experiments/HIERGRAPH_INTERVAL_EXPORT_20261027_RU.md",
+      "sha256": "139df3c42336ad92a5820be554e3c6886ec979456412009f0d3ffbcdc15d2737",
+      "size_bytes": 11734
+    },
+    {
+      "path": "docs/experiments/HIERGRAPH_SONORITY_SCOPE_20261027_RU.md",
+      "sha256": "7da0c7bc6229a36154716d8e08da4250c9ee5bf16f52bb57bd05e02c70753c6f",
+      "size_bytes": 11345
+    },
+    {
+      "path": "docs/experiments/HIERGRAPH_SUPERVISION_20261027_RU.md",
+      "sha256": "0d56dbac40df22095c15d0f4d4ab7c715d032c45054897f58e5de235d5eac20b",
+      "size_bytes": 23956
+    },
+    {
+      "path": "docs/experiments/HMEMBER_20261025_RU.md",
+      "sha256": "ac0c84adbbeec37766148839339b9b7f94e153d3ecda833fd4e414eb74f8f4f8",
+      "size_bytes": 17003
+    },
+    {
+      "path": "docs/experiments/HMEMBER_80K_20261026_RU.md",
+      "sha256": "a1e528fa2788e845252ec32bf2ccfa817c16a668d224f3edb5917039dd750263",
+      "size_bytes": 18757
+    },
+    {
+      "path": "docs/experiments/HMEMBER_DIAGNOSIS_20261026_RU.md",
+      "sha256": "f28fddf2135f7f4217e0cf7b589d198cf600f3df0a35bfb5432d4bfc4cbe6d05",
+      "size_bytes": 27875
+    },
+    {
+      "path": "docs/experiments/HMEMBER_LONG_20261025_RU.md",
+      "sha256": "2d18641b8944e2d03eb4c274116a23655dcb794058d4d8715632ab29e2f07e5e",
+      "size_bytes": 20467
+    },
+    {
+      "path": "docs/experiments/LLM_RELATION_PROBE_20261024_RU.md",
+      "sha256": "a410d121ae1cb732cc924eb5f3ba7fd500c94bbd1ea828ac645c466c82cab89b",
+      "size_bytes": 33811
+    },
+    {
+      "path": "docs/experiments/README.md",
+      "sha256": "2aab90a03bd33bb8c8e02366dc6c62f4a0a518b09361395fa05a1cbb8fa84804",
+      "size_bytes": 125038
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-80K-CAMPAIGN-001.json",
+      "sha256": "7033916b8e6940703ccd006469450209ab20f042e78a7f9c321bd6668f53ea7c",
+      "size_bytes": 9107
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-80K-CURVE-REVIEW-001.json",
+      "sha256": "1ed59e53ccdbf5c31076c335306f8f4f23d52ac9c4cdaf330d68cbfe657e3f0b",
+      "size_bytes": 10516
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-80K-E1-DETAIL-REVIEW-001.json",
+      "sha256": "99c6bb75c61129e063f939d49193d6c85dd351cdfbd688caaf3789c2c8c6358a",
+      "size_bytes": 6784
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-80K-E1-S17-001.json",
+      "sha256": "57b2b464bb76bc14ee6a1722e211b55ad30a2c10d4a30d1df48242093a3b50b4",
+      "size_bytes": 11894
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-80K-E1E2-INTERIM-REVIEW-001.json",
+      "sha256": "09a3d03ecd89786a59bd8a31ba26d0e8947ee29a1ecbe44678443d238e0f4f2c",
+      "size_bytes": 4043
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-80K-E2-S17-001.json",
+      "sha256": "7c3ad0dbb3ad7e0f1aa99ae75dbffba85ed42517af66feb3ca2bed897f2b68eb",
+      "size_bytes": 11768
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-80K-E3-S17-001.json",
+      "sha256": "577182263455b47405df7bea7da1b509ad29366e609f4f6f76523c1e7adce09b",
+      "size_bytes": 11882
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-80K-E4-S17-001.json",
+      "sha256": "6498af67d080a9600ecc0d4b49b5621869ab589259d2fbd633a61bd34f015eba",
+      "size_bytes": 11908
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-80K-E5-S17-001.json",
+      "sha256": "b3a63597aeb7321c114683d94ed81fec38e205b9ccdd8c607cb16807068261cb",
+      "size_bytes": 11931
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-80K-REVIEW-001.json",
+      "sha256": "b3408cc04ee2682c42fea312baeaccc23edd0c0fbc7c6fd7fa0465a9298f65fc",
+      "size_bytes": 18995
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-ADMIT-001.json",
+      "sha256": "bef85afc1e9892275ed41e8679251cc0cdd49559021a68034b288513f00209b3",
+      "size_bytes": 5032
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-ADMIT-002.json",
+      "sha256": "4b53650abb798b536de23c3a94fbf72b31746b94e62da3348cd0259b640369b4",
+      "size_bytes": 5046
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-ADMIT-003.json",
+      "sha256": "fd5b22054676893495e4784bb74e7151d877b40124484c1b99948a4dc0caab3a",
+      "size_bytes": 3964
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-ADMIT-004.json",
+      "sha256": "b75f4c023122c8f0ee1d5ec2a48001131c5721ff1d3a7feb9ddd5f0c7b129a1c",
+      "size_bytes": 3967
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-ADMIT-005.json",
+      "sha256": "1b478cfd2652aba8fd11726576b104d6728e4468cbcd8d4b2f3c4962fb03423a",
+      "size_bytes": 3974
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-ADMIT-006.json",
+      "sha256": "4ff7f5516946b4f2db7bcf39aaba1572a345bca524cc32f9ce910f4155550ae9",
+      "size_bytes": 3332
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-ADMIT-007.json",
+      "sha256": "641430ca32ff426dd97ff70d799dd4e539cd38931d6b5ace48bff95da2b6739e",
+      "size_bytes": 3979
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-ADMIT-008.json",
+      "sha256": "648ade3a9478586e90d0728d6c62e39b7e27ebb36751d58e6f3adf6a90614e75",
+      "size_bytes": 5492
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-ADMIT-009.json",
+      "sha256": "33c9b0359b335726b20bdeb6dd5527d95c6b13db49edb3aac088e8f2ed7bc6f5",
+      "size_bytes": 5433
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-ADMIT-010.json",
+      "sha256": "3e889181172776df830d4eaa296ab26697b965673b5717554fc9985021aef6e8",
+      "size_bytes": 5616
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-ADMIT-011.json",
+      "sha256": "ede74593107bde4e41b495fda15945a1ad5a111466bd63ffe2406a3a7a11f8ea",
+      "size_bytes": 5609
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-ADMIT-012.json",
+      "sha256": "78700926348f64a63b82ed744aa1d66c552f601dc2d27bad35e8e1257083f85a",
+      "size_bytes": 5433
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-ADMIT-013.json",
+      "sha256": "6c61571b9546130cb86e3a8199488a2420cc445b71451713c095a77b41a871b1",
+      "size_bytes": 5532
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-ADMIT-014.json",
+      "sha256": "202d2d22cfc6f5c9238c94639c6f1b7ee4641db45c66e01a48dc22aa693952f8",
+      "size_bytes": 5515
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-ADMIT-015.json",
+      "sha256": "6d82490a4098aa508bd56d2cf268d6c29a6c1b707d1d71e9467f7243b179de27",
+      "size_bytes": 5518
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-FITQUEUE-001.json",
+      "sha256": "fd21b6ee6b4e31330542c10c5a20005069d63a6f125900bdc4064c2808d139e3",
+      "size_bytes": 4189
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-RELEASE-001.json",
+      "sha256": "451845772cc5015fd0211699eb49b58edff3e54106bddd92651111759421ec23",
+      "size_bytes": 5699
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-RELEASE-002.json",
+      "sha256": "b14af2313dd65a273d791cc514a7904874fe88576ff4508feb95425f95cd4652",
+      "size_bytes": 5937
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-RELEASE-003.json",
+      "sha256": "5dbdc9836fac296c26f70fcb12f08c75482bdb558a38c00946528a0db00eab2d",
+      "size_bytes": 6163
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK032-001.json",
+      "sha256": "894171ed92ee0c9efbba34ab332c1606d1975704293c9f27f2f9a0240b0f1da8",
+      "size_bytes": 5293
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK032-002.json",
+      "sha256": "092066449243e7973f5731d7865e04c97a4453c09ccf21a3fb17421b32e726db",
+      "size_bytes": 4851
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK032-AUDIT001.json",
+      "sha256": "e81e78965c27e7e17d6c79af3e6298f0f9ee5bc5644643101ce570602c48bb1d",
+      "size_bytes": 5124
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK032-REVIEW001.json",
+      "sha256": "1ca8ad5415f2b440fe07fcf7767e337b8e29650066668a036ab33e0c0522b6e0",
+      "size_bytes": 5499
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK032-REVIEW002.json",
+      "sha256": "50a3c31e5b3f0de167b3b2b951114bd7cdb4394c7365b42e50322a0e42bb46d6",
+      "size_bytes": 5296
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK037-REVIEW001.json",
+      "sha256": "bdbe453c64072e1596afa8282d4d494beb02a012539d0003680657c5e937b721",
+      "size_bytes": 5348
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK043-001.json",
+      "sha256": "d46317791a085c0f8a7291662b57dcfe718520c7401e35bddf1ddd0db7b1c10e",
+      "size_bytes": 4112
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK043-002.json",
+      "sha256": "e0a692bb5be0262586d606913e29c5dfde296bd5ed1a53aa798dca2713605258",
+      "size_bytes": 4341
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK043-AUDIT001.json",
+      "sha256": "c92a99cd438534940202655ea56cc8819dc4f1b078f585fd14ef8a32df1fd5e3",
+      "size_bytes": 5138
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK043-REVIEW001.json",
+      "sha256": "eaec5793aaabcff08e3291720ded7beb07536d75538802be541c32de5eba73da",
+      "size_bytes": 4237
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK043-REVIEW002.json",
+      "sha256": "a4679bbfbc73014b6d74248e871a3f769bc651281d33679ebd9c9de7937138c8",
+      "size_bytes": 4695
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK047-001.json",
+      "sha256": "cc7c074f4a6adaedb8b0161d6af287576b0f5e687c6a99ab949aedefc16c0ae5",
+      "size_bytes": 5656
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK047-REVIEW001.json",
+      "sha256": "b99c9c4d95dc6e3d1bb22b4906d4095c884c243305767257c9754c4c19b4e463",
+      "size_bytes": 5149
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK049-001.json",
+      "sha256": "7ec73ca4095477398e3cd4111e1e42174333dab58268356b73b919b23a717377",
+      "size_bytes": 4512
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK049-REVIEW001.json",
+      "sha256": "b457a6fcec4d22c095246a53a614cefc55ed267f3edc90f7894221071923e3a0",
+      "size_bytes": 5055
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK050-001.json",
+      "sha256": "0470edb4e7870fd9919b1a3e52388e6ca468072c39feadc51e01b734d43ae876",
+      "size_bytes": 4505
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK050-AUDIT001.json",
+      "sha256": "2d771c212766c8b20107cebc47c6810887122d388aabf6916f86869e5dd89468",
+      "size_bytes": 5204
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK050-REVIEW001.json",
+      "sha256": "4387f60543e7ec72c2bc2d8a83856eaaa14775eb3ef6118b7cadb4f3a69531d0",
+      "size_bytes": 4926
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK051-REVIEW001.json",
+      "sha256": "f4f67274748e490e91ac45d218ffd2b53ced9295765fbb6be1b588413cef0af3",
+      "size_bytes": 4507
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK052-001.json",
+      "sha256": "24b80d168d90a39c150ecb5c69dc6241cc5cc7933b5631945a38907653c4375f",
+      "size_bytes": 5603
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK052-002.json",
+      "sha256": "d47c55d0b93688038949cf1220eb651cdc8dbc47acf7fca429a758701d2de15d",
+      "size_bytes": 5118
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK052-REVIEW001.json",
+      "sha256": "4469ab1fff42f87f70907f20bd8d3c1bca7a7ecff6a014a8a68cc17eec718671",
+      "size_bytes": 4887
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK052-REVIEW002.json",
+      "sha256": "6ad658bb92343d52b355a479ac7ccd799468db192b836510a1a6efd06300ec31",
+      "size_bytes": 5322
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK054-001.json",
+      "sha256": "5075ec214b72510ec43afacd7b3649d6b5370f29c399cadccd6604d690f145f8",
+      "size_bytes": 6914
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK054-REVIEW001.json",
+      "sha256": "5ac35fc41951becd8ad9c9dba70bf5377697255a5bf9d3ba4606e46f2da187af",
+      "size_bytes": 5292
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK056-002.json",
+      "sha256": "8490b4cdafc3d362cd4df85e829e5464b441e978f5983f179862df58ffde6126",
+      "size_bytes": 4822
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK056-REVIEW001.json",
+      "sha256": "a68c84bc47edda1d2225e3d8766c11babf1db8977a398619f35ebdfec266f6f7",
+      "size_bytes": 5070
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK056-REVIEW002.json",
+      "sha256": "d96f3689b4f48018273201a94e786fbcdcd1656ceb5c388a39e45dffbfc053e6",
+      "size_bytes": 5093
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK058-AUDIT001.json",
+      "sha256": "d9cf5045bc2218b89ab19790dc5418e15a3f6477b7b92992e51642e430d72d3a",
+      "size_bytes": 5127
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK061-001.json",
+      "sha256": "e778995042749c9b899d8336c36eccea2c4b31b04b93f0080a1be09283a30423",
+      "size_bytes": 5547
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK061-002.json",
+      "sha256": "ac2fcb7be7a373fb243459224b3dd77621ae98fe1becf227e3ea2bcd4ad2bba8",
+      "size_bytes": 4965
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK061-003.json",
+      "sha256": "d68a17d16b35b0e25a3458e147452e0b393d3101c2da5bae570c33a814c77bd3",
+      "size_bytes": 5299
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK061-REVIEW001.json",
+      "sha256": "37d9833b12c863d3913a9616dae9483e0f80da2abe64e32e5568e27a4c40c343",
+      "size_bytes": 4343
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK061-REVIEW002.json",
+      "sha256": "e5be56884bc5ac762f1dd3cca7f6aa91802ed3fbf9e1a05a23668df2390e2848",
+      "size_bytes": 4916
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK061-REVIEW003.json",
+      "sha256": "39dc3016f0347832d7b0e32bf5e91984baf9efd4158c0e26ea43596874a70b8d",
+      "size_bytes": 5110
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK062-001.json",
+      "sha256": "1ecced7cceff42b9240935cd8da979b5ba1e79663ee0a4c5b8c2a3413c026d9e",
+      "size_bytes": 4902
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK062-REVIEW001.json",
+      "sha256": "9a85f7cdc56a0e84c99c60c75c3645b9c301d278ec1ff27cb4605f2a57bb1ff2",
+      "size_bytes": 5332
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK063-001.json",
+      "sha256": "bd9418054e8345168589b65ce5be8dda1402a64aa0c405412f0f22a587689884",
+      "size_bytes": 4123
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK063-REVIEW001.json",
+      "sha256": "9bd7485f1d26283bbfa5e3df5a5b63eb8268029316308074b6b17e5e769419f7",
+      "size_bytes": 5037
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK064-001.json",
+      "sha256": "6f5618b5e1bd0e9c1b483453320156499cbbeaffec61bfedb0ef023e752ac76a",
+      "size_bytes": 4585
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK064-002.json",
+      "sha256": "227bbc3a64cfc618ad9a5a342b808696968d429a9981341f64ccb78485baca0a",
+      "size_bytes": 4817
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-ANNOTATION-WORK064-REVIEW002.json",
+      "sha256": "b05f8d2ac4ab2f42723216c4450468205ee542ab70800078a54fcbfc7132898c",
+      "size_bytes": 5188
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-FACTOR-EXPORT-001.json",
+      "sha256": "6f698a0fa449bf4eb10222b946f41c2b0729ac097de3ba7ff0a28b61ece914f6",
+      "size_bytes": 15743
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-FULL-E3-S17-001.json",
+      "sha256": "95ee35a5a24bef715241064b95b640f99c8b0f36fdd7e945b008a239f27feb8a",
+      "size_bytes": 280699
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-FULL-GATE-001.json",
+      "sha256": "d45f20c1fc1b4c8984acdc28bf1ef7721f9cb3fc977b88d6bbe1f2aced59a49b",
+      "size_bytes": 5816
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-FULL-GATE-002.json",
+      "sha256": "6c9539a479cb4f42dd1c98391a1ba8899056441eaa24f5b418a177af86e6a1ec",
+      "size_bytes": 8435
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-FULL-GATE-003.json",
+      "sha256": "43d1b63f204ab082a5a1ee15c56207c33661636ca0d6281c01d8fb79101af969",
+      "size_bytes": 11035
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-FULL-PERF-001.json",
+      "sha256": "0e23952ad85bbf9b104912e4bebc247e2dd48c12e86a37a8e42f4556daebad29",
+      "size_bytes": 3491
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-FULL-PERF-002.json",
+      "sha256": "0a13153b1384f28ff4f67296e57c16f4a7fb9ab068ca2377078659b02f9e88b9",
+      "size_bytes": 3475
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-FULL-PREPARE-001.json",
+      "sha256": "493fa19168bb1a83f4d953cb44f30ca31e73c9a91757ef275558e6700620f5ea",
+      "size_bytes": 4323
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-FULL-REVIEW-001.json",
+      "sha256": "626b277ae7eb7025db10f55ceed7817be4139a6492f1cf6267c677e42c775afb",
+      "size_bytes": 10906
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-HFIRST-E1-S17-001.json",
+      "sha256": "2fa60f3670f4c703c8b061e36f7e2a8088d4fc03c0438434602038a04d474030",
+      "size_bytes": 3080
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-HFIRST-E2-S17-001.json",
+      "sha256": "75ef48a434faff0afddd8280da6a991d99a9425731d4fd8466735c164fc8a4de",
+      "size_bytes": 3080
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-HFIRST-E3-S17-001.json",
+      "sha256": "fe555752b6bdea1d950a36185ba71956498765478a65eecc76d52f62f2d1be89",
+      "size_bytes": 3080
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-HFIRST-E4-S17-001.json",
+      "sha256": "3ed7f54954948a94e73cdbeb2b1ca00e0b56ad683b1a65f4a2732a94e6733c7e",
+      "size_bytes": 3080
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-HFIRST-E5-S17-001.json",
+      "sha256": "c239081d94bf15faab227b46ac90a5f2d83b28f56c38d657cde66500a12bca17",
+      "size_bytes": 3080
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-INTERVAL-EXPORT-001.json",
+      "sha256": "c2d5ba6c2bb1e70d62310eeefd39a8551f642366ce67874912763c09960bd566",
+      "size_bytes": 14393
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-READY-CACHE-001.json",
+      "sha256": "f9a1dc14fa27b1753948c82031e7725284ceaa7b1d5fa3081b37d357dc3a94ab",
+      "size_bytes": 3501
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-READY-CACHE-002.json",
+      "sha256": "5c2ea6b3e6dc09e989d235aaee596411588ea481ed135b7f25cc303b7038ff15",
+      "size_bytes": 3683
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-READY-CACHE-003.json",
+      "sha256": "90fc3611e688e4d03f89a0d898be39ffa9085c9d7bd80558996ebda054bf2bff",
+      "size_bytes": 3694
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-READY-CACHE-004.json",
+      "sha256": "41aa9884a942f45001a803afe37b700f2472afebaa4e5285a33fc817b154024a",
+      "size_bytes": 3767
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-READY-EXPORT-001.json",
+      "sha256": "13f2b77493adec7bad0448e5ab18426a42a29d94b8caea71605f3ef749ae6410",
+      "size_bytes": 2948
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-READY-EXPORT-002.json",
+      "sha256": "93319cf5f19805e35a5c3ba0d89746c6b1c8dcd1fe0772049b6e9b1afc02890a",
+      "size_bytes": 8827
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-READY-GATE-001.json",
+      "sha256": "3a2835e601e5532a09b83ff7ef9aa4cd196b207f77abd342d7dff749e147539d",
+      "size_bytes": 27506
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-READY-REVIEW-001.json",
+      "sha256": "50e4d98b3e65d28dc67f94b088f46518d0dfff779281f2e39c57dc86decc5187",
+      "size_bytes": 8263
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-SONORITY-SCOPE-001.json",
+      "sha256": "c69b0126426f30bba2d11c9f44dbe72f14b62d30c0c88a170a1d6fd32f79b109",
+      "size_bytes": 4299
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-SONORITY-SCOPE-002.json",
+      "sha256": "6fde64b61dde29af8628dc2acd131ccd916fe3e363b81797714dad157c912706",
+      "size_bytes": 9413
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-SUPERVISION-AUDIT-001.json",
+      "sha256": "96f4f63ababec31941c0139a4ad536361923b732804b52cee3fec2422f72c34d",
+      "size_bytes": 5609
+    },
+    {
+      "path": "docs/experiments/records/EXP-HIERGRAPH-SUPERVISION-AUDIT-002.json",
+      "sha256": "f56db80e1a4fac829dfe41e6c8897f328d812e4dcbce8832d26ec612907bf61e",
+      "size_bytes": 34844
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-80K-REVIEW-001.json",
+      "sha256": "4e206aeb225b6c32bf4a83251cd514ad832df53f195be920a466b36a49c70683",
+      "size_bytes": 7950
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-80K-S17-GRAPH-001.json",
+      "sha256": "bcafe8c881f33e64f55022027d4df2a36405876d86e53524c31233e1a65b0a52",
+      "size_bytes": 17070
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-80K-S17-MLP-001.json",
+      "sha256": "5ea6ef68916113c7bd4577a72c392ad17d8ce8eb7767893e323b92749c83dad7",
+      "size_bytes": 17002
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-80K-S17-SELF-001.json",
+      "sha256": "6ec4feb980e9c1bc9c73a1a975986a9c4ba18dbf07ea0dd7d2d3af5561642bc9",
+      "size_bytes": 17046
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-80K-S17-TRANSE-001.json",
+      "sha256": "e5654babfd48c5e16dc428a84204159b7f2a6565c221e1db3165b2746a2590c9",
+      "size_bytes": 17061
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-80K-S42-GRAPH-001.json",
+      "sha256": "2194d6602ef2268c6f5d0a1db44313126eb5f8d82903f20934ff44cb1cc43c46",
+      "size_bytes": 17080
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-80K-S42-MLP-001.json",
+      "sha256": "a6af2d5402de9d4d0244784297ffbd3126cf8f185dd236658fffa63fae0bc10f",
+      "size_bytes": 17006
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-80K-S42-SELF-001.json",
+      "sha256": "ee4d3f48f5af9b7dddb6fa1338c28d4f0137e3b906880308ddd3a51a8f8e3868",
+      "size_bytes": 17056
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-80K-S42-TRANSE-001.json",
+      "sha256": "f1a9d9684c6f5b73dc94c1794208397493f9eab604e51dae62428cc85723a8e9",
+      "size_bytes": 17065
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-80K-S73-GRAPH-001.json",
+      "sha256": "058bdb807d5e082f1db4ca68d4aa4f407f3d375499ca3e3ea74e86167a186f00",
+      "size_bytes": 17077
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-80K-S73-MLP-001.json",
+      "sha256": "25afe561e356c7beff0f03dbc062d228d4cebe0af24f872b8c0ec94f9a0d7a71",
+      "size_bytes": 16994
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-80K-S73-SELF-001.json",
+      "sha256": "18b7a53e973b0f4ed0d6e8f92e14708000bd0930727fbf47a4ee04b9e6e599ba",
+      "size_bytes": 17058
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-80K-S73-TRANSE-001.json",
+      "sha256": "d4f4ca2df4b6aa7ffcc2ec0eab53876984c7ff89bf73a974fb718a9537e8af40",
+      "size_bytes": 17068
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-DETERMINISM-GATE-001.json",
+      "sha256": "542a0371faa132b7f5ba7c005b930232e1cd10801474be6add142a54019ae8fb",
+      "size_bytes": 8417
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-DIAG-20261026-001.json",
+      "sha256": "5bf7124e44ec3aa855b79f8e08f1e184eeffe6d75c1b3d28577329b03130ebf3",
+      "size_bytes": 15735
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-LONG-REVIEW-001.json",
+      "sha256": "4bc8cf101318d61f1cd749e979c77e67af1bd27056f0357cf27d9ba02286d3db",
+      "size_bytes": 10122
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-LONG-S17-GRAPH-001.json",
+      "sha256": "d2d5674bdc55f6850124ed385fd2fddf54882f871cd8e3f7a604a4258fcf598c",
+      "size_bytes": 14450
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-LONG-S17-MLP-001.json",
+      "sha256": "1051667fcdc3f57bf31c0f5a8d515eb6c1eb3243d953aa3ce70300bbbe768253",
+      "size_bytes": 14397
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-LONG-S17-SELF-001.json",
+      "sha256": "c73c035f8980b3c0e5125fc32d6e0a683c4e677518b36ba6347270cb19acbffa",
+      "size_bytes": 14437
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-LONG-S17-TRANSE-001.json",
+      "sha256": "f9556efc42ebeece78c5980e730da6771f8ea0c07443fd3432acbfb9946938a9",
+      "size_bytes": 14455
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-LONG-S42-GRAPH-001.json",
+      "sha256": "d6547eb80517f306a67bd8f47145a64fd242b9f16e5503fa4bcfcadd9a77abc9",
+      "size_bytes": 14459
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-LONG-S42-MLP-001.json",
+      "sha256": "2717bc967eb38d5b9b414da2d5daf544baecd2b52adfe07cc17b8180f3b1a8fb",
+      "size_bytes": 14401
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-LONG-S42-SELF-001.json",
+      "sha256": "e578593f0364cf0ca337fb07e6c0f631d27eac0c6928ea89d9bafce4be5a00b5",
+      "size_bytes": 14442
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-LONG-S42-TRANSE-001.json",
+      "sha256": "63ddb4521fa3892afb0b80f5b939ea0ce7b2110b6549fbea76e5f0dad632a527",
+      "size_bytes": 14447
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-LONG-S73-GRAPH-001.json",
+      "sha256": "9f17cc6e1f607becc660f9ca982974d2f065821587221d072cfbf0a3779530a3",
+      "size_bytes": 14458
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-LONG-S73-MLP-001.json",
+      "sha256": "ecfce949975517d92e5721d8a66c401fd839d24499468b63672385e859d35b4a",
+      "size_bytes": 14389
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-LONG-S73-SELF-001.json",
+      "sha256": "ad3e7744c37fbbbedd09c20f116e9c761c5742267a3e0269961a8ba81ed12dd8",
+      "size_bytes": 14435
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-LONG-S73-TRANSE-001.json",
+      "sha256": "21831e2f218ef7cd17c2ec2caf766ebfb84ab014b2c403488a9853e96c51ffb1",
+      "size_bytes": 14449
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-LOSSMASS-DIAG-001.json",
+      "sha256": "fa3ef90c29c72fd8c9cbb5bb585d4979a8bda308fe96ad0fe01be96c1782f16f",
+      "size_bytes": 13515
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-NATIVE-GATE-001.json",
+      "sha256": "5a468458e795512bc7d75cd42e87702b3d0e8af59b8e8a59d1a125fb770f7774",
+      "size_bytes": 10165
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-PREPARE-001.json",
+      "sha256": "bf5c05eb4af18499850f60b245b6f67ef1fb0644635ae36c5eadf356671c5b92",
+      "size_bytes": 2909
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-REPAIR-S17-GRAPH-BALANCED-001.json",
+      "sha256": "f1a4fc3ff46b1ac0ec0abfe7cfacdad4803203b093c4a19c87d56e7e64df274a",
+      "size_bytes": 12310
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-REPAIR-S17-GRAPH-PLAIN-001.json",
+      "sha256": "2aad04295728606e1d35fa86aca5a3466c71998aecc806dbb64f956df2e45e08",
+      "size_bytes": 12213
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-REPAIR-S17-MLP-BALANCED-001.json",
+      "sha256": "18ead4039d9f0e1269a8753e9024d05ceff68c17505b176f90f878209df9a636",
+      "size_bytes": 12294
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-REPAIR-S17-MLP-PLAIN-001.json",
+      "sha256": "8e17951b5f628ec826afac4475c246f15da88d9446f914c1bd86f251a86a5a25",
+      "size_bytes": 12187
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-REVIEW-001.json",
+      "sha256": "c4cf30459c45ab22bc17575de92e85239e48815650a0b9f2fbc927fb9f88c423",
+      "size_bytes": 6149
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-S17-GRAPH-001.json",
+      "sha256": "1d496fc66f97c3a85b2be3c79e93f16bd8c7896e735dc17ec54fb7fd589ec39b",
+      "size_bytes": 10411
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-S17-MLP-001.json",
+      "sha256": "f426ef1d01bdf2069028923046945498ded3c2e7d22d21ad073dd7ca77f5b2ee",
+      "size_bytes": 10374
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-S17-SELF-001.json",
+      "sha256": "96b6d3263db11a21531fee788fd3c100ae0b76728f6bbbcd450bbcb65530d931",
+      "size_bytes": 10393
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-S17-TRANSE-001.json",
+      "sha256": "80acfa77c30cacdd112f74af8ef51da2c2a990f3d10da4d637ee9bd34a74dd64",
+      "size_bytes": 10403
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-S42-GRAPH-001.json",
+      "sha256": "3775ccd4630414f50e0b09d78276fad312dc6713bbb10598ea7dee94d0c2b020",
+      "size_bytes": 10410
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-S42-MLP-001.json",
+      "sha256": "0dfe81e8fd206eb1263147d3f3be2886c2b65a9ed80ef60d9f71729e8feec2d9",
+      "size_bytes": 10371
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-S42-SELF-001.json",
+      "sha256": "c6c8c31186f90a43355768187cf83d3853f930507fe0429097816c694606aa17",
+      "size_bytes": 10398
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-S42-TRANSE-001.json",
+      "sha256": "3a0a8dac9c56efd42282fffef33f90873095831c5181db06119a0f2161c07821",
+      "size_bytes": 10400
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-S73-GRAPH-001.json",
+      "sha256": "12a37d9a670e1670ac3a8c38da956617b360c09956ac5af8a31030589376a884",
+      "size_bytes": 10407
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-S73-MLP-001.json",
+      "sha256": "7745b03f0111a81f38418f60195e35eac274cc5f7a14bbf949decfd386a3f858",
+      "size_bytes": 10367
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-S73-SELF-001.json",
+      "sha256": "858d4d888d962eb6e7260d2bfcc4ff08cdabf604b0338197dc7797e01cb3fdb5",
+      "size_bytes": 10393
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-S73-TRANSE-001.json",
+      "sha256": "175b4976ea923dbe7e02caf5107fb4a2def9da4b55a5d2f27ad1df48cde94236",
+      "size_bytes": 10403
+    },
+    {
+      "path": "docs/experiments/records/EXP-HMEMBER-THRESHOLD-DIAG-001.json",
+      "sha256": "2fef839efffb02840d8df4b16a0bc53fec790d36e8ebfcdf3617d0e723610fed",
+      "size_bytes": 9854
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-NATIVE-GATE-001.json",
+      "sha256": "44ef8ecf41fafc90d3f310a3d1288e70a1305e9c5289fe2d5767803582a82b4d",
+      "size_bytes": 3869
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-PREPARE-001.json",
+      "sha256": "2730ec5166ae8aa9b9c0a606c1fbf882aa040c0924f236f37df33f0299327eff",
+      "size_bytes": 2411
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-PREPARE-002.json",
+      "sha256": "9dfb7c32c11822a7e78b9c4c0d718f80f6ffa2deb7985c0432d43af0c5f7056a",
+      "size_bytes": 2411
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-PREPARE-003.json",
+      "sha256": "706ed94841314281fa924f638ae8ba6200e3564ad0e8139e85a458f879ed5287",
+      "size_bytes": 2476
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-PREPARE-004.json",
+      "sha256": "b98f00ef880eaa4273e1cbc16186255ab11bebdd1c8f1dc54a2e39c0e6072246",
+      "size_bytes": 3047
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-PREPARE-005.json",
+      "sha256": "76b958b97a63784481b86a426effe021e34116eaca76c62b147f71476b03eabf",
+      "size_bytes": 2638
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-PREPARE-006.json",
+      "sha256": "d1a4cfe1cf5d02347a94b9146c9e5559990534f7b590b233bf158855ee8b20d5",
+      "size_bytes": 3206
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-REVIEW-001.json",
+      "sha256": "996d9f66e1341597a193a059e1f7903717078b0c3bf2332ff6d590a7bcfb1267",
+      "size_bytes": 10759
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S17-FROZEN-MLP-001.json",
+      "sha256": "2ea95af0c9989668262dd88a79e9f0e2e376755684d7a55068d085c0025bd457",
+      "size_bytes": 12452
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S17-FROZEN-TRANSE-001.json",
+      "sha256": "8bdd62986e34d1ea8c78d49c82e81128b9ee9a069f6da6855af2b39269f1d033",
+      "size_bytes": 12333
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S17-FT-MLP-001.json",
+      "sha256": "74fce4a4f4d283d889e0e7265152ed094d1e454787027c4ac4163d09a0b26671",
+      "size_bytes": 12054
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S17-FT-TRANSE-001.json",
+      "sha256": "9782d37f0222a7c715d591fef58625086c0916c8fa317d04c45344d14a49aceb",
+      "size_bytes": 12027
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S17-RANDOM-MLP-001.json",
+      "sha256": "612a70d46a5a7475960ebe3a74c9b804ebca533a6efde114f024dfa69fdf77d4",
+      "size_bytes": 12538
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S17-RANDOM-TRANSE-001.json",
+      "sha256": "36248a09125ed74c9cbf9a1c3062827da4cf5b87258aadce2f891b2bb3548362",
+      "size_bytes": 12010
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S17-RAW-MLP-001.json",
+      "sha256": "f46821256e142f3da0fa2539d35b25732f4d7769e774abf11403944116de1679",
+      "size_bytes": 11988
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S42-FROZEN-MLP-001.json",
+      "sha256": "688b1496ad1bb5df7a50ed9e5c00386093f731f118dd97e351fc80b510360c44",
+      "size_bytes": 12335
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S42-FROZEN-TRANSE-001.json",
+      "sha256": "4960efd514125bf15f1915041ac1c7c23029c5bfbeb79d113e355584dbc469c5",
+      "size_bytes": 12243
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S42-FT-MLP-001.json",
+      "sha256": "ed2f2f701f5c5712c39448afac5eb15eca4dd9bb926eb2d901e8e97a74761b20",
+      "size_bytes": 12091
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S42-FT-TRANSE-001.json",
+      "sha256": "b7639d179a0e0555a866f4b7840e3ba45551d432c6ad8f48e91e09316e1667e6",
+      "size_bytes": 12029
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S42-RANDOM-MLP-001.json",
+      "sha256": "f57c430760fe3246b1c5afde7b38605faefc5bedba8db965eb11f8c4f721bdce",
+      "size_bytes": 12224
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S42-RANDOM-TRANSE-001.json",
+      "sha256": "902c0c8dd48b1eb266ce5c0b7c0e504a19de48fc2f694f0d4f208bbbf801132d",
+      "size_bytes": 12129
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S42-RAW-MLP-001.json",
+      "sha256": "e1dd6f23f50b1892524fbe7522f57f65777117889609b95a98170a7c4f3eda06",
+      "size_bytes": 11981
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S73-FROZEN-MLP-001.json",
+      "sha256": "fcae7c9c7467c7f0a644c9176257f52b641fea39ae4a97cf603696b6ab4d680e",
+      "size_bytes": 12164
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S73-FROZEN-TRANSE-001.json",
+      "sha256": "0414a329e2515d5f73b7579b369110895669666b7e540dbfb8edf02a6beaad60",
+      "size_bytes": 12049
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S73-FT-MLP-001.json",
+      "sha256": "280d50f3449f79d89214dd7325d3dec7755d71cf8c1069384fd5b8f5d4ca0ddc",
+      "size_bytes": 12005
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S73-FT-TRANSE-001.json",
+      "sha256": "08dc01e43f36b05d61c7d024747f5d40f93c35c3897c7aa8cb6bb4579b91338c",
+      "size_bytes": 12028
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S73-RANDOM-MLP-001.json",
+      "sha256": "a1dc215221b0fe9e3fcb823e1b4df0e288211ee7708b0801af43ee58cf02088a",
+      "size_bytes": 12402
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S73-RANDOM-TRANSE-001.json",
+      "sha256": "c9df83f13a590a0640e404a4b009fa7ad9195ca8b932855761f95d004b0d25df",
+      "size_bytes": 12128
+    },
+    {
+      "path": "docs/experiments/records/EXP-LLM-RELATION-S73-RAW-MLP-001.json",
+      "sha256": "403f5979f13168ccebc212e2cc45e7b4e269d6582ec36d515ffc6ef458435f96",
+      "size_bytes": 11986
+    },
+    {
+      "path": "docs/research/AUTOSCHA_HIERARCHICAL_POOLING_PILOT_20261027_RU.md",
+      "sha256": "a17079555dd3f0867a975d06b4888f446e2dbaa693daca94188db104514255bc",
+      "size_bytes": 19970
+    },
+    {
+      "path": "docs/research/HARMONIC_EVENT_GRAPH_DESIGN_20261025_RU.md",
+      "sha256": "fd2e690593f25f9a23829da80ba6bda4ac3e1999e37bd10cca9414921137ff44",
+      "size_bytes": 21452
+    },
+    {
+      "path": "docs/research/HARMONIC_RELATION_GEOMETRY_20261024_RU.md",
+      "sha256": "e9b07d179255a1b3c2aaad0cb2cb5faa7c7ad9f58b0a94cfc4d9ee74dad76ebb",
+      "size_bytes": 27150
+    },
+    {
+      "path": "docs/research/HIERARCHICAL_GRAPH_REASONER_CHOICE_20261027_RU.md",
+      "sha256": "92bec3187ba7c82db8d07514fde4f57bf2e35d7ad5c7f7df4307db81c684c6f9",
+      "size_bytes": 42880
+    },
+    {
+      "path": "docs/research/H_EVENT_DISCOVERY_AND_ADAPTER_REUSE_20261027_RU.md",
+      "sha256": "4c05adef5ea418f76dc76496b0558ef7bc5cd49c24f2fb1b49120e526110fbed",
+      "size_bytes": 17546
+    },
+    {
+      "path": "docs/research/QUERY_CONDITIONED_HARMONIC_GRAPHS_20261025_RU.md",
+      "sha256": "77271dfaf32c611f8628b5e320ecbd51c82a67d70b2635ed0c84434b2db0c9a4",
+      "size_bytes": 37108
+    },
+    {
+      "path": "docs/research/STRUCTURED_MUSIC_ANALYZER_DIRECTION_20261027_RU.md",
+      "sha256": "ba004e167ee356a48aed331d14743dbf3ee231f81df51a03351b2dcd83c16673",
+      "size_bytes": 19077
+    },
+    {
+      "path": "docs/workstreams/2026-10-25/harmonic-event-reasoner/pilot-plan.md",
+      "sha256": "700428c002d8f7deeed47bd9e0a3e874fcafd589b4e86dc7dd746b560bdd84fe",
+      "size_bytes": 26844
+    },
+    {
+      "path": "docs/workstreams/2026-10-25/harmonic-event-reasoner/review.md",
+      "sha256": "614885f84248c43346ee206f835f041baacaa8d1afca9f6687eca0f6909b8333",
+      "size_bytes": 16771
+    },
+    {
+      "path": "docs/workstreams/2026-10-25/harmonic-event-reasoner/spec.md",
+      "sha256": "30548566c3ac895dd1540077748600fcaf775389aaffb819a9c13f2ecb5abab4",
+      "size_bytes": 20893
+    },
+    {
+      "path": "docs/workstreams/2026-10-27/hierarchical-graph-analyzer/campaign.md",
+      "sha256": "bbdf35bb9ccf9a4372d7ec02155b817aebdf1c7f40632d85dcd3b60ca921c7cd",
+      "size_bytes": 37335
+    },
+    {
+      "path": "docs/workstreams/2026-10-27/hierarchical-graph-analyzer/factorized-chord-targets.md",
+      "sha256": "4583d2a69d4ec3d9ad2cf37ef4dfff326494389fa3bae81a5c3496c3ae9ada4d",
+      "size_bytes": 23165
+    },
+    {
+      "path": "docs/workstreams/2026-10-27/hierarchical-graph-analyzer/output-vocabulary.md",
+      "sha256": "e761a647b6c2bafb6843ee489d8e7dfdb97e2709d0d4f12d8b2a1388b2f5256b",
+      "size_bytes": 22681
+    },
+    {
+      "path": "docs/workstreams/2026-10-27/hierarchical-graph-analyzer/projection-implementation.md",
+      "sha256": "1436f5b1c7f10eb204fa6d1f19f2e9c4aba6467e9b560d89e407852b00fbf623",
+      "size_bytes": 16070
+    },
+    {
+      "path": "docs/workstreams/2026-10-28/annotation-expansion/spec.md",
+      "sha256": "e22926404f5d6cd1c2e2b9b4b144968e01613e42e475846ac4b2d119bcdd0328",
+      "size_bytes": 5871
+    },
+    {
+      "path": "docs/workstreams/2026-10-28/hiergraph-launch-preparation/readiness.md",
+      "sha256": "fd8e9c61664cc0f1b64727ecdd9c380e380cb4274bfef8ea527f7256ae5cb4ca",
+      "size_bytes": 24364
+    },
+    {
+      "path": "docs/workstreams/2026-10-28/hiergraph-launch-preparation/review.md",
+      "sha256": "a4d40194a35bafaa0f2fba4410d77ae0ec38d9809caae4994dafb0d895ef3f0e",
+      "size_bytes": 13368
+    },
+    {
+      "path": "docs/workstreams/2026-10-28/hiergraph-launch-preparation/spec.md",
+      "sha256": "1e6a15cb3874dbd57036a262294709cc5dce67a25db1641fa14835838d8931fb",
+      "size_bytes": 8359
+    },
+    {
+      "path": "docs/workstreams/2026-10-29/hiergraph-80k/e1-results.md",
+      "sha256": "3312aea56d8433caaae1d1a70392962d26f25ad831db461b92f91b9bde4ce725",
+      "size_bytes": 6337
+    },
+    {
+      "path": "docs/workstreams/2026-10-29/hiergraph-80k/spec.md",
+      "sha256": "3edd4f92d9f720b54093ff87e7f68a6e30aedd69457e6a7a65781df4cb4d38df",
+      "size_bytes": 2982
+    },
+    {
+      "path": "docs/workstreams/2026-10-29/hiergraph-full/implementation.md",
+      "sha256": "a13489e90ebae5b3ad9271b8ab9bc8c87b0f8737f13bad9b06c43400c9d97f59",
+      "size_bytes": 12538
+    },
+    {
+      "path": "docs/workstreams/2026-10-29/hiergraph-full/review-scope.json",
+      "sha256": "90dd0ea374520c918020cf166fa3edc658bffdf5e56b5ac4875abadc7f0e4d6d",
+      "size_bytes": 2948
+    },
+    {
+      "path": "docs/workstreams/2026-10-29/hiergraph-full/review.md",
+      "sha256": "f5e57c71490f5bf3a0f1366258807563827ea23b47a69087b25c393918a4037a",
+      "size_bytes": 4559
+    },
+    {
+      "path": "docs/workstreams/2026-10-29/hiergraph-full/spec.md",
+      "sha256": "05f1133367db5908bd4567dc529dcbf44e1fa631a4a6e4d34e8b5ed0be034384",
+      "size_bytes": 5989
+    },
+    {
+      "path": "scripts/audit_hiergraph_supervision.py",
+      "sha256": "8063b4729470b11c255cb0faf9eec18c90aa4bc00d7b72f52b84a8d67d0d4d53",
+      "size_bytes": 30017
+    },
+    {
+      "path": "scripts/diagnose_hmember_thresholds.py",
+      "sha256": "a01ef4c4f542b38373eaee88e7164d00a3247dcb8f3777758ebe127ca63f2ad4",
+      "size_bytes": 11563
+    },
+    {
+      "path": "scripts/package_hiergraph_inputs.py",
+      "sha256": "163a19ecfade848d3a91fd0c07bd6014a8904c50b4a265ad0fa8c15a346943ce",
+      "size_bytes": 4433
+    },
+    {
+      "path": "scripts/prepare_hiergraph_overlay.py",
+      "sha256": "2466ff8ae7d353e80ccbc25f4f5b215335c12f3f13da88305bf880efa779b5f1",
+      "size_bytes": 2092
+    },
+    {
+      "path": "scripts/prepare_hiergraph_targets.py",
+      "sha256": "607b40e6ac98da62ecc1864bd1a2e4131b68b4bfe6fb75e35df93e598132db0c",
+      "size_bytes": 185
+    },
+    {
+      "path": "scripts/prepare_hmember.py",
+      "sha256": "ededb4bd4102bd5270b256047b9cbf2c41861a4ad14c56300ee1f54aaf68c9e5",
+      "size_bytes": 6182
+    },
+    {
+      "path": "scripts/probe_hmember_determinism.py",
+      "sha256": "5740cb66f472715d9b3265297176bd743a3bd1a43b8afd7e39a99a937ac92318",
+      "size_bytes": 8150
+    },
+    {
+      "path": "scripts/run_hiergraph.py",
+      "sha256": "b0115afd4a479f138cc050ad0164e6dc5a343e8797f2c82630a0d2b2538a0d8f",
+      "size_bytes": 13005
+    },
+    {
+      "path": "scripts/run_hiergraph_campaign.py",
+      "sha256": "80507c04a63fff875f8776ae2d8642ee2000a5b74ab0c3e654b2c7975774802e",
+      "size_bytes": 211
+    },
+    {
+      "path": "scripts/run_hiergraph_full.py",
+      "sha256": "edb768eb4c903ef6e919969d5d0504269f22178525bb70369529513252f92f67",
+      "size_bytes": 7404
+    },
+    {
+      "path": "scripts/run_hmember_campaign.py",
+      "sha256": "bbe898d76626d96bb4261ff3747e4e3593b076429e5213061f53872debbf04b6",
+      "size_bytes": 27662
+    },
+    {
+      "path": "scripts/run_hmember_curve_campaign.py",
+      "sha256": "6f2de14cafd037f1624003d3aecb6b5e9ba2b6410a64616150b8ba59ab110ff5",
+      "size_bytes": 9766
+    },
+    {
+      "path": "scripts/run_hmember_repair_campaign.py",
+      "sha256": "c19da6a3b41e68c449a1274dca614c3740462fcfa51613babb4ba1bd051cebda",
+      "size_bytes": 7841
+    },
+    {
+      "path": "scripts/run_relation_probe.py",
+      "sha256": "8f4bf23de53710a44eca5906b0dc2fbdc846b6f3a505f84c1fab9a413340b1f0",
+      "size_bytes": 10465
+    },
+    {
+      "path": "src/music_critic/experiments/harmonic_event_reasoner/__init__.py",
+      "sha256": "d5b79a56ffda0b370a3a18813d770f7453d7eace3057fe03431bf6dfac443dc9",
+      "size_bytes": 79
+    },
+    {
+      "path": "src/music_critic/experiments/harmonic_event_reasoner/cache.py",
+      "sha256": "cb210d9a399551da731b6dbdbe8af65f0ad1db277721bf4657bd2486c1b9dfba",
+      "size_bytes": 19428
+    },
+    {
+      "path": "src/music_critic/experiments/harmonic_event_reasoner/data.py",
+      "sha256": "80c92670889db2cb5b62821016d4e54b31978a7a30c9f4859bdc5200f83183a6",
+      "size_bytes": 3382
+    },
+    {
+      "path": "src/music_critic/experiments/harmonic_event_reasoner/evidence.py",
+      "sha256": "bbaccb7c9ee1e14499c802012aa19c4fe1e6496c41c069a0106f38bf0a5a56c6",
+      "size_bytes": 4170
+    },
+    {
+      "path": "src/music_critic/experiments/harmonic_event_reasoner/metrics.py",
+      "sha256": "fba8886a84d54341c7a304ab189abf5bbceb596ecafb5c5ed851989c0fd354ae",
+      "size_bytes": 17080
+    },
+    {
+      "path": "src/music_critic/experiments/harmonic_event_reasoner/model.py",
+      "sha256": "43041434addd66567dc12a41c535bbd5f0479fa4a21504263ebbce7433373023",
+      "size_bytes": 10749
+    },
+    {
+      "path": "src/music_critic/experiments/harmonic_event_reasoner/reproducibility.py",
+      "sha256": "531451bf93bdc7e54bb3136c74e6e2e4c227b3a90873aaeaec166cf8cfc2a251",
+      "size_bytes": 2647
+    },
+    {
+      "path": "src/music_critic/experiments/harmonic_event_reasoner/training.py",
+      "sha256": "e9bdf9bfc4093786fad7afd27d4ec2231a7f338d10d58ce423238dde367bdaf4",
+      "size_bytes": 35316
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/__init__.py",
+      "sha256": "479194de1e4c08525acee3f077ebceaca58b09f55c7ff5e232a2b0849225bf52",
+      "size_bytes": 66
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/cache.py",
+      "sha256": "bbf4759f694bddf7723e7aacc69f11f392b4a6fafa2ff1d4074d8c8a4e6ac753",
+      "size_bytes": 18458
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/campaign.py",
+      "sha256": "007d0028a85ec3b75b12626523f603e699a026c2b3048f4ca480ab245cd8b94d",
+      "size_bytes": 13455
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/data.py",
+      "sha256": "092582a46500ac7c794dfc67fe1155b33425577c54216ff8fbc66d6e4bad2442",
+      "size_bytes": 10713
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/full_data.py",
+      "sha256": "e22f981ee2d2e26cf652d71699a3695c6e740f2b2f4e84c0ab8c1c2009c8cf6c",
+      "size_bytes": 18493
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/full_inference.py",
+      "sha256": "f04a78509366494d3fc88a8a9e898dfcf74e2c4b64ea320bafb18e958883064d",
+      "size_bytes": 8382
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/full_losses.py",
+      "sha256": "8cdbc27a62750cc23dafc217acff81a6154e2e7c2f9a6467f6db687447f67f45",
+      "size_bytes": 20698
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/full_matching.py",
+      "sha256": "28f12d382c63def56ddc403068906a284ec1a09257bea35a05d86e1b968e61aa",
+      "size_bytes": 4501
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/full_metrics.py",
+      "sha256": "bb7f2feabe9d3fb5511d287a6a32f4f88c018175c37294b9dc1d254c70c0954a",
+      "size_bytes": 16837
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/full_model.py",
+      "sha256": "6c7aa71f48e4391cd3eb688ffc4019f561363ddd977c982ce28af59c681d1485",
+      "size_bytes": 28532
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/full_runtime.py",
+      "sha256": "bdffddd9589aa722f46d2b1a4d9e5c07b81218311976ce999024663c5ec7b17a",
+      "size_bytes": 37110
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/losses.py",
+      "sha256": "7f04bfba5c760c9df9c0c09fc8727612f79b93470bd93ec6ea39ae562c04daf9",
+      "size_bytes": 7285
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/matching.py",
+      "sha256": "631d1aa84007b1909e9647d765989b653960b2753fe7a7a72766ad8c21d54caa",
+      "size_bytes": 10550
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/metrics.py",
+      "sha256": "5b2a02f00998fe7fd966a4e8265460d7e313a853a862a48821e7f155d054d84b",
+      "size_bytes": 13395
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/model.py",
+      "sha256": "0b63cea7a38755da2946b2b6b118fcd43c4cefb0c92e3d3d58cc73b2e3a01d88",
+      "size_bytes": 18661
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/overlay.py",
+      "sha256": "4c14b5d70ee2bbfb8207ab6f77d91abe2bd07c0b5891a99dfb08c855c8de6bac",
+      "size_bytes": 8102
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/pipeline.py",
+      "sha256": "aa221aca8b4f38ee4a4886a79d111daa1095944086a75d8c6510bfbacba34f2b",
+      "size_bytes": 8171
+    },
+    {
+      "path": "src/music_critic/experiments/hierarchical_graph_analyzer/runtime.py",
+      "sha256": "090ebc684a05951cfb5e4152ac98cfad30d846b9e1318e357f1eee284d8c1e27",
+      "size_bytes": 19157
+    },
+    {
+      "path": "src/music_critic/experiments/hiergraph_export.py",
+      "sha256": "c561715936b81c9faca8dc7d25a69b909e062d75f42aeeed68ea120318445209",
+      "size_bytes": 29498
+    },
+    {
+      "path": "src/music_critic/experiments/supervision_stream.py",
+      "sha256": "abf597b8514f0d27b734b550149e79457c86f36eca81081380b153e392736c64",
+      "size_bytes": 5605
+    },
+    {
+      "path": "src/music_critic/relation_probe/__init__.py",
+      "sha256": "3bbf08adbf237f68f05b17d6455669b7e06fb86ad5927225386653c0c127dc59",
+      "size_bytes": 81
+    },
+    {
+      "path": "src/music_critic/relation_probe/data.py",
+      "sha256": "b0b3a22c34fefcbfb766e7edf7004b79f3ff1f6c792a3948c7e0c6b3418a3058",
+      "size_bytes": 10769
+    },
+    {
+      "path": "src/music_critic/relation_probe/model.py",
+      "sha256": "0c2dd30eac930adbd738ba35f2748dd116d7df35c2ea28f4692f9bbb202acab1",
+      "size_bytes": 3860
+    },
+    {
+      "path": "src/music_critic/relation_probe/runtime.py",
+      "sha256": "9fa01c4e4e3ed067e7e020548cba97cf19d32aa493b0df7085c2b7b694dc3dd9",
+      "size_bytes": 17002
+    },
+    {
+      "path": "src/music_critic/tasks/__init__.py",
+      "sha256": "c5bd4b8f1e897e2db9eff5436a26845eeee7bdd50a1bba5f2ff9447ac1b50ad2",
+      "size_bytes": 14626
+    },
+    {
+      "path": "src/music_critic/tasks/chord_interval_projection.py",
+      "sha256": "1dfd8e6155a6d317cc2647b5651d6d137ced63d160c6f7e703c5e18ff012196b",
+      "size_bytes": 22443
+    },
+    {
+      "path": "src/music_critic/tasks/chord_structure_projection.py",
+      "sha256": "9bbe064d8d854092d84523c2d1e17220f83d80bfc1ca009448e52f617168ff70",
+      "size_bytes": 22135
+    },
+    {
+      "path": "src/music_critic/tasks/dense_harmonic_targets.py",
+      "sha256": "d571715450d2ef1f879110287ede312921a756595eedf82ff85ab026d56a190f",
+      "size_bytes": 33347
+    },
+    {
+      "path": "src/music_critic/tasks/dilemmadata_common.py",
+      "sha256": "2136377ca907bee66f17d865e99d6274faa0c803ee39c6fc87a85d2a91ec8a5d",
+      "size_bytes": 113949
+    },
+    {
+      "path": "src/music_critic/tasks/harmonic_projection_primitives.py",
+      "sha256": "5b21ce612ff364441bf66681cdaad00ab29cb6b7ad9136f5cf5d5d6ff2abd8e9",
+      "size_bytes": 1267
+    },
+    {
+      "path": "src/music_critic/tasks/hiergraph_projection.py",
+      "sha256": "d52e041727ab546cb5d6c45b096c29f067b0f3e04acd1809694be173eeb4c347",
+      "size_bytes": 44218
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_80k.py",
+      "sha256": "71ed93479ac37aba460645a301f20a8795eee3c9e906101b80d7d2d1dc16f658",
+      "size_bytes": 2252
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_cache.py",
+      "sha256": "bcd19ae1198ab20d46c5a792e83fb53fb4ae9c27ca819808aa89c6f3b7c04ee2",
+      "size_bytes": 3303
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_cache_review.py",
+      "sha256": "86407a68cf798d2d5cde9b71ba0f7e0044c97e124dc60bd68ede425aed9e7c50",
+      "size_bytes": 16401
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_campaign.py",
+      "sha256": "b668eec3487732deb5ff2373b42681031ac0c84712c9ba3369b0fe10ed6b2a97",
+      "size_bytes": 4535
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_campaign_review.py",
+      "sha256": "b3a20d4b66b6e77ea777d2c1d1d6f1b649e15aa4015ca2764ba1b84c57766e6f",
+      "size_bytes": 2894
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_campaign_standards_review.py",
+      "sha256": "569b666644ddea453f77faf231613fbc371fd9170c2081f4f4bd5d813dccde28",
+      "size_bytes": 6508
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_cli_review.py",
+      "sha256": "6c0ce7432195df247768b82727687eac4db51d4f360f7abb9ff2856eba4b36b7",
+      "size_bytes": 9111
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_cuda.py",
+      "sha256": "c795cd3d0c57e0efadd24f4ef93eee89c8af813a90569374019e97fa65e922ba",
+      "size_bytes": 2290
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_data.py",
+      "sha256": "162bdeff256c1ab3ae5fc4cd092616684c9743246dbd2e34b7557256e47b48eb",
+      "size_bytes": 5757
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_export.py",
+      "sha256": "9fe6430398c13407b2fa70c82160d365df9268ad09428f3f277aee63a8d5ba93",
+      "size_bytes": 20847
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_full_losses.py",
+      "sha256": "a83bbcceb095c5bddb1e938cb372cf19f885e5873b74830a84787e6f32aef7f1",
+      "size_bytes": 8120
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_full_matching.py",
+      "sha256": "8357e5dc874c56c3644a7962523705b0c9d996cf2a9eb8800a019437aeb179e6",
+      "size_bytes": 1589
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_full_metrics.py",
+      "sha256": "3bafe03ae6915dd2bb48bda73c5254ecbb08123d8adedf2aa8864c3f6c9c2d1b",
+      "size_bytes": 6323
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_full_model.py",
+      "sha256": "54c8e0b5ad44a18e21d37666fba5013b0f5d959203ba832b0f0b563de63bb1a9",
+      "size_bytes": 9598
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_full_runtime.py",
+      "sha256": "b9dc54d345d516d6b0e033c7f0d7a902b0985243901909d02e2bb9b301c96bd4",
+      "size_bytes": 18863
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_losses.py",
+      "sha256": "ce4c21a3c872b0fa10b650ee247be6ecf18a9f2f90411355e611d0f11e978ad4",
+      "size_bytes": 8784
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_matching.py",
+      "sha256": "dfa1906f1bfae71a4f582bb360be1fcd7c06347730b927d6c22eaad7b0bb826a",
+      "size_bytes": 3849
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_metrics.py",
+      "sha256": "3b85f150a386211c189e8d9bfdb3e6ddf87d0b105627617b86e847ec2278b48f",
+      "size_bytes": 7494
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_model.py",
+      "sha256": "1fc6c9faf6a41bad47811140ff4c213c742d81461165956aa5d3adb30c2f84b0",
+      "size_bytes": 16330
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_overlay.py",
+      "sha256": "9c5a9c2506d8768b5e2fe8f40866284b60cfee8ca844fc813388a08f2512bd96",
+      "size_bytes": 7177
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_packaging.py",
+      "sha256": "a10909ada9fe1ccf232e62ba90e45d3fb7c6f371885804b5a6b51551da025216",
+      "size_bytes": 2057
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_pipeline.py",
+      "sha256": "42f52b3758fc6f04e5ca2011384e480f6fb7cebb4fdaf22dbbedb861eb23ca6c",
+      "size_bytes": 1645
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_pipeline_review.py",
+      "sha256": "aec6e56d71b4bd8a44e81106e483db535b73205a5cc33448d4372446873400a2",
+      "size_bytes": 6399
+    },
+    {
+      "path": "tests/experiments/test_hiergraph_runtime.py",
+      "sha256": "42a43430b4feb28c034c8d5eadf7b55e9b2c3720aa41ab825c4734091e48af79",
+      "size_bytes": 12942
+    },
+    {
+      "path": "tests/experiments/test_hmember_campaign.py",
+      "sha256": "c0b10ce99e84f1c397bb28031edc24a4463346a4d5e622b06b06bdac5ad0ecf3",
+      "size_bytes": 9111
+    },
+    {
+      "path": "tests/experiments/test_hmember_curve.py",
+      "sha256": "356002074644810708fa9368a054ccde6d8a27c812252fb155526f53d21eaba1",
+      "size_bytes": 4925
+    },
+    {
+      "path": "tests/experiments/test_hmember_curve_campaign.py",
+      "sha256": "7cc0614e64964e6663061a923f8558837bcc455cbbe8f44481df472170564716",
+      "size_bytes": 5557
+    },
+    {
+      "path": "tests/experiments/test_hmember_data.py",
+      "sha256": "09237aa4c65b67f8c2ec659030315899acb1c4d2cedecff5cf3d7b40f5436f25",
+      "size_bytes": 2623
+    },
+    {
+      "path": "tests/experiments/test_hmember_evidence.py",
+      "sha256": "b57811f579ac364a53ed92f78ffa74fc7655b700fa793e930b894b46a9e32f64",
+      "size_bytes": 1563
+    },
+    {
+      "path": "tests/experiments/test_hmember_metrics.py",
+      "sha256": "d876b1d94ed3a6e434d25a7da59f65aa778d99e75222e1c6541b4e028755ae18",
+      "size_bytes": 8793
+    },
+    {
+      "path": "tests/experiments/test_hmember_repair_campaign.py",
+      "sha256": "e5d773b4e00e8799b832731c62145cbef60997230102360f1d9d0a4aff09e6ab",
+      "size_bytes": 4524
+    },
+    {
+      "path": "tests/experiments/test_hmember_reproducibility.py",
+      "sha256": "cdaf4d7d85890f18655bc6cb736b292677b984d91195f82bb983dccc9697e3eb",
+      "size_bytes": 7666
+    },
+    {
+      "path": "tests/experiments/test_hmember_threshold_diagnostic.py",
+      "sha256": "0dd2395ec32934b270a3ebf6b2d3becdcd6fa3cc9a2c924150244abfbb9e3b8f",
+      "size_bytes": 2971
+    },
+    {
+      "path": "tests/experiments/test_hmember_training.py",
+      "sha256": "0593add7cf938295204cdd9c631e89069ecbd2c9427ff75cf93a4b5daca2a2da",
+      "size_bytes": 21581
+    },
+    {
+      "path": "tests/experiments/test_supervision_stream.py",
+      "sha256": "807e59499bf33ee014416b779ddae437d72c4221dc99da06318f60b2c8545b5e",
+      "size_bytes": 6787
+    },
+    {
+      "path": "tests/experiments/test_threshold_policy.py",
+      "sha256": "3e2ab15633cbbde64e7767d08eb61d1affc2585a2d6140f6e91dad5bd6707907",
+      "size_bytes": 10413
+    },
+    {
+      "path": "tests/tasks/test_chord_interval_projection.py",
+      "sha256": "1cf445aa2c89a50bd4c85205844b9d59b3a97f9e18694c856f015867dd5db2d8",
+      "size_bytes": 20328
+    },
+    {
+      "path": "tests/tasks/test_chord_structure_projection.py",
+      "sha256": "757f499dfa3c7efa0819e7d10a97f4f3213686504ad3643d1cc5930345fe3917",
+      "size_bytes": 15164
+    },
+    {
+      "path": "tests/tasks/test_hiergraph_projection.py",
+      "sha256": "a2dc79d36be97b2f9e5bc30edace88675e7243bf52f877f93059f22b33bdfbd6",
+      "size_bytes": 43980
+    },
+    {
+      "path": "tests/test_harmonic_event_reasoner_model.py",
+      "sha256": "b74cb3f373ad7e1acfce8c4e91efa7a25669525266ea032143d08537d01c2587",
+      "size_bytes": 10292
+    },
+    {
+      "path": "tests/test_hiergraph_full_data.py",
+      "sha256": "e2191e387a65d16467a5c49ff2d78500aa6f5b96e709dbb14141c196773a39cf",
+      "size_bytes": 14437
+    },
+    {
+      "path": "tests/test_hiergraph_supervision.py",
+      "sha256": "aac18c3c0aa1fddd1273424f846c839aed2857891b83e867a70cc3c16971cfa0",
+      "size_bytes": 15727
+    },
+    {
+      "path": "tests/test_hmember_cache.py",
+      "sha256": "b07c62cf0861a179fb40c983ffecd1e76d3ee1114169366e0c38fff57a5ddf54",
+      "size_bytes": 9334
+    },
+    {
+      "path": "tests/test_relation_probe_data.py",
+      "sha256": "5582622acba87358b37bc30953c2afc5d999e29d18c434063da4c1a21e36f030",
+      "size_bytes": 5743
+    },
+    {
+      "path": "tests/test_relation_probe_model.py",
+      "sha256": "0edf44cf2c0e52d91561099d8fbe78d3a884d4854e792651142592b2a0ec7ee5",
+      "size_bytes": 2736
+    },
+    {
+      "path": "tests/test_relation_probe_runtime.py",
+      "sha256": "b1dbbaa10622497c51ecef39b5f63843caf1b2e3dbf7e442f739ef2f65f29837",
+      "size_bytes": 3235
+    },
+    {
+      "path": "tests/test_relation_probe_supervisor.py",
+      "sha256": "39de5b6bf1b5ce6a4a21dd296d2638e564089081d3803237637ab868fc3d0fc6",
+      "size_bytes": 546
+    },
+    {
+      "path": "tests/test_tasks_lazy_facade.py",
+      "sha256": "4866d4ab68715f944d00024487e6ebcf5ea06ba44ffc7b0d56e564827a88f7b1",
+      "size_bytes": 6677
+    }
+  ]
+}

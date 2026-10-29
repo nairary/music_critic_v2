@@ -1,0 +1,58 @@
+{
+  "campaign_record": "records/EXP-HIERGRAPH-80K-CAMPAIGN-001.json",
+  "campaign_wall_seconds": 111600,
+  "cleanup_seconds": 10,
+  "condition_wall_seconds": 21600,
+  "conditions": [
+    {
+      "experiment_id": "EXP-HIERGRAPH-80K-E1-S17-001",
+      "kind": "E1",
+      "output": "runs/E1-s17-001",
+      "record": "records/EXP-HIERGRAPH-80K-E1-S17-001.json",
+      "seed": 17
+    },
+    {
+      "experiment_id": "EXP-HIERGRAPH-80K-E2-S17-001",
+      "kind": "E2",
+      "output": "runs/E2-s17-001",
+      "record": "records/EXP-HIERGRAPH-80K-E2-S17-001.json",
+      "seed": 17
+    },
+    {
+      "experiment_id": "EXP-HIERGRAPH-80K-E3-S17-001",
+      "kind": "E3",
+      "output": "runs/E3-s17-001",
+      "record": "records/EXP-HIERGRAPH-80K-E3-S17-001.json",
+      "seed": 17
+    },
+    {
+      "experiment_id": "EXP-HIERGRAPH-80K-E4-S17-001",
+      "kind": "E4",
+      "output": "runs/E4-s17-001",
+      "record": "records/EXP-HIERGRAPH-80K-E4-S17-001.json",
+      "seed": 17
+    },
+    {
+      "experiment_id": "EXP-HIERGRAPH-80K-E5-S17-001",
+      "kind": "E5",
+      "output": "runs/E5-s17-001",
+      "record": "records/EXP-HIERGRAPH-80K-E5-S17-001.json",
+      "seed": 17
+    }
+  ],
+  "config": {
+    "path": "config.json",
+    "sha256": "ee75002caf404d030cad16ce7e88e6c21bd76f722abd6732f7425e470c3c804d",
+    "size_bytes": 1124
+  },
+  "environment": {
+    "CUBLAS_WORKSPACE_CONFIG": ":4096:8",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONPATH": "src"
+  },
+  "poll_seconds": 2,
+  "python": "/home/humtech/music_critic_v2/.venv/bin/python",
+  "schema": "Hiergraph80KCampaign@1",
+  "source_directory": "source006",
+  "worker_grace_seconds": 40
+}

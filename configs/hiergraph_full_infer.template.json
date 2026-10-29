@@ -1,0 +1,25 @@
+{
+  "schema": "HiergraphFullRun@1",
+  "prepared": false,
+  "test_locked": true,
+  "freeze_policy": "frozen_C3",
+  "augmentation": "none",
+  "device": "cpu",
+  "cpu_threads": 1,
+  "source_manifest": null,
+  "source_manifest_sha256": null,
+  "wall_seconds": null,
+  "work_id": null,
+  "input": {"format": "canonical_json", "path": null, "sha256": null, "size_bytes": null},
+  "c3_checkpoint": {"path": null, "sha256": null, "size_bytes": null},
+  "model_checkpoint": {
+    "path": null, "expected_sha256": null, "expected_size_bytes": null,
+    "bindings": {"source_sha256": null, "config_sha256": null, "data_sha256": null, "cache_sha256": null, "c3_sha256": null, "output_vocabulary_sha256": null, "full_model_sha256": null}
+  },
+  "head_sizes": {"H": {}, "h": {}, "P": {}},
+  "field_values": {},
+  "model": {},
+  "relation_types": ["prepares", "resolves_to"],
+  "raw_limits": {"max_tiles": 2048, "max_notes": 100000},
+  "edge_threshold": 0.5
+}

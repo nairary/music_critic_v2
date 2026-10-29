@@ -1,0 +1,38 @@
+{
+  "augmentation": "none",
+  "cache": "../cache004",
+  "cache_manifest_sha256": "5d4e2634bff7a9cffeea22c83e0be52325be7b4bcb89eb7321771f0bc0d45a32",
+  "clip_grad_norm": 1,
+  "condition_wall_seconds": 1800,
+  "device": "cuda",
+  "evaluation": {
+    "candidates_per_quarter": 4,
+    "iou_threshold": 0.5,
+    "max_predictions": 64
+  },
+  "learning_rate": 0.0003,
+  "model": {
+    "edge_types": 64,
+    "hidden": 128,
+    "input_width": 266,
+    "max_events": 64,
+    "node_types": 9,
+    "rounds": 3
+  },
+  "schema": "HiergraphFirstFivePilot@1",
+  "seeds": [
+    17
+  ],
+  "selection_rule": "earliest maximum inner-selection family-macro known-H recovery",
+  "selection_steps": [
+    250,
+    500,
+    1000,
+    2000
+  ],
+  "source_manifest": "source-manifest.json",
+  "source_manifest_sha256": "05ac3a3482c51eac0ff543138e49206805eb2ec0c0cd11dbe87b88d87e3efffa",
+  "target_manifest_sha256": "2d808660243ad68a24b29474140eebd9b9abb7e0818b0ca60e7af7fe0e0bd415",
+  "targets": "../inputs001/targets",
+  "test_locked": true
+}
