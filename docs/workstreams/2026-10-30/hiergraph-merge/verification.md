@@ -54,3 +54,39 @@ lifecycle/API boundaries, repository contracts, H-member training/reproducibilit
 relation-probe suites and all test_hiergraph_* experiment modules. Synthetic
 process cleanup checks required ps permission outside the sandbox. Full Linux
 CI is pending the repaired head; a merge requires its successful completion.
+
+The additional full local suite was interrupted after failures for diagnosis:
+3080 passed, 4 failed, 6 skipped, 151 subtests passed before interruption.
+Three failures are historical initial-model-state fingerprint checks. All three
+reproduce unchanged on an archived main645922d checkout with its own src and
+fixtures in the same macOS ARM/Python3.12/Torch environment. Their failed audit
+checks are initial_model_state / paired_initial_state, not changes introduced
+by PR47. Historical fingerprints were not replaced or assertions weakened.
+The fourth failure was a shell subprocess unable to find the command python;
+it passes when the publication virtualenv bin directory is on PATH. This local
+interrupted run is not represented as a passing full-suite check. The complete
+Linux CI with its declared Python3.13 environment is still required.
+Local versions were verified: arm64, Python3.12.14, Torch2.15.0, PyG2.8.1.
+The reference CI constraints pin Torch2.8.0 and PyG2.7.0 on Linux/Python3.13.
+Thus the local full-run environment differs from the historical reference;
+this review does not isolate platform versus version effects on initial weights.
+
+
+## Verified Linux completion
+
+[CI run40967524048](https://github.com/nairary/music_critic_v2/actions/runs/40967524048)
+completed SUCCESS on b9970307f8be544646e800ce7e72c20f61333f3d, with main base
+645922d4db282ff0c3a06c1cf82ecc9d0594f5c7. The main group recorded 6968 passed,
+66 skipped, 1991 subtests passed in2314.38s; the separate resource-wrapper group
+recorded62 passed in1.42s. Combined7030 passed,66 skipped. Compileall succeeded.
+The job completed in39m30s; its existing warnings were not suppressed.
+
+CI-relevant tree fingerprint:
+190de94fd10ebf6d01203b82c53922dd52fc19310af103ccdb01c7689a2a8d9b.
+A successful exact-tree marker was saved. This subsequent evidence update changes
+only Markdown; the validated code/test/config/workflow tree remains identical.
+The final merge identity is available in [PR47](https://github.com/nairary/music_critic_v2/pull/47).
+
+Before updating original main, 50 local modified/untracked files were archived
+with per-file hashes and verified. The archive lives in ignored outputs; no
+local WIP, datasets or checkpoints are added by the integration receipt.

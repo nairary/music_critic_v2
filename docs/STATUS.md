@@ -1,5 +1,18 @@
 # Music Critic V2 Status
 
+## HIERGRAPH Linux CI verified for main — 30 октября 2026
+
+PR47 готов к запрошенному слиянию после исправлений CI. Полный Linux/Python3.13
+прогон на b997030 прошёл: **7030 passed, 66 skipped, 1991 subtests passed**;
+compileall также успешен. Run40967524048, CI-relevant fingerprint
+190de94fd10ebf6d01203b82c53922dd52fc19310af103ccdb01c7689a2a8d9b.
+Локальная широкая регрессия: 264 passed, 2 hardware skips, 109 subtests;
+полный локальный прогон прерван для диагноза отличий reference environment,
+его нельзя считать успешным. Исторические fingerprint assertions не ослаблены.
+Ни условия завершённого обучения, ни terminal records не изменены.
+[Подтверждение и ограничения](workstreams/2026-10-30/hiergraph-merge/verification.md).
+Актуальный статус merge и его SHA: [PR47](https://github.com/nairary/music_critic_v2/pull/47).
+
 ## HIERGRAPH main integration: CI repair — 30 октября 2026
 
 Пользователь запросил merge PR47 в main. Исходный f62bfb6 получил failed Linux CI:
