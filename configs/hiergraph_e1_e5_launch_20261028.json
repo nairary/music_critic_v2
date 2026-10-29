@@ -1,0 +1,137 @@
+{
+  "commands": [
+    {
+      "command": [
+        "timeout",
+        "--signal=TERM",
+        "--kill-after=10s",
+        "1820s",
+        "/home/humtech/music_critic_v2/.venv/bin/python",
+        "scripts/run_hiergraph.py",
+        "train",
+        "--config",
+        "../training-config001.json",
+        "--record",
+        "../EXP-HIERGRAPH-HFIRST-E1-S17-001.json",
+        "--output",
+        "../runs/E1-s17-001",
+        "--kind",
+        "E1",
+        "--seed",
+        "17"
+      ],
+      "experiment_id": "EXP-HIERGRAPH-HFIRST-E1-S17-001",
+      "kind": "E1",
+      "seed": 17
+    },
+    {
+      "command": [
+        "timeout",
+        "--signal=TERM",
+        "--kill-after=10s",
+        "1820s",
+        "/home/humtech/music_critic_v2/.venv/bin/python",
+        "scripts/run_hiergraph.py",
+        "train",
+        "--config",
+        "../training-config001.json",
+        "--record",
+        "../EXP-HIERGRAPH-HFIRST-E2-S17-001.json",
+        "--output",
+        "../runs/E2-s17-001",
+        "--kind",
+        "E2",
+        "--seed",
+        "17"
+      ],
+      "experiment_id": "EXP-HIERGRAPH-HFIRST-E2-S17-001",
+      "kind": "E2",
+      "seed": 17
+    },
+    {
+      "command": [
+        "timeout",
+        "--signal=TERM",
+        "--kill-after=10s",
+        "1820s",
+        "/home/humtech/music_critic_v2/.venv/bin/python",
+        "scripts/run_hiergraph.py",
+        "train",
+        "--config",
+        "../training-config001.json",
+        "--record",
+        "../EXP-HIERGRAPH-HFIRST-E3-S17-001.json",
+        "--output",
+        "../runs/E3-s17-001",
+        "--kind",
+        "E3",
+        "--seed",
+        "17"
+      ],
+      "experiment_id": "EXP-HIERGRAPH-HFIRST-E3-S17-001",
+      "kind": "E3",
+      "seed": 17
+    },
+    {
+      "command": [
+        "timeout",
+        "--signal=TERM",
+        "--kill-after=10s",
+        "1820s",
+        "/home/humtech/music_critic_v2/.venv/bin/python",
+        "scripts/run_hiergraph.py",
+        "train",
+        "--config",
+        "../training-config001.json",
+        "--record",
+        "../EXP-HIERGRAPH-HFIRST-E4-S17-001.json",
+        "--output",
+        "../runs/E4-s17-001",
+        "--kind",
+        "E4",
+        "--seed",
+        "17"
+      ],
+      "experiment_id": "EXP-HIERGRAPH-HFIRST-E4-S17-001",
+      "kind": "E4",
+      "seed": 17
+    },
+    {
+      "command": [
+        "timeout",
+        "--signal=TERM",
+        "--kill-after=10s",
+        "1820s",
+        "/home/humtech/music_critic_v2/.venv/bin/python",
+        "scripts/run_hiergraph.py",
+        "train",
+        "--config",
+        "../training-config001.json",
+        "--record",
+        "../EXP-HIERGRAPH-HFIRST-E5-S17-001.json",
+        "--output",
+        "../runs/E5-s17-001",
+        "--kind",
+        "E5",
+        "--seed",
+        "17"
+      ],
+      "experiment_id": "EXP-HIERGRAPH-HFIRST-E5-S17-001",
+      "kind": "E5",
+      "seed": 17
+    }
+  ],
+  "config_sha256": "bcf00d51ff367950cc26dba4d29397c49a3bda729f68825b71f48ee259e60ee2",
+  "environment": {
+    "CUBLAS_WORKSPACE_CONFIG": ":4096:8",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONPATH": "src"
+  },
+  "execution_directory": "source005",
+  "outer_per_condition_seconds": 1820,
+  "parallel_gpu_conditions": 1,
+  "schema": "HiergraphLaunchPlan@1",
+  "sequential": true,
+  "status": "prepared_not_launched",
+  "total_outer_seconds": 9100
+}

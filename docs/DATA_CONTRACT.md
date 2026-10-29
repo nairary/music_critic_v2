@@ -1,5 +1,153 @@
 # Music Critic V2 Data Contract
 
+## Whole-piece H/h/P consumer — 2026-10-29
+
+`full_data.assemble_work_raw` joins authenticated old raw C3 tiles with sanitized
+canonical observations. Physical note identities include held, grace and
+percussion notes. `origin/duration` remain exact Fractions; core ownership is
+resolved from exact `metadata.raw_times` and exported as `owned_time_indices`,
+never reconstructed by comparing normalized floats. Missing/overlapping cores,
+unrepresented physical notes or exceeded whole-work bounds reject the work.
+No partial-work score may imply complete source coverage.
+
+Ordinary forward has a closed raw schema and accepts no analytical view,
+confidence, field label or availability mask. `targets_for_work` separately
+preserves V3 H/h/harmonic-process objects, analytical alternatives, participant
+addresses, directed endpoint sets and provenance. P phase-only deferral may be
+lifted; fit-support and positive/unknown admission gates remain unchanged.
+Missing labels never become negatives, and sounding overlap never establishes
+chord membership. Point/outside-work targets remain known denominator misses
+when positive-interval constructors cannot represent them.
+
+Predicted timing is a learned estimate serialized in rational source units,
+not a recovered exact annotation boundary. Checkpoints bind source/config/data/
+cache/C3, nested head semantics and full graph config. Deployment also binds the
+ordered fitted class vocabulary, preventing equal-size label permutations.
+Explicit oracle H/P geometry is diagnostic only and never normal inference input.
+[Full consumer contract](workstreams/2026-10-29/hiergraph-full/spec.md).
+
+## Scoped interval targets V3 — 2026-10-27
+
+The implemented `HiergraphProjection@3.0.0` adds 37 fields to V2's 60:
+`H.chord.interval_pc.0..11`, `H.observed.pitch_class.0..11`,
+`H.observed.interval_pc.0..11`, and `H.observed.root_pc`.
+Chord and observed relative sets have separate roots and scope. No tonic/bass
+fallback, inferred root, generated note, extension naming or membership label.
+Explicit octave tones and supported spelling aliases reduce to pitch class;
+losses are marked and original bytes remain source-bound.
+
+Chord positives use reconciled authored root and tones. Negative bins require
+a matching `AuthoredNoteTemplate@1` with `members_complete=true`, valid typed
+identity/evidence, and admitted chord semantics; explicit interpreted scope
+works even if the chord name is unparsed. Partial lists remain positive/unknown.
+Canonical active pitched-note IDs, pitch content and exact half-open intervals
+with no internal note boundary authenticate complete observed lists. Pedal
+uncertainty or incompatible scopes cannot license relative targets. Observed
+absolute sets may survive unknown/conflicting root. The scoped literal-root
+attributes must match H identity, interval, participants and own interpretation;
+outer structural roots cannot supply or erase this independent observed root.
+
+Absence from an authenticated observed set is not a chord omission or nonchord
+membership. Coarse bin6 does not distinguish b5/#11; rootless sets are valid.
+The spelling TODO remains `HIERGRAPH-ENHARMONIC-001`. Existing named factors and
+raw source schemas remain unchanged. `HiergraphVocabulary@3` and
+`HiergraphNumericTargets@3` reject V2 mixing; export config and each worker bind
+both projection version and full contract fingerprint before reading payloads.
+[Current contract](workstreams/2026-10-27/hierarchical-graph-analyzer/factorized-chord-targets.md).
+
+## Audited keyboard and trumpet sonority scopes — 2026-10-27
+
+[SONORITY-SCOPE-002](experiments/HIERGRAPH_SONORITY_SCOPE_20261027_RU.md)
+verified exact tone/source-ID agreement with canonical key-release geometry
+for 7,949 selected H. In this source route, literal_key_collection means
+key-active keyboard notes, not a scale collection (7,150 rows, no root).
+Of 799 observed_trumpet_sonority rows, 65 carry scoped literal roots in
+completion012_literal_reading and 734 do not. Those 65 explicitly do not
+assert a structural root; preserve this distinction in target identity.
+
+The next converter should use compatible root+tones and preserve known
+absolute sets for root-unresolved events. Do not substitute tonic/bass for
+root, infer semantic membership from active geometry, or equate observed
+absence with explicit omission. Other routes and the existing V2 export
+remain unchanged; the general distinction between scale and chord sets
+still applies where actually present, but is not the meaning of this label.
+
+## Planned coarse chord-interval target — 2026-10-27
+
+The user accepts temporarily collapsing enharmonic spelling in a future
+root-relative PC-set target: `(tone_pc - root_pc) % 12`. Preserve original
+spelling and exact authored factors; do not assign a unique b5/#11 or 2/9
+interpretation to a coarse bin. Reliable root plus source-scoped chord tones
+supports interval presence independently of chord-name conventions. Admit
+zero labels only for a complete chord-component set in that H/view. Scale
+collections and observed sounding windows have different meanings; absence
+from a component set is not an explicit omit/no label or global MIDI silence.
+Unknown root/scope/completeness retains the corresponding masks. A rootless
+set need not contain interval zero. A separately versioned target/export is
+required; existing V2 artifacts are unchanged. See the
+[planned contract and HIERGRAPH-ENHARMONIC-001](workstreams/2026-10-27/hierarchical-graph-analyzer/factorized-chord-targets.md#уточнение-следующего-этапа-интервальный-состав--2026-10-27).
+
+## Factorized HIERGRAPH targets V2 — 2026-10-27
+
+The user accepts root/core/seventh/extension/alteration/omission/bass factors with
+independent masks and preserved note-context trajectories. The opt-in
+[contract](workstreams/2026-10-27/hierarchical-graph-analyzer/factorized-chord-targets.md)
+versions projection/vocabulary/numeric identities; source annotations and exact
+H/h geometry stay unchanged. An unmentioned factor is not a negative. Physical
+note realization, abstract chord interpretation, bass, inversion and temporal
+role remain distinct. Compact target artifacts preserve authenticated raw-source
+bindings and component evidence. Explicit unknown degree reference conventions
+remain masked. Fit-only vocabulary and a separate support-gated head manifest
+must be shared across all five H conditions.
+
+
+
+## HIERGRAPH output vocabulary — opt-in v0, 2026-10-27
+
+The [output vocabulary specification](workstreams/2026-10-27/hierarchical-graph-analyzer/output-vocabulary.md)
+binds the five H constructors to the same scoped theory targets. Keep original
+T07/T08 annotations, identities, views, exact intervals, provenance and decision
+states unchanged. Model-facing projections reuse existing common/dense semantics;
+this does not migrate source schemas or replace existing encoding registries.
+
+Separate field ontology, versioned source projection and fit-only numerical
+vocabulary. H.function, h.temporal_role, h.voice_role and P.process retain the
+listed source categories; rarity never implies unknown or other. H.function and
+P.function stay separate. Pooling weights, semantic participation and chord
+membership remain distinct. No Schenker depth labels are inferred from structural.
+
+Factor key/sonority/degree only through explicit source-compatible mappings,
+retaining information loss and component masks. Reuse exact/coarsened/ambiguous/
+unsupported/invalid plus missing/masked projection states. Preserve serialized
+mode unknown where required by existing contracts without teaching it as known
+musical content. Local voice IDs and relation endpoint IDs are identities, not
+global classes. Partial lists do not establish absent elements. Runtime code,
+new data export, native admission and training remain separate work.
+The opt-in [projection consumer](workstreams/2026-10-27/hierarchical-graph-analyzer/projection-implementation.md)
+now implements pure component mappings, raw evidence retention, explicit fit
+admission, frozen typed IDs, independent masks and OOV/deferred coverage.
+Coarsened losses require named admission before fitting; known explicit PC
+components retain their own route loss, and unavailable/conflicting components
+cannot silently fall through to lower-priority descriptions. Existing common
+quality cardinality checks and source decision validation are reused. No corpus
+family split or numerical training export is implied by this implementation.
+
+## Bounded relation-probe consumer — 2026-10-25
+
+The opt-in `relation_probe` consumes the published current-v2 TRAIN view with
+flat SHA/size admission. It verifies canonical/bundle identity and exact entity
+geometry; raw exports remove theory, source voice/staff and analytical metadata.
+Supported source contexts must start at a raw time slice; they are never floored
+to an earlier event. Nonbinary relations are not expanded into pair labels.
+An explicit reviewed `resolution.status=none` means no addressed outgoing
+`resolves_to` from that source context in that analytical view. Its legal raw
+candidate subset can therefore carry pair negatives; missing arrivals of linked
+sources remain unknown. Conflicting binary views are masked; divergent positive
+endpoint views retain common existence supervision but not pair/ranking targets.
+Sampling and support reports distinguish pre-filter annotation counts, deduplicated
+contexts, candidate-supported endpoints and fractional multi-answer Recall@k.
+These remain weak targets, not human accuracy, preferences or aesthetic scores.
+
 ## Honest annotation model provenance — 2026-10-22
 
 The user-authorized annotation settings now include `gpt-6.1-sol` / `high`

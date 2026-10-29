@@ -19,6 +19,7 @@ from typing import Mapping, Sequence
 import torch
 
 from music_critic.data import CanonicalPiece, RationalTime, dumps_piece
+from music_critic.tasks.harmonic_projection_primitives import DEGREES
 
 
 CONTRACT_VERSION = "DenseHarmonicTargets@1"
@@ -28,8 +29,6 @@ COORDINATE_CONTRACT = MappingProxyType({
     "chord_tones": "localkey_relative_fifths", "added_tones": "localkey_relative_fifths",
     "note_degree": "source_scale_degree_not_chord_degree",
 })
-DEGREES = tuple(f"{a}{d}" for d in range(1, 8)
-                for a in ("bbb", "bb", "b", "", "#", "##", "###"))
 ROLE_LABELS = ("core", "added", "non_chord")
 DENSE_FIELD_VOCABULARIES = MappingProxyType({
     "role": ROLE_LABELS,

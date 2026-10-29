@@ -1,5 +1,257 @@
 # Architecture Decision Log
 
+## 2026-10-29 — Admit first bounded full-model training from native gates
+
+Use existing66 complete works (fit43,selection10,dev13), retaining the original
+fit44 vocabulary; explicitly exclude incomplete fit work044. Native gate002
+failed at h_capacity with8 overlapping H pernote; retain that evidence and use
+fixed4H pernote×2subcontexts,near4/far4 relations,maxH6144. Gate003 passed smallest,
+median and largest fit works,peak17.83GiB. All physical notes remain in the graph;
+unsupported candidate targets remain coverage misses.
+
+Large full-model assignment uses detached CPU float64 tensor Hungarian with
+cardinality-first cost and private unmatched columns; small assignments keep
+Fraction. Canonical time and threshold-edge eligibility remain exact, but
+secondary near-ties may differ. No dependency added. Old H-only default matcher
+and frozen campaign snapshots remain reproducible. This is a changed full-model
+protocol,not an exact exposure/metric-parity comparison with old80k windows.
+
+Train500 applied whole-work updates,seed17,noaugmentation,12h cap,select earliest
+maximum H family-macro recovery at10/50/100/250/500; final dev once on selected
+weights. E3selected40k is weight-only initialization; no optimizer continuation.
+[Native evidence and launch](experiments/HIERGRAPH_FULL_20261029_RU.md).
+
+
+## 2026-10-29 — Implement full E3 feedback baseline before specialized reasoning
+
+The user requests the complete hierarchical baseline with revisable H, allowing
+NBFNet and Query2box to remain deferred. Reuse E3 as a trainable raw-observation
+constructor, then retain separate whole-piece H, note-context h and process P
+nodes. Run iterative H↔h↔note and P↔H/h messages; predicted F/f/P properties feed
+back as soft distributions. Update H/h/P geometry and refresh incidence after
+H changes. Individual H/P attention supplies distant context; a single global
+mean is not its sole carrier. Local feature windows are not global H/P bounds.
+
+Keep C3 frozen for this first full baseline. Optional selected E3 weights are a
+weight-only warmstart, not an optimizer continuation of the old 80k campaign.
+Whole-work updates differ from old local-window updates; neither old duration
+nor old update counts establish full-model exposure parity.
+
+Use existing fit-scoped labels with masks; propose P from raw multiscale bars and
+h from note/H overlap with bounded subcontext slots. Initially support H→H/h→h
+singleton directed edges; do not invent pairwise supervision for set-valued
+relations or participant roles absent in data. Preserve unsupported target
+coverage and disclose capacities. Separate oracle diagnosis, native resource
+gate and scientific evaluation. Existing terminal experiments remain immutable.
+[Implementation](workstreams/2026-10-29/hiergraph-full/implementation.md).
+
+## 2026-10-28 — First E1–E5 implementation and launch contract
+
+Implement the accepted five-constructor study as an opt-in H/F slice with a
+shared frozen C3 raw cache, nine raw hierarchy node types, typed trainable raw
+messages and common iterative H refinement/heads. Preserve individual raw and
+whole-work bar states; this does not yet implement H→raw feedback, h/f or P/p
+prediction, NBFNet or Query2box. Keep the later architecture campaign separate.
+
+Use all current67 works with accepted15 replacements, unchanged44/10/13 split,
+fit-only vocabulary and42 eligible H output fields. Raw-only graph tiling
+allows64 tracks through a separate validated profile; the shared PLL generator
+and event codec remain limited to16. Thirty of these are PC bins,
+not thirty independent semantic event tasks. First pilot seed17, then separately
+planned paired17/42/73 replications. Frozen-C3 and augmentation=none are identical
+across initial arms; full-orbit transposition is a subsequent matched ablation.
+
+Decode a fixed raw-duration budget, one-to-one known-H recovery at IoU0.5,
+family-macro primary, and separately report joint/conditional H.function and
+oracle-H interpretation. Missing annotations do not license negatives. Keep
+raw-capacity and halo exclusions in the known-H denominator. C3-invalid raw
+metric geometry is explicitly unsupported, never silently repaired or dropped
+from the denominator. Other code, encoder and numerical failures remain fatal.
+
+E2 needs explicit positive-only exact-grid endpoint BCE in addition to matched
+localization: its no-cut discrete state otherwise has no boundary-location
+learning signal. Unknown endpoints are masked. This establishes a comparison
+of complete constructor packages, not an identical-loss operator-only ablation.
+
+Launch requires a fresh planned record bound to config/source/data/cache,
+condition/seed, output and integer wall cap. Selection uses only inner selection;
+exploratory dev is evaluated on the selected checkpoint. Tests and native gates
+admit engineering readiness only; no neural quality or musical superiority is
+established. Details: [spec](workstreams/2026-10-28/hiergraph-launch-preparation/spec.md),
+[readiness](workstreams/2026-10-28/hiergraph-launch-preparation/readiness.md).
+
+
+## 2026-10-27 — Implement separate chord and observed interval scopes
+
+The user approves the scoped-root extraction and next target export after the
+sonority audit. Use deterministic `(tone_pc - root_pc) % 12` with independent
+masks for interpreted chord components and authenticated observed sonorities.
+Do not substitute structural roots for the literal root of an observed slice.
+A complete interpreted template licenses negative bins without requiring an
+exact chord name; validated complete active-note geometry licenses observed
+negatives. Neither implies explicit omissions or semantic note membership.
+
+Version projection/vocabulary/numeric artifacts as V3; keep V2 terminal results
+immutable and reuse exactly the same downstream family split for a fresh
+`EXP-HIERGRAPH-INTERVAL-EXPORT-001`. Preserve spelling evidence and the existing
+TODO to restore exact degree distinctions later. Name rendering and model/H
+constructor work remain subsequent implementation slices.
+
+## 2026-10-27 — Correct key-collection interpretation from source evidence
+
+The user requested direct verification of sonority list meaning.
+[SONORITY-SCOPE-002](experiments/HIERGRAPH_SONORITY_SCOPE_20261027_RU.md)
+refutes the earlier key-as-tonality guess for the two selected groups:
+7,150 keyboard frames and 799 trumpet aggregates match actual canonical
+active notes. The limitation is absent root interpretation in 7,884 rows;
+65 additional literal roots are present in scoped attributes and must not
+be hidden by outer root_unresolved. Their structural_root_asserted=false
+prevents treating them as structural harmony/function gold.
+
+Retain all observed composition evidence. Plan interval derivation from
+compatible known root+tones, with literal/structural scope preserved; do not
+require a new LLM interpretation merely to calculate known intervals.
+Root estimation for unresolved events is a separate derived-label decision.
+This audit changes interpretation/documentation only, not source labels,
+current exports, model heads, inference or training. Failed attempt001 and
+completed attempt002 remain separate immutable evidence.
+
+## 2026-10-27 — Derive display chord names from supported structure
+
+The user delegates naming convention choice. Use a deterministic display
+renderer from supported chord factors in the next implementation; preserve the
+original authored name separately. The name is not a prerequisite flat-class
+objective. For ambiguous coarse bins, display root plus interval set rather
+than choose an unsupported spelling/6-vs-13 interpretation. Version renderer
+rules with implementation. Source label strings alone do not establish an
+incorrect list scope or justify blanket exclusions. See the
+[naming decision](workstreams/2026-10-27/hierarchical-graph-analyzer/factorized-chord-targets.md#производное-название-аккорда--решение-2026-10-27).
+This is documentation only; current code, exports and terminal evidence stay
+unchanged.
+
+## 2026-10-27 — Defer spelling ambiguity in the next chord-component target
+
+The user explicitly accepts ignoring enharmonic distinctions for the first
+coarse interval target and requests a durable reminder. Preserve spelling in
+source evidence and record TODO HIERGRAPH-ENHARMONIC-001 in the
+[factorized target contract](workstreams/2026-10-27/hierarchical-graph-analyzer/factorized-chord-targets.md#уточнение-следующего-этапа-интервальный-состав--2026-10-27).
+
+Proposed next implementation: root-relative 12-bin chord-component presence,
+with source-scoped completeness supporting zeros. Exact chord naming is not a
+prerequisite for this target; chord components, scale collections and observed
+windows remain distinct. Do not reinterpret interval absence as explicit
+omission, or a coarse interval as a unique spelled degree. Keep existing
+precise labels and weak-label provenance. This documentation decision neither
+changes completed V2 exports nor establishes new coverage or model quality.
+No corpus scan, schema migration, code change or training is part of this task.
+
+## 2026-10-27 — Factor chord structure while retaining note trajectories
+
+The user approves the agreed preparation stage: factorized chord contract,
+converter and verified current67 export. H properties comprise a supported core,
+seventh, extensions/additions/alterations/explicit omissions and separate bass
+and inversion. Keep raw spelling, source conventions, masks and provenance;
+unsupported interpretation remains unavailable. No rigid triadic completion,
+missing-to-negative conversion or theoretical function substitution is added.
+
+A physical note and its h contexts preserve temporal identity. Chord factors do
+not create sounding participants, new H boundaries, semantic voice assignments
+or P/resolve labels. Preserve existing source H views and exact geometry during
+this preparation. Initial authored note-degree conventions remain unadmitted.
+
+Use an opt-in V2 projection identity, shared by all five planned H constructors.
+Retain source bytes by authenticated references in compact artifacts and fit
+numerical IDs only on the preserved downstream fit families. Preparation is CPU
+only; training and later graph-reasoning comparisons remain separate phases.
+[Detailed contract](workstreams/2026-10-27/hierarchical-graph-analyzer/factorized-chord-targets.md).
+
+
+
+## 2026-10-27 — Reuse annotation through a field-specific output vocabulary
+
+The user accepts the shared multitask architecture and asks to begin the
+pre-implementation decisions with the output vocabulary. Use the retained
+annotation and existing projection/encoding interfaces, not another annotation
+campaign or universal adapter. [Vocabulary v0](workstreams/2026-10-27/hierarchical-graph-analyzer/output-vocabulary.md)
+records source paths, finite field IDs, composition rules, masks, fit-only
+vocabulary boundaries and acceptance tests for the next implementation slice.
+
+Retain all seven observed H functions, thirteen temporal roles, nine voice roles
+and twelve process types as initial semantic categories. Do not merge rare classes
+or conflate predominant/subdominant, H/P function, membership/structural role or
+voice identity/voice role. Compound descriptions require explicit projections;
+Roman and unsupported fields remain preserved/deferred. All five H conditions
+share the same active-head manifest when it is frozen before their pilots.
+
+This is a documentation-level contract decision. No model, corpus migration,
+numerical vocabulary fitting, training, TEST access or GPU budget is introduced.
+
+## 2026-10-27 — Compare all five harmonic-event constructors
+
+The user requests all four discussed H constructors and consideration of an
+AutoSchA-inspired fifth. Retain all five in the research campaign: raw span
+bank, boundary segmentation, anchor-free endpoints, learned event queries,
+and graph-assignment pooling. See the [design](research/AUTOSCHA_HIERARCHICAL_POOLING_PILOT_20261027_RU.md).
+Compare constructors before A/B/C recurrence with shared inputs, context,
+freeze policy, H/F heads, matching, partial-label support and paired exposure.
+First run a bounded pilot for each, then plan paired17/42/73 replications
+for all technically admissible conditions; retain failures explicitly.
+
+E5 is a proposed learned grouping adaptation, not AutoSchA reproduction or
+validated Schenkerian analysis. Keep raw note states and multiple contextual
+instances of held notes; distinguish pooling weights, semantic participation
+and chord membership. Higher P construction, coarse-edge effects and predicted
+F/f/P feedback are separate comparisons. Unknown labels remain masked for
+every detector, not only set prediction. Primary known-H recovery at a fixed
+raw-duration output budget is proposed pending sealed numerical protocol.
+
+This updates research scope, not production defaults, source adapters or
+historical evidence. No run is launched by this decision; native admission
+and bounded registry records precede substantial execution.
+
+## 2026-10-27 — Hierarchical graph analyzer campaign direction
+
+The user accepts the proposed multilevel analysis direction and requests a
+repository Markdown campaign plan. Record it in
+[HIERGRAPH-20261027](workstreams/2026-10-27/hierarchical-graph-analyzer/campaign.md).
+This accepts a research direction and planning artifact, not an empirically
+superior model, production migration or a new training/resource budget.
+
+Preserve note/context/H/P instance states and both H↔P and direct h↔P typed
+message paths. F/f are contextual properties; p is an addressed relation.
+Separate raw geometric incidence from predicted semantic participation and keep
+non-chord notes available. Use raw candidates in the main end-to-end regime;
+known H/P are a separately reported diagnostic. Missing annotations never imply
+negative labels, and no target-sidecar fields enter inference.
+
+First isolate repeated top-down exchange with matched A/B/C inputs/context and
+supervision. Test predicted soft F/f/P feedback separately against hidden-only
+C; this is a combined feedback claim, not evidence for each component alone.
+Live C3 adaptation, NBF-like addressed decoding and Query2box composition are
+subsequent bounded comparisons. Current defaults, historical artifacts and
+terminal records remain unchanged. The campaign requires a task/candidate
+passport, sealed numeric protocol, implementation checks and native admission
+before a substantial comparison; follow the existing experiment registry.
+
+## 2026-10-25 — Bounded C3 relation-pilot implementation and native execution
+
+The user authorizes autonomous implementation, RTX3090 execution and economical
+monitoring of the proposed LLM-enriched relation experiment. Keep it opt-in under
+`relation_probe`: shared raw C3 note/slice states, a common64d projection and
+either an MLP or named translation scorer. Compare pretrained-frozen,
+pretrained-full and random-full encoders; unsupported or unknown labels are not
+invented. No HCM decoder or default production architecture migration is added.
+
+Execution is bounded to600updates per condition, paired seeds17/42/73 when the
+six-hour total wall cap permits, with no hyperparameter search or paid resources.
+The two full-training initializations use the same LR3e-4; raw/frozen heads use
+1e-3. Record actual exposure/compute and incomplete conditions, without claiming
+an optimally tuned or statistically conclusive comparison. Corpus TEST stays
+closed; downstream dev is family-grouped inside original TRAIN. Monitor hourly,
+at most eight wakeups, remaining quiet on unchanged/non-actionable states.
+Source code, existing artifacts and weak-label provenance remain traceable;
+new runs use separate records and fresh output roots. No secret is persisted.
+
 ## 2026-10-24 — Google Drive for checkpoint delivery and link access
 
 The user chooses Google Drive as the external checkpoint store and asks for
@@ -5244,3 +5496,14 @@ This log is append-only.
   future experiment needs equally continued no-fusion and fusion models,
   measured added compute, registered budgets and a separate evaluator binding.
   No TEST, real training, legacy reuse or baseline promotion occurs here.
+# 2026-10-25 — Isolated oracle-H membership diagnostic
+
+User authorizes the first T08/A implementation and bounded RTX3090 attempt.
+Keep frozen raw C3 node states and add oracle H geometry, label-independent
+note/slice candidates, four optional readouts (MLP, TransE, query self, query graph).
+Query self and graph receive equal source/relation conditioning; only graph
+adds inter-node propagation. Missing/ambiguous targets are masked. All-track
+candidates are an explicit superset assumption, not an established ensemble-H
+ontology. Keep this worktree outside the parallel supervisor-facing release.
+This accepts an experimental implementation, not a superior or production
+architecture. Query2box, predicted H and encoder adaptation require later gates.

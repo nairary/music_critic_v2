@@ -16,6 +16,10 @@ import re
 from types import MappingProxyType
 from typing import Literal, Mapping, TypeAlias
 
+from music_critic.tasks.harmonic_projection_primitives import (
+    NATURAL_PC as _NATURAL_PC, PITCH_RE as _PITCH_RE, COMMON_QUALITY_INTERVALS,
+    spelling_pitch_class as _spelling_pitch_class,
+)
 from music_critic.tasks.dilemmadata_registry import (
     DILEMMADATA_SOURCE_FAMILY_BY_TASK,
 )
@@ -122,7 +126,6 @@ _OVERLAP_COMPARISONS = frozenset(
 )
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _GIT_SHA_RE = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
-_PITCH_RE = re.compile(r"^([A-Ga-g])((?:#{1,3}|-{1,3}|b{1,3})?)$")
 
 
 class DilemmadataCommonProjectionError(ValueError):
@@ -549,20 +552,7 @@ _DLC_PRECISE_QUALITY = {
 
 _QUALITY_TEMPLATES = tuple(
     DilemmadataCommonQualityTemplate(quality, intervals)
-    for quality, intervals in sorted(
-        {
-            "augmented triad": (0, 4, 8),
-            "diminished seventh chord": (0, 3, 6, 9),
-            "diminished triad": (0, 3, 6),
-            "dominant seventh chord": (0, 4, 7, 10),
-            "half-diminished seventh chord": (0, 3, 6, 10),
-            "major seventh chord": (0, 4, 7, 11),
-            "major triad": (0, 4, 7),
-            "minor seventh chord": (0, 3, 7, 10),
-            "minor triad": (0, 3, 7),
-            "note": (0,),
-        }.items()
-    )
+    for quality, intervals in sorted(COMMON_QUALITY_INTERVALS.items())
 )
 _QUALITY_TEMPLATE_BY_VALUE = MappingProxyType(
     {row.quality: row for row in _QUALITY_TEMPLATES}
@@ -1360,20 +1350,6 @@ def map_dilemmadata_common_inversion(
         analysisgnn_agreement="not_applicable",
         rationale="The value is outside the frozen source inversion vocabulary.",
     )
-
-
-_NATURAL_PC = MappingProxyType(
-    {"A": 9, "B": 11, "C": 0, "D": 2, "E": 4, "F": 5, "G": 7}
-)
-
-
-def _spelling_pitch_class(value: str) -> int | None:
-    match = _PITCH_RE.fullmatch(value)
-    if match is None:
-        return None
-    step, accidental = match.groups()
-    alteration = accidental.count("#") - accidental.count("-") - accidental.count("b")
-    return (_NATURAL_PC[step.upper()] + alteration) % 12
 
 
 def map_dilemmadata_common_pitch_class(

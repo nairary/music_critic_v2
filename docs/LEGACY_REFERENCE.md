@@ -1,5 +1,12 @@
 # Legacy Music Critic V1 Reference
 
+## 2026-10-29 — Full HIERGRAPH E3 baseline
+
+This slice reuses only V2 raw tiling/C3, E3, target projection, matching and
+checkpoint primitives. No legacy source was read, copied, imported or executed;
+no new V1 assumption was adopted. Whole-piece H/h/P feedback is specified by
+the current V2 [contract](workstreams/2026-10-29/hiergraph-full/spec.md).
+
 This document is an audit map, not a runtime dependency list.
 
 ## 2026-09-22 — Legacy corruption reuse research
